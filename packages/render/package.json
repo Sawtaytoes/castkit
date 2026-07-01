@@ -1,0 +1,29 @@
+{
+  "name": "@inkcast/render",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "description": "Inkcast render engines — turn a React view into a supersampled full-colour PNG via headless Chromium (Playwright) or Satori (SVG→resvg). Same component in, PNG out; the bake-off compares them.",
+  "scripts": {
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@inkcast/views": "workspace:*",
+    "@resvg/resvg-js": "^2.6.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "satori": "^0.26.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "playwright": "^1.61.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
