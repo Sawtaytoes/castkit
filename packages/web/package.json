@@ -1,0 +1,26 @@
+{
+  "name": "@inkcast/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Inkcast browser dev-preview — renders every view at each panel's exact pixel size with mock data. Because Chromium is the render engine, this preview matches device output (pre-dither).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@inkcast/core": "workspace:*",
+    "@inkcast/views": "workspace:*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.2"
+  }
+}
