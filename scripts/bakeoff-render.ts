@@ -2,10 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createChromiumEngine } from "@inkcast/render/chromiumEngine"
 import { createSatoriEngine } from "@inkcast/render/satoriEngine"
-import {
-  buildContactSheet,
-  type LabelledTile,
-} from "./bakeoff/contactSheet.ts"
+import { buildContactSheet } from "./bakeoff/contactSheet.ts"
 import {
   buildNowPlayingElement,
   PANELS,
@@ -41,7 +38,7 @@ const run = async () => {
   }: {
     panel: (typeof PANELS)[number]
     engine: (typeof engines)[number]
-  }): Promise<LabelledTile> => {
+  }) => {
     const pngBuffer = await engine.render({
       element: buildNowPlayingElement({
         width: panel.width,

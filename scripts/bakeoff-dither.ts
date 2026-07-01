@@ -4,10 +4,7 @@ import type { DitherAlgorithm } from "@inkcast/core/devices/device"
 import { ditherToPanel } from "@inkcast/core/pipeline/dither"
 import { createChromiumEngine } from "@inkcast/render/chromiumEngine"
 import sharp from "sharp"
-import {
-  buildContactSheet,
-  type LabelledTile,
-} from "./bakeoff/contactSheet.ts"
+import { buildContactSheet } from "./bakeoff/contactSheet.ts"
 import {
   type BakeoffPanel,
   buildGradient,
@@ -122,7 +119,7 @@ const buildFactorTiles = async ({
   source: SampleSource
   geometry: DisplayGeometry
   supersampleFactor: number
-}): Promise<LabelledTile[]> => {
+}) => {
   const sourceBuffer = await source.produce({
     width: panel.width * supersampleFactor,
     height: panel.height * supersampleFactor,
