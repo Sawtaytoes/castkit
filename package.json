@@ -14,6 +14,7 @@
     "build": "node scripts/build-server.mjs",
     "dev": "yarn workspace @inkcast/web dev",
     "dev:server": "yarn workspace @inkcast/server dev",
+    "storybook": "yarn workspace @inkcast/web storybook",
     "start:prod": "yarn workspace @inkcast/server start:prod",
     "install-playwright-browser": "yarn playwright install chromium --with-deps",
     "lint:biome": "biome check --write --unsafe",
