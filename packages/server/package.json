@@ -1,0 +1,33 @@
+{
+  "name": "@inkcast/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "description": "Inkcast server — device registry, token API, MQTT publish/subscribe, and Home Assistant MQTT discovery. Renders each device's view and pushes it over MQTT; exposes devices to HA via MQTT discovery.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start:prod": "node --enable-source-maps dist/index.js",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.6",
+    "@inkcast/core": "workspace:*",
+    "@inkcast/render": "workspace:*",
+    "@inkcast/views": "workspace:*",
+    "hono": "^4.12.27",
+    "mqtt": "^5.15.1",
+    "react": "^19.2.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "@types/react": "^19.2.17",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
