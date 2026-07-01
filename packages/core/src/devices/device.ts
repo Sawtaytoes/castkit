@@ -16,13 +16,17 @@ export type ColourMode = "mono" | "e6"
  * are implemented in-house. The best choice differs by panel — mono vs E6 — so
  * it is a per-device knob, not one global setting.
  */
+export const DITHER_ALGORITHMS = [
+  "threshold",
+  "ordered",
+  "floyd-steinberg",
+  "atkinson",
+  "stucki",
+  "sierra",
+] as const
+
 export type DitherAlgorithm =
-  | "threshold"
-  | "ordered"
-  | "floyd-steinberg"
-  | "atkinson"
-  | "stucki"
-  | "sierra"
+  (typeof DITHER_ALGORITHMS)[number]
 
 /**
  * How a device's full-colour render is reduced to its panel's inks. Kept per
@@ -58,14 +62,20 @@ export type DeviceMetadata = {
   ditherProfile: DitherProfile
 }
 
+// NOTE: these are generic EXAMPLE devices — placeholder MACs, no room labels —
+// safe to commit to a public repo. A real deployment supplies its own devices
+// (real MACs, names, rotation, dither choices) from a gitignored config the
+// server loads at startup; see @inkcast/server config. Panel geometry/palette
+// here are hardware facts, not house-specific.
+
 /**
- * The Inky pHAT on `inky-phat` (Zero W): 250×122 1-bit mono, mounted USB-up so
- * it renders rotated 180°. MAC + geometry from the home-displays HANDOFF.
+ * Example Inky pHAT: 250×122 1-bit mono, mounted USB-up so it renders rotated
+ * 180°.
  */
 export const PHAT_DEVICE: DeviceMetadata = {
   id: "inky-phat",
-  label: "Inky pHAT (kitchen)",
-  mac: "b8:27:eb:00:3e:27",
+  label: "Inky pHAT",
+  mac: "02:00:00:00:00:01",
   width: 250,
   height: 122,
   colourMode: "mono",
@@ -78,13 +88,13 @@ export const PHAT_DEVICE: DeviceMetadata = {
 }
 
 /**
- * The Inky Impression 7.3" Spectra on `inky-spectra` (Zero W): 800×480 6-colour
- * E6. Palette is the 0.5 vivid/device blend the Spectra fetcher runs at.
+ * Example Inky Impression 7.3" Spectra: 800×480 6-colour E6. Palette is the 0.5
+ * vivid/device blend the on-device Spectra path uses.
  */
 export const IMPRESSION_DEVICE: DeviceMetadata = {
-  id: "inky-spectra",
-  label: 'Inky Impression 7.3" (living room)',
-  mac: "e6:73:00:00:00:01",
+  id: "inky-impression",
+  label: 'Inky Impression 7.3"',
+  mac: "02:00:00:00:00:02",
   width: 800,
   height: 480,
   colourMode: "e6",
@@ -96,7 +106,7 @@ export const IMPRESSION_DEVICE: DeviceMetadata = {
   },
 }
 
-/** The two panels that exist today. The server is designed for N devices. */
+/** Example devices — the two panel types Inkcast targets. Override via config. */
 export const SEED_DEVICES: readonly DeviceMetadata[] = [
   PHAT_DEVICE,
   IMPRESSION_DEVICE,

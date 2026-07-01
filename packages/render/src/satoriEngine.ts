@@ -25,7 +25,7 @@ export const createSatoriEngine =
       width,
       height,
       supersampleFactor,
-    }: RenderRequest): Promise<Buffer> => {
+    }: RenderRequest) => {
       // Satori renders at native size; resvg upscales by supersampleFactor so
       // the output matches the Chromium engine's supersampled dimensions.
       const svgMarkup = await satori(element, {

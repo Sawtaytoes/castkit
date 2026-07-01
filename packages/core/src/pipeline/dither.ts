@@ -62,7 +62,7 @@ const getColourDistanceSquared = ({
   green: number
   blue: number
   colour: RgbColour
-}): number => {
+}) => {
   const redDelta = red - colour[0]
   const greenDelta = green - colour[1]
   const blueDelta = blue - colour[2]
@@ -85,7 +85,7 @@ const findNearestColourIndex = ({
   green: number
   blue: number
   palette: Palette
-}): number =>
+}) =>
   palette.reduce(
     (nearest, colour, colourIndex) => {
       const distance = getColourDistanceSquared({
@@ -119,7 +119,7 @@ const quantizeWithBias = ({
   height: number
   palette: Palette
   hasOrderedBias: boolean
-}): Buffer => {
+}) => {
   const outputBuffer = Buffer.alloc(rgbaBuffer.length)
 
   // A pixel-index range, mapped functionally (no imperative loop per house rules).
@@ -167,7 +167,7 @@ const quantizeWithDiffusion = ({
   height: number
   palette: Palette
   algorithm: DiffusionAlgorithm
-}): Buffer => {
+}) => {
   const inputPointContainer =
     utils.PointContainer.fromUint8Array(
       rgbaBuffer,

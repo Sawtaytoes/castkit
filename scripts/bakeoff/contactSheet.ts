@@ -26,7 +26,7 @@ const renderLabel = ({
 }: {
   text: string
   width: number
-}): Buffer => {
+}) => {
   const escapedText = text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -69,7 +69,7 @@ const buildTile = async ({
   tile: LabelledTile
   cellWidth: number
   cellImageHeight: number
-}): Promise<Buffer> => {
+}) => {
   const labelPng = renderLabel({
     text: tile.label,
     width: cellWidth,
@@ -114,7 +114,7 @@ export const buildContactSheet = async ({
   columns: number
   cellWidth: number
   cellImageHeight: number
-}): Promise<Buffer> => {
+}) => {
   const tilePngs = await Promise.all(
     tiles.map((tile) =>
       buildTile({ tile, cellWidth, cellImageHeight }),

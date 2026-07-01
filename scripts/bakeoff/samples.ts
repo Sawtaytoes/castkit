@@ -4,7 +4,7 @@ import {
 } from "@inkcast/core/devices/device"
 import type { Palette } from "@inkcast/core/panels/palette"
 import { NowPlayingCard } from "@inkcast/views/NowPlayingCard"
-import { createElement, type ReactElement } from "react"
+import { createElement } from "react"
 import sharp from "sharp"
 
 /**
@@ -52,7 +52,7 @@ export const buildNowPlayingElement = ({
   width: number
   height: number
   colourMode: "mono" | "e6"
-}): ReactElement =>
+}) =>
   createElement(NowPlayingCard, {
     width,
     height,
@@ -73,7 +73,7 @@ export const buildGradient = async ({
 }: {
   width: number
   height: number
-}): Promise<Buffer> => {
+}) => {
   const channels = 3
   const pixelBuffer = Buffer.alloc(
     width * height * channels,
@@ -117,7 +117,7 @@ export const tryFetchPhoto = async ({
 }: {
   width: number
   height: number
-}): Promise<Buffer | null> => {
+}) => {
   try {
     const response = await fetch(
       `https://picsum.photos/seed/inkcast/${width}/${height}`,

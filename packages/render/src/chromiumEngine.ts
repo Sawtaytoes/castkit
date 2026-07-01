@@ -25,7 +25,7 @@ const buildHtmlDocument = ({
   width: number
   height: number
   bodyMarkup: string
-}): string => `<!doctype html>
+}) => `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
@@ -53,7 +53,7 @@ export const createChromiumEngine = async (): Promise<
     width,
     height,
     supersampleFactor,
-  }: RenderRequest): Promise<Buffer> => {
+  }: RenderRequest) => {
     const context = await browser.newContext({
       viewport: { width, height },
       deviceScaleFactor: supersampleFactor,
