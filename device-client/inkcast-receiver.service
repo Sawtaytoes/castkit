@@ -1,0 +1,27 @@
+[Unit]
+Description=Inkcast MQTT receiver (subscribes to the device image topic, draws to the Inky panel)
+Documentation=https://github.com/Sawtaytoes/inkcast
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+# Unbuffered so print() lines reach journald in real time.
+Environment=PYTHONUNBUFFERED=1
+# Broker host/credentials and topic overrides come from a root-owned drop-in
+# (NOT committed): /etc/systemd/system/inkcast-receiver.service.d/mqtt.conf
+#   [Service]
+#   Environment=MQTT_HOST=...
+#   Environment=MQTT_USERNAME=...
+#   Environment=MQTT_PASSWORD=...
+#   Environment=INKCAST_IMAGE_TOPIC=inkcast/inky-phat/image   # optional
+# See device-client/README.md.
+ExecStart=/home/pi/inky-venv/bin/python3 /home/pi/inkcast_receiver.py
+Restart=always
+RestartSec=15
+# The panel is fine to re-init on restart; give it a moment to release SPI.
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
