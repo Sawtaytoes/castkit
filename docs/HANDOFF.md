@@ -10,20 +10,28 @@ Inkcast (a self-hostable e-ink render/push platform) is **live end-to-end**: the
 server renders per-device views, dithers per panel, pushes PNGs over MQTT; Home
 Assistant auto-created the device entities via MQTT discovery, two-way control
 works, and the **pHAT now runs the Inkcast receiver** (Phase 3 pHAT done — the old
-fetcher is disabled-not-deleted). **Not yet done:** views show STATIC placeholder
-data (no live data source), the Impression Pi still runs its old fetcher, and the
-server only runs on a dev machine (not yet a TrueNAS app).
+fetcher is disabled-not-deleted). **Not yet done:** the maintainer still needs to
+add `HA_URL`/`HA_TOKEN`/`HA_NOW_PLAYING_ENTITY` to `.env` to turn the (built,
+verified) live now-playing adapter on, the Impression Pi still runs its old
+fetcher, and the server only runs on a dev machine (not yet a TrueNAS app).
 
 ## ⭐ Next steps (start here — prioritized)
 
-1. **Now-playing data adapter (Phase 2).** The now-playing view is hardcoded
-   ("Twilight Force / Dawn of the Dragonstar") — it does NOT reflect real
-   playback. Build a data adapter so the server renders the actual current track
-   and re-pushes on change. **OPEN DECISION for the maintainer:** read from
-   **Music Assistant directly** (WS, like the old `ma_nowplaying_bridge.py`) OR
-   from **HA's `media_player`** (REST/WS) — which is the source of truth? Also
-   wire the clock view's real time (server-side, in the configured TZ). This
-   likely introduces the RxJS event/debounce/cancel pipeline (deferred until now).
+1. **✅ DONE (2026-07-01): Now-playing data adapter (Phase 2).** The decision
+   went to **HA `media_player`** (see
+   `decisions/2026-07-01-now-playing-reads-ha-media-player.md`; MA-direct stays
+   a possible future addition). Built: HA WebSocket client
+   (`server/src/ha/haStates.ts`, native WebSocket, auto-reconnect) → RxJS
+   per-entity dedupe/debounce pipeline (`adapters/nowPlayingAdapter.ts`) →
+   view-data store → targeted re-push. Clock views also re-push each minute
+   with real time (process `TZ`). **To go live the maintainer must add to
+   `.env`: `HA_URL=http://homeassistant.octen:8123`, `HA_TOKEN=<long-lived
+   token from HA profile → Security>`, `HA_NOW_PLAYING_ENTITY=
+   media_player.kids_bedroom_mini`** (the Cast entity; its MA twin is
+   `..._mini_2` — both carry full metadata; per-device override =
+   `nowPlayingEntityId` in the devices file). Verified end-to-end against a
+   protocol-faithful fake HA WS server (auth → snapshot → debounced track
+   change → correct PNG on both panels, rotation + accent intact).
 2. **Impression receiver (Phase 3 cont.).** Same `device-client` receiver on
    `inky-spectra`, with `INKCAST_IMAGE_TOPIC=inkcast/inky-impression/image`. Then
    build the **Immich photo-frame view** (port `home-displays/eink-clients/
