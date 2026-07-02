@@ -1,10 +1,10 @@
 # A "none" dither option hands the panel a full-colour image
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-07-02
 - **Type:** Product behavior
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-07-02-dither-off-token-not-none-ha-reserved.md](2026-07-02-dither-off-token-not-none-ha-reserved.md)
 
 ## Decision
 

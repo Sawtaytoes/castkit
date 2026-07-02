@@ -13,13 +13,15 @@ export type ColourMode = "mono" | "e6"
 /**
  * The dithering kernels the pipeline can apply. Error-diffusion kernels
  * (floyd-steinberg … sierra) come from `image-q`; `ordered` and `threshold`
- * are implemented in-house. `none` skips our quantization entirely and sends
+ * are implemented in-house. `off` skips our quantization entirely and sends
  * the full-colour downscaled image so the panel's own controller does the
  * dithering (brightness/saturation still apply). The best choice differs by
  * panel — mono vs E6 — so it is a per-device knob, not one global setting.
+ * (`off`, not `none`: Home Assistant reserves the `select` payload `none` as
+ * its "reset to unknown" sentinel, so a literal `none` option can't round-trip.)
  */
 export const DITHER_ALGORITHMS = [
-  "none",
+  "off",
   "threshold",
   "ordered",
   "floyd-steinberg",
