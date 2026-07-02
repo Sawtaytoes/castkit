@@ -8,6 +8,9 @@
 FROM node:24-slim AS base
 WORKDIR /app
 
+# Link the GHCR package to the repo.
+LABEL org.opencontainers.image.source="https://github.com/Sawtaytoes/inkcast"
+
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 ENV NODE_ENV=production
 ENV TZ=America/Chicago

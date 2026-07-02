@@ -46,7 +46,16 @@ const buildHtmlDocument = ({
 export const createChromiumEngine = async (): Promise<
   RenderEngine & { close: () => Promise<void> }
 > => {
-  const browser: Browser = await chromium.launch()
+  // Container-safe flags: Chromium refuses to run as root in Docker without
+  // --no-sandbox, and /dev/shm defaults to 64MB there. The sandbox guards
+  // against untrusted web content; this engine only ever loads our own SSR'd
+  // markup, so dropping it is safe.
+  const browser: Browser = await chromium.launch({
+    args: [
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+    ],
+  })
 
   const render = async ({
     element,
