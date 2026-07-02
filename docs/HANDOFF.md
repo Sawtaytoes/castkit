@@ -11,9 +11,10 @@ server renders per-device views, dithers per panel, pushes PNGs over MQTT; Home
 Assistant auto-created the device entities via MQTT discovery, two-way control
 works, and the **pHAT now runs the Inkcast receiver** (Phase 3 pHAT done — the old
 fetcher is disabled-not-deleted). The **now-playing view is LIVE** (HA
-WebSocket, follow-the-active-MA-player by default). **Not yet done:** the
-Impression Pi still runs its old fetcher, and the server only runs on a dev
-machine (not yet a TrueNAS app).
+WebSocket, follow-the-active-MA-player by default) and the **server now runs
+as a TrueNAS app** (`inkcast`, from `ghcr.io/sawtaytoes/inkcast` via GitHub
+Actions) — panels stay live without the dev machine. **Not yet done:** the
+Impression Pi still runs its old fetcher.
 
 ## ⭐ Next steps (start here — prioritized)
 
@@ -41,10 +42,18 @@ machine (not yet a TrueNAS app).
    build the **Immich photo-frame view** (port `home-displays/eink-clients/
    immich_impression_frame.py`: person-filtered album + face-aware 800×480 crop),
    with kids' `personIds` / Immich URL+token from **config, not code**.
-3. **Deploy the server as a TrueNAS app** (durability — panels only update while
-   the server runs; today that's a dev machine). Dockerfile exists; build → push
-   to `docker-registry.octen.dev` → TrueNAS Custom App. Use **hostnames not IPs**
-   throughout (`inky-phat`, `inky-spectra`; broker already `homeassistant.octen`).
+3. **✅ DONE (2026-07-01): Server deployed as a TrueNAS app.** Pipeline: push
+   to GitHub `master` → GitHub Actions (typecheck + tests, then Docker build)
+   → **`ghcr.io/sawtaytoes/inkcast:latest`** (public package; NOT the homelab
+   Gitea registry — see `decisions/2026-07-01-images-publish-to-ghcr-not-
+   homelab-registry.md`) → TrueNAS Custom App **`inkcast`** (ix-app form,
+   port 8788, 16 CPU / 16GB — Chromium headroom per the maintainer,
+   `pull_policy: always`, env = MQTT + HOME_ASSISTANT_* creds, no volumes).
+   Verified in-container: MQTT connected, 54 MA players followed, Chromium
+   renders (needed `--no-sandbox` + `--disable-dev-shm-usage`, commit
+   9b9c44a), HA entities all fresh. To ship a change: push to master, then
+   TrueNAS → Apps → inkcast → Update (re-pulls `:latest`). The dev machine no
+   longer needs to run the server.
 4. **On-panel dither A/B** + **font swap** (Atkinson Hyperlegible), and **web
    config UI** (no settings UI yet — env/config-file only) for devices + the
    Immich/now-playing criteria. **TLS 8883** (certs in `/ssl`) is optional.
