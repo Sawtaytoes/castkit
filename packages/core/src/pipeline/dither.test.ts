@@ -57,6 +57,129 @@ const paletteKeys = (palette: Palette): Set<string> =>
     ),
   )
 
+/**
+ * A horizontal black→white gray ramp PNG: every pixel has equal RGB channels,
+ * increasing left to right. The classic trigger for colour speckle when
+ * error-diffused across a colour palette.
+ */
+const buildGrayRampPng = ({
+  width,
+  height,
+}: {
+  width: number
+  height: number
+}): Promise<Buffer> => {
+  const rgbBuffer = Buffer.alloc(width * height * 3)
+
+  Array.from({ length: width * height }).forEach(
+    (_unused, pixelIndex) => {
+      const columnIndex = pixelIndex % width
+      const grayValue = Math.round(
+        (columnIndex / (width - 1)) * 255,
+      )
+      const byteOffset = pixelIndex * 3
+
+      rgbBuffer[byteOffset] = grayValue
+      rgbBuffer[byteOffset + 1] = grayValue
+      rgbBuffer[byteOffset + 2] = grayValue
+    },
+  )
+
+  return sharp(rgbBuffer, {
+    raw: { width, height, channels: 3 },
+  })
+    .png()
+    .toBuffer()
+}
+
+/**
+ * An anti-aliased-text-like fixture: a black rectangle on a white field with a
+ * 1-px mid-gray border — the gray edge pixels a Lanczos downscale of text
+ * produces.
+ */
+const buildOutlinedRectanglePng = ({
+  width,
+  height,
+}: {
+  width: number
+  height: number
+}): Promise<Buffer> => {
+  const rgbBuffer = Buffer.alloc(width * height * 3, 255)
+
+  const rectangleLeft = Math.floor(width / 4)
+  const rectangleRight = Math.floor((width * 3) / 4)
+  const rectangleTop = Math.floor(height / 4)
+  const rectangleBottom = Math.floor((height * 3) / 4)
+
+  Array.from({ length: width * height }).forEach(
+    (_unused, pixelIndex) => {
+      const columnIndex = pixelIndex % width
+      const rowIndex = Math.floor(pixelIndex / width)
+
+      const isInsideOutline =
+        columnIndex >= rectangleLeft &&
+        columnIndex <= rectangleRight &&
+        rowIndex >= rectangleTop &&
+        rowIndex <= rectangleBottom
+
+      const isInsideFill =
+        columnIndex > rectangleLeft &&
+        columnIndex < rectangleRight &&
+        rowIndex > rectangleTop &&
+        rowIndex < rectangleBottom
+
+      const grayValue = isInsideFill
+        ? 0
+        : isInsideOutline
+          ? 128
+          : 255
+      const byteOffset = pixelIndex * 3
+
+      rgbBuffer[byteOffset] = grayValue
+      rgbBuffer[byteOffset + 1] = grayValue
+      rgbBuffer[byteOffset + 2] = grayValue
+    },
+  )
+
+  return sharp(rgbBuffer, {
+    raw: { width, height, channels: 3 },
+  })
+    .png()
+    .toBuffer()
+}
+
+/** How many pixels in a raw RGB(A) buffer exactly match a palette colour. */
+const countMatchingPixels = ({
+  rgbaBuffer,
+  channels,
+  colour,
+}: {
+  rgbaBuffer: Buffer
+  channels: number
+  colour: readonly [number, number, number]
+}) =>
+  Array.from({
+    length: rgbaBuffer.length / channels,
+  }).filter((_unused, pixelIndex) => {
+    const byteOffset = pixelIndex * channels
+
+    return (
+      rgbaBuffer[byteOffset] === colour[0] &&
+      rgbaBuffer[byteOffset + 1] === colour[1] &&
+      rgbaBuffer[byteOffset + 2] === colour[2]
+    )
+  }).length
+
+/**
+ * The E6 default palette's black and white entries (its darkest/lightest by
+ * luminance): pure black and the 0.5-blend white. Neutral-protected output
+ * must contain nothing else.
+ */
+const E6_BLACK_AND_WHITE_KEYS = new Set([
+  "0,0,0",
+  "208,210,210",
+])
+
 const ALGORITHMS: DitherAlgorithm[] = [
   "threshold",
   "ordered",
@@ -125,6 +248,131 @@ describe("ditherToPanel", () => {
           })
         }),
       ),
+    )
+  })
+
+  test("a gray ramp dithered to E6 stays black/white — no colour speckle", async () => {
+    const source = await buildGrayRampPng({
+      width: 160,
+      height: 40,
+    })
+
+    const output = await ditherToPanel({
+      imageBuffer: source,
+      width: 80,
+      height: 20,
+      palette: E6_DEFAULT_PALETTE,
+      algorithm: "floyd-steinberg",
+    })
+
+    const { data, info } = await sharp(output)
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const colours = collectColours({
+      rgbaBuffer: data,
+      channels: info.channels,
+    })
+
+    colours.forEach((colour) => {
+      expect(E6_BLACK_AND_WHITE_KEYS.has(colour)).toBe(true)
+    })
+  })
+
+  test("neutral protection does not desaturate a saturated solid red", async () => {
+    const source = await buildSolidPng({
+      width: 60,
+      height: 40,
+      colour: [255, 0, 0],
+    })
+
+    const output = await ditherToPanel({
+      imageBuffer: source,
+      width: 30,
+      height: 20,
+      palette: E6_DEFAULT_PALETTE,
+      algorithm: "floyd-steinberg",
+    })
+
+    const { data, info } = await sharp(output)
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const colours = collectColours({
+      rgbaBuffer: data,
+      channels: info.channels,
+    })
+
+    const paletteRed = E6_DEFAULT_PALETTE[3]
+    const paletteRedKey = `${paletteRed[0]},${paletteRed[1]},${paletteRed[2]}`
+
+    expect(colours).toEqual(new Set([paletteRedKey]))
+  })
+
+  test("anti-aliased-text-like gray edges dither to only black/white on E6", async () => {
+    const source = await buildOutlinedRectanglePng({
+      width: 120,
+      height: 80,
+    })
+
+    const output = await ditherToPanel({
+      imageBuffer: source,
+      width: 60,
+      height: 40,
+      palette: E6_DEFAULT_PALETTE,
+      algorithm: "floyd-steinberg",
+    })
+
+    const { data, info } = await sharp(output)
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const colours = collectColours({
+      rgbaBuffer: data,
+      channels: info.channels,
+    })
+
+    colours.forEach((colour) => {
+      expect(E6_BLACK_AND_WHITE_KEYS.has(colour)).toBe(true)
+    })
+  })
+
+  test("brightness 1.5 lightens a mid-gray image on the mono palette", async () => {
+    const source = await buildSolidPng({
+      width: 40,
+      height: 20,
+      colour: [128, 128, 128],
+    })
+
+    const renderWithAdjustments = async (adjustments?: {
+      brightness?: number
+    }) => {
+      const output = await ditherToPanel({
+        imageBuffer: source,
+        width: 20,
+        height: 10,
+        palette: MONO_PALETTE,
+        algorithm: "floyd-steinberg",
+        adjustments,
+      })
+
+      const { data, info } = await sharp(output)
+        .raw()
+        .toBuffer({ resolveWithObject: true })
+
+      return countMatchingPixels({
+        rgbaBuffer: data,
+        channels: info.channels,
+        colour: [255, 255, 255],
+      })
+    }
+
+    const neutralWhiteCount = await renderWithAdjustments()
+    const brightenedWhiteCount =
+      await renderWithAdjustments({ brightness: 1.5 })
+
+    expect(brightenedWhiteCount).toBeGreaterThan(
+      neutralWhiteCount,
     )
   })
 })
