@@ -7,8 +7,9 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-07-02 | [The "no dithering" option is labeled `off`, not `none` (HA reserves `none`)](2026-07-02-dither-off-token-not-none-ha-reserved.md) | Accepted |
 | 2026-07-02 | [Follow-mode player exclusion is decided by the HA automation, not by Inkcast](2026-07-02-follow-exclusion-moves-to-ha-automation.md) | Accepted |
-| 2026-07-02 | [A "none" dither option hands the panel a full-colour image](2026-07-02-none-dither-panel-native.md) | Accepted |
+| 2026-07-02 | [A "none" dither option hands the panel a full-colour image](2026-07-02-none-dither-panel-native.md) | Superseded |
 | 2026-07-02 | [Mat safe-area crop is a per-device MQTT/HA control, not device config](2026-07-02-safe-area-crop-via-mqtt.md) | Accepted |
 | 2026-07-02 | [Fitted text has a readable floor and condenses before it shrinks](2026-07-02-fit-text-readable-floor-and-condense.md) | Accepted |
 | 2026-07-02 | [Now-playing Dashboard uses one compact layout at every panel size](2026-07-02-now-playing-single-compact-layout.md) | Accepted |
