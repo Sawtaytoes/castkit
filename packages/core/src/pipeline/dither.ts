@@ -379,6 +379,17 @@ export const ditherToPanel = async ({
     ? downscalePipeline.modulate({ brightness, saturation })
     : downscalePipeline
 
+  // "none": skip our palette quantization and hand the panel a full-colour
+  // (downscaled, tone-adjusted) image so its own controller dithers. Still an
+  // unambiguous RGB PNG, rotated into the mount orientation.
+  if (algorithm === "none") {
+    return adjustedPipeline
+      .rotate(rotation)
+      .removeAlpha()
+      .png()
+      .toBuffer()
+  }
+
   const { data: rgbaBuffer } = await adjustedPipeline
     .ensureAlpha()
     .raw()
