@@ -3,8 +3,9 @@ import type { CSSProperties } from "react"
 import type { PanelViewProps } from "./viewProps.ts"
 import {
   buildPanelRootStyle,
-  fitFontSize,
+  fitText,
   getAccentColour,
+  READABLE_FONT_FLOOR_PX,
 } from "./viewStyles.ts"
 
 /**
@@ -50,14 +51,16 @@ export const ClockWeatherView = ({
 
   const horizontalPadding = Math.round(width * 0.04)
   const availableWidth = width - horizontalPadding * 2
+  const readableFloor = READABLE_FONT_FLOOR_PX[colourMode]
 
   // With weather present the time cedes a little height to the extra line;
   // without it the proportions match ClockView. Long time strings
-  // ("12:45 AM" on the wide panel) shrink to fit rather than wrapping.
-  const timeFontSize = fitFontSize({
+  // ("12:45 AM" on the wide panel) condense/shrink to fit rather than wrapping.
+  const fittedTime = fitText({
     baseFontSize: Math.round(
       height * (hasWeather ? 0.36 : 0.42),
     ),
+    minimumFontSize: readableFloor,
     availableWidth,
     text: time,
   })
@@ -70,11 +73,15 @@ export const ClockWeatherView = ({
     temperatureText ?? "",
     conditionText ?? "",
   ].join(" ")
-  const compactWeatherFontSize = fitFontSize({
+  const fittedCompactInfo = fitText({
     baseFontSize: Math.round(height * 0.13),
+    minimumFontSize: readableFloor,
     availableWidth,
     text: compactInfoText,
   })
+  const compactWeatherFontSize = fittedCompactInfo.fontSize
+  const compactInfoLetterSpacing =
+    fittedCompactInfo.letterSpacing
   const compactTemperatureFontSize = Math.round(
     compactWeatherFontSize * 1.25,
   )
@@ -89,12 +96,15 @@ export const ClockWeatherView = ({
           (temperatureText?.length ?? 0),
       ) + temperatureToConditionGap
     : 0
-  const largeConditionFontSize = fitFontSize({
+  const fittedLargeCondition = fitText({
     baseFontSize: Math.round(height * 0.08),
+    minimumFontSize: readableFloor,
     availableWidth:
       availableWidth - estimatedTemperatureWidth,
     text: conditionText ?? "",
   })
+  const largeConditionFontSize =
+    fittedLargeCondition.fontSize
 
   const rootStyle: CSSProperties = {
     ...buildPanelRootStyle({ width, height }),
@@ -104,7 +114,8 @@ export const ClockWeatherView = ({
 
   const timeStyle: CSSProperties = {
     display: "flex",
-    fontSize: timeFontSize,
+    fontSize: fittedTime.fontSize,
+    letterSpacing: fittedTime.letterSpacing,
     fontWeight: 700,
     lineHeight: 1,
     whiteSpace: "nowrap",
@@ -114,6 +125,7 @@ export const ClockWeatherView = ({
   const compactDateStyle: CSSProperties = {
     display: "flex",
     fontSize: compactWeatherFontSize,
+    letterSpacing: compactInfoLetterSpacing,
     fontWeight: 700,
     lineHeight: 1,
     whiteSpace: "nowrap",
@@ -153,6 +165,7 @@ export const ClockWeatherView = ({
   const compactConditionStyle: CSSProperties = {
     display: "flex",
     fontSize: compactWeatherFontSize,
+    letterSpacing: compactInfoLetterSpacing,
     fontWeight: 700,
     lineHeight: 1,
     whiteSpace: "nowrap",
@@ -182,6 +195,7 @@ export const ClockWeatherView = ({
   const largeConditionStyle: CSSProperties = {
     display: "flex",
     fontSize: largeConditionFontSize,
+    letterSpacing: fittedLargeCondition.letterSpacing,
     fontWeight: 700,
     lineHeight: 1,
     whiteSpace: "nowrap",
