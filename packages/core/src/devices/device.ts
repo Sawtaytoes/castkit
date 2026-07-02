@@ -13,10 +13,13 @@ export type ColourMode = "mono" | "e6"
 /**
  * The dithering kernels the pipeline can apply. Error-diffusion kernels
  * (floyd-steinberg … sierra) come from `image-q`; `ordered` and `threshold`
- * are implemented in-house. The best choice differs by panel — mono vs E6 — so
- * it is a per-device knob, not one global setting.
+ * are implemented in-house. `none` skips our quantization entirely and sends
+ * the full-colour downscaled image so the panel's own controller does the
+ * dithering (brightness/saturation still apply). The best choice differs by
+ * panel — mono vs E6 — so it is a per-device knob, not one global setting.
  */
 export const DITHER_ALGORITHMS = [
+  "none",
   "threshold",
   "ordered",
   "floyd-steinberg",
