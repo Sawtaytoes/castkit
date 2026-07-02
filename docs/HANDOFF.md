@@ -129,7 +129,11 @@ sub-groups, names are the grouping.
 Plus one server-wide "Inkcast Server" device: `Follow: Excluded players`
 (comma-separated media_player ids; applied LIVE — an excluded player is
 evicted from the panel via a synthetic idle retraction). Topics:
-`inkcast/config/follow_exclude/set|state`.
+`inkcast/config/follow_exclude/set|state`. MQTT discovery has no
+entity-picker entity type (it is a plain string field in HA), so two
+HA-side scripts wrap it with native media_player multi-pickers:
+`script.inkcast_exclude_players` / `script.inkcast_reinclude_players`
+(live in HA config, not this repo; call them from automations too).
 
 ### Views (`packages/views/src/`)
 
