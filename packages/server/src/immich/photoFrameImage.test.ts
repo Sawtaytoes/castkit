@@ -15,7 +15,7 @@ describe("computeFaceCropRect", () => {
     ).toBe(null)
   })
 
-  test("crops a panel-aspect window containing a centered face", () => {
+  test("uses the MAXIMAL cover-crop window, not a zoomed-to-face one", () => {
     const cropRect = computeFaceCropRect({
       imageWidth: 1600,
       imageHeight: 1200,
@@ -27,10 +27,11 @@ describe("computeFaceCropRect", () => {
 
     expect(cropRect).not.toBe(null)
     if (cropRect) {
-      expect(cropRect.width / cropRect.height).toBeCloseTo(
-        800 / 480,
-        1,
-      )
+      // 1600×1200 is taller than 800×480, so the maximal window is the
+      // full width — a small centered face must NOT shrink the crop.
+      expect(cropRect.width).toBe(1600)
+      expect(cropRect.height).toBe(960)
+      expect(cropRect.top).toBe(120)
       // The face (720..880 x, 540..660 y) sits inside the crop.
       expect(cropRect.left).toBeLessThanOrEqual(720)
       expect(
@@ -43,15 +44,60 @@ describe("computeFaceCropRect", () => {
     }
   })
 
-  test("returns null when faces span wider than the image allows", () => {
+  test("shifts the crop up for a portrait shot with faces at the top", () => {
+    const cropRect = computeFaceCropRect({
+      imageWidth: 1200,
+      imageHeight: 1600,
+      ...PANEL,
+      faceBoxes: [
+        { x1: 0.2, y1: 0.05, x2: 0.45, y2: 0.2 },
+        { x1: 0.55, y1: 0.08, x2: 0.8, y2: 0.22 },
+      ],
+    })
+
+    expect(cropRect).not.toBe(null)
+    if (cropRect) {
+      // Maximal window is full-width (1200×720). A centered crop would
+      // start at y=440 and decapitate everyone; it must shift up so the
+      // padded face union (top ≈ 44) is inside.
+      expect(cropRect.width).toBe(1200)
+      expect(cropRect.height).toBe(720)
+      expect(cropRect.top).toBeLessThanOrEqual(44)
+    }
+  })
+
+  test("keeps far-apart faces by widening to the window, not zooming", () => {
+    const cropRect = computeFaceCropRect({
+      imageWidth: 1000,
+      imageHeight: 1000,
+      ...PANEL,
+      faceBoxes: [
+        { x1: 0.02, y1: 0.4, x2: 0.2, y2: 0.6 },
+        { x1: 0.8, y1: 0.4, x2: 0.98, y2: 0.6 },
+      ],
+    })
+
+    // The maximal window (1000×600) can hold both faces, so this crops.
+    expect(cropRect).not.toBe(null)
+    if (cropRect) {
+      expect(cropRect.left).toBe(0)
+      expect(cropRect.width).toBe(1000)
+      expect(cropRect.top).toBeLessThanOrEqual(400)
+      expect(
+        cropRect.top + cropRect.height,
+      ).toBeGreaterThanOrEqual(600)
+    }
+  })
+
+  test("returns null when faces span taller than the maximal window", () => {
     expect(
       computeFaceCropRect({
         imageWidth: 1000,
         imageHeight: 1000,
         ...PANEL,
         faceBoxes: [
-          { x1: 0.02, y1: 0.4, x2: 0.2, y2: 0.6 },
-          { x1: 0.8, y1: 0.4, x2: 0.98, y2: 0.6 },
+          { x1: 0.4, y1: 0.02, x2: 0.6, y2: 0.2 },
+          { x1: 0.4, y1: 0.8, x2: 0.6, y2: 0.98 },
         ],
       }),
     ).toBe(null)
