@@ -15,17 +15,6 @@ export type NowPlayingData = {
   artworkDataUri?: string
 }
 
-/**
- * A now-playing store entry: the data plus, when nothing is playing, WHEN it
- * stopped — the idle-fallback timer reads this. `stoppedAtMs: 0` means "was
- * already idle when the server first saw it" (fall back immediately);
- * undefined means playback is live.
- */
-export type NowPlayingEntry = {
-  data: NowPlayingData
-  stoppedAtMs?: number
-}
-
 /** The current photo-frame image for a device (already panel-sized). */
 export type PhotoFrameData = {
   photoDataUri: string
@@ -52,9 +41,6 @@ export type ViewDataStore = {
   getNowPlaying: (
     entityId: string,
   ) => NowPlayingData | undefined
-  getNowPlayingEntry: (
-    entityId: string,
-  ) => NowPlayingEntry | undefined
   setNowPlaying: (params: {
     entityId: string
     data: NowPlayingData
@@ -73,7 +59,7 @@ export type ViewDataStore = {
 export const createViewDataStore = (): ViewDataStore => {
   const nowPlayingByEntityId = new Map<
     string,
-    NowPlayingEntry
+    NowPlayingData
   >()
   const photoFrameByDeviceId = new Map<
     string,
@@ -83,25 +69,9 @@ export const createViewDataStore = (): ViewDataStore => {
 
   return {
     getNowPlaying: (entityId) =>
-      nowPlayingByEntityId.get(entityId)?.data,
-    getNowPlayingEntry: (entityId) =>
       nowPlayingByEntityId.get(entityId),
     setNowPlaying: ({ entityId, data }) => {
-      const previous = nowPlayingByEntityId.get(entityId)
-      // Live playback clears the idle timer; a stop starts it; an entity
-      // that was NEVER seen playing (server booted mid-idle) counts as
-      // stopped since forever so idle fallback applies immediately.
-      const stoppedAtMs = data.isPlaying
-        ? undefined
-        : previous
-          ? previous.data.isPlaying
-            ? Date.now()
-            : (previous.stoppedAtMs ?? 0)
-          : 0
-      nowPlayingByEntityId.set(entityId, {
-        data,
-        stoppedAtMs,
-      })
+      nowPlayingByEntityId.set(entityId, data)
     },
     getPhotoFrame: (deviceId) =>
       photoFrameByDeviceId.get(deviceId),

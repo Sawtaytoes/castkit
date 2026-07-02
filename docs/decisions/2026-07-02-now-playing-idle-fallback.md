@@ -1,10 +1,10 @@
 # Now-playing views fall back to a per-device idle view when nothing plays
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-07-02
 - **Type:** Product behavior
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-07-02-view-switching-via-ha-automations.md](2026-07-02-view-switching-via-ha-automations.md)
 
 ## Decision
 
