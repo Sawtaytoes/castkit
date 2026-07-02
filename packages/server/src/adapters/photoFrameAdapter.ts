@@ -22,7 +22,7 @@ type PhotoHistory = {
 
 /**
  * The Immich photo-frame adapter. Each minute it looks at every device whose
- * EFFECTIVE view is "Photo Frame" (selected, or idle-fallback) and, when the
+ * selected view is "Photo Frame" and, when the
  * current photo is older than the rotation interval (or missing), fetches a
  * fresh recency-weighted random photo matching the device's people and/or
  * smart-search query, crops it face-aware to the exact panel, stores it, and
@@ -37,7 +37,7 @@ export const createPhotoFrameAdapter = ({
   devices,
   deviceConfigStore,
   viewDataStore,
-  getEffectiveView,
+  getActiveView,
   pushDevice,
 }: {
   immichConfig: ImmichConfig
@@ -46,7 +46,7 @@ export const createPhotoFrameAdapter = ({
   devices: readonly ConfiguredDevice[]
   deviceConfigStore: DeviceConfigStore
   viewDataStore: ViewDataStore
-  getEffectiveView: (deviceId: string) => ViewName
+  getActiveView: (deviceId: string) => ViewName
   pushDevice: (deviceId: string) => Promise<boolean>
 }) => {
   const intervalMilliseconds = intervalMinutes * 60_000
@@ -255,7 +255,7 @@ export const createPhotoFrameAdapter = ({
     devices
       .filter(
         (device) =>
-          getEffectiveView(device.id) === "Photo Frame",
+          getActiveView(device.id) === "Photo Frame",
       )
       .forEach((device) => {
         const current = viewDataStore.getPhotoFrame(

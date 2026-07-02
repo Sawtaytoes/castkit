@@ -20,13 +20,9 @@ import {
   buildDiscoveryMessages,
   buildGlobalDiscoveryMessages,
   buildGlobalTopics,
-  IDLE_VIEW_NONE_OPTION,
 } from "./homeAssistant/discovery.ts"
 import { createMqttPublisher } from "./mqtt/publisher.ts"
-import {
-  createPushController,
-  DEFAULT_IDLE_MINUTES,
-} from "./pushController.ts"
+import { createPushController } from "./pushController.ts"
 import { createRenderService } from "./render/renderService.ts"
 import { startClockTicker } from "./schedulers/clockTicker.ts"
 import { createDeviceConfigStore } from "./state/deviceConfigStore.ts"
@@ -201,6 +197,23 @@ const main = async () => {
           config.homeAssistant.weatherEntityId,
         viewDataStore,
         onNowPlayingChanged: (entityKey) => {
+          // The retained "Music playing" state is the signal HA automations
+          // key off to drive the View selects (no server-side idle logic).
+          if (entityKey === FOLLOWED_NOW_PLAYING_KEY) {
+            publisher
+              .publish({
+                topic:
+                  buildGlobalTopics(baseTopic)
+                    .nowPlayingActiveState,
+                payload: viewDataStore.getNowPlaying(
+                  FOLLOWED_NOW_PLAYING_KEY,
+                )?.isPlaying
+                  ? "ON"
+                  : "OFF",
+                isRetained: true,
+              })
+              .catch(() => {})
+          }
           pushDevicesShowingView({
             getIsViewIncluded: getIsNowPlayingView,
             entityKey,
@@ -210,9 +223,8 @@ const main = async () => {
           config.devices
             .filter(
               (device) =>
-                pushController.getEffectiveView(
-                  device.id,
-                ) === "Clock (Weather)",
+                deviceStore.getActiveView(device.id) ===
+                "Clock (Weather)",
             )
             .forEach((device) => {
               pushDeviceLogged(device.id)
@@ -221,23 +233,11 @@ const main = async () => {
       })
     : null
 
-  // Each minute: keep clock-bearing panels on real time, and catch
-  // idle-fallback transitions (a now-playing selection whose effective view
-  // changed since the last render — in either direction).
+  // Keep clock-bearing panels on real time: re-push them each minute.
   const clockTicker = startClockTicker({
     onMinuteTick: () => {
-      config.devices.forEach((device) => {
-        const effectiveView =
-          pushController.getEffectiveView(device.id)
-        const hasViewChanged =
-          effectiveView !==
-          deviceStore.getLastRenderedView(device.id)
-        if (
-          getIsClockBearingView(effectiveView) ||
-          hasViewChanged
-        ) {
-          pushDeviceLogged(device.id)
-        }
+      pushDevicesShowingView({
+        getIsViewIncluded: getIsClockBearingView,
       })
     },
   })
@@ -261,7 +261,7 @@ const main = async () => {
         devices: config.devices,
         deviceConfigStore,
         viewDataStore,
-        getEffectiveView: pushController.getEffectiveView,
+        getActiveView: deviceStore.getActiveView,
         pushDevice: (deviceId) =>
           pushController.pushDevice(deviceId),
       })
@@ -440,54 +440,6 @@ const main = async () => {
             },
           },
         ],
-        [
-          "idleView",
-          {
-            applyPayload: ({ deviceId, payload }) => {
-              if (
-                payload !== IDLE_VIEW_NONE_OPTION &&
-                !getIsViewName(payload)
-              ) {
-                return null
-              }
-              deviceConfigStore.setIdleViewName({
-                deviceId,
-                viewName: payload,
-              })
-              return payload
-            },
-            getHasValue: (deviceId) =>
-              deviceConfigStore.getIdleViewName(
-                deviceId,
-              ) !== undefined,
-            onApplied: async (deviceId) => {
-              await pushController.pushDevice(deviceId)
-            },
-          },
-        ],
-        [
-          "idleMinutes",
-          {
-            applyPayload: ({ deviceId, payload }) => {
-              const value = Number.parseFloat(payload)
-              if (Number.isNaN(value)) {
-                return null
-              }
-              const minutes = Math.min(
-                240,
-                Math.max(1, Math.round(value)),
-              )
-              deviceConfigStore.setIdleMinutes({
-                deviceId,
-                minutes,
-              })
-              return String(minutes)
-            },
-            getHasValue: (deviceId) =>
-              deviceConfigStore.getIdleMinutes(deviceId) !==
-              undefined,
-          },
-        ],
       ])
 
     /** Knob kind → its command/state topics for one device. */
@@ -529,14 +481,6 @@ const main = async () => {
         saturation: {
           command: topics.saturationCommand,
           state: topics.saturationState,
-        },
-        idleView: {
-          command: topics.idleViewCommand,
-          state: topics.idleViewState,
-        },
-        idleMinutes: {
-          command: topics.idleMinutesCommand,
-          state: topics.idleMinutesState,
         },
       }
       return byKind[kind]
@@ -792,26 +736,6 @@ const main = async () => {
                 device.id,
               ) !== undefined,
             payload: "100",
-          },
-          {
-            kind: "idleView",
-            hasValue:
-              deviceConfigStore.getIdleViewName(
-                device.id,
-              ) !== undefined,
-            payload:
-              device.idleViewName &&
-              getIsViewName(device.idleViewName)
-                ? device.idleViewName
-                : IDLE_VIEW_NONE_OPTION,
-          },
-          {
-            kind: "idleMinutes",
-            hasValue:
-              deviceConfigStore.getIdleMinutes(
-                device.id,
-              ) !== undefined,
-            payload: String(DEFAULT_IDLE_MINUTES),
           },
         ]
         seedPairs

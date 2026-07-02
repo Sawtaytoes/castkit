@@ -72,10 +72,6 @@ export const buildDeviceTopics = ({
     brightnessState: `${base}/brightness`,
     saturationCommand: `${base}/saturation/set`,
     saturationState: `${base}/saturation`,
-    idleViewCommand: `${base}/idle_view/set`,
-    idleViewState: `${base}/idle_view`,
-    idleMinutesCommand: `${base}/idle_minutes/set`,
-    idleMinutesState: `${base}/idle_minutes`,
   }
 }
 
@@ -85,6 +81,8 @@ export const buildGlobalTopics = (
 ) => ({
   followExcludeCommand: `${baseTopic}/config/follow_exclude/set`,
   followExcludeState: `${baseTopic}/config/follow_exclude`,
+  /** Retained ON/OFF: is the followed player actually playing right now. */
+  nowPlayingActiveState: `${baseTopic}/now_playing_active`,
 })
 
 /** The HA-facing colour-mode option strings (double as MQTT payloads). */
@@ -92,9 +90,6 @@ export const COLOUR_MODE_OPTIONS = [
   "Color",
   "Black & White",
 ] as const
-
-/** The idle-view select option that disables the idle fallback. */
-export const IDLE_VIEW_NONE_OPTION = "None"
 
 /** The HA `device` block that ties every entity to one physical display. */
 const buildDeviceBlock = (device: DeviceMetadata) => ({
@@ -251,42 +246,6 @@ export const buildDiscoveryMessages = ({
       },
     },
     {
-      // Which view this panel falls back to when its now-playing selection
-      // has had nothing playing for the idle timeout. "None" disables the
-      // fallback (Home Assistant automations stay fully in control).
-      topic: discoveryTopic("select", "idle_view"),
-      isRetained: true,
-      payload: {
-        ...availability,
-        name: "Now Playing: Idle view",
-        unique_id: `inkcast_${device.id}_idle_view`,
-        options: [IDLE_VIEW_NONE_OPTION].concat(
-          Array.from(viewNames),
-        ),
-        command_topic: topics.idleViewCommand,
-        state_topic: topics.idleViewState,
-        entity_category: "config",
-        device: deviceBlock,
-      },
-    },
-    {
-      topic: discoveryTopic("number", "idle_minutes"),
-      isRetained: true,
-      payload: {
-        ...availability,
-        name: "Now Playing: Idle minutes",
-        unique_id: `inkcast_${device.id}_idle_minutes`,
-        command_topic: topics.idleMinutesCommand,
-        state_topic: topics.idleMinutesState,
-        min: 1,
-        max: 240,
-        step: 1,
-        unit_of_measurement: "min",
-        entity_category: "config",
-        device: deviceBlock,
-      },
-    },
-    {
       // Which Immich people feed this device's Photo Frame view
       // (comma-separated names or person UUIDs). The retained state topic
       // doubles as the persistence layer.
@@ -387,6 +346,23 @@ export const buildGlobalDiscoveryMessages = (
   }
 
   return [
+    {
+      // The one signal HA automations need to drive the View selects:
+      // whether the followed player is ACTUALLY playing (exclusions already
+      // applied server-side). View switching itself is deliberately left to
+      // HA automations — no server-side idle fallback.
+      topic: `${discoveryPrefix}/binary_sensor/${nodeId}/server_now_playing_active/config`,
+      isRetained: true as const,
+      payload: {
+        ...availability,
+        name: "Music playing",
+        unique_id: "inkcast_server_now_playing_active",
+        state_topic: topics.nowPlayingActiveState,
+        payload_on: "ON",
+        payload_off: "OFF",
+        device: serverDeviceBlock,
+      },
+    },
     {
       // media_player entities follow mode must IGNORE even while playing
       // (comma-separated entity ids) — e.g. bedtime-music speakers.

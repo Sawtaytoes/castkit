@@ -1,11 +1,10 @@
 import type { ViewName } from "../views/registry.ts"
 
 /**
- * In-memory per-device runtime state: the SELECTED view (what the user picked
- * in HA — what the panel shows while its data source is active), whether that
- * selection was made explicitly this run (vs. restored/default — guards the
- * retained-MQTT restore on boot), and the last view actually rendered to the
- * panel (which may be the idle-fallback view, not the selection).
+ * In-memory per-device runtime state: the SELECTED view (the single source
+ * of truth for what the panel shows — Home Assistant automations drive it),
+ * and whether that selection was made explicitly this run (vs.
+ * restored/default — guards the retained-MQTT restore on boot).
  */
 export type DeviceStore = {
   getActiveView: (deviceId: string) => ViewName
@@ -17,14 +16,6 @@ export type DeviceStore = {
   }) => void
   /** Whether the view was explicitly chosen this run (blocks restores). */
   getHasExplicitView: (deviceId: string) => boolean
-  /** The view most recently rendered+pushed (selection OR idle fallback). */
-  getLastRenderedView: (
-    deviceId: string,
-  ) => ViewName | undefined
-  setLastRenderedView: (params: {
-    deviceId: string
-    viewName: ViewName
-  }) => void
 }
 
 export const createDeviceStore = ({
@@ -38,7 +29,6 @@ export const createDeviceStore = ({
     deviceIds.map((deviceId) => [deviceId, defaultView]),
   )
   const explicitDeviceIds = new Set<string>()
-  const lastRenderedViews = new Map<string, ViewName>()
 
   return {
     getActiveView: (deviceId) =>
@@ -55,10 +45,5 @@ export const createDeviceStore = ({
     },
     getHasExplicitView: (deviceId) =>
       explicitDeviceIds.has(deviceId),
-    getLastRenderedView: (deviceId) =>
-      lastRenderedViews.get(deviceId),
-    setLastRenderedView: ({ deviceId, viewName }) => {
-      lastRenderedViews.set(deviceId, viewName)
-    },
   }
 }

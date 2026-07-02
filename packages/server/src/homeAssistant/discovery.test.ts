@@ -63,8 +63,6 @@ describe("buildDiscoveryMessages", () => {
       "select", // Display: Dither
       "number", // Display: Brightness
       "number", // Display: Saturation
-      "select", // Now Playing: Idle view
-      "number", // Now Playing: Idle minutes
       "text", // Photo Frame: People
       "text", // Photo Frame: Query
       "button", // Photo Frame: Next photo
@@ -73,29 +71,23 @@ describe("buildDiscoveryMessages", () => {
     ])
   })
 
-  test("the idle-view select offers None plus every view", () => {
-    const idleViewMessage = messages.find((message) =>
-      message.topic.includes("_idle_view/"),
-    )
-    expect(idleViewMessage?.payload.options).toEqual([
-      "None",
-      "Now Playing (Dashboard)",
-      "Clock",
-    ])
-  })
-
-  test("the global device exposes the follow-exclusion text", () => {
+  test("the global device exposes the music sensor + exclusion text", () => {
     const globalMessages = buildGlobalDiscoveryMessages()
-    expect(globalMessages).toHaveLength(1)
-    expect(globalMessages[0].topic).toBe(
+    expect(
+      globalMessages.map((message) => message.topic),
+    ).toEqual([
+      "homeassistant/binary_sensor/inkcast/server_now_playing_active/config",
       "homeassistant/text/inkcast/server_follow_exclude/config",
+    ])
+    expect(globalMessages[0].payload.state_topic).toBe(
+      "inkcast/now_playing_active",
     )
-    expect(globalMessages[0].payload.command_topic).toBe(
+    expect(globalMessages[1].payload.command_topic).toBe(
       "inkcast/config/follow_exclude/set",
     )
     expect(
       (
-        globalMessages[0].payload.device as {
+        globalMessages[1].payload.device as {
           name: string
         }
       ).name,
