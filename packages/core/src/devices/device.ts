@@ -60,12 +60,6 @@ export type DeviceMetadata = {
   /** Clockwise degrees applied before the panel draws (pHAT mounts USB-up = 180). */
   rotation: 0 | 90 | 180 | 270
   ditherProfile: DitherProfile
-  /**
-   * The view this panel falls back to when its selected now-playing view has
-   * had nothing playing for the idle timeout (a server view name, e.g.
-   * "Clock (Weather)" or "Photo Frame"). Absent = stay on the selection.
-   */
-  idleViewName?: string
 }
 
 // NOTE: these are generic EXAMPLE devices — placeholder MACs, no room labels —
@@ -91,7 +85,6 @@ export const PHAT_DEVICE: DeviceMetadata = {
     algorithm: "atkinson",
     supersampleFactor: 4,
   },
-  idleViewName: "Clock (Weather)",
 }
 
 /**
@@ -111,7 +104,6 @@ export const IMPRESSION_DEVICE: DeviceMetadata = {
     algorithm: "floyd-steinberg",
     supersampleFactor: 4,
   },
-  idleViewName: "Photo Frame",
 }
 
 /** Example devices — the two panel types Inkcast targets. Override via config. */

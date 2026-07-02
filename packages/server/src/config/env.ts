@@ -90,7 +90,6 @@ const DeviceConfigSchema = z.object({
     { algorithm: "floyd-steinberg", supersampleFactor: 2 },
   ),
   nowPlayingEntityId: z.optional(z.string()),
-  idleViewName: z.optional(z.string()),
 })
 
 /**

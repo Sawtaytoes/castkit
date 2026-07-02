@@ -19,12 +19,13 @@ from the HA device page.
 ## ⭐ Next steps (start here — prioritized)
 
 1. **Verify tonight's features against real life** (shipped 2026-07-02,
-   ~1:45 AM, lightly exercised): idle fallback after music stops (5 min →
-   pHAT shows "Clock (Weather)", Impression shows "Photo Frame"), the
-   Photo Frame Next/Previous buttons, the Query entity ("green shirt"-style
-   Immich smart search), Color/B&W + Brightness/Saturation knobs on the
-   Impression, and how the neutral-protected dither looks on real photos
-   (it kills colour speckle on text; confirm it doesn't flatten photo grays).
+   lightly exercised): the view-switching automations (another agent is
+   building them off the "Music playing" binary sensor + the Plex family
+   room player), Photo Frame Next/Previous buttons, the Query entity
+   ("green shirt"-style Immich smart search), Color/B&W +
+   Brightness/Saturation knobs on the Impression, and how the
+   neutral-protected dither looks on real photos (it kills colour speckle
+   on text; confirm it doesn't flatten photo grays).
 2. **Hostnames, not IPs, for the Pis** (maintainer ask): `inky-phat` (LAN
    `10.1.0.32`) / `inky-spectra` (IoT VLAN `192.168.101.200`, reachable via
    `ssh -J root@storeman.octen`); reference via `.octen`/mDNS names in docs +
@@ -44,10 +45,10 @@ from the HA device page.
 - **Face crop shifts, never zooms** — maximal cover window steered to keep
   faces in frame; letterbox when impossible
   (`decisions/2026-07-02-face-crop-shifts-never-zooms.md`).
-- **Idle fallback is server-side, per device**
-  (`decisions/2026-07-02-now-playing-idle-fallback.md`): small panel idles
-  to "Clock (Weather)", large to "Photo Frame"; the HA View select is NOT
-  touched by fallback.
+- **No server-side idle logic — HA automations drive the View select,
+  immediately** (`decisions/2026-07-02-view-switching-via-ha-automations.md`,
+  supersedes the same-day idle-fallback decision). The server provides the
+  "Music playing" binary sensor as the signal.
 - **Dither: Floyd-Steinberg preferred on BOTH panels** (A/B'd on glass);
   keep all six algorithms in the select. Per-device choice persists via
   retained MQTT.
@@ -90,11 +91,10 @@ Immich (REST)
     random pick (half-life 365d, 15% floor) → preview JPEG + face boxes →
     face-STEERED maximal cover-crop or letterbox → panel PNG → push.
     20-deep per-device history ← Next/Previous photo buttons.
-Idle fallback: pushController.getEffectiveView() — a now-playing selection
-    with nothing playing for the HA-set idle minutes renders the HA-set
-    idle view (seeds: pHAT → Clock (Weather), Impression → Photo Frame;
-    "None" disables). Minute ticker re-pushes clock-bearing EFFECTIVE
-    views + any effective-view change.
+View switching: HA AUTOMATIONS drive the View select (no server-side
+    idle logic — decisions/2026-07-02-view-switching-via-ha-automations.md).
+    The server publishes the signal: retained "Music playing" binary
+    sensor (inkcast/now_playing_active, exclusions already applied).
  ↓
 pushController → renderService (Chromium; Satori alt) → dither pipeline
     (per-device: algorithm override, Color/B&W mode, brightness/saturation
@@ -120,13 +120,14 @@ pushController → renderService (Chromium; Satori alt) → dither pipeline
 Image (Screen) · Select (View: 3 now-playing / Photo Frame / Clock /
 Clock (Weather)) · Buttons (Refresh, Photo Frame: Next/Previous photo) ·
 Config: Display: Dither, Display: Color mode (e6 only, Color|Black & White),
-Display: Brightness %, Display: Saturation %, Now Playing: Idle view
-("None" disables the fallback), Now Playing: Idle minutes, Photo Frame:
-People, Photo Frame: Query · Sensor (Last render). The `Display:`/`Photo
-Frame:`/`Now Playing:` prefixes are deliberate — HA has no config
-sub-groups, names are the grouping.
+Display: Brightness %, Display: Saturation %, Photo Frame: People,
+Photo Frame: Query · Sensor (Last render). The `Display:`/`Photo Frame:`
+prefixes are deliberate — HA has no config sub-groups, names are the
+grouping.
 
-Plus one server-wide "Inkcast Server" device: `Follow: Excluded players`
+Plus one server-wide "Inkcast Server" device: `Music playing` binary
+sensor (`binary_sensor.inkcast_server_music_playing` — THE signal for the
+view-switching automations) and `Follow: Excluded players`
 (comma-separated media_player ids; applied LIVE — an excluded player is
 evicted from the panel via a synthetic idle retraction). Topics:
 `inkcast/config/follow_exclude/set|state`. MQTT discovery has no
