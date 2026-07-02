@@ -249,6 +249,11 @@ export const ditherToPanel = async ({
     raw: { width, height, channels: 4 },
   })
     .rotate(rotation)
-    .png({ palette: true })
+    // Emit a plain RGB PNG, NOT an indexed-palette one. A palette PNG's index
+    // order is content-dependent, and a device that reads palette indices
+    // directly (the Inky library) then swaps black/white between frames —
+    // intermittent colour inversion on the panel. RGB is unambiguous.
+    .removeAlpha()
+    .png()
     .toBuffer()
 }
