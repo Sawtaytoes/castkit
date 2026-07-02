@@ -34,6 +34,28 @@ const getIsDiffusionAlgorithm = (
   algorithm in DIFFUSION_QUANTIZERS
 
 /**
+ * Optional pre-dither tonal tweaks, applied with sharp's `modulate` in the
+ * same chain as the Lanczos downscale (before raw extraction). `1` is neutral
+ * for both. The physical Impression panel reads dark, so the server exposes
+ * these as Home Assistant knobs.
+ */
+export type DitherAdjustments = {
+  brightness?: number
+  saturation?: number
+}
+
+/**
+ * Chroma (max channel − min channel) at or below which a pixel counts as
+ * neutral (gray). Anti-aliased text edges sit well under this; genuine panel
+ * colours sit well above it.
+ */
+const NEUTRAL_CHROMA_THRESHOLD = 26
+
+/** Rec. 601 luminance of a palette colour. */
+const getLuminance = (colour: RgbColour) =>
+  colour[0] * 0.299 + colour[1] * 0.587 + colour[2] * 0.114
+
+/**
  * Normalised 8×8 Bayer threshold matrix (values in −0.5…+0.5). Added to each
  * channel before the nearest-colour lookup so `ordered` dithering spreads
  * quantization error spatially instead of diffusing it.
@@ -199,37 +221,21 @@ const quantizeWithDiffusion = ({
   return Buffer.from(outputPointContainer.toUint8Array())
 }
 
-/**
- * Downscale a full-colour render to a panel's native resolution and dither it
- * to the panel palette. `imageBuffer` may be rendered larger than native
- * (supersampled) — the Lanczos downscale here is what bakes in the anti-alias.
- * Returns a PNG at `width × height`, rotated into the panel's mount orientation.
- */
-export const ditherToPanel = async ({
-  imageBuffer,
+/** Quantize a raw RGBA buffer to a palette with the chosen algorithm. */
+const quantizeToPalette = ({
+  rgbaBuffer,
   width,
   height,
   palette,
   algorithm,
-  rotation = 0,
 }: {
-  imageBuffer: Buffer
+  rgbaBuffer: Buffer
   width: number
   height: number
   palette: Palette
   algorithm: DitherAlgorithm
-  rotation?: number
-}): Promise<Buffer> => {
-  const { data: rgbaBuffer } = await sharp(imageBuffer)
-    .resize(width, height, {
-      kernel: "lanczos3",
-      fit: "fill",
-    })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-
-  const ditheredBuffer = getIsDiffusionAlgorithm(algorithm)
+}) =>
+  getIsDiffusionAlgorithm(algorithm)
     ? quantizeWithDiffusion({
         rgbaBuffer,
         width,
@@ -243,6 +249,159 @@ export const ditherToPanel = async ({
         height,
         palette,
         hasOrderedBias: algorithm === "ordered",
+      })
+
+/**
+ * The palette's darkest and lightest entries by luminance — the black/white
+ * sub-palette neutral pixels are quantized against. Derived rather than
+ * hardcoded so any palette containing near-black and near-white works.
+ */
+const getMonochromeSubPalette = (
+  palette: Palette,
+): Palette => [
+  palette.reduce((darkestColour, colour) =>
+    getLuminance(colour) < getLuminance(darkestColour)
+      ? colour
+      : darkestColour,
+  ),
+  palette.reduce((lightestColour, colour) =>
+    getLuminance(colour) > getLuminance(lightestColour)
+      ? colour
+      : lightestColour,
+  ),
+]
+
+/**
+ * Quantize with neutral protection: near-neutral (gray) pixels are dithered
+ * against only the palette's black/white ends; everything else against the
+ * full palette. Without this, error diffusion sprays the gray anti-aliased
+ * edges of text across the colour palette — red/green speckle lines along
+ * letter edges on the physical panel. Keeping neutrals on the monochrome axis
+ * eliminates that fringing without desaturating genuine colour.
+ */
+const quantizeWithNeutralProtection = ({
+  rgbaBuffer,
+  width,
+  height,
+  palette,
+  algorithm,
+}: {
+  rgbaBuffer: Buffer
+  width: number
+  height: number
+  palette: Palette
+  algorithm: DitherAlgorithm
+}) => {
+  const fullPaletteBuffer = quantizeToPalette({
+    rgbaBuffer,
+    width,
+    height,
+    palette,
+    algorithm,
+  })
+
+  const monochromeBuffer = quantizeToPalette({
+    rgbaBuffer,
+    width,
+    height,
+    palette: getMonochromeSubPalette(palette),
+    algorithm,
+  })
+
+  const outputBuffer = Buffer.alloc(rgbaBuffer.length)
+
+  Array.from({ length: width * height }).forEach(
+    (_unused, pixelIndex) => {
+      const byteOffset = pixelIndex * 4
+      const red = rgbaBuffer[byteOffset]
+      const green = rgbaBuffer[byteOffset + 1]
+      const blue = rgbaBuffer[byteOffset + 2]
+
+      const chroma =
+        Math.max(red, green, blue) -
+        Math.min(red, green, blue)
+      const isNeutral = chroma <= NEUTRAL_CHROMA_THRESHOLD
+
+      const sourceBuffer = isNeutral
+        ? monochromeBuffer
+        : fullPaletteBuffer
+
+      sourceBuffer.copy(
+        outputBuffer,
+        byteOffset,
+        byteOffset,
+        byteOffset + 4,
+      )
+    },
+  )
+
+  return outputBuffer
+}
+
+/**
+ * Downscale a full-colour render to a panel's native resolution and dither it
+ * to the panel palette. `imageBuffer` may be rendered larger than native
+ * (supersampled) — the Lanczos downscale here is what bakes in the anti-alias.
+ * Returns a PNG at `width × height`, rotated into the panel's mount orientation.
+ */
+export const ditherToPanel = async ({
+  imageBuffer,
+  width,
+  height,
+  palette,
+  algorithm,
+  rotation = 0,
+  adjustments,
+}: {
+  imageBuffer: Buffer
+  width: number
+  height: number
+  palette: Palette
+  algorithm: DitherAlgorithm
+  rotation?: number
+  adjustments?: DitherAdjustments
+}): Promise<Buffer> => {
+  const brightness = adjustments?.brightness ?? 1
+  const saturation = adjustments?.saturation ?? 1
+  const hasAdjustments =
+    brightness !== 1 || saturation !== 1
+
+  const downscalePipeline = sharp(imageBuffer).resize(
+    width,
+    height,
+    {
+      kernel: "lanczos3",
+      fit: "fill",
+    },
+  )
+
+  const adjustedPipeline = hasAdjustments
+    ? downscalePipeline.modulate({ brightness, saturation })
+    : downscalePipeline
+
+  const { data: rgbaBuffer } = await adjustedPipeline
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+
+  // Colour panels get neutral protection so gray anti-aliased edges never
+  // pick up colour speckle; the 2-colour mono path skips the double quantize.
+  const hasColourPalette = palette.length > 2
+
+  const ditheredBuffer = hasColourPalette
+    ? quantizeWithNeutralProtection({
+        rgbaBuffer,
+        width,
+        height,
+        palette,
+        algorithm,
+      })
+    : quantizeToPalette({
+        rgbaBuffer,
+        width,
+        height,
+        palette,
+        algorithm,
       })
 
   return (
