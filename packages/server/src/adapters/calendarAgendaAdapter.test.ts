@@ -49,6 +49,44 @@ describe("mapCalendarEventsToAgenda", () => {
     ).toEqual(["Standup", "Dinner"])
   })
 
+  test("collapses the same event shared across two calendars", () => {
+    const agenda = mapCalendarEventsToAgenda([
+      {
+        start: { dateTime: "2026-07-02T14:30:00-07:00" },
+        end: { dateTime: "2026-07-02T15:30:00-07:00" },
+        summary: "Dentist",
+      },
+      {
+        start: { dateTime: "2026-07-02T14:30:00-07:00" },
+        end: { dateTime: "2026-07-02T15:30:00-07:00" },
+        summary: "Dentist",
+      },
+    ])
+    expect(agenda.events).toEqual([
+      {
+        startMs: Date.parse("2026-07-02T14:30:00-07:00"),
+        summary: "Dentist",
+        isAllDay: false,
+      },
+    ])
+  })
+
+  test("keeps distinct events at the same start time", () => {
+    const agenda = mapCalendarEventsToAgenda([
+      {
+        start: { dateTime: "2026-07-02T14:30:00-07:00" },
+        summary: "Dentist",
+      },
+      {
+        start: { dateTime: "2026-07-02T14:30:00-07:00" },
+        summary: "Call with Sam",
+      },
+    ])
+    expect(
+      agenda.events.map((event) => event.summary),
+    ).toEqual(["Dentist", "Call with Sam"])
+  })
+
   test("drops events with no resolvable start", () => {
     const agenda = mapCalendarEventsToAgenda([
       { summary: "Floating" },
