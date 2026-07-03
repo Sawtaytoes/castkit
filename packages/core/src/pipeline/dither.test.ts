@@ -375,4 +375,108 @@ describe("ditherToPanel", () => {
       neutralWhiteCount,
     )
   })
+
+  describe('full-colour "off" encoding', () => {
+    /**
+     * A photographic-ish source: a smooth multi-hue gradient that a lossless
+     * RGB PNG can't compress but a lossy codec can — so the size assertions
+     * below are meaningful, not artefacts of a flat solid colour.
+     */
+    const buildGradientPng = ({
+      width,
+      height,
+    }: {
+      width: number
+      height: number
+    }): Promise<Buffer> => {
+      const raw = Buffer.alloc(width * height * 3)
+      Array.from({ length: width * height }).forEach(
+        (_unused, pixelIndex) => {
+          const x = pixelIndex % width
+          const y = Math.floor(pixelIndex / width)
+          const offset = pixelIndex * 3
+          raw[offset] = Math.floor((x * 255) / width)
+          raw[offset + 1] = Math.floor((y * 255) / height)
+          raw[offset + 2] = Math.floor(
+            (Math.sin(x / 7) + 1) * 127,
+          )
+        },
+      )
+      return sharp(raw, {
+        raw: { width, height, channels: 3 },
+      })
+        .png()
+        .toBuffer()
+    }
+
+    test("off defaults to a full-colour PNG at panel size", async () => {
+      const source = await buildGradientPng({
+        width: 160,
+        height: 96,
+      })
+
+      const output = await ditherToPanel({
+        imageBuffer: source,
+        width: 80,
+        height: 48,
+        palette: E6_DEFAULT_PALETTE,
+        algorithm: "off",
+      })
+
+      const metadata = await sharp(output).metadata()
+      expect(metadata.format).toBe("png")
+      expect(metadata.width).toBe(80)
+      expect(metadata.height).toBe(48)
+    })
+
+    test.each([
+      "webp",
+      "jpeg",
+    ] as const)("off encodes as %s, decodes at panel size, and is smaller than the PNG", async (format) => {
+      const source = await buildGradientPng({
+        width: 320,
+        height: 192,
+      })
+      const common = {
+        imageBuffer: source,
+        width: 160,
+        height: 96,
+        palette: E6_DEFAULT_PALETTE,
+        algorithm: "off",
+      } as const
+
+      const pngOutput = await ditherToPanel(common)
+      const lossyOutput = await ditherToPanel({
+        ...common,
+        fullColourEncoding: { format, quality: 80 },
+      })
+
+      const metadata = await sharp(lossyOutput).metadata()
+      expect(metadata.format).toBe(format)
+      expect(metadata.width).toBe(160)
+      expect(metadata.height).toBe(96)
+      expect(lossyOutput.length).toBeLessThan(
+        pngOutput.length,
+      )
+    })
+
+    test("dithered (non-off) output ignores fullColourEncoding and stays PNG", async () => {
+      const source = await buildGradientPng({
+        width: 160,
+        height: 96,
+      })
+
+      const output = await ditherToPanel({
+        imageBuffer: source,
+        width: 80,
+        height: 48,
+        palette: E6_DEFAULT_PALETTE,
+        algorithm: "floyd-steinberg",
+        fullColourEncoding: { format: "webp", quality: 80 },
+      })
+
+      const metadata = await sharp(output).metadata()
+      expect(metadata.format).toBe("png")
+    })
+  })
 })

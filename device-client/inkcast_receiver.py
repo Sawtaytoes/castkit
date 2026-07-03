@@ -4,9 +4,16 @@ Inkcast device-side MQTT receiver
 =================================
 A tiny resident client for a Raspberry Pi driving a Pimoroni Inky panel. It
 subscribes to the Inkcast server's per-device image topic and draws each
-received PNG to the panel. The Inkcast server has ALREADY dithered, sized, and
+received frame to the panel. The Inkcast server has ALREADY dithered, sized, and
 rotated the image for this exact panel before publishing, so the receiver is a
 "dumb" sink: decode the bytes and push them, no extra image processing.
+
+The payload is usually a palette PNG (dithered views), but the photo frame with
+dithering off ships a lossy JPEG instead (much smaller on the wire; the panel
+re-dithers it). PIL sniffs the format from the bytes, so both just work — but
+note WebP is deliberately NOT used on ARMv6 Pis (Zero W): piwheels' libwebp
+SIGILLs there even though PIL reports webp support. See the server's
+docs/decisions/2026-07-03-photo-frame-jpeg-not-webp-on-armv6.md.
 
 Design notes (Pi Zero W / ARMv6 / 512 MB):
   * Keep the process RESIDENT. Importing PIL/inky costs a few seconds on ARMv6;

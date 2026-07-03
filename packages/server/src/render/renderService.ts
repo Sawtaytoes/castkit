@@ -1,5 +1,8 @@
 import type { DeviceMetadata } from "@inkcast/core/devices/device"
-import type { DitherAdjustments } from "@inkcast/core/pipeline/dither"
+import type {
+  DitherAdjustments,
+  FullColourEncoding,
+} from "@inkcast/core/pipeline/dither"
 import { createChromiumEngine } from "@inkcast/render/chromiumEngine"
 import type { RenderEngine } from "@inkcast/render/engine"
 import type { SafeAreaInset } from "@inkcast/render/renderDeviceImage"
@@ -34,6 +37,7 @@ export type RenderService = {
     agenda?: AgendaData
     adjustments?: DitherAdjustments
     safeAreaInset?: SafeAreaInset
+    fullColourEncoding?: FullColourEncoding
   }) => Promise<Buffer>
   close: () => Promise<void>
 }
@@ -61,6 +65,7 @@ export const createRenderService = async ({
       agenda,
       adjustments,
       safeAreaInset,
+      fullColourEncoding,
     }) => {
       // The view must be laid out in the safe box (device minus the mat
       // inset), not the full panel, so its text reflows to what stays
@@ -91,6 +96,7 @@ export const createRenderService = async ({
         device,
         adjustments,
         safeAreaInset,
+        fullColourEncoding,
       })
     },
     close: async () => {
