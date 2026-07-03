@@ -1,4 +1,5 @@
 import { MONO_PALETTE } from "@inkcast/core/panels/palette"
+import type { FullColourEncoding } from "@inkcast/core/pipeline/dither"
 import { FOLLOWED_NOW_PLAYING_KEY } from "./adapters/nowPlayingAdapter.ts"
 import type { ConfiguredDevice } from "./config/env.ts"
 import { buildDeviceTopics } from "./homeAssistant/discovery.ts"
@@ -42,6 +43,7 @@ export const createPushController = ({
   publisher,
   baseTopic,
   resolveWeatherEntityId,
+  photoEncoding,
 }: {
   devices: readonly ConfiguredDevice[]
   deviceStore: DeviceStore
@@ -52,6 +54,12 @@ export const createPushController = ({
   baseTopic: string
   /** The device's resolved weather entity id (per-device override or global). */
   resolveWeatherEntityId: (deviceId: string) => string
+  /**
+   * Wire format for a full-colour (dithering-"off") photo frame. Only the
+   * bleed photo view uses it; every other view stays lossless PNG so text and
+   * exact palette colours are never degraded.
+   */
+  photoEncoding: FullColourEncoding
 }): PushController => {
   const deviceById = new Map(
     devices.map((device) => [device.id, device]),
@@ -101,7 +109,12 @@ export const createPushController = ({
 
     // Text views honour the mat's safe-area crop; photos bleed to the edge.
     const activeView = deviceStore.getActiveView(deviceId)
-    const safeAreaInset = getIsBleedView(activeView)
+    const isBleedView = getIsBleedView(activeView)
+    // Only the bleed photo view may ship a lossy full-colour frame; every
+    // other view stays lossless PNG (exact text + palette colours).
+    const fullColourEncoding: FullColourEncoding =
+      isBleedView ? photoEncoding : { format: "png" }
+    const safeAreaInset = isBleedView
       ? undefined
       : {
           top:
@@ -147,6 +160,7 @@ export const createPushController = ({
           }
         : {}),
       ...(safeAreaInset ? { safeAreaInset } : {}),
+      fullColourEncoding,
     })
   }
 

@@ -1,5 +1,8 @@
 import type { DeviceMetadata } from "@inkcast/core/devices/device"
-import type { DitherAdjustments } from "@inkcast/core/pipeline/dither"
+import type {
+  DitherAdjustments,
+  FullColourEncoding,
+} from "@inkcast/core/pipeline/dither"
 import { ditherToPanel } from "@inkcast/core/pipeline/dither"
 import type { ReactElement } from "react"
 import sharp from "sharp"
@@ -105,12 +108,14 @@ export const renderDeviceImage = async ({
   device,
   adjustments,
   safeAreaInset,
+  fullColourEncoding,
 }: {
   engine: RenderEngine
   element: ReactElement
   device: DeviceMetadata
   adjustments?: DitherAdjustments
   safeAreaInset?: SafeAreaInset
+  fullColourEncoding?: FullColourEncoding
 }): Promise<Buffer> => {
   const supersampleFactor =
     device.ditherProfile.supersampleFactor
@@ -158,5 +163,6 @@ export const renderDeviceImage = async ({
     algorithm: device.ditherProfile.algorithm,
     rotation: device.rotation,
     adjustments,
+    ...(fullColourEncoding ? { fullColourEncoding } : {}),
   })
 }

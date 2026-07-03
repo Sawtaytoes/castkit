@@ -45,6 +45,39 @@ export type DitherAdjustments = {
 }
 
 /**
+ * How the `"off"` (panel-dithers-it-itself) path encodes its full-colour
+ * output. `png` is lossless (exact, but a photographic RGB PNG is large);
+ * `webp`/`jpeg` are lossy and shrink a photo frame ~10× on the wire — fine
+ * there because the panel re-quantizes anyway. `quality` (1–100) applies to
+ * the lossy formats only. Defaults to lossless PNG so non-photo callers are
+ * never silently degraded.
+ */
+export type FullColourEncoding = {
+  format: "png" | "webp" | "jpeg"
+  quality?: number
+}
+
+const DEFAULT_LOSSY_QUALITY = 80
+
+/** Encode a sharp pipeline as the chosen full-colour format. */
+const encodeFullColour = ({
+  pipeline,
+  encoding,
+}: {
+  pipeline: ReturnType<typeof sharp>
+  encoding: FullColourEncoding
+}): Promise<Buffer> => {
+  const quality = encoding.quality ?? DEFAULT_LOSSY_QUALITY
+  if (encoding.format === "webp") {
+    return pipeline.webp({ quality }).toBuffer()
+  }
+  if (encoding.format === "jpeg") {
+    return pipeline.jpeg({ quality }).toBuffer()
+  }
+  return pipeline.png().toBuffer()
+}
+
+/**
  * Chroma (max channel − min channel) at or below which a pixel counts as
  * neutral (gray). Anti-aliased text edges sit well under this; genuine panel
  * colours sit well above it.
@@ -352,6 +385,7 @@ export const ditherToPanel = async ({
   algorithm,
   rotation = 0,
   adjustments,
+  fullColourEncoding = { format: "png" },
 }: {
   imageBuffer: Buffer
   width: number
@@ -360,6 +394,7 @@ export const ditherToPanel = async ({
   algorithm: DitherAlgorithm
   rotation?: number
   adjustments?: DitherAdjustments
+  fullColourEncoding?: FullColourEncoding
 }): Promise<Buffer> => {
   const brightness = adjustments?.brightness ?? 1
   const saturation = adjustments?.saturation ?? 1
@@ -380,14 +415,17 @@ export const ditherToPanel = async ({
     : downscalePipeline
 
   // "off": skip our palette quantization and hand the panel a full-colour
-  // (downscaled, tone-adjusted) image so its own controller dithers. Still an
-  // unambiguous RGB PNG, rotated into the mount orientation.
+  // (downscaled, tone-adjusted) image so its own controller dithers. Rotated
+  // into the mount orientation and encoded per `fullColourEncoding` — lossless
+  // RGB PNG by default, or a lossy WebP/JPEG (much smaller on the wire) for the
+  // photo frame, where the panel re-dithers anyway.
   if (algorithm === "off") {
-    return adjustedPipeline
-      .rotate(rotation)
-      .removeAlpha()
-      .png()
-      .toBuffer()
+    return encodeFullColour({
+      pipeline: adjustedPipeline
+        .rotate(rotation)
+        .removeAlpha(),
+      encoding: fullColourEncoding,
+    })
   }
 
   const { data: rgbaBuffer } = await adjustedPipeline

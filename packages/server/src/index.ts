@@ -217,6 +217,7 @@ const main = async () => {
     publisher,
     baseTopic,
     resolveWeatherEntityId,
+    photoEncoding: config.photoEncoding,
   })
 
   const pushDeviceLogged = (deviceId: string) => {

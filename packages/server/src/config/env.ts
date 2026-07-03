@@ -65,6 +65,23 @@ const EnvSchema = z.object({
   ),
   IMMICH_URL: z._default(z.string(), ""),
   IMMICH_API_TOKEN: z._default(z.string(), ""),
+  // Wire format for a full-colour (dithering-"off") photo frame. The old RGB
+  // PNG was ~500 KB per frame on the MQTT payload — slow to deliver; a lossy
+  // JPEG/WebP is ~30× smaller and the panel re-dithers anyway, so lossy is
+  // fine here. Applies ONLY to the photo bleed view — text/dithered views are
+  // always PNG.
+  //
+  // Default is JPEG, NOT WebP: the Impression's Pi Zero W is ARMv6, and the
+  // piwheels Pillow's libwebp is compiled with ARMv7/NEON instructions that
+  // CPU lacks — `features.check("webp")` reports True but an actual WebP decode
+  // dies with SIGILL (illegal instruction). libjpeg is ARMv6-safe. WebP is
+  // kept as an option for a future ARMv7+/ARMv8 photo panel (Zero 2 W / Pi 4).
+  // See docs/decisions/2026-07-03-photo-frame-jpeg-not-webp-on-armv6.md.
+  INKCAST_PHOTO_ENCODING: z._default(
+    z.enum(["webp", "jpeg", "png"]),
+    "jpeg",
+  ),
+  INKCAST_PHOTO_QUALITY: z._default(z.coerce.number(), 80),
 })
 
 /**
@@ -157,6 +174,11 @@ export type ImmichSettings = {
   apiKey: string
 }
 
+export type PhotoEncodingSettings = {
+  format: "webp" | "jpeg" | "png"
+  quality: number
+}
+
 export type InkcastConfig = {
   port: number
   apiToken: string
@@ -165,6 +187,7 @@ export type InkcastConfig = {
   mqtt: MqttConfig
   homeAssistant: HomeAssistantConfig
   immich: ImmichSettings
+  photoEncoding: PhotoEncodingSettings
 }
 
 /** Parse + validate configuration from `process.env`. Throws on bad input. */
@@ -211,6 +234,10 @@ export const loadConfig = (
     immich: {
       url: parsed.IMMICH_URL,
       apiKey: parsed.IMMICH_API_TOKEN,
+    },
+    photoEncoding: {
+      format: parsed.INKCAST_PHOTO_ENCODING,
+      quality: parsed.INKCAST_PHOTO_QUALITY,
     },
   }
 }
