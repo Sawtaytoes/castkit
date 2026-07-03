@@ -17,9 +17,10 @@ import {
  * empty "Today" heading — so a device parked on this view on a free day just
  * looks like the weather clock, and it is safe as an always-available option.
  *
- * The compact pHAT (≤200px tall) is switched to this view *because* one event
- * is imminent, so it foregrounds a single event line under a compact date/temp
- * row. The large Impression gives the date and weather their own rows, then a
+ * The compact pHAT (≤200px tall) is switched to this view *because* an event
+ * is imminent, so it shrinks the time to move it up and stacks a few tight
+ * event rows under a compact date/temp row. The large Impression gives the
+ * date and weather their own rows, then a
  * "Today" heading and up to a handful of event rows. Every string
  * (time, date, weather, and each event's `timeText`) arrives pre-formatted so
  * the view stays a pure function of its props; all text is bold to survive
@@ -69,10 +70,19 @@ export const ClockAgendaView = ({
   const readableFloor = READABLE_FONT_FLOOR_PX[colourMode]
 
   // With an event present the time cedes height to the agenda; without one the
-  // proportions match ClockWeatherView.
+  // proportions match ClockWeatherView. On the compact pHAT the time shrinks
+  // further still when events are present, moving it up to free vertical room
+  // for a stack of event rows.
   const fittedTime = fitText({
     baseFontSize: Math.round(
-      height * (hasEvents ? 0.3 : hasWeather ? 0.36 : 0.42),
+      height *
+        (hasEvents
+          ? isCompactPanel
+            ? 0.2
+            : 0.3
+          : hasWeather
+            ? 0.36
+            : 0.42),
     ),
     minimumFontSize: readableFloor,
     availableWidth,
@@ -101,6 +111,12 @@ export const ClockAgendaView = ({
   const headingFontSize = Math.round(height * 0.055)
   const eventTimeFontSize = Math.round(height * 0.07)
   const eventSummaryFontSize = Math.round(height * 0.07)
+  // Compact rows sit at the readable floor so as many fit as legibility allows,
+  // with the time nudged up so it reads as the row's anchor.
+  const compactEventTimeFontSize = Math.round(
+    readableFloor * 1.15,
+  )
+  const compactEventSummaryFontSize = readableFloor
 
   const rootStyle: CSSProperties = {
     ...buildPanelRootStyle({ width, height }),
@@ -195,26 +211,38 @@ export const ClockAgendaView = ({
     marginLeft: Math.round(width * 0.025),
   }
 
-  // The compact single-event line packs the imminent event's time + summary.
-  const compactEventText = hasEvents
-    ? `${events[0].timeText} ${events[0].summary}`
-    : ""
-  const fittedCompactEvent = fitText({
-    baseFontSize: Math.round(height * 0.13),
-    minimumFontSize: readableFloor,
-    availableWidth,
-    text: compactEventText,
-  })
-
-  const compactEventStyle: CSSProperties = {
+  // The compact pHAT stacks its imminent events as tight time + summary rows,
+  // sized so a handful fit above the fold on a 122px panel.
+  const compactAgendaBlockStyle: CSSProperties = {
     display: "flex",
-    fontSize: fittedCompactEvent.fontSize,
-    letterSpacing: fittedCompactEvent.letterSpacing,
+    flexDirection: "column",
+    alignItems: "flex-start",
+    marginTop: Math.round(height * 0.03),
+  }
+
+  const compactEventRowStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "baseline",
+    marginTop: Math.round(height * 0.01),
+  }
+
+  const compactEventTimeStyle: CSSProperties = {
+    display: "flex",
+    fontSize: compactEventTimeFontSize,
     fontWeight: 700,
-    lineHeight: 1,
-    whiteSpace: "nowrap",
-    marginTop: Math.round(height * 0.06),
+    lineHeight: 1.1,
     color: accentColour,
+    minWidth: Math.round(width * 0.2),
+  }
+
+  const compactEventSummaryStyle: CSSProperties = {
+    display: "flex",
+    fontSize: compactEventSummaryFontSize,
+    fontWeight: 700,
+    lineHeight: 1.1,
+    whiteSpace: "nowrap",
+    marginLeft: Math.round(width * 0.02),
   }
 
   const agendaBlockStyle: CSSProperties = {
@@ -301,8 +329,20 @@ export const ClockAgendaView = ({
       )}
 
       {!hasEvents ? null : isCompactPanel ? (
-        <div style={compactEventStyle}>
-          {compactEventText}
+        <div style={compactAgendaBlockStyle}>
+          {events.map((event) => (
+            <div
+              key={`${event.timeText}-${event.summary}`}
+              style={compactEventRowStyle}
+            >
+              <div style={compactEventTimeStyle}>
+                {event.timeText}
+              </div>
+              <div style={compactEventSummaryStyle}>
+                {event.summary}
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div style={agendaBlockStyle}>
