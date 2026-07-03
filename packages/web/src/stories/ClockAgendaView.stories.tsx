@@ -22,7 +22,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const PhatMono: Story = {
-  name: "pHAT mono (1 event)",
+  name: "pHAT mono (3 events)",
   args: {
     width: 250,
     height: 122,
@@ -31,7 +31,11 @@ export const PhatMono: Story = {
     date: "We-02",
     temperatureText: "79°",
     conditionText: "Partly cloudy",
-    events: [{ timeText: "2:30p", summary: "Dentist" }],
+    events: [
+      { timeText: "2:30p", summary: "Dentist" },
+      { timeText: "4:00p", summary: "Pick up kids" },
+      { timeText: "6:30p", summary: "Dinner" },
+    ],
   },
 }
 

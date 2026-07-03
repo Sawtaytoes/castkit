@@ -126,7 +126,7 @@ const formatEventTime = ({
 }
 
 /** How many events each panel can legibly show. */
-const MAX_AGENDA_EVENTS_COMPACT = 1
+const MAX_AGENDA_EVENTS_COMPACT = 3
 const MAX_AGENDA_EVENTS_LARGE = 4
 
 /** Small panels get the compact date/time formats. */
