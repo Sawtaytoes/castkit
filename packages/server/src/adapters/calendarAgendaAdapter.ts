@@ -34,12 +34,14 @@ type WireCalendarEvent = {
 /**
  * Maps Home Assistant's raw calendar events to the agenda view's data: keeps
  * only events with a resolvable start, marks all-day events (a bare `date` with
- * no `dateTime`), trims summaries, and sorts ascending by start. Pure and
- * exported so it can be unit-tested like `mapHomeAssistantStateToWeather`.
+ * no `dateTime`), trims summaries, collapses exact duplicates (the same
+ * appointment shared across two calendars), and sorts ascending by start. Pure
+ * and exported so it can be unit-tested like `mapHomeAssistantStateToWeather`.
  */
 export const mapCalendarEventsToAgenda = (
   wireEvents: readonly WireCalendarEvent[],
 ): AgendaData => {
+  const seenEventKeys = new Set<string>()
   const events = wireEvents
     .map((wireEvent): AgendaEvent | null => {
       const startDateTime = wireEvent.start?.dateTime
@@ -61,6 +63,17 @@ export const mapCalendarEventsToAgenda = (
       }
     })
     .filter((event): event is AgendaEvent => event !== null)
+    // Two calendars can carry the same appointment; keep the first and drop
+    // later exact matches (same start, all-day flag, and summary) so it shows
+    // once rather than as a duplicate row.
+    .filter((event) => {
+      const eventKey = `${event.startMs}|${event.isAllDay}|${event.summary}`
+      if (seenEventKeys.has(eventKey)) {
+        return false
+      }
+      seenEventKeys.add(eventKey)
+      return true
+    })
     .sort((left, right) => left.startMs - right.startMs)
 
   return { events }
