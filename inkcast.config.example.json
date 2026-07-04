@@ -1,0 +1,22 @@
+[
+  {
+    "id": "inky-phat",
+    "label": "Kitchen pHAT",
+    "mac": "aa:bb:cc:00:00:01",
+    "width": 250,
+    "height": 122,
+    "colourMode": "mono",
+    "rotation": 180,
+    "ditherProfile": { "algorithm": "atkinson", "supersampleFactor": 4 }
+  },
+  {
+    "id": "inky-impression",
+    "label": "Hallway Impression 7.3\"",
+    "mac": "aa:bb:cc:00:00:02",
+    "width": 800,
+    "height": 480,
+    "colourMode": "e6",
+    "rotation": 0,
+    "ditherProfile": { "algorithm": "floyd-steinberg", "supersampleFactor": 4 }
+  }
+]
