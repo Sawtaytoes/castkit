@@ -4,6 +4,7 @@ import {
   DITHER_ALGORITHMS,
   type DitherAlgorithm,
 } from "@inkcast/core/devices/device"
+import type { FullColourEncoding } from "@inkcast/core/pipeline/dither"
 import { createCalendarAgendaAdapter } from "./adapters/calendarAgendaAdapter.ts"
 import {
   createNowPlayingAdapter,
@@ -30,6 +31,8 @@ import {
   CROP_EDGES,
   type CropEdge,
   createDeviceConfigStore,
+  type PhotoFormat,
+  type PhotoFormatSetting,
 } from "./state/deviceConfigStore.ts"
 import { createDeviceStore } from "./state/deviceStore.ts"
 import { createViewDataStore } from "./state/viewDataStore.ts"
@@ -79,6 +82,45 @@ const getIsDitherAlgorithm = (
 // state. Formerly the INKCAST_PHOTO_MINUTES / _RECENCY_HALF_LIFE_DAYS env vars.
 const DEFAULT_PHOTO_INTERVAL_MINUTES = 10
 const DEFAULT_PHOTO_RECENCY_HALF_LIFE_DAYS = 365
+// The full-colour photo format shipped until an HA config entity overrides it.
+// JPEG (not WebP) because the only current photo panel is an ARMv6 Pi that
+// SIGILLs on WebP decode — see the JPEG-not-WebP decision record.
+const DEFAULT_PHOTO_FORMAT: PhotoFormat = "jpeg"
+const DEFAULT_PHOTO_QUALITY = 80
+
+/**
+ * Canonicalize an HA photo-format option payload ("Auto"/"JPEG"/"WebP"/"PNG",
+ * any case) to a per-device setting, or null if unrecognized. "Auto" = inherit
+ * the global default.
+ */
+const parsePhotoFormatSetting = (
+  payload: string,
+): PhotoFormatSetting | null => {
+  const normalized = payload.trim().toLowerCase()
+  if (normalized === "auto") {
+    return "auto"
+  }
+  return (
+    (["jpeg", "webp", "png"] as const).find(
+      (format) => format === normalized,
+    ) ?? null
+  )
+}
+
+/**
+ * The exact HA option string for a stored photo-format setting — must match the
+ * select's `options` casing ("WebP", not "WEBP") so HA accepts the round-tripped
+ * retained state.
+ */
+const PHOTO_FORMAT_OPTION_BY_SETTING: Record<
+  PhotoFormatSetting,
+  string
+> = {
+  auto: "Auto",
+  jpeg: "JPEG",
+  webp: "WebP",
+  png: "PNG",
+}
 
 /** Parse + clamp an HA number-entity payload ("50".."200", % steps). */
 const parsePercentPayload = (payload: string) => {
@@ -194,6 +236,30 @@ const main = async () => {
     }
     return DEFAULT_PHOTO_RECENCY_HALF_LIFE_DAYS
   }
+  // The photo wire format + lossy quality, resolved per device: a real
+  // per-device value wins; "Auto"/0 (or unset) inherit the global default; and
+  // if neither is set the ARMv6-safe fallback (JPEG q80) applies.
+  const resolvePhotoEncoding = (
+    deviceId: string,
+  ): FullColourEncoding => {
+    const perDeviceFormat =
+      deviceConfigStore.getPhotoFormat(deviceId)
+    const format: PhotoFormat =
+      perDeviceFormat && perDeviceFormat !== "auto"
+        ? perDeviceFormat
+        : (deviceConfigStore.getGlobalPhotoFormat() ??
+          DEFAULT_PHOTO_FORMAT)
+
+    const perDeviceQuality =
+      deviceConfigStore.getPhotoQuality(deviceId)
+    const quality =
+      perDeviceQuality !== undefined && perDeviceQuality > 0
+        ? perDeviceQuality
+        : (deviceConfigStore.getGlobalPhotoQuality() ??
+          DEFAULT_PHOTO_QUALITY)
+
+    return { format, quality }
+  }
   // The union of every device's resolved weather entity — the set the HA
   // stream watches (deduped, empties dropped). Read live so config edits take
   // effect without a reconnect.
@@ -217,7 +283,7 @@ const main = async () => {
     publisher,
     baseTopic,
     resolveWeatherEntityId,
-    photoEncoding: config.photoEncoding,
+    resolvePhotoEncoding,
   })
 
   const pushDeviceLogged = (deviceId: string) => {
@@ -403,6 +469,19 @@ const main = async () => {
         (device) =>
           deviceStore.getActiveView(device.id) ===
           "Clock (Weather)",
+      )
+      .forEach((device) => {
+        pushDeviceLogged(device.id)
+      })
+  }
+
+  /** Re-push every device showing the Photo Frame (global format/quality changed). */
+  const refreshAllPhotoFrameDevices = () => {
+    config.devices
+      .filter(
+        (device) =>
+          deviceStore.getActiveView(device.id) ===
+          "Photo Frame",
       )
       .forEach((device) => {
         pushDeviceLogged(device.id)
@@ -612,6 +691,58 @@ const main = async () => {
           },
         ],
         [
+          "photoFormat",
+          {
+            applyPayload: ({ deviceId, payload }) => {
+              const setting =
+                parsePhotoFormatSetting(payload)
+              if (setting === null) {
+                return null
+              }
+              deviceConfigStore.setPhotoFormat({
+                deviceId,
+                format: setting,
+              })
+              return PHOTO_FORMAT_OPTION_BY_SETTING[setting]
+            },
+            getHasValue: (deviceId) =>
+              deviceConfigStore.getPhotoFormat(deviceId) !==
+              undefined,
+            onApplied: async (deviceId) => {
+              await pushController.pushDevice(deviceId)
+            },
+          },
+        ],
+        [
+          // 0 = inherit the global default (a number entity always has a
+          // value, so 0 is the "unset" sentinel).
+          "photoQuality",
+          {
+            applyPayload: ({ deviceId, payload }) => {
+              const quality = parseBoundedInteger({
+                payload,
+                min: 0,
+                max: 100,
+              })
+              if (quality === null) {
+                return null
+              }
+              deviceConfigStore.setPhotoQuality({
+                deviceId,
+                quality,
+              })
+              return String(quality)
+            },
+            getHasValue: (deviceId) =>
+              deviceConfigStore.getPhotoQuality(
+                deviceId,
+              ) !== undefined,
+            onApplied: async (deviceId) => {
+              await pushController.pushDevice(deviceId)
+            },
+          },
+        ],
+        [
           "dither",
           {
             applyPayload: ({ deviceId, payload }) => {
@@ -767,6 +898,14 @@ const main = async () => {
         photoRecency: {
           command: topics.photoRecencyCommand,
           state: topics.photoRecencyState,
+        },
+        photoFormat: {
+          command: topics.photoFormatCommand,
+          state: topics.photoFormatState,
+        },
+        photoQuality: {
+          command: topics.photoQualityCommand,
+          state: topics.photoQualityState,
         },
         photoPeople: {
           command: topics.photoPeopleCommand,
@@ -941,6 +1080,54 @@ const main = async () => {
           seedDefault: String(
             DEFAULT_PHOTO_RECENCY_HALF_LIFE_DAYS,
           ),
+        },
+      ],
+      [
+        "photoFormat",
+        {
+          command: globalTopics.photoFormatCommand,
+          state: globalTopics.photoFormatState,
+          applyPayload: (payload) => {
+            const setting = parsePhotoFormatSetting(payload)
+            // The global default has no "Auto" — it IS the root default.
+            if (setting === null || setting === "auto") {
+              return null
+            }
+            deviceConfigStore.setGlobalPhotoFormat(setting)
+            return PHOTO_FORMAT_OPTION_BY_SETTING[setting]
+          },
+          getHasValue: () =>
+            deviceConfigStore.getGlobalPhotoFormat() !==
+            undefined,
+          afterChange: refreshAllPhotoFrameDevices,
+          seedDefault:
+            PHOTO_FORMAT_OPTION_BY_SETTING[
+              DEFAULT_PHOTO_FORMAT
+            ],
+        },
+      ],
+      [
+        "photoQuality",
+        {
+          command: globalTopics.photoQualityCommand,
+          state: globalTopics.photoQualityState,
+          applyPayload: (payload) => {
+            const quality = parseBoundedInteger({
+              payload,
+              min: 1,
+              max: 100,
+            })
+            if (quality === null) {
+              return null
+            }
+            deviceConfigStore.setGlobalPhotoQuality(quality)
+            return String(quality)
+          },
+          getHasValue: () =>
+            deviceConfigStore.getGlobalPhotoQuality() !==
+            undefined,
+          afterChange: refreshAllPhotoFrameDevices,
+          seedDefault: String(DEFAULT_PHOTO_QUALITY),
         },
       ],
     ])
@@ -1262,6 +1449,24 @@ const main = async () => {
             kind: "photoRecency",
             hasValue:
               deviceConfigStore.getPhotoRecencyHalfLifeDays(
+                device.id,
+              ) !== undefined,
+            payload: "0",
+          },
+          // Per-device format defaults to "Auto" (inherit global); quality to
+          // 0 (= inherit global).
+          {
+            kind: "photoFormat",
+            hasValue:
+              deviceConfigStore.getPhotoFormat(
+                device.id,
+              ) !== undefined,
+            payload: "Auto",
+          },
+          {
+            kind: "photoQuality",
+            hasValue:
+              deviceConfigStore.getPhotoQuality(
                 device.id,
               ) !== undefined,
             payload: "0",
