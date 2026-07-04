@@ -70,6 +70,10 @@ export const buildDeviceTopics = ({
     photoIntervalState: `${base}/photo_interval`,
     photoRecencyCommand: `${base}/photo_recency/set`,
     photoRecencyState: `${base}/photo_recency`,
+    photoFormatCommand: `${base}/photo_format/set`,
+    photoFormatState: `${base}/photo_format`,
+    photoQualityCommand: `${base}/photo_quality/set`,
+    photoQualityState: `${base}/photo_quality`,
     photoNextCommand: `${base}/photo_next/set`,
     photoPreviousCommand: `${base}/photo_previous/set`,
     ditherCommand: `${base}/dither/set`,
@@ -109,12 +113,36 @@ export const buildGlobalTopics = (
   /** Global default Photo Frame recency half-life, days. */
   photoRecencyCommand: `${baseTopic}/photo_recency/set`,
   photoRecencyState: `${baseTopic}/photo_recency`,
+  /** Global default Photo Frame wire format. */
+  photoFormatCommand: `${baseTopic}/photo_format/set`,
+  photoFormatState: `${baseTopic}/photo_format`,
+  /** Global default Photo Frame lossy quality (1–100). */
+  photoQualityCommand: `${baseTopic}/photo_quality/set`,
+  photoQualityState: `${baseTopic}/photo_quality`,
 })
 
 /** The HA-facing colour-mode option strings (double as MQTT payloads). */
 export const COLOUR_MODE_OPTIONS = [
   "Color",
   "Black & White",
+] as const
+
+/**
+ * HA-facing Photo Frame format options (double as MQTT payloads). The global
+ * default select offers the three real formats; a per-device select prepends
+ * "Auto" (= inherit the global default). WebP is listed for future ARMv7+/ARMv8
+ * photo panels — it crashes ARMv6 Pis on decode (see the JPEG-not-WebP decision
+ * record), so the shipped default stays JPEG.
+ */
+export const GLOBAL_PHOTO_FORMAT_OPTIONS = [
+  "JPEG",
+  "WebP",
+  "PNG",
+] as const
+
+export const PHOTO_FORMAT_OPTIONS = [
+  "Auto",
+  ...GLOBAL_PHOTO_FORMAT_OPTIONS,
 ] as const
 
 /** The HA `device` block that ties every entity to one physical display. */
@@ -421,6 +449,42 @@ export const buildDiscoveryMessages = ({
       },
     },
     {
+      // Per-device Photo Frame wire format. "Auto" = inherit the global default
+      // on the Inkcast Server device. Only the photo (bleed) view uses it;
+      // text/dithered views are always PNG.
+      topic: discoveryTopic("select", "photo_format"),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "Photo Frame: Format",
+        unique_id: `inkcast_${device.id}_photo_format`,
+        options: Array.from(PHOTO_FORMAT_OPTIONS),
+        command_topic: topics.photoFormatCommand,
+        state_topic: topics.photoFormatState,
+        entity_category: "config",
+        device: deviceBlock,
+      },
+    },
+    {
+      // Per-device lossy quality for JPEG/WebP. 0 = inherit the global default
+      // (a number entity always carries a value, so 0 is the "unset" sentinel).
+      topic: discoveryTopic("number", "photo_quality"),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "Photo Frame: Quality",
+        unique_id: `inkcast_${device.id}_photo_quality`,
+        command_topic: topics.photoQualityCommand,
+        state_topic: topics.photoQualityState,
+        min: 0,
+        max: 100,
+        step: 1,
+        unit_of_measurement: "%",
+        entity_category: "config",
+        device: deviceBlock,
+      },
+    },
+    {
       topic: discoveryTopic("button", "photo_next"),
       isRetained: true,
       payload: {
@@ -574,6 +638,41 @@ export const buildGlobalDiscoveryMessages = (
         max: 3650,
         step: 1,
         unit_of_measurement: "d",
+        entity_category: "config",
+        device: serverDeviceBlock,
+      },
+    },
+    {
+      // Global default Photo Frame wire format — used by any display whose own
+      // "Photo Frame: Format" is "Auto" (inherit).
+      topic: `${discoveryPrefix}/select/${nodeId}/server_photo_format/config`,
+      isRetained: true as const,
+      payload: {
+        ...availability,
+        name: "Photo Frame: Format",
+        unique_id: "inkcast_server_photo_format",
+        options: Array.from(GLOBAL_PHOTO_FORMAT_OPTIONS),
+        command_topic: topics.photoFormatCommand,
+        state_topic: topics.photoFormatState,
+        entity_category: "config",
+        device: serverDeviceBlock,
+      },
+    },
+    {
+      // Global default lossy quality (1–100) for JPEG/WebP — used by any display
+      // whose own "Photo Frame: Quality" is 0 (inherit).
+      topic: `${discoveryPrefix}/number/${nodeId}/server_photo_quality/config`,
+      isRetained: true as const,
+      payload: {
+        ...availability,
+        name: "Photo Frame: Quality",
+        unique_id: "inkcast_server_photo_quality",
+        command_topic: topics.photoQualityCommand,
+        state_topic: topics.photoQualityState,
+        min: 1,
+        max: 100,
+        step: 1,
+        unit_of_measurement: "%",
         entity_category: "config",
         device: serverDeviceBlock,
       },

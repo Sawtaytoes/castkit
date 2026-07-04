@@ -392,13 +392,17 @@ describe("ditherToPanel", () => {
       const raw = Buffer.alloc(width * height * 3)
       Array.from({ length: width * height }).forEach(
         (_unused, pixelIndex) => {
-          const x = pixelIndex % width
-          const y = Math.floor(pixelIndex / width)
+          const columnIndex = pixelIndex % width
+          const rowIndex = Math.floor(pixelIndex / width)
           const offset = pixelIndex * 3
-          raw[offset] = Math.floor((x * 255) / width)
-          raw[offset + 1] = Math.floor((y * 255) / height)
+          raw[offset] = Math.floor(
+            (columnIndex * 255) / width,
+          )
+          raw[offset + 1] = Math.floor(
+            (rowIndex * 255) / height,
+          )
           raw[offset + 2] = Math.floor(
-            (Math.sin(x / 7) + 1) * 127,
+            (Math.sin(columnIndex / 7) + 1) * 127,
           )
         },
       )
