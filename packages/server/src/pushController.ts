@@ -43,7 +43,7 @@ export const createPushController = ({
   publisher,
   baseTopic,
   resolveWeatherEntityId,
-  photoEncoding,
+  resolvePhotoEncoding,
 }: {
   devices: readonly ConfiguredDevice[]
   deviceStore: DeviceStore
@@ -55,11 +55,14 @@ export const createPushController = ({
   /** The device's resolved weather entity id (per-device override or global). */
   resolveWeatherEntityId: (deviceId: string) => string
   /**
-   * Wire format for a full-colour (dithering-"off") photo frame. Only the
-   * bleed photo view uses it; every other view stays lossless PNG so text and
-   * exact palette colours are never degraded.
+   * The device's resolved full-colour wire format (per-device override or
+   * global default, both HA config). Only the bleed photo view uses it; every
+   * other view stays lossless PNG so text and exact palette colours are never
+   * degraded.
    */
-  photoEncoding: FullColourEncoding
+  resolvePhotoEncoding: (
+    deviceId: string,
+  ) => FullColourEncoding
 }): PushController => {
   const deviceById = new Map(
     devices.map((device) => [device.id, device]),
@@ -113,7 +116,9 @@ export const createPushController = ({
     // Only the bleed photo view may ship a lossy full-colour frame; every
     // other view stays lossless PNG (exact text + palette colours).
     const fullColourEncoding: FullColourEncoding =
-      isBleedView ? photoEncoding : { format: "png" }
+      isBleedView
+        ? resolvePhotoEncoding(deviceId)
+        : { format: "png" }
     const safeAreaInset = isBleedView
       ? undefined
       : {
