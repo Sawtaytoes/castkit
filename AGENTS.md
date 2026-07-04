@@ -15,6 +15,19 @@ non-trivial task. Highlights:
 
 - **Public OSS app.** No secrets, credentials, hostnames, or real device
   identifiers in git — config comes from the environment (`.env`, gitignored).
+- **⛔ User-tunable settings are HA/MQTT config entities — NEVER new env vars.**
+  Anything a user might want to change per install or per screen (view settings,
+  photo format/quality/interval, weather entity, crop insets, brightness, …) is
+  exposed as a Home Assistant MQTT-discovery config entity — a **global default**
+  on the "Inkcast Server" device **plus a per-device override** — with the
+  retained state topic as its persistence. Do **not** reach for a `process.env`
+  knob for these. Env vars are reserved for **deploy-time infrastructure** only
+  (broker host/creds, HA URL/token, render engine, ports). To add a user knob,
+  mirror an existing one end-to-end: `deviceConfigStore` field → `buildDeviceTopics`
+  / `buildGlobalTopics` → `buildDiscoveryMessages` / `buildGlobalDiscoveryMessages`
+  → the `configKnobs` / `globalConfigKnobs` maps + `getKnobTopics` + the seed list
+  in `index.ts`. See
+  [docs/decisions/2026-07-03-user-tunable-view-settings-are-ha-config-entities.md](docs/decisions/2026-07-03-user-tunable-view-settings-are-ha-config-entities.md).
 - **Develop on a local disk (node-modules linker).** A mapped network share
   can't host the Yarn-workspace symlinks (both `node-modules` and PnP fail over
   SMB) — keep the working tree on a local drive.
@@ -111,3 +124,8 @@ Add deps at latest: `yarn workspace @inkcast/<pkg> add <dep>@latest`.
 No secrets in git. The MQTT broker host/credentials, device tokens, and any HA
 connection details are read from environment variables at runtime (`.env` is
 gitignored). Keep the app portable so a third party can self-host.
+
+Env vars are for **deploy-time infrastructure only** (broker, HA URL/token,
+render engine, ports, Immich URL/key). **User-tunable settings do NOT belong in
+env** — they're HA/MQTT config entities (global default + per-device override);
+see the locked-decision rule above.
