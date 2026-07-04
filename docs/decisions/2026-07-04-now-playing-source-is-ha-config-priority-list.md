@@ -1,10 +1,16 @@
 # The now-playing source is an HA config entity: a per-device priority-ordered media_player list
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-07-04
 - **Type:** Architecture / Product behavior
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-07-04 Inkcast is a HA-agnostic renderer: HA pushes view data over MQTT; Inkcast never reads HA](2026-07-04-inkcast-renders-ha-pushed-data-not-reads-ha.md)
+
+> **Superseded same day.** The priority-ordered source picker put HA-domain
+> logic (which player is playing, in what order) inside Inkcast. That logic
+> moves to an HA template, which pushes the resolved now-playing payload to
+> Inkcast over MQTT. Inkcast stops reading HA entirely. See the superseding
+> record.
 
 ## Decision
 
