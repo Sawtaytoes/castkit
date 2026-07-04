@@ -73,6 +73,8 @@ describe("buildDiscoveryMessages", () => {
       "text", // Weather: Entity
       "number", // Photo Frame: Rotation minutes
       "number", // Photo Frame: Recency half-life days
+      "select", // Photo Frame: Format
+      "number", // Photo Frame: Quality
       "button", // Photo Frame: Next photo
       "button", // Photo Frame: Previous photo
       "sensor", // last render
@@ -89,6 +91,8 @@ describe("buildDiscoveryMessages", () => {
       "homeassistant/text/inkcast/server_weather_entity/config",
       "homeassistant/number/inkcast/server_photo_interval/config",
       "homeassistant/number/inkcast/server_photo_recency/config",
+      "homeassistant/select/inkcast/server_photo_format/config",
+      "homeassistant/number/inkcast/server_photo_quality/config",
     ])
     expect(globalMessages[0].payload.state_topic).toBe(
       "inkcast/now_playing_active",
@@ -120,6 +124,28 @@ describe("buildDiscoveryMessages", () => {
         message.topic.includes("_colour_mode/"),
       ),
     ).toBe(false)
+  })
+
+  test("the per-device photo-format select offers Auto + the three formats", () => {
+    const formatMessage = messages.find((message) =>
+      message.topic.includes("_photo_format/"),
+    )
+    expect(formatMessage?.payload.options).toEqual([
+      "Auto",
+      "JPEG",
+      "WebP",
+      "PNG",
+    ])
+    // The global default select has no "Auto" — it is the root default.
+    const globalFormatMessage =
+      buildGlobalDiscoveryMessages().find((message) =>
+        message.topic.includes("server_photo_format/"),
+      )
+    expect(globalFormatMessage?.payload.options).toEqual([
+      "JPEG",
+      "WebP",
+      "PNG",
+    ])
   })
 
   test("every message is retained with a device-scoped unique_id", () => {

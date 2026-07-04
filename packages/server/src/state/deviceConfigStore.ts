@@ -8,6 +8,18 @@ import type { DitherAlgorithm } from "@inkcast/core/devices/device"
 export type ColourModeOverride = "color" | "bw"
 
 /**
+ * Wire format for the full-colour (dithering-"off") photo frame. `jpeg`/`webp`
+ * are lossy and ~30× smaller than a lossless RGB `png`; the panel re-dithers
+ * anyway so lossy is fine. Global default + per-device override, both HA config
+ * entities (never env vars). WebP is offered but crashes ARMv6 Pis on decode —
+ * see docs/decisions/2026-07-03-photo-frame-jpeg-not-webp-on-armv6.md.
+ */
+export type PhotoFormat = "jpeg" | "webp" | "png"
+
+/** A per-device photo-format override, or "auto" = inherit the global default. */
+export type PhotoFormatSetting = PhotoFormat | "auto"
+
+/**
  * The four edges of a device's safe-area crop inset, in native panel pixels.
  * A physical mat/frame overlaps the panel edges and hides content under it, so
  * text views render inside these insets (white margin); photo views ignore
@@ -95,6 +107,32 @@ export type DeviceConfigStore = {
     deviceId: string
     queryText: string
   }) => void
+  /**
+   * Per-device Photo Frame wire format. `undefined` or `"auto"` = inherit the
+   * global default below.
+   */
+  getPhotoFormat: (
+    deviceId: string,
+  ) => PhotoFormatSetting | undefined
+  setPhotoFormat: (params: {
+    deviceId: string
+    format: PhotoFormatSetting
+  }) => void
+  /** Global default Photo Frame wire format. */
+  getGlobalPhotoFormat: () => PhotoFormat | undefined
+  setGlobalPhotoFormat: (format: PhotoFormat) => void
+  /**
+   * Per-device Photo Frame lossy quality (1–100). `undefined` (or 0, the
+   * "inherit" sentinel) = fall back to the global default below.
+   */
+  getPhotoQuality: (deviceId: string) => number | undefined
+  setPhotoQuality: (params: {
+    deviceId: string
+    quality: number
+  }) => void
+  /** Global default Photo Frame lossy quality (1–100). */
+  getGlobalPhotoQuality: () => number | undefined
+  setGlobalPhotoQuality: (quality: number) => void
   /** Override of the device's registered dither algorithm, if any. */
   getDitherAlgorithm: (
     deviceId: string,
@@ -171,6 +209,19 @@ export const createDeviceConfigStore =
       "global",
       number
     >()
+    const photoFormatByDeviceId = new Map<
+      string,
+      PhotoFormatSetting
+    >()
+    const globalPhotoFormatHolder = new Map<
+      "global",
+      PhotoFormat
+    >()
+    const photoQualityByDeviceId = new Map<string, number>()
+    const globalPhotoQualityHolder = new Map<
+      "global",
+      number
+    >()
     const ditherByDeviceId = new Map<
       string,
       DitherAlgorithm
@@ -194,6 +245,26 @@ export const createDeviceConfigStore =
         photoQueryByDeviceId.get(deviceId) ?? "",
       setPhotoQuery: ({ deviceId, queryText }) => {
         photoQueryByDeviceId.set(deviceId, queryText)
+      },
+      getPhotoFormat: (deviceId) =>
+        photoFormatByDeviceId.get(deviceId),
+      setPhotoFormat: ({ deviceId, format }) => {
+        photoFormatByDeviceId.set(deviceId, format)
+      },
+      getGlobalPhotoFormat: () =>
+        globalPhotoFormatHolder.get("global"),
+      setGlobalPhotoFormat: (format) => {
+        globalPhotoFormatHolder.set("global", format)
+      },
+      getPhotoQuality: (deviceId) =>
+        photoQualityByDeviceId.get(deviceId),
+      setPhotoQuality: ({ deviceId, quality }) => {
+        photoQualityByDeviceId.set(deviceId, quality)
+      },
+      getGlobalPhotoQuality: () =>
+        globalPhotoQualityHolder.get("global"),
+      setGlobalPhotoQuality: (quality) => {
+        globalPhotoQualityHolder.set("global", quality)
       },
       getAgendaCalendars: (deviceId) =>
         agendaCalendarsByDeviceId.get(deviceId) ?? "",
