@@ -114,15 +114,30 @@ export const observeHomeAssistantEntityStates = ({
         })
       }
 
-      const requestStates = () => {
+      // Home Assistant requires each command id on a connection to be unique
+      // and increasing; reusing one gets an `id_reuse` error result (dropped
+      // below). The initial snapshot uses the reserved id; every on-demand
+      // refresh must allocate a fresh id past the handshake ids, or HA rejects
+      // it and the just-configured entity never gets pulled until it next
+      // changes on its own (the bug this guards against). Track which ids are
+      // `get_states` requests so their results are recognised whatever the id.
+      const getStatesMessageIds = new Set<number>([
+        GET_STATES_MESSAGE_ID,
+      ])
+      const nextRefreshMessageIdHolder = {
+        value: SUBSCRIBE_EVENTS_MESSAGE_ID + 1,
+      }
+
+      const requestStates = (messageId: number) => {
+        getStatesMessageIds.add(messageId)
         sendMessage({
-          id: GET_STATES_MESSAGE_ID,
+          id: messageId,
           type: "get_states",
         })
       }
 
       const requestStatesAndEvents = () => {
-        requestStates()
+        requestStates(GET_STATES_MESSAGE_ID)
         sendMessage({
           id: SUBSCRIBE_EVENTS_MESSAGE_ID,
           type: "subscribe_events",
@@ -133,13 +148,17 @@ export const observeHomeAssistantEntityStates = ({
       // Re-snapshot on demand (the extra-watched set grew). Only meaningful
       // once the socket is open + authenticated; a stray pre-auth `get_states`
       // just returns an error result we already ignore, and the initial
-      // snapshot still runs on `auth_ok`.
+      // snapshot still runs on `auth_ok`. Each refresh gets its own id so HA
+      // accepts it instead of rejecting a reused one.
       const refreshSubscription = refreshSignal?.subscribe(
         () => {
           if (
             webSocket.readyState === WebSocketClient.OPEN
           ) {
-            requestStates()
+            const refreshMessageId =
+              nextRefreshMessageIdHolder.value
+            nextRefreshMessageIdHolder.value += 1
+            requestStates(refreshMessageId)
           }
         },
       )
@@ -191,9 +210,10 @@ export const observeHomeAssistantEntityStates = ({
           requestStatesAndEvents()
         } else if (
           message.type === "result" &&
-          message.id === GET_STATES_MESSAGE_ID &&
+          getStatesMessageIds.has(message.id) &&
           message.success
         ) {
+          getStatesMessageIds.delete(message.id)
           const states: WireState[] = message.result ?? []
           states.forEach(emitIfWatched)
         } else if (
