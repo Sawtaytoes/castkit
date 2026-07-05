@@ -45,10 +45,10 @@ player state directly.
 
 1. ~~Rip out the HA WebSocket + wire MQTT data-in.~~ **DONE 2026-07-05
    (`824862b`).**
-2. **Clock timezone/format become MQTT config entities** (like dither/crop) —
-   the last piece of the pivot still in env (`TZ`). Mirror an existing knob
-   end-to-end (deviceConfigStore field → topics → discovery → configKnobs +
-   getKnobTopics + seed).
+2. ~~Clock timezone/format become MQTT config entities.~~ **DONE 2026-07-05** —
+   "Clock: Timezone" (text), "Clock: Time format" (12/24-hour select), and
+   "Clock: Date style" (Long/Numeric select), each global default + per-device
+   override. `TZ` is now only the boot fallback.
 3. **HA-side templates/automations** publish each view's payload to Inkcast's
    MQTT topics — this is where the now-playing priority (Plex before the
    Shield's cast player), follow-the-active-player, and exclusions now live.
@@ -190,15 +190,18 @@ Image (Screen) · Select (View: 3 now-playing / Photo Frame / Clock /
 Clock (Weather) / Clock (Agenda)) · Buttons (Refresh, Photo Frame:
 Next/Previous photo) · Config: Display: Dither, Display: Color mode (e6 only,
 Color|Black & White), Display: Brightness %, Display: Saturation %,
-Photo Frame: People, Photo Frame: Query · Sensor (Last render). The
-`Display:`/`Photo Frame:` prefixes are deliberate — HA has no config sub-groups,
-names are the grouping. **The "Weather: Entity" and "Agenda: Calendars" config
-entities were removed** in the pivot (Inkcast no longer reads any HA entity).
+Photo Frame: People, Photo Frame: Query, Clock: Timezone (text),
+Clock: Time format (12/24-hour), Clock: Date style (Long/Numeric) · Sensor
+(Last render). The `Display:`/`Photo Frame:`/`Clock:` prefixes are deliberate —
+HA has no config sub-groups, names are the grouping. **The "Weather: Entity" and
+"Agenda: Calendars" config entities were removed** in the pivot (Inkcast no
+longer reads any HA entity).
 
-Plus one server-wide "Inkcast Server" device: the Photo Frame global-default
-config knobs (Rotation minutes, Recency half-life days, Format, Quality). **The
-"Music playing" binary sensor was removed** — what's playing is HA's own
-knowledge now (it computes the pushed payload).
+Plus one server-wide "Inkcast Server" device: the Clock global-default knobs
+(Timezone, Time format, Date style) + the Photo Frame global-default knobs
+(Rotation minutes, Recency half-life days, Format, Quality). **The "Music
+playing" binary sensor was removed** — what's playing is HA's own knowledge now
+(it computes the pushed payload).
 
 ### Views (`packages/views/src/`)
 

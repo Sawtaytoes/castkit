@@ -70,39 +70,79 @@ export const getIsBleedView = (viewName: ViewName) =>
 export const getIsClockBearingView = (viewName: ViewName) =>
   CLOCK_BEARING_VIEW_NAMES.has(viewName)
 
-const formatTime = (now: Date) =>
+/**
+ * How the clock views render time + date. Resolved per device from the HA/MQTT
+ * config entities (global default + per-device override): the timezone (IANA
+ * name, or undefined = the process `TZ`), 12- vs 24-hour time, and long vs
+ * numeric dates. Time itself comes from Inkcast's own clock, not from HA.
+ */
+export type ClockConfig = {
+  /** IANA timezone name, or undefined = the process default (`TZ`). */
+  timeZone: string | undefined
+  /** 12-hour clock (`2:30 PM`) when true, 24-hour (`14:30`) when false. */
+  isTwelveHour: boolean
+  /** Numeric date (`7/5/2026`) when true, long (`Sunday, July 5`) when false. */
+  isNumericDate: boolean
+}
+
+const formatTime = (now: Date, clock: ClockConfig) =>
   new Intl.DateTimeFormat("en-US", {
+    timeZone: clock.timeZone,
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
+    hour12: clock.isTwelveHour,
   }).format(now)
 
-const formatDate = (now: Date) =>
-  new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(now)
+const formatDate = (now: Date, clock: ClockConfig) =>
+  new Intl.DateTimeFormat(
+    "en-US",
+    clock.isNumericDate
+      ? {
+          timeZone: clock.timeZone,
+          year: "numeric",
+          month: "numeric",
+          day: "numeric",
+        }
+      : {
+          timeZone: clock.timeZone,
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        },
+  ).format(now)
 
 /** `11:50p` — every character earns its place on a 250px panel. */
-const formatCompactTime = (now: Date) =>
+const formatCompactTime = (now: Date, clock: ClockConfig) =>
   new Intl.DateTimeFormat("en-US", {
+    timeZone: clock.timeZone,
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
+    hour12: clock.isTwelveHour,
   })
     .format(now)
     .replace(" AM", "a")
     .replace(" PM", "p")
 
-/** `Tu-02` — two-letter weekday plus the day (month is obvious in person). */
-const formatCompactDate = (now: Date) => {
-  const day = String(now.getDate()).padStart(2, "0")
-  const weekday = new Intl.DateTimeFormat("en-US", {
+/**
+ * `Tu-02` — two-letter weekday plus the day (month is obvious in person).
+ * Derived via `formatToParts` in the configured timezone so the day number is
+ * correct even when the panel's timezone differs from the process one.
+ */
+const formatCompactDate = (
+  now: Date,
+  clock: ClockConfig,
+) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: clock.timeZone,
     weekday: "short",
-  })
-    .format(now)
-    .slice(0, 2)
+    day: "2-digit",
+  }).formatToParts(now)
+  const weekday = (
+    parts.find((part) => part.type === "weekday")?.value ??
+    ""
+  ).slice(0, 2)
+  const day =
+    parts.find((part) => part.type === "day")?.value ?? ""
   return `${weekday}-${day}`
 }
 
@@ -111,18 +151,20 @@ const formatEventTime = ({
   startMs,
   isAllDay,
   isCompact,
+  clock,
 }: {
   startMs: number
   isAllDay: boolean
   isCompact: boolean
+  clock: ClockConfig
 }) => {
   if (isAllDay) {
     return isCompact ? "All" : "All day"
   }
   const eventDate = new Date(startMs)
   return isCompact
-    ? formatCompactTime(eventDate)
-    : formatTime(eventDate)
+    ? formatCompactTime(eventDate, clock)
+    : formatTime(eventDate, clock)
 }
 
 /** How many events each panel can legibly show. */
@@ -137,6 +179,7 @@ export const renderViewElement = ({
   viewName,
   device,
   now,
+  clock,
   nowPlaying,
   photoFrame,
   weather,
@@ -145,6 +188,7 @@ export const renderViewElement = ({
   viewName: ViewName
   device: DeviceMetadata
   now: Date
+  clock: ClockConfig
   nowPlaying?: NowPlayingData
   photoFrame?: PhotoFrameData
   weather?: WeatherData
@@ -162,19 +206,19 @@ export const renderViewElement = ({
   if (viewName === "Clock") {
     return createElement(ClockView, {
       ...panel,
-      time: formatTime(now),
-      date: formatDate(now),
+      time: formatTime(now, clock),
+      date: formatDate(now, clock),
     })
   }
   if (viewName === "Clock (Weather)") {
     return createElement(ClockWeatherView, {
       ...panel,
       time: isCompactClock
-        ? formatCompactTime(now)
-        : formatTime(now),
+        ? formatCompactTime(now, clock)
+        : formatTime(now, clock),
       date: isCompactClock
-        ? formatCompactDate(now)
-        : formatDate(now),
+        ? formatCompactDate(now, clock)
+        : formatDate(now, clock),
       temperatureText: weather?.temperatureText,
       conditionText: weather?.conditionText,
     })
@@ -199,17 +243,18 @@ export const renderViewElement = ({
           startMs: event.startMs,
           isAllDay: event.isAllDay,
           isCompact: isCompactClock,
+          clock,
         }),
         summary: event.summary,
       }))
     return createElement(ClockAgendaView, {
       ...panel,
       time: isCompactClock
-        ? formatCompactTime(now)
-        : formatTime(now),
+        ? formatCompactTime(now, clock)
+        : formatTime(now, clock),
       date: isCompactClock
-        ? formatCompactDate(now)
-        : formatDate(now),
+        ? formatCompactDate(now, clock)
+        : formatDate(now, clock),
       temperatureText: weather?.temperatureText,
       conditionText: weather?.conditionText,
       events,
@@ -240,10 +285,10 @@ export const renderViewElement = ({
     ...panel,
     ...nowPlayingProps,
     time: isCompactPanel
-      ? formatCompactTime(now)
-      : formatTime(now),
+      ? formatCompactTime(now, clock)
+      : formatTime(now, clock),
     date: isCompactPanel
-      ? formatCompactDate(now)
-      : formatDate(now),
+      ? formatCompactDate(now, clock)
+      : formatDate(now, clock),
   })
 }

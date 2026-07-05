@@ -29,6 +29,10 @@ import { fetchArtworkDataUri } from "./render/artworkFetch.ts"
 import { createRenderService } from "./render/renderService.ts"
 import { startClockTicker } from "./schedulers/clockTicker.ts"
 import {
+  type ClockDateStyle,
+  type ClockDateStyleSetting,
+  type ClockTimeFormat,
+  type ClockTimeFormatSetting,
   CROP_EDGES,
   type CropEdge,
   createDeviceConfigStore,
@@ -122,6 +126,75 @@ const PHOTO_FORMAT_OPTION_BY_SETTING: Record<
   jpeg: "JPEG",
   webp: "WebP",
   png: "PNG",
+}
+
+// Clock defaults, used until an HA config entity (global default + per-device
+// override) overrides them: 12-hour time, long dates, and the process `TZ`
+// (an empty timezone string). Time is Inkcast's own clock; only the format +
+// zone are MQTT config.
+const DEFAULT_CLOCK_TIME_FORMAT: ClockTimeFormat = "12h"
+const DEFAULT_CLOCK_DATE_STYLE: ClockDateStyle = "long"
+
+/** The exact HA option string for a time-format setting (matches the select). */
+const CLOCK_TIME_FORMAT_OPTION_BY_SETTING: Record<
+  ClockTimeFormatSetting,
+  string
+> = {
+  auto: "Auto",
+  "12h": "12-hour",
+  "24h": "24-hour",
+}
+
+/** Canonicalize an HA time-format option payload to a setting, or null. */
+const parseClockTimeFormatSetting = (
+  payload: string,
+): ClockTimeFormatSetting | null => {
+  const normalized = payload.trim().toLowerCase()
+  if (normalized === "auto") {
+    return "auto"
+  }
+  if (
+    normalized === "12-hour" ||
+    normalized === "12h" ||
+    normalized === "12"
+  ) {
+    return "12h"
+  }
+  if (
+    normalized === "24-hour" ||
+    normalized === "24h" ||
+    normalized === "24"
+  ) {
+    return "24h"
+  }
+  return null
+}
+
+/** The exact HA option string for a date-style setting (matches the select). */
+const CLOCK_DATE_STYLE_OPTION_BY_SETTING: Record<
+  ClockDateStyleSetting,
+  string
+> = {
+  auto: "Auto",
+  long: "Long",
+  numeric: "Numeric",
+}
+
+/** Canonicalize an HA date-style option payload to a setting, or null. */
+const parseClockDateStyleSetting = (
+  payload: string,
+): ClockDateStyleSetting | null => {
+  const normalized = payload.trim().toLowerCase()
+  if (normalized === "auto") {
+    return "auto"
+  }
+  if (normalized === "long") {
+    return "long"
+  }
+  if (normalized === "numeric") {
+    return "numeric"
+  }
+  return null
 }
 
 const ROTATION_VALUES: readonly PanelRotation[] = [
@@ -274,6 +347,33 @@ const main = async () => {
 
     return { format, quality }
   }
+  // The clock timezone + time/date format, resolved per device: a real
+  // per-device value wins; "Auto"/empty inherit the global default; and if
+  // neither is set, the process `TZ` + 12-hour + long-date fallbacks apply.
+  const resolveClockConfig = (deviceId: string) => {
+    const timezone =
+      deviceConfigStore.getClockTimezone(deviceId) ||
+      deviceConfigStore.getGlobalClockTimezone()
+    const timeFormatSetting =
+      deviceConfigStore.getClockTimeFormat(deviceId)
+    const timeFormat: ClockTimeFormat =
+      timeFormatSetting && timeFormatSetting !== "auto"
+        ? timeFormatSetting
+        : (deviceConfigStore.getGlobalClockTimeFormat() ??
+          DEFAULT_CLOCK_TIME_FORMAT)
+    const dateStyleSetting =
+      deviceConfigStore.getClockDateStyle(deviceId)
+    const dateStyle: ClockDateStyle =
+      dateStyleSetting && dateStyleSetting !== "auto"
+        ? dateStyleSetting
+        : (deviceConfigStore.getGlobalClockDateStyle() ??
+          DEFAULT_CLOCK_DATE_STYLE)
+    return {
+      timeZone: timezone || undefined,
+      isTwelveHour: timeFormat === "12h",
+      isNumericDate: dateStyle === "numeric",
+    }
+  }
 
   const pushController = createPushController({
     devices: config.devices,
@@ -284,6 +384,7 @@ const main = async () => {
     publisher,
     baseTopic,
     resolvePhotoEncoding,
+    resolveClockConfig,
   })
 
   const pushDeviceLogged = (deviceId: string) => {
@@ -634,6 +735,79 @@ const main = async () => {
           },
         ],
         [
+          "clockTimezone",
+          {
+            applyPayload: ({ deviceId, payload }) => {
+              deviceConfigStore.setClockTimezone({
+                deviceId,
+                timezone: payload.trim(),
+              })
+              return payload.trim()
+            },
+            getHasValue: (deviceId) =>
+              Boolean(
+                deviceConfigStore.getClockTimezone(
+                  deviceId,
+                ),
+              ),
+            onApplied: async (deviceId) => {
+              await pushController.pushDevice(deviceId)
+            },
+          },
+        ],
+        [
+          "clockTimeFormat",
+          {
+            applyPayload: ({ deviceId, payload }) => {
+              const setting =
+                parseClockTimeFormatSetting(payload)
+              if (setting === null) {
+                return null
+              }
+              deviceConfigStore.setClockTimeFormat({
+                deviceId,
+                setting,
+              })
+              return CLOCK_TIME_FORMAT_OPTION_BY_SETTING[
+                setting
+              ]
+            },
+            getHasValue: (deviceId) =>
+              deviceConfigStore.getClockTimeFormat(
+                deviceId,
+              ) !== undefined,
+            onApplied: async (deviceId) => {
+              await pushController.pushDevice(deviceId)
+            },
+          },
+        ],
+        [
+          "clockDateStyle",
+          {
+            applyPayload: ({ deviceId, payload }) => {
+              const setting =
+                parseClockDateStyleSetting(payload)
+              if (setting === null) {
+                return null
+              }
+              deviceConfigStore.setClockDateStyle({
+                deviceId,
+                setting,
+              })
+              return CLOCK_DATE_STYLE_OPTION_BY_SETTING[
+                setting
+              ]
+            },
+            getHasValue: (deviceId) =>
+              deviceConfigStore.getClockDateStyle(
+                deviceId,
+              ) !== undefined,
+            onApplied: async (deviceId) => {
+              await pushController.pushDevice(deviceId)
+            },
+          },
+        ],
+        [
           "dither",
           {
             applyPayload: ({ deviceId, payload }) => {
@@ -821,6 +995,18 @@ const main = async () => {
           command: topics.photoQueryCommand,
           state: topics.photoQueryState,
         },
+        clockTimezone: {
+          command: topics.clockTimezoneCommand,
+          state: topics.clockTimezoneState,
+        },
+        clockTimeFormat: {
+          command: topics.clockTimeFormatCommand,
+          state: topics.clockTimeFormatState,
+        },
+        clockDateStyle: {
+          command: topics.clockDateStyleCommand,
+          state: topics.clockDateStyleState,
+        },
         dither: {
           command: topics.ditherCommand,
           state: topics.ditherState,
@@ -1002,6 +1188,93 @@ const main = async () => {
             undefined,
           afterChange: refreshAllPhotoFrameDevices,
           seedDefault: String(DEFAULT_PHOTO_QUALITY),
+        },
+      ],
+      [
+        "clockTimezone",
+        {
+          command: globalTopics.clockTimezoneCommand,
+          state: globalTopics.clockTimezoneState,
+          applyPayload: (payload) => {
+            deviceConfigStore.setGlobalClockTimezone(
+              payload.trim(),
+            )
+            return payload.trim()
+          },
+          getHasValue: () =>
+            Boolean(
+              deviceConfigStore.getGlobalClockTimezone(),
+            ),
+          afterChange: () => {
+            pushDevicesShowingView({
+              getIsViewIncluded: getIsClockBearingView,
+            })
+          },
+        },
+      ],
+      [
+        "clockTimeFormat",
+        {
+          command: globalTopics.clockTimeFormatCommand,
+          state: globalTopics.clockTimeFormatState,
+          applyPayload: (payload) => {
+            const setting =
+              parseClockTimeFormatSetting(payload)
+            // The global default has no "Auto" — it IS the root default.
+            if (setting === null || setting === "auto") {
+              return null
+            }
+            deviceConfigStore.setGlobalClockTimeFormat(
+              setting,
+            )
+            return CLOCK_TIME_FORMAT_OPTION_BY_SETTING[
+              setting
+            ]
+          },
+          getHasValue: () =>
+            deviceConfigStore.getGlobalClockTimeFormat() !==
+            undefined,
+          afterChange: () => {
+            pushDevicesShowingView({
+              getIsViewIncluded: getIsClockBearingView,
+            })
+          },
+          seedDefault:
+            CLOCK_TIME_FORMAT_OPTION_BY_SETTING[
+              DEFAULT_CLOCK_TIME_FORMAT
+            ],
+        },
+      ],
+      [
+        "clockDateStyle",
+        {
+          command: globalTopics.clockDateStyleCommand,
+          state: globalTopics.clockDateStyleState,
+          applyPayload: (payload) => {
+            const setting =
+              parseClockDateStyleSetting(payload)
+            if (setting === null || setting === "auto") {
+              return null
+            }
+            deviceConfigStore.setGlobalClockDateStyle(
+              setting,
+            )
+            return CLOCK_DATE_STYLE_OPTION_BY_SETTING[
+              setting
+            ]
+          },
+          getHasValue: () =>
+            deviceConfigStore.getGlobalClockDateStyle() !==
+            undefined,
+          afterChange: () => {
+            pushDevicesShowingView({
+              getIsViewIncluded: getIsClockBearingView,
+            })
+          },
+          seedDefault:
+            CLOCK_DATE_STYLE_OPTION_BY_SETTING[
+              DEFAULT_CLOCK_DATE_STYLE
+            ],
         },
       ],
     ])
@@ -1369,6 +1642,23 @@ const main = async () => {
                 device.id,
               ) !== undefined,
             payload: "0",
+          },
+          // Per-device clock format/style default to "Auto" (inherit global).
+          {
+            kind: "clockTimeFormat",
+            hasValue:
+              deviceConfigStore.getClockTimeFormat(
+                device.id,
+              ) !== undefined,
+            payload: "Auto",
+          },
+          {
+            kind: "clockDateStyle",
+            hasValue:
+              deviceConfigStore.getClockDateStyle(
+                device.id,
+              ) !== undefined,
+            payload: "Auto",
           },
         ]
         seedPairs

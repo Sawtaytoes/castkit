@@ -68,6 +68,12 @@ export const buildDeviceTopics = ({
     photoPeopleState: `${base}/photo_people`,
     photoQueryCommand: `${base}/photo_query/set`,
     photoQueryState: `${base}/photo_query`,
+    clockTimezoneCommand: `${base}/clock_timezone/set`,
+    clockTimezoneState: `${base}/clock_timezone`,
+    clockTimeFormatCommand: `${base}/clock_time_format/set`,
+    clockTimeFormatState: `${base}/clock_time_format`,
+    clockDateStyleCommand: `${base}/clock_date_style/set`,
+    clockDateStyleState: `${base}/clock_date_style`,
     photoIntervalCommand: `${base}/photo_interval/set`,
     photoIntervalState: `${base}/photo_interval`,
     photoRecencyCommand: `${base}/photo_recency/set`,
@@ -103,6 +109,15 @@ export const buildDeviceTopics = ({
 export const buildGlobalTopics = (
   baseTopic = "inkcast",
 ) => ({
+  /** Global default clock timezone (IANA name; empty = process `TZ`). */
+  clockTimezoneCommand: `${baseTopic}/clock_timezone/set`,
+  clockTimezoneState: `${baseTopic}/clock_timezone`,
+  /** Global default clock time format (12-hour / 24-hour). */
+  clockTimeFormatCommand: `${baseTopic}/clock_time_format/set`,
+  clockTimeFormatState: `${baseTopic}/clock_time_format`,
+  /** Global default clock date style (Long / Numeric). */
+  clockDateStyleCommand: `${baseTopic}/clock_date_style/set`,
+  clockDateStyleState: `${baseTopic}/clock_date_style`,
   /** Global default Photo Frame rotation interval, minutes. */
   photoIntervalCommand: `${baseTopic}/photo_interval/set`,
   photoIntervalState: `${baseTopic}/photo_interval`,
@@ -151,6 +166,32 @@ export const GLOBAL_PHOTO_FORMAT_OPTIONS = [
 export const PHOTO_FORMAT_OPTIONS = [
   "Auto",
   ...GLOBAL_PHOTO_FORMAT_OPTIONS,
+] as const
+
+/**
+ * HA-facing clock time-format options (double as MQTT payloads). The global
+ * default select offers the two real formats; a per-device select prepends
+ * "Auto" (= inherit the global default).
+ */
+export const GLOBAL_CLOCK_TIME_FORMAT_OPTIONS = [
+  "12-hour",
+  "24-hour",
+] as const
+
+export const CLOCK_TIME_FORMAT_OPTIONS = [
+  "Auto",
+  ...GLOBAL_CLOCK_TIME_FORMAT_OPTIONS,
+] as const
+
+/** HA-facing clock date-style options (double as MQTT payloads). */
+export const GLOBAL_CLOCK_DATE_STYLE_OPTIONS = [
+  "Long",
+  "Numeric",
+] as const
+
+export const CLOCK_DATE_STYLE_OPTIONS = [
+  "Auto",
+  ...GLOBAL_CLOCK_DATE_STYLE_OPTIONS,
 ] as const
 
 /** The HA `device` block that ties every entity to one physical display. */
@@ -403,6 +444,51 @@ export const buildDiscoveryMessages = ({
       },
     },
     {
+      // This device's clock timezone (an IANA name, e.g. America/Chicago).
+      // Empty = inherit the global default on the Inkcast Server device.
+      topic: discoveryTopic("text", "clock_timezone"),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "Clock: Timezone",
+        unique_id: `inkcast_${device.id}_clock_timezone`,
+        command_topic: topics.clockTimezoneCommand,
+        state_topic: topics.clockTimezoneState,
+        entity_category: "config",
+        device: deviceBlock,
+      },
+    },
+    {
+      // This device's clock time format; "Auto" = inherit the global default.
+      topic: discoveryTopic("select", "clock_time_format"),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "Clock: Time format",
+        unique_id: `inkcast_${device.id}_clock_time_format`,
+        command_topic: topics.clockTimeFormatCommand,
+        state_topic: topics.clockTimeFormatState,
+        options: [...CLOCK_TIME_FORMAT_OPTIONS],
+        entity_category: "config",
+        device: deviceBlock,
+      },
+    },
+    {
+      // This device's clock date style; "Auto" = inherit the global default.
+      topic: discoveryTopic("select", "clock_date_style"),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "Clock: Date style",
+        unique_id: `inkcast_${device.id}_clock_date_style`,
+        command_topic: topics.clockDateStyleCommand,
+        state_topic: topics.clockDateStyleState,
+        options: [...CLOCK_DATE_STYLE_OPTIONS],
+        entity_category: "config",
+        device: deviceBlock,
+      },
+    },
+    {
       // Per-device Photo Frame rotation interval. 0 = inherit the global
       // default on the Inkcast Server device (a number entity always carries a
       // value, so 0 is the "unset/inherit" sentinel — 0 minutes is meaningless
@@ -547,6 +633,53 @@ export const buildGlobalDiscoveryMessages = (
   }
 
   return [
+    {
+      // Global default clock timezone (IANA name) — used by any display whose
+      // own "Clock: Timezone" is empty; empty here too = the process `TZ`.
+      topic: `${discoveryPrefix}/text/${nodeId}/server_clock_timezone/config`,
+      isRetained: true as const,
+      payload: {
+        ...availability,
+        name: "Clock: Timezone",
+        unique_id: "inkcast_server_clock_timezone",
+        command_topic: topics.clockTimezoneCommand,
+        state_topic: topics.clockTimezoneState,
+        entity_category: "config",
+        device: serverDeviceBlock,
+      },
+    },
+    {
+      // Global default clock time format — used by any display whose own
+      // "Clock: Time format" is "Auto".
+      topic: `${discoveryPrefix}/select/${nodeId}/server_clock_time_format/config`,
+      isRetained: true as const,
+      payload: {
+        ...availability,
+        name: "Clock: Time format",
+        unique_id: "inkcast_server_clock_time_format",
+        command_topic: topics.clockTimeFormatCommand,
+        state_topic: topics.clockTimeFormatState,
+        options: [...GLOBAL_CLOCK_TIME_FORMAT_OPTIONS],
+        entity_category: "config",
+        device: serverDeviceBlock,
+      },
+    },
+    {
+      // Global default clock date style — used by any display whose own
+      // "Clock: Date style" is "Auto".
+      topic: `${discoveryPrefix}/select/${nodeId}/server_clock_date_style/config`,
+      isRetained: true as const,
+      payload: {
+        ...availability,
+        name: "Clock: Date style",
+        unique_id: "inkcast_server_clock_date_style",
+        command_topic: topics.clockDateStyleCommand,
+        state_topic: topics.clockDateStyleState,
+        options: [...GLOBAL_CLOCK_DATE_STYLE_OPTIONS],
+        entity_category: "config",
+        device: serverDeviceBlock,
+      },
+    },
     {
       // Global default Photo Frame rotation interval (minutes) — used by any
       // display whose own "Photo Frame: Rotation minutes" is 0 (inherit).
