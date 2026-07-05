@@ -17,7 +17,7 @@ non-trivial task. Highlights:
   identifiers in git — config comes from the environment (`.env`, gitignored).
 - **⛔ User-tunable settings are HA/MQTT config entities — NEVER new env vars.**
   Anything a user might want to change per install or per screen (view settings,
-  photo format/quality/interval, weather entity, crop insets, brightness, …) is
+  photo format/quality/interval, crop insets, brightness, …) is
   exposed as a Home Assistant MQTT-discovery config entity — a **global default**
   on the "Inkcast Server" device **plus a per-device override** — with the
   retained state topic as its persistence. Do **not** reach for a `process.env`
