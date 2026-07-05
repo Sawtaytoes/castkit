@@ -6,66 +6,60 @@ cutover" night). Read this + [../AGENTS.md](../AGENTS.md) +
 [decisions/README.md](decisions/README.md) first. History of the earlier
 phases is in git (`git log docs/HANDOFF.md`).
 
-## ⚠️ 2026-07-04 — ARCHITECTURE PIVOT IN PROGRESS (read this first)
+## ⚠️ 2026-07-05 — ARCHITECTURE PIVOT: CODE CUTOVER DONE (read this first)
 
-Inkcast is mid-migration to a **dumb, Home-Assistant-agnostic renderer**. The
-locked decision is
+Inkcast is now a **dumb, Home-Assistant-agnostic renderer**. The locked decision
+is
 [decisions/2026-07-04-inkcast-renders-ha-pushed-data-not-reads-ha.md](decisions/2026-07-04-inkcast-renders-ha-pushed-data-not-reads-ha.md)
 (supersedes "now-playing reads HA media_player" and "agenda pulls from HA").
 
-**Target architecture:** Inkcast's only contract with the house is **MQTT**. HA
+**Architecture:** Inkcast's only contract with the house is **MQTT**. HA
 *computes and pushes* each view's data per device
 (`inkcast/<device>/now_playing/set`, `.../weather/set`, `.../agenda/set`);
-Inkcast subscribes and renders what it's handed. Inkcast **stops connecting to
-HA entirely** — delete the HA WebSocket client, `media_player` reading, the
-"followed platforms" registry lookup, the now-playing follow/priority resolver,
-the weather/calendar fetchers, and the "Music playing" binary sensor. **All**
-"which player / idle-vs-active / priority / exclusions / when to switch a view"
-logic moves to **HA templates + automations**. Time is the one exception:
-rendered locally from Inkcast's own clock; only timezone/format are MQTT config.
+Inkcast subscribes and renders what it's handed. Inkcast **does not connect to HA
+at all**. **All** "which player / idle-vs-active / priority / exclusions / when
+to switch a view" logic lives in **HA templates + automations**. Time is the one
+exception: rendered locally from Inkcast's own clock; only timezone/format are
+MQTT config (still TODO — see below).
 
-**Landed on `master` (this session, deployed):**
+**Landed on `master` 2026-07-05 (`824862b`, the code cutover):** the HA
+WebSocket client, the now-playing follow/priority/source resolver + pinned-entity
+wiring, the HA calendar REST poller, the HA artwork proxy, the "Music playing"
+binary sensor + `now_playing_active` publish, the "Weather: Entity" / "Agenda:
+Calendars" config entities, and all `HOME_ASSISTANT_*` / `INKCAST_CALENDAR_MINUTES`
+env are **all deleted** (−1.7k lines, `ws` dep dropped). The three per-device
+data topics are wired through the `viewDataPayloads.ts` parsers +
+`artworkFetch.ts` (plain-URL artwork), and `viewDataStore` now keys now-playing +
+weather by device id. typecheck + 64 tests + lint + build green.
 
-- The other agent's branch `feat/inkcast-mqtt-data-in`, merged: emoji-strip in
-  titles (no tofu), art-forward Editorial redesign, the decision record above,
-  and **scaffolding** — `packages/server/src/mqtt/viewDataPayloads.ts` (payload
-  parsers, 84 tests green) + `packages/server/src/render/artworkFetch.ts`
-  (plain-URL artwork fetch, since HA will push an artwork **URL**, not bytes).
-  Scaffolding is **dormant** (not wired) — the WebSocket still runs.
-- Small fixes shipped tonight (all deployed, verified): compact pHAT agenda now
-  stacks up to 3 events with the time shrunk/moved up; duplicate agenda events
-  (same event shared across two calendars) are de-duped; all-day agenda events
-  stay visible their whole day (were wrongly filtered at midnight); and a real
-  HA-WebSocket bug — `get_states` reused a fixed command id so HA rejected every
-  on-demand refresh (`id_reuse`), meaning a just-configured weather entity
-  didn't appear until a restart. Fixed with unique incrementing ids
-  (`homeAssistantStates.ts`). **NOTE:** that fix lives in code the pivot will
-  delete — keep it until the WebSocket is ripped out, then it goes with it.
+**⚠️ HA-side work now REQUIRED for the panels to show anything** (the app renders
+idle placeholders until HA pushes): add HA templates/automations that publish
+each view's payload to `inkcast/<device>/{now_playing,weather,agenda}/set`
+(retained). This is where the now-playing priority (Plex before the Shield's cast
+player), follow-the-active-player, exclusions (the 12:45a Totoro bedtime speaker),
+and weather/calendar selection now live. Any automation that referenced
+`binary_sensor.inkcast_server_music_playing` must instead trigger off the HA-side
+player state directly.
 
-**Still TODO (the atomic slice + HA side):**
+**Still TODO:**
 
-1. **Rip out the HA WebSocket + wire MQTT data-in.** Replace the now-playing /
-   weather / agenda *fetchers* with MQTT subscriptions using the parsers in
-   `viewDataPayloads.ts`; keep the view renderers. Delete the follow resolver,
-   `homeAssistantStates.ts`, `haArtwork.ts` (use `artworkFetch.ts`), the
-   "Music playing" sensor, and the HA URL/token env.
-2. **Clock timezone/format become MQTT config entities** (like dither/crop).
+1. ~~Rip out the HA WebSocket + wire MQTT data-in.~~ **DONE 2026-07-05
+   (`824862b`).**
+2. **Clock timezone/format become MQTT config entities** (like dither/crop) —
+   the last piece of the pivot still in env (`TZ`). Mirror an existing knob
+   end-to-end (deviceConfigStore field → topics → discovery → configKnobs +
+   getKnobTopics + seed).
 3. **HA-side templates/automations** publish each view's payload to Inkcast's
    MQTT topics — this is where the now-playing priority (Plex before the
    Shield's cast player), follow-the-active-player, and exclusions now live.
+   **Without this, the panels render idle placeholders.**
 
-**A live HA config gap found tonight (fix on the HA side, not in the app):** the
-"Weather: Entity" MQTT config (`text.inkcast_server_weather_entity`) was unset
-(`unknown`), so no weather rendered on either clock. I set it to
-`weather.pirateweather` — weather now shows. Under the new architecture HA will
-push weather data instead, but until then that config must stay set.
-
-**Do NOT** add follow/priority/exclusion logic to Inkcast (I mistakenly built a
-"follow players allowlist" config entity this session and reverted it — it
-violated both the follow-exclusion decision and the pivot above). The now-playing
-"wrong player" symptom the maintainer reported (a panel showing a speaker's last
-track instead of the Shield) is a *consequence* of the old shared follow-
-aggregate and is **resolved by the pivot**: once HA pushes each panel's
+**Do NOT** add follow/priority/exclusion or any "which HA entity" logic back into
+Inkcast — it all belongs in the HA templates that produce the pushed payloads
+(a "follow players allowlist" config entity was built once and reverted; the
+priority-ordered source picker was likewise dropped in the cutover). The
+now-playing "wrong player" symptom (a panel showing a speaker's last track
+instead of the Shield) is **resolved by the pivot**: once HA pushes each panel's
 now-playing payload, HA fully decides what each panel shows.
 
 **HA view-switching automations (already correct, HA-side):**
@@ -77,20 +71,22 @@ under the pivot they'll also publish *what* to show.
 
 ## One-line status
 
-Inkcast is **fully live on both panels**: GitHub Actions builds to GHCR,
-TrueNAS runs it, BOTH Pis (pHAT + Impression 7.3") run the `device-client/`
-receiver — the old on-device Immich fetcher is retired (unit kept for
-rollback). Now-playing follows HA players (HA automations decide which
-players count), and the photo frame does
-recency-weighted, face-safe, query-able Immich photos — all knobs editable
-from the HA device page.
+Inkcast is **live on both panels** as a HA-agnostic MQTT renderer: GitHub
+Actions builds to GHCR, TrueNAS runs it, BOTH Pis (pHAT + Impression 7.3") run
+the `device-client/` receiver — the old on-device Immich fetcher is retired (unit
+kept for rollback). Now-playing / weather / agenda are **pushed by HA over MQTT**
+(HA decides which player, weather entity, and calendars); the photo frame does
+recency-weighted, face-safe, query-able Immich photos — all knobs editable from
+the HA device page. **Until the HA-side templates publish the data topics
+(pivot TODO #3), the now-playing/weather/agenda views render idle placeholders.**
 
 ## ⭐ Next steps (start here — prioritized)
 
-1. **Verify tonight's features against real life** (shipped 2026-07-02,
-   lightly exercised): the view-switching automations (another agent is
-   building them off the "Music playing" binary sensor + the Plex family
-   room player), Photo Frame Next/Previous buttons, the Query entity
+1. **Build the HA-side data-push templates (pivot TODO #3) — the panels render
+   idle until they exist**, then verify against real life: now-playing/weather/
+   agenda arriving on the data topics, the view-switching automations (retrigger
+   off the HA-side player, not the removed "Music playing" sensor), Photo Frame
+   Next/Previous buttons, the Query entity
    ("green shirt"-style Immich smart search), Color/B&W +
    Brightness/Saturation knobs on the Impression, and how the
    neutral-protected dither looks on real photos (it kills colour speckle
@@ -116,12 +112,14 @@ from the HA device page.
   (`decisions/2026-07-02-face-crop-shifts-never-zooms.md`).
 - **No server-side idle logic — HA automations drive the View select,
   immediately** (`decisions/2026-07-02-view-switching-via-ha-automations.md`,
-  supersedes the same-day idle-fallback decision). The server provides the
-  "Music playing" binary sensor as the signal.
+  supersedes the same-day idle-fallback decision). The signal now lives HA-side
+  (the server's "Music playing" sensor was removed in the pivot).
 - **Dither: Floyd-Steinberg preferred on BOTH panels** (A/B'd on glass);
   keep all six algorithms in the select. Per-device choice persists via
   retained MQTT.
-- **Now-playing reads HA `media_player`**, not MA directly.
+- **Now-playing / weather / agenda are pushed by HA over MQTT**; Inkcast never
+  reads HA (`decisions/2026-07-04-inkcast-renders-ha-pushed-data-not-reads-ha.md`,
+  supersedes "now-playing reads HA `media_player`" + "agenda pulls from HA").
 - **Images publish to GHCR via GitHub Actions**, not homelab Gitea.
 - **English view names** double as MQTT/API payloads and HA options.
 - **Fonts committed to the repo**; Atkinson Hyperlegible + DejaVu fallback.
@@ -130,7 +128,7 @@ from the HA device page.
 ## Deploy pipeline (how to ship a change)
 
 1. Commit to `master`, push to GitHub (`origin`; push is authorized).
-2. Actions: typecheck + tests (56) → `ghcr.io/sawtaytoes/inkcast:latest`.
+2. Actions: typecheck + tests (64) → `ghcr.io/sawtaytoes/inkcast:latest`.
 3. Bounce the TrueNAS app `inkcast` (MCP `stop_app`/`start_app`) —
    `pull_policy: always`. Env changes: `midclt call --job app.update
    inkcast '{"values": ...}'` on storeman (merge `envs` array; see git log
@@ -138,32 +136,32 @@ from the HA device page.
 4. Verify: `curl http://storeman.octen:8788/health`, `docker logs` (filter
    `ix-inkcast`), `/api/devices/<id>/image` (Bearer `INKCAST_API_TOKEN`).
 
-App env also carries `HOME_ASSISTANT_WEATHER_ENTITY=weather.pirateweather`.
-Follow-mode player exclusions (the famous 12:45a Totoro incident: guest +
-kids bedroom speakers) and the per-panel idle view/timeout are HA ENTITIES,
-not env vars — see the "Inkcast Server" device and each panel's config
-section (`decisions/2026-07-02-global-config-lives-in-ha-entities.md`).
-Full env list: `.env.example`.
+Deploy-time env is infrastructure only (MQTT broker, Immich, render engine,
+ports, `TZ`) — **no `HOME_ASSISTANT_*` vars anymore**. Player priority /
+exclusions (the famous 12:45a Totoro incident: guest + kids bedroom speakers)
+and weather/calendar selection are decided HA-side in the templates that publish
+the data topics. Full env list: `.env.example`.
 
 ## Architecture (current)
 
 ```text
-HA (WS, ws pkg — NOT native WebSocket: HA's multi-MB frames kill undici)
- └─ nowPlayingAdapter: follow players from HOME_ASSISTANT_FOLLOW_PLATFORMS
-    (music_assistant,plex) minus the HA-edited exclusion list, or pinned entity
-    per device → RxJS dedupe/debounce(1s) → artwork fetch → viewDataStore
-    (entries carry stoppedAtMs for the idle timer) → push.
-    Same socket streams the weather entity → WeatherData → Clock (Weather).
+HA templates + automations (the ONLY thing that talks to HA — HA-side, not app):
+    resolve which player / weather entity / calendars per display, then PUSH:
+      inkcast/<id>/now_playing/set  {title, artist?, album?, isPlaying, artwork?}
+      inkcast/<id>/weather/set      {temperature, condition?}
+      inkcast/<id>/agenda/set       {events: [{start, summary, isAllDay?}]}
+ └─ Inkcast subscribes → viewDataPayloads.ts parsers → viewDataStore (keyed by
+    device id) → artworkFetch.ts inlines the pushed artwork URL → re-push if the
+    affected view is showing. Inkcast NEVER connects to HA.
 Immich (REST)
  └─ photoFrameAdapter: people (HA text) + smart-search query (HA text) →
     per-person UNION pool w/ fileCreatedAt (cached 6h) → recency-weighted
     random pick (half-life 365d, 15% floor) → preview JPEG + face boxes →
     face-STEERED maximal cover-crop or letterbox → panel PNG → push.
     20-deep per-device history ← Next/Previous photo buttons.
-View switching: HA AUTOMATIONS drive the View select (no server-side
-    idle logic — decisions/2026-07-02-view-switching-via-ha-automations.md).
-    The server publishes the signal: retained "Music playing" binary
-    sensor (inkcast/now_playing_active, exclusions already applied).
+View switching: HA AUTOMATIONS drive the View select (no server-side idle
+    logic — decisions/2026-07-02-view-switching-via-ha-automations.md). The
+    "which player is playing" signal now lives HA-side too.
  ↓
 pushController → renderService (Chromium; Satori alt) → dither pipeline
     (per-device: algorithm override, Color/B&W mode, brightness/saturation
@@ -175,6 +173,8 @@ pushController → renderService (Chromium; Satori alt) → dither pipeline
 ### MQTT topics (base `inkcast`, per device id)
 
 - `<id>/image` (retained PNG) · `availability` (LWT + 60s heartbeat)
+- **`<id>/now_playing/set` · `<id>/weather/set` · `<id>/agenda/set`** — the
+  HA-pushed view data (retained; HA is the publisher, Inkcast the subscriber)
 - `<id>/view/set|view` — the retained view state also RESTORES the
   selection on server restart (used to silently reset to the default)
 - `<id>/refresh/set` · `<id>/last_render`
@@ -187,20 +187,18 @@ pushController → renderService (Chromium; Satori alt) → dither pipeline
 ### HA entities per device (MQTT discovery; config names prefixed by area)
 
 Image (Screen) · Select (View: 3 now-playing / Photo Frame / Clock /
-Clock (Weather)) · Buttons (Refresh, Photo Frame: Next/Previous photo) ·
-Config: Display: Dither, Display: Color mode (e6 only, Color|Black & White),
-Display: Brightness %, Display: Saturation %, Photo Frame: People,
-Photo Frame: Query · Sensor (Last render). The `Display:`/`Photo Frame:`
-prefixes are deliberate — HA has no config sub-groups, names are the
-grouping.
+Clock (Weather) / Clock (Agenda)) · Buttons (Refresh, Photo Frame:
+Next/Previous photo) · Config: Display: Dither, Display: Color mode (e6 only,
+Color|Black & White), Display: Brightness %, Display: Saturation %,
+Photo Frame: People, Photo Frame: Query · Sensor (Last render). The
+`Display:`/`Photo Frame:` prefixes are deliberate — HA has no config sub-groups,
+names are the grouping. **The "Weather: Entity" and "Agenda: Calendars" config
+entities were removed** in the pivot (Inkcast no longer reads any HA entity).
 
-Plus one server-wide "Inkcast Server" device: the `Music playing` binary
-sensor (`binary_sensor.inkcast_server_music_playing` — THE signal for the
-view-switching automations). It has no editable global config. Which
-followed players drive the panels, and which to ignore (e.g. the always-on
-guest-bedroom bedtime speaker), is now an HA-automation concern — the
-server-side follow-exclusion setting was removed (see
-`docs/decisions/2026-07-02-follow-exclusion-moves-to-ha-automation.md`).
+Plus one server-wide "Inkcast Server" device: the Photo Frame global-default
+config knobs (Rotation minutes, Recency half-life days, Format, Quality). **The
+"Music playing" binary sensor was removed** — what's playing is HA's own
+knowledge now (it computes the pushed payload).
 
 ### Views (`packages/views/src/`)
 
