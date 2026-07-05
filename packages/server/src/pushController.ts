@@ -8,6 +8,7 @@ import type { DeviceConfigStore } from "./state/deviceConfigStore.ts"
 import type { DeviceStore } from "./state/deviceStore.ts"
 import type { ViewDataStore } from "./state/viewDataStore.ts"
 import {
+  type ClockConfig,
   getIsBleedView,
   type ViewName,
 } from "./views/registry.ts"
@@ -42,6 +43,7 @@ export const createPushController = ({
   publisher,
   baseTopic,
   resolvePhotoEncoding,
+  resolveClockConfig,
 }: {
   devices: readonly ConfiguredDevice[]
   deviceStore: DeviceStore
@@ -59,6 +61,8 @@ export const createPushController = ({
   resolvePhotoEncoding: (
     deviceId: string,
   ) => FullColourEncoding
+  /** The device's resolved clock timezone + time/date format (HA config). */
+  resolveClockConfig: (deviceId: string) => ClockConfig
 }): PushController => {
   const deviceById = new Map(
     devices.map((device) => [device.id, device]),
@@ -145,6 +149,7 @@ export const createPushController = ({
     return renderService.renderDevice({
       device: effectiveDevice,
       viewName: activeView,
+      clock: resolveClockConfig(deviceId),
       // HA pushes each display its own now-playing / weather / agenda payload,
       // all keyed by device id.
       nowPlaying: viewDataStore.getNowPlaying(deviceId),

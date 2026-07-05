@@ -20,6 +20,25 @@ export type PhotoFormat = "jpeg" | "webp" | "png"
 export type PhotoFormatSetting = PhotoFormat | "auto"
 
 /**
+ * Clock time format: 12-hour (`2:30 PM`) or 24-hour (`14:30`). Global default +
+ * per-device override, both HA config entities. Time is rendered from Inkcast's
+ * own clock — the format + timezone are the only clock settings; see
+ * docs/decisions/2026-07-04-inkcast-renders-ha-pushed-data-not-reads-ha.md.
+ */
+export type ClockTimeFormat = "12h" | "24h"
+
+/** A per-device time-format override, or "auto" = inherit the global default. */
+export type ClockTimeFormatSetting =
+  | ClockTimeFormat
+  | "auto"
+
+/** Clock date style: `long` (`Sunday, July 5`) or `numeric` (`7/5/2026`). */
+export type ClockDateStyle = "long" | "numeric"
+
+/** A per-device date-style override, or "auto" = inherit the global default. */
+export type ClockDateStyleSetting = ClockDateStyle | "auto"
+
+/**
  * Clockwise degrees the server rotates a render before the panel draws it —
  * the physical mount orientation. Matches `DeviceMetadata.rotation`. Exposed as
  * a per-device HA config entity so a remounted/upside-down panel is corrected
@@ -117,6 +136,50 @@ export type DeviceConfigStore = {
   /** Global default Photo Frame lossy quality (1–100). */
   getGlobalPhotoQuality: () => number | undefined
   setGlobalPhotoQuality: (quality: number) => void
+  /**
+   * Per-device clock timezone (an IANA name, e.g. `America/Chicago`). Empty =
+   * inherit the global default below; empty there too = the process `TZ`.
+   */
+  getClockTimezone: (deviceId: string) => string
+  setClockTimezone: (params: {
+    deviceId: string
+    timezone: string
+  }) => void
+  /** Global default clock timezone (Inkcast Server device); empty = process `TZ`. */
+  getGlobalClockTimezone: () => string
+  setGlobalClockTimezone: (timezone: string) => void
+  /**
+   * Per-device clock time format. `undefined` or `"auto"` = inherit the global
+   * default below.
+   */
+  getClockTimeFormat: (
+    deviceId: string,
+  ) => ClockTimeFormatSetting | undefined
+  setClockTimeFormat: (params: {
+    deviceId: string
+    setting: ClockTimeFormatSetting
+  }) => void
+  /** Global default clock time format. */
+  getGlobalClockTimeFormat: () =>
+    | ClockTimeFormat
+    | undefined
+  setGlobalClockTimeFormat: (
+    format: ClockTimeFormat,
+  ) => void
+  /**
+   * Per-device clock date style. `undefined` or `"auto"` = inherit the global
+   * default below.
+   */
+  getClockDateStyle: (
+    deviceId: string,
+  ) => ClockDateStyleSetting | undefined
+  setClockDateStyle: (params: {
+    deviceId: string
+    setting: ClockDateStyleSetting
+  }) => void
+  /** Global default clock date style. */
+  getGlobalClockDateStyle: () => ClockDateStyle | undefined
+  setGlobalClockDateStyle: (style: ClockDateStyle) => void
   /** Override of the device's registered dither algorithm, if any. */
   getDitherAlgorithm: (
     deviceId: string,
@@ -198,6 +261,30 @@ export const createDeviceConfigStore =
       "global",
       number
     >()
+    const clockTimezoneByDeviceId = new Map<
+      string,
+      string
+    >()
+    const globalClockTimezoneHolder = new Map<
+      "global",
+      string
+    >()
+    const clockTimeFormatByDeviceId = new Map<
+      string,
+      ClockTimeFormatSetting
+    >()
+    const globalClockTimeFormatHolder = new Map<
+      "global",
+      ClockTimeFormat
+    >()
+    const clockDateStyleByDeviceId = new Map<
+      string,
+      ClockDateStyleSetting
+    >()
+    const globalClockDateStyleHolder = new Map<
+      "global",
+      ClockDateStyle
+    >()
     const ditherByDeviceId = new Map<
       string,
       DitherAlgorithm
@@ -245,6 +332,36 @@ export const createDeviceConfigStore =
         globalPhotoQualityHolder.get("global"),
       setGlobalPhotoQuality: (quality) => {
         globalPhotoQualityHolder.set("global", quality)
+      },
+      getClockTimezone: (deviceId) =>
+        clockTimezoneByDeviceId.get(deviceId) ?? "",
+      setClockTimezone: ({ deviceId, timezone }) => {
+        clockTimezoneByDeviceId.set(deviceId, timezone)
+      },
+      getGlobalClockTimezone: () =>
+        globalClockTimezoneHolder.get("global") ?? "",
+      setGlobalClockTimezone: (timezone) => {
+        globalClockTimezoneHolder.set("global", timezone)
+      },
+      getClockTimeFormat: (deviceId) =>
+        clockTimeFormatByDeviceId.get(deviceId),
+      setClockTimeFormat: ({ deviceId, setting }) => {
+        clockTimeFormatByDeviceId.set(deviceId, setting)
+      },
+      getGlobalClockTimeFormat: () =>
+        globalClockTimeFormatHolder.get("global"),
+      setGlobalClockTimeFormat: (format) => {
+        globalClockTimeFormatHolder.set("global", format)
+      },
+      getClockDateStyle: (deviceId) =>
+        clockDateStyleByDeviceId.get(deviceId),
+      setClockDateStyle: ({ deviceId, setting }) => {
+        clockDateStyleByDeviceId.set(deviceId, setting)
+      },
+      getGlobalClockDateStyle: () =>
+        globalClockDateStyleHolder.get("global"),
+      setGlobalClockDateStyle: (style) => {
+        globalClockDateStyleHolder.set("global", style)
       },
       getPhotoIntervalMinutes: (deviceId) =>
         photoIntervalByDeviceId.get(deviceId),

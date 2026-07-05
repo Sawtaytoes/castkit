@@ -70,6 +70,9 @@ describe("buildDiscoveryMessages", () => {
       "number", // Display: Crop left
       "text", // Photo Frame: People
       "text", // Photo Frame: Query
+      "text", // Clock: Timezone
+      "select", // Clock: Time format
+      "select", // Clock: Date style
       "number", // Photo Frame: Rotation minutes
       "number", // Photo Frame: Recency half-life days
       "select", // Photo Frame: Format
@@ -80,13 +83,16 @@ describe("buildDiscoveryMessages", () => {
     ])
   })
 
-  test("the global device exposes only the inherited photo-frame defaults", () => {
+  test("the global device exposes the clock + inherited photo-frame defaults", () => {
     // HA pushes now-playing/weather/agenda data, so the server no longer
     // advertises a Music-playing sensor or Weather/Agenda entity-picker config.
     const globalMessages = buildGlobalDiscoveryMessages()
     expect(
       globalMessages.map((message) => message.topic),
     ).toEqual([
+      "homeassistant/text/inkcast/server_clock_timezone/config",
+      "homeassistant/select/inkcast/server_clock_time_format/config",
+      "homeassistant/select/inkcast/server_clock_date_style/config",
       "homeassistant/number/inkcast/server_photo_interval/config",
       "homeassistant/number/inkcast/server_photo_recency/config",
       "homeassistant/select/inkcast/server_photo_format/config",

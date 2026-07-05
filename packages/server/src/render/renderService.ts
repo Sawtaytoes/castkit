@@ -18,6 +18,7 @@ import type {
   WeatherData,
 } from "../state/viewDataStore.ts"
 import {
+  type ClockConfig,
   renderViewElement,
   type ViewName,
 } from "../views/registry.ts"
@@ -31,6 +32,7 @@ export type RenderService = {
   renderDevice: (params: {
     device: DeviceMetadata
     viewName: ViewName
+    clock: ClockConfig
     nowPlaying?: NowPlayingData
     photoFrame?: PhotoFrameData
     weather?: WeatherData
@@ -59,6 +61,7 @@ export const createRenderService = async ({
     renderDevice: ({
       device,
       viewName,
+      clock,
       nowPlaying,
       photoFrame,
       weather,
@@ -88,6 +91,7 @@ export const createRenderService = async ({
           viewName,
           device: contentDevice,
           now: new Date(),
+          clock,
           nowPlaying,
           photoFrame,
           weather,
