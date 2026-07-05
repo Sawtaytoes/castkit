@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-07-05 | [Device `id` is an opaque, immutable identity — location/model live only in Home Assistant](2026-07-05-device-id-is-opaque-immutable-identity.md) | Accepted |
 | 2026-07-04 | [Inkcast is a HA-agnostic renderer: HA pushes view data over MQTT; Inkcast never reads HA](2026-07-04-inkcast-renders-ha-pushed-data-not-reads-ha.md) | Accepted |
 | 2026-07-04 | [The now-playing source is an HA config entity: a per-device priority-ordered media_player list](2026-07-04-now-playing-source-is-ha-config-priority-list.md) | Superseded |
 | 2026-07-03 | [The full-colour photo frame ships JPEG, not WebP, because the panel Pi is ARMv6](2026-07-03-photo-frame-jpeg-not-webp-on-armv6.md) | Accepted |
