@@ -83,3 +83,39 @@ add HA friendly name/area + UniFi alias, and clone a per-screen automation (Now 
 priority + Weather + Agenda + 15-min refresh + HA start) with that screen's players/calendars.
 Slugs `eink-07769e` / `eink-4da1be` are pre-reserved. Do **not** add these entries before the
 panels exist — Inkcast would publish discovery for phantom screens.
+
+## ✅ 2026-07-06 — the two 13.3" panels are DEPLOYED
+
+Both Pimoroni Inky Impression 13.3" panels are provisioned, drawing, and discovered in HA.
+
+- **Assignments** (two *distinct* Pi Zero W boards; both had shipped with the same interim
+  hostname `pi-13-screen-1` — a collision, resolved by this re-slug):
+  - `eink-07769e` — machine-id `fb67…`, eth0 `00:e0:4c:36:07:a3`, wlan0 `b8:27:eb:83:54:91`.
+  - `eink-4da1be` — machine-id `ed2d…`, eth0 `00:e0:4c:36:08:0b`, wlan0 `b8:27:eb:0a:b6:49`.
+- **Portrait mount:** device entries use **`width:1200, height:1600, rotation:90`** (not the
+  landscape 1600×1200 in the draft above). The view renders portrait (1200×1600); the pipeline's
+  final `sharp.rotate(90|270)` maps it onto the panel's native 1600×1200 buffer. Started at 90;
+  flipped to **270** live from HA (`Display: Rotation`) because 90 came out upside-down for this
+  mounting. `mac` recorded = the onboard **wlan0** to match the existing screens' convention.
+- **UniFi aliases:** both interfaces of each Pi → `Raspberry Pi Zero W - Inky 13.3" #1/#2 (<slug>)`.
+
+### Device-provisioning gotchas (Pi Zero W / ARMv6 / trixie) — don't rediscover these
+
+1. **numpy must come from apt, NOT pip.** `inky` depends on numpy *unpinned*, so
+   `pip install inky` grabs the newest numpy (2.5.x) which has **no piwheels ARMv6 wheel** → pip
+   source-builds it (30-60 min, may OOM the 512 MB Pi). Even pinning `numpy==2.2.4` from piwheels
+   gave a wheel whose compiled `.so` **fails to load** on the Zero W (numpy then raises the
+   misleading "importing numpy from its source directory"). Fix = use Debian's
+   `python3-numpy` (`apt install python3-numpy`, 2.2.4+ds) with a `--system-site-packages` venv —
+   which is exactly what the working reference Pi (`eink-6e6697`) does. Install `inky` with
+   `--no-deps` (or after numpy is satisfied by the system).
+2. **`i2c-dev` isn't auto-loaded.** `dtparam=i2c_arm=on` enables the controller but `/dev/i2c-1`
+   (needed for the Inky HAT EEPROM autodetect at 0x50, i.e. `inky.auto`) only appears once the
+   `i2c-dev` module loads. Add `echo i2c-dev > /etc/modules-load.d/i2c-dev.conf`. Symptom if
+   missing: `inky.auto` → "No EEPROM detected".
+3. **MQTT client-id collision on same-type panels.** The receiver defaulted its MQTT client-id to
+   the *panel type* (`inkcast-receiver-inky`). Two 13.3" panels both detect as `Inky`, so they
+   shared one client-id and **kept kicking each other off the broker** (`disconnected: Unspecified
+   error` flapping). Fixed in `device-client/inkcast_receiver.py` (default now derives from the
+   image topic's device id, unique per screen); a per-device `INKCAST_CLIENT_ID` in the drop-in
+   also overrides it.
