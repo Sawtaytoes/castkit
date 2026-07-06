@@ -185,7 +185,11 @@ def main():
         mqtt.CallbackAPIVersion.VERSION2,
         client_id=os.environ.get(
             "INKCAST_CLIENT_ID",
-            f"inkcast-receiver-{type(panel).__name__.lower()}",
+            # Default from the topic's DEVICE id (unique per screen), not the
+            # panel TYPE: two identical panels (e.g. two Impression 13.3") both
+            # detect as `Inky`, so a type-based id collides and the broker keeps
+            # kicking one off (session takeover → reconnect flapping).
+            f"inkcast-receiver-{image_topic.split('/')[1] if image_topic.count('/') >= 2 else 'device'}",
         ),
     )
     if broker["username"]:
