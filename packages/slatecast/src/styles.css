@@ -20,14 +20,8 @@
   --surface: #e4e4ea;
 }
 
-@media (prefers-color-scheme: light) {
-  .stage[data-theme="auto"] {
-    --bg: #f4f4f6;
-    --fg: #16161a;
-    --fg-dim: #5c5c66;
-    --surface: #e4e4ea;
-  }
-}
+/* "Auto" stays dark: kiosk browsers report prefers-color-scheme:light by
+   default, and wall screens want dark — pick Light explicitly in HA. */
 
 * {
   box-sizing: border-box;
