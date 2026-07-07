@@ -3,8 +3,9 @@ import {
   IDLE_NOW_PLAYING,
   parseAgendaPayload,
   parseNowPlayingPayload,
+  parseQueuePayload,
   parseWeatherPayload,
-} from "./viewDataPayloads.ts"
+} from "./parsers.ts"
 
 describe("parseNowPlayingPayload", () => {
   test("maps a full payload to now-playing data", () => {
@@ -57,6 +58,103 @@ describe("parseNowPlayingPayload", () => {
       title: "A Song",
       artist: "—",
       isPlaying: false,
+    })
+  })
+
+  test("parses the interactive-controller extension fields", () => {
+    expect(
+      parseNowPlayingPayload({
+        title: "A Song",
+        artist: "A Band",
+        isPlaying: true,
+        position: 123.4,
+        positionUpdatedAt: "2026-07-07T17:59:58.100Z",
+        duration: 245,
+        volume: 0.35,
+        isMuted: false,
+      }),
+    ).toEqual({
+      title: "A Song",
+      artist: "A Band",
+      isPlaying: true,
+      positionSeconds: 123.4,
+      positionUpdatedAtMs: Date.parse(
+        "2026-07-07T17:59:58.100Z",
+      ),
+      durationSeconds: 245,
+      volume: 0.35,
+      isMuted: false,
+    })
+  })
+
+  test("malformed extension fields degrade to absent, not throw", () => {
+    expect(
+      parseNowPlayingPayload({
+        title: "A Song",
+        position: "not-a-number",
+        positionUpdatedAt: "garbage",
+        duration: Number.NaN,
+        volume: null,
+        isMuted: "yes",
+      }),
+    ).toEqual({
+      title: "A Song",
+      artist: "—",
+      isPlaying: false,
+    })
+  })
+})
+
+describe("parseQueuePayload", () => {
+  test("maps items, dropping ones without a title", () => {
+    expect(
+      parseQueuePayload({
+        items: [
+          {
+            title: "Track One",
+            artist: "A Band",
+            artwork: "https://ha.local/art1.jpg",
+            duration: 200,
+            isCurrent: true,
+          },
+          { artist: "No Title" },
+          { title: "Track Two" },
+        ],
+      }),
+    ).toEqual({
+      items: [
+        {
+          title: "Track One",
+          artist: "A Band",
+          artworkPath: "https://ha.local/art1.jpg",
+          durationSeconds: 200,
+          isCurrent: true,
+        },
+        {
+          title: "Track Two",
+          artist: "—",
+          isCurrent: false,
+        },
+      ],
+    })
+  })
+
+  test("caps the queue at 50 items", () => {
+    const items = Array.from(
+      { length: 80 },
+      (_, index) => ({
+        title: `Track ${index}`,
+      }),
+    )
+    expect(parseQueuePayload({ items }).items).toHaveLength(
+      50,
+    )
+  })
+
+  test("bad payloads → empty queue", () => {
+    expect(parseQueuePayload("nope")).toEqual({ items: [] })
+    expect(parseQueuePayload({ items: "nope" })).toEqual({
+      items: [],
     })
   })
 })

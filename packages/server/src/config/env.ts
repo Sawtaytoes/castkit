@@ -8,6 +8,7 @@ import {
   E6_DEFAULT_PALETTE,
   MONO_PALETTE,
 } from "@castkit/core/panels/palette"
+import type { MqttConnectionConfig } from "@castkit/shared/mqtt/publisher"
 import * as z from "zod/mini"
 
 /**
@@ -119,12 +120,7 @@ const loadDevices = (
   return parsed.map(expandDevice)
 }
 
-export type MqttConfig = {
-  url: string
-  username: string
-  password: string
-  caFile: string | undefined
-  isRejectUnauthorized: boolean
+export type MqttConfig = MqttConnectionConfig & {
   discoveryPrefix: string
   nodeId: string
   baseTopic: string

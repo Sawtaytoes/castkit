@@ -2,6 +2,10 @@ import {
   type DeviceMetadata,
   DITHER_ALGORITHMS,
 } from "@castkit/core/devices/device"
+import type {
+  DiscoveryMessage,
+  HaDiscoveryConfig,
+} from "@castkit/shared/discovery/types"
 
 /**
  * Home Assistant MQTT-discovery payloads for an Inkcast device.
@@ -18,29 +22,18 @@ import {
  * MQTT client that actually publishes them lands with the broker credentials.
  */
 
-export type HaDiscoveryConfig = {
-  /** HA's discovery prefix. Default `homeassistant`. */
-  discoveryPrefix?: string
-  /** Groups these entities under one discovery node. Default `inkcast`. */
-  nodeId?: string
-  /** Root of the runtime state/command topics. Default `inkcast`. */
-  baseTopic?: string
-}
-
-export type DiscoveryMessage = {
-  topic: string
-  payload: Record<string, unknown>
-  isRetained: true
-}
-
 /**
- * The single bridge-level availability topic. One LWT on this topic marks every
- * Inkcast entity offline if the server disconnects — availability here means
- * "the Inkcast server is connected", which is what HA should reflect.
+ * The generic discovery shapes + the bridge availability topic moved to
+ * `@castkit/shared` (both client modes use them); re-exported so existing
+ * import sites keep working.
  */
-export const buildAvailabilityTopic = (
-  baseTopic = "inkcast",
-): string => `${baseTopic}/availability`
+export {
+  buildAvailabilityTopic,
+  type DiscoveryMessage,
+  type HaDiscoveryConfig,
+} from "@castkit/shared/discovery/types"
+
+import { buildAvailabilityTopic } from "@castkit/shared/discovery/types"
 
 /** Runtime topics for a device (image, commands, state). */
 export const buildDeviceTopics = ({
