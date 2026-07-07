@@ -1,0 +1,23 @@
+{
+  "name": "@castkit/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "description": "The MQTT/Home-Assistant layer both CastKit client modes share — MQTT client wrapper, HA discovery primitives, view-data payload types + parsers, the config-knob framework type, and the device-command / WebSocket protocol contract.",
+  "scripts": {
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "mqtt": "^5.15.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
