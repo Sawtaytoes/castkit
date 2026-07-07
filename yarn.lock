@@ -323,6 +323,7 @@ __metadata:
   dependencies:
     "@castkit/core": "workspace:*"
     "@castkit/render": "workspace:*"
+    "@castkit/shared": "workspace:*"
     "@castkit/views": "workspace:*"
     "@hono/node-server": "npm:^2.0.6"
     "@scalar/hono-api-reference": "npm:^0.11.7"
@@ -333,6 +334,18 @@ __metadata:
     react: "npm:^19.2.7"
     rxjs: "npm:^7.8.2"
     tsx: "npm:^4.22.4"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:^4.1.9"
+    zod: "npm:^4.4.3"
+  languageName: unknown
+  linkType: soft
+
+"@castkit/shared@workspace:*, @castkit/shared@workspace:packages/shared":
+  version: 0.0.0-use.local
+  resolution: "@castkit/shared@workspace:packages/shared"
+  dependencies:
+    "@types/node": "npm:^26.1.0"
+    mqtt: "npm:^5.15.1"
     typescript: "npm:^6.0.3"
     vitest: "npm:^4.1.9"
     zod: "npm:^4.4.3"

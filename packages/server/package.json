@@ -16,6 +16,7 @@
   "dependencies": {
     "@castkit/core": "workspace:*",
     "@castkit/render": "workspace:*",
+    "@castkit/shared": "workspace:*",
     "@castkit/views": "workspace:*",
     "@hono/node-server": "^2.0.6",
     "@scalar/hono-api-reference": "^0.11.7",
