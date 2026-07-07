@@ -1,10 +1,11 @@
 import { resolve } from "node:path"
-import { serve } from "@hono/node-server"
 import {
   DITHER_ALGORITHMS,
   type DitherAlgorithm,
 } from "@castkit/core/devices/device"
 import type { FullColourEncoding } from "@castkit/core/pipeline/dither"
+import type { ConfigKnob } from "@castkit/shared/framework/configKnob"
+import { serve } from "@hono/node-server"
 import { createPhotoFrameAdapter } from "./adapters/photoFrameAdapter.ts"
 import { createApp } from "./app.ts"
 import {
@@ -251,22 +252,8 @@ const parseBoundedInteger = ({
 /** The config-knob kind key for a crop edge (matches the MQTT topic slug). */
 const getCropKnobKind = (edge: CropEdge) => `crop_${edge}`
 
-/**
- * One HA-editable config knob: how its MQTT payload is validated/normalized
- * into the config store, and what to do after a user change. The retained
- * state topic doubles as boot-time persistence (`restore`).
- */
-type ConfigKnob = {
-  /** Store the (valid) payload; returns the normalized retained-state payload, or null to reject. */
-  applyPayload: (params: {
-    deviceId: string
-    payload: string
-  }) => string | null
-  /** Whether the store already has a value (blocks the boot-time restore). */
-  getHasValue: (deviceId: string) => boolean
-  /** Re-render / re-fetch after a user change (not after a restore). */
-  onApplied?: (deviceId: string) => Promise<void>
-}
+// The ConfigKnob framework type lives in @castkit/shared — both client modes
+// use retained-MQTT-state-as-persistence knobs.
 
 const main = async () => {
   loadEnvironmentFile()
