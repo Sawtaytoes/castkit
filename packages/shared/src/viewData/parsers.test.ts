@@ -233,6 +233,35 @@ describe("parseAgendaPayload", () => {
     )
   })
 
+  test("collapses exact-duplicate events from overlapping calendars", () => {
+    expect(
+      parseAgendaPayload({
+        events: [
+          { start: 2000, summary: "Dentist" },
+          { start: 1000, summary: "Standup" },
+          // Same appointment surfaced by a second calendar.
+          { start: 2000, summary: "Dentist" },
+        ],
+      }),
+    ).toEqual({
+      events: [
+        { startMs: 1000, summary: "Standup", isAllDay: false },
+        { startMs: 2000, summary: "Dentist", isAllDay: false },
+      ],
+    })
+  })
+
+  test("keeps same-summary events that differ in start or all-day flag", () => {
+    const result = parseAgendaPayload({
+      events: [
+        { start: 1000, summary: "Walk dog" },
+        { start: 5000, summary: "Walk dog" },
+        { start: 1000, summary: "Walk dog", isAllDay: true },
+      ],
+    })
+    expect(result.events).toHaveLength(3)
+  })
+
   test("drops events missing a start or summary, and bad payloads", () => {
     expect(
       parseAgendaPayload({

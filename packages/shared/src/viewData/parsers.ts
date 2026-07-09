@@ -251,7 +251,11 @@ const toStartMs = (value: unknown): number | null => {
 /**
  * `{ events: [{ start: epochMs | ISO, summary, isAllDay? }] }` → agenda data,
  * sorted ascending by start. Events without a usable start or summary are
- * dropped. The registry filters to "upcoming" and slices to the panel budget.
+ * dropped, and exact duplicates are collapsed — when HA aggregates several
+ * calendar entities that share an appointment (e.g. a personal and a shared
+ * family calendar both carrying the same event) the identical rows would
+ * otherwise render twice on the panel. The registry filters to "upcoming" and
+ * slices to the panel budget.
  */
 export const parseAgendaPayload = (
   payload: unknown,
@@ -264,6 +268,7 @@ export const parseAgendaPayload = (
     ? record.events
     : []
 
+  const seenEventKeys = new Set<string>()
   const events: AgendaEvent[] = rawEvents
     .map((rawEvent): AgendaEvent | null => {
       if (
@@ -291,6 +296,16 @@ export const parseAgendaPayload = (
       }
     })
     .filter((event): event is AgendaEvent => event !== null)
+    .filter((event) => {
+      // Collapse events that are identical in start, all-day flag, and
+      // summary — the same appointment surfaced by more than one calendar.
+      const eventKey = `${event.startMs}|${event.isAllDay}|${event.summary}`
+      if (seenEventKeys.has(eventKey)) {
+        return false
+      }
+      seenEventKeys.add(eventKey)
+      return true
+    })
     .sort(
       (firstEvent, secondEvent) =>
         firstEvent.startMs - secondEvent.startMs,
