@@ -46,5 +46,18 @@
     "shape": "round",
     "hasTouch": false,
     "colour": "full"
+  },
+  {
+    "id": "m5paper",
+    "label": "M5Paper",
+    "mac": "aa:bb:cc:00:00:05",
+    "width": 540,
+    "height": 960,
+    "colourMode": "mono",
+    "rotation": 0,
+    "ditherProfile": {
+      "algorithm": "floyd-steinberg",
+      "supersampleFactor": 2
+    }
   }
 ]
