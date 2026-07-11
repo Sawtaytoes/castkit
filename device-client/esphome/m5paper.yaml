@@ -44,14 +44,15 @@ esp32:
 # The IT8951E e-ink buffer lives in PSRAM. Required on this board.
 psram:
 
-# it8951e (e-ink controller) + m5paper (power latch) are not in mainline ESPHome
-# and come from this external repo. It exposes them under components/ (correct
-# layout). Pin `ref:` to a known-good commit once you've flashed successfully.
+# it8951e (e-ink controller) + m5paper (power latch) are not in mainline ESPHome.
+# They're VENDORED locally in ./components (from ilia-ae/m5paper_esphome) because
+# that upstream is ~1.5 years stale and does NOT compile on ESPHome 2026.6+ as-is
+# — see components/PATCHES.md for the one-line fix applied. Flash the whole
+# directory (m5paper.yaml + components/ + secrets.yaml) as a unit.
 external_components:
   - source:
-      type: git
-      url: https://github.com/ilia-ae/m5paper_esphome
-      ref: main
+      type: local
+      path: components
     components: [it8951e, m5paper]
 
 # --- Connectivity -----------------------------------------------------------
