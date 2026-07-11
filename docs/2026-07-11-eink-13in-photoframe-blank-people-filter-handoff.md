@@ -1,8 +1,28 @@
 # Handoff: 13.3" e-ink Photo Frames are blank (empty `photo_people` filter)
 
 **Date:** 2026-07-11
-**Status:** OPEN — root cause confirmed, fix is known but needs the intended
-people list (the exact prior value was lost in the migration).
+**Status:** ✅ RESOLVED 2026-07-11 — people filters restored (see Resolution).
+Optional follow-up (self-heal automation) still open.
+
+## Resolution (2026-07-11)
+
+The user supplied the intended people lists and both frames now render real
+photos (varying byte sizes + `photo frame <id>: asset <id>` log lines, not the
+73910 B placeholder). Set via retained MQTT `castkit/<id>/photo_people/set`:
+
+| Panel | photo_people |
+| --- | --- |
+| `eink-07769e` (13.3" #1) | `Xander, Darius, Marcus, Ashlee, Kevin` |
+| `eink-4da1be` (13.3" #2) | `Xander, Darius, Marcus, Faye, Moe` |
+
+(#1→Kevin+Ashlee's family, #2→Faye+Moe's family. If the physical frames are
+swapped, swap the two lists.) Values are retained so they persist across
+restarts. **Still recommended:** a self-heal automation (see "Prevent
+recurrence") so a future retained-topic wipe can't blank them again.
+
+---
+
+### (original, now resolved) OPEN — root cause confirmed, fix needed the people list
 **Panels affected:** `eink-07769e` + `eink-4da1be` (the two Inky Impression
 13.3" portrait frames). The mono pHAT (`eink-a615f8`) and the kitchen 7.3"
 (`eink-6e6697`) are fine.
