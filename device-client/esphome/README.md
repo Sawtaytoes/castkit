@@ -65,44 +65,38 @@ view-switching-via-ha-automations.
 
 ## Components: what's mainline vs external
 
-Only **`it8951e`** (e-ink controller) and **`m5paper`** (power latch) come from
-the `external_components` repo. **`gt911`** (touch) and **`spi`** are now
-**mainline** ESPHome — do NOT pull them externally (that conflicts). Requires
-ESPHome **≥ 2024.12.4**, board **`m5stack-grey`** + `psram:`.
+Only **`it8951e`** (e-ink controller) and **`m5paper`** (power latch) are external
+— they're **vendored + patched in `./components/`** (upstream
+`ilia-ae/m5paper_esphome` doesn't compile on current ESPHome; see
+[`components/PATCHES.md`](components/PATCHES.md)). **`gt911`** (touch) and **`spi`**
+are **mainline** ESPHome — do NOT pull them externally (that conflicts). Board
+**`m5stack-grey`** + `psram:`; classic **ESP32** chip (not ESP32‑C6/S3).
 
-> ⚠️ **The external repo must expose components under `components/`.** The old
+> ⚠️ **External repos must expose components under `components/`.** The old
 > `sebirdman/m5paper_esphome` repo stores them under `custom_components/`, which
-> ESPHome's `external_components` can't find — that's the classic "add" error.
-> This config uses `ilia-ae/m5paper_esphome` (correct layout, current).
+> ESPHome can't find — that was the first "add" error. `external_components` here
+> points at the local vendored `./components`.
 
 ## First-flash checklist
 
-**Two ways to flash — pick one:**
+ESPHome runs as its **own TrueNAS app** at `esphome.octen.dev` (container
+`ix-esphome-esphome-1`, config at `/mnt/TrueNAS-Apps/App-Configs/esphome/config`)
+— **not** a Home Assistant add-on. Deploy `m5paper.yaml` + `components/` there,
+plus `api_encryption_key` in that app's `secrets.yaml`.
 
-### A) Via the Home Assistant ESPHome add-on (what's set up now)
-`m5paper.yaml` is already in `/config/esphome/` and `secrets.yaml` there already
-has `wifi_ssid` / `wifi_password` / `api_encryption_key`. So:
-
-1. Open the **ESPHome dashboard** (HA → ESPHome add-on) — the **m5paper** node
+1. Open the **ESPHome dashboard** (`esphome.octen.dev`) — the **m5paper** node
    appears.
 2. With the M5Paper plugged into **this computer** over USB, click
-   **Install → Plug into this computer** (browser WebSerial). The add-on compiles
-   the firmware and flashes over serial. Later updates go **OTA**.
+   **Install → Plug into this computer** (browser WebSerial). It compiles + flashes
+   over serial. Later updates go **OTA**.
 3. **Adopt in Home Assistant.** The ESPHome integration auto-discovers the node;
-   the encryption key is already the `api_encryption_key` secret. You'll get the
-   touch/button entities and the `set_image` action.
+   the encryption key is the `api_encryption_key` secret. You'll get the button
+   entities and the `set_image` action.
 
-### B) Via the ESPHome CLI on your workstation
-Create `device-client/esphome/secrets.yaml` (gitignored) next to `m5paper.yaml`:
-
-```yaml
-wifi_ssid: "<your-ssid>"
-wifi_password: "<your-wifi-password>"
-# Generate once: `openssl rand -base64 32`
-api_encryption_key: "<32-byte-base64-key>"
-```
-
-Then `esphome run m5paper.yaml`.
+> ⚠️ **Chip-mismatch after a re-create.** If Install shows
+> `Chip mismatch: ... device expects esp32c6`, the browser cached a firmware from
+> when the device was first created as an ESP32‑C6. Hard-refresh (Ctrl+F5) the
+> dashboard and re-Install — this config builds a classic-ESP32 image.
 
 ### After flashing
 - **Confirm orientation.** If the first pushed render is sideways or upside down,
@@ -115,22 +109,24 @@ Then `esphome run m5paper.yaml`.
   M5Paper's input-only GPIO36 (esphome/esphome#14953). The `touchscreen:` block
   is left commented so the panel flashes cleanly; re-enable it once the base
   works and the GPIO36 handling is confirmed on your ESPHome version.
-- **Validated on:** ESPHome 2026.6.5 — `esphome config m5paper.yaml` →
-  "Configuration is valid!" (display + image + buttons; touch commented).
+- **Confirm geometry matches the CastKit device entry.** `m5paper.yaml` targets
+  540×960 portrait to match the `m5paper` entry (width 540 × height 960) in the
+  gitignored `inkcast.config.json` (copy from `inkcast.config.example.json`). If
+  you mount it landscape, flip **both** the CastKit entry (`width`/`height`) and
+  the display `rotation` together.
+- **Validated on:** ESPHome 2026.6.5 — `esphome compile m5paper.yaml` →
+  "Successfully created ESP32 image / SUCCESS" (display + image + buttons; touch
+  commented).
 
-5. **Confirm geometry matches the CastKit device entry.** `m5paper.yaml` targets
-   540×960 portrait to match the `m5paper` entry (width 540 × height 960) in the
-   gitignored `inkcast.config.json` (copy from `inkcast.config.example.json`).
-   If you mount it landscape, flip **both** the CastKit entry (`width`/`height`)
-   and `display_rotation` together.
+## Buttons & touch
 
-## Touch & buttons
+The three edge buttons (`Button: Left/Center/Right`, GPIO39/38/37) surface as
+ESPHome **binary sensors** — wire them in HA automations to do whatever you want
+(skip/pause via Music Assistant, cycle the CastKit view, wake the panel).
 
-Three touch thirds (`Touch: Left/Center/Right`) and the three edge buttons
-(`Button: Up/Press/Down`) surface as ESPHome **binary sensors**. Wire them in HA
-automations to do whatever you want — skip/pause via Music Assistant, cycle the
-CastKit view, wake the panel. The zones are a plain default; retune the `x/y`
-ranges in `m5paper.yaml` to your mounting, or add gesture handling.
+**Touch is commented out** for now (the GT911/GPIO36 regression above). When you
+re-enable the `touchscreen:` block, taps publish `(x, y)` to a text sensor HA can
+act on; add touch-zone binary_sensors for fixed hit targets.
 
 ## Fast-update progress bar (experimental)
 
