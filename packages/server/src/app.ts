@@ -6,6 +6,7 @@ import { SetViewRequestSchema } from "./api/schemas.ts"
 import type { InkcastConfig } from "./config/env.ts"
 import type { PushController } from "./pushController.ts"
 import type { DeviceStore } from "./state/deviceStore.ts"
+import type { RenderTokenStore } from "./state/renderTokenStore.ts"
 import { VIEW_NAMES } from "./views/registry.ts"
 
 /**
@@ -13,15 +14,20 @@ import { VIEW_NAMES } from "./views/registry.ts"
  * user/password by preference); `/health` stays open. Lets an
  * agent or HA list devices, fetch the current rendered image, force a refresh,
  * or switch a device's view. The same actions are reachable over MQTT.
+ *
+ * Image-delivery endpoint: `/render/<token>.png` is public (no token needed);
+ * `/api/devices/:id/render` is token-gated and mints single-use render tokens.
  */
 export const createApp = ({
   config,
   deviceStore,
   pushController,
+  renderTokenStore,
 }: {
   config: InkcastConfig
   deviceStore: DeviceStore
   pushController: PushController
+  renderTokenStore: RenderTokenStore
 }) => {
   const app = new Hono()
 
@@ -103,6 +109,48 @@ export const createApp = ({
     return isPushed
       ? context.json({ ok: true, view: parsed.data.view })
       : context.json({ error: "unknown device" }, 404)
+  })
+
+  // HTTP image delivery: render a device's current view and return a single-use
+  // token URL. HA uses this to mint URLs for ESPHome clients (M5Paper) that
+  // fetch over HTTPS rather than MQTT.
+  app.post("/api/devices/:id/render", async (context) => {
+    const image = await pushController.renderDevice(
+      context.req.param("id"),
+    )
+    if (!image) {
+      return context.json({ error: "unknown device" }, 404)
+    }
+
+    const token = renderTokenStore.createToken(image)
+    const url = `${config.publicUrl}/render/${token}.png`
+    return context.json({ token, url })
+  })
+
+  // Public image-delivery endpoint: serve a single-use render token's PNG.
+  // Evict the token after the response fully flushes (on close/completion).
+  // Tokens are unguessable and consumed on fetch for single-use delivery.
+  app.get("/render/:token", async (context) => {
+    const token = context.req.param("token")
+    const png = renderTokenStore.fetchToken(token)
+
+    if (!png) {
+      return context.json({ error: "token not found or already used" }, 404)
+    }
+
+    const response = context.body(new Uint8Array(png), 200, {
+      "Content-Type": "image/png",
+      "Cache-Control": "no-store",
+    })
+
+    // Evict the token after the response fully flushes (all bytes sent + response closed).
+    // This happens in the middleware/after-response hook, ensuring retries mid-flight
+    // can still fetch the same token.
+    context.res.on?.("finish", () => {
+      renderTokenStore.evictToken(token)
+    })
+
+    return response
   })
 
   return app
