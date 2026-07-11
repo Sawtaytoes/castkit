@@ -65,37 +65,56 @@ view-switching-via-ha-automations.
 > `http://storeman.octen:8788`). If it's `https://`, uncomment `verify_ssl: false`
 > under `http_request:` in `m5paper.yaml` (and expect higher RAM use).
 
+## Components: what's mainline vs external
+
+Only **`it8951e`** (e-ink controller) and **`m5paper`** (power latch) come from
+the `external_components` repo. **`gt911`** (touch) and **`spi`** are now
+**mainline** ESPHome — do NOT pull them externally (that conflicts). Requires
+ESPHome **≥ 2024.12.4**, board **`m5stack-grey`** + `psram:`.
+
+> ⚠️ **The external repo must expose components under `components/`.** The old
+> `sebirdman/m5paper_esphome` repo stores them under `custom_components/`, which
+> ESPHome's `external_components` can't find — that's the classic "add" error.
+> This config uses `ilia-ae/m5paper_esphome` (correct layout, current).
+
 ## First-flash checklist
 
-1. **Create `device-client/esphome/secrets.yaml`** (gitignored) next to
-   `m5paper.yaml`:
+**Two ways to flash — pick one:**
 
-   ```yaml
-   wifi_ssid: "<your-ssid>"
-   wifi_password: "<your-wifi-password>"
-   # Generate once: `openssl rand -base64 32`
-   api_encryption_key: "<32-byte-base64-key>"
-   ```
+### A) Via the Home Assistant ESPHome add-on (what's set up now)
+`m5paper.yaml` is already in `/config/esphome/` and `secrets.yaml` there already
+has `wifi_ssid` / `wifi_password` / `api_encryption_key`. So:
 
-2. **Flash over USB the first time** (later updates go OTA). From a machine with
-   ESPHome installed, in this directory:
-
-   ```bash
-   esphome run m5paper.yaml
-   ```
-
-   The `m5paper`, `it8951e`, `gt911`, `bm8563`, and `spi` components are fetched
-   from the `external_components` git source at build time.
-
+1. Open the **ESPHome dashboard** (HA → ESPHome add-on) — the **m5paper** node
+   appears.
+2. With the M5Paper plugged into **this computer** over USB, click
+   **Install → Plug into this computer** (browser WebSerial). The add-on compiles
+   the firmware and flashes over serial. Later updates go **OTA**.
 3. **Adopt in Home Assistant.** The ESPHome integration auto-discovers the node;
-   add it and paste the `api_encryption_key`. You'll get the touch/button binary
-   sensors and the `set_image` action.
+   the encryption key is already the `api_encryption_key` secret. You'll get the
+   touch/button entities and the `set_image` action.
 
-4. **Confirm orientation.** If the first pushed render is sideways or upside
-   down, change **`display_rotation`** in `m5paper.yaml`'s `substitutions`
-   (`0` / `90` / `180` / `270`) and re-run — rotate on the *device*, never
-   server-side, so the render stays 1:1 (the server's `rotation` knob is for a
-   different job and would double up).
+### B) Via the ESPHome CLI on your workstation
+Create `device-client/esphome/secrets.yaml` (gitignored) next to `m5paper.yaml`:
+
+```yaml
+wifi_ssid: "<your-ssid>"
+wifi_password: "<your-wifi-password>"
+# Generate once: `openssl rand -base64 32`
+api_encryption_key: "<32-byte-base64-key>"
+```
+
+Then `esphome run m5paper.yaml`.
+
+### After flashing
+- **Confirm orientation.** If the first pushed render is sideways or upside down,
+  change **`rotation`** on the `it8951e` display in `m5paper.yaml`
+  (`0` / `90` / `180` / `270`) and re-flash — rotate on the *device*, never
+  server-side, so the render stays 1:1 (the server's `rotation` knob is for a
+  different job and would double up).
+- **If the build fails on `gt911` / `GPIO36`** (input-only pin on some ESPHome
+  versions), comment out the whole `touchscreen:` block — the display still works
+  and you can sort touch out after.
 
 5. **Confirm geometry matches the CastKit device entry.** `m5paper.yaml` targets
    540×960 portrait to match the `m5paper` entry (width 540 × height 960) in the

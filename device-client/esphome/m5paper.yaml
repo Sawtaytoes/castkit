@@ -6,53 +6,53 @@
 # panel PULLS over HTTP and blits. See:
 #   docs/decisions/2026-07-03-esphome-http-image-delivery.md   (pull-over-HTTP)
 #   docs/decisions/2026-07-08-m5paper-image-plus-touch-plus-fast-update.md
+#   device-client/esphome/README.md                            (flash + HA wiring)
 #
-# Unlike the Pi-Zero receivers (which take pixels over MQTT), an ESPHome panel
-# talks to Home Assistant over the native ESPHome API — that is the intended
-# exception to CastKit's "MQTT and nothing else" house contract, and it is what
-# the HTTP-image-delivery decision locked in. HA:
-#   * calls the `set_image` API action with the freshly minted token URL, and
-#   * reads this panel's touch zones / buttons as ESPHome binary sensors and
-#     runs whatever automation it likes (next track, switch view, wake, …).
-# The panel carries NO CastKit URL and NO house logic — HA remains the brain.
+# Home Assistant talks to this panel over the native ESPHome API (the sanctioned
+# exception to CastKit's MQTT-only house contract): HA calls the `set_image`
+# action with a fresh render URL, and reads the touch/buttons back as entities.
 #
-# ⚠️ This is authored against jesserockz's known-good M5Paper example but has
-#    NOT yet been flashed to hardware. First-flash checklist + wiring notes live
-#    in device-client/esphome/README.md — read it before you build.
+# Hardware config follows the ilia-ae/m5paper_esphome known-good example for
+# ESPHome >= 2024.12.4. gt911 (touch) and spi are MAINLINE ESPHome components;
+# only it8951e + m5paper come from the external repo (which must expose them
+# under components/ — the old sebirdman repo used custom_components/, which
+# ESPHome can't find, and was the original "add" error).
 # ----------------------------------------------------------------------------
 
 substitutions:
   node_name: m5paper
   friendly_name: "M5Paper"
-  # Native controller framebuffer is landscape 960×540. `display_rotation: 90`
-  # presents it PORTRAIT 540×960 to match the `m5paper` entry in
-  # inkcast.config.example.json (width 540 × height 960, rotation 0). If the
-  # image lands sideways/upside-down on first flash, this is the one knob to
-  # turn (0 / 90 / 180 / 270). The CastKit server-side `rotation` knob is for
-  # correcting mounting — keep the pushed image 1:1 with the panel and rotate
-  # HERE, so the server never double-rotates (same rule as the Pi receiver).
-  display_rotation: "90"
 
 esphome:
   name: ${node_name}
   friendly_name: ${friendly_name}
+  min_version: 2024.12.4
+  on_boot:
+    priority: 200
+    then:
+      # Stabilise the panel after power/bus come up, then a clean full refresh.
+      - delay: 3s
+      - it8951e.clear
+      - delay: 100ms
+      - it8951e.updateslow
 
 esp32:
-  board: esp32dev
+  board: m5stack-grey # M5Paper board profile — enables PSRAM + 16 MB flash
   framework:
     type: arduino
 
-# The it8951e display, gt911 touch, bm8563 RTC, and the M5Paper power/SPI glue
-# are not (yet) in mainline ESPHome — they come from this external component.
-# Pin `ref:` to a known-good commit once you've flashed successfully; `main`
-# is fine for the first build but can drift (matches the repo's pin-and-soak
-# habit for anything fetched by a moving ref).
+# The IT8951E e-ink buffer lives in PSRAM. Required on this board.
+psram:
+
+# it8951e (e-ink controller) + m5paper (power latch) are not in mainline ESPHome
+# and come from this external repo. It exposes them under components/ (correct
+# layout). Pin `ref:` to a known-good commit once you've flashed successfully.
 external_components:
   - source:
       type: git
-      url: https://github.com/sebirdman/m5paper_esphome
+      url: https://github.com/ilia-ae/m5paper_esphome
       ref: main
-    components: [bm8563, gt911, it8951e, m5paper, spi]
+    components: [it8951e, m5paper]
 
 # --- Connectivity -----------------------------------------------------------
 wifi:
@@ -63,19 +63,22 @@ wifi:
 captive_portal:
 
 logger:
+  level: INFO
 
 # Native ESPHome API — how Home Assistant talks to this panel. HA pushes the
-# render URL in via the `set_image` action; HA reads the touch/button binary
-# sensors back out. No MQTT on the device.
+# render URL in via the `set_image` action; HA reads the touch/button entities
+# back out. No MQTT on the device.
 api:
   encryption:
     key: !secret api_encryption_key
   actions:
     # HA calls this after the CastKit server mints a token URL for a fresh
-    # render, e.g. esphome.m5paper_set_image(image_url: "http://storeman.octen:8788/render/<token>.png").
-    # The panel re-points online_image at that URL, fetches, and repaints.
-    # A plain-HTTP LAN URL is recommended over HTTPS — TLS on the ESP32 is
-    # RAM-hungry, and the render bytes are ephemeral + single-use anyway.
+    # render, e.g.:
+    #   esphome.m5paper_set_image(image_url: "http://storeman.octen:8788/render/<token>.png")
+    # The panel re-points online_image at that URL and fetches; the image's
+    # on_download_finished trigger then repaints the panel. A plain-HTTP LAN URL
+    # is recommended over HTTPS — TLS on the ESP32 is RAM-hungry, and the render
+    # bytes are ephemeral + single-use anyway.
     - action: set_image
       variables:
         image_url: string
@@ -84,7 +87,6 @@ api:
             id: now_playing_image
             url: !lambda return image_url;
             update: true
-        - component.update: m5paper_display
 
 ota:
   - platform: esphome
@@ -98,10 +100,10 @@ spi:
 i2c:
   sda: GPIO21
   scl: GPIO22
+  frequency: 100khz
 
-# M5Paper power latch + battery rail (external component). This component owns
-# GPIO2 and holds the main-power latch on so the panel stays awake on battery —
-# don't also declare GPIO2 as an output (double-use fails validation).
+# M5Paper power latch (external component). Holds the main-power rail on so the
+# panel stays awake on battery. Owns GPIO2/GPIO5 — don't redeclare them.
 m5paper:
   battery_power_pin: GPIO5
   main_power_pin: GPIO2
@@ -109,19 +111,20 @@ m5paper:
 # HTTP client used by online_image to pull the render.
 http_request:
   timeout: 10s
-  # verify_ssl: false   # only needed if HA hands out an https:// token URL
+  # verify_ssl: false   # uncomment only if HA hands out an https:// token URL
 
-# The pushed render. CastKit dithers to 1-bit black/white, so BINARY (≈65 KB
-# for 540×960) fits internal RAM with no PSRAM dependency and maps exactly onto
-# the mono panel. (Switch to GRAYSCALE — needs PSRAM — only if you later send a
-# 16-level grayscale card instead of a dithered one.) The URL here is a
-# placeholder; HA overwrites it live via the `set_image` action above.
+# The pushed render. CastKit dithers to 1-bit black/white, so BINARY (~65 KB for
+# 540x960) is exact for the mono panel. The URL here is a placeholder; HA
+# overwrites it live via the `set_image` action. When the download finishes we
+# do a full (slow) refresh for a clean, ghost-free frame.
 online_image:
   - id: now_playing_image
     url: "http://192.0.2.1/placeholder.png"
     format: png
     type: BINARY
     resize: 540x960
+    on_download_finished:
+      - lambda: id(m5paper_display).update_slow();
     on_error:
       - logger.log: "CastKit render fetch failed"
 
@@ -129,28 +132,29 @@ online_image:
 display:
   - platform: it8951e
     id: m5paper_display
-    display_cs_pin: GPIO15
+    cs_pin: GPIO15
     reset_pin: GPIO23
+    reset_duration: 100ms
     busy_pin: GPIO27
-    rotation: ${display_rotation}
+    model: M5EPD
+    # rotation 90 presents the native 960x540 landscape panel as PORTRAIT
+    # 540x960 to match the `m5paper` entry in inkcast.config.example.json.
+    # If the render lands sideways/upside-down, this is the one knob (0/90/180/270).
+    rotation: 90
     reversed: false
-    # Never auto-refresh: e-ink holds the last frame with zero power, and we
-    # only repaint when HA pushes a new render (via `component.update` in the
-    # set_image action). This is the load-bearing setting for a pushed panel.
+    # Never auto-refresh: e-ink holds the last frame at zero power. We repaint
+    # only when HA pushes a new render (on_download_finished above).
     update_interval: never
     lambda: |-
-      // Blit the pushed render 1:1. On a mono panel COLOR_ON = black ink,
+      // Blit the pushed render 1:1. On the mono panel COLOR_ON = black ink,
       // COLOR_OFF = white paper.
       it.image(0, 0, id(now_playing_image), COLOR_ON, COLOR_OFF);
 
       // --- Fast-update music progress bar (EXPERIMENTAL) --------------------
-      // The M5Paper's it8951e can partial-refresh a strip far faster than a
-      // full flash, so a thin now-playing progress bar is drawable locally
-      // WITHOUT re-pushing the whole card — this is the "I'm e-ink but I also
-      // fast-update" capability the M5Paper adds to the fleet. Uncomment once
-      // you've confirmed the external component exposes a partial/fast refresh
-      // (a full flash every second would strobe and wear the panel). Position
-      // + duration are imported from HA below.
+      // it8951e supports a FAST refresh via id(m5paper_display).update() (vs the
+      // full-flash .update_slow()), so a thin now-playing bar can repaint
+      // locally without re-pushing the card. Uncomment + drive from an HA
+      // number/sensor once you've confirmed the fast path looks right.
       //
       // if (id(media_duration).state > 0) {
       //   int bar_y = it.get_height() - 8;
@@ -160,65 +164,40 @@ display:
       // }
 
 # --- Touch & buttons (read by Home Assistant) -------------------------------
-# GT911 two-point capacitive touch. Touch zones + the three hardware buttons
-# surface to HA as binary sensors; HA automations decide what a tap does
-# (skip/pause via Music Assistant, switch the CastKit view, wake the panel…).
-# The device holds no music/house logic — same split as every other CastKit
-# device, just reported over the ESPHome API instead of MQTT.
+# GT911 capacitive touch (MAINLINE component). Taps publish coordinates HA can
+# act on; add touch-zone binary_sensors later if you want fixed hit targets.
+# NOTE: if the build fails on gt911 / GPIO36 (input-only pin on some ESPHome
+# versions), comment this whole touchscreen block out — the display still works.
 touchscreen:
   - platform: gt911
-    display: m5paper_display
     id: gt911_touchscreen
+    display: m5paper_display
     interrupt_pin: GPIO36
+    on_touch:
+      - lambda: |-
+          char buffer[32];
+          sprintf(buffer, "(%d, %d)", touch.x, touch.y);
+          id(touch_coordinates).publish_state(buffer);
+
+text_sensor:
+  - platform: template
+    name: "Touch Coordinates"
+    id: touch_coordinates
 
 binary_sensor:
-  # Three touch thirds — a simple, orientation-independent default. Retune the
-  # x/y ranges (or add gesture handling) once you see how it's mounted.
-  - platform: touchscreen
-    name: "Touch: Left"
-    x_min: 0
-    x_max: 180
-    y_min: 0
-    y_max: 960
-  - platform: touchscreen
-    name: "Touch: Center"
-    x_min: 180
-    x_max: 360
-    y_min: 0
-    y_max: 960
-  - platform: touchscreen
-    name: "Touch: Right"
-    x_min: 360
-    x_max: 540
-    y_min: 0
-    y_max: 960
-  # Physical buttons down the edge of the M5Paper (GPIO37/38/39, active-low).
+  # The three hardware buttons down the edge of the M5Paper (active-low).
   - platform: gpio
-    name: "Button: Up"
+    name: "Button: Left"
     pin:
-      number: GPIO37
+      number: GPIO39
       inverted: true
   - platform: gpio
-    name: "Button: Press"
+    name: "Button: Center"
     pin:
       number: GPIO38
       inverted: true
   - platform: gpio
-    name: "Button: Down"
+    name: "Button: Right"
     pin:
-      number: GPIO39
+      number: GPIO37
       inverted: true
-
-# --- Sensors ----------------------------------------------------------------
-# Pull the active player's position/duration from HA so the local progress bar
-# above can render without a re-push. Point these at your media_player once the
-# panel is adopted (left as diagnostics until then).
-# sensor:
-#   - platform: homeassistant
-#     id: media_position
-#     entity_id: media_player.living_room
-#     attribute: media_position
-#   - platform: homeassistant
-#     id: media_duration
-#     entity_id: media_player.living_room
-#     attribute: media_duration
