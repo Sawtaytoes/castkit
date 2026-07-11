@@ -43,6 +43,7 @@ import {
   type PhotoFormatSetting,
 } from "./state/deviceConfigStore.ts"
 import { createDeviceStore } from "./state/deviceStore.ts"
+import { createRenderTokenStore } from "./state/renderTokenStore.ts"
 import { createViewDataStore } from "./state/viewDataStore.ts"
 import {
   getIsClockBearingView,
@@ -1720,10 +1721,14 @@ const main = async () => {
   })
   await browserMode.start()
 
+  const renderTokenStore = createRenderTokenStore({ ttlMinutes: 10 })
+  renderTokenStore.startSweeper()
+
   const app = createApp({
     config,
     deviceStore,
     pushController,
+    renderTokenStore,
   })
   const { injectWebSocket } = browserMode.attach(app)
   const server = serve({
@@ -1740,6 +1745,7 @@ const main = async () => {
     server.close()
     clockTicker.close()
     photoFrameAdapter?.close()
+    renderTokenStore.stopSweeper()
     await publisher.close()
     await renderService.close()
     process.exit(0)
