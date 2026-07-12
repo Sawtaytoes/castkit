@@ -89,6 +89,11 @@ const DeviceConfigSchema = z.object({
     }),
     { algorithm: "floyd-steinberg", supersampleFactor: 2 },
   ),
+  // Optional: "http-pull" panels (ESPHome M5Paper) get a render-URL published
+  // to <base>/image_url instead of MQTT image bytes. Absent = "mqtt-image".
+  imageDelivery: z.optional(
+    z.enum(["mqtt-image", "http-pull"]),
+  ),
 })
 
 /**

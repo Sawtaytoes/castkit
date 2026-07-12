@@ -65,6 +65,14 @@ export type DeviceMetadata = {
   /** Clockwise degrees applied before the panel draws (pHAT mounts USB-up = 180). */
   rotation: 0 | 90 | 180 | 270
   ditherProfile: DitherProfile
+  /**
+   * How the panel receives its render. Default `"mqtt-image"`: the server
+   * publishes the PNG bytes to `<base>/image` (the Pi fleet + HA's image entity
+   * consume them). `"http-pull"`: the panel can't consume MQTT image bytes
+   * (e.g. the ESPHome M5Paper), so the server instead publishes a single-use
+   * render URL to `<base>/image_url`, which the panel fetches over HTTP.
+   */
+  imageDelivery?: "mqtt-image" | "http-pull"
 }
 
 // NOTE: these are generic EXAMPLE devices — placeholder MACs, no room labels —
