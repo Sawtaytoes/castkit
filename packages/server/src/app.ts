@@ -131,7 +131,10 @@ export const createApp = ({
   // Evict the token after the response fully flushes (on close/completion).
   // Tokens are unguessable and consumed on fetch for single-use delivery.
   app.get("/render/:token", async (context) => {
-    const token = context.req.param("token")
+    // The delivery URL is `/render/<token>.png`, so the `:token` path param
+    // arrives WITH the `.png` extension — strip it before the store lookup
+    // (the store is keyed by the bare token). Without this every fetch 404s.
+    const token = context.req.param("token").replace(/\.png$/, "")
     const png = renderTokenStore.fetchToken(token)
 
     if (!png) {
