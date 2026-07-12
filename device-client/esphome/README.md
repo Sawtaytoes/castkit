@@ -86,7 +86,7 @@ are **mainline** ESPHome — do NOT pull them externally (that conflicts). Board
 > Full agent-driven procedure: [`RUNBOOK-agent-flash-and-push.md`](RUNBOOK-agent-flash-and-push.md).
 
 ESPHome runs as its **own TrueNAS app** at `esphome.octen.dev` (container
-`ix-esphome-esphome-1`, config at `/mnt/TrueNAS-Apps/App-Configs/esphome/config`)
+`<esphome-container>`, config at `<esphome-config-dir>`)
 — **not** a Home Assistant add-on. Deploy `m5paper.yaml` + `components/` there,
 plus `api_encryption_key` in that app's `secrets.yaml`.
 
@@ -94,14 +94,14 @@ plus `api_encryption_key` in that app's `secrets.yaml`.
 broken by an upstream bug (below). Flash with esptool instead:
 
 1. Compile on the container:
-   `docker exec ix-esphome-esphome-1 sh -c "cd /config && esphome compile m5paper.yaml"`.
+   `docker exec <esphome-container> sh -c "cd /config && esphome compile m5paper.yaml"`.
 2. **First flash (blank board):** copy
    `.esphome/build/m5paper/.pioenvs/m5paper/firmware.factory.bin` to the machine the
    board is cabled to and flash it:
    `python -m esptool --chip esp32 --port <COMx> --baud 460800 write_flash --flash_size detect 0x0 firmware.factory.bin`.
    → *Hash of data verified.* (See the runbook for the exact copy/verify steps.)
 3. **Updates:** OTA, no cable —
-   `docker exec ix-esphome-esphome-1 sh -c "cd /config && esphome upload m5paper.yaml --device <panel-ip>"`.
+   `docker exec <esphome-container> sh -c "cd /config && esphome upload m5paper.yaml --device <panel-ip>"`.
    ⚠️ OTA reboots the board, which re-runs `on_boot`’s `it8951e.clear` → the panel
    blanks until an image is pushed again.
 4. **Adopt in Home Assistant** (optional). The ESPHome integration auto-discovers

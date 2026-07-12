@@ -10,7 +10,7 @@
 
 Inkcast's container image builds in **GitHub Actions** and publishes to
 **`ghcr.io/sawtaytoes/inkcast`**. TrueNAS (and anyone else) pulls from GHCR.
-Inkcast does NOT go through Gitea Actions or `docker-registry.octen.dev`.
+Inkcast does NOT go through Gitea Actions or a private homelab registry.
 
 ## Context
 
