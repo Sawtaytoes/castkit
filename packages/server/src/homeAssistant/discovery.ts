@@ -47,6 +47,9 @@ export const buildDeviceTopics = ({
 
   return {
     image: `${base}/image`,
+    // Render-URL topic for "http-pull" panels (see DeviceMetadata.imageDelivery):
+    // a single-use HTTPS URL the panel fetches, published non-retained per push.
+    imageUrl: `${base}/image_url`,
     refreshCommand: `${base}/refresh/set`,
     viewCommand: `${base}/view/set`,
     viewState: `${base}/view`,

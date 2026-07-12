@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { MONO_PALETTE } from "@castkit/core/panels/palette"
 import type { FullColourEncoding } from "@castkit/core/pipeline/dither"
 import type { ConfiguredDevice } from "./config/env.ts"
@@ -6,6 +7,7 @@ import type { MqttPublisher } from "./mqtt/publisher.ts"
 import type { RenderService } from "./render/renderService.ts"
 import type { DeviceConfigStore } from "./state/deviceConfigStore.ts"
 import type { DeviceStore } from "./state/deviceStore.ts"
+import type { RenderTokenStore } from "./state/renderTokenStore.ts"
 import type { ViewDataStore } from "./state/viewDataStore.ts"
 import {
   type ClockConfig,
@@ -44,6 +46,8 @@ export const createPushController = ({
   baseTopic,
   resolvePhotoEncoding,
   resolveClockConfig,
+  renderTokenStore,
+  publicUrl,
 }: {
   devices: readonly ConfiguredDevice[]
   deviceStore: DeviceStore
@@ -52,6 +56,13 @@ export const createPushController = ({
   renderService: RenderService
   publisher: MqttPublisher
   baseTopic: string
+  /**
+   * Mints the single-use render tokens whose URLs are published to "http-pull"
+   * panels (the same store the public `/render/<token>.png` endpoint serves).
+   */
+  renderTokenStore: RenderTokenStore
+  /** Public base URL a "http-pull" panel fetches, e.g. https://castkit.octen.dev. */
+  publicUrl: string
   /**
    * The device's resolved full-colour wire format (per-device override or
    * global default, both HA config). Only the bleed photo view uses it; every
@@ -67,6 +78,13 @@ export const createPushController = ({
   const deviceById = new Map(
     devices.map((device) => [device.id, device]),
   )
+
+  // Per-device hash of the last render whose URL we published to a "http-pull"
+  // panel. A full e-ink refresh is expensive (and flashy), so we only publish a
+  // fresh URL when the rendered bytes actually changed — a clock ticks every
+  // minute so it still updates, but an unchanged agenda/now-playing frame won't
+  // needlessly reflash the panel.
+  const lastPublishedHashByDevice = new Map<string, string>()
 
   const renderDevice = async (deviceId: string) => {
     const device = deviceById.get(deviceId)
@@ -196,6 +214,41 @@ export const createPushController = ({
       payload: new Date().toISOString(),
       isRetained: true,
     })
+
+    // "http-pull" panels (ESPHome M5Paper) can't consume the MQTT image bytes
+    // above — they fetch a PNG over HTTP. Mint a single-use token and publish
+    // its URL (non-retained: a consumed/expired token would 404 on reconnect),
+    // but skip when the render is byte-identical to the last one we delivered so
+    // an idle panel doesn't reflash. `publicUrl` must be set for the URL to be
+    // reachable off-host.
+    if (
+      device.imageDelivery === "http-pull" &&
+      publicUrl
+    ) {
+      const renderHash = createHash("sha256")
+        .update(image)
+        .digest("hex")
+      if (
+        lastPublishedHashByDevice.get(deviceId) ===
+        renderHash
+      ) {
+        console.log(
+          `[inkcast] skip ${deviceId} image_url (unchanged render)`,
+        )
+        return true
+      }
+      const token = renderTokenStore.createToken(image)
+      const url = `${publicUrl}/render/${token}.png`
+      await publisher.publish({
+        topic: topics.imageUrl,
+        payload: url,
+        isRetained: false,
+      })
+      lastPublishedHashByDevice.set(deviceId, renderHash)
+      console.log(
+        `[inkcast] push ${deviceId} image_url ${url}`,
+      )
+    }
 
     return true
   }
