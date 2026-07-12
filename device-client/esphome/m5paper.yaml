@@ -27,14 +27,12 @@ esphome:
   name: ${node_name}
   friendly_name: ${friendly_name}
   min_version: 2024.12.4
-  on_boot:
-    priority: 200
-    then:
-      # Stabilise the panel after power/bus come up, then a clean full refresh.
-      - delay: 3s
-      - it8951e.clear
-      - delay: 100ms
-      - it8951e.updateslow
+  # NOTE: intentionally NO on_boot display action. E-ink holds the last frame at
+  # zero power, so after a reboot / OTA / battery-recharge we LEAVE the panel as
+  # it is — the last render stays on glass (the crash-recovery story). A
+  # boot-time `it8951e.clear` + `updateslow` (previously here) wiped the panel to
+  # white on every reboot. The panel repaints ONLY when HA/CastKit pushes a new
+  # image via `set_image` (online_image.on_download_finished, below).
 
 esp32:
   # Classic ESP32 (the M5Paper is an ESP32-D0WDQ6). Use the generic esp32dev so
