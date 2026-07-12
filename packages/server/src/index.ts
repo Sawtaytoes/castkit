@@ -385,6 +385,14 @@ const main = async () => {
     }
   }
 
+  // Minted here (not in createApp) because the push path also mints render-URL
+  // tokens for "http-pull" panels — the same store the public
+  // `/render/<token>.png` endpoint serves.
+  const renderTokenStore = createRenderTokenStore({
+    ttlMinutes: 10,
+  })
+  renderTokenStore.startSweeper()
+
   const pushController = createPushController({
     devices: config.devices,
     deviceStore,
@@ -395,6 +403,8 @@ const main = async () => {
     baseTopic,
     resolvePhotoEncoding,
     resolveClockConfig,
+    renderTokenStore,
+    publicUrl: config.publicUrl,
   })
 
   const pushDeviceLogged = (deviceId: string) => {
@@ -1720,9 +1730,6 @@ const main = async () => {
     getGlobalClockConfig,
   })
   await browserMode.start()
-
-  const renderTokenStore = createRenderTokenStore({ ttlMinutes: 10 })
-  renderTokenStore.startSweeper()
 
   const app = createApp({
     config,
