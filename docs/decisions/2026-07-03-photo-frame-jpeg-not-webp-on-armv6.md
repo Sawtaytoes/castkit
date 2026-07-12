@@ -61,7 +61,7 @@ real panel Pi ruled it out.
 
 ## Evidence
 
-- On-device probe, `pi@192.168.101.200` (Impression, Pi Zero W, ARMv6),
+- On-device probe, an on-device Pi Zero W (Impression, Pi Zero W, ARMv6),
   `~/inky-venv` Pillow 11.1.0:
   - `features.check("webp")` → `True`, but decoding a real WebP →
     `Illegal instruction` (exit 132).
