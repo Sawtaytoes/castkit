@@ -313,12 +313,22 @@ export const createPhotoFrameAdapter = ({
 
       const activeView = getActiveView(deviceId)
 
-      // The dual-portrait view on a landscape panel tries two side-by-side
-      // portraits first; showDualPortrait returns false (and we fall through to
-      // a single photo) when two portraits aren't available this cycle.
+      // The dual-portrait view tries two side-by-side portraits first;
+      // showDualPortrait returns false (and we fall through to a single photo)
+      // when two portraits aren't available this cycle. It only engages when
+      // the panel reads horizontal AND its width axis is horizontal on the wall
+      // — native landscape with rotation 0/180 — so the two columns sit side by
+      // side. A quarter-turn (90/270) would rotate them into a stack, so those
+      // fall through to a single fill photo.
+      const effectiveRotation =
+        deviceConfigStore.getRotationOverride(device.id) ??
+        device.rotation
+      const isWidthAxisHorizontal =
+        effectiveRotation === 0 || effectiveRotation === 180
       const isDualPortrait =
         activeView === DUAL_PHOTO_VIEW &&
-        device.width > device.height
+        device.width > device.height &&
+        isWidthAxisHorizontal
       if (isDualPortrait) {
         const hasShownDual = await showDualPortrait({
           device,
