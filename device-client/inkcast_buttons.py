@@ -40,7 +40,9 @@ def env(name, default=None):
 def main():
     image_topic = env("INKCAST_IMAGE_TOPIC", "inkcast/inky-phat/image")
     device_id = env("INKCAST_DEVICE_ID") or image_topic.split("/")[1]
-    base_topic = f"inkcast/{device_id}"
+    # Command topics share the image topic's base prefix — the server only
+    # routes commands under its own MQTT_BASE_TOPIC.
+    base_topic = f"{image_topic.split('/')[0]}/{device_id}"
     host = env("MQTT_HOST")
     port = int(env("MQTT_PORT", "1883"))
     username = env("MQTT_USERNAME")
