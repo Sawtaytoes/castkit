@@ -210,6 +210,33 @@ describe("ditherToPanel", () => {
     expect(metadata.height).toBe(10)
   })
 
+  // A portrait-mounted panel renders portrait then rotates onto the panel's
+  // native landscape buffer — the output must land at height × width, on the
+  // full-colour "off" path and the dithered path alike.
+  test.each([
+    "off",
+    "floyd-steinberg",
+  ] as const satisfies ReadonlyArray<DitherAlgorithm>)('rotation 90 emits panel-native landscape dimensions (algorithm "%s")', async (algorithm) => {
+    const source = await buildSolidPng({
+      width: 30,
+      height: 40,
+      colour: [120, 180, 60],
+    })
+
+    const output = await ditherToPanel({
+      imageBuffer: source,
+      width: 30,
+      height: 40,
+      palette: E6_DEFAULT_PALETTE,
+      algorithm,
+      rotation: 90,
+    })
+
+    const metadata = await sharp(output).metadata()
+    expect(metadata.width).toBe(40)
+    expect(metadata.height).toBe(30)
+  })
+
   test("every algorithm emits only palette colours (mono + E6)", async () => {
     const source = await buildSolidPng({
       width: 60,
