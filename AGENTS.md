@@ -53,11 +53,13 @@ discovery. Architecture + phase plan are in the README and
 
 | Package | Scope |
 | --- | --- |
-| `@inkcast/core` | Panel/palette definitions, device registry, the supersample→downscale→dither pipeline. No HTTP/engine deps. |
-| `@inkcast/views` | Static React view components rendered by BOTH engines (inline styles, flexbox subset). One component per file. |
-| `@inkcast/render` | Render engines: headless Chromium (Playwright) and Satori (SVG→resvg). Same view in, supersampled PNG out. |
-| `@inkcast/web` *(planned)* | Vite browser dev-preview + view catalog. |
-| `@inkcast/server` *(planned)* | Hono token API + MQTT publish/subscribe + idle/active state machine. |
+| `@castkit/core` | Panel/palette definitions, device registry, the supersample→downscale→dither pipeline. No HTTP/engine deps. |
+| `@castkit/views` | Static React view components rendered by BOTH engines (inline styles, flexbox subset). One component per file. |
+| `@castkit/render` | Render engines: headless Chromium (Playwright) and Satori (SVG→resvg). Same view in, supersampled PNG out. |
+| `@castkit/web` | Vite browser dev-preview + view catalog. |
+| `@castkit/server` | Hono token API + MQTT publish/subscribe + idle/active state machine. |
+| `@castkit/shared` | Server↔Slatecast protocol, MQTT topic/discovery builders, view-data types. |
+| `@castkit/slatecast` | The tiny Preact SPA kiosk browsers load at `/d/<id>` (browser-mode devices). |
 
 ### Bake-offs (Phase 0)
 
@@ -72,7 +74,7 @@ is gitignored (regenerated artifacts).
 
 ### View authoring — JSX pragma required
 
-Every `.tsx` **view** file (in `@inkcast/views`) must start with:
+Every `.tsx` **view** file (in `@castkit/views`) must start with:
 
 ```ts
 /** @jsxRuntime automatic @jsxImportSource react */
@@ -126,7 +128,7 @@ other contributors, revert to a review-before-push flow — supersede this line 
 ## Package manager
 
 Always `yarn`, never `npm`/`npx`. One-off executables use `yarn dlx <pkg>`.
-Add deps at latest: `yarn workspace @inkcast/<pkg> add <dep>@latest`.
+Add deps at latest: `yarn workspace @castkit/<pkg> add <dep>@latest`.
 
 ## Environment / secrets
 
