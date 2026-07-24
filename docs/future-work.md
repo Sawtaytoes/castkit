@@ -48,6 +48,47 @@ Maintainer leaning toward keeping only the Dashboard design and renaming it
 Keep all three until he decides (see
 [decisions/2026-07-02-title-above-artist.md](decisions/2026-07-02-title-above-artist.md)).
 
+## LED-matrix panels as a third client mode (DDP sink) (2026-07-24)
+
+Maintainer owns addressable LED-matrix panels currently driven by **WLED**, and
+wants a possible future CastKit edition documented — not built. Someone linked
+[pavlov-net/media-proxy](https://github.com/pavlov-net/media-proxy) (Rust; streams
+video/YouTube to LED matrices via **DDP**, a UDP pixel-push protocol) as a
+prompt for the idea. That project is *not* a CastKit dependency and is unrelated
+to Chromecast/Cast despite the name; it's relevant only as a **reference DDP
+sender** (packet spreading, pacing, redundancy) and fit/crop/dither pipeline.
+
+**Why it fits cleanly.** An LED matrix is just another `image`-mode dumb sink —
+"who renders" is the server, exactly like Inkcast. The device model already
+covers it: a matrix is a small **full-colour `rect`/`square`** panel declaring
+tiny `width`/`height` (e.g. 32x32) in the devices file. The render path also
+largely exists — downscale a React view to the panel grid and emit RGB via the
+existing dither-**off** path (see
+[decisions/2026-07-02-dither-off-token-not-none-ha-reserved.md](decisions/2026-07-02-dither-off-token-not-none-ha-reserved.md));
+the panel/LED does its own final handling. Static views (a 32x32 Now Playing
+chip, a weather glyph, an ambient palette) would push on data change just like
+e-ink.
+
+**What's genuinely new (the deferred work).**
+1. **Transport departs from the MQTT-only contract.** DDP is UDP sent directly
+   to the panel's IP, so the *pixel* path is no longer "MQTT and nothing else"
+   (data/commands/discovery would still be MQTT/HA). Needs a `@castkit/*` DDP
+   sender package — media-proxy is the reference impl. WLED already accepts DDP
+   realtime packets, so CastKit could become just another DDP source **without
+   reflashing** the panels — WLED stays usable for its own effects.
+2. **Static vs. motion is a fork.** Rendered static frames fit the existing
+   pipeline. Full **video/YouTube** (continuous 30–60fps, ffmpeg + hardware
+   decode) is a much bigger lift and squarely media-proxy's domain — treat as a
+   separate, later phase, not part of a first matrix mode.
+3. **Naming.** Modes are branded after products (Inkcast/Slatecast). A matrix
+   mode would want a sibling name in that scheme — leave to the maintainer, do
+   not coin one.
+
+Open question to settle first: is this a new client `mode` alongside
+`image`/`browser`, or `image` mode with a pluggable transport (retained-PNG-MQTT
+vs. DDP-UDP)? The latter is less surface but breaks the current one-transport
+assumption in `@castkit/shared`.
+
 ## Earlier deferrals (from HANDOFF)
 
 - Web config UI (Jotai or Redux-Toolkit noted for the stores).
