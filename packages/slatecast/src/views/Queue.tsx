@@ -1,11 +1,5 @@
+import { formatTime } from "../formatTime.ts"
 import { queue } from "../state.ts"
-
-const formatTime = (seconds: number) => {
-  const whole = Math.max(0, Math.floor(seconds))
-  const minutes = Math.floor(whole / 60)
-  const remainder = whole % 60
-  return `${minutes}:${String(remainder).padStart(2, "0")}`
-}
 
 /**
  * The play queue — read-only for v1 (tap-to-jump is a stretch goal). The
