@@ -55,17 +55,19 @@ const readInlineSnapshot = (): Snapshot | null => {
   }
 }
 
+const DEFAULT_SETTINGS: BrowserDeviceSettings = {
+  orientation: 0,
+  theme: "Auto",
+  photoIntervalMinutes: DEFAULT_PHOTO_INTERVAL_MINUTES,
+}
+
 const inlineSnapshot = readInlineSnapshot()
 
 export const device = signal<BrowserDeviceProfile | null>(
   inlineSnapshot?.device ?? null,
 )
 export const settings = signal<BrowserDeviceSettings>(
-  inlineSnapshot?.settings ?? {
-    orientation: 0,
-    theme: "Auto",
-    photoIntervalMinutes: DEFAULT_PHOTO_INTERVAL_MINUTES,
-  },
+  inlineSnapshot?.settings ?? DEFAULT_SETTINGS,
 )
 export const activeView = signal<string>(
   inlineSnapshot?.view ?? "now-playing",
@@ -366,15 +368,27 @@ export const setVolume = (volume: number) => {
   }
 }
 
-/** Connect (and keep reconnecting) to this device's WebSocket. */
+/** Tracks the pending reconnect so {@link connect}'s cleanup can cancel it. */
+const connection: {
+  retryTimerId: number | null
+  isStopped: boolean
+} = { retryTimerId: null, isStopped: false }
+
+/**
+ * Connect (and keep reconnecting) to this device's WebSocket. Returns a
+ * cleanup that closes the socket and cancels any pending retry — a kiosk never
+ * calls it, but without it a caller has no way to stop the self-healing
+ * reconnect loop, which retries forever by design.
+ */
 export const connect = () => {
   const deviceId = device.value?.id
   if (!deviceId) {
-    return
+    return () => {}
   }
   const protocol =
     window.location.protocol === "https:" ? "wss" : "ws"
   const url = `${protocol}://${window.location.host}/d/${deviceId}/ws`
+  connection.isStopped = false
 
   const open = (retryDelayMs: number) => {
     socket = new WebSocket(url)
@@ -394,11 +408,61 @@ export const connect = () => {
     }
     socket.onclose = () => {
       isConnected.value = false
+      if (connection.isStopped) {
+        return
+      }
       // A kiosk must self-heal forever; cap the backoff at 15 s.
       const nextDelayMs = Math.min(retryDelayMs * 2, 15_000)
-      setTimeout(() => open(nextDelayMs), retryDelayMs)
+      connection.retryTimerId = window.setTimeout(
+        () => open(nextDelayMs),
+        retryDelayMs,
+      )
     }
   }
 
   open(1_000)
+
+  return () => {
+    connection.isStopped = true
+    if (connection.retryTimerId !== null) {
+      window.clearTimeout(connection.retryTimerId)
+      connection.retryTimerId = null
+    }
+    socket?.close()
+  }
+}
+
+/**
+ * Re-seed every signal from the page shell and drop all in-flight timers.
+ *
+ * Exported for tests only. A browser's ESM registry is immutable — a module
+ * can't be un-imported — so `vi.resetModules()` hands a test the *same*
+ * instance of this module and its signals leak between cases. Mirrors
+ * `__resetTaskSchedulerForTests` in the mux-magic tools package.
+ */
+export const __resetStateForTests = () => {
+  clearOptimisticFields()
+  if (volumeSendState.timerId !== null) {
+    window.clearTimeout(volumeSendState.timerId)
+  }
+  volumeSendState.lastSentAtMs = 0
+  volumeSendState.pendingVolume = null
+  volumeSendState.timerId = null
+  if (connection.retryTimerId !== null) {
+    window.clearTimeout(connection.retryTimerId)
+  }
+  connection.retryTimerId = null
+  connection.isStopped = false
+
+  const snapshot = readInlineSnapshot()
+  device.value = snapshot?.device ?? null
+  settings.value = snapshot?.settings ?? DEFAULT_SETTINGS
+  activeView.value = snapshot?.view ?? "now-playing"
+  nowPlayingFromServer.value =
+    snapshot?.data.nowPlaying ?? null
+  queue.value = snapshot?.data.queue ?? null
+  weather.value = snapshot?.data.weather ?? null
+  agenda.value = snapshot?.data.agenda ?? null
+  scrubPositionSeconds.value = null
+  isConnected.value = false
 }

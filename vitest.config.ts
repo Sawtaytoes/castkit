@@ -12,6 +12,7 @@ export default defineConfig({
       "packages/shared/vitest.config.ts",
       "packages/render/vitest.config.ts",
       "packages/server/vitest.config.ts",
+      "packages/slatecast/vitest.config.ts",
     ],
   },
 })
