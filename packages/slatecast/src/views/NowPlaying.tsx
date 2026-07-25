@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks"
 import { extractAccentColor } from "../accentColor.ts"
+import { formatTime } from "../formatTime.ts"
 import {
   device,
   livePositionSeconds,
@@ -12,13 +13,6 @@ import {
   toggleMute,
   togglePlayPause,
 } from "../state.ts"
-
-const formatTime = (seconds: number) => {
-  const whole = Math.max(0, Math.floor(seconds))
-  const minutes = Math.floor(whole / 60)
-  const remainder = whole % 60
-  return `${minutes}:${String(remainder).padStart(2, "0")}`
-}
 
 /**
  * Inline SVG icons — emoji/symbol glyphs (⏮ ⏸ 🔊) render as tofu on minimal
