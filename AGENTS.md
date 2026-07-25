@@ -115,7 +115,20 @@ decisions in this repo is the failure mode to avoid.
 
 - `yarn lint` — Biome (`--write --unsafe`) then ESLint (`--fix`); re-stage changed files.
 - `yarn typecheck` — full monorepo type check.
-- `yarn test` — Vitest unit tests.
+- `yarn test` — Vitest. Four node projects plus `slatecast`, which runs in
+  **real Chromium** (browser mode, Playwright provider) with MSW's `ws.link`
+  standing in for the server socket. `yarn vitest run` for one-shot/CI.
+- `yarn e2e` — Playwright specs against the real server (`e2e/testServer.ts`,
+  MQTT swapped for a recording stub). Run when you touch the browser-mode
+  server, the page shell, or the WebSocket protocol.
+
+Testing conventions (inherited from the mux-magic family, enforced here):
+`test()` never `it()`; **no snapshot or screenshot/VRT tests** — spell expected
+values inline; prefer `.toBeVisible()` over `.toBeInTheDocument()`; drive
+interactions with `@testing-library/user-event`. Tests are colocated
+(`foo.ts` → `foo.test.ts`); fixtures in `__fixtures__/`, harness in
+`__tests__/setup/`. `.spec.ts` is Playwright-only. Don't add jsdom — see
+[the decision](docs/decisions/2026-07-24-slatecast-tests-real-chromium-msw-websocket.md).
 
 Commit small and often; conventional commits; one logical change per commit.
 

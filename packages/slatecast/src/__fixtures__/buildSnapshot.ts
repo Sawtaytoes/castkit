@@ -5,9 +5,15 @@ import type {
   ViewDataState,
 } from "@castkit/shared/protocol/ws"
 import type {
+  AgendaData,
+  AgendaEvent,
   NowPlayingData,
   QueueData,
+  WeatherData,
 } from "@castkit/shared/viewData/types"
+
+/** One hour in milliseconds — agenda fixtures are offsets from now. */
+const HOUR_MILLIS = 60 * 60 * 1_000
 
 /** A touch-capable colour device — the Media Controls case. */
 export const buildDeviceProfile = (
@@ -67,6 +73,43 @@ export const buildQueue = (
       durationSeconds: 90,
       isCurrent: false,
     },
+  ],
+  ...overrides,
+})
+
+/** Current weather exactly as Home Assistant pushes it — pre-formatted text. */
+export const buildWeather = (
+  overrides: Partial<WeatherData> = {},
+): WeatherData => ({
+  temperatureText: "72°",
+  conditionText: "Partly cloudy",
+  ...overrides,
+})
+
+/**
+ * One calendar row. `startMs` is stamped an hour ahead of now so the fixture
+ * survives the view's upcoming filter; tests that exercise the in-progress
+ * grace window pass their own offset from `Date.now()`.
+ */
+export const buildAgendaEvent = (
+  overrides: Partial<AgendaEvent> = {},
+): AgendaEvent => ({
+  startMs: Date.now() + HOUR_MILLIS,
+  summary: "Dentist appointment",
+  isAllDay: false,
+  ...overrides,
+})
+
+/** Today's agenda, sorted ascending, exactly as Home Assistant pushes it. */
+export const buildAgenda = (
+  overrides: Partial<AgendaData> = {},
+): AgendaData => ({
+  events: [
+    buildAgendaEvent(),
+    buildAgendaEvent({
+      summary: "Grocery delivery",
+      startMs: Date.now() + 3 * HOUR_MILLIS,
+    }),
   ],
   ...overrides,
 })
