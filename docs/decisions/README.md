@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-07-24 | [Slatecast tests run in real Chromium, with MSW's WebSocket link as the server](2026-07-24-slatecast-tests-real-chromium-msw-websocket.md) | Accepted |
 | 2026-07-12 | [The M5Paper self-refreshes over MQTT: esp-idf firmware subscribes to a render-URL topic](2026-07-12-m5paper-esp-idf-mqtt-live-refresh.md) | Accepted |
 | 2026-07-12 | [Landscape photo frames can show two portraits side by side — the "Photo Frame (Duo)" view](2026-07-12-dual-portrait-photo-layout.md) | Accepted |
 | 2026-07-12 | ["Photo Frame (Fill)" is a photo view that fills the panel instead of letterboxing](2026-07-12-photo-frame-fill-view.md) | Accepted |

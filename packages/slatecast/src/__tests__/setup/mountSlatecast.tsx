@@ -17,11 +17,15 @@ import { createSlatecastServer } from "./slatecastServer.ts"
  * `state.ts` keeps its signals in module scope, and a browser's ESM registry is
  * immutable — `vi.resetModules()` would hand back the same instance — so the
  * shell is written first and `__resetStateForTests()` re-seeds from it.
+ *
+ * Pass `snapshot: null` to mount with no shell tag at all, the way a device
+ * page served for an unknown id would arrive. There is no device id to build a
+ * socket URL from, so nothing connects.
  */
 export const mountSlatecast = async ({
   snapshot = buildSnapshot(),
 }: {
-  snapshot?: ServerToClientMessage
+  snapshot?: ServerToClientMessage | null
 } = {}) => {
   const server = createSlatecastServer()
   await server.start()
@@ -30,14 +34,18 @@ export const mountSlatecast = async ({
   const shell = document.createElement("script")
   shell.setAttribute("type", "application/json")
   shell.setAttribute("id", "castkit-state")
-  shell.textContent = JSON.stringify(snapshot)
+  shell.textContent = snapshot
+    ? JSON.stringify(snapshot)
+    : ""
   document.body.appendChild(shell)
 
   __resetStateForTests()
 
   const disconnect = connect()
   const view = render(<App />)
-  await server.waitForConnection()
+  if (snapshot) {
+    await server.waitForConnection()
+  }
 
   onTestFinished(() => {
     disconnect()

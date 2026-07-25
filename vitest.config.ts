@@ -6,6 +6,9 @@ export default defineConfig({
       "**/node_modules/**",
       "**/dist/**",
       "**/render-output/**",
+      // Playwright specs have their own runner (`yarn e2e`); @playwright/test's
+      // describe/test globals are not compatible with vitest.
+      "e2e/**",
     ],
     projects: [
       "packages/core/vitest.config.ts",
