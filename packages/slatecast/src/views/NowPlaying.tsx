@@ -4,8 +4,13 @@ import {
   device,
   livePositionSeconds,
   nowPlaying,
+  playNext,
+  playPrevious,
   scrubPositionSeconds,
-  sendCommand,
+  seekTo,
+  setVolume,
+  toggleMute,
+  togglePlayPause,
 } from "../state.ts"
 
 const formatTime = (seconds: number) => {
@@ -111,10 +116,7 @@ const SeekBar = ({
             ? (event) => {
                 const target = positionFromEvent(event)
                 scrubPositionSeconds.value = null
-                sendCommand({
-                  action: "seek",
-                  value: target,
-                })
+                seekTo(target)
               }
             : undefined
         }
@@ -136,7 +138,7 @@ const TransportRow = () => {
       <button
         type="button"
         aria-label="Previous track"
-        onClick={() => sendCommand({ action: "previous" })}
+        onClick={playPrevious}
       >
         <Icon path={ICON_PATHS.previous} />
       </button>
@@ -144,9 +146,7 @@ const TransportRow = () => {
         type="button"
         class="play-pause"
         aria-label={data?.isPlaying ? "Pause" : "Play"}
-        onClick={() =>
-          sendCommand({ action: "play_pause" })
-        }
+        onClick={togglePlayPause}
       >
         <Icon
           path={
@@ -159,7 +159,7 @@ const TransportRow = () => {
       <button
         type="button"
         aria-label="Next track"
-        onClick={() => sendCommand({ action: "next" })}
+        onClick={playNext}
       >
         <Icon path={ICON_PATHS.next} />
       </button>
@@ -177,9 +177,7 @@ const VolumeRow = () => {
       <button
         type="button"
         aria-label="Mute"
-        onClick={() =>
-          sendCommand({ action: "volume_mute" })
-        }
+        onClick={toggleMute}
       >
         <Icon
           path={
@@ -195,15 +193,15 @@ const VolumeRow = () => {
         max="100"
         value={Math.round(data.volume * 100)}
         aria-label="Volume"
-        onChange={(event) =>
-          sendCommand({
-            action: "volume_set",
-            value:
-              Number(
-                (event.currentTarget as HTMLInputElement)
-                  .value,
-              ) / 100,
-          })
+        // onInput, not onChange: onChange only fires on release, so the slider
+        // sat still under a moving finger. setVolume throttles the publishes.
+        onInput={(event) =>
+          setVolume(
+            Number(
+              (event.currentTarget as HTMLInputElement)
+                .value,
+            ) / 100,
+          )
         }
       />
     </div>
