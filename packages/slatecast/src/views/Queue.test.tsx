@@ -96,6 +96,20 @@ describe("queue list", () => {
       view.container.querySelectorAll("li.current"),
     ).toHaveLength(1)
   })
+
+  test("exposes the current track to assistive tech, not just visually", async () => {
+    const { view } = await mountQueueView({
+      queue: buildQueue(),
+    })
+
+    const [current, upcoming] = queueItems()
+    expect(current).toHaveAttribute("aria-current", "true")
+    // Absent rather than "false" — an unmarked row shouldn't be announced.
+    expect(upcoming).not.toHaveAttribute("aria-current")
+    expect(
+      view.container.querySelectorAll("[aria-current]"),
+    ).toHaveLength(1)
+  })
 })
 
 describe("queue empty state", () => {

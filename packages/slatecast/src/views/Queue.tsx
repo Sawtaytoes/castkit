@@ -22,6 +22,9 @@ export const Queue = () => {
         <li
           key={`${index}-${item.title}`}
           class={item.isCurrent ? "current" : ""}
+          // The class alone is a purely visual distinction; screen readers
+          // need the now-playing row called out too.
+          aria-current={item.isCurrent ? "true" : undefined}
         >
           {item.artworkPath ? (
             <img
