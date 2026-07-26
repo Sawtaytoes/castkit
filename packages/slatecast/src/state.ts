@@ -368,11 +368,22 @@ export const setVolume = (volume: number) => {
   }
 }
 
+/** First reconnect delay; doubles per consecutive failure. */
+const INITIAL_RETRY_DELAY_MS = 1_000
+
+/** A kiosk must self-heal forever, so the backoff is capped rather than given up on. */
+const MAX_RETRY_DELAY_MS = 15_000
+
 /** Tracks the pending reconnect so {@link connect}'s cleanup can cancel it. */
 const connection: {
   retryTimerId: number | null
+  retryDelayMs: number
   isStopped: boolean
-} = { retryTimerId: null, isStopped: false }
+} = {
+  retryTimerId: null,
+  retryDelayMs: INITIAL_RETRY_DELAY_MS,
+  isStopped: false,
+}
 
 /**
  * Connect (and keep reconnecting) to this device's WebSocket. Returns a
@@ -389,11 +400,51 @@ export const connect = () => {
     window.location.protocol === "https:" ? "wss" : "ws"
   const url = `${protocol}://${window.location.host}/d/${deviceId}/ws`
   connection.isStopped = false
+  connection.retryDelayMs = INITIAL_RETRY_DELAY_MS
 
-  const open = (retryDelayMs: number) => {
-    socket = new WebSocket(url)
+  /**
+   * Arm the next attempt. Every failure path routes through here, because a
+   * kiosk that stops retrying is a black screen nobody can fix remotely — the
+   * HA Reload button rides this same socket, so it cannot recover us.
+   * Idempotent: a socket that fires both `onerror` and `onclose` still only
+   * schedules one retry.
+   */
+  const scheduleRetry = () => {
+    if (
+      connection.isStopped ||
+      connection.retryTimerId !== null
+    ) {
+      return
+    }
+    const delayMs = connection.retryDelayMs
+    connection.retryDelayMs = Math.min(
+      delayMs * 2,
+      MAX_RETRY_DELAY_MS,
+    )
+    connection.retryTimerId = window.setTimeout(() => {
+      connection.retryTimerId = null
+      open()
+    }, delayMs)
+  }
+
+  const open = () => {
+    if (connection.isStopped) {
+      return
+    }
+    try {
+      socket = new WebSocket(url)
+    } catch {
+      // Constructing a socket can throw synchronously (offline, blocked by
+      // policy, bad state). Left unhandled this escapes the retry timer's
+      // callback and the reconnect loop dies for good.
+      scheduleRetry()
+      return
+    }
     socket.onopen = () => {
       isConnected.value = true
+      // Earned a clean connection: start the next outage at 1 s rather than
+      // inheriting a capped 15 s delay from an earlier bad patch.
+      connection.retryDelayMs = INITIAL_RETRY_DELAY_MS
     }
     socket.onmessage = (event) => {
       try {
@@ -406,21 +457,18 @@ export const connect = () => {
         // Ignore malformed frames.
       }
     }
+    socket.onerror = () => {
+      // Most engines follow with `onclose`, but not all do when the failure
+      // happens during the handshake.
+      scheduleRetry()
+    }
     socket.onclose = () => {
       isConnected.value = false
-      if (connection.isStopped) {
-        return
-      }
-      // A kiosk must self-heal forever; cap the backoff at 15 s.
-      const nextDelayMs = Math.min(retryDelayMs * 2, 15_000)
-      connection.retryTimerId = window.setTimeout(
-        () => open(nextDelayMs),
-        retryDelayMs,
-      )
+      scheduleRetry()
     }
   }
 
-  open(1_000)
+  open()
 
   return () => {
     connection.isStopped = true
@@ -452,6 +500,7 @@ export const __resetStateForTests = () => {
     window.clearTimeout(connection.retryTimerId)
   }
   connection.retryTimerId = null
+  connection.retryDelayMs = INITIAL_RETRY_DELAY_MS
   connection.isStopped = false
 
   const snapshot = readInlineSnapshot()
