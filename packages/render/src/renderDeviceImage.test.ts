@@ -59,12 +59,21 @@ describe("renderDeviceImage", () => {
     expect(info.height).toBe(device.height)
 
     const allowed = paletteKeys(device.palette)
+    const offendingColours = new Set<string>()
     Array.from({
       length: info.width * info.height,
     }).forEach((_unused, pixelIndex) => {
       const byteOffset = pixelIndex * info.channels
       const key = `${data[byteOffset]},${data[byteOffset + 1]},${data[byteOffset + 2]}`
-      expect(allowed.has(key)).toBe(true)
+      if (!allowed.has(key)) {
+        offendingColours.add(key)
+      }
     })
+
+    // Collect, then assert once. One expect() per pixel is 384k calls on the
+    // Impression, which took ~6.5 s on CI against a 5 s timeout — and the set
+    // of off-palette colours localises a dither bug better than the first bad
+    // pixel's index does.
+    expect(Array.from(offendingColours)).toEqual([])
   })
 })
