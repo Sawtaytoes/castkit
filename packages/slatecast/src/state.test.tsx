@@ -7,7 +7,7 @@ import {
 } from "./__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
-import { nowPlaying } from "./state.ts"
+import { isConnected, nowPlaying } from "./state.ts"
 
 const pauseButton = () =>
   screen.getByRole("button", { name: "Pause" })
@@ -218,5 +218,52 @@ describe("optimistic mute and skips", () => {
       { action: "play_pause" },
       { action: "next" },
     ])
+  })
+})
+
+/**
+ * A kiosk has no keyboard and its Home Assistant Reload button travels down
+ * this very socket, so a reconnect loop that gives up strands the screen until
+ * somebody power-cycles it. These lock the loop's two escape hatches shut.
+ */
+describe("reconnect resilience", () => {
+  test("keeps retrying after the WebSocket constructor throws", async () => {
+    const { server } = await mountSlatecast()
+    const RealWebSocket = window.WebSocket
+    let hasThrown = false
+
+    // Constructing a socket can throw synchronously (offline, blocked by
+    // policy). That escapes the retry timer's callback, and an unhandled
+    // throw there used to kill the loop permanently — no further attempts.
+    window.WebSocket = class {
+      constructor() {
+        hasThrown = true
+        window.WebSocket = RealWebSocket
+        throw new Error("construction blocked")
+      }
+    } as unknown as typeof WebSocket
+
+    server.closeConnection()
+
+    await waitUntil(() => hasThrown, { timeoutMs: 4_000 })
+    await waitUntil(() => isConnected.value, {
+      timeoutMs: 8_000,
+    })
+  })
+
+  test("recovers from a socket that only ever errors", async () => {
+    const { server } = await mountSlatecast()
+    expect(isConnected.value).toBe(true)
+
+    server.closeConnection()
+    await waitUntil(() => !isConnected.value, {
+      timeoutMs: 4_000,
+    })
+
+    // The proxy reaping an idle socket is the routine case; the screen must
+    // come back on its own every time it happens.
+    await waitUntil(() => isConnected.value, {
+      timeoutMs: 8_000,
+    })
   })
 })
