@@ -20,6 +20,7 @@ import {
   buildGlobalDiscoveryMessages,
   buildGlobalTopics,
 } from "./homeAssistant/discovery.ts"
+import { DEFAULT_PEOPLE_MINIMUM } from "./immich/immichClient.ts"
 import { createMqttPublisher } from "./mqtt/publisher.ts"
 import {
   parseAgendaPayload,
@@ -313,6 +314,19 @@ const main = async () => {
     }
     return DEFAULT_PHOTO_RECENCY_HALF_LIFE_DAYS
   }
+  const resolvePhotoPeopleMinimum = (deviceId: string) => {
+    const perDevice =
+      deviceConfigStore.getPhotoPeopleMinimum(deviceId)
+    if (perDevice !== undefined && perDevice > 0) {
+      return perDevice
+    }
+    const global =
+      deviceConfigStore.getGlobalPhotoPeopleMinimum()
+    if (global !== undefined && global > 0) {
+      return global
+    }
+    return DEFAULT_PEOPLE_MINIMUM
+  }
   // The photo wire format + lossy quality, resolved per device: a real
   // per-device value wins; "Auto"/0 (or unset) inherit the global default; and
   // if neither is set the ARMv6-safe fallback (JPEG q80) applies.
@@ -563,6 +577,7 @@ const main = async () => {
         getIntervalMinutes: resolvePhotoIntervalMinutes,
         getRecencyHalfLifeDays:
           resolvePhotoRecencyHalfLifeDays,
+        getPeopleMinimum: resolvePhotoPeopleMinimum,
         devices: config.devices,
         deviceConfigStore,
         viewDataStore,
@@ -701,6 +716,33 @@ const main = async () => {
                 deviceId,
               ) !== undefined,
             // Read live on the next random pick — no immediate re-render.
+          },
+        ],
+        [
+          "photoPeopleMinimum",
+          {
+            applyPayload: ({ deviceId, payload }) => {
+              const minimum = parseBoundedInteger({
+                payload,
+                min: 0,
+                max: 20,
+              })
+              if (minimum === null) {
+                return null
+              }
+              deviceConfigStore.setPhotoPeopleMinimum({
+                deviceId,
+                minimum,
+              })
+              return String(minimum)
+            },
+            getHasValue: (deviceId) =>
+              deviceConfigStore.getPhotoPeopleMinimum(
+                deviceId,
+              ) !== undefined,
+            // Changing who counts changes the pool, so redraw now rather than
+            // leaving the old photo up until the next interval tick.
+            onApplied: restartPhotoFrame,
           },
         ],
         [
@@ -1012,6 +1054,10 @@ const main = async () => {
           command: topics.photoPeopleCommand,
           state: topics.photoPeopleState,
         },
+        photoPeopleMinimum: {
+          command: topics.photoPeopleMinimumCommand,
+          state: topics.photoPeopleMinimumState,
+        },
         photoQuery: {
           command: topics.photoQueryCommand,
           state: topics.photoQueryState,
@@ -1161,6 +1207,31 @@ const main = async () => {
           seedDefault: String(
             DEFAULT_PHOTO_RECENCY_HALF_LIFE_DAYS,
           ),
+        },
+      ],
+      [
+        "photoPeopleMinimum",
+        {
+          command: globalTopics.photoPeopleMinimumCommand,
+          state: globalTopics.photoPeopleMinimumState,
+          applyPayload: (payload) => {
+            const minimum = parseBoundedInteger({
+              payload,
+              min: 1,
+              max: 20,
+            })
+            if (minimum === null) {
+              return null
+            }
+            deviceConfigStore.setGlobalPhotoPeopleMinimum(
+              minimum,
+            )
+            return String(minimum)
+          },
+          getHasValue: () =>
+            deviceConfigStore.getGlobalPhotoPeopleMinimum() !==
+            undefined,
+          seedDefault: String(DEFAULT_PEOPLE_MINIMUM),
         },
       ],
       [
@@ -1645,6 +1716,14 @@ const main = async () => {
             kind: "photoRecency",
             hasValue:
               deviceConfigStore.getPhotoRecencyHalfLifeDays(
+                device.id,
+              ) !== undefined,
+            payload: "0",
+          },
+          {
+            kind: "photoPeopleMinimum",
+            hasValue:
+              deviceConfigStore.getPhotoPeopleMinimum(
                 device.id,
               ) !== undefined,
             payload: "0",

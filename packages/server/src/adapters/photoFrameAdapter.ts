@@ -69,6 +69,7 @@ export const createPhotoFrameAdapter = ({
   immichConfig,
   getIntervalMinutes,
   getRecencyHalfLifeDays,
+  getPeopleMinimum,
   devices,
   deviceConfigStore,
   viewDataStore,
@@ -80,6 +81,8 @@ export const createPhotoFrameAdapter = ({
   getIntervalMinutes: (deviceId: string) => number
   /** Recency half-life for a device, days (resolved live from HA config). */
   getRecencyHalfLifeDays: (deviceId: string) => number
+  /** Minimum of the configured people an asset must contain (1 = any). */
+  getPeopleMinimum: (deviceId: string) => number
   devices: readonly ConfiguredDevice[]
   deviceConfigStore: DeviceConfigStore
   viewDataStore: ViewDataStore
@@ -215,6 +218,7 @@ export const createPhotoFrameAdapter = ({
       recencyHalfLifeDays: getRecencyHalfLifeDays(
         device.id,
       ),
+      peopleMinimum: getPeopleMinimum(device.id),
       count: DUAL_PORTRAIT_CANDIDATE_DRAW,
     })
 
@@ -345,6 +349,7 @@ export const createPhotoFrameAdapter = ({
         query: source.queryText || undefined,
         recencyHalfLifeDays:
           getRecencyHalfLifeDays(deviceId),
+        peopleMinimum: getPeopleMinimum(deviceId),
       })
       if (!assetId) {
         console.error(

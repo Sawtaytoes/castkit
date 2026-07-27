@@ -75,6 +75,7 @@ describe("buildDiscoveryMessages", () => {
       "select", // Clock: Date style
       "number", // Photo Frame: Rotation minutes
       "number", // Photo Frame: Recency half-life days
+      "number", // Photo Frame: People minimum
       "select", // Photo Frame: Format
       "number", // Photo Frame: Quality
       "button", // Photo Frame: Next photo
@@ -95,6 +96,7 @@ describe("buildDiscoveryMessages", () => {
       "homeassistant/select/inkcast/server_clock_date_style/config",
       "homeassistant/number/inkcast/server_photo_interval/config",
       "homeassistant/number/inkcast/server_photo_recency/config",
+      "homeassistant/number/inkcast/server_photo_people_minimum/config",
       "homeassistant/select/inkcast/server_photo_format/config",
       "homeassistant/number/inkcast/server_photo_quality/config",
     ])
