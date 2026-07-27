@@ -161,7 +161,10 @@ export const AgendaView = ({
   // width of its nowrap text — so without it the summary blows past maxWidth
   // and is clipped by the panel edge with no ellipsis at all.
   const eventSummaryStyle: CSSProperties = {
-    display: "flex",
+    // `block`, NOT `flex`: text-overflow only applies to a block container.
+    // As a flex box the text becomes an anonymous flex item and Chromium
+    // silently ignores the ellipsis, letting the summary run off the panel.
+    display: "block",
     fontSize: eventFontSize,
     fontWeight: 700,
     lineHeight: 1.1,

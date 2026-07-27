@@ -124,12 +124,14 @@ export const ClockAgendaView = ({
   // top keeps the time fully on-panel and lets any overflow fall off the bottom
   // (the last, least-imminent event) instead. With no events the view still
   // centres, so it reads identically to ClockWeatherView on a free day.
-  const pinToTop = isCompactPanel && hasEvents
+  const isPinnedToTop = isCompactPanel && hasEvents
   const rootStyle: CSSProperties = {
     ...buildPanelRootStyle({ width, height }),
     alignItems: "center",
-    justifyContent: pinToTop ? "flex-start" : "center",
-    paddingTop: pinToTop ? Math.round(height * 0.04) : 0,
+    justifyContent: isPinnedToTop ? "flex-start" : "center",
+    paddingTop: isPinnedToTop
+      ? Math.round(height * 0.04)
+      : 0,
     paddingLeft: horizontalPadding,
     paddingRight: horizontalPadding,
   }
@@ -252,18 +254,26 @@ export const ClockAgendaView = ({
     fontSize: compactEventTimeFontSize,
     fontWeight: 700,
     lineHeight: 1.1,
+    whiteSpace: "nowrap",
     color: accentColour,
-    minWidth: Math.round(width * 0.2),
+    width: Math.round(width * 0.2),
+    flexShrink: 0,
   }
 
+  // `block`, NOT `flex`: text-overflow only applies to a block container, so as
+  // a flex box Chromium silently drops the ellipsis and lets a long summary run
+  // off the panel edge. `minWidth: 0` is equally load-bearing — a flex child
+  // defaults to `min-width: auto` and refuses to shrink below its nowrap text,
+  // so `maxWidth` never binds without it.
   const compactEventSummaryStyle: CSSProperties = {
-    display: "flex",
+    display: "block",
     fontSize: compactEventSummaryFontSize,
     fontWeight: 700,
     lineHeight: 1.1,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    minWidth: 0,
     maxWidth: compactSummaryMaxWidth,
     marginLeft: Math.round(width * 0.02),
   }
@@ -298,18 +308,22 @@ export const ClockAgendaView = ({
     fontSize: eventTimeFontSize,
     fontWeight: 700,
     lineHeight: 1.1,
+    whiteSpace: "nowrap",
     color: accentColour,
-    minWidth: Math.round(width * 0.16),
+    width: Math.round(width * 0.16),
+    flexShrink: 0,
   }
 
+  /** Block + minWidth 0 for the same reason as the compact style above. */
   const eventSummaryStyle: CSSProperties = {
-    display: "flex",
+    display: "block",
     fontSize: eventSummaryFontSize,
     fontWeight: 700,
     lineHeight: 1.1,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    minWidth: 0,
     maxWidth: largeSummaryMaxWidth,
     marginLeft: Math.round(width * 0.02),
   }
