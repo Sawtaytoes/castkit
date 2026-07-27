@@ -36,6 +36,7 @@ working file.
 | `rotation` | — | Clockwise degrees (`0`/`90`/`180`/`270`), default `0`. Also tunable live from HA (see below), so a rough guess here is fine. |
 | `ditherProfile` | — | `{ algorithm, supersampleFactor }`, default `{ "floyd-steinberg", 2 }`. `algorithm` is one of the dither options; `off` hands the panel a full-colour image (photo frame). |
 | `nowPlayingEntityId` | — | Pin this screen's Now Playing to a specific HA `media_player`; omit to follow the active player. |
+| `photoPeople` | — | Array of Immich person names, e.g. `["Ada", "Grace"]`. **Seed only:** fills the Photo Frame people filter when the broker has no retained value (first boot, or after a retained wipe). HA owns the live value — editing it there never writes back here, and the seed never overwrites what the broker restored. Omit and the frame starts blank. |
 
 **Palette note:** there are exactly two palettes — `MONO_PALETTE` and
 `E6_DEFAULT_PALETTE`, keyed by `colourMode`. There is no per-device custom
@@ -52,6 +53,13 @@ and Next/Previous photo buttons. All are editable live; their retained MQTT stat
 is the persistence, so they survive a restart with no config file for user
 settings. (**Rotation** in particular is a live select — you can correct an
 upside-down panel from HA without editing this file.)
+
+Retained state is the persistence, but it is not indestructible — a broker wipe
+or a topic migration clears it. Knobs that would leave a screen unusable when
+blank therefore carry a **registry seed** the server republishes on boot when the
+broker has nothing: `rotation` and `ditherProfile` since the beginning, and
+`photoPeople` as of 2026-07-26. See
+[the decision](decisions/2026-07-26-photo-people-seeds-from-the-device-registry.md).
 
 ## Adding a device — steps
 
