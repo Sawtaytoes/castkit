@@ -47,6 +47,7 @@ import { createDeviceStore } from "./state/deviceStore.ts"
 import { createRenderTokenStore } from "./state/renderTokenStore.ts"
 import { createViewDataStore } from "./state/viewDataStore.ts"
 import {
+  getIsAgendaView,
   getIsClockBearingView,
   getIsNowPlayingView,
   getIsPhotoView,
@@ -234,6 +235,22 @@ const parsePixelPayload = (payload: string) => {
     return null
   }
   return Math.min(200, Math.max(0, Math.round(value)))
+}
+
+/**
+ * Parse an HA switch-entity payload into a boolean, or null to reject. Accepts
+ * the MQTT-switch defaults ("ON"/"OFF") case-insensitively, plus "true"/"false"
+ * and "1"/"0" so a hand-published topic or a non-HA client still works.
+ */
+const parseSwitchPayload = (payload: string) => {
+  const normalized = payload.trim().toLowerCase()
+  if (["on", "true", "1"].includes(normalized)) {
+    return true
+  }
+  if (["off", "false", "0"].includes(normalized)) {
+    return false
+  }
+  return null
 }
 
 /** Parse + clamp an integer HA number-entity payload into [min, max]. */
@@ -529,9 +546,12 @@ const main = async () => {
       deviceId,
       data: parseAgendaPayload(parseJsonPayload(payload)),
     })
+    // Both agenda views repaint on new data. For the clock-bearing one this is
+    // belt-and-braces (the minute tick would catch it); for the clockless
+    // "Agenda" view it is the ONLY thing that repaints it, so it must not be
+    // narrowed back to a single view name.
     if (
-      deviceStore.getActiveView(deviceId) ===
-      "Clock (Agenda)"
+      getIsAgendaView(deviceStore.getActiveView(deviceId))
     ) {
       pushDeviceLogged(deviceId)
     }
@@ -1016,6 +1036,38 @@ const main = async () => {
             },
           },
         ]),
+        [
+          // Master pause. Deliberately per-device ONLY — no global counterpart.
+          // Every other knob is a household *default* a display may override,
+          // but a pause is a live, per-room signal (Home Assistant drives it
+          // off that room's lights), and a global default would make
+          // precedence ambiguous: does a house-wide OFF beat a per-device ON?
+          // See docs/decisions/ for the pause-switch record.
+          "updates",
+          {
+            applyPayload: ({ deviceId, payload }) => {
+              const isEnabled = parseSwitchPayload(payload)
+              if (isEnabled === null) {
+                return null
+              }
+              deviceConfigStore.setIsUpdatesEnabled({
+                deviceId,
+                isEnabled,
+              })
+              return isEnabled ? "ON" : "OFF"
+            },
+            getHasValue: (deviceId) =>
+              deviceConfigStore.getHasUpdatesEnabledValue(
+                deviceId,
+              ),
+            onApplied: async (deviceId) => {
+              // Resuming must repaint at once, or a clock view would sit on a
+              // stale time until the next minute tick. pushDevice self-guards,
+              // so this is a no-op when the switch was just turned OFF.
+              await pushController.pushDevice(deviceId)
+            },
+          },
+        ],
       ])
 
     /** Knob kind → its command/state topics for one device. */
@@ -1109,6 +1161,10 @@ const main = async () => {
         crop_left: {
           command: topics.cropLeftCommand,
           state: topics.cropLeftState,
+        },
+        updates: {
+          command: topics.updatesCommand,
+          state: topics.updatesState,
         },
       }
       return byKind[kind]
@@ -1779,6 +1835,18 @@ const main = async () => {
                 device.id,
               ) !== undefined,
             payload: "Auto",
+          },
+          {
+            // Seed ON so a fresh install shows a real switch state rather than
+            // "unknown", and — because the retained state topic IS the
+            // persistence — a display is never left silently paused by a
+            // server restart it can't report.
+            kind: "updates",
+            hasValue:
+              deviceConfigStore.getHasUpdatesEnabledValue(
+                device.id,
+              ),
+            payload: "ON",
           },
         ]
         seedPairs

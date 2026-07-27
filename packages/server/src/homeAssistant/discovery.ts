@@ -100,6 +100,9 @@ export const buildDeviceTopics = ({
     cropBottomState: `${base}/crop_bottom`,
     cropLeftCommand: `${base}/crop_left/set`,
     cropLeftState: `${base}/crop_left`,
+    // Master pause. OFF = hold the last frame and skip every render/push.
+    updatesCommand: `${base}/updates/set`,
+    updatesState: `${base}/updates`,
   }
 }
 
@@ -278,6 +281,24 @@ export const buildDiscoveryMessages = ({
         unique_id: `inkcast_${device.id}_refresh`,
         command_topic: topics.refreshCommand,
         payload_press: "refresh",
+        device: deviceBlock,
+      },
+    },
+    {
+      // Master pause — an operational control, not a config knob, so it stays
+      // in the device's primary controls next to View and Refresh. OFF freezes
+      // the panel on its current frame: every render path is skipped, and
+      // ePaper holds the last image at zero power. Turning it back ON renders
+      // immediately, so a clock view never resumes showing a stale time.
+      topic: discoveryTopic("switch", "updates"),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "Updates",
+        unique_id: `inkcast_${device.id}_updates`,
+        command_topic: topics.updatesCommand,
+        state_topic: topics.updatesState,
+        icon: "mdi:refresh-auto",
         device: deviceBlock,
       },
     },

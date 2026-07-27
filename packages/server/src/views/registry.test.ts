@@ -7,6 +7,8 @@ import { describe, expect, test } from "vitest"
 import type { AgendaData } from "../state/viewDataStore.ts"
 import {
   type ClockConfig,
+  getIsAgendaView,
+  getIsClockBearingView,
   renderViewElement,
 } from "./registry.ts"
 
@@ -63,6 +65,68 @@ describe("renderViewElement — Clock (Agenda)", () => {
       "All-day thing",
       "Later tonight",
     ])
+  })
+
+  test("the clockless Agenda view selects the same events", () => {
+    const element = renderViewElement({
+      viewName: "Agenda",
+      device: IMPRESSION_DEVICE,
+      now,
+      clock: CHICAGO_CLOCK,
+      agenda,
+    })
+    expect(getEventSummaries(element)).toEqual([
+      "All-day thing",
+      "Later tonight",
+    ])
+  })
+
+  test("the Agenda view is handed a date but never a time", () => {
+    const props = renderViewElement({
+      viewName: "Agenda",
+      device: IMPRESSION_DEVICE,
+      now,
+      clock: CHICAGO_CLOCK,
+      agenda,
+    }).props as { date: string; time?: string }
+    // A time prop would have to be re-rendered every minute — the whole reason
+    // this view exists is that it does not.
+    expect(props.time).toBeUndefined()
+    expect(props.date).toBe("Friday, July 3")
+  })
+
+  test("the Agenda view falls back to its empty text with nothing left today", () => {
+    const props = renderViewElement({
+      viewName: "Agenda",
+      device: IMPRESSION_DEVICE,
+      now,
+      clock: CHICAGO_CLOCK,
+      agenda: { events: [] },
+    }).props as {
+      events: readonly unknown[]
+      emptyText: string
+    }
+    expect(props.events).toEqual([])
+    expect(props.emptyText).toBe("Nothing else today")
+  })
+})
+
+describe("agenda + clock-bearing view classification", () => {
+  test("Agenda renders agenda data without joining the minute tick", () => {
+    expect(getIsAgendaView("Agenda")).toBe(true)
+    expect(getIsClockBearingView("Agenda")).toBe(false)
+  })
+
+  test("Clock (Agenda) is both an agenda view and clock-bearing", () => {
+    expect(getIsAgendaView("Clock (Agenda)")).toBe(true)
+    expect(getIsClockBearingView("Clock (Agenda)")).toBe(
+      true,
+    )
+  })
+
+  test("a photo view is neither", () => {
+    expect(getIsAgendaView("Photo Frame")).toBe(false)
+    expect(getIsClockBearingView("Photo Frame")).toBe(false)
   })
 })
 

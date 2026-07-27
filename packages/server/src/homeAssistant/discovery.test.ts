@@ -60,6 +60,7 @@ describe("buildDiscoveryMessages", () => {
       "image",
       "select", // view
       "button", // refresh
+      "switch", // updates (master pause)
       "select", // Display: Dither
       "select", // Display: Rotation
       "number", // Display: Brightness
