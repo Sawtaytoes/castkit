@@ -75,9 +75,13 @@ export const AgendaView = ({
   const weatherFontSize = Math.round(height * 0.075)
   const eventFontSize = Math.max(
     readableFloor,
-    Math.round(height * 0.085),
+    Math.round(height * 0.075),
   )
   const emptyFontSize = Math.round(height * 0.09)
+  // Wide enough for the longest time string a row can carry ("12:30 PM"), or
+  // it wraps onto a second line and knocks the whole row out of alignment.
+  const eventTimeColumnWidth = Math.round(width * 0.26)
+  const eventGutterWidth = Math.round(width * 0.02)
 
   const rootStyle: CSSProperties = {
     ...buildPanelRootStyle({ width, height }),
@@ -128,24 +132,34 @@ export const AgendaView = ({
     marginTop: Math.round(height * 0.06),
   }
 
+  // A definite row width is what gives the summary something to shrink
+  // against; without it the row sizes to its content and never truncates.
   const eventRowStyle: CSSProperties = {
     display: "flex",
     flexDirection: "row",
     alignItems: "baseline",
+    width: availableWidth,
     marginTop: Math.round(height * 0.03),
   }
 
+  // flexShrink 0 + nowrap keeps the time on one line; without both, "12:30 PM"
+  // wraps and the row's baseline alignment breaks.
   const eventTimeStyle: CSSProperties = {
     display: "flex",
     fontSize: eventFontSize,
     fontWeight: 700,
     lineHeight: 1.1,
+    whiteSpace: "nowrap",
     color: accentColour,
-    minWidth: Math.round(width * 0.22),
+    width: eventTimeColumnWidth,
+    flexShrink: 0,
   }
 
   // Summaries never wrap (one row each), so cap each to the row's remaining
-  // width and ellipsis-truncate — both render engines honour nowrap + hidden.
+  // width and ellipsis-truncate. `minWidth: 0` is load-bearing: a flex child
+  // defaults to `min-width: auto`, which refuses to shrink below the intrinsic
+  // width of its nowrap text — so without it the summary blows past maxWidth
+  // and is clipped by the panel edge with no ellipsis at all.
   const eventSummaryStyle: CSSProperties = {
     display: "flex",
     fontSize: eventFontSize,
@@ -154,11 +168,12 @@ export const AgendaView = ({
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    minWidth: 0,
     maxWidth:
       availableWidth -
-      Math.round(width * 0.22) -
-      Math.round(width * 0.02),
-    marginLeft: Math.round(width * 0.02),
+      eventTimeColumnWidth -
+      eventGutterWidth,
+    marginLeft: eventGutterWidth,
   }
 
   const emptyStyle: CSSProperties = {
