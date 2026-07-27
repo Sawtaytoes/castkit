@@ -8,7 +8,7 @@
 
 ## Decision
 
-A landscape image-mode panel (e.g. the 13.3" e-ink Photo Frames) can render
+A landscape image-mode panel (e.g. the 13.3" ePaper Photo Frames) can render
 **two portrait photos side by side** in a single frame instead of one
 letterboxed/cover-cropped photo. It is a distinct **view** — `Photo Frame
 (Duo)` — selected through the existing HA View select over MQTT, **not** a
@@ -36,7 +36,7 @@ The 13.3" frames are landscape. A portrait photo cover-cropped to landscape is a
 narrow horizontal band that discards most of the image, and the face-aware crop
 often letterboxes it (see
 [2026-07-02-face-crop-shifts-never-zooms](2026-07-02-face-crop-shifts-never-zooms.md)).
-ImmichKiosk fills a landscape screen by pairing two portraits — using the whole
+ImmichKiosk fills a landscape display by pairing two portraits — using the whole
 panel and keeping both photos whole. CastKit's crop function already takes an
 arbitrary target size, so a half-width target per photo reuses all the existing
 face-steering logic; only a compositing step and a picker for two portrait

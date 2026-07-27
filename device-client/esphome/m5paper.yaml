@@ -1,4 +1,4 @@
-# CastKit — M5Paper (ESP32 touch e-ink) firmware
+# CastKit — M5Paper (ESP32 touch ePaper) firmware
 # ============================================================================
 # A self-contained ESPHome node that joins a CastKit fleet as an IMAGE-mode
 # (Inkcast) device: the CastKit server renders + dithers this panel's view to a
@@ -27,7 +27,7 @@ esphome:
   name: ${node_name}
   friendly_name: ${friendly_name}
   min_version: 2024.12.4
-  # NOTE: intentionally NO on_boot display action. E-ink holds the last frame at
+  # NOTE: intentionally NO on_boot display action. ePaper holds the last frame at
   # zero power, so after a reboot / OTA / battery-recharge we LEAVE the panel as
   # it is — the last render stays on glass (the crash-recovery story). A
   # boot-time `it8951e.clear` + `updateslow` (previously here) wiped the panel to
@@ -51,10 +51,10 @@ esp32:
   framework:
     type: esp-idf
 
-# The IT8951E e-ink buffer lives in PSRAM. Required on this board.
+# The IT8951E ePaper buffer lives in PSRAM. Required on this board.
 psram:
 
-# it8951e (e-ink controller) + m5paper (power latch) are not in mainline ESPHome.
+# it8951e (ePaper controller) + m5paper (power latch) are not in mainline ESPHome.
 # They're VENDORED locally in ./components (from ilia-ae/m5paper_esphome) because
 # that upstream is ~1.5 years stale and does NOT compile on ESPHome 2026.6+ as-is
 # — see components/PATCHES.md for the one-line fix applied. Flash the whole
@@ -215,7 +215,7 @@ display:
     # If the render lands sideways/upside-down, this is the one knob (0/90/180/270).
     rotation: 90
     reversed: false
-    # Never auto-refresh: e-ink holds the last frame at zero power. We repaint
+    # Never auto-refresh: ePaper holds the last frame at zero power. We repaint
     # only when HA pushes a new render (on_download_finished above).
     update_interval: never
     lambda: |-

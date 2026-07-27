@@ -1,6 +1,6 @@
-# CastKit device client — M5Paper (ESPHome touch e-ink)
+# CastKit device client — M5Paper (ESPHome touch ePaper)
 
-The M5Paper is an ESP32 **touch e-ink** panel (960×540 @ 4.7", 16-level
+The M5Paper is an ESP32 **touch ePaper** panel (960×540 @ 4.7", 16-level
 grayscale IT8951E controller, GT911 capacitive touch). It joins a CastKit fleet
 as an **image-mode (Inkcast) device** — the server renders + dithers its view to
 a 1-bit PNG — but it is self-contained (no Pi), pulls its render over **HTTP**,
@@ -50,7 +50,7 @@ This is the concrete contract the CastKit server ships (`packages/server/src/app
    `esphome.m5paper_set_image(image_url: "<that url>")` — the action name
    `set_image` is defined in `m5paper.yaml`.
 3. The panel re-points `online_image` at the URL, fetches
-   `GET /render/<token>.png` (public, single-use), blits, and the e-ink holds the
+   `GET /render/<token>.png` (public, single-use), blits, and the ePaper holds the
    frame with zero power.
 
 The panel carries **no** CastKit URL and no house logic — HA passes the URL and
@@ -65,7 +65,7 @@ view-switching-via-ha-automations.
 
 ## Components: what's mainline vs external
 
-Only **`it8951e`** (e-ink controller) and **`m5paper`** (power latch) are external
+Only **`it8951e`** (ePaper controller) and **`m5paper`** (power latch) are external
 — they're **vendored + patched in `./components/`** (upstream
 `ilia-ae/m5paper_esphome` doesn't compile on current ESPHome; see
 [`components/PATCHES.md`](components/PATCHES.md)). **`gt911`** (touch) and **`spi`**
@@ -160,4 +160,4 @@ the whole card. The lambda + the HA `media_position` / `media_duration` sensors
 are included but **commented out** in `m5paper.yaml` — enable them only after
 confirming the external component exposes a partial/fast refresh (a full flash
 every second would strobe and wear the panel). This is the capability that lets a
-black-and-white e-ink panel behave a little like a live display.
+black-and-white ePaper panel behave a little like a live display.

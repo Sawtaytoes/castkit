@@ -1,11 +1,11 @@
-# E-ink fonts for Inkcast
+# ePaper fonts for Inkcast
 
-This is a research note on typefaces that read well on e-ink / e-paper displays, gathered
+This is a research note on typefaces that read well on ePaper displays, gathered
 to help pick a body font for Inkcast's rendered views. Inkcast currently ships **DejaVu
 Sans** as a placeholder: the Satori engine has no system-font access, so it embeds the raw
 DejaVu Sans TTF bytes to stay visually consistent with the pHAT's on-device `fonts-dejavu`
 rendering (see `packages/render/src/fonts.ts`). DejaVu is a fine, safe default — it is
-MIT/Bitstream-Vera licensed and freely embeddable — but it was never designed for e-ink, so
+MIT/Bitstream-Vera licensed and freely embeddable — but it was never designed for ePaper, so
 this note surveys purpose-built and community-favored alternatives. Because Inkcast is an
 open-source public repo and Satori needs the raw TTF/OTF to embed, we strongly prefer
 **SIL OFL / Apache / BSD / CC-BY** fonts available as TTF or OTF. Two display contexts are
@@ -13,7 +13,7 @@ addressed separately: the tiny **1-bit mono** 250x122 Inky pHAT (legibility at v
 sizes after 1-bit dithering, no anti-aliasing) and the larger **6-colour E6** 800x480 Inky
 Impression (more room; readability plus aesthetics).
 
-## What matters on e-ink
+## What matters on ePaper
 
 The recurring theme across e-reader communities and small-screen typography research: at
 low DPI and after 1-bit dithering, letters survive when they have a **large x-height**,
@@ -28,7 +28,7 @@ sizes ([TypeTogether](https://www.type-together.com/typefaces-small-text),
 
 ## Recommendations table
 
-| Font | Serif/Sans | License | Best for | Why it reads well on e-ink | Source |
+| Font | Serif/Sans | License | Best for | Why it reads well on ePaper | Source |
 | --- | --- | --- | --- | --- | --- |
 | **Atkinson Hyperlegible** | Sans (grotesque) | SIL OFL 1.1 | mono + E6 | Purpose-built by the Braille Institute so every character is maximally distinguishable; exaggerated, disambiguated letterforms "shine on screens where lower resolution can make similar letters harder to distinguish." Clear x-height and open counters aid caption/footnote sizes. | [Braille Institute](https://www.brailleinstitute.org/freefont/), [Wikipedia](https://en.wikipedia.org/wiki/Atkinson_Hyperlegible), [TypeSmith](https://typographysmith.com/fonts/atkinson-hyperlegible) |
 | **Luciole** | Sans | CC-BY 4.0 | mono + E6 | Designed explicitly for low-vision readers against a dozen legibility criteria (letter structure, word clutter, spacing) by the French typographies.fr foundry with the Regional Technical Centre for Visual Impairment. Disambiguated forms help at low resolution. | [luciole-vision.com](https://www.luciole-vision.com/), [printindustry.news](https://www.printindustry.news/story/32904/) |
@@ -42,13 +42,13 @@ sizes ([TypeTogether](https://www.type-together.com/typefaces-small-text),
 | **Literata** | Serif | SIL OFL 1.1 | E6 | TypeTogether's typeface for Google Play Books, built to read well "on a whole range of devices... running different rendering technologies." Organic texture, comfortable for long-form. | [TypeTogether](https://www.type-together.com/literata-book), [Google Fonts](https://fonts.google.com/specimen/Literata) |
 | **Newsreader** | Serif | SIL OFL 1.1 | E6 | Production Type face made for "continuous on-screen reading in content-rich environments." | [nicoverbruggen/ebook-fonts](https://github.com/nicoverbruggen/ebook-fonts) |
 | **Source Serif 4** | Serif | SIL OFL 1.1 | E6 | Adobe's open serif designed for digital; simplified, highly readable letter shapes. Community "Sourcerer" variant is thickened for e-readers. | [nicoverbruggen/ebook-fonts](https://github.com/nicoverbruggen/ebook-fonts) |
-| **Charter / XCharter** | Serif | Permissive (Bitstream, free) | E6 | Matthew Carter's 1987 body face explicitly built to hold up on **low-resolution** output (fax, 300 dpi lasers); ages into e-ink well. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
+| **Charter / XCharter** | Serif | Permissive (Bitstream, free) | E6 | Matthew Carter's 1987 body face explicitly built to hold up on **low-resolution** output (fax, 300 dpi lasers); ages into ePaper well. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
 | **Charis SIL** | Serif | SIL OFL 1.1 | E6 | A Charter-family SIL font; e-reader users add weight to it for Kobo readability. Broad glyph coverage. | [MobileRead](https://www.mobileread.com/forums/showthread.php?t=366520) |
 | **Alegreya** | Serif | SIL OFL 1.1 | E6 | Named alongside Bitter/Literata by e-reader users as a "low contrast" face that reads easily. | [MobileRead](https://www.mobileread.com/forums/showthread.php?t=366520) |
 | **PT Serif** | Serif | SIL OFL 1.1 | E6 | Validated across iOS Books / Kindle / Kobo / EPUB readers for legibility and reduced fatigue. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
-| **Georgia** | Serif | Proprietary (Microsoft) | (reference only) | The most consistently praised e-ink serif — large x-height, thickened serifs, drawn pixel-first for sharp low-DPI rendering — but **proprietary**, so not embeddable in an OSS repo. Listed as the quality bar to match. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
-| **Bookerly** | Serif | Proprietary (Amazon/Dalton Maag) | (reference only) | Kindle's default since 2015, tuned for e-ink contrast ratios and hinting-artifact-free at small device sizes — but **proprietary/Kindle-only**, not redistributable. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
-| **DejaVu Sans** (current) | Sans | MIT / Bitstream Vera (free, embeddable) | mono (placeholder) | Safe, ubiquitous, matches on-device `fonts-dejavu`, freely embeddable. Not e-ink-designed; hinting at very small sizes is a known weak spot in the project. | [DejaVu License](https://dejavu-fonts.github.io/License.html), [Wikipedia](https://en.wikipedia.org/wiki/DejaVu_fonts) |
+| **Georgia** | Serif | Proprietary (Microsoft) | (reference only) | The most consistently praised ePaper serif — large x-height, thickened serifs, drawn pixel-first for sharp low-DPI rendering — but **proprietary**, so not embeddable in an OSS repo. Listed as the quality bar to match. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
+| **Bookerly** | Serif | Proprietary (Amazon/Dalton Maag) | (reference only) | Kindle's default since 2015, tuned for ePaper contrast ratios and hinting-artifact-free at small device sizes — but **proprietary/Kindle-only**, not redistributable. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
+| **DejaVu Sans** (current) | Sans | MIT / Bitstream Vera (free, embeddable) | mono (placeholder) | Safe, ubiquitous, matches on-device `fonts-dejavu`, freely embeddable. Not ePaper-designed; hinting at very small sizes is a known weak spot in the project. | [DejaVu License](https://dejavu-fonts.github.io/License.html), [Wikipedia](https://en.wikipedia.org/wiki/DejaVu_fonts) |
 
 ## Top picks for Inkcast
 
@@ -118,7 +118,7 @@ The community sentiment was instead captured from the closely parallel MobileRea
 recommendations (Charis SIL, Georgia, Atkinson Hyperlegible, Gill Sans, and the
 low-contrast trio Bitter / Alegreya / Literata). The MobileRead consensus, per user
 *hobnail*, favors **low-contrast fonts** — "less difference between the thick parts of a
-glyph and the thin parts" — which matches the e-ink design principles above.
+glyph and the thin parts" — which matches the ePaper design principles above.
 
 ## Sources
 

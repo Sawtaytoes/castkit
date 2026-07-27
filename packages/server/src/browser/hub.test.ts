@@ -23,7 +23,7 @@ const buildHub = (keepaliveIntervalMs: number) =>
  * A reverse proxy in front of CastKit closes connections that go quiet
  * (nginx's `proxy_read_timeout`), and a house with nothing playing sends no
  * deltas for hours — so the hub, not the traffic, has to keep sockets alive.
- * Without this a screen is silently disconnected on a fixed cadence all day.
+ * Without this a display is silently disconnected on a fixed cadence all day.
  */
 describe("keepalive", () => {
   beforeEach(() => {

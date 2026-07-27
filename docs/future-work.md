@@ -67,7 +67,7 @@ existing dither-**off** path (see
 [decisions/2026-07-02-dither-off-token-not-none-ha-reserved.md](decisions/2026-07-02-dither-off-token-not-none-ha-reserved.md));
 the panel/LED does its own final handling. Static views (a 32x32 Now Playing
 chip, a weather glyph, an ambient palette) would push on data change just like
-e-ink.
+ePaper.
 
 **What's genuinely new (the deferred work).**
 1. **Transport departs from the MQTT-only contract.** DDP is UDP sent directly
@@ -94,4 +94,4 @@ assumption in `@castkit/shared`.
 - Web config UI (Jotai or Redux-Toolkit noted for the stores).
 - MQTT TLS on 8883.
 - Progress text ("2:14 / 4:05") on the Dashboard — NO animated progress bars
-  (e-ink refresh constraints).
+  (ePaper refresh constraints).

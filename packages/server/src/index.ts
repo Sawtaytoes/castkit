@@ -279,7 +279,7 @@ const main = async () => {
   const deviceConfigStore = createDeviceConfigStore()
 
   // The photo rotation interval and photo recency half-life are HA config
-  // (global default on the Inkcast Server device + a per-screen override),
+  // (global default on the Inkcast Server device + a per-display override),
   // resolved live from the config store — no env vars. See docs/decisions/
   // 2026-07-03-user-tunable-view-settings-are-ha-config-entities.md.
   const resolvePhotoIntervalMinutes = (

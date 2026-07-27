@@ -30,7 +30,7 @@ are deployment config: `calendarEntityIds` in the devices file, or the
 
 ## Context
 
-The user wanted an imminent appointment to show itself on the e-ink displays
+The user wanted an imminent appointment to show itself on the ePaper displays
 alongside time/date/weather. A calendar entity's *state* only exposes the single
 next event, so the full day's agenda needs `calendar.get_events` (or the REST
 endpoint) — not state streaming. Two data paths were possible: Inkcast pulls the

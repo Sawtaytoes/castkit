@@ -1,7 +1,7 @@
 [
   {
     "id": "inky-phat",
-    "label": "Kitchen pHAT",
+    "label": "Kitchen Counter ePaper Display",
     "mac": "aa:bb:cc:00:00:01",
     "width": 250,
     "height": 122,
@@ -14,7 +14,7 @@
   },
   {
     "id": "inky-impression",
-    "label": "Hallway Impression 7.3\"",
+    "label": "Hallway ePaper Display",
     "mac": "aa:bb:cc:00:00:02",
     "width": 800,
     "height": 480,
@@ -50,7 +50,7 @@
   },
   {
     "id": "m5paper",
-    "label": "M5Paper",
+    "label": "M5Paper (ESP32 ePaper)",
     "mac": "aa:bb:cc:00:00:05",
     "width": 540,
     "height": 960,

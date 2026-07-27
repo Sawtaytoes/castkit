@@ -78,4 +78,4 @@ the server up, the frame keeps rendering from memory.
 > — maintainer, 2026-07-26
 
 Root-cause detail for the original incident is in the home-displays repo:
-`docs/2026-07-11-eink-13in-photoframe-blank-people-filter-handoff.md`.
+`docs/2026-07-11-epaper-13in-photoframe-blank-people-filter-handoff.md`.

@@ -8,10 +8,10 @@
 
 ## Decision
 
-The M5Paper (ESP32 touch e-ink, IT8951E 960×540 16-gray + GT911 touch) joins the
+The M5Paper (ESP32 touch ePaper, IT8951E 960×540 16-gray + GT911 touch) joins the
 fleet as an **image-mode (Inkcast) device** — the server renders and dithers its
 view to a 1-bit PNG — while additionally declaring two capabilities that don't fit
-the "dumb e-ink sink" mould:
+the "dumb ePaper sink" mould:
 
 - **`touch`** — it reports taps, and
 - **fast-update** — its IT8951E can partial-refresh a region far faster than a
@@ -59,7 +59,7 @@ is the concrete case that says whether those flags belong on the image schema to
 - **Don't grow the software to fit one panel.** The maintainer's constraint is
   that this "e-ink with touch" screen should blur the lines "without making the
   software too complex." Keeping it an image device + two optional flags — rather
-  than a third renderer or a browser panel that happens to be e-ink — is the
+  than a third renderer or a browser panel that happens to be ePaper — is the
   minimal model that still lets each device *register its features*.
 - **Follow the locked transports.** HTTP-pull for the image and ESPHome-API for
   touch are both already-settled; reusing them means no new server surface for
@@ -67,7 +67,7 @@ is the concrete case that says whether those flags belong on the image schema to
   (URL-in via the action, touch-out via binary sensors) with **no CastKit code
   change required** — the firmware is the deliverable.
 - **Fast-update is genuinely new and worth capturing** so a future view can key
-  off it (only a fast-update panel gets a live progress bar; every other e-ink
+  off it (only a fast-update panel gets a live progress bar; every other ePaper
   panel shows a static one).
 
 ## Follow-up (not blocking the firmware)

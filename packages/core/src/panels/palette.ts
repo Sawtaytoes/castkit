@@ -1,7 +1,7 @@
 /**
  * Panel colour palettes for the display fleet.
  *
- * A palette is the fixed set of ink colours a given e-ink panel can physically
+ * A palette is the fixed set of ink colours a given ePaper panel can physically
  * show. The dither pipeline quantizes a full-colour render down to one of these
  * so the on-screen preview matches what the hardware actually renders.
  *
