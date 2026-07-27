@@ -191,6 +191,19 @@ export const createPushController = ({
   }
 
   const pushDevice = async (deviceId: string) => {
+    // Paused (HA "Updates" switch off) — hold the last frame. Checked here
+    // because every push path funnels through pushDevice: the clock tick, the
+    // photo rotation, view selects, the Refresh button, and the HA data
+    // topics. Bail BEFORE rendering so a paused display costs no Chromium
+    // render either. `renderDevice` is deliberately not guarded — the HTTP
+    // render/preview endpoints stay usable while a panel is paused.
+    if (!deviceConfigStore.getIsUpdatesEnabled(deviceId)) {
+      console.log(
+        `[inkcast] skip ${deviceId} (updates paused)`,
+      )
+      return false
+    }
+
     const device = deviceById.get(deviceId)
     const image = await renderDevice(deviceId)
     if (!device || !image) {
