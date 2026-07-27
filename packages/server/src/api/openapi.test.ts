@@ -35,6 +35,7 @@ describe("buildOpenApiDocument", () => {
       "Clock",
       "Clock (Weather)",
       "Clock (Agenda)",
+      "Agenda",
     ])
   })
 

@@ -1,4 +1,5 @@
 import type { DeviceMetadata } from "@castkit/core/devices/device"
+import { AgendaView } from "@castkit/views/AgendaView"
 import { ClockAgendaView } from "@castkit/views/ClockAgendaView"
 import { ClockView } from "@castkit/views/ClockView"
 import { ClockWeatherView } from "@castkit/views/ClockWeatherView"
@@ -32,6 +33,7 @@ export const VIEW_NAMES = [
   "Clock",
   "Clock (Weather)",
   "Clock (Agenda)",
+  "Agenda",
 ] as const
 export type ViewName = (typeof VIEW_NAMES)[number]
 
@@ -59,7 +61,12 @@ const NOW_PLAYING_VIEW_NAMES: ReadonlySet<ViewName> =
     "Now Playing (Poster)",
   ])
 
-/** Views that display the time and need the minute re-push. */
+/**
+ * Views that display the time and need the minute re-push. "Agenda" is
+ * deliberately ABSENT: it shows no clock, so it stays valid until the agenda
+ * data changes. That is the entire reason it exists — a per-minute repaint on
+ * a slow-refreshing colour ePaper panel is unusable.
+ */
 const CLOCK_BEARING_VIEW_NAMES: ReadonlySet<ViewName> =
   new Set([
     "Now Playing (Dashboard)",
@@ -67,6 +74,15 @@ const CLOCK_BEARING_VIEW_NAMES: ReadonlySet<ViewName> =
     "Clock (Weather)",
     "Clock (Agenda)",
   ])
+
+/** Views that render the pushed agenda data, clock-bearing or not. */
+const AGENDA_VIEW_NAMES: ReadonlySet<ViewName> = new Set([
+  "Clock (Agenda)",
+  "Agenda",
+])
+
+export const getIsAgendaView = (viewName: ViewName) =>
+  AGENDA_VIEW_NAMES.has(viewName)
 
 export const getIsViewName = (
   value: string,
@@ -240,12 +256,13 @@ export const renderViewElement = ({
       conditionText: weather?.conditionText,
     })
   }
-  if (viewName === "Clock (Agenda)") {
-    // Drop timed events that have already started (matches "revert when it
-    // starts"), but keep all-day events for their whole day — their start is
-    // midnight, so a start-time filter would wrongly hide them all day. Then
-    // slice to what the panel can legibly hold. Times are formatted per panel
-    // size here so the view stays a pure function of its props.
+  // Drop timed events that have already started (matches "revert when it
+  // starts"), but keep all-day events for their whole day — their start is
+  // midnight, so a start-time filter would wrongly hide them all day. Then
+  // slice to what the panel can legibly hold. Times are formatted per panel
+  // size here so the views stay pure functions of their props. Shared by both
+  // agenda views so they never disagree about what "upcoming" means.
+  const buildAgendaEvents = () => {
     const upcomingEvents = (agenda?.events ?? []).filter(
       (event) =>
         event.isAllDay || event.startMs >= now.getTime(),
@@ -253,7 +270,7 @@ export const renderViewElement = ({
     const maxEvents = isCompactClock
       ? MAX_AGENDA_EVENTS_COMPACT
       : MAX_AGENDA_EVENTS_LARGE
-    const events = upcomingEvents
+    return upcomingEvents
       .slice(0, maxEvents)
       .map((event) => ({
         timeText: formatEventTime({
@@ -264,6 +281,20 @@ export const renderViewElement = ({
         }),
         summary: event.summary,
       }))
+  }
+
+  if (viewName === "Agenda") {
+    return createElement(AgendaView, {
+      ...panel,
+      date: formatDate(now, clock),
+      temperatureText: weather?.temperatureText,
+      conditionText: weather?.conditionText,
+      events: buildAgendaEvents(),
+      emptyText: "Nothing else today",
+    })
+  }
+  if (viewName === "Clock (Agenda)") {
+    const events = buildAgendaEvents()
     return createElement(ClockAgendaView, {
       ...panel,
       time: isCompactClock

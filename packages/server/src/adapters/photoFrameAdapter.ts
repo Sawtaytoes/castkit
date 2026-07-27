@@ -471,6 +471,12 @@ export const createPhotoFrameAdapter = ({
       .filter((device) =>
         getIsPhotoView(getActiveView(device.id)),
       )
+      // A paused display would have its push dropped anyway; skipping here
+      // means a dark room costs no Immich fetch either. On resume the switch's
+      // onApplied pushes, and this tick refetches if the photo is by then stale.
+      .filter((device) =>
+        deviceConfigStore.getIsUpdatesEnabled(device.id),
+      )
       .forEach((device) => {
         const current = viewDataStore.getPhotoFrame(
           device.id,

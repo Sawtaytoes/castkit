@@ -244,6 +244,20 @@ export type DeviceConfigStore = {
     edge: CropEdge
     pixels: number
   }) => void
+  /**
+   * Whether the display accepts new renders. False = paused: the panel keeps
+   * the last frame on glass (ePaper holds it at zero power) and every push path
+   * is skipped. Defaults to true, so an install that never touches the switch
+   * behaves exactly as before. Home Assistant drives this off the room's
+   * lights — a dark room can't see the panel, so rendering into it is waste.
+   */
+  getIsUpdatesEnabled: (deviceId: string) => boolean
+  setIsUpdatesEnabled: (params: {
+    deviceId: string
+    isEnabled: boolean
+  }) => void
+  /** Whether the switch has been set this run (blocks the boot-time restore). */
+  getHasUpdatesEnabledValue: (deviceId: string) => boolean
 }
 
 export const createDeviceConfigStore =
@@ -324,6 +338,11 @@ export const createDeviceConfigStore =
     const saturationByDeviceId = new Map<string, number>()
     // Keyed by `${deviceId}:${edge}`.
     const cropInsetByDeviceEdge = new Map<string, number>()
+    // Absent = never set = updates enabled (the safe default).
+    const isUpdatesEnabledByDeviceId = new Map<
+      string,
+      boolean
+    >()
 
     return {
       getPhotoPeople: (deviceId) =>
@@ -452,5 +471,12 @@ export const createDeviceConfigStore =
           pixels,
         )
       },
+      getIsUpdatesEnabled: (deviceId) =>
+        isUpdatesEnabledByDeviceId.get(deviceId) ?? true,
+      setIsUpdatesEnabled: ({ deviceId, isEnabled }) => {
+        isUpdatesEnabledByDeviceId.set(deviceId, isEnabled)
+      },
+      getHasUpdatesEnabledValue: (deviceId) =>
+        isUpdatesEnabledByDeviceId.has(deviceId),
     }
   }
