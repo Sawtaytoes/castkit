@@ -136,10 +136,19 @@ export const createPushController = ({
     // Text views honour the mat's safe-area crop; photos bleed to the edge.
     const activeView = deviceStore.getActiveView(deviceId)
     const isBleedView = getIsBleedView(activeView)
+    // A "http-pull" panel is an ESPHome `online_image`, whose decoder is chosen
+    // at COMPILE time (`format: png`) — it sniffs the magic bytes and rejects
+    // anything else with "Incorrect PNG signature". So the photo-format knobs
+    // must not apply to it: leaving it on "Auto" made it inherit the global
+    // JPEG default (which exists for the ARMv6 photo Pi) and the panel went
+    // blank until someone noticed. Force PNG here rather than relying on a
+    // retained per-device override a future session could set back to "Auto".
+    const isFormatLockedToPng =
+      device.imageDelivery === "http-pull"
     // Only the bleed photo view may ship a lossy full-colour frame; every
     // other view stays lossless PNG (exact text + palette colours).
     const fullColourEncoding: FullColourEncoding =
-      isBleedView
+      isBleedView && !isFormatLockedToPng
         ? resolvePhotoEncoding(deviceId)
         : { format: "png" }
     const safeAreaInset = isBleedView

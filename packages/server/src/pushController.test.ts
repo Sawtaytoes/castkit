@@ -11,14 +11,28 @@ const PNG = Buffer.from([
  * A push controller wired to the REAL device config store (the thing under
  * test) and thin fakes for everything else, recording what reached MQTT.
  */
-const makeController = () => {
+const makeController = ({
+  activeView = "Clock",
+  imageDelivery,
+  photoEncoding = { format: "png" },
+}: {
+  activeView?: string
+  imageDelivery?: "mqtt-image" | "http-pull"
+  photoEncoding?: { format: string; quality?: number }
+} = {}) => {
   const deviceConfigStore = createDeviceConfigStore()
   const publishedTopics: string[] = []
+  const renderedEncodings: unknown[] = []
+
+  const device = {
+    ...IMPRESSION_DEVICE,
+    ...(imageDelivery ? { imageDelivery } : {}),
+  }
 
   const pushController = createPushController({
-    devices: [IMPRESSION_DEVICE] as never,
+    devices: [device] as never,
     deviceStore: {
-      getActiveView: () => "Clock",
+      getActiveView: () => activeView,
       setActiveView: () => {},
     } as never,
     deviceConfigStore,
@@ -29,7 +43,14 @@ const makeController = () => {
       getAgenda: () => undefined,
     } as never,
     renderService: {
-      renderDevice: async () => PNG,
+      renderDevice: async ({
+        fullColourEncoding,
+      }: {
+        fullColourEncoding: unknown
+      }) => {
+        renderedEncodings.push(fullColourEncoding)
+        return PNG
+      },
     } as never,
     publisher: {
       publish: async ({ topic }: { topic: string }) => {
@@ -37,8 +58,7 @@ const makeController = () => {
       },
     } as never,
     baseTopic: "castkit",
-    resolvePhotoEncoding: () =>
-      ({ format: "png" }) as never,
+    resolvePhotoEncoding: () => photoEncoding as never,
     resolveClockConfig: () =>
       ({
         timeZone: "America/Chicago",
@@ -55,8 +75,46 @@ const makeController = () => {
     pushController,
     deviceConfigStore,
     publishedTopics,
+    renderedEncodings,
   }
 }
+
+describe("pushDevice — 'http-pull' panels are locked to PNG", () => {
+  // An ESPHome `online_image` picks its decoder at COMPILE time, so a JPEG or
+  // WebP frame is not "lower quality" to it — it is undecodable ("Incorrect PNG
+  // signature") and the panel silently keeps its last frame. This bit the
+  // M5Paper for real: photo_format sat on "Auto", inherited the global JPEG
+  // default meant for the ARMv6 Pi, and the panel went blank.
+  test("a photo view still renders PNG despite a lossy photo encoding", async () => {
+    const { pushController, renderedEncodings } =
+      makeController({
+        activeView: "Photo Frame",
+        imageDelivery: "http-pull",
+        photoEncoding: { format: "jpeg", quality: 80 },
+      })
+
+    await pushController.pushDevice(IMPRESSION_DEVICE.id)
+
+    expect(renderedEncodings).toEqual([{ format: "png" }])
+  })
+
+  test("an mqtt-image panel on the same view still gets the lossy encoding", async () => {
+    // The guard must be scoped to the delivery mechanism — the Pi fleet decodes
+    // with PIL and genuinely wants the ~10x smaller JPEG.
+    const { pushController, renderedEncodings } =
+      makeController({
+        activeView: "Photo Frame",
+        imageDelivery: "mqtt-image",
+        photoEncoding: { format: "jpeg", quality: 80 },
+      })
+
+    await pushController.pushDevice(IMPRESSION_DEVICE.id)
+
+    expect(renderedEncodings).toEqual([
+      { format: "jpeg", quality: 80 },
+    ])
+  })
+})
 
 describe("pushDevice — the Updates pause switch", () => {
   test("publishes normally when updates were never configured", async () => {
