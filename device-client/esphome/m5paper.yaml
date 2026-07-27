@@ -221,7 +221,16 @@ display:
     lambda: |-
       // Blit the pushed render 1:1. On the mono panel COLOR_ON = black ink,
       // COLOR_OFF = white paper.
-      it.image(0, 0, id(now_playing_image), COLOR_ON, COLOR_OFF);
+      //
+      // The colour args look backwards ON PURPOSE — do not "fix" them.
+      // ESPHome decodes a `type: BINARY` online_image with
+      // `is_color_on(color)` = luminance > 127 (runtime_image.cpp), so a BRIGHT
+      // source pixel sets the bit, and a set bit is painted with the FIRST
+      // colour arg (image.cpp). That convention suits a backlit display where
+      // "on" = lit; on ePaper "on" is black INK, so passing COLOR_ON first
+      // paints white pixels black and renders every frame as a negative.
+      // Mapping bright -> COLOR_OFF (white paper) is what makes it a positive.
+      it.image(0, 0, id(now_playing_image), COLOR_OFF, COLOR_ON);
 
       // --- Fast-update music progress bar (EXPERIMENTAL) --------------------
       // it8951e supports a FAST refresh via id(m5paper_display).update() (vs the
