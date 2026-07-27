@@ -39,16 +39,28 @@ export type AssetPoolEntry = {
   createdAtMs: number
 }
 
+/**
+ * A pooled asset carrying how many of the configured people appear in it. The
+ * pool is a UNION of one search per person, so an asset's count is simply how
+ * many of those searches returned it — which is what `peopleMinimum` filters
+ * on. Always 1 for a people-less smart-search pool.
+ */
+export type PooledAsset = AssetPoolEntry & {
+  matchedPersonCount: number
+}
+
 const POOL_TTL_MILLISECONDS = 6 * 60 * 60 * 1_000
 const POOL_MAX_PER_PERSON = 5_000
 const PAGE_SIZE = 1_000
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1_000
 const RECENCY_WEIGHT_FLOOR = 0.15
 const DEFAULT_RECENCY_HALF_LIFE_DAYS = 365
+/** 1 = "any of the listed people", the behavior before the knob existed. */
+export const DEFAULT_PEOPLE_MINIMUM = 1
 
 const poolCache = new Map<
   string,
-  { builtAtMs: number; entries: readonly AssetPoolEntry[] }
+  { builtAtMs: number; entries: readonly PooledAsset[] }
 >()
 
 const requestJson = async ({
@@ -278,9 +290,14 @@ const buildSearchPlan = ({
 
 /**
  * Cached UNION of image assets across the given people (any-of, deduped by
- * id), each carrying its creation timestamp. A non-empty `query` switches
- * the source to Immich smart search (same union pattern; with no people it
- * is a single people-less smart search).
+ * id), each carrying its creation timestamp and how many of those people it
+ * contains. A non-empty `query` switches the source to Immich smart search
+ * (same union pattern; with no people it is a single people-less smart
+ * search).
+ *
+ * The pool is always the full union and is cached that way — `peopleMinimum`
+ * narrows it at read time (see applyPeopleMinimum), so changing the threshold
+ * never costs a re-fetch.
  */
 export const buildAssetPool = async ({
   config,
@@ -290,7 +307,7 @@ export const buildAssetPool = async ({
   config: ImmichConfig
   personIds: readonly string[]
   query?: string
-}): Promise<readonly AssetPoolEntry[]> => {
+}): Promise<readonly PooledAsset[]> => {
   const trimmedQuery = query?.trim() ?? ""
   const cacheKey = JSON.stringify({
     query: trimmedQuery,
@@ -316,12 +333,26 @@ export const buildAssetPool = async ({
       }),
     ),
   )
-  const entriesById = new Map(
-    perSearch
-      .flat()
-      .map((entry) => [entry.id, entry] as const),
+  // Each search is exactly one person, so the number of searches an asset
+  // came back from IS the number of listed people in it.
+  const flattenedEntries = perSearch.flat()
+  const matchedCountById = flattenedEntries.reduce(
+    (counts: Map<string, number>, entry) =>
+      counts.set(entry.id, (counts.get(entry.id) ?? 0) + 1),
+    new Map<string, number>(),
   )
-  const entries = Array.from(entriesById.values())
+  const entriesById = new Map(
+    flattenedEntries.map(
+      (entry) => [entry.id, entry] as const,
+    ),
+  )
+  const entries = Array.from(entriesById.values()).map(
+    (entry) => ({
+      ...entry,
+      matchedPersonCount:
+        matchedCountById.get(entry.id) ?? 1,
+    }),
+  )
   poolCache.set(cacheKey, {
     builtAtMs: Date.now(),
     entries,
@@ -330,6 +361,37 @@ export const buildAssetPool = async ({
     `[inkcast] immich pool: ${searchFiltersList.length} search(es) → ${entries.length} unique assets`,
   )
   return entries
+}
+
+/**
+ * Narrow a union pool to assets containing at least `peopleMinimum` of the
+ * configured people: 1 = any of them (the historical behavior), the full name
+ * count = all of them, anything between = "at least K of N".
+ *
+ * Falls back to the unfiltered pool when the threshold matches nothing — a
+ * too-strict setting (or one left above the current name count) must not leave
+ * the frame stuck on the empty-filter placeholder.
+ */
+export const applyPeopleMinimum = ({
+  pool,
+  peopleMinimum,
+}: {
+  pool: readonly PooledAsset[]
+  peopleMinimum: number
+}): readonly PooledAsset[] => {
+  if (peopleMinimum <= DEFAULT_PEOPLE_MINIMUM) {
+    return pool
+  }
+  const matching = pool.filter(
+    (entry) => entry.matchedPersonCount >= peopleMinimum,
+  )
+  if (matching.length === 0) {
+    console.warn(
+      `[inkcast] immich pool: no asset contains ${peopleMinimum}+ of the listed people — falling back to any-of (${pool.length} assets)`,
+    )
+    return pool
+  }
+  return matching
 }
 
 /**
@@ -400,16 +462,21 @@ export const pickRandomAssetId = async ({
   personIds,
   query,
   recencyHalfLifeDays = DEFAULT_RECENCY_HALF_LIFE_DAYS,
+  peopleMinimum = DEFAULT_PEOPLE_MINIMUM,
 }: {
   config: ImmichConfig
   personIds: readonly string[]
   query?: string
   recencyHalfLifeDays?: number
+  peopleMinimum?: number
 }): Promise<string | null> => {
-  const pool = await buildAssetPool({
-    config,
-    personIds,
-    query,
+  const pool = applyPeopleMinimum({
+    pool: await buildAssetPool({
+      config,
+      personIds,
+      query,
+    }),
+    peopleMinimum,
   })
   if (pool.length === 0) {
     return null
@@ -440,18 +507,23 @@ export const pickRandomAssetIds = async ({
   personIds,
   query,
   recencyHalfLifeDays = DEFAULT_RECENCY_HALF_LIFE_DAYS,
+  peopleMinimum = DEFAULT_PEOPLE_MINIMUM,
   count,
 }: {
   config: ImmichConfig
   personIds: readonly string[]
   query?: string
   recencyHalfLifeDays?: number
+  peopleMinimum?: number
   count: number
 }): Promise<readonly string[]> => {
-  const pool = await buildAssetPool({
-    config,
-    personIds,
-    query,
+  const pool = applyPeopleMinimum({
+    pool: await buildAssetPool({
+      config,
+      personIds,
+      query,
+    }),
+    peopleMinimum,
   })
   if (pool.length === 0) {
     return []
@@ -462,7 +534,7 @@ export const pickRandomAssetIds = async ({
     remaining,
     picked,
   }: {
-    remaining: readonly AssetPoolEntry[]
+    remaining: readonly PooledAsset[]
     picked: readonly string[]
   }): readonly string[] => {
     if (picked.length >= count || remaining.length === 0) {

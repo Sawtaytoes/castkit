@@ -74,6 +74,8 @@ export const buildDeviceTopics = ({
     photoIntervalState: `${base}/photo_interval`,
     photoRecencyCommand: `${base}/photo_recency/set`,
     photoRecencyState: `${base}/photo_recency`,
+    photoPeopleMinimumCommand: `${base}/photo_people_minimum/set`,
+    photoPeopleMinimumState: `${base}/photo_people_minimum`,
     photoFormatCommand: `${base}/photo_format/set`,
     photoFormatState: `${base}/photo_format`,
     photoQualityCommand: `${base}/photo_quality/set`,
@@ -120,6 +122,8 @@ export const buildGlobalTopics = (
   /** Global default Photo Frame recency half-life, days. */
   photoRecencyCommand: `${baseTopic}/photo_recency/set`,
   photoRecencyState: `${baseTopic}/photo_recency`,
+  photoPeopleMinimumCommand: `${baseTopic}/photo_people_minimum/set`,
+  photoPeopleMinimumState: `${baseTopic}/photo_people_minimum`,
   /** Global default Photo Frame wire format. */
   photoFormatCommand: `${baseTopic}/photo_format/set`,
   photoFormatState: `${baseTopic}/photo_format`,
@@ -525,6 +529,30 @@ export const buildDiscoveryMessages = ({
       },
     },
     {
+      // Per-device people minimum: how many of "Photo Frame: People" an asset
+      // must contain. 1 = any of them (the pre-knob behavior), the full name
+      // count = all of them, in between = "at least K of N". 0 = inherit the
+      // global default. A value nothing satisfies falls back to any-of rather
+      // than blanking the frame.
+      topic: discoveryTopic(
+        "number",
+        "photo_people_minimum",
+      ),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "Photo Frame: People minimum",
+        unique_id: `inkcast_${device.id}_photo_people_minimum`,
+        command_topic: topics.photoPeopleMinimumCommand,
+        state_topic: topics.photoPeopleMinimumState,
+        min: 0,
+        max: 20,
+        step: 1,
+        entity_category: "config",
+        device: deviceBlock,
+      },
+    },
+    {
       // Per-device Photo Frame wire format. "Auto" = inherit the global default
       // on the Inkcast Server device. Only the photo (bleed) view uses it;
       // text/dithered views are always PNG.
@@ -712,6 +740,24 @@ export const buildGlobalDiscoveryMessages = (
         max: 3650,
         step: 1,
         unit_of_measurement: "d",
+        entity_category: "config",
+        device: serverDeviceBlock,
+      },
+    },
+    {
+      // Global default people minimum — used by any display whose own "Photo
+      // Frame: People minimum" is 0 (inherit).
+      topic: `${discoveryPrefix}/number/${nodeId}/server_photo_people_minimum/config`,
+      isRetained: true as const,
+      payload: {
+        ...availability,
+        name: "Photo Frame: People minimum",
+        unique_id: "inkcast_server_photo_people_minimum",
+        command_topic: topics.photoPeopleMinimumCommand,
+        state_topic: topics.photoPeopleMinimumState,
+        min: 1,
+        max: 20,
+        step: 1,
         entity_category: "config",
         device: serverDeviceBlock,
       },

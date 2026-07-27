@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest"
 import {
+  applyPeopleMinimum,
   computeRecencyWeight,
   pickWeightedIndex,
 } from "./immichClient.ts"
@@ -139,5 +140,67 @@ describe("pickWeightedIndex", () => {
         randomValue: 1,
       }),
     ).toBe(1)
+  })
+})
+
+describe("applyPeopleMinimum", () => {
+  const POOL = [
+    {
+      id: "all-three",
+      createdAtMs: 0,
+      matchedPersonCount: 3,
+    },
+    {
+      id: "two-of-them",
+      createdAtMs: 0,
+      matchedPersonCount: 2,
+    },
+    {
+      id: "just-one",
+      createdAtMs: 0,
+      matchedPersonCount: 1,
+    },
+  ]
+
+  test("a minimum of 1 keeps the whole any-of union", () => {
+    expect(
+      applyPeopleMinimum({
+        pool: POOL,
+        peopleMinimum: 1,
+      }).map((entry) => entry.id),
+    ).toEqual(["all-three", "two-of-them", "just-one"])
+  })
+
+  test("a minimum of 2 keeps only assets with at least two", () => {
+    expect(
+      applyPeopleMinimum({
+        pool: POOL,
+        peopleMinimum: 2,
+      }).map((entry) => entry.id),
+    ).toEqual(["all-three", "two-of-them"])
+  })
+
+  test("a minimum equal to the name count keeps only all-of", () => {
+    expect(
+      applyPeopleMinimum({
+        pool: POOL,
+        peopleMinimum: 3,
+      }).map((entry) => entry.id),
+    ).toEqual(["all-three"])
+  })
+
+  test("a minimum nothing satisfies falls back to the union", () => {
+    expect(
+      applyPeopleMinimum({
+        pool: POOL,
+        peopleMinimum: 9,
+      }).map((entry) => entry.id),
+    ).toEqual(["all-three", "two-of-them", "just-one"])
+  })
+
+  test("an empty pool stays empty rather than looping", () => {
+    expect(
+      applyPeopleMinimum({ pool: [], peopleMinimum: 2 }),
+    ).toEqual([])
   })
 })

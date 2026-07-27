@@ -104,6 +104,21 @@ export type DeviceConfigStore = {
     | number
     | undefined
   setGlobalPhotoRecencyHalfLifeDays: (days: number) => void
+  /**
+   * Per-device minimum number of the configured people an asset must contain:
+   * 1 = any of them, the full name count = all of them. `undefined` (or 0, the
+   * "inherit" sentinel) = fall back to the global default below.
+   */
+  getPhotoPeopleMinimum: (
+    deviceId: string,
+  ) => number | undefined
+  setPhotoPeopleMinimum: (params: {
+    deviceId: string
+    minimum: number
+  }) => void
+  /** Global default people minimum. */
+  getGlobalPhotoPeopleMinimum: () => number | undefined
+  setGlobalPhotoPeopleMinimum: (minimum: number) => void
   /** Free-text Immich smart-search query for the Photo Frame ("" = off). */
   getPhotoQuery: (deviceId: string) => string
   setPhotoQuery: (params: {
@@ -248,6 +263,14 @@ export const createDeviceConfigStore =
       "global",
       number
     >()
+    const photoPeopleMinimumByDeviceId = new Map<
+      string,
+      number
+    >()
+    const globalPhotoPeopleMinimumHolder = new Map<
+      "global",
+      number
+    >()
     const photoFormatByDeviceId = new Map<
       string,
       PhotoFormatSetting
@@ -377,6 +400,19 @@ export const createDeviceConfigStore =
         photoRecencyByDeviceId.get(deviceId),
       setPhotoRecencyHalfLifeDays: ({ deviceId, days }) => {
         photoRecencyByDeviceId.set(deviceId, days)
+      },
+      getPhotoPeopleMinimum: (deviceId) =>
+        photoPeopleMinimumByDeviceId.get(deviceId),
+      setPhotoPeopleMinimum: ({ deviceId, minimum }) => {
+        photoPeopleMinimumByDeviceId.set(deviceId, minimum)
+      },
+      getGlobalPhotoPeopleMinimum: () =>
+        globalPhotoPeopleMinimumHolder.get("global"),
+      setGlobalPhotoPeopleMinimum: (minimum) => {
+        globalPhotoPeopleMinimumHolder.set(
+          "global",
+          minimum,
+        )
       },
       getGlobalPhotoRecencyHalfLifeDays: () =>
         globalPhotoRecencyHolder.get("global"),

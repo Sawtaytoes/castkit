@@ -24,6 +24,7 @@ const buildAdapter = () => {
     },
     getIntervalMinutes: () => 30,
     getRecencyHalfLifeDays: () => 30,
+    getPeopleMinimum: () => 1,
     devices: [buildDevice()],
     deviceConfigStore,
     viewDataStore,

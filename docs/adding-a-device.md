@@ -48,11 +48,19 @@ screen at a different resolution) needs **no code change** — just a new entry.
 On boot the server publishes, per device: a **Screen** image entity, a **View**
 select, a **Refresh** button, and the config entities **Display: Dither**,
 **Display: Rotation**, **Display: Brightness/Saturation**, the mat **Crop**
-insets, **Photo Frame: People/Query/Format/Quality/Rotation-minutes/Recency**,
+insets, **Photo Frame: People/People-minimum/Query/Format/Quality/Rotation-minutes/Recency**,
 and Next/Previous photo buttons. All are editable live; their retained MQTT state
 is the persistence, so they survive a restart with no config file for user
 settings. (**Rotation** in particular is a live select — you can correct an
 upside-down panel from HA without editing this file.)
+
+**How the people list combines:** `Photo Frame: People` is a comma-separated
+name list, and `Photo Frame: People minimum` says how many of them a photo must
+contain — `1` (the default) is any of them, a value equal to the name count is
+all of them, and anything between is "at least K of N". A threshold nothing
+satisfies falls back to any-of and logs a warning rather than blanking the
+frame. See
+[the decision](decisions/2026-07-26-photo-people-minimum-is-a-threshold-not-an-and-or-toggle.md).
 
 Retained state is the persistence, but it is not indestructible — a broker wipe
 or a topic migration clears it. Knobs that would leave a screen unusable when
