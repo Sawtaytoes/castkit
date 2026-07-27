@@ -7,6 +7,8 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-07-27 | [A per-device "Updates" switch pauses a display, with no global counterpart](2026-07-27-per-device-updates-pause-switch.md) | Accepted |
+| 2026-07-27 | [A clockless "Agenda" view, so slow colour panels can show a calendar](2026-07-27-clockless-agenda-view.md) | Accepted |
 | 2026-07-26 | [The Photo Frame people filter combines by a "minimum matches" threshold, not an AND/OR toggle](2026-07-26-photo-people-minimum-is-a-threshold-not-an-and-or-toggle.md) | Accepted |
 | 2026-07-26 | [The Photo Frame people filter seeds from the device registry, not an HA self-heal automation](2026-07-26-photo-people-seeds-from-the-device-registry.md) | Accepted |
 | 2026-07-24 | [Slatecast tests run in real Chromium, with MSW's WebSocket link as the server](2026-07-24-slatecast-tests-real-chromium-msw-websocket.md) | Accepted |
