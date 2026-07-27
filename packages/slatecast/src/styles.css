@@ -1,7 +1,7 @@
 /*
  * Slatecast kiosk styles. Hand-rolled, no UI kit — the whole app must stay
  * under the 60 KB gz budget and render calmly on WPE. Dark by default (wall
- * screens), light honored via theme. No cursor, no text selection, no
+ * displays), light honored via theme. No cursor, no text selection, no
  * overscroll — this is an appliance, not a web page.
  */
 
@@ -21,7 +21,7 @@
 }
 
 /* "Auto" stays dark: kiosk browsers report prefers-color-scheme:light by
-   default, and wall screens want dark — pick Light explicitly in HA. */
+   default, and wall displays want dark — pick Light explicitly in HA. */
 
 * {
   box-sizing: border-box;

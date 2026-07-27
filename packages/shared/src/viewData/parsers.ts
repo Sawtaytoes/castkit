@@ -86,7 +86,7 @@ const readArtworkPath = (
  *
  * Interactive-controller fields (`position`, `positionUpdatedAt`, `duration`,
  * `volume`, `isMuted`) are optional extensions for browser-mode devices; the
- * original minimal e-ink payload parses exactly as before.
+ * original minimal ePaper payload parses exactly as before.
  */
 export const parseNowPlayingPayload = (
   payload: unknown,

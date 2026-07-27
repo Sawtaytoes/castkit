@@ -50,10 +50,10 @@ choice can differ per panel (as the maintainer noted it likely should).
 - **Threshold** and the error-diffusion kernels all render text crisply (the card
   is already near-black/white, so diffusion barely changes it).
 - **Ordered (Bayer)** is wrong for text — it stipples the white background with a
-  dot texture. Avoid for text screens.
+  dot texture. Avoid for text views.
 - Supersample gains are subtle for pure text (mostly slight edge smoothing).
 - **Recommendation:** **threshold** (or Floyd–Steinberg) at **2×** for the pHAT's
-  text screens. If a photo ever goes on the pHAT, switch that screen to
+  text views. If a photo ever goes on the pHAT, switch that display to
   error-diffusion.
 
 ### E6 Impression (800×480, 6-colour) — photos, colour fidelity
@@ -90,7 +90,7 @@ review the sheets. (The mono default is currently atkinson; the sheets suggest
 - **Dither defaults:** pick per-panel algorithm + supersample from the sheets;
   ideally verify E6 on a real kids' photo on the physical panel.
 - **Font:** DejaVu Sans is a placeholder — see
-  [research/eink-fonts.md](research/eink-fonts.md) (Atkinson Hyperlegible is the
+  [research/epaper-fonts.md](research/epaper-fonts.md) (Atkinson Hyperlegible is the
   leading candidate for the mono panel). Swappable in one place
   (`@inkcast/render/fonts` + the view `font-family`).
 - **MQTT broker creds** (host + token/user) — needed to wire the HA Image-entity

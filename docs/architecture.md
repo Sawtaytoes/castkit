@@ -3,7 +3,7 @@
 Everything is **MQTT pub/sub through one broker** — no actor opens a direct connection to
 another. Three roles:
 
-- **Home Assistant** — the brain. Pushes each screen's view data, drives the View
+- **Home Assistant** — the brain. Pushes each display's view data, drives the View
   select / Refresh / config knobs, and auto-creates the entities it's told about.
 - **Inkcast server (container)** — renders pixels and **owns the device list**
   (each device's geometry + colour mode). At boot it publishes the retained HA
@@ -72,7 +72,7 @@ device's registration the moment it subscribes to `inkcast/+/register`.
 | | Central config (today) | Device self-registration |
 | --- | --- | --- |
 | Device firmware | truly dumb (one image topic) | must publish its own geometry (heavier) |
-| Add/remove a screen | edit config file + restart | plug in / clear its retained `register` |
+| Add/remove a display | edit config file + restart | plug in / clear its retained `register` |
 | Source of truth for geometry | one reviewable file | the device itself |
 | Rogue/duplicate devices | impossible (server-owned) | must validate incoming registrations |
 | Dead-device cleanup | delete a config line | clear a retained topic (same ghost risk) |

@@ -64,9 +64,9 @@ components turned out to be framework-agnostic (ESPHome HAL + esp-idf
   consistent than the old HA-API refresh.
 - **No HA in the loop, no manual script, self-healing.** Survives a CastKit
   restart (hash map resets → first push re-delivers) and a panel reboot (panel
-  reconnects and the next minute tick delivers within ≤60 s; e-ink holds the last
+  reconnects and the next minute tick delivers within ≤60 s; ePaper holds the last
   frame meanwhile).
-- **e-ink wear bounded.** The per-device hash suppresses redundant full refreshes;
+- **ePaper wear bounded.** The per-device hash suppresses redundant full refreshes;
   a clock legitimately changes each minute, but static agenda/now-playing frames
   don't reflash.
 - **TLS without a re-flash treadmill.** The broker cert is validated against the

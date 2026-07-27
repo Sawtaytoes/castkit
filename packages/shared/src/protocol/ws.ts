@@ -22,7 +22,7 @@ export const DEFAULT_PHOTO_INTERVAL_MINUTES = 10
 
 /**
  * Resolved global clock settings the browser views format against, so browser
- * screens honour the same Home Assistant Clock:* knobs as the e-ink devices
+ * displays honour the same Home Assistant Clock:* knobs as the ePaper devices
  * (timezone via `Intl`, 12/24-hour, long/numeric date). The server stamps this
  * onto every settings payload; `timeZone` absent = the device's local zone.
  */

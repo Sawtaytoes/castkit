@@ -6,7 +6,7 @@ import {
 
 /**
  * Plain clock: big time + date, no weather — the browser-native counterpart to
- * the e-ink "Clock" view (colour, no dithering). Client-side off the shared
+ * the ePaper "Clock" view (colour, no dithering). Client-side off the shared
  * 1 Hz tick in the device-local timezone. Reuses the `.ambient` layout, which
  * is already a centered time-over-date stack.
  */

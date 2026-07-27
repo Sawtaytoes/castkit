@@ -15,9 +15,9 @@ device that blurs the line (M5Paper: image + touch) or changes mode must not
 require a topic migration. Mode shows up naturally in which topics exist
 (`image` vs `url`/`connected`) and in discovery metadata.
 
-The existing e-ink fleet stays on the old `inkcast/<id>/…` retained topics
+The existing ePaper fleet stays on the old `inkcast/<id>/…` retained topics
 until **the maintainer confirms every inkcast device is connected** (two
-screens are being rewired; PoE ports are limited). Then a one-shot migration
+displays are being rewired; PoE ports are limited). Then a one-shot migration
 runs: republish discovery + retained state under `castkit/`, clear all
 retained `inkcast/#` with empty payloads (ghost-entity prevention), update
 the HA automations and device-client drop-ins. New browser devices start on
@@ -32,7 +32,7 @@ leave them unable to pick up the new retained image topics.
 ## Why
 
 Uniform addressing keeps HA automations and future tooling simple; gating the
-migration keeps the deployed e-ink fleet safe.
+migration keeps the deployed ePaper fleet safe.
 
 ## Evidence
 

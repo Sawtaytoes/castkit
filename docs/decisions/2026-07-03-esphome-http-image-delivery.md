@@ -8,7 +8,7 @@
 
 ## Decision
 
-ESP32 e-ink panels running **ESPHome** (e.g. an M5Paper) join the fleet as dumb
+ESP32 ePaper panels running **ESPHome** (e.g. an M5Paper) join the fleet as dumb
 fetchers like the Pi-Zero receivers, but pull pixels over **HTTP** instead of the
 Pi receivers' MQTT transport. The delivery contract:
 
@@ -37,7 +37,7 @@ Pi receivers use.
 ## Context
 
 Today the server pushes per-device PNGs to Pi-Zero-W fetchers over MQTT. An
-ESPHome ESP32 e-ink panel is self-contained (no Pi) and fetches over HTTP via the
+ESPHome ESP32 ePaper panel is self-contained (no Pi) and fetches over HTTP via the
 `online_image` component, which downloads a PNG from a URL and blits it. ESPHome's
 native API is a typed protobuf channel for entities/actions — it is **not** a blob
 transport and has no inbound image-upload endpoint, so the device must **pull**;
@@ -51,8 +51,8 @@ persisted to HA storage or disk — they should live in Inkcast memory only, bri
   instant a GET *arrives*, the retry hits a 404 and the panel gets nothing.
   Evicting only after a completed `200` (and tolerating an in-flight retry of the
   same token) makes delivery robust without a persistent store.
-- **Ephemeral is safe on e-ink.** Once the panel has painted, throwing the bytes
-  away loses nothing visually — e-ink holds the pixels with zero power, across
+- **Ephemeral is safe on ePaper.** Once the panel has painted, throwing the bytes
+  away loses nothing visually — ePaper holds the pixels with zero power, across
   reboot/power-loss. The device's decoded buffer dies on reboot, but the glass
   still shows the last frame, so there is no "lost push" to recover. No persistent
   image store to manage.

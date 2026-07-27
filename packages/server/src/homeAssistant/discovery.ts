@@ -12,7 +12,7 @@ import type {
  *
  * Publishing these (retained) to the discovery topics makes HA's built-in MQTT
  * integration auto-create, per display:
- *   - an **Image** entity (see the current screen in HA),
+ *   - an **Image** entity (see what the display is currently showing in HA),
  *   - a **Select** (switch the active view),
  *   - a **Button** (force a refresh),
  *   - a diagnostic **Sensor** (last-render time).
@@ -245,7 +245,11 @@ export const buildDiscoveryMessages = ({
       isRetained: true,
       payload: {
         ...availability,
-        name: "Screen",
+        // `null` marks this as the device's main entity, so HA names it after
+        // the device alone ("Kitchen Counter ePaper Display") instead of
+        // suffixing it ("… ePaper Display Screen"). "Screen" is also the wrong
+        // word for a display — see the workspace naming decisions.
+        name: null,
         unique_id: `inkcast_${device.id}_screen`,
         image_topic: topics.image,
         content_type: "image/png",
@@ -331,7 +335,7 @@ export const buildDiscoveryMessages = ({
         ]
       : []),
     {
-      // Pre-dither brightness boost (e-ink panels read dark).
+      // Pre-dither brightness boost (ePaper panels read dark).
       topic: discoveryTopic("number", "brightness"),
       isRetained: true,
       payload: {

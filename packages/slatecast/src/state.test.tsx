@@ -223,7 +223,7 @@ describe("optimistic mute and skips", () => {
 
 /**
  * A kiosk has no keyboard and its Home Assistant Reload button travels down
- * this very socket, so a reconnect loop that gives up strands the screen until
+ * this very socket, so a reconnect loop that gives up strands the display until
  * somebody power-cycles it. These lock the loop's two escape hatches shut.
  */
 describe("reconnect resilience", () => {
@@ -260,7 +260,7 @@ describe("reconnect resilience", () => {
       timeoutMs: 4_000,
     })
 
-    // The proxy reaping an idle socket is the routine case; the screen must
+    // The proxy reaping an idle socket is the routine case; the display must
     // come back on its own every time it happens.
     await waitUntil(() => isConnected.value, {
       timeoutMs: 8_000,

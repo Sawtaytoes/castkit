@@ -13,7 +13,7 @@ dithering — see [2026-07-02-dither-off-token-not-none-ha-reserved.md](2026-07-
 `ditherToPanel` no longer always emits a full-colour **RGB PNG**. The photo
 (bleed) view now emits a **lossy JPEG** by default. The format (`JPEG` \| `WebP`
 \| `PNG`) and lossy quality (1–100) are **Home Assistant / MQTT config entities**
-— a global default on the Inkcast Server device plus a per-screen override
+— a global default on the Inkcast Server device plus a per-display override
 (`Photo Frame: Format` = `Auto` inherits the global; `Photo Frame: Quality` = `0`
 inherits) — **NOT env vars** (see
 [2026-07-03-user-tunable-view-settings-are-ha-config-entities.md](2026-07-03-user-tunable-view-settings-are-ha-config-entities.md)).
@@ -54,7 +54,7 @@ real panel Pi ruled it out.
   and applied solely when `getIsBleedView(activeView)` is true. A text view left
   on `off` still ships lossless PNG, so JPEG's edge artefacts never touch text.
 - **WebP kept for future hardware.** A later photo panel on a **Pi Zero 2 W
-  (ARMv7)** or **Pi 4 (ARMv8)** can decode WebP; set that screen's
+  (ARMv7)** or **Pi 4 (ARMv8)** can decode WebP; set that display's
   `Photo Frame: Format` to `WebP` in Home Assistant then (it's a per-device
   select, so other panels stay on JPEG). Nothing in the pipeline is
   JPEG-specific.

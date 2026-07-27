@@ -12,7 +12,7 @@ The repo is renamed **`castkit`** and becomes the umbrella platform. There is
 **one server** (the evolved Inkcast server) with a per-device **client mode**:
 
 - `image` (**Inkcast**): server renders a view → PNG → dither → retained MQTT
-  image topic; the device is a dumb sink (e-ink Pis today; ESP32 e-ink later).
+  image topic; the device is a dumb sink (ePaper Pis today; ESP32 ePaper later).
 - `browser` (**Slatecast**): the device's kiosk browser loads `/d/<id>` and a
   tiny Preact SPA renders live views itself, with a WebSocket to the server.
 
@@ -31,9 +31,9 @@ survive as the modes' branding; the shared MQTT/HA layer lives in
 Slatecast was planned as a separate sibling repo. Two things collapsed that:
 the reusable surface (MQTT wrapper, HA discovery, payload contracts, knob
 framework) was the load-bearing part of both products, and the maintainer's
-incoming M5Paper units (ESP32 **touch e-ink** — can't run a browser, can
+incoming M5Paper units (ESP32 **touch ePaper** — can't run a browser, can
 display pushed images and report taps) proved the product line isn't
-"e-ink vs touch" but **"who renders"**, with touch as a capability on either
+"ePaper vs touch" but **"who renders"**, with touch as a capability on either
 side. Building a second server and converging later would have been double
 work; the Inkcast server already had the registry, discovery, knobs, and
 data stores.

@@ -6,7 +6,7 @@ import type { BrowserDeviceConfig } from "../config/env.ts"
  * views); `clientId` is what the SPA switches on over the WebSocket.
  *
  * Each view declares capability requirements — a device's View select only
- * offers the views it satisfies, so HA can never switch a touchless screen
+ * offers the views it satisfies, so HA can never switch a touchless display
  * into an interactive-only view. (No current view requires touch: Now Playing
  * degrades to display-only controls client-side.)
  */

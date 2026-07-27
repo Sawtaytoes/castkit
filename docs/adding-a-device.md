@@ -1,4 +1,4 @@
-# Adding a device (screen) to Inkcast
+# Adding a device (display) to Inkcast
 
 ## How device registration works
 
@@ -6,7 +6,7 @@ Devices are **static** — they do **not** self-register. There is no
 device→server discovery, no `POST /api/devices`, no auto-provisioning. The
 server reads its full device list **once at boot** and publishes a fixed set of
 Home Assistant MQTT-discovery entities for each known device. (The "discovery"
-in Inkcast is the *server advertising entities to HA* — not screens announcing
+in Inkcast is the *server advertising entities to HA* — not displays announcing
 themselves.)
 
 The device list comes from a JSON file pointed to by the **`INKCAST_DEVICES_FILE`**
@@ -35,17 +35,18 @@ working file.
 | `colourMode` | ✅ | `"mono"` (2-ink black/white) or `"e6"` (6-colour Spectra). **The palette is derived from this** — you never hand-write RGB. |
 | `rotation` | — | Clockwise degrees (`0`/`90`/`180`/`270`), default `0`. Also tunable live from HA (see below), so a rough guess here is fine. |
 | `ditherProfile` | — | `{ algorithm, supersampleFactor }`, default `{ "floyd-steinberg", 2 }`. `algorithm` is one of the dither options; `off` hands the panel a full-colour image (photo frame). |
-| `nowPlayingEntityId` | — | Pin this screen's Now Playing to a specific HA `media_player`; omit to follow the active player. |
+| `nowPlayingEntityId` | — | Pin this display's Now Playing to a specific HA `media_player`; omit to follow the active player. |
 | `photoPeople` | — | Array of Immich person names, e.g. `["Ada", "Grace"]`. **Seed only:** fills the Photo Frame people filter when the broker has no retained value (first boot, or after a retained wipe). HA owns the live value — editing it there never writes back here, and the seed never overwrites what the broker restored. Omit and the frame starts blank. |
 
 **Palette note:** there are exactly two palettes — `MONO_PALETTE` and
 `E6_DEFAULT_PALETTE`, keyed by `colourMode`. There is no per-device custom
 palette. A new panel of an existing colour family (e.g. another 6-colour E6
-screen at a different resolution) needs **no code change** — just a new entry.
+display at a different resolution) needs **no code change** — just a new entry.
 
 ## What each device automatically gets in Home Assistant
 
-On boot the server publishes, per device: a **Screen** image entity, a **View**
+On boot the server publishes, per device: an **Image** entity named after the
+device itself (it *is* the display, so it carries no suffix), a **View**
 select, a **Refresh** button, and the config entities **Display: Dither**,
 **Display: Rotation**, **Display: Brightness/Saturation**, the mat **Crop**
 insets, **Photo Frame: People/People-minimum/Query/Format/Quality/Rotation-minutes/Recency**,
@@ -63,7 +64,7 @@ frame. See
 [the decision](decisions/2026-07-26-photo-people-minimum-is-a-threshold-not-an-and-or-toggle.md).
 
 Retained state is the persistence, but it is not indestructible — a broker wipe
-or a topic migration clears it. Knobs that would leave a screen unusable when
+or a topic migration clears it. Knobs that would leave a display unusable when
 blank therefore carry a **registry seed** the server republishes on boot when the
 broker has nothing: `rotation` and `ditherProfile` since the beginning, and
 `photoPeople` as of 2026-07-26. See
@@ -78,7 +79,7 @@ broker has nothing: `rotation` and `ditherProfile` since the beginning, and
 3. On TrueNAS: mount the file into the container and set that env var in the app
    config, then restart the app so it reloads the list.
 4. Flash the Pi (or ESPHome device) with the matching `id`/MQTT topic and confirm
-   the new **Screen** entity appears in Home Assistant.
+   the new image entity appears in Home Assistant under the device's name.
 
 Because the list is read only at boot, **adding or renaming a device requires a
 restart** — but changing any *setting* on an existing device (view, rotation,

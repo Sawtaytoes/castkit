@@ -3,7 +3,7 @@
 Guidelines for AI agents working on **CastKit** — a self-hostable home display
 platform. One server, two per-device client modes: **Inkcast** (`image` — server
 renders per-device PNGs, React → Chromium/Satori → per-panel dither, pushed over
-MQTT to dumb e-ink Pis) and **Slatecast** (`browser` — the device's kiosk browser
+MQTT to dumb ePaper Pis) and **Slatecast** (`browser` — the device's kiosk browser
 loads `/d/<id>` and a tiny Preact SPA renders live, optionally touch-interactive
 views over one WebSocket). All devices surface in Home Assistant via MQTT
 discovery; HA pushes view data and executes device commands — the CastKit↔house
@@ -20,7 +20,7 @@ non-trivial task. Highlights:
 - **Public OSS app.** No secrets, credentials, hostnames, or real device
   identifiers in git — config comes from the environment (`.env`, gitignored).
 - **⛔ User-tunable settings are HA/MQTT config entities — NEVER new env vars.**
-  Anything a user might want to change per install or per screen (view settings,
+  Anything a user might want to change per install or per display (view settings,
   photo format/quality/interval, crop insets, brightness, …) is
   exposed as a Home Assistant MQTT-discovery config entity — a **global default**
   on the "Inkcast Server" device **plus a per-device override** — with the
@@ -69,7 +69,7 @@ discovery. Architecture + phase plan are in the README and
   algorithm × supersample factor, one contact sheet per (panel, image), mono and
   E6 separate → `render-output/dither/`.
 
-e-ink can't be screenshotted; the sheets are the review artifact. `render-output/`
+ePaper can't be screenshotted; the sheets are the review artifact. `render-output/`
 is gitignored (regenerated artifacts).
 
 ### View authoring — JSX pragma required

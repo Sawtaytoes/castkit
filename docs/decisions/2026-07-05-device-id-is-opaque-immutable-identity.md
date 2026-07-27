@@ -27,9 +27,9 @@ a new identity.
 
 ## Context
 
-A screen's `id` is the second level of every one of its MQTT topics and is baked into
+A display's `id` is the second level of every one of its MQTT topics and is baked into
 its HA device + entity identities. Naming it by location or model seemed friendly, but
-it couples identity to placement: moving a screen to another room, or having a second
+it couples identity to placement: moving a display to another room, or having a second
 panel of the same model, forces an `id` change — and an `id` change is expensive
 (see Why).
 
@@ -46,7 +46,7 @@ eInk Screen …"` (presentation) — the split exists; this decision makes it in
   `homeassistant/.../<old-id>_*/config` discovery messages (HA shows ghost devices until
   they're cleared), spawns brand-new HA entities (new `unique_id`s), and drops any HA
   friendly-name/area overrides and dashboard/automation references to the old entities.
-- **Opaque ids make screens mobile for free.** With identity decoupled from location,
+- **Opaque ids make displays mobile for free.** With identity decoupled from location,
   relocating a panel touches nothing on the Inkcast/Pi side — you only re-point content
   (which players/calendars feed it) in HA and rename the friendly name/area. Identity,
   topics, and firmware config are untouched.

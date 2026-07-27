@@ -56,7 +56,7 @@ const EnvSchema = z.object({
   IMMICH_URL: z._default(z.string(), ""),
   IMMICH_API_TOKEN: z._default(z.string(), ""),
   // NOTE: the Photo Frame wire format + lossy quality are HA/MQTT config
-  // entities (global default on the Inkcast Server device + a per-screen
+  // entities (global default on the Inkcast Server device + a per-display
   // override), resolved live in index.ts — NOT env vars. Same rule as the
   // photo interval / recency / weather entity above. See docs/decisions/
   // 2026-07-03-user-tunable-view-settings-are-ha-config-entities.md.
@@ -147,7 +147,7 @@ const expandDevice = (
 /**
  * Load the real devices from the config file, or fall back to the examples.
  * One file holds both client modes; `renderer: "browser"` entries become
- * browser devices, everything else parses as an image (e-ink) device.
+ * browser devices, everything else parses as an image (ePaper) device.
  */
 const loadDevices = (
   devicesFile: string | undefined,

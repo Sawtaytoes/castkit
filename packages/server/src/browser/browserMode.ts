@@ -46,7 +46,7 @@ import {
 /**
  * Browser-mode (Slatecast) wiring: HA discovery + MQTT routes for the
  * browser devices, the `/d/<id>` page + WebSocket hub, and the tap→MQTT
- * command bridge. Isolated from the image-mode path in index.ts so the e-ink
+ * command bridge. Isolated from the image-mode path in index.ts so the ePaper
  * pipeline never depends on any of this.
  */
 
@@ -99,7 +99,7 @@ export const createBrowserMode = ({
   publisher: MqttPublisher
   /**
    * The resolved global clock config (timezone / 12-24h / date style) stamped
-   * onto every settings payload so browser clocks match the e-ink devices.
+   * onto every settings payload so browser clocks match the ePaper devices.
    */
   getGlobalClockConfig: () => BrowserClockConfig
 }) => {
@@ -318,7 +318,7 @@ export const createBrowserMode = ({
 
   // The global clock knobs live on the server-wide device (one set of topics,
   // not per browser device). When any changes, re-push settings to EVERY
-  // browser device so their clocks reformat live — matching the e-ink re-push.
+  // browser device so their clocks reformat live — matching the ePaper re-push.
   const globalClockStateTopics = new Set([
     globalTopics.clockTimezoneState,
     globalTopics.clockTimeFormatState,
@@ -745,7 +745,7 @@ export const createBrowserMode = ({
           targetHeight: device.height,
           faceBoxes,
           // Browser Photo Frame keeps the letterbox fit; the Fill/Duo views are
-          // image-mode (e-ink) only for now.
+          // image-mode (ePaper) only for now.
           fitMode: "letterbox",
         })
         return context.body(new Uint8Array(png), 200, {

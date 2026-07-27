@@ -6,8 +6,8 @@ import type { Font } from "satori"
 /**
  * Font assets shared by all render paths. The panel face is Atkinson
  * Hyperlegible (OFL, Braille Institute) — designed for low-vision
- * readability, which is exactly the e-ink-at-a-distance problem
- * (docs/research/eink-fonts.md). DejaVu Sans ships alongside as the
+ * readability, which is exactly the ePaper-at-a-distance problem
+ * (docs/research/epaper-fonts.md). DejaVu Sans ships alongside as the
  * fallback for glyphs Atkinson lacks (e.g. Japanese titles fall through to
  * the engine's system fonts). Satori has no system-font access — it needs
  * the raw TTF bytes; Chromium gets the same faces via an embedded

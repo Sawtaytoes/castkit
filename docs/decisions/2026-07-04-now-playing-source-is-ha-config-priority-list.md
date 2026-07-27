@@ -44,10 +44,10 @@ makes that unnecessary.
 
 ## Context
 
-The Kitchen Counter eInk now-playing card wasn't updating for Shield playback.
+The Kitchen Counter ePaper now-playing card wasn't updating for Shield playback.
 Root cause: the source was chosen by **integration platform**
 (`HOME_ASSISTANT_FOLLOW_PLATFORMS=music_assistant,plex`), and there was no
-HA-side way to point a screen at a specific `media_player`. Live capture on the
+HA-side way to point a display at a specific `media_player`. Live capture on the
 Family Room Shield (2026-07-04) established what each entity exposes:
 
 - **Plex integration player** (`plex_..._family_room_shield`): full title (e.g.
@@ -67,7 +67,7 @@ view/source policy into HA config entities (see
 
 ## Why
 
-- **No new env var.** A per-screen media_player source is exactly the kind of
+- **No new env var.** A per-display media_player source is exactly the kind of
   knob every other view already exposes via MQTT; adding a 4th follow platform
   or another env var would regress that direction.
 - **Priority beats a single pin.** One entity can't carry both Plex's poster and

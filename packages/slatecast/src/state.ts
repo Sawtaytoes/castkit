@@ -28,7 +28,7 @@ import { computed, signal } from "@preact/signals"
 /**
  * How long an unconfirmed prediction survives before the server's truth wins
  * again. Long enough for a slow HA automation, short enough that a command HA
- * silently dropped doesn't leave the screen lying indefinitely.
+ * silently dropped doesn't leave the display lying indefinitely.
  */
 const OPTIMISTIC_TIMEOUT_MS = 5_000
 
@@ -404,7 +404,7 @@ export const connect = () => {
 
   /**
    * Arm the next attempt. Every failure path routes through here, because a
-   * kiosk that stops retrying is a black screen nobody can fix remotely — the
+   * kiosk that stops retrying is a dead display nobody can fix remotely — the
    * HA Reload button rides this same socket, so it cannot recover us.
    * Idempotent: a socket that fires both `onerror` and `onclose` still only
    * schedules one retry.

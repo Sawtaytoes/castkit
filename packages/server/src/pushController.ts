@@ -80,7 +80,7 @@ export const createPushController = ({
   )
 
   // Per-device hash of the last render whose URL we published to a "http-pull"
-  // panel. A full e-ink refresh is expensive (and flashy), so we only publish a
+  // panel. A full ePaper refresh is expensive (and flashy), so we only publish a
   // fresh URL when the rendered bytes actually changed — a clock ticks every
   // minute so it still updates, but an unchanged agenda/now-playing frame won't
   // needlessly reflash the panel.

@@ -2,7 +2,7 @@ import type { DitherAlgorithm } from "@castkit/core/devices/device"
 
 /**
  * A colour-rendering override for a colour panel: "bw" renders the view in
- * monochrome and dithers to black/white only (e-ink B&W mode on a colour
+ * monochrome and dithers to black/white only (ePaper B&W mode on a colour
  * display). Absent = the panel's native colour mode.
  */
 export type ColourModeOverride = "color" | "bw"

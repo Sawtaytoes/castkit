@@ -15,7 +15,7 @@ dither, brightness, and the crop insets — **not** an environment variable and
 
 - **Global default** — an `Agenda: Calendars` **text** entity on the
   **"Inkcast Server"** MQTT device (comma-separated HA calendar entity ids).
-- **Per-screen override** — an `Agenda: Calendars` **text** entity on each
+- **Per-display override** — an `Agenda: Calendars` **text** entity on each
   display's device; when a display's own value is empty it falls back to the
   global default.
 
@@ -45,7 +45,7 @@ changing them means editing the TrueNAS app config and redeploying.
   pages in HA, can be changed live, and can be driven by automations — the whole
   point of the MQTT/HA integration.
 - **Two levels match how the maintainer thinks about it:** one household default,
-  overridable per screen (e.g. a desk display showing only one person's calendar).
+  overridable per display (e.g. a desk display showing only one person's calendar).
 
 ## Evidence
 

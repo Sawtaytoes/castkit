@@ -14,7 +14,7 @@ import { loadSatoriFonts } from "./fonts.ts"
  * Caveats the bake-off must surface: Satori supports only a CSS subset (flexbox,
  * inline styles; no grid/filters) and the Vite browser dev-preview will NOT
  * exactly match its output, eroding the WYSIWYG-editor goal. Good for simple
- * card screens; compare, don't assume.
+ * card views; compare, don't assume.
  */
 export const createSatoriEngine =
   async (): Promise<RenderEngine> => {
