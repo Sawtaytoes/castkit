@@ -18,7 +18,7 @@ the app code — device/broker config comes entirely from the environment.
 
 The homelab automation repos are private (they encode a specific network,
 credentials, and household specifics). Inkcast is different in kind: it is a
-general-purpose e-ink render/push **application** that anyone could run against
+general-purpose ePaper render/push **application** that anyone could run against
 their own panels.
 
 ## Why

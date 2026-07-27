@@ -11,7 +11,7 @@
 Every setting a user tunes to change what a display *shows* — not how the
 install *connects* — is exposed as a Home Assistant entity via MQTT discovery,
 settable at **two levels**: a **global default** on the **"Inkcast Server"**
-device and a **per-screen override** on each display's device. Persistence is
+device and a **per-display override** on each display's device. Persistence is
 the retained MQTT state topic (no config file, no redeploy). This is the same
 rule already settled for the agenda calendars
 ([2026-07-02-agenda-calendars-are-ha-config-entities-not-env.md](2026-07-02-agenda-calendars-are-ha-config-entities-not-env.md));
@@ -46,7 +46,7 @@ Concretely, these moved out of env and onto HA entities (global + per-device):
 Only install-level wiring (broker / HA / Immich URLs + credentials, port,
 render engine) and **server-internal cadences that are not display settings** —
 e.g. `INKCAST_CALENDAR_MINUTES`, how often the agenda adapter re-polls HA. That
-is a background poll rate, not a knob a user reaches for to change what a screen
+is a background poll rate, not a knob a user reaches for to change what a display
 shows, so it is not an HA entity.
 
 ## Context
@@ -69,7 +69,7 @@ parenthetical: photo timing is a display setting and belongs in HA.
   in HA, change live, and can be driven by automations — the whole point of the
   MQTT/HA integration.
 - **Two levels match how the maintainer thinks about it:** one household default,
-  overridable per screen.
+  overridable per display.
 - **A general rule, not a per-setting one:** the next tunable display setting is
   an HA entity by default; env is the exception, reserved for wiring.
 

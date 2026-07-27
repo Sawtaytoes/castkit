@@ -1,28 +1,28 @@
 # CastKit
 
-A self-hostable **home display platform**: one server drives every screen in the
-house over MQTT, and every screen shows up in Home Assistant automatically via
-MQTT discovery. Home Assistant is the brain — it pushes each screen's data and
+A self-hostable **home display platform**: one server drives every display in the
+house over MQTT, and every display shows up in Home Assistant automatically via
+MQTT discovery. Home Assistant is the brain — it pushes each display's data and
 decides which view is active; CastKit turns that into pixels.
 
 There are two **client modes**, named after the products they started as:
 
 | Mode | Name | Who renders | Devices |
 | --- | --- | --- | --- |
-| `image` | **Inkcast** | The **server** renders a React view → PNG, dithers it per panel, and pushes it over MQTT. | Dumb e-ink receivers (Pi Zero W + Inky panels); ESP32 e-ink (planned). |
-| `browser` | **Slatecast** | The **device** renders: a kiosk browser (Chromium/WPE) loads a per-device page and a tiny Preact SPA draws live, optionally touch-interactive views. | Touch kiosks and display-only web screens (Pi 4 / Pi Zero 2 W). |
+| `image` | **Inkcast** | The **server** renders a React view → PNG, dithers it per panel, and pushes it over MQTT. | Dumb ePaper receivers (Pi Zero W + Inky panels); ESP32 ePaper (planned). |
+| `browser` | **Slatecast** | The **device** renders: a kiosk browser (Chromium/WPE) loads a per-device page and a tiny Preact SPA draws live, optionally touch-interactive views. | Touch kiosks and display-only web panels (Pi 4 / Pi Zero 2 W). |
 
-The line between the modes is *who renders*, not touch: a touchless round screen
-runs browser mode, and a future ESP32 touch e-ink panel runs image mode with a
+The line between the modes is *who renders*, not touch: a touchless round display
+runs browser mode, and a future ESP32 touch ePaper panel runs image mode with a
 tap uplink. Each device declares **capabilities** (`renderer`, `touch`, `colour`,
 resolution, `shape`) that decide which views it can show and how they render.
 
 ## Why
 
-- **E-ink (Inkcast mode):** rendering on-device needs a beefy Pi. The server does
+- **ePaper (Inkcast mode):** rendering on-device needs a beefy Pi. The server does
   all the work (render + dither) and the device just draws a PNG — a 512 MB
   Pi Zero W is enough. Pushes happen on data change, so clocks stay accurate.
-- **Touch screens (Slatecast mode):** full dashboard SPAs (e.g. Music Assistant's)
+- **Touch displays (Slatecast mode):** full dashboard SPAs (e.g. Music Assistant's)
   eat hundreds of MB of browser memory on a kiosk Pi. Slatecast serves a purpose-built
   page with a <60 KB bundle: album art, live seek bar, transport controls — and
   nothing else. Commands go back over MQTT so Home Assistant decides what they do.
@@ -35,13 +35,13 @@ Home Assistant (data + view selection + command execution — all over MQTT)
         ▼                                 │
 CastKit server (Docker)
   • device registry: static capabilities (renderer, touch, colour, size, shape)
-  • HA MQTT discovery: every screen = an HA device with a View select + config knobs
+  • HA MQTT discovery: every display = an HA device with a View select + config knobs
   • retained-MQTT state = persistence (no database)
   • image mode: React view → render (Chromium/Satori) → dither → retained PNG topic
   • browser mode: serves /d/<id> (Preact SPA) + one WebSocket per device
         │ MQTT push (PNG)                      │ HTTP + WS
         ▼                                      ▼
-e-ink Pi (dumb receiver)                kiosk browser (Chromium/WPE)
+ePaper Pi (dumb receiver)               kiosk browser (Chromium/WPE)
 ```
 
 **No credentials for anything live in CastKit.** Home Assistant pushes view data
@@ -73,7 +73,7 @@ yarn test        # Vitest
 ```
 
 Image-mode render/dither bake-offs: `yarn bakeoff:render`, `yarn bakeoff:dither`
-(→ `render-output/`). E-ink can't be screenshotted, so these contact sheets are
+(→ `render-output/`). ePaper can't be screenshotted, so these contact sheets are
 how you judge output before it hits a panel.
 
 Code conventions live in [AGENTS.md](AGENTS.md); settled design decisions in
@@ -81,7 +81,7 @@ Code conventions live in [AGENTS.md](AGENTS.md); settled design decisions in
 
 ## History
 
-CastKit began life as **Inkcast** (the e-ink platform) — the repo was renamed
+CastKit began life as **Inkcast** (the ePaper platform) — the repo was renamed
 when the interactive-browser sibling (**Slatecast**) merged in as a second client
 mode of the same server. Old `github.com/Sawtaytoes/inkcast` links redirect here.
 

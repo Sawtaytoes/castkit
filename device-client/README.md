@@ -4,7 +4,7 @@ A tiny resident Python client for a Raspberry Pi driving a Pimoroni **Inky**
 panel. It subscribes to the Inkcast server's per-device image topic and draws
 each received PNG to the panel.
 
-> **Not a Pi?** A self-contained ESP32 touch-e-ink panel (M5Paper) joins the
+> **Not a Pi?** A self-contained ESP32 touch-ePaper panel (M5Paper) joins the
 > fleet without a Pi — it pulls its render over HTTP and reports touch over the
 > ESPHome API. Its firmware lives in [`esphome/`](esphome/README.md).
 

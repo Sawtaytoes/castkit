@@ -1,7 +1,7 @@
 import type { ServerToClientMessage } from "@castkit/shared/protocol/ws"
 
 /**
- * The per-device WebSocket hub for browser-mode (Slatecast) screens. Each
+ * The per-device WebSocket hub for browser-mode (Slatecast) displays. Each
  * kiosk page opens one socket; the server pushes a full `snapshot` on connect
  * (built by the caller) and fans deltas out here. Socket bookkeeping only —
  * message *meaning* lives in browserMode.ts.
@@ -13,7 +13,7 @@ import type { ServerToClientMessage } from "@castkit/shared/protocol/ws"
  * in front of CastKit closes connections that have been silent too long
  * (nginx's `proxy_read_timeout` is 60 s by default, 90 s under Nginx Proxy
  * Manager), and a quiet house pushes no deltas for hours. Without this a
- * screen's socket is reaped on a fixed cadence all day, every day.
+ * display's socket is reaped on a fixed cadence all day, every day.
  */
 const KEEPALIVE_INTERVAL_MS = 30_000
 

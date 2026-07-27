@@ -17,7 +17,7 @@ export type NowPlayingData = {
   artworkDataUri?: string
   /**
    * Interactive-controller fields (browser mode). All optional so the original
-   * minimal e-ink payload stays valid. The client computes live position as
+   * minimal ePaper payload stays valid. The client computes live position as
    * `position + (now − positionUpdatedAt)` while playing — HA republishes on
    * change only, never per-second.
    */

@@ -381,7 +381,7 @@ export const createPhotoFrameAdapter = ({
    * one is fetched. Only when there is genuinely nothing to show — no photo
    * cached and no people/query configured (or the fetch failed) — does it push
    * the instructional placeholder. Exactly one push happens either way, so
-   * e-ink never flashes the placeholder before the photo.
+   * ePaper never flashes the placeholder before the photo.
    */
   const showPhotoFrame = async ({
     deviceId,

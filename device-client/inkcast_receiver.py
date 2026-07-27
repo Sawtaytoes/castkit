@@ -17,12 +17,12 @@ docs/decisions/2026-07-03-photo-frame-jpeg-not-webp-on-armv6.md.
 
 Design notes (Pi Zero W / ARMv6 / 512 MB):
   * Keep the process RESIDENT. Importing PIL/inky costs a few seconds on ARMv6;
-    the e-ink refresh itself is ~2-3 s. Import once, then react to messages.
+    the ePaper refresh itself is ~2-3 s. Import once, then react to messages.
   * The image topic is RETAINED (QoS 1) on the broker, so on every (re)connect
     the last frame is delivered immediately — the panel is correct after a
     reboot or a network blip without waiting for a fresh server push.
   * Redraw only when the PNG bytes actually change, so we don't wear/ghost the
-    e-ink panel on duplicate deliveries.
+    ePaper panel on duplicate deliveries.
   * Only one process may own the SPI/GPIO bus at a time, so the OLD fetcher
     (inky-phat-fetcher.service) MUST be stopped before this runs.
 
@@ -161,7 +161,7 @@ def main():
     )
 
     # Track the last drawn PNG so duplicate retained/republished frames don't
-    # needlessly refresh (and ghost) the e-ink panel. `const`-style: reassigned
+    # needlessly refresh (and ghost) the ePaper panel. `const`-style: reassigned
     # only inside the message callback via a one-element holder to avoid a
     # module-global.
     last_drawn_hash = {"value": None}
@@ -205,7 +205,7 @@ def main():
         mqtt.CallbackAPIVersion.VERSION2,
         client_id=os.environ.get(
             "INKCAST_CLIENT_ID",
-            # Default from the topic's DEVICE id (unique per screen), not the
+            # Default from the topic's DEVICE id (unique per display), not the
             # panel TYPE: two identical panels (e.g. two Impression 13.3") both
             # detect as `Inky`, so a type-based id collides and the broker keeps
             # kicking one off (session takeover → reconnect flapping).

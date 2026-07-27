@@ -46,7 +46,7 @@ export const ClockView = ({
   const dateStyle: CSSProperties = {
     display: "flex",
     fontSize: Math.round(height * 0.13),
-    // Regular weight dithers too thin to read at a glance on e-ink panels
+    // Regular weight dithers too thin to read at a glance on ePaper panels
     // (maintainer feedback from the real glass, 2026-07-02).
     fontWeight: 700,
     marginTop: Math.round(height * 0.06),

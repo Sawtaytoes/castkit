@@ -9,7 +9,7 @@ import { ROTATION_OPTIONS } from "./discovery.ts"
 
 /**
  * Home Assistant MQTT-discovery payloads for a browser-mode (Slatecast)
- * device. Publishing these (retained) auto-creates, per screen:
+ * device. Publishing these (retained) auto-creates, per display:
  *   - a **Select** (switch the active view — options filtered by capability),
  *   - a **Button** (tell the kiosk browser to reload),
  *   - a diagnostic **Sensor** (the page URL this device shows),
@@ -62,7 +62,7 @@ export const buildBrowserDeviceTopics = ({
     backlightBrightnessCommand: `${base}/backlight/brightness/set`,
     backlightBrightnessState: `${base}/backlight/brightness`,
     backlightAvailability: `${base}/backlight/available`,
-    // View data HA pushes to this screen (retained) — same contract as the
+    // View data HA pushes to this display (retained) — same contract as the
     // image devices, plus the queue.
     nowPlayingDataCommand: `${base}/now_playing/set`,
     queueDataCommand: `${base}/queue/set`,
