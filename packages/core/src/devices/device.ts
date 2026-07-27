@@ -73,6 +73,18 @@ export type DeviceMetadata = {
    * render URL to `<base>/image_url`, which the panel fetches over HTTP.
    */
   imageDelivery?: "mqtt-image" | "http-pull"
+  /**
+   * Default Immich people for the Photo Frame view. This SEEDS the device's
+   * retained `photo_people` state when the broker has no value for it — first
+   * boot, or after a retained-topic wipe. Home Assistant owns the live value
+   * from then on: editing the HA text entity never writes back here, and the
+   * seed never overwrites a value the broker already restored.
+   *
+   * Absent = the frame starts with an empty filter and waits for HA, which is
+   * what stranded the 13.3" panels on the setup placeholder after the
+   * inkcast→castkit topic migration wiped their retained state.
+   */
+  photoPeople?: readonly string[]
 }
 
 // NOTE: these are generic EXAMPLE devices — placeholder MACs, no room labels —
