@@ -1667,6 +1667,23 @@ const main = async () => {
               ) !== undefined,
             payload: "0",
           },
+          // Photo Frame people: seeded from the device registry so a retained
+          // wipe can't strand the frame on the empty-filter placeholder. Only
+          // devices that declare a default take part; HA owns the live value.
+          ...(device.photoPeople &&
+          device.photoPeople.length > 0
+            ? [
+                {
+                  kind: "photoPeople",
+                  hasValue: Boolean(
+                    deviceConfigStore.getPhotoPeople(
+                      device.id,
+                    ),
+                  ),
+                  payload: device.photoPeople.join(", "),
+                },
+              ]
+            : []),
           // Per-device clock format/style default to "Auto" (inherit global).
           {
             kind: "clockTimeFormat",

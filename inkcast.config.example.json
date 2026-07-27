@@ -23,7 +23,8 @@
     "ditherProfile": {
       "algorithm": "floyd-steinberg",
       "supersampleFactor": 4
-    }
+    },
+    "photoPeople": ["Ada", "Grace", "Alan"]
   },
   {
     "renderer": "browser",

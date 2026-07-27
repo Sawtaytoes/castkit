@@ -94,6 +94,9 @@ const DeviceConfigSchema = z.object({
   imageDelivery: z.optional(
     z.enum(["mqtt-image", "http-pull"]),
   ),
+  // Optional: seeds the Photo Frame people filter when the broker has no
+  // retained value. NOT a live setting — HA owns that. See DeviceMetadata.
+  photoPeople: z.optional(z.array(z.string())),
 })
 
 /**
