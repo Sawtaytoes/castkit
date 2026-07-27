@@ -185,17 +185,29 @@ http_request:
   timeout: 10s
   verify_ssl: false
 
-# The pushed render. CastKit dithers to 1-bit black/white, so BINARY (~65 KB for
-# 540x960) is exact for the mono panel. The URL here is a placeholder; it's
-# overwritten live by the MQTT `image_url` subscription (or the `set_image` API
-# fallback). When the download finishes we do a full (slow) refresh for a clean,
-# ghost-free frame.
+# The pushed render. CastKit dithers to 1-bit black/white, so BINARY is exact
+# for the mono panel. The URL here is a placeholder; it's overwritten live by the
+# MQTT `image_url` subscription (or the `set_image` API fallback). When the
+# download finishes we do a full (slow) refresh for a clean, ghost-free frame.
+#
+# ⚠️ ORIENTATION IS A THREE-WAY CONTRACT — all three must agree, or the frame
+# shrinks instead of filling the panel:
+#   1. CastKit's `castkit/m5paper/rotation` knob — decides the RENDER size
+#      (0/180 -> 540x960 portrait, 90/270 -> 960x540 landscape). RUNTIME.
+#   2. `display: rotation:` below — decides the CANVAS size. COMPILE-TIME.
+#   3. `resize:` here — must equal that canvas. COMPILE-TIME.
+# ESPHome scales to FIT, preserving aspect (runtime_image.cpp:
+# `scale = min(fixed_w/w, fixed_h/h)`), so a mismatch never errors — it silently
+# letterboxes. A 960x540 render into a 540x960 resize scales by 0.5625, i.e. a
+# 540x303 strip on a 960-tall panel. Because 2 and 3 are compile-time, ROTATING
+# THIS PANEL REQUIRES A REFLASH, not just the MQTT knob.
 online_image:
   - id: now_playing_image
     url: "http://192.0.2.1/placeholder.png"
     format: png
     type: BINARY
-    resize: 540x960
+    # Landscape: matches `display: rotation: 0` (native 960x540) + CastKit 90/270.
+    resize: 960x540
     on_download_finished:
       - lambda: id(m5paper_display).update_slow();
     on_error:
@@ -210,10 +222,14 @@ display:
     reset_duration: 100ms
     busy_pin: GPIO27
     model: M5EPD
-    # rotation 90 presents the native 960x540 landscape panel as PORTRAIT
-    # 540x960 to match the `m5paper` entry in inkcast.config.example.json.
-    # If the render lands sideways/upside-down, this is the one knob (0/90/180/270).
-    rotation: 90
+    # The panel is natively 960x540 LANDSCAPE, so rotation 0 = 960x540 canvas
+    # (rotation 90 would present it as portrait 540x960 — that was the config
+    # until 2026-07-27, when the panel was rotated to landscape).
+    # Must match `resize:` above and CastKit's rotation knob — see the
+    # three-way contract there.
+    # If the frame lands upside-down, flip CastKit's rotation knob 90 <-> 270
+    # (retained MQTT, no reflash) before touching this.
+    rotation: 0
     reversed: false
     # Never auto-refresh: ePaper holds the last frame at zero power. We repaint
     # only when HA pushes a new render (on_download_finished above).
