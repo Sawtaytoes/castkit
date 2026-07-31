@@ -9,7 +9,7 @@ import {
 } from "./__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
-import { isConnected } from "./state.ts"
+import { connectionStatus } from "./state.ts"
 
 const stage = () => document.querySelector(".stage")
 
@@ -119,8 +119,10 @@ describe("connection lifecycle", () => {
   test("reports connected once the socket opens", async () => {
     await mountSlatecast()
 
-    await waitUntil(() => isConnected.value)
-    expect(isConnected.value).toBe(true)
+    await waitUntil(() => connectionStatus.is("connected"))
+    expect(connectionStatus.getState().status).toBe(
+      "connected",
+    )
   })
 
   test("a reconnect snapshot is authoritative over a stale prediction", async () => {

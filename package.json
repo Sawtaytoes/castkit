@@ -47,5 +47,8 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.1",
     "vitest": "^4.1.9"
+  },
+  "resolutions": {
+    "@charcuterie/tokens": "portal:../charcuterie/packages/tokens"
   }
 }
