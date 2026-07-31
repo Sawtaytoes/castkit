@@ -418,9 +418,11 @@ __metadata:
   resolution: "@castkit/slatecast@workspace:packages/slatecast"
   dependencies:
     "@castkit/shared": "workspace:*"
+    "@charcuterie/logic": "portal:../../../charcuterie/packages/logic"
     "@charcuterie/tokens": "portal:../../../charcuterie/packages/tokens"
     "@preact/preset-vite": "npm:^2.10.2"
     "@preact/signals": "npm:^2.5.1"
+    "@preact/signals-core": "npm:^1.13.1"
     "@testing-library/dom": "npm:^10.4.1"
     "@testing-library/jest-dom": "npm:^7.0.0"
     "@testing-library/preact": "npm:^3.2.4"
@@ -468,15 +470,29 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@charcuterie/tokens@portal:../../../charcuterie/packages/tokens::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast":
+"@charcuterie/logic@portal:../../../charcuterie/packages/logic::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast":
   version: 0.0.0-use.local
-  resolution: "@charcuterie/tokens@portal:../../../charcuterie/packages/tokens::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast"
+  resolution: "@charcuterie/logic@portal:../../../charcuterie/packages/logic::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast"
+  peerDependencies:
+    "@preact/signals-core": ">=1.8"
+    jotai: ">=2"
+    preact: ">=10.11"
+    react: ">=18"
+  peerDependenciesMeta:
+    "@preact/signals-core":
+      optional: true
+    jotai:
+      optional: true
+    preact:
+      optional: true
+    react:
+      optional: true
   languageName: node
   linkType: soft
 
-"@charcuterie/tokens@portal:../../../charcuterie/packages/tokens::locator=%40castkit%2Fviews%40workspace%3Apackages%2Fviews":
+"@charcuterie/tokens@portal:../charcuterie/packages/tokens::locator=castkit%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@charcuterie/tokens@portal:../../../charcuterie/packages/tokens::locator=%40castkit%2Fviews%40workspace%3Apackages%2Fviews"
+  resolution: "@charcuterie/tokens@portal:../charcuterie/packages/tokens::locator=castkit%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -1622,7 +1638,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@preact/signals-core@npm:^1.14.4":
+"@preact/signals-core@npm:^1.13.1, @preact/signals-core@npm:^1.14.4":
   version: 1.14.4
   resolution: "@preact/signals-core@npm:1.14.4"
   checksum: 10c0/963622e5c1c98a6946ec1ad01e9901ebacf316ab0a7e3c56c6ebaefee5b2c8ea03c3bdb8ba74120612b5f8976f5dc94693134670e372dded79db9994045aadd1

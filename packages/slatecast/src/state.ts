@@ -12,6 +12,12 @@ import type {
   QueueData,
   WeatherData,
 } from "@castkit/shared/viewData/types"
+import type { ConnectionStatus } from "@charcuterie/logic/core"
+import {
+  connectionTransitions,
+  createStatus,
+} from "@charcuterie/logic/core"
+import { createStoreFromSignals } from "@charcuterie/logic/signals"
 import { computed, signal } from "@preact/signals"
 
 /**
@@ -137,7 +143,45 @@ export const weather = signal<WeatherData | null>(
 export const agenda = signal<AgendaData | null>(
   inlineSnapshot?.data.agenda ?? null,
 )
-export const isConnected = signal(false)
+/**
+ * The socket's lifecycle, as `@charcuterie/logic`'s shared connection machine.
+ *
+ * It was `signal(false)`, which is the collapse that machine's ADR predicted:
+ * four repos spell this four ways and every one of them loses the difference
+ * between "connecting" and "reconnecting". On a wall display that difference is
+ * the whole message — a panel that has never had data and a panel that lost it
+ * ten seconds ago want to say different things, and a boolean cannot.
+ *
+ * Backed by a signal store so it stays one observable mechanism inside the
+ * 60 KB budget; `createStoreFromSignals` exists for exactly this consumer.
+ *
+ * Nothing renders it yet. It is wired now because the reconnect loop is the
+ * only place that knows these states, and reconstructing them later from a
+ * boolean is not possible.
+ */
+export const connectionStatus =
+  createStatus<ConnectionStatus>({
+    createStore: createStoreFromSignals,
+    initialState: "disconnected",
+    transitions: connectionTransitions,
+  })
+
+/**
+ * Move the machine only when the state actually changes.
+ *
+ * `transitionTo` throws on an illegal transition, and the shared table has no
+ * self-transition on `reconnecting` — correctly, since a state that does not
+ * change is not a transition. But a kiosk retries forever, so the second failed
+ * attempt in a row would ask to enter `reconnecting` while already there and
+ * take the display down. The guard is the consumer's job; see the M5b handoff.
+ */
+const enterConnectionStatus = (
+  status: ConnectionStatus,
+) => {
+  if (!connectionStatus.is(status)) {
+    connectionStatus.transitionTo(status)
+  }
+}
 
 /**
  * The server-stamped global clock config (timezone / 12-24h / date style) the
@@ -401,6 +445,7 @@ export const connect = () => {
   const url = `${protocol}://${window.location.host}/d/${deviceId}/ws`
   connection.isStopped = false
   connection.retryDelayMs = INITIAL_RETRY_DELAY_MS
+  enterConnectionStatus("connecting")
 
   /**
    * Arm the next attempt. Every failure path routes through here, because a
@@ -441,7 +486,7 @@ export const connect = () => {
       return
     }
     socket.onopen = () => {
-      isConnected.value = true
+      enterConnectionStatus("connected")
       // Earned a clean connection: start the next outage at 1 s rather than
       // inheriting a capped 15 s delay from an earlier bad patch.
       connection.retryDelayMs = INITIAL_RETRY_DELAY_MS
@@ -463,7 +508,10 @@ export const connect = () => {
       scheduleRetry()
     }
     socket.onclose = () => {
-      isConnected.value = false
+      // Straight to `reconnecting` rather than via `disconnected`: a retry is
+      // already armed, so "lost it, getting it back" is true from this instant.
+      // The machine allows that edge for the same reason.
+      enterConnectionStatus("reconnecting")
       scheduleRetry()
     }
   }
@@ -502,6 +550,7 @@ export const __resetStateForTests = () => {
   connection.retryTimerId = null
   connection.retryDelayMs = INITIAL_RETRY_DELAY_MS
   connection.isStopped = false
+  connectionStatus.reset()
 
   const snapshot = readInlineSnapshot()
   device.value = snapshot?.device ?? null
@@ -513,5 +562,4 @@ export const __resetStateForTests = () => {
   weather.value = snapshot?.data.weather ?? null
   agenda.value = snapshot?.data.agenda ?? null
   scrubPositionSeconds.value = null
-  isConnected.value = false
 }
