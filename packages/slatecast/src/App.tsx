@@ -1,4 +1,5 @@
 import type { ComponentType } from "preact"
+import { useEffect } from "preact/hooks"
 import { activeView, device, settings } from "./state.ts"
 import { Ambient } from "./views/Ambient.tsx"
 import { Calendar } from "./views/Calendar.tsx"
@@ -38,6 +39,15 @@ export const App = () => {
   const { orientation, theme } = settings.value
   const isSideways =
     orientation === 90 || orientation === 270
+
+  // The token palette hangs off `data-scheme` on <html>, which the server
+  // stamps at first paint. Keep it in step when HA changes the theme live —
+  // `html` and `body` read the same custom properties the stage does, so
+  // setting it on the stage alone would leave the page behind it dark.
+  useEffect(() => {
+    document.documentElement.dataset.scheme =
+      theme === "Light" ? "light" : "dark"
+  }, [theme])
 
   if (!profile) {
     return (

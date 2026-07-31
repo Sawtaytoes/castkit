@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@castkit/shared": "workspace:*",
-    "@charcuterie/tokens": "portal:../../../charcuterie-m5b/packages/tokens",
+    "@charcuterie/tokens": "portal:../../../charcuterie/packages/tokens",
     "@preact/signals": "^2.5.1",
     "preact": "^10.29.1"
   },
