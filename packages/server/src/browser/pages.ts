@@ -1,6 +1,9 @@
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
-import type { ServerToClientMessage } from "@castkit/shared/protocol/ws"
+import type {
+  BrowserDeviceSettings,
+  ServerToClientMessage,
+} from "@castkit/shared/protocol/ws"
 
 /**
  * The `/d/<id>` page shell a kiosk browser loads. First paint is this static
@@ -30,6 +33,19 @@ const escapeJsonForHtml = (json: string) =>
   // `</script>` (and any `<`) inside inline JSON must not close the tag.
   json.replace(/</g, "\\u003c")
 
+/**
+ * The device's theme setting as `@charcuterie/tokens` spells it. Only "Light"
+ * is light: "Auto" stays dark because a kiosk browser reports
+ * `prefers-color-scheme: light` by default and a wall display wants dark.
+ *
+ * Stamped into the shell rather than applied by the SPA so the very first
+ * paint is already the right colour — the alternative is a dark page flashing
+ * white on every reload of a display nobody is sitting in front of.
+ */
+const resolveScheme = (
+  theme: BrowserDeviceSettings["theme"],
+) => (theme === "Light" ? "light" : "dark")
+
 export const buildDevicePageHtml = ({
   snapshot,
 }: {
@@ -40,7 +56,7 @@ export const buildDevicePageHtml = ({
 }) => {
   const { device } = snapshot
   return `<!doctype html>
-<html lang="en" data-shape="${device.shape}" data-touch="${device.hasTouch}" data-colour="${device.colour}">
+<html lang="en" data-shape="${device.shape}" data-touch="${device.hasTouch}" data-colour="${device.colour}" data-scheme="${resolveScheme(snapshot.settings.theme)}" data-density="kiosk">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
