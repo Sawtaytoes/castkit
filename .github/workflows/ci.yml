@@ -26,6 +26,49 @@ jobs:
       - run: yarn install-playwright-browser
       - run: yarn test
 
+  storybook:
+    # **Nothing checked that the Storybook still builds, and the artifacts lie.**
+    #
+    # `storybook build` writes `index.json` and `iframe.html` even when it FAILS
+    # partway, so a broken build is byte-indistinguishable from a working one and
+    # the only signal is the exit code — which a `run:` step propagates, and which
+    # is the entire reason this job exists. mux-magic's Storybook sat broken on two
+    # branches for exactly that reason (MDX importing `@storybook/blocks`, removed
+    # in Storybook 9) while still producing a plausible static site.
+    #
+    # It matters here beyond the repo: `storybook.octen.dev` composes this build as
+    # a ref (`storybook-container/refs.json` → `packages/web`), and its `build.sh`
+    # answers a failed ref by keeping the PREVIOUS output and logging a warning
+    # nobody reads. A Storybook that stops building does not disappear from the
+    # composed sidebar; it silently goes stale.
+    #
+    # Deliberately NOT in `docker-deploy`'s `needs`: Storybook is a dev preview and
+    # is not in the runtime image. The views it renders are already covered for the
+    # deploy by `typecheck` + `unit-tests`, so a story-only or `.storybook`-only
+    # break should show as its own red check without holding back the server image.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with: { node-version: 24 }
+      - run: corepack enable && yarn install --immutable
+      - run: yarn build:storybook
+
+      # The sibling false-green: a build that SUCCEEDS with an empty index, because
+      # the `stories:` glob in `packages/web/.storybook/main.ts` stopped matching
+      # after a move. Nothing errors and the site still serves — it just has no
+      # stories in it, and the composed sidebar shows an empty section. A floor, not
+      # a count: it catches the glob dropping out, not each story added.
+      - name: Assert the Storybook index is not empty
+        run: |
+          set -euo pipefail
+          count="$(node -p "Object.keys(require('./packages/web/storybook-static/index.json').entries).length")"
+          echo "Storybook indexed ${count} entries."
+          if [ "$count" -lt 4 ]; then
+            echo "::error::Storybook indexed ${count} entries (floor is 4) — has the stories glob in packages/web/.storybook/main.ts stopped matching?"
+            exit 1
+          fi
+
   docker-deploy:
     # Build + push the runtime image to GHCR; TrueNAS pulls it from there.
     needs: [typecheck, unit-tests]
