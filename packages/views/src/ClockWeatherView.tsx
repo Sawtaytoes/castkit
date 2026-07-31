@@ -40,7 +40,7 @@ export const ClockWeatherView = ({
 }: ClockWeatherViewProps) => {
   const accentColour = getAccentColour({
     colourMode,
-    e6Colour: "#1f4fd0",
+    intent: "accent",
   })
   const isCompactPanel = height <= COMPACT_PANEL_MAX_HEIGHT
   const hasTemperature =
@@ -107,7 +107,11 @@ export const ClockWeatherView = ({
     fittedLargeCondition.fontSize
 
   const rootStyle: CSSProperties = {
-    ...buildPanelRootStyle({ width, height }),
+    ...buildPanelRootStyle({
+      width,
+      height,
+      colourMode,
+    }),
     alignItems: "center",
     justifyContent: "center",
   }
