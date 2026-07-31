@@ -26,11 +26,15 @@ export const ClockView = ({
 }: ClockViewProps) => {
   const accentColour = getAccentColour({
     colourMode,
-    e6Colour: "#1f4fd0",
+    intent: "accent",
   })
 
   const rootStyle: CSSProperties = {
-    ...buildPanelRootStyle({ width, height }),
+    ...buildPanelRootStyle({
+      width,
+      height,
+      colourMode,
+    }),
     alignItems: "center",
     justifyContent: "center",
   }
