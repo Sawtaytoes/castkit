@@ -1,27 +1,44 @@
 /*
- * Slatecast kiosk styles. Hand-rolled, no UI kit — the whole app must stay
- * under the 60 KB gz budget and render calmly on WPE. Dark by default (wall
- * displays), light honored via theme. No cursor, no text selection, no
+ * Slatecast kiosk styles. Hand-rolled layout, no UI kit — the whole app must
+ * stay under the 60 KB gz budget and render calmly on WPE. Dark by default
+ * (wall displays), light honored via theme. No cursor, no text selection, no
  * overscroll — this is an appliance, not a web page.
+ *
+ * The palette is `@charcuterie/tokens` as of M5b. Plain custom properties, not
+ * the Tailwind `@theme` bridge: slatecast has no Tailwind and is not getting
+ * one for five colours.
  */
 
-:root {
-  --bg: #101014;
-  --fg: #f2f2f5;
-  --fg-dim: #9a9aa5;
-  --surface: #1c1c22;
-  --accent: #7aa2f7;
-}
+@import "@charcuterie/tokens/variables.css";
 
-.stage[data-theme="light"] {
-  --bg: #f4f4f6;
-  --fg: #16161a;
-  --fg-dim: #5c5c66;
-  --surface: #e4e4ea;
+/*
+ * Five names, and every rule below still uses them.
+ *
+ * They were five hardcoded hexes; they are five aliases now, which is the
+ * whole diff. Aliasing rather than rewriting ~40 usages keeps the change
+ * reviewable and keeps `--accent` overridable — `NowPlaying` sets it inline
+ * from the album art, and a token that cannot be overridden locally would have
+ * ended that feature.
+ *
+ * They sit on `:root` because `:root` is the element carrying `data-scheme`
+ * (the server stamps it into the page shell), so the scheme-conditional token
+ * values have already resolved by the time these read them. `html, body` need
+ * them too, and a `.stage`-scoped definition would leave the page behind the
+ * stage painting the wrong colour in light mode — which is what happened
+ * before, invisibly, because the stage covers the viewport.
+ */
+:root {
+  --bg: var(--color-surface-base);
+  --fg: var(--color-content-primary);
+  --fg-dim: var(--color-content-secondary);
+  --surface: var(--color-surface-raised);
+  --accent: var(--color-intent-accent-solid);
 }
 
 /* "Auto" stays dark: kiosk browsers report prefers-color-scheme:light by
-   default, and wall displays want dark — pick Light explicitly in HA. */
+   default, and wall displays want dark — pick Light explicitly in HA. The
+   server resolves that to `data-scheme` on <html> at first paint, and `App`
+   keeps it in step with live settings. */
 
 * {
   box-sizing: border-box;

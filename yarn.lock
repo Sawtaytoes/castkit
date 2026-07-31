@@ -418,7 +418,7 @@ __metadata:
   resolution: "@castkit/slatecast@workspace:packages/slatecast"
   dependencies:
     "@castkit/shared": "workspace:*"
-    "@charcuterie/tokens": "portal:../../../charcuterie-m5b/packages/tokens"
+    "@charcuterie/tokens": "portal:../../../charcuterie/packages/tokens"
     "@preact/preset-vite": "npm:^2.10.2"
     "@preact/signals": "npm:^2.5.1"
     "@testing-library/dom": "npm:^10.4.1"
@@ -440,7 +440,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@castkit/views@workspace:packages/views"
   dependencies:
-    "@charcuterie/tokens": "portal:../../../charcuterie-m5b/packages/tokens"
+    "@charcuterie/tokens": "portal:../../../charcuterie/packages/tokens"
     "@types/react": "npm:^19.2.17"
     react: "npm:^19.2.7"
     typescript: "npm:^6.0.3"
@@ -468,15 +468,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@charcuterie/tokens@portal:../../../charcuterie-m5b/packages/tokens::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast":
+"@charcuterie/tokens@portal:../../../charcuterie/packages/tokens::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast":
   version: 0.0.0-use.local
-  resolution: "@charcuterie/tokens@portal:../../../charcuterie-m5b/packages/tokens::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast"
+  resolution: "@charcuterie/tokens@portal:../../../charcuterie/packages/tokens::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast"
   languageName: node
   linkType: soft
 
-"@charcuterie/tokens@portal:../../../charcuterie-m5b/packages/tokens::locator=%40castkit%2Fviews%40workspace%3Apackages%2Fviews":
+"@charcuterie/tokens@portal:../../../charcuterie/packages/tokens::locator=%40castkit%2Fviews%40workspace%3Apackages%2Fviews":
   version: 0.0.0-use.local
-  resolution: "@charcuterie/tokens@portal:../../../charcuterie-m5b/packages/tokens::locator=%40castkit%2Fviews%40workspace%3Apackages%2Fviews"
+  resolution: "@charcuterie/tokens@portal:../../../charcuterie/packages/tokens::locator=%40castkit%2Fviews%40workspace%3Apackages%2Fviews"
   languageName: node
   linkType: soft
 
