@@ -1,4 +1,5 @@
 import { formatTime } from "../formatTime.ts"
+import { ICON_PATHS, Icon } from "../Icon.tsx"
 import { queue } from "../state.ts"
 
 /**
@@ -35,7 +36,9 @@ export const Queue = () => {
               draggable={false}
             />
           ) : (
-            <div class="queue-art placeholder">♪</div>
+            <div class="queue-art placeholder">
+              <Icon path={ICON_PATHS.note} size="1em" />
+            </div>
           )}
           <div class="queue-track">
             <div class="queue-title">{item.title}</div>
