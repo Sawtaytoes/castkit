@@ -418,6 +418,7 @@ __metadata:
   resolution: "@castkit/slatecast@workspace:packages/slatecast"
   dependencies:
     "@castkit/shared": "workspace:*"
+    "@charcuterie/tokens": "portal:../../../charcuterie-m5b/packages/tokens"
     "@preact/preset-vite": "npm:^2.10.2"
     "@preact/signals": "npm:^2.5.1"
     "@testing-library/dom": "npm:^10.4.1"
@@ -427,7 +428,7 @@ __metadata:
     "@vitest/browser": "npm:^4.1.10"
     "@vitest/browser-playwright": "npm:^4.1.10"
     msw: "npm:^2.15.0"
-    playwright: "npm:1.61.1"
+    playwright: "npm:^1.61.1"
     preact: "npm:^10.29.1"
     typescript: "npm:^6.0.3"
     vite: "npm:^7.3.4"
@@ -439,6 +440,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@castkit/views@workspace:packages/views"
   dependencies:
+    "@charcuterie/tokens": "portal:../../../charcuterie-m5b/packages/tokens"
     "@types/react": "npm:^19.2.17"
     react: "npm:^19.2.7"
     typescript: "npm:^6.0.3"
@@ -464,6 +466,18 @@ __metadata:
     typescript: "npm:^6.0.3"
     vite: "npm:^8.1.2"
   languageName: unknown
+  linkType: soft
+
+"@charcuterie/tokens@portal:../../../charcuterie-m5b/packages/tokens::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast":
+  version: 0.0.0-use.local
+  resolution: "@charcuterie/tokens@portal:../../../charcuterie-m5b/packages/tokens::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast"
+  languageName: node
+  linkType: soft
+
+"@charcuterie/tokens@portal:../../../charcuterie-m5b/packages/tokens::locator=%40castkit%2Fviews%40workspace%3Apackages%2Fviews":
+  version: 0.0.0-use.local
+  resolution: "@charcuterie/tokens@portal:../../../charcuterie-m5b/packages/tokens::locator=%40castkit%2Fviews%40workspace%3Apackages%2Fviews"
+  languageName: node
   linkType: soft
 
 "@emnapi/core@npm:1.11.1":
@@ -1570,13 +1584,13 @@ __metadata:
   linkType: hard
 
 "@playwright/test@npm:^1.61.1":
-  version: 1.61.1
-  resolution: "@playwright/test@npm:1.61.1"
+  version: 1.62.1
+  resolution: "@playwright/test@npm:1.62.1"
   dependencies:
-    playwright: "npm:1.61.1"
+    playwright: "npm:1.62.1"
   bin:
     playwright: cli.js
-  checksum: 10c0/45004139eaa7c7ec8129e4ed77a9d734aa09ed40b69162b871e4123f1d70217b7b73651431a9343ed5090d5fed11c6df1bff2a56ff4b87dc7b0371b5da87cf9c
+  checksum: 10c0/4b76f2f717723f84a73601f74fde97f5d92e4b5c869cf87c0f5628bf247fa1d18c9dc6c8e136463303233239e8ce58f902513d4281a9fabc3c426e911ded2c83
   languageName: node
   linkType: hard
 
@@ -6123,27 +6137,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright-core@npm:1.61.1":
-  version: 1.61.1
-  resolution: "playwright-core@npm:1.61.1"
+"playwright-core@npm:1.62.1":
+  version: 1.62.1
+  resolution: "playwright-core@npm:1.62.1"
   bin:
     playwright-core: cli.js
-  checksum: 10c0/c28896ba82a602182e240ed4f9c467fb0dd9cb57d510f8aba9f25183fe1cde3a0105725a29baffa4157fe885bbb11e228032a2aad0424111584fde45303f07bd
+  checksum: 10c0/a37d0f03bb73364cfd0eba704c4b3359b609c4779ae2649a88d8e2b3a29c7357dfcc58bdcf0cb68ddffdef7687abf78902c8356e89f189682c7e19be38e108f0
   languageName: node
   linkType: hard
 
-"playwright@npm:1.61.1, playwright@npm:^1.61.1":
-  version: 1.61.1
-  resolution: "playwright@npm:1.61.1"
+"playwright@npm:1.62.1, playwright@npm:^1.61.1":
+  version: 1.62.1
+  resolution: "playwright@npm:1.62.1"
   dependencies:
     fsevents: "npm:2.3.2"
-    playwright-core: "npm:1.61.1"
+    playwright-core: "npm:1.62.1"
   dependenciesMeta:
     fsevents:
       optional: true
   bin:
     playwright: cli.js
-  checksum: 10c0/cea1bc4d2a64ec3ef683891606774029da7b8a8036ed98332565cec2f8e89549ca1fab9a89fbfba4e08e27e0d7e7d148031e965af66d5ff97bb3c34058cfcad0
+  checksum: 10c0/4d3522cd46325f50c46f8874d31f70d036f6983228a9f8b9d68fc249e4c17464edcd97cc4adfbb24e712d1829c1386d3bc24e17f58a1ced94e7c423300c21845
   languageName: node
   linkType: hard
 
