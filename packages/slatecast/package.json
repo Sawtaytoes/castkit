@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@castkit/shared": "workspace:*",
+    "@charcuterie/logic": "portal:../../../charcuterie/packages/logic",
     "@charcuterie/tokens": "portal:../../../charcuterie/packages/tokens",
     "@preact/signals": "^2.5.1",
+    "@preact/signals-core": "^1.13.1",
     "preact": "^10.29.1"
   },
   "devDependencies": {

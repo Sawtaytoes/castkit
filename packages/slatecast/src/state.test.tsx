@@ -7,7 +7,7 @@ import {
 } from "./__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
-import { isConnected, nowPlaying } from "./state.ts"
+import { connectionStatus, nowPlaying } from "./state.ts"
 
 const pauseButton = () =>
   screen.getByRole("button", { name: "Pause" })
@@ -246,24 +246,38 @@ describe("reconnect resilience", () => {
     server.closeConnection()
 
     await waitUntil(() => hasThrown, { timeoutMs: 4_000 })
-    await waitUntil(() => isConnected.value, {
-      timeoutMs: 8_000,
-    })
+    await waitUntil(
+      () => connectionStatus.is("connected"),
+      {
+        timeoutMs: 8_000,
+      },
+    )
   })
 
   test("recovers from a socket that only ever errors", async () => {
     const { server } = await mountSlatecast()
-    expect(isConnected.value).toBe(true)
+    expect(connectionStatus.getState().status).toBe(
+      "connected",
+    )
 
     server.closeConnection()
-    await waitUntil(() => !isConnected.value, {
-      timeoutMs: 4_000,
-    })
+
+    // `reconnecting`, not `disconnected` — the distinction the boolean this
+    // replaced could not carry, and the reason the shared machine has both.
+    // A panel that lost its data says something different from one that never
+    // had any.
+    await waitUntil(
+      () => connectionStatus.is("reconnecting"),
+      { timeoutMs: 4_000 },
+    )
 
     // The proxy reaping an idle socket is the routine case; the display must
     // come back on its own every time it happens.
-    await waitUntil(() => isConnected.value, {
-      timeoutMs: 8_000,
-    })
+    await waitUntil(
+      () => connectionStatus.is("connected"),
+      {
+        timeoutMs: 8_000,
+      },
+    )
   })
 })
