@@ -111,6 +111,36 @@ or code-style choice here, assume the sibling repos already settled it — match
 them rather than introducing a different approach. Regressing one of their locked
 decisions in this repo is the failure mode to avoid.
 
+## The `feat/charcuterie` branch is HELD — do not merge it yet
+
+CastKit is the **second consumer** of [Charcuterie](../charcuterie/), the fleet's shared
+token/logic/component library (milestone M5b, 2026-07-31). That work lives on
+`feat/charcuterie` and **must not merge to `master` as it stands**, because
+`@charcuterie/tokens` and `@charcuterie/logic` are linked with `portal:` paths into a
+sibling checkout — correct on this machine, un-buildable anywhere else.
+
+**The unblock is one dependency line per package.** The packages publish to npm now, so
+each `portal:../../../charcuterie/packages/<name>` becomes a version range (`^0.2.0`,
+once the pending Version Packages PR ships the ePaper palette fix), the root
+`resolutions` pin goes, and nothing else in the diff moves.
+
+What it changes, in one line each:
+
+- `@castkit/views` takes its inks from `@charcuterie/tokens/epaper` instead of spelling
+  hexes. **The palette values changed** — the library's Spectra 6 set was invented, and
+  the real one is now this repo's own (`packages/core/src/panels/palette.ts`, from
+  Pimoroni's `inky`).
+- `@castkit/slatecast`'s five palette custom properties alias the tokens, the scheme moved
+  from `.stage` to `data-scheme` on `<html>` (stamped by the server at first paint), and
+  the socket's `isConnected` boolean became `@charcuterie/logic`'s connection machine.
+- `@castkit/web` is untouched, deliberately.
+
+**`@charcuterie/ui` is not used and cannot be** — it is React, and slatecast is Preact
+under a 60 KB gz budget. Do not "fix" that with `preact/compat`; it is a known open
+question, written up in
+[the M5b handoff](../charcuterie/docs/2026-07-31-m5b-castkit-the-second-consumer.md),
+which is the thing to read before touching any of this.
+
 ## Before every commit
 
 - `yarn lint` — Biome (`--write --unsafe`) then ESLint (`--fix`); re-stage changed files.
