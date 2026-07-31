@@ -1,3 +1,6 @@
+import type { IntentName } from "@charcuterie/tokens"
+import type { EpaperPalette } from "@charcuterie/tokens/epaper"
+import { epaperColours } from "@charcuterie/tokens/epaper"
 import type { CSSProperties } from "react"
 import type { ViewColourMode } from "./viewProps.ts"
 
@@ -5,37 +8,87 @@ import type { ViewColourMode } from "./viewProps.ts"
  * Style bits shared by every Inkcast view, so panel-wide constants (font,
  * background, Satori-safe flex column root) live in one place instead of being
  * copied into each component.
+ *
+ * Every colour here comes from `@charcuterie/tokens/epaper`, which resolves to
+ * literals precisely because Satori renders to PNG and cannot evaluate a
+ * `var()`. Before M5b the views spelled their own inks — `#ffffff`, `#000000`,
+ * `#1f4fd0` in four files, `rgb(255, 0, 0)` in a fifth — and none of those five
+ * is a colour this repo's own quantizer maps 1:1, so none of them was the
+ * colour that reached the panel.
  */
 
+/**
+ * The panel typeface, deliberately NOT one of charcuterie's three. Atkinson
+ * Hyperlegible was picked for this hardware — a face designed for low-acuity
+ * reading, at a distance, after a 1-bit dither eats the fine detail — and
+ * `fitText` below is calibrated to its average glyph advance. Charcuterie ships
+ * tokens here, not a typeface decision.
+ */
 export const PANEL_FONT_FAMILY =
   '"Atkinson Hyperlegible", "DejaVu Sans", sans-serif'
+
+/**
+ * castkit's colour mode, in charcuterie's name for the same thing. `e6` is the
+ * Spectra 6 Impression; `mono` is the 1-bit pHAT, and the two disagree about
+ * white — an E6 panel's paper is `#D0D2D2`, the pHAT's is `#FFFFFF`.
+ */
+const EPAPER_PALETTE_BY_COLOUR_MODE: Record<
+  ViewColourMode,
+  EpaperPalette
+> = {
+  e6: "spectra6",
+  mono: "mono",
+}
+
+/** Every ink available to a view, for the panel it is being rendered for. */
+export const getPanelColours = ({
+  colourMode,
+}: {
+  colourMode: ViewColourMode
+}) =>
+  epaperColours[EPAPER_PALETTE_BY_COLOUR_MODE[colourMode]]
 
 /** The Satori-safe base every view's root element starts from. */
 export const buildPanelRootStyle = ({
   width,
   height,
+  colourMode,
 }: {
   width: number
   height: number
-}): CSSProperties => ({
-  width,
-  height,
-  display: "flex",
-  flexDirection: "column",
-  backgroundColor: "#ffffff",
-  color: "#000000",
-  fontFamily: PANEL_FONT_FAMILY,
-  boxSizing: "border-box",
-})
+  colourMode: ViewColourMode
+}): CSSProperties => {
+  const colours = getPanelColours({ colourMode })
 
-/** A view's accent ink: the given E6 colour, collapsing to black on mono. */
+  return {
+    width,
+    height,
+    display: "flex",
+    flexDirection: "column",
+    backgroundColor: colours.surface.base,
+    color: colours.content.primary,
+    fontFamily: PANEL_FONT_FAMILY,
+    boxSizing: "border-box",
+  }
+}
+
+/**
+ * A view's accent ink, named by intent rather than by hex.
+ *
+ * **On a six-ink panel the intent scale *is* the ink set** — accent is the
+ * blue, danger the red, warning the yellow, success the green — so a view
+ * choosing a colour is choosing an intent whether it says so or not. Saying so
+ * is what makes the mono collapse free: `mono` maps every intent to black, so
+ * the `colourMode === "e6" ? … : "#000000"` ternary this replaced is now a
+ * property of the profile rather than a line each view could forget.
+ */
 export const getAccentColour = ({
   colourMode,
-  e6Colour,
+  intent,
 }: {
   colourMode: ViewColourMode
-  e6Colour: string
-}) => (colourMode === "e6" ? e6Colour : "#000000")
+  intent: IntentName
+}) => getPanelColours({ colourMode }).intent[intent].solid
 
 /**
  * Average glyph advance of Atkinson Hyperlegible, as a fraction of the font

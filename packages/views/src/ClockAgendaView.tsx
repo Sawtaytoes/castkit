@@ -55,7 +55,7 @@ export const ClockAgendaView = ({
 }: ClockAgendaViewProps) => {
   const accentColour = getAccentColour({
     colourMode,
-    e6Colour: "#1f4fd0",
+    intent: "accent",
   })
   const isCompactPanel = height <= COMPACT_PANEL_MAX_HEIGHT
   const hasTemperature =
@@ -126,7 +126,11 @@ export const ClockAgendaView = ({
   // centres, so it reads identically to ClockWeatherView on a free day.
   const isPinnedToTop = isCompactPanel && hasEvents
   const rootStyle: CSSProperties = {
-    ...buildPanelRootStyle({ width, height }),
+    ...buildPanelRootStyle({
+      width,
+      height,
+      colourMode,
+    }),
     alignItems: "center",
     justifyContent: isPinnedToTop ? "flex-start" : "center",
     paddingTop: isPinnedToTop

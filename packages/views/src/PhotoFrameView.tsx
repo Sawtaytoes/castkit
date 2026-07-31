@@ -20,7 +20,11 @@ export const PhotoFrameView = ({
   photoDataUri,
 }: PhotoFrameViewProps) => {
   const rootStyle: CSSProperties = {
-    ...buildPanelRootStyle({ width, height }),
+    ...buildPanelRootStyle({
+      width,
+      height,
+      colourMode,
+    }),
     alignItems: "center",
     justifyContent: "center",
   }

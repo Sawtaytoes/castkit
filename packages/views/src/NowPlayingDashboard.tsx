@@ -4,6 +4,7 @@ import type { NowPlayingViewProps } from "./viewProps.ts"
 import {
   buildPanelRootStyle,
   fitText,
+  getPanelColours,
   READABLE_FONT_FLOOR_PX,
 } from "./viewStyles.ts"
 
@@ -78,6 +79,8 @@ export const NowPlayingDashboard = ({
   // instead of rendering illegibly small.
   const readableFloor = READABLE_FONT_FLOOR_PX[colourMode]
 
+  const colours = getPanelColours({ colourMode })
+
   const fittedTitle = fitText({
     baseFontSize: baseTitleFontSize,
     minimumFontSize: Math.min(
@@ -117,7 +120,11 @@ export const NowPlayingDashboard = ({
   })
 
   const rootStyle: CSSProperties = {
-    ...buildPanelRootStyle({ width, height }),
+    ...buildPanelRootStyle({
+      width,
+      height,
+      colourMode,
+    }),
     padding,
   }
 
@@ -137,7 +144,7 @@ export const NowPlayingDashboard = ({
     width: artworkSide,
     height: artworkSide,
     flexShrink: 0,
-    border: `${solidLineThickness}px solid #000000`,
+    border: `${solidLineThickness}px solid ${colours.border.default}`,
   }
 
   const artworkImageStyle: CSSProperties = {
@@ -214,7 +221,7 @@ export const NowPlayingDashboard = ({
     display: "flex",
     width: "100%",
     height: solidLineThickness,
-    backgroundColor: "#000000",
+    backgroundColor: colours.border.default,
   }
 
   const footerRowStyle: CSSProperties = {

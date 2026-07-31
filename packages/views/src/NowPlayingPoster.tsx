@@ -5,6 +5,7 @@ import {
   buildPanelRootStyle,
   fitText,
   getAccentColour,
+  getPanelColours,
   READABLE_FONT_FLOOR_PX,
 } from "./viewStyles.ts"
 
@@ -18,7 +19,6 @@ import {
  * type fills the column instead of leaving dead white space. Inline styles +
  * flexbox only (Satori-safe).
  */
-const E6_RED = "rgb(255, 0, 0)"
 
 type EqualizerBar = { id: string; heightRatio: number }
 
@@ -43,9 +43,13 @@ export const NowPlayingPoster = ({
   artworkDataUri,
 }: NowPlayingViewProps) => {
   const hasArtwork = typeof artworkDataUri === "string"
+  const colours = getPanelColours({ colourMode })
+  // The spine, the rule and the artless art plate are red on E6 and black on
+  // mono. `danger` is that ink's name in the intent scale, which on a six-ink
+  // panel is the ink set — the poster is not warning anyone.
   const accent = getAccentColour({
     colourMode,
-    e6Colour: E6_RED,
+    intent: "danger",
   })
   const fontFloor = READABLE_FONT_FLOOR_PX[colourMode]
 
@@ -91,7 +95,11 @@ export const NowPlayingPoster = ({
   })
 
   const rootStyle: CSSProperties = {
-    ...buildPanelRootStyle({ width, height }),
+    ...buildPanelRootStyle({
+      width,
+      height,
+      colourMode,
+    }),
     flexDirection: "row",
     alignItems: "stretch",
   }
@@ -102,7 +110,9 @@ export const NowPlayingPoster = ({
     height,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: hasArtwork ? "#000000" : accent,
+    backgroundColor: hasArtwork
+      ? colours.surface.inverse
+      : accent,
     overflow: "hidden",
   }
 
@@ -161,7 +171,7 @@ export const NowPlayingPoster = ({
     letterSpacing: titleFit.letterSpacing,
     fontWeight: 800,
     lineHeight: 1.05,
-    color: "#000000",
+    color: colours.content.primary,
     overflow: "hidden",
     overflowWrap: "break-word",
   }
@@ -172,7 +182,7 @@ export const NowPlayingPoster = ({
     letterSpacing: artistFit.letterSpacing,
     fontWeight: 600,
     lineHeight: 1.1,
-    color: "#000000",
+    color: colours.content.primary,
     marginTop: Math.round(height * 0.035),
     overflow: "hidden",
     overflowWrap: "break-word",
@@ -208,7 +218,9 @@ export const NowPlayingPoster = ({
                       0.4 *
                       equalizerBar.heightRatio,
                   ),
-                  backgroundColor: "#ffffff",
+                  // On the plate, not on the paper — the plate is
+                  // the accent ink (or black once art lands).
+                  backgroundColor: colours.content.onAccent,
                 }}
               />
             ))}

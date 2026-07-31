@@ -49,7 +49,7 @@ export const AgendaView = ({
 }: AgendaViewProps) => {
   const accentColour = getAccentColour({
     colourMode,
-    e6Colour: "#1f4fd0",
+    intent: "accent",
   })
   const hasTemperature =
     temperatureText !== undefined && temperatureText !== ""
@@ -84,7 +84,11 @@ export const AgendaView = ({
   const eventGutterWidth = Math.round(width * 0.02)
 
   const rootStyle: CSSProperties = {
-    ...buildPanelRootStyle({ width, height }),
+    ...buildPanelRootStyle({
+      width,
+      height,
+      colourMode,
+    }),
     alignItems: "flex-start",
     justifyContent: "flex-start",
     paddingTop: Math.round(height * 0.06),
