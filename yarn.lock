@@ -418,8 +418,8 @@ __metadata:
   resolution: "@castkit/slatecast@workspace:packages/slatecast"
   dependencies:
     "@castkit/shared": "workspace:*"
-    "@charcuterie/logic": "portal:../../../charcuterie/packages/logic"
-    "@charcuterie/tokens": "portal:../../../charcuterie/packages/tokens"
+    "@charcuterie/logic": "npm:^0.1.0"
+    "@charcuterie/tokens": "npm:^0.2.0"
     "@preact/preset-vite": "npm:^2.10.2"
     "@preact/signals": "npm:^2.5.1"
     "@preact/signals-core": "npm:^1.13.1"
@@ -442,7 +442,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@castkit/views@workspace:packages/views"
   dependencies:
-    "@charcuterie/tokens": "portal:../../../charcuterie/packages/tokens"
+    "@charcuterie/tokens": "npm:^0.2.0"
     "@types/react": "npm:^19.2.17"
     react: "npm:^19.2.7"
     typescript: "npm:^6.0.3"
@@ -470,9 +470,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@charcuterie/logic@portal:../../../charcuterie/packages/logic::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast":
-  version: 0.0.0-use.local
-  resolution: "@charcuterie/logic@portal:../../../charcuterie/packages/logic::locator=%40castkit%2Fslatecast%40workspace%3Apackages%2Fslatecast"
+"@charcuterie/logic@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "@charcuterie/logic@npm:0.1.0"
   peerDependencies:
     "@preact/signals-core": ">=1.8"
     jotai: ">=2"
@@ -487,14 +487,16 @@ __metadata:
       optional: true
     react:
       optional: true
+  checksum: 10c0/6dcb997c3c83718c13b093244982ec6705a890c375b4a234e662c0362743611d7590dcc7d50bce9a95961972da57884385ad23e08a683aa3e594c1008f584f2a
   languageName: node
-  linkType: soft
+  linkType: hard
 
-"@charcuterie/tokens@portal:../charcuterie/packages/tokens::locator=castkit%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@charcuterie/tokens@portal:../charcuterie/packages/tokens::locator=castkit%40workspace%3A."
+"@charcuterie/tokens@npm:^0.2.0":
+  version: 0.2.0
+  resolution: "@charcuterie/tokens@npm:0.2.0"
+  checksum: 10c0/79c0e43626e421e769d20c8e43017865b570cf7ce289b7049cf62c7ba02bf42dad6c86c79012ae0a629d03bbe5b60b64abf036508bda80875a77263d3690d2f7
   languageName: node
-  linkType: soft
+  linkType: hard
 
 "@emnapi/core@npm:1.11.1":
   version: 1.11.1
