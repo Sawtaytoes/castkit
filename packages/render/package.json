@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./*": "./src/*.ts"
+    "./*": "./src/*.ts",
+    "./assets/*": "./src/assets/*"
   },
   "description": "Inkcast render engines — turn a React view into a supersampled full-colour PNG via headless Chromium (Playwright) or Satori (SVG→resvg). Same component in, PNG out; the bake-off compares them.",
   "scripts": {
