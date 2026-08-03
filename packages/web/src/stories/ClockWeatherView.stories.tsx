@@ -7,18 +7,18 @@ import {
 } from "../storybook/panelArgs.tsx"
 
 /**
- * Time and date only — deliberately weather-free, so it stays valid for a full minute on a slow panel.
+ * The clock plus an optional weather line; compact panels pack date and weather onto one row.
  *
  * Every story here is the same view under the shared panel controls — switch
  * `Device` to see it on another panel, turn `Dither` on to see what the glass
  * paints, and set the crop numbers to preview a mat.
  */
 const meta = {
-  title: "Views/Clock",
+  title: "Views/Clock (Weather)",
   argTypes: PANEL_ARG_TYPES,
   args: DEFAULT_PANEL_ARGS,
   render: (args: PanelStoryArgs) =>
-    renderPanelStory({ viewName: "Clock", args }),
+    renderPanelStory({ viewName: "Clock (Weather)", args }),
 } satisfies Meta<PanelStoryArgs>
 
 export default meta

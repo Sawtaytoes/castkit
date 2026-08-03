@@ -7,18 +7,18 @@ import {
 } from "../storybook/panelArgs.tsx"
 
 /**
- * Time and date only — deliberately weather-free, so it stays valid for a full minute on a slow panel.
+ * The day's events with no clock at all — that is the entire point, so a colour panel need not repaint every minute.
  *
  * Every story here is the same view under the shared panel controls — switch
  * `Device` to see it on another panel, turn `Dither` on to see what the glass
  * paints, and set the crop numbers to preview a mat.
  */
 const meta = {
-  title: "Views/Clock",
+  title: "Views/Agenda",
   argTypes: PANEL_ARG_TYPES,
   args: DEFAULT_PANEL_ARGS,
   render: (args: PanelStoryArgs) =>
-    renderPanelStory({ viewName: "Clock", args }),
+    renderPanelStory({ viewName: "Agenda", args }),
 } satisfies Meta<PanelStoryArgs>
 
 export default meta
@@ -45,6 +45,25 @@ export const ImpressionE6: Story = {
 export const M5PaperMono: Story = {
   name: "M5Paper mono (540×960)",
   args: { ...DEFAULT_PANEL_ARGS, deviceId: "m5paper" },
+}
+
+export const ImpressionE6Empty: Story = {
+  name: "Impression E6 — no events",
+  args: {
+    ...DEFAULT_PANEL_ARGS,
+    deviceId: "inky-impression",
+    isEmpty: true,
+  },
+}
+
+export const PhatMonoEmpty: Story = {
+  name: "pHAT mono — no events",
+  args: {
+    ...DEFAULT_PANEL_ARGS,
+    deviceId: "inky-phat",
+    zoom: 3,
+    isEmpty: true,
+  },
 }
 
 export const M5PaperDithered: Story = {

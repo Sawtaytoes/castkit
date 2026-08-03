@@ -7,6 +7,16 @@ const config: StorybookConfig = {
     name: "@storybook/react-vite",
     options: {},
   },
+  // The CC0 sample photos live at the repo root because both Storybooks use
+  // them and they belong to no single package. Serving them at a stable
+  // `/sample-photos/` URL keeps `dev` and `build` identical — see
+  // assets/sample-photos/CREDITS.md.
+  staticDirs: [
+    {
+      from: "../../../assets/sample-photos",
+      to: "/sample-photos",
+    },
+  ],
   core: {
     disableTelemetry: true,
   },
