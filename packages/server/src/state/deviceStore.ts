@@ -1,4 +1,4 @@
-import type { ViewName } from "../views/registry.ts"
+import type { ViewName } from "@castkit/shared/views/viewNames"
 
 /**
  * In-memory per-device runtime state: the SELECTED view (the single source

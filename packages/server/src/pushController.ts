@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto"
 import { MONO_PALETTE } from "@castkit/core/panels/palette"
 import type { FullColourEncoding } from "@castkit/core/pipeline/dither"
+import {
+  getIsBleedView,
+  type ViewName,
+} from "@castkit/shared/views/viewNames"
 import type { ConfiguredDevice } from "./config/env.ts"
 import { buildDeviceTopics } from "./homeAssistant/discovery.ts"
 import type { MqttPublisher } from "./mqtt/publisher.ts"
@@ -9,11 +13,7 @@ import type { DeviceConfigStore } from "./state/deviceConfigStore.ts"
 import type { DeviceStore } from "./state/deviceStore.ts"
 import type { RenderTokenStore } from "./state/renderTokenStore.ts"
 import type { ViewDataStore } from "./state/viewDataStore.ts"
-import {
-  type ClockConfig,
-  getIsBleedView,
-  type ViewName,
-} from "./views/registry.ts"
+import type { ClockConfig } from "./views/registry.ts"
 
 /**
  * The single place that renders a device's current view and pushes it to MQTT

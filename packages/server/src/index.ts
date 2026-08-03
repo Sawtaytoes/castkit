@@ -5,6 +5,12 @@ import {
 } from "@castkit/core/devices/device"
 import type { FullColourEncoding } from "@castkit/core/pipeline/dither"
 import type { ConfigKnob } from "@castkit/shared/framework/configKnob"
+import {
+  getIsPhotoView,
+  getIsViewName,
+  VIEW_NAMES,
+  type ViewName,
+} from "@castkit/shared/views/viewNames"
 import { serve } from "@hono/node-server"
 import { createPhotoFrameAdapter } from "./adapters/photoFrameAdapter.ts"
 import { createApp } from "./app.ts"
@@ -50,10 +56,6 @@ import {
   getIsAgendaView,
   getIsClockBearingView,
   getIsNowPlayingView,
-  getIsPhotoView,
-  getIsViewName,
-  VIEW_NAMES,
-  type ViewName,
 } from "./views/registry.ts"
 
 /**
