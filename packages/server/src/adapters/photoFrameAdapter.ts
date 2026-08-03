@@ -1,3 +1,7 @@
+import {
+  getIsPhotoView,
+  type ViewName,
+} from "@castkit/shared/views/viewNames"
 import { timer } from "rxjs"
 import type { ConfiguredDevice } from "../config/env.ts"
 import {
@@ -16,10 +20,6 @@ import {
 } from "../immich/photoFrameImage.ts"
 import type { DeviceConfigStore } from "../state/deviceConfigStore.ts"
 import type { ViewDataStore } from "../state/viewDataStore.ts"
-import {
-  getIsPhotoView,
-  type ViewName,
-} from "../views/registry.ts"
 
 /** The dual-portrait (two-up) photo view. */
 const DUAL_PHOTO_VIEW: ViewName = "Photo Frame (Duo)"

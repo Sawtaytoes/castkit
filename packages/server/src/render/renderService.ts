@@ -9,6 +9,7 @@ import { createChromiumEngine } from "@castkit/render/chromiumEngine"
 import type { RenderEngine } from "@castkit/render/engine"
 import { renderDeviceImage } from "@castkit/render/renderDeviceImage"
 import { createSatoriEngine } from "@castkit/render/satoriEngine"
+import type { ViewName } from "@castkit/shared/views/viewNames"
 import type {
   AgendaData,
   NowPlayingData,
@@ -18,7 +19,6 @@ import type {
 import {
   type ClockConfig,
   renderViewElement,
-  type ViewName,
 } from "../views/registry.ts"
 
 /**

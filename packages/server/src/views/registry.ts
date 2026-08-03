@@ -1,4 +1,6 @@
 import type { DeviceMetadata } from "@castkit/core/devices/device"
+import type { ViewName } from "@castkit/shared/views/viewNames"
+import { getIsPhotoView } from "@castkit/shared/views/viewNames"
 import { AgendaView } from "@castkit/views/AgendaView"
 import { ClockAgendaView } from "@castkit/views/ClockAgendaView"
 import { ClockView } from "@castkit/views/ClockView"
@@ -23,37 +25,6 @@ import type {
  * Assistant over MQTT (undefined = no data yet → idle placeholder);
  * clock-bearing views use the server clock in the process timezone (`TZ`).
  */
-
-export const VIEW_NAMES = [
-  "Now Playing (Dashboard)",
-  "Now Playing (Poster)",
-  "Photo Frame",
-  "Photo Frame (Fill)",
-  "Photo Frame (Duo)",
-  "Clock",
-  "Clock (Weather)",
-  "Clock (Agenda)",
-  "Agenda",
-] as const
-export type ViewName = (typeof VIEW_NAMES)[number]
-
-/**
- * The photo-frame view family. All paint a server-composed PNG (so they render
- * identically here); they differ only in how the photo adapter builds that PNG
- * for the device — "Photo Frame" letterboxes when faces don't fit, "(Fill)"
- * fills the panel keeping the primary face, "(Duo)" pairs two portraits side by
- * side on a landscape panel. See the photo adapter + docs/decisions/
- * 2026-07-12-dual-portrait-photo-layout.md.
- */
-export const PHOTO_VIEW_NAMES: ReadonlySet<ViewName> =
-  new Set([
-    "Photo Frame",
-    "Photo Frame (Fill)",
-    "Photo Frame (Duo)",
-  ])
-
-export const getIsPhotoView = (viewName: ViewName) =>
-  PHOTO_VIEW_NAMES.has(viewName)
 
 const NOW_PLAYING_VIEW_NAMES: ReadonlySet<ViewName> =
   new Set([
@@ -84,21 +55,8 @@ const AGENDA_VIEW_NAMES: ReadonlySet<ViewName> = new Set([
 export const getIsAgendaView = (viewName: ViewName) =>
   AGENDA_VIEW_NAMES.has(viewName)
 
-export const getIsViewName = (
-  value: string,
-): value is ViewName =>
-  (VIEW_NAMES as readonly string[]).includes(value)
-
 export const getIsNowPlayingView = (viewName: ViewName) =>
   NOW_PLAYING_VIEW_NAMES.has(viewName)
-
-/**
- * Views that should bleed to the panel edge (ignoring the safe-area crop
- * inset). Photos look right filling the whole panel even under a mat; text
- * must stay inside the visible window. Every photo-frame view bleeds.
- */
-export const getIsBleedView = (viewName: ViewName) =>
-  getIsPhotoView(viewName)
 
 export const getIsClockBearingView = (viewName: ViewName) =>
   CLOCK_BEARING_VIEW_NAMES.has(viewName)

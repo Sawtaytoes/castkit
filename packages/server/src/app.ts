@@ -1,3 +1,4 @@
+import { VIEW_NAMES } from "@castkit/shared/views/viewNames"
 import { apiReference } from "@scalar/hono-api-reference"
 import { Hono } from "hono"
 import { bearerAuth } from "hono/bearer-auth"
@@ -7,7 +8,6 @@ import type { InkcastConfig } from "./config/env.ts"
 import type { PushController } from "./pushController.ts"
 import type { DeviceStore } from "./state/deviceStore.ts"
 import type { RenderTokenStore } from "./state/renderTokenStore.ts"
-import { VIEW_NAMES } from "./views/registry.ts"
 
 /**
  * The Inkcast HTTP API (Hono). Token-authenticated (a Bearer token, no

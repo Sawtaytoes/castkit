@@ -1,5 +1,5 @@
+import { VIEW_NAMES } from "@castkit/shared/views/viewNames"
 import * as z from "zod/mini"
-import { VIEW_NAMES } from "../views/registry.ts"
 
 /**
  * zod/mini schemas for the HTTP API — the single source of truth for both
