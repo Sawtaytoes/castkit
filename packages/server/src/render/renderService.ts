@@ -1,15 +1,13 @@
 import type { DeviceMetadata } from "@castkit/core/devices/device"
+import type { SafeAreaInset } from "@castkit/core/panels/safeArea"
+import { resolveSafeArea } from "@castkit/core/panels/safeArea"
 import type {
   DitherAdjustments,
   FullColourEncoding,
 } from "@castkit/core/pipeline/dither"
 import { createChromiumEngine } from "@castkit/render/chromiumEngine"
 import type { RenderEngine } from "@castkit/render/engine"
-import type { SafeAreaInset } from "@castkit/render/renderDeviceImage"
-import {
-  renderDeviceImage,
-  resolveSafeArea,
-} from "@castkit/render/renderDeviceImage"
+import { renderDeviceImage } from "@castkit/render/renderDeviceImage"
 import { createSatoriEngine } from "@castkit/render/satoriEngine"
 import type {
   AgendaData,

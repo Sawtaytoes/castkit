@@ -131,8 +131,43 @@ export const IMPRESSION_DEVICE: DeviceMetadata = {
   },
 }
 
+/**
+ * Example M5Paper (ESP32): 540×960 1-bit mono, portrait, pulled over HTTP
+ * rather than pushed as an MQTT image. Unlike the Inky panels it has no
+ * on-device dithering to fall back on, so what our pipeline emits is exactly
+ * what the glass shows — which is why it is the panel the dither comparison
+ * matters most for.
+ */
+export const M5PAPER_DEVICE: DeviceMetadata = {
+  id: "m5paper",
+  label: "M5Paper",
+  mac: "02:00:00:00:00:05",
+  width: 540,
+  height: 960,
+  colourMode: "mono",
+  palette: MONO_PALETTE,
+  rotation: 0,
+  imageDelivery: "http-pull",
+  ditherProfile: {
+    algorithm: "floyd-steinberg",
+    supersampleFactor: 2,
+  },
+}
+
 /** Example devices — the two panel types Inkcast targets. Override via config. */
 export const SEED_DEVICES: readonly DeviceMetadata[] = [
   PHAT_DEVICE,
   IMPRESSION_DEVICE,
+]
+
+/**
+ * Every example panel, for previews and docs — deliberately NOT `SEED_DEVICES`,
+ * which is what a fresh install actually registers. The M5Paper belongs in a
+ * preview matrix (it is the panel with no hardware dither) but adding it to the
+ * seed list would change what every new server announces to Home Assistant.
+ */
+export const EXAMPLE_DEVICES: readonly DeviceMetadata[] = [
+  PHAT_DEVICE,
+  IMPRESSION_DEVICE,
+  M5PAPER_DEVICE,
 ]
