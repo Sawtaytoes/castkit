@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "storybook": "storybook dev -p 6007 --no-open",
+    "build-storybook": "storybook build",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -20,6 +22,8 @@
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.2",
+    "@storybook/addon-docs": "^10",
+    "@storybook/preact-vite": "^10",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/preact": "^3.2.4",
@@ -27,7 +31,9 @@
     "@vitest/browser": "^4.1.10",
     "@vitest/browser-playwright": "^4.1.10",
     "msw": "^2.15.0",
+    "msw-storybook-addon": "^3",
     "playwright": "^1.61.1",
+    "storybook": "^10",
     "typescript": "^6.0.3",
     "vite": "^7.3.4",
     "vitest": "^4.1.10"
