@@ -47,63 +47,77 @@ const SeekBar = ({
     return ratio * duration
   }
 
+  /*
+    A seek bar is two different widgets and it was neither. Touchless it only
+    reports, so it is a `progressbar`; touch-capable it is dragged, so it is a
+    `slider`. Both need a name and a value — a bare `<div>` is invisible to a
+    screen reader and unreachable by `getByRole(role, { name })`, which is how
+    the fleet's agents are meant to drive these panels. The values are seconds,
+    and `valuetext` is what actually gets announced, because "1 minute 4 seconds
+    of 3 minutes 42" is the sentence and "64" is not.
+
+    The two roles are spelled as separate literal elements rather than one
+    `role={…ternary}`: a dynamic role defeats the a11y lint (it cannot tell
+    which role's attributes to allow) and hides that `slider`, being
+    interactive, must also be focusable.
+  */
+  const valueMax = Math.round(duration)
+  const valueNow = Math.round(position)
+  const valueText = `${formatTime(position)} of ${formatTime(duration)}`
+  const trackFill = (
+    <div
+      class="seek-fill"
+      style={{ width: `${fraction * 100}%` }}
+    />
+  )
+
   return (
     <div class="seek">
       <span class="seek-time">{formatTime(position)}</span>
-      {/*
-        A seek bar is two different widgets and it was neither. Touchless it
-        only reports, so it is a `progressbar`; touch-capable it is dragged, so
-        it is a `slider`. Both need a name and a value — a bare `<div>` is
-        invisible to a screen reader and unreachable by
-        `getByRole(role, { name })`, which is how the fleet's agents are meant
-        to drive these panels. The values are seconds, and `valuetext` is what
-        actually gets announced, because "1 minute 4 seconds of 3 minutes 42"
-        is the sentence and "64" is not.
-      */}
-      <div
-        role={isInteractive ? "slider" : "progressbar"}
-        aria-label="Seek"
-        aria-valuemin={0}
-        aria-valuemax={Math.round(duration)}
-        aria-valuenow={Math.round(position)}
-        aria-valuetext={`${formatTime(position)} of ${formatTime(duration)}`}
-        class={`seek-track${isInteractive ? " interactive" : ""}`}
-        onPointerDown={
-          isInteractive
-            ? (event) => {
-                ;(
-                  event.currentTarget as HTMLElement
-                ).setPointerCapture(event.pointerId)
-                scrubPositionSeconds.value =
-                  positionFromEvent(event)
-              }
-            : undefined
-        }
-        onPointerMove={
-          isInteractive
-            ? (event) => {
-                if (scrubPositionSeconds.value !== null) {
-                  scrubPositionSeconds.value =
-                    positionFromEvent(event)
-                }
-              }
-            : undefined
-        }
-        onPointerUp={
-          isInteractive
-            ? (event) => {
-                const target = positionFromEvent(event)
-                scrubPositionSeconds.value = null
-                seekTo(target)
-              }
-            : undefined
-        }
-      >
+      {isInteractive ? (
         <div
-          class="seek-fill"
-          style={{ width: `${fraction * 100}%` }}
-        />
-      </div>
+          role="slider"
+          tabIndex={0}
+          class="seek-track interactive"
+          aria-label="Seek"
+          aria-valuemin={0}
+          aria-valuemax={valueMax}
+          aria-valuenow={valueNow}
+          aria-valuetext={valueText}
+          onPointerDown={(event) => {
+            ;(
+              event.currentTarget as HTMLElement
+            ).setPointerCapture(event.pointerId)
+            scrubPositionSeconds.value =
+              positionFromEvent(event)
+          }}
+          onPointerMove={(event) => {
+            if (scrubPositionSeconds.value !== null) {
+              scrubPositionSeconds.value =
+                positionFromEvent(event)
+            }
+          }}
+          onPointerUp={(event) => {
+            const target = positionFromEvent(event)
+            scrubPositionSeconds.value = null
+            seekTo(target)
+          }}
+        >
+          {trackFill}
+        </div>
+      ) : (
+        <div
+          role="progressbar"
+          class="seek-track"
+          aria-label="Seek"
+          aria-valuemin={0}
+          aria-valuemax={valueMax}
+          aria-valuenow={valueNow}
+          aria-valuetext={valueText}
+        >
+          {trackFill}
+        </div>
+      )}
       <span class="seek-time">{formatTime(duration)}</span>
     </div>
   )

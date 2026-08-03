@@ -13,10 +13,10 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47])
 describe("createRenderTokenStore", () => {
   test("mints unguessable, unique tokens", () => {
     const store = createRenderTokenStore()
-    const a = store.createToken(PNG)
-    const b = store.createToken(PNG)
-    expect(a).not.toEqual(b)
-    expect(a).toMatch(/^[0-9a-f]{32}$/)
+    const firstToken = store.createToken(PNG)
+    const secondToken = store.createToken(PNG)
+    expect(firstToken).not.toEqual(secondToken)
+    expect(firstToken).toMatch(/^[0-9a-f]{32}$/)
   })
 
   test("fetch returns the PNG for a valid token", () => {

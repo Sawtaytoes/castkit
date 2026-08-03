@@ -24,7 +24,7 @@ export type RenderTokenStore = {
 type TokenEntry = {
   png: Buffer
   createdAt: number
-  inFlight: boolean
+  isInFlight: boolean
 }
 
 export const createRenderTokenStore = ({
@@ -44,7 +44,7 @@ export const createRenderTokenStore = ({
       store.set(token, {
         png,
         createdAt: Date.now(),
-        inFlight: false,
+        isInFlight: false,
       })
       return token
     },
@@ -54,7 +54,7 @@ export const createRenderTokenStore = ({
       if (!entry) return null
 
       // Mark in-flight; don't evict yet (response must fully flush first).
-      entry.inFlight = true
+      entry.isInFlight = true
       return entry.png
     },
 
@@ -71,7 +71,7 @@ export const createRenderTokenStore = ({
           // Evict only unfetched tokens that have exceeded the TTL.
           // In-flight tokens are never evicted here; only via evictToken after flush.
           if (
-            !entry.inFlight &&
+            !entry.isInFlight &&
             now - entry.createdAt > ttlMs
           ) {
             store.delete(token)
