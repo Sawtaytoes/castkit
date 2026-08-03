@@ -2,6 +2,7 @@ import {
   IMPRESSION_DEVICE,
   PHAT_DEVICE,
 } from "@castkit/core/devices/device"
+import { NowPlayingPoster } from "@castkit/views/NowPlayingPoster"
 import { type CSSProperties, useState } from "react"
 import { PanelFrame } from "./PanelFrame.tsx"
 
@@ -88,11 +89,17 @@ export const App = () => {
             width={device.width}
             height={device.height}
             colourMode={device.colourMode}
-            artist={artist}
-            title={title}
-            isPlaying={isPlaying}
             zoom={zoom}
-          />
+          >
+            <NowPlayingPoster
+              width={device.width}
+              height={device.height}
+              colourMode={device.colourMode}
+              artist={artist}
+              title={title}
+              isPlaying={isPlaying}
+            />
+          </PanelFrame>
         ))}
       </div>
     </main>

@@ -7,18 +7,18 @@ import {
 } from "../storybook/panelArgs.tsx"
 
 /**
- * Time and date only — deliberately weather-free, so it stays valid for a full minute on a slow panel.
+ * A full-bleed photo, cropped and composed server-side to the exact panel size. Photo views bleed to the edge and ignore the crop insets — set a crop and nothing moves, which is the intended behaviour.
  *
  * Every story here is the same view under the shared panel controls — switch
  * `Device` to see it on another panel, turn `Dither` on to see what the glass
  * paints, and set the crop numbers to preview a mat.
  */
 const meta = {
-  title: "Views/Clock",
+  title: "Views/Photo Frame",
   argTypes: PANEL_ARG_TYPES,
   args: DEFAULT_PANEL_ARGS,
   render: (args: PanelStoryArgs) =>
-    renderPanelStory({ viewName: "Clock", args }),
+    renderPanelStory({ viewName: "Photo Frame", args }),
 } satisfies Meta<PanelStoryArgs>
 
 export default meta

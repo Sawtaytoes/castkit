@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./*": "./src/*.tsx"
+    "./*": "./src/*.tsx",
+    "./viewProps": "./src/viewProps.ts",
+    "./viewStyles": "./src/viewStyles.ts"
   },
   "description": "Inkcast display views — static React components rendered by BOTH the Chromium and Satori engines, so they use inline style objects with a flexbox subset (Satori-safe). One component per file.",
   "scripts": {
