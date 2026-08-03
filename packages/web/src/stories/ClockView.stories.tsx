@@ -1,43 +1,58 @@
-import { ClockView } from "@castkit/views/ClockView"
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import {
+  DEFAULT_PANEL_ARGS,
+  PANEL_ARG_TYPES,
+  type PanelStoryArgs,
+  renderPanelStory,
+} from "../storybook/panelArgs.tsx"
 
 /**
- * The clock view at both panel sizes. Time/date are pre-formatted strings (the
- * server formats them in the configured timezone), so the story just passes
- * sample strings.
+ * Time and date only — deliberately weather-free, so it stays valid for a full minute on a slow panel.
+ *
+ * Every story here is the same view under the shared panel controls — switch
+ * `Device` to see it on another panel, turn `Dither` on to see what the glass
+ * paints, and set the crop numbers to preview a mat.
  */
 const meta = {
-  title: "Views/ClockView",
-  component: ClockView,
-  argTypes: {
-    colourMode: {
-      control: "inline-radio",
-      options: ["mono", "e6"],
-    },
-  },
-} satisfies Meta<typeof ClockView>
+  title: "Views/Clock",
+  argTypes: PANEL_ARG_TYPES,
+  args: DEFAULT_PANEL_ARGS,
+  render: (args: PanelStoryArgs) =>
+    renderPanelStory({ viewName: "Clock", args }),
+} satisfies Meta<PanelStoryArgs>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const PhatMono: Story = {
-  name: "pHAT mono",
+  name: "pHAT mono (250×122)",
   args: {
-    width: 250,
-    height: 122,
-    colourMode: "mono",
-    time: "7:34 PM",
-    date: "Wednesday, July 1",
+    ...DEFAULT_PANEL_ARGS,
+    deviceId: "inky-phat",
+    zoom: 3,
   },
 }
 
 export const ImpressionE6: Story = {
-  name: "Impression E6",
+  name: "Impression E6 (800×480)",
   args: {
-    width: 800,
-    height: 480,
-    colourMode: "e6",
-    time: "7:34 PM",
-    date: "Wednesday, July 1",
+    ...DEFAULT_PANEL_ARGS,
+    deviceId: "inky-impression",
+  },
+}
+
+export const M5PaperMono: Story = {
+  name: "M5Paper mono (540×960)",
+  args: { ...DEFAULT_PANEL_ARGS, deviceId: "m5paper" },
+}
+
+export const M5PaperDithered: Story = {
+  name: "M5Paper mono — dithered (no hardware dither)",
+  args: {
+    ...DEFAULT_PANEL_ARGS,
+    deviceId: "m5paper",
+    isDithered: true,
+    ditherAlgorithm: "floyd-steinberg",
   },
 }

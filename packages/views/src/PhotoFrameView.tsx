@@ -57,11 +57,25 @@ export const PhotoFrameView = ({
   const photoStyle: CSSProperties = {
     width,
     height,
+    // The photo arrives already sized to exactly `width × height` (the server
+    // crops it; the browser preview cover-crops it first), so `cover` is a
+    // no-op here — it is just a guard against a mis-sized source stretching.
+    objectFit: "cover",
   }
 
   return (
     <div style={rootStyle}>
-      <img alt="" src={photoDataUri} style={photoStyle} />
+      {/*
+        Explicit width/height attributes (not only the CSS) pin the intrinsic
+        size, so the panel never reflows while the photo decodes.
+      */}
+      <img
+        alt=""
+        src={photoDataUri}
+        width={width}
+        height={height}
+        style={photoStyle}
+      />
     </div>
   )
 }

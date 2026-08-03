@@ -9,7 +9,8 @@
 //     with `is` or `has`". Needs type info (types: ["boolean"]).
 //
 //   - eslint-plugin-react (react/no-multi-comp) — one component per file in the
-//     view packages. Storybook stories + __fixtures__ are exempt.
+//     view packages. Storybook stories, __fixtures__ and the web storybook
+//     preview helpers are exempt.
 //
 // Mirror of mux-magic's eslint.config.js, trimmed to Inkcast's needs.
 
@@ -93,6 +94,10 @@ export default defineConfig(
     files: [
       "packages/{views,web}/**/__fixtures__/**/*.{ts,tsx}",
       "packages/{views,web}/**/*.stories.tsx",
+      // Storybook-only preview helpers: catalogs that map many view names to
+      // element builders are multi-component by nature, like the stories they
+      // feed.
+      "packages/web/src/storybook/**/*.tsx",
     ],
     rules: {
       "react/no-multi-comp": "off",
