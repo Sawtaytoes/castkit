@@ -56,7 +56,7 @@ discovery. Architecture + phase plan are in the README and
 | `@castkit/core` | Panel/palette definitions, device registry, the supersample→downscale→dither pipeline. No HTTP/engine deps. |
 | `@castkit/views` | Static React view components rendered by BOTH engines (inline styles, flexbox subset). One component per file. |
 | `@castkit/render` | Render engines: headless Chromium (Playwright) and Satori (SVG→resvg). Same view in, supersampled PNG out. |
-| `@castkit/web` | Vite browser dev-preview + view catalog. |
+| `@castkit/web` | Vite browser dev-preview + the ePaper Storybook (every view × panel, live dithering, crop controls). |
 | `@castkit/server` | Hono token API + MQTT publish/subscribe + idle/active state machine. |
 | `@castkit/shared` | Server↔Slatecast protocol, MQTT topic/discovery builders, view-data types. |
 | `@castkit/slatecast` | The tiny Preact SPA kiosk browsers load at `/d/<id>` (browser-mode devices). |
@@ -144,6 +144,26 @@ which is the thing to read before touching any of this.
 - `yarn e2e` — Playwright specs against the real server (`e2e/testServer.ts`,
   MQTT swapped for a recording stub). Run when you touch the browser-mode
   server, the page shell, or the WebSocket protocol.
+
+### Two Storybooks
+
+There are **two**, composed side by side on `storybook.octen.dev`:
+
+- **ePaper** (`@castkit/web`, `yarn storybook` / `yarn build:storybook`) — the
+  static React views, every one on every example panel, with **live in-browser
+  dithering** (the shared quantizer in `@castkit/core/pipeline/quantize`, the same
+  code the server dithers with) and crop-inset controls (the shared
+  `@castkit/core/panels/safeArea`).
+- **browser** (`@castkit/slatecast`, `yarn storybook:slatecast` /
+  `yarn build:storybook:slatecast`) — the Preact kiosk views. Separate because
+  slatecast is Preact under a gz budget and lays out in `vw`/`vh`/`vmin`, which
+  only resolve when the viewport *is* the panel; do **not** try to fold these into
+  the React Storybook (and `preact/compat` is ruled out — see the M5b handoff).
+
+CI builds both and asserts each index clears a floor (a dropped `stories:` glob
+otherwise "succeeds" with an empty sidebar). The CC0 sample photos both use live
+at repo-root `assets/sample-photos/` (served at `/sample-photos/`); verify a
+licence at source before adding one — see `assets/sample-photos/CREDITS.md`.
 
 Testing conventions (inherited from the mux-magic family, enforced here):
 `test()` never `it()`; **no snapshot or screenshot/VRT tests** — spell expected
