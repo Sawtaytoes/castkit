@@ -53,21 +53,28 @@ jobs:
         with: { node-version: 24 }
       - run: corepack enable && yarn install --immutable
       - run: yarn build:storybook
+      - run: yarn build:storybook:slatecast
 
       # The sibling false-green: a build that SUCCEEDS with an empty index, because
-      # the `stories:` glob in `packages/web/.storybook/main.ts` stopped matching
-      # after a move. Nothing errors and the site still serves — it just has no
-      # stories in it, and the composed sidebar shows an empty section. A floor, not
-      # a count: it catches the glob dropping out, not each story added.
-      - name: Assert the Storybook index is not empty
+      # a `stories:` glob (in either `.storybook/main.ts`) stopped matching after a
+      # move. Nothing errors and the site still serves — it just has no stories in
+      # it, and the composed sidebar shows an empty section. A floor, not a count:
+      # it catches the glob dropping out, not each story added.
+      - name: Assert the Storybook indexes are not empty
         run: |
           set -euo pipefail
-          count="$(node -p "Object.keys(require('./packages/web/storybook-static/index.json').entries).length")"
-          echo "Storybook indexed ${count} entries."
-          if [ "$count" -lt 4 ]; then
-            echo "::error::Storybook indexed ${count} entries (floor is 4) — has the stories glob in packages/web/.storybook/main.ts stopped matching?"
-            exit 1
-          fi
+          assert_floor() {
+            local label="$1" index="$2" floor="$3"
+            local count
+            count="$(node -p "Object.keys(require('${index}').entries).length")"
+            echo "${label} Storybook indexed ${count} entries."
+            if [ "$count" -lt "$floor" ]; then
+              echo "::error::${label} Storybook indexed ${count} entries (floor is ${floor}) — has a stories glob stopped matching?"
+              exit 1
+            fi
+          }
+          assert_floor "ePaper (web)" "./packages/web/storybook-static/index.json" 20
+          assert_floor "browser (slatecast)" "./packages/slatecast/storybook-static/index.json" 8
 
   docker-deploy:
     # Build + push the runtime image to GHCR; TrueNAS pulls it from there.
