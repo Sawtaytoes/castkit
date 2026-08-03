@@ -16,6 +16,8 @@
     "dev:server": "yarn workspace @castkit/server dev",
     "storybook": "yarn workspace @castkit/web storybook",
     "build:storybook": "yarn workspace @castkit/web build-storybook",
+    "storybook:slatecast": "yarn workspace @castkit/slatecast storybook",
+    "build:storybook:slatecast": "yarn workspace @castkit/slatecast build-storybook",
     "start:prod": "yarn workspace @castkit/server start:prod",
     "install-playwright-browser": "yarn playwright install chromium --with-deps",
     "lint:biome": "biome check --write --unsafe",
