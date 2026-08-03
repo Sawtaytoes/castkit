@@ -456,6 +456,7 @@ __metadata:
   resolution: "@castkit/web@workspace:packages/web"
   dependencies:
     "@castkit/core": "workspace:*"
+    "@castkit/render": "workspace:*"
     "@castkit/views": "workspace:*"
     "@storybook/addon-docs": "npm:^10.4.6"
     "@storybook/react-vite": "npm:^10.4.6"
