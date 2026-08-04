@@ -1,7 +1,16 @@
 /**
  * The committed CC0 sample photos, served by Storybook from `staticDirs` at
- * `/sample-photos/`. Provenance and licences are in
+ * `sample-photos/`. Provenance and licences are in
  * `assets/sample-photos/CREDITS.md`.
+ *
+ * The paths are RELATIVE (no leading slash) on purpose. `storybook.octen.dev`
+ * composes this Storybook as a ref under `/refs/castkit/`, and an absolute
+ * `/sample-photos/…` would resolve to the composed site's origin root (404),
+ * not the ref. A relative path resolves against the preview document
+ * (`…/iframe.html`), so the same build works at localhost and under the
+ * composed subpath. Kept as plain strings — not resolved against
+ * `document.baseURI` here — so the module stays importable from the Node
+ * catalog test.
  *
  * The server hands `PhotoFrameView` a `data:` URI, because Chromium renders
  * offline with no origin to fetch from. In a browser a plain URL behaves
@@ -17,32 +26,32 @@ export type SamplePhoto = {
 
 export const SAMPLE_PHOTOS = {
   portraitFace: {
-    url: "/sample-photos/portrait-face.jpg",
+    url: "sample-photos/portrait-face.jpg",
     label: "Portrait — single face",
     orientation: "portrait",
   },
   portraitFaceSecond: {
-    url: "/sample-photos/portrait-face-second.jpg",
+    url: "sample-photos/portrait-face-second.jpg",
     label: "Portrait — second face (Duo pairing)",
     orientation: "portrait",
   },
   highContrast: {
-    url: "/sample-photos/landscape-highcontrast.jpg",
+    url: "sample-photos/landscape-highcontrast.jpg",
     label: "Hard edges and deep shadow",
     orientation: "landscape",
   },
   gradient: {
-    url: "/sample-photos/landscape-gradient.jpg",
+    url: "sample-photos/landscape-gradient.jpg",
     label: "Smooth sky gradient",
     orientation: "landscape",
   },
   colour: {
-    url: "/sample-photos/landscape-colour.jpg",
+    url: "sample-photos/landscape-colour.jpg",
     label: "Saturated colour, dense detail",
     orientation: "landscape",
   },
   neutralText: {
-    url: "/sample-photos/landscape-neutral-text.jpg",
+    url: "sample-photos/landscape-neutral-text.jpg",
     label: "Signage and lettering",
     orientation: "landscape",
   },
