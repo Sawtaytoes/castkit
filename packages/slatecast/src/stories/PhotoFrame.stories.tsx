@@ -16,7 +16,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 const deviceStories = buildDeviceStories({
-  photoHandlerPath: "/sample-photos/landscape-colour.jpg",
+  photoHandlerPath: "sample-photos/landscape-colour.jpg",
 })
 
 export const MediaControls: Story =

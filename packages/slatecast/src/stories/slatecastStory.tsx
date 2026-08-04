@@ -114,7 +114,11 @@ export const buildDeviceStories = ({
   photoHandlerPath?: string
 } = {}): Record<string, StoryObj> => {
   const mswParameters = photoHandlerPath
-    ? { msw: buildPhotoHandlers(photoHandlerPath) }
+    ? {
+        msw: {
+          handlers: buildPhotoHandlers(photoHandlerPath),
+        },
+      }
     : {}
 
   return {
