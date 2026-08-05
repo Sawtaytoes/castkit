@@ -5,7 +5,7 @@
 # in prod — locked decision); `yarn build` also copies the font TTFs next to the
 # bundle, where the render engine resolves them by path.
 
-FROM node:24-slim AS base
+FROM node:26-slim AS base
 WORKDIR /app
 
 # Link the GHCR package to the repo.
