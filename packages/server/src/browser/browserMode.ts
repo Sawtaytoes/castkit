@@ -12,8 +12,8 @@ import {
   parseQueuePayload,
   parseWeatherPayload,
 } from "@castkit/shared/viewData/parsers"
-import { createNodeWebSocket } from "@hono/node-ws"
 import { createStaticHandler } from "@charcuterie/server"
+import { createNodeWebSocket } from "@hono/node-ws"
 import type { Hono } from "hono"
 import type { InkcastConfig } from "../config/env.ts"
 import {

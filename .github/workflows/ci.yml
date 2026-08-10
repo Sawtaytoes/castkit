@@ -7,13 +7,31 @@ on:
     branches: [master]
 
 jobs:
+  lint:
+    # Biome + the house ESLint rules from @charcuterie/eslint-config. `check`
+    # and `eslint .` without `--write`/`--fix`: the repo's `lint` script
+    # rewrites the tree, which in CI would report success on code that never
+    # existed in the commit.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with: { node-version-file: .nvmrc }
+      - run: npm install --global corepack@latest && corepack enable
+      - run: yarn install --immutable
+      - run: yarn lint:biome
+      - run: yarn lint:eslint
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
-        with: { node-version: 24 }
-      - run: corepack enable && yarn install --immutable
+        with: { node-version-file: .nvmrc }
+      # Node 26 unbundled corepack, so a bare `corepack enable` is exit-127
+      # there; install it first (the fleet's charcuterie-node-base does the same).
+      - run: npm install --global corepack@latest && corepack enable
+      - run: yarn install --immutable
       - run: yarn typecheck
 
   unit-tests:
@@ -21,8 +39,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
-        with: { node-version: 24 }
-      - run: corepack enable && yarn install --immutable
+        with: { node-version-file: .nvmrc }
+      # Node 26 unbundled corepack, so a bare `corepack enable` is exit-127
+      # there; install it first (the fleet's charcuterie-node-base does the same).
+      - run: npm install --global corepack@latest && corepack enable
+      - run: yarn install --immutable
       - run: yarn install-playwright-browser
       - run: yarn test
 
@@ -50,8 +71,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
-        with: { node-version: 24 }
-      - run: corepack enable && yarn install --immutable
+        with: { node-version-file: .nvmrc }
+      # Node 26 unbundled corepack, so a bare `corepack enable` is exit-127
+      # there; install it first (the fleet's charcuterie-node-base does the same).
+      - run: npm install --global corepack@latest && corepack enable
+      - run: yarn install --immutable
       - run: yarn build:storybook
       - run: yarn build:storybook:slatecast
 

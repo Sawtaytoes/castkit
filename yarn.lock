@@ -478,6 +478,26 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@charcuterie/biome-config@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "@charcuterie/biome-config@npm:1.0.0"
+  checksum: 10c0/d5b2a20083e72b89fbefad1d41a92e594614f69b2dfcbd031e60cf59e5432376ba67eb89a2fffb44ac95d91e417e1e6133096799b24fac6a528a22e1dc7fedfc
+  languageName: node
+  linkType: hard
+
+"@charcuterie/eslint-config@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@charcuterie/eslint-config@npm:1.1.0"
+  dependencies:
+    "@vitest/eslint-plugin": "npm:^1.6.20"
+    eslint-plugin-react: "npm:^7.37.5"
+  peerDependencies:
+    eslint: ">=10"
+    typescript-eslint: ">=8"
+  checksum: 10c0/eecf8047f1b9776715aa7c4c77cfc2859ea6f20be507bcb4351a4f24f4a560fe7832fc86074f0c1f312e1095b80f59bbbde95af11a07941f3ee86e2f47910909
+  languageName: node
+  linkType: hard
+
 "@charcuterie/logic@npm:^0.1.0":
   version: 0.1.0
   resolution: "@charcuterie/logic@npm:0.1.0"
@@ -499,6 +519,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@charcuterie/playwright-config@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@charcuterie/playwright-config@npm:1.0.1"
+  peerDependencies:
+    "@playwright/test": ">=1.40"
+  checksum: 10c0/309742d4b01a9bcb9ed06c8cbbe5149d2bc2d97eeff0d8384017da176555cb1c6c3dfd5bea652ebc398dd28e85397c940ffa5f713beec631d5bcaad3210722bd
+  languageName: node
+  linkType: hard
+
 "@charcuterie/server@npm:^0.1.0":
   version: 0.1.0
   resolution: "@charcuterie/server@npm:0.1.0"
@@ -517,6 +546,22 @@ __metadata:
   version: 0.2.0
   resolution: "@charcuterie/tokens@npm:0.2.0"
   checksum: 10c0/79c0e43626e421e769d20c8e43017865b570cf7ce289b7049cf62c7ba02bf42dad6c86c79012ae0a629d03bbe5b60b64abf036508bda80875a77263d3690d2f7
+  languageName: node
+  linkType: hard
+
+"@charcuterie/tsconfig@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "@charcuterie/tsconfig@npm:1.0.0"
+  checksum: 10c0/ed874314dcf6497b677ccc39f5cf442c8ad1d0d667e30a30fecf40e6a440b6949fc1a9e28d5ac02d79783770e884da80d92e935e269ac3710698f7a14d82a546
+  languageName: node
+  linkType: hard
+
+"@charcuterie/vitest-config@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@charcuterie/vitest-config@npm:1.0.1"
+  peerDependencies:
+    vitest: ">=3"
+  checksum: 10c0/8d5ed73c2110ed1d022a646cceefecd6346b37769b7f8487bfa227ba53526b3104906b9701b0fab94ba13c4443148f205c109e1dd2287c04c000c88ebcae913d
   languageName: node
   linkType: hard
 
@@ -3590,13 +3635,16 @@ __metadata:
     "@castkit/core": "workspace:*"
     "@castkit/render": "workspace:*"
     "@castkit/views": "workspace:*"
+    "@charcuterie/biome-config": "npm:^1.0.0"
+    "@charcuterie/eslint-config": "npm:^1.1.0"
+    "@charcuterie/playwright-config": "npm:^1.0.1"
+    "@charcuterie/tsconfig": "npm:^1.0.0"
+    "@charcuterie/vitest-config": "npm:^1.0.1"
     "@playwright/test": "npm:^1.61.1"
     "@resvg/resvg-js": "npm:^2.6.2"
     "@types/node": "npm:^26.1.0"
-    "@vitest/eslint-plugin": "npm:^1.6.20"
     esbuild: "npm:^0.28.1"
     eslint: "npm:^10.6.0"
-    eslint-plugin-react: "npm:^7.37.5"
     playwright: "npm:^1.61.1"
     react: "npm:^19.2.7"
     rimraf: "npm:^6.1.3"
