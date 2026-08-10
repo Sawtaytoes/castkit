@@ -1,8 +1,12 @@
+import { precompressAssets } from "@charcuterie/server/vite"
 import preact from "@preact/preset-vite"
 import { defineConfig } from "vite"
 
 export default defineConfig({
-  plugins: [preact()],
+  // Fixed asset names mean the `.br`/`.gz` siblings are rewritten
+  // alongside their source on every build, so they can never drift out
+  // of sync with it.
+  plugins: [preact(), precompressAssets()],
   build: {
     // The CastKit server provides the page shell (with the state snapshot
     // inlined), so the build has no index.html — just the module entry.

@@ -21,6 +21,7 @@
     "preact": "^10.29.1"
   },
   "devDependencies": {
+    "@charcuterie/server": "^0.1.0",
     "@preact/preset-vite": "^2.10.2",
     "@storybook/addon-docs": "^10",
     "@storybook/preact-vite": "^10",
