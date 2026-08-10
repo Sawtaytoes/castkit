@@ -1,4 +1,3 @@
-import { relative } from "node:path"
 import type { MqttPublisher } from "@castkit/shared/mqtt/publisher"
 import { parseDeviceCommand } from "@castkit/shared/protocol/commands"
 import type {
@@ -13,8 +12,8 @@ import {
   parseQueuePayload,
   parseWeatherPayload,
 } from "@castkit/shared/viewData/parsers"
-import { serveStatic } from "@hono/node-server/serve-static"
 import { createNodeWebSocket } from "@hono/node-ws"
+import { createStaticHandler } from "@charcuterie/server"
 import type { Hono } from "hono"
 import type { InkcastConfig } from "../config/env.ts"
 import {
@@ -657,14 +656,37 @@ export const createBrowserMode = ({
 
     const distDir = resolveSlatecastDistDir()
     if (distDir) {
-      // serveStatic's root is cwd-relative.
-      const relativeDistDir = relative(
-        process.cwd(),
-        distDir,
-      )
+      // `immutablePathPrefixes: []` is load-bearing, not tidying.
+      // The default treats `/assets/*` as content-hashed and caches it
+      // for a year — correct for a normal Vite build, WRONG here:
+      // slatecast pins fixed names (`assets/slatecast.js`, see its
+      // vite.config.ts) because the page shell references them
+      // directly with no manifest indirection. The bytes behind that
+      // URL change on every deploy, and the HA Reload button is the
+      // cache-buster. `immutable` would out-rank the reload and strand
+      // every panel on stale JS until the cache expired.
+      //
+      // With the list empty, everything falls in the revalidating
+      // bucket: `no-cache` + ETag, so a reload costs one 304 rather
+      // than the whole bundle. That is strictly better than today,
+      // which sends no cache headers at all and leaves it to the
+      // browser's heuristics.
+      //
+      // An asset origin, nothing else: the `/d/:id` pages below are
+      // rendered by this server, so `hasSpaFallback: false` keeps a
+      // missing chunk a 404 instead of answering it with HTML.
+      //
+      // `rootDir` is absolute here. The previous `relative(cwd, …)`
+      // dance existed because `serveStatic` resolves a *relative* root
+      // against the cwd — an absolute one needs no such care, and the
+      // cwd stops mattering.
       app.use(
         "/assets/*",
-        serveStatic({ root: relativeDistDir }),
+        createStaticHandler({
+          hasSpaFallback: false,
+          immutablePathPrefixes: [],
+          rootDir: distDir,
+        }),
       )
     } else {
       console.warn(
