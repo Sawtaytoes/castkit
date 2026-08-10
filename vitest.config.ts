@@ -1,10 +1,8 @@
-import { defineConfig } from "vitest/config"
+import { createVitestConfig } from "@charcuterie/vitest-config"
 
-export default defineConfig({
+export default createVitestConfig({
   test: {
     exclude: [
-      "**/node_modules/**",
-      "**/dist/**",
       "**/render-output/**",
       // Playwright specs have their own runner (`yarn e2e`); @playwright/test's
       // describe/test globals are not compatible with vitest.
