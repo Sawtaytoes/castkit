@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test"
+import { createPlaywrightConfig } from "@charcuterie/playwright-config"
 
 /**
  * E2E layer. The Vitest browser suite covers the SPA against a mocked socket;
@@ -8,26 +8,19 @@ import { defineConfig, devices } from "@playwright/test"
  *
  * `.spec.ts` is Playwright, `.test.ts(x)` is Vitest; the root vitest config
  * excludes `e2e/**` because @playwright/test's globals aren't compatible.
+ *
+ * The chromium project, CI-aware retries/workers and trace-on-first-retry come
+ * from `@charcuterie/playwright-config`; what stays here is CastKit's own —
+ * where the specs live, and the server they drive.
  */
 const port = Number(process.env.PORT ?? 3100)
 
-export default defineConfig({
+export default createPlaywrightConfig({
   testDir: "./e2e",
-  fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: `http://localhost:${port}`,
-    trace: "on-first-retry",
   },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-  ],
   webServer: {
     // The server serves the built SPA from SLATECAST_DIST_DIR, so build first.
     command:
