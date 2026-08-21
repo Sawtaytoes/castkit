@@ -6,12 +6,31 @@ on:
   push:
     branches: [master]
 
+# Every job carries a `timeout-minutes`. Without one a job inherits GitHub's
+# 6-hour ceiling, and a hang is then indistinguishable from a slow queue for
+# six hours — reporting `cancelled`, a conclusion that reads like
+# infrastructure rather than like a broken build. It costs a concurrency slot
+# the whole time, and it takes the deploy with it: `docker-deploy` below
+# `needs: [typecheck, unit-tests]`, so a job that never concludes success
+# SKIPS the deploy rather than failing it. A skipped deploy logs as a no-op,
+# not as a missed release.
+#
+# That is not hypothetical. The sibling repo queuepilot had four runs stall
+# inside `playwright install --with-deps` on 2026-08-19 and sit until the 6h
+# cap; mux-magic bounded its own jobs for the same reason (its #226). This
+# repo installs the same browser the same way and had no bound anywhere.
+#
+# The values are ceilings, NOT targets: ~5-10x each job's observed green
+# duration (unit-tests ~1-2.5min, lint/typecheck/storybook under a minute,
+# docker-deploy ~2min). Raise one only if a job legitimately grows into it.
+
 jobs:
   lint:
     # Biome + the house ESLint rules from @charcuterie/eslint-config. `check`
     # and `eslint .` without `--write`/`--fix`: the repo's `lint` script
     # rewrites the tree, which in CI would report success on code that never
     # existed in the commit.
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -23,6 +42,7 @@ jobs:
       - run: yarn lint:eslint
 
   typecheck:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -35,6 +55,7 @@ jobs:
       - run: yarn typecheck
 
   unit-tests:
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -44,7 +65,27 @@ jobs:
       # there; install it first (the fleet's charcuterie-node-base does the same).
       - run: npm install --global corepack@latest && corepack enable
       - run: yarn install --immutable
-      - run: yarn install-playwright-browser
+
+      # SPLIT, and bounded a second time here at the step. The stall in the
+      # header is an APT stall, not a Playwright one: `--with-deps` shells out
+      # to apt-get, and that is the half that hangs.
+      #
+      # So the apt half is best-effort — ubuntu-latest already ships the
+      # libraries chromium needs, and a dead Ubuntu mirror must not be able to
+      # block this repo's CI. The BROWSER half comes from Playwright's own CDN
+      # and is the part `vitest --browser` actually needs, so it runs on its
+      # own and must succeed.
+      #
+      # Deliberately not `yarn install-playwright-browser`: that script stays
+      # the plain `--with-deps` one-liner for local dev, because `timeout` is
+      # coreutils and doesn't exist on the Windows side of this fleet.
+      - name: Install chromium
+        timeout-minutes: 15
+        run: |
+          DEBIAN_FRONTEND=noninteractive timeout 300 yarn playwright install-deps chromium \
+            || echo "playwright install-deps failed or timed out (apt mirror?) — continuing; the runner image ships chromium's libs"
+          timeout 600 yarn playwright install chromium
+
       - run: yarn test
 
   storybook:
@@ -67,6 +108,7 @@ jobs:
     # is not in the runtime image. The views it renders are already covered for the
     # deploy by `typecheck` + `unit-tests`, so a story-only or `.storybook`-only
     # break should show as its own red check without holding back the server image.
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -104,6 +146,7 @@ jobs:
     # Build + push the runtime image to GHCR; TrueNAS pulls it from there.
     needs: [typecheck, unit-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     permissions:
       contents: read
