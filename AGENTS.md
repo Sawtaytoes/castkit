@@ -145,6 +145,39 @@ which is the thing to read before touching any of this.
   MQTT swapped for a recording stub). Run when you touch the browser-mode
   server, the page shell, or the WebSocket protocol.
 
+> ### `yarn test` and `yarn e2e` will not start in an agent sandbox — that is the container
+>
+> Both need a Playwright chromium build: `slatecast` runs in browser mode and `yarn e2e`
+> launches a real browser. `@castkit/render`'s headless engine wants one too. The agent
+> container ships browsers for its **own** globally-installed Playwright at a root-owned
+> `/opt/pw-browsers` and points `PLAYWRIGHT_BROWSERS_PATH` there. This repo pins its own
+> Playwright, which wants a **different** revision, and that directory is not writable by
+> the agent user. The run dies before the first test, naming a build number that is not
+> there.
+>
+> Install this repo's build somewhere writable and point the run at it:
+>
+> ```sh
+> PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers yarn playwright install chromium
+> PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers yarn test
+> PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers yarn e2e
+> ```
+>
+> Install the full `chromium` here rather than `chromium-headless-shell`: `yarn e2e` and
+> `@castkit/render` both want a real browser, and the headless shell cannot serve them.
+> `--dry-run` on the install prints the exact revision and path without downloading.
+>
+> ⚠️ **Never fix this by changing the repo.** Bumping `playwright` in any `package.json`, or
+> editing `playwright.config.ts` or a `vitest.config.ts` to match the container, changes what
+> this repo tests against for a reason that has nothing to do with the product. CI installs
+> the pinned version itself and has never had the problem.
+>
+> ⚠️ **Never report the UI as untested because of it.** A run that passed under the override
+> is a passing run — say that you used the override.
+>
+> Long version: `docs/runbooks/agent-sandbox-runtime.md` in the `agentic` workspace, and the
+> decision `docs/decisions/2026-08-24-a-playwright-browser-mismatch-is-an-environment-override-never-a-version-bump.md`.
+
 ### Two Storybooks
 
 There are **two**, composed side by side on `storybook.octen.dev`:
