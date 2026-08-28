@@ -1,4 +1,7 @@
+import { existsSync } from "node:fs"
+import { resolve } from "node:path"
 import { VIEW_NAMES } from "@castkit/shared/views/viewNames"
+import { createStaticHandler } from "@charcuterie/server"
 import { apiReference } from "@scalar/hono-api-reference"
 import { Hono } from "hono"
 import { bearerAuth } from "hono/bearer-auth"
@@ -6,6 +9,10 @@ import { buildOpenApiDocument } from "./api/openapi.ts"
 import { SetViewRequestSchema } from "./api/schemas.ts"
 import type { InkcastConfig } from "./config/env.ts"
 import type { PushController } from "./pushController.ts"
+import type {
+  DeviceDefinition,
+  DeviceDefinitionStore,
+} from "./state/deviceDefinitionStore.ts"
 import type { DeviceStore } from "./state/deviceStore.ts"
 import type { RenderTokenStore } from "./state/renderTokenStore.ts"
 
@@ -21,15 +28,27 @@ import type { RenderTokenStore } from "./state/renderTokenStore.ts"
 export const createApp = ({
   config,
   deviceStore,
+  deviceDefinitionStore,
+  onDeviceDefinitionsChanged,
   pushController,
   renderTokenStore,
 }: {
   config: InkcastConfig
   deviceStore: DeviceStore
+  deviceDefinitionStore: DeviceDefinitionStore
+  onDeviceDefinitionsChanged: () => void
   pushController: PushController
   renderTokenStore: RenderTokenStore
 }) => {
   const app = new Hono()
+
+  const managementDistDirectory = [
+    process.env.CASTKIT_MANAGEMENT_DIST_DIR,
+    resolve(import.meta.dirname, "./admin"),
+    resolve(import.meta.dirname, "../../../admin/dist"),
+  ].find((directory): directory is string =>
+    Boolean(directory && existsSync(directory)),
+  )
 
   // Bare domain → the interactive API docs (otherwise "/" is a bare 404).
   app.get("/", (context) => context.redirect("/docs"))
@@ -65,6 +84,156 @@ export const createApp = ({
       })),
     }),
   )
+
+  const getIsDeviceDefinition = (
+    value: unknown,
+  ): value is DeviceDefinition => {
+    if (value === null || typeof value !== "object") {
+      return false
+    }
+    const definition = value as Record<string, unknown>
+    const isRendererValid =
+      definition.renderer === undefined ||
+      definition.renderer === "browser"
+    return (
+      typeof definition.id === "string" &&
+      /^[a-z0-9][a-z0-9-]*$/.test(definition.id) &&
+      typeof definition.label === "string" &&
+      definition.label.length > 0 &&
+      typeof definition.mac === "string" &&
+      Number.isInteger(definition.width) &&
+      Number.isInteger(definition.height) &&
+      isRendererValid
+    )
+  }
+
+  const saveDeviceDefinitions = (
+    definitions: readonly DeviceDefinition[],
+  ) => {
+    const deviceIds = definitions.map((device) => device.id)
+    if (new Set(deviceIds).size !== deviceIds.length) {
+      throw new Error("Each device must have a unique id.")
+    }
+    deviceDefinitionStore.replaceAll(definitions)
+    onDeviceDefinitionsChanged()
+  }
+
+  app.get("/api/manage/devices", (context) =>
+    context.json({
+      devices: deviceDefinitionStore.getAll(),
+    }),
+  )
+
+  app.post("/api/manage/devices", async (context) => {
+    const definition = await context.req
+      .json()
+      .catch(() => null)
+    if (!getIsDeviceDefinition(definition)) {
+      return context.json(
+        { error: "invalid device definition" },
+        400,
+      )
+    }
+    try {
+      saveDeviceDefinitions([
+        ...deviceDefinitionStore.getAll(),
+        definition,
+      ])
+      return context.json({ isRestarting: true }, 201)
+    } catch (error) {
+      return context.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "save failed",
+        },
+        400,
+      )
+    }
+  })
+
+  app.put("/api/manage/devices/:id", async (context) => {
+    const definition = await context.req
+      .json()
+      .catch(() => null)
+    const deviceId = context.req.param("id")
+    if (
+      !getIsDeviceDefinition(definition) ||
+      definition.id !== deviceId
+    ) {
+      return context.json(
+        { error: "invalid device definition" },
+        400,
+      )
+    }
+    const definitions = deviceDefinitionStore.getAll()
+    if (
+      !definitions.some((device) => device.id === deviceId)
+    ) {
+      return context.json({ error: "unknown device" }, 404)
+    }
+    try {
+      saveDeviceDefinitions(
+        definitions.map((device) =>
+          device.id === deviceId ? definition : device,
+        ),
+      )
+      return context.json({ isRestarting: true })
+    } catch (error) {
+      return context.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "save failed",
+        },
+        400,
+      )
+    }
+  })
+
+  app.delete("/api/manage/devices/:id", (context) => {
+    const deviceId = context.req.param("id")
+    const definitions = deviceDefinitionStore.getAll()
+    if (
+      !definitions.some((device) => device.id === deviceId)
+    ) {
+      return context.json({ error: "unknown device" }, 404)
+    }
+    try {
+      saveDeviceDefinitions(
+        definitions.filter(
+          (device) => device.id !== deviceId,
+        ),
+      )
+      return context.json({ isRestarting: true })
+    } catch (error) {
+      return context.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "save failed",
+        },
+        400,
+      )
+    }
+  })
+
+  if (managementDistDirectory) {
+    app.get("/manage", (context) =>
+      context.redirect("/manage/"),
+    )
+    app.use(
+      "/manage/*",
+      createStaticHandler({
+        rootDir: managementDistDirectory,
+        rewriteRequestPath: (path) =>
+          path.replace(/^\/manage/, ""),
+      }),
+    )
+  }
 
   app.get("/api/devices/:id/image", async (context) => {
     const image = await pushController.renderDevice(
