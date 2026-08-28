@@ -47,6 +47,7 @@
     "@charcuterie/tsconfig": "^1.0.0",
     "@charcuterie/vitest-config": "^1.0.1",
     "@playwright/test": "^1.61.1",
+    "@storybook/preact-vite": "^10.5.10",
     "@types/node": "^26.1.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.6.0",
