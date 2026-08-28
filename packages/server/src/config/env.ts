@@ -195,6 +195,8 @@ export type InkcastConfig = {
   renderEngine: "chromium" | "satori"
   devices: readonly ConfiguredDevice[]
   browserDevices: readonly BrowserDeviceConfig[]
+  /** Persistent JSON file owned by the device-management UI. */
+  devicesFile: string | undefined
   /** Public base URL browser devices load, e.g. https://castkit.octen.dev. */
   publicUrl: string
   mqtt: MqttConfig
@@ -216,6 +218,7 @@ export const loadConfig = (
     renderEngine: parsed.INKCAST_RENDER_ENGINE,
     devices: imageDevices,
     browserDevices,
+    devicesFile: parsed.INKCAST_DEVICES_FILE,
     publicUrl: parsed.CASTKIT_PUBLIC_URL,
     mqtt: {
       url: parsed.MQTT_URL,

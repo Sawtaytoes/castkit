@@ -49,6 +49,7 @@ import {
   type PhotoFormat,
   type PhotoFormatSetting,
 } from "./state/deviceConfigStore.ts"
+import { createDeviceDefinitionStore } from "./state/deviceDefinitionStore.ts"
 import { createDeviceStore } from "./state/deviceStore.ts"
 import { createRenderTokenStore } from "./state/renderTokenStore.ts"
 import { createViewDataStore } from "./state/viewDataStore.ts"
@@ -294,6 +295,13 @@ const main = async () => {
   const deviceStore = createDeviceStore({
     deviceIds: config.devices.map((device) => device.id),
   })
+  const deviceDefinitionStore = createDeviceDefinitionStore(
+    {
+      devices: config.devices,
+      browserDevices: config.browserDevices,
+      devicesFile: config.devicesFile,
+    },
+  )
   const viewDataStore = createViewDataStore()
   const deviceConfigStore = createDeviceConfigStore()
 
@@ -1904,6 +1912,12 @@ const main = async () => {
   const app = createApp({
     config,
     deviceStore,
+    deviceDefinitionStore,
+    onDeviceDefinitionsChanged: () => {
+      setTimeout(() => {
+        process.kill(process.pid, "SIGTERM")
+      }, 100)
+    },
     pushController,
     renderTokenStore,
   })

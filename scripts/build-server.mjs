@@ -52,6 +52,17 @@ cpSync(
   { recursive: true },
 )
 
+// The management SPA lives in the same container as the device API. Its
+// SPA fallback is mounted at `/manage`, so links use real path URLs.
+execSync("yarn workspace @castkit/admin build", {
+  stdio: "inherit",
+})
+cpSync(
+  "packages/admin/dist",
+  "packages/server/dist/admin",
+  { recursive: true },
+)
+
 console.log(
-  "[build] packages/server/dist/index.js + fonts + slatecast SPA",
+  "[build] packages/server/dist/index.js + fonts + Slatecast + management SPA",
 )
