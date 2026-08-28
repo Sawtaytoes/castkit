@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest"
 import { createApp } from "./app.ts"
 import { loadConfig } from "./config/env.ts"
+import { createDeviceDefinitionStore } from "./state/deviceDefinitionStore.ts"
 import { createRenderTokenStore } from "./state/renderTokenStore.ts"
 
 const PNG = Buffer.from([
@@ -13,6 +14,12 @@ const makeApp = ({
   createApp({
     config: loadConfig({}),
     deviceStore: { getActiveView: () => "Clock" } as never,
+    deviceDefinitionStore: createDeviceDefinitionStore({
+      devices: loadConfig({}).devices,
+      browserDevices: [],
+      devicesFile: undefined,
+    }),
+    onDeviceDefinitionsChanged: () => {},
     pushController: { renderDevice: render } as never,
     renderTokenStore: createRenderTokenStore(),
   })

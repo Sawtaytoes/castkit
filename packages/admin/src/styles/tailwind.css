@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "@charcuterie/tokens/theme.css";
+@import "@charcuterie/tokens/fonts.css";
+@import "@charcuterie/ui/styles.css";
+@source "../../../../node_modules/@charcuterie/ui/dist";

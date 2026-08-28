@@ -27,6 +27,7 @@ COPY packages/views/package.json packages/views/package.json
 COPY packages/render/package.json packages/render/package.json
 COPY packages/server/package.json packages/server/package.json
 COPY packages/web/package.json packages/web/package.json
+COPY packages/admin/package.json packages/admin/package.json
 
 RUN yarn install --immutable
 
