@@ -22,6 +22,6 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@charcuterie/tokens": "^1.5.0"
+    "@charcuterie/tokens": "^1.6.0"
   }
 }
