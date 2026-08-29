@@ -121,6 +121,15 @@ else.
 
 Where it lands:
 
+- `@castkit/admin` is a full `@charcuterie/ui` application. It uses the shared UI
+  components, tokens, logic, and browser conventions.
+- The HTTP server uses `@charcuterie/server` on Hono where the shared layer fits.
+  CastKit-specific server-side rendering and static rendering remain valid tools for
+  display-facing applications.
+- Browser-mode display clients have a strict low-RAM budget. Do not add a React
+  compatibility layer or other heavy browser dependency to Slatecast.
+- Chromium is a server-side render engine for image-mode devices. It generates
+  images inside CastKit; it is not a requirement for browser-mode displays.
 - `@castkit/views` may use `@charcuterie/tokens/epaper` where its palette fits, but it is
   not required. CastKit is a custom dashboard and display interface, so a view can use a
   purpose-built rendering treatment when the target display or small panel needs it. The real Spectra 6 palette is this repo's own
@@ -129,8 +138,8 @@ Where it lands:
   on `data-scheme` on `<html>` (stamped by the server at first paint), and the socket's
   lifecycle is `@charcuterie/logic`'s connection machine.
 
-**`@charcuterie/ui` is not used and cannot be** — it is React, and slatecast is Preact
-under a 60 KB gz budget. Do not "fix" that with `preact/compat`; it is a known open
+**`@charcuterie/ui` is not used by Slatecast and cannot be** — it is React, and Slatecast is
+Preact under a 60 KB gz budget. Do not "fix" that with `preact/compat`; it is a known open
 question, written up in
 [the M5b handoff](../charcuterie/docs/2026-07-31-m5b-castkit-the-second-consumer.md),
 which is the thing to read before touching any of this.
