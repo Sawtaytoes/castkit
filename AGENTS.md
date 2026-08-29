@@ -130,6 +130,8 @@ Where it lands:
   compatibility layer or other heavy browser dependency to Slatecast.
 - Chromium is a server-side render engine for image-mode devices. It generates
   images inside CastKit; it is not a requirement for browser-mode displays.
+- Keep server-side gzip and Brotli asset precompression. It reduces transfer size
+  without adding browser runtime or RAM cost.
 - `@castkit/views` may use `@charcuterie/tokens/epaper` where its palette fits, but it is
   not required. CastKit is a custom dashboard and display interface, so a view can use a
   purpose-built rendering treatment when the target display or small panel needs it. The real Spectra 6 palette is this repo's own
