@@ -1,8 +1,14 @@
 <!doctype html>
-<html lang="en" data-density="comfortable" data-scheme="dark">
+<html lang="en" data-density="comfortable">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/manage/favicon.svg" />
+    <script>
+      var isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.setAttribute("data-scheme", isDark ? "dark" : "light");
+    </script>
     <title>CastKit device management</title>
   </head>
   <body class="bg-surface-base text-content-primary">
