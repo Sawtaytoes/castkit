@@ -26,7 +26,9 @@ display surfaces. The Admin UI benefits from standard shared components. The
 server benefits from a shared Hono layer. Display views can need target-specific
 layout, palette, static rendering, or server-side rendering. Browser-mode
 display clients have a low RAM budget. Chromium runs inside the server only to
-generate image-mode output.
+generate image-mode output. Server-side gzip and Brotli asset precompression
+remain useful because they reduce transfer size without adding browser runtime
+or RAM cost.
 
 ## Why
 
@@ -34,7 +36,8 @@ The product is a custom dashboard and display interface. Its value includes the
 ability to suit unusual display hardware. Charcuterie standardizes the
 management UI and common server layer. Custom rendering preserves the freedom
 that display-facing applications need. The low-RAM browser clients stay small,
-and image rendering remains a server concern.
+image rendering remains a server concern, and the server uses gzip and Brotli
+precompression for efficient delivery.
 
 ## Evidence
 
@@ -44,3 +47,4 @@ and the server layer, yes should be Charcuterie if it can to standardize on
 Hono, but it will need some customization like server-side or static rendering
 of apps." The owner also stated: "CastKit needs to keep browser RAM usage very
 low. And in other places, it only uses an internal Chromium to generate images."
+The owner also stated: "gzip/brotli compression."
