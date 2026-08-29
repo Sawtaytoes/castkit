@@ -34,17 +34,18 @@ const escapeJsonForHtml = (json: string) =>
   json.replace(/</g, "\\u003c")
 
 /**
- * The device's theme setting as `@charcuterie/tokens` spells it. Only "Light"
- * is light: "Auto" stays dark because a kiosk browser reports
- * `prefers-color-scheme: light` by default and a wall display wants dark.
- *
- * Stamped into the shell rather than applied by the SPA so the very first
- * paint is already the right colour — the alternative is a dark page flashing
- * white on every reload of a display nobody is sitting in front of.
+ * The device's explicit theme becomes a token scheme. "Auto" is resolved in
+ * the page before styles load, so it follows the display system setting from
+ * its first paint.
  */
-const resolveScheme = (
+const resolveExplicitScheme = (
   theme: BrowserDeviceSettings["theme"],
-) => (theme === "Light" ? "light" : "dark")
+) =>
+  theme === "Light"
+    ? "light"
+    : theme === "Dark"
+      ? "dark"
+      : null
 
 export const buildDevicePageHtml = ({
   snapshot,
@@ -55,13 +56,23 @@ export const buildDevicePageHtml = ({
   >
 }) => {
   const { device } = snapshot
+  const scheme = resolveExplicitScheme(
+    snapshot.settings.theme,
+  )
+  const schemeAttribute = scheme
+    ? ` data-scheme="${scheme}"`
+    : ""
+  const autoSchemeScript = scheme
+    ? ""
+    : `<script>document.documentElement.dataset.scheme=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"</script>`
   return `<!doctype html>
-<html lang="en" data-shape="${device.shape}" data-touch="${device.hasTouch}" data-colour="${device.colour}" data-scheme="${resolveScheme(snapshot.settings.theme)}" data-density="kiosk">
+<html lang="en" data-shape="${device.shape}" data-touch="${device.hasTouch}" data-colour="${device.colour}"${schemeAttribute} data-density="kiosk">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 <meta name="color-scheme" content="dark light" />
 <title>${device.label} · CastKit</title>
+${autoSchemeScript}
 <link rel="stylesheet" href="/assets/slatecast.css" />
 </head>
 <body>
