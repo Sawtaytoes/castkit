@@ -121,9 +121,10 @@ else.
 
 Where it lands:
 
-- `@castkit/views` takes its inks from `@charcuterie/tokens/epaper` instead of spelling
-  hexes. The library's original Spectra 6 set was invented; the real one is this repo's
-  own (`packages/core/src/panels/palette.ts`, from Pimoroni's `inky`).
+- `@castkit/views` may use `@charcuterie/tokens/epaper` where its palette fits, but it is
+  not required. CastKit is a custom dashboard and display interface, so a view can use a
+  purpose-built rendering treatment when the target display or small panel needs it. The real Spectra 6 palette is this repo's own
+  (`packages/core/src/panels/palette.ts`, from Pimoroni's `inky`).
 - `@castkit/slatecast`'s five palette custom properties alias the tokens, the scheme lives
   on `data-scheme` on `<html>` (stamped by the server at first paint), and the socket's
   lifecycle is `@charcuterie/logic`'s connection machine.

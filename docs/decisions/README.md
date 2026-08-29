@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-08-29 | [CastKit views retain rendering autonomy](2026-08-29-castkit-views-retain-rendering-autonomy.md) | Accepted |
 | 2026-08-27 | [Device management uses a list and editor](2026-08-27-device-management-uses-a-list-and-editor.md) | Accepted |
 | 2026-08-16 | [The dev preview gets a router; `/d/:id` and Slatecast deliberately do not](2026-08-16-the-dev-preview-routes-slatecast-and-d-id-do-not.md) — `packages/web` takes `<BrowserRouter>` + a one-entry `<Routes>` table per the fleet decision. The other two browser surfaces stay put on purpose: `/d/:id` is **server-rendered per device** and already a real path (the server IS the router), and Slatecast has one view and gets its device id from the rendered HTML rather than the URL. `hasSpaFallback: false` on `/assets/*` stays false — that is an asset origin, where a missing chunk must 404 rather than return HTML | Accepted |
 | 2026-07-27 | [A per-device "Updates" switch pauses a display, with no global counterpart](2026-07-27-per-device-updates-pause-switch.md) | Accepted |
