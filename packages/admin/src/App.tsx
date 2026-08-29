@@ -1,6 +1,7 @@
 import {
   Button,
   Card,
+  Checkbox,
   Field,
   Header,
   Main,
@@ -187,17 +188,11 @@ export const App = () => {
             Add device
           </Button>
         }
+        heading="CastKit device management"
         isSticky
-      >
-        <span className="font-display text-lg font-semibold">
-          CastKit
-        </span>
-        <span className="ms-3 text-content-secondary">
-          Device management
-        </span>
-      </Header>
+      />
       <Main className="p-4 md:p-6">
-        <div className="grid gap-4 lg:grid-cols-[minmax(18rem,.8fr)_minmax(0,1.2fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(18rem,.8fr)_minmax(0,1.2fr)]">
           <Card heading="Devices" padding="none">
             <div className="divide-y divide-border-subtle">
               {devices.map((device) => (
@@ -368,20 +363,16 @@ export const App = () => {
                         value={selectedDevice.shape}
                       />
                     </Field>
-                    <label className="flex items-center gap-2">
-                      <input
-                        checked={
-                          selectedDevice.hasTouch ?? false
-                        }
-                        onChange={(event) =>
-                          updateSelectedDevice({
-                            hasTouch: event.target.checked,
-                          })
-                        }
-                        type="checkbox"
-                      />{" "}
-                      Touch enabled
-                    </label>
+                    <Checkbox
+                      isChecked={
+                        selectedDevice.hasTouch ?? false
+                      }
+                      key={selectedDevice.id}
+                      label="Touch enabled"
+                      onChange={(hasTouch) =>
+                        updateSelectedDevice({ hasTouch })
+                      }
+                    />
                   </>
                 ) : (
                   <>

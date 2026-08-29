@@ -40,13 +40,28 @@ export const App = () => {
   const isSideways =
     orientation === 90 || orientation === 270
 
-  // The token palette hangs off `data-scheme` on <html>, which the server
-  // stamps at first paint. Keep it in step when HA changes the theme live —
-  // `html` and `body` read the same custom properties the stage does, so
-  // setting it on the stage alone would leave the page behind it dark.
+  // The token palette hangs off `data-scheme` on <html>. Explicit settings
+  // win; Auto follows the device system scheme, including later OS changes.
   useEffect(() => {
-    document.documentElement.dataset.scheme =
-      theme === "Light" ? "light" : "dark"
+    const mediaQuery = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    )
+    const applyScheme = () => {
+      document.documentElement.dataset.scheme =
+        theme === "Auto"
+          ? mediaQuery.matches
+            ? "dark"
+            : "light"
+          : theme.toLowerCase()
+    }
+    applyScheme()
+    if (theme !== "Auto") {
+      return undefined
+    }
+    mediaQuery.addEventListener("change", applyScheme)
+    return () => {
+      mediaQuery.removeEventListener("change", applyScheme)
+    }
   }, [theme])
 
   if (!profile) {
