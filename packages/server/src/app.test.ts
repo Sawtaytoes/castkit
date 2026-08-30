@@ -19,9 +19,11 @@ const makeApp = ({
       browserDevices: [],
       devicesFile: undefined,
     }),
+    getDeviceSettings: () => null,
     onDeviceDefinitionsChanged: () => {},
     pushController: { renderDevice: render } as never,
     renderTokenStore: createRenderTokenStore(),
+    setDeviceSetting: async () => false,
   })
 
 describe("render token delivery", () => {
@@ -67,5 +69,59 @@ describe("render token delivery", () => {
       },
     )
     expect(res.status).toBe(404)
+  })
+})
+
+describe("device automation settings", () => {
+  test("reads and writes settings through the management API", async () => {
+    const appliedSettings: {
+      kind: string
+      payload: string
+    }[] = []
+    const app = createApp({
+      config: loadConfig({}),
+      deviceStore: {
+        getActiveView: () => "Clock",
+      } as never,
+      deviceDefinitionStore: createDeviceDefinitionStore({
+        devices: loadConfig({}).devices,
+        browserDevices: [],
+        devicesFile: undefined,
+      }),
+      getDeviceSettings: (deviceId) =>
+        deviceId === "inky-phat"
+          ? { brightness: "100" }
+          : null,
+      onDeviceDefinitionsChanged: () => {},
+      pushController: {} as never,
+      renderTokenStore: createRenderTokenStore(),
+      setDeviceSetting: async ({ kind, payload }) => {
+        appliedSettings.push({ kind, payload })
+        return true
+      },
+    })
+
+    const getResponse = await app.request(
+      "/api/manage/devices/inky-phat/settings",
+    )
+    expect(getResponse.status).toBe(200)
+    expect(await getResponse.json()).toEqual({
+      settings: { brightness: "100" },
+    })
+
+    const putResponse = await app.request(
+      "/api/manage/devices/inky-phat/settings",
+      {
+        body: JSON.stringify({
+          settings: [{ kind: "brightness", payload: "80" }],
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      },
+    )
+    expect(putResponse.status).toBe(200)
+    expect(appliedSettings).toEqual([
+      { kind: "brightness", payload: "80" },
+    ])
   })
 })

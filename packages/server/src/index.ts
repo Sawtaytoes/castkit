@@ -1913,6 +1913,108 @@ const main = async () => {
     config,
     deviceStore,
     deviceDefinitionStore,
+    getDeviceSettings: (deviceId) => {
+      const device = pushController.deviceById.get(deviceId)
+      if (!device) {
+        return null
+      }
+      return {
+        photoPeople:
+          deviceConfigStore.getPhotoPeople(deviceId),
+        photoQuery:
+          deviceConfigStore.getPhotoQuery(deviceId),
+        photoInterval: String(
+          deviceConfigStore.getPhotoIntervalMinutes(
+            deviceId,
+          ) ?? 0,
+        ),
+        photoRecency: String(
+          deviceConfigStore.getPhotoRecencyHalfLifeDays(
+            deviceId,
+          ) ?? 0,
+        ),
+        photoPeopleMinimum: String(
+          deviceConfigStore.getPhotoPeopleMinimum(
+            deviceId,
+          ) ?? 0,
+        ),
+        photoFormat:
+          deviceConfigStore.getPhotoFormat(deviceId) ??
+          "Auto",
+        photoQuality: String(
+          deviceConfigStore.getPhotoQuality(deviceId) ?? 0,
+        ),
+        clockTimezone:
+          deviceConfigStore.getClockTimezone(deviceId),
+        clockTimeFormat:
+          CLOCK_TIME_FORMAT_OPTION_BY_SETTING[
+            deviceConfigStore.getClockTimeFormat(
+              deviceId,
+            ) ?? "auto"
+          ],
+        clockDateStyle:
+          CLOCK_DATE_STYLE_OPTION_BY_SETTING[
+            deviceConfigStore.getClockDateStyle(deviceId) ??
+              "auto"
+          ],
+        dither:
+          deviceConfigStore.getDitherAlgorithm(deviceId) ??
+          device.ditherProfile.algorithm,
+        rotation: String(
+          deviceConfigStore.getRotationOverride(deviceId) ??
+            device.rotation,
+        ),
+        ...(device.colourMode === "e6"
+          ? {
+              colourMode:
+                deviceConfigStore.getColourModeOverride(
+                  deviceId,
+                ) === "bw"
+                  ? "Black & White"
+                  : "Color",
+            }
+          : {}),
+        brightness: String(
+          deviceConfigStore.getBrightnessPercent(
+            deviceId,
+          ) ?? 100,
+        ),
+        saturation: String(
+          deviceConfigStore.getSaturationPercent(
+            deviceId,
+          ) ?? 100,
+        ),
+        crop_top: String(
+          deviceConfigStore.getCropInset({
+            deviceId,
+            edge: "top",
+          }) ?? 0,
+        ),
+        crop_right: String(
+          deviceConfigStore.getCropInset({
+            deviceId,
+            edge: "right",
+          }) ?? 0,
+        ),
+        crop_bottom: String(
+          deviceConfigStore.getCropInset({
+            deviceId,
+            edge: "bottom",
+          }) ?? 0,
+        ),
+        crop_left: String(
+          deviceConfigStore.getCropInset({
+            deviceId,
+            edge: "left",
+          }) ?? 0,
+        ),
+        updates: deviceConfigStore.getIsUpdatesEnabled(
+          deviceId,
+        )
+          ? "ON"
+          : "OFF",
+      }
+    },
     onDeviceDefinitionsChanged: () => {
       setTimeout(() => {
         process.kill(process.pid, "SIGTERM")
@@ -1920,6 +2022,49 @@ const main = async () => {
     },
     pushController,
     renderTokenStore,
+    setDeviceSetting: async ({
+      deviceId,
+      kind,
+      payload,
+    }) => {
+      const device = pushController.deviceById.get(deviceId)
+      const commandTopicByKind: Record<string, string> = {
+        photoPeople: "photoPeopleCommand",
+        photoQuery: "photoQueryCommand",
+        photoInterval: "photoIntervalCommand",
+        photoRecency: "photoRecencyCommand",
+        photoPeopleMinimum: "photoPeopleMinimumCommand",
+        photoFormat: "photoFormatCommand",
+        photoQuality: "photoQualityCommand",
+        clockTimezone: "clockTimezoneCommand",
+        clockTimeFormat: "clockTimeFormatCommand",
+        clockDateStyle: "clockDateStyleCommand",
+        dither: "ditherCommand",
+        rotation: "rotationCommand",
+        colourMode: "colourModeCommand",
+        brightness: "brightnessCommand",
+        saturation: "saturationCommand",
+        crop_top: "cropTopCommand",
+        crop_right: "cropRightCommand",
+        crop_bottom: "cropBottomCommand",
+        crop_left: "cropLeftCommand",
+        updates: "updatesCommand",
+      }
+      const commandKey = commandTopicByKind[kind]
+      if (!device || !commandKey || !publisher.isEnabled) {
+        return false
+      }
+      const topics = buildDeviceTopics({
+        baseTopic,
+        device,
+      }) as Record<string, string>
+      await publisher.publish({
+        topic: topics[commandKey] ?? "",
+        payload,
+        isRetained: false,
+      })
+      return true
+    },
   })
   const { injectWebSocket } = browserMode.attach(app)
   const server = serve({
