@@ -15,6 +15,7 @@ const TEST_DEVICE: BrowserDeviceConfig = {
   shape: "square",
   hasTouch: true,
   colour: "full",
+  rotation: 0,
 }
 
 describe("buildBrowserDeviceTopics", () => {

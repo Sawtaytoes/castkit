@@ -121,6 +121,15 @@ const BrowserDeviceConfigSchema = z.object({
     z.enum(["mono", "grayscale", "e6", "full"]),
     "full",
   ),
+  rotation: z._default(
+    z.union([
+      z.literal(0),
+      z.literal(90),
+      z.literal(180),
+      z.literal(270),
+    ]),
+    0,
+  ),
 })
 
 export type BrowserDeviceConfig = z.infer<

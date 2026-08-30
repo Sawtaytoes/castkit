@@ -322,7 +322,10 @@ export const App = () => {
       />
       <Main className="p-4 md:p-6">
         <div className="grid gap-4 xl:grid-cols-[minmax(18rem,.8fr)_minmax(0,1.2fr)]">
-          <Card heading="Devices" padding="none">
+          <Card padding="none">
+            <h2 className="border-b border-border-subtle px-4 py-4 font-semibold text-lg">
+              Devices
+            </h2>
             <div className="divide-y divide-border-subtle">
               {devices.map((device) => (
                 <button
@@ -502,6 +505,22 @@ export const App = () => {
                         updateSelectedDevice({ hasTouch })
                       }
                     />
+                    <Field label="Display rotation">
+                      <Picker
+                        label="Display rotation"
+                        onChange={(value) =>
+                          updateSelectedDevice({
+                            rotation: Number(
+                              value,
+                            ) as Device["rotation"],
+                          })
+                        }
+                        options={ROTATION_OPTIONS}
+                        value={String(
+                          selectedDevice.rotation ?? 0,
+                        )}
+                      />
+                    </Field>
                   </>
                 ) : (
                   <>
