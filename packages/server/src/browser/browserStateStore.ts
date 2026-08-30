@@ -32,6 +32,14 @@ export const createBrowserStateStore = ({
     BrowserDeviceSettings
   >()
 
+  const getDefaultSettings = (
+    deviceId: string,
+  ): BrowserDeviceSettings => ({
+    orientation: deviceById.get(deviceId)?.rotation ?? 0,
+    theme: "Auto",
+    photoIntervalMinutes: DEFAULT_PHOTO_INTERVAL_MINUTES,
+  })
+
   const getDefaultView = (deviceId: string) => {
     const device = deviceById.get(deviceId)
     return device
@@ -65,12 +73,8 @@ export const createBrowserStateStore = ({
     getSettings: (
       deviceId: string,
     ): BrowserDeviceSettings =>
-      settingsByDeviceId.get(deviceId) ?? {
-        orientation: 0,
-        theme: "Auto",
-        photoIntervalMinutes:
-          DEFAULT_PHOTO_INTERVAL_MINUTES,
-      },
+      settingsByDeviceId.get(deviceId) ??
+      getDefaultSettings(deviceId),
     setSettings: ({
       deviceId,
       settings,
@@ -78,12 +82,9 @@ export const createBrowserStateStore = ({
       deviceId: string
       settings: Partial<BrowserDeviceSettings>
     }): BrowserDeviceSettings => {
-      const current = settingsByDeviceId.get(deviceId) ?? {
-        orientation: 0 as const,
-        theme: "Auto" as const,
-        photoIntervalMinutes:
-          DEFAULT_PHOTO_INTERVAL_MINUTES,
-      }
+      const current =
+        settingsByDeviceId.get(deviceId) ??
+        getDefaultSettings(deviceId)
       const next = { ...current, ...settings }
       settingsByDeviceId.set(deviceId, next)
       return next
