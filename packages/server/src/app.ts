@@ -29,14 +29,24 @@ export const createApp = ({
   config,
   deviceStore,
   deviceDefinitionStore,
+  getDeviceSettings,
   onDeviceDefinitionsChanged,
+  setDeviceSetting,
   pushController,
   renderTokenStore,
 }: {
   config: InkcastConfig
   deviceStore: DeviceStore
   deviceDefinitionStore: DeviceDefinitionStore
+  getDeviceSettings: (
+    deviceId: string,
+  ) => Record<string, string> | null
   onDeviceDefinitionsChanged: () => void
+  setDeviceSetting: (params: {
+    deviceId: string
+    kind: string
+    payload: string
+  }) => Promise<boolean>
   pushController: PushController
   renderTokenStore: RenderTokenStore
 }) => {
@@ -220,6 +230,57 @@ export const createApp = ({
       )
     }
   })
+
+  app.get("/api/manage/devices/:id/settings", (context) => {
+    const settings = getDeviceSettings(
+      context.req.param("id"),
+    )
+    return settings
+      ? context.json({ settings })
+      : context.json({ error: "unknown image device" }, 404)
+  })
+
+  app.put(
+    "/api/manage/devices/:id/settings",
+    async (context) => {
+      const body = await context.req
+        .json()
+        .catch(() => null)
+      if (
+        body === null ||
+        typeof body !== "object" ||
+        !Array.isArray(
+          (body as { settings?: unknown }).settings,
+        )
+      ) {
+        return context.json(
+          { error: "invalid settings" },
+          400,
+        )
+      }
+      const deviceId = context.req.param("id")
+      const settings = (
+        body as {
+          settings: { kind?: unknown; payload?: unknown }[]
+        }
+      ).settings
+      const isApplied = await Promise.all(
+        settings.map((setting) =>
+          typeof setting.kind === "string" &&
+          typeof setting.payload === "string"
+            ? setDeviceSetting({
+                deviceId,
+                kind: setting.kind,
+                payload: setting.payload,
+              })
+            : Promise.resolve(false),
+        ),
+      )
+      return isApplied.every(Boolean)
+        ? context.json({ ok: true })
+        : context.json({ error: "invalid setting" }, 400)
+    },
+  )
 
   if (managementDistDirectory) {
     app.get("/manage", (context) =>

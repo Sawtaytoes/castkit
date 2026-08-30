@@ -24,6 +24,8 @@ type Device = {
   hasTouch?: boolean
 }
 
+type AutomationSettings = Record<string, string>
+
 const IMAGE_COLOUR_OPTIONS = [
   { label: "Mono", value: "mono" },
   { label: "Spectra 6", value: "e6" },
@@ -44,6 +46,63 @@ const SHAPE_OPTIONS = ["rect", "square", "round"].map(
     value,
   }),
 )
+const DITHER_OPTIONS = [
+  "floyd-steinberg",
+  "atkinson",
+  "ordered",
+  "off",
+  "threshold",
+  "stucki",
+  "sierra",
+].map((value) => ({ label: value, value }))
+const PHOTO_FORMAT_OPTIONS = [
+  "Auto",
+  "JPEG",
+  "WebP",
+  "PNG",
+].map((value) => ({ label: value, value }))
+const TIME_FORMAT_OPTIONS = [
+  "Auto",
+  "12-hour",
+  "24-hour",
+].map((value) => ({ label: value, value }))
+const DATE_STYLE_OPTIONS = ["Auto", "Long", "Numeric"].map(
+  (value) => ({ label: value, value }),
+)
+const COLOUR_MODE_OPTIONS = ["Color", "Black & White"].map(
+  (value) => ({ label: value, value }),
+)
+const AUTOMATION_PICKERS: readonly {
+  label: string
+  kind: string
+  options: readonly { label: string; value: string }[]
+}[] = [
+  {
+    label: "Dither",
+    kind: "dither",
+    options: DITHER_OPTIONS,
+  },
+  {
+    label: "Photo format",
+    kind: "photoFormat",
+    options: PHOTO_FORMAT_OPTIONS,
+  },
+  {
+    label: "Time format",
+    kind: "clockTimeFormat",
+    options: TIME_FORMAT_OPTIONS,
+  },
+  {
+    label: "Date style",
+    kind: "clockDateStyle",
+    options: DATE_STYLE_OPTIONS,
+  },
+  {
+    label: "Display rotation",
+    kind: "rotation",
+    options: ROTATION_OPTIONS,
+  },
+]
 
 const getBlankDevice = (): Device => ({
   id: "",
@@ -75,6 +134,10 @@ export const App = () => {
     "Enter the API token when your CastKit server uses one.",
   )
   const [isSaving, setIsSaving] = useState(false)
+  const [automationSettings, setAutomationSettings] =
+    useState<AutomationSettings>({})
+  const [isSavingAutomation, setIsSavingAutomation] =
+    useState(false)
 
   const loadDevices = useCallback(async () => {
     const response = await fetch("/api/manage/devices", {
@@ -110,6 +173,35 @@ export const App = () => {
   useEffect(() => {
     void loadDevices()
   }, [loadDevices])
+
+  useEffect(() => {
+    if (
+      !selectedDevice ||
+      selectedDevice.renderer === "browser"
+    ) {
+      setAutomationSettings({})
+      return
+    }
+    const loadAutomationSettings = async () => {
+      const response = await fetch(
+        `/api/manage/devices/${selectedDevice.id}/settings`,
+        { headers: getRequestHeaders(apiToken) },
+      )
+      if (!response.ok) {
+        return
+      }
+      const body = (await response.json()) as {
+        settings: AutomationSettings
+      }
+      setAutomationSettings(body.settings)
+    }
+    void loadAutomationSettings()
+  }, [
+    apiToken,
+    selectedDevice?.id,
+    selectedDevice?.renderer,
+    selectedDevice,
+  ])
 
   const updateSelectedDevice = (
     updates: Partial<Device>,
@@ -170,6 +262,43 @@ export const App = () => {
         ? "Deleted. CastKit is restarting to remove its Home Assistant discovery."
         : "Could not delete device.",
     )
+  }
+
+  const saveAutomationSettings = async () => {
+    if (!selectedDevice) {
+      return
+    }
+    setIsSavingAutomation(true)
+    const settings = Object.entries(automationSettings).map(
+      ([kind, payload]) => ({ kind, payload }),
+    )
+    const response = await fetch(
+      `/api/manage/devices/${selectedDevice.id}/settings`,
+      {
+        body: JSON.stringify({ settings }),
+        headers: getRequestHeaders(apiToken),
+        method: "PUT",
+      },
+    )
+    setMessage(
+      response.ok
+        ? "Sent automation settings to CastKit."
+        : "Could not save automation settings.",
+    )
+    setIsSavingAutomation(false)
+  }
+
+  const updateAutomationSetting = ({
+    kind,
+    value,
+  }: {
+    kind: string
+    value: string
+  }) => {
+    setAutomationSettings((currentSettings) => ({
+      ...currentSettings,
+      [kind]: value,
+    }))
   }
 
   const isBrowserDevice =
@@ -405,6 +534,165 @@ export const App = () => {
                         )}
                       />
                     </Field>
+                    <Card heading="Automation settings">
+                      <p className="mb-4 text-content-secondary text-sm">
+                        These are the same per-display
+                        controls that Home Assistant exposes
+                        over MQTT. Use Home Assistant for
+                        automations, or change them here for
+                        direct setup.
+                      </p>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {[
+                          [
+                            "Photo people",
+                            "photoPeople",
+                            "text",
+                          ],
+                          [
+                            "Photo query",
+                            "photoQuery",
+                            "text",
+                          ],
+                          [
+                            "Photo interval (minutes)",
+                            "photoInterval",
+                            "number",
+                          ],
+                          [
+                            "Photo recency (days)",
+                            "photoRecency",
+                            "number",
+                          ],
+                          [
+                            "People minimum",
+                            "photoPeopleMinimum",
+                            "number",
+                          ],
+                          [
+                            "Photo quality",
+                            "photoQuality",
+                            "number",
+                          ],
+                          [
+                            "Clock timezone",
+                            "clockTimezone",
+                            "text",
+                          ],
+                          [
+                            "Brightness (%)",
+                            "brightness",
+                            "number",
+                          ],
+                          [
+                            "Saturation (%)",
+                            "saturation",
+                            "number",
+                          ],
+                          [
+                            "Crop top (px)",
+                            "crop_top",
+                            "number",
+                          ],
+                          [
+                            "Crop right (px)",
+                            "crop_right",
+                            "number",
+                          ],
+                          [
+                            "Crop bottom (px)",
+                            "crop_bottom",
+                            "number",
+                          ],
+                          [
+                            "Crop left (px)",
+                            "crop_left",
+                            "number",
+                          ],
+                        ].map(([label, kind, type]) => (
+                          <Field key={kind} label={label}>
+                            <input
+                              className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
+                              onChange={(event) =>
+                                updateAutomationSetting({
+                                  kind,
+                                  value: event.target.value,
+                                })
+                              }
+                              type={type}
+                              value={
+                                automationSettings[kind] ??
+                                ""
+                              }
+                            />
+                          </Field>
+                        ))}
+                        {AUTOMATION_PICKERS.map(
+                          ({ label, kind, options }) => (
+                            <Field key={kind} label={label}>
+                              <Picker
+                                label={label}
+                                onChange={(value) =>
+                                  updateAutomationSetting({
+                                    kind,
+                                    value,
+                                  })
+                                }
+                                options={options}
+                                value={
+                                  automationSettings[
+                                    kind
+                                  ] ?? ""
+                                }
+                              />
+                            </Field>
+                          ),
+                        )}
+                        {selectedDevice.colourMode ===
+                        "e6" ? (
+                          <Field label="Colour mode">
+                            <Picker
+                              label="Colour mode"
+                              onChange={(value) =>
+                                updateAutomationSetting({
+                                  kind: "colourMode",
+                                  value,
+                                })
+                              }
+                              options={COLOUR_MODE_OPTIONS}
+                              value={
+                                automationSettings.colourMode ??
+                                "Color"
+                              }
+                            />
+                          </Field>
+                        ) : null}
+                      </div>
+                      <Checkbox
+                        isChecked={
+                          automationSettings.updates !==
+                          "OFF"
+                        }
+                        label="Accept updates"
+                        onChange={(isEnabled) =>
+                          updateAutomationSetting({
+                            kind: "updates",
+                            value: isEnabled ? "ON" : "OFF",
+                          })
+                        }
+                      />
+                      <div className="mt-4">
+                        <Button
+                          isLoading={isSavingAutomation}
+                          onClick={() =>
+                            void saveAutomationSettings()
+                          }
+                          type="button"
+                        >
+                          Save automation settings
+                        </Button>
+                      </div>
+                    </Card>
                   </>
                 )}
                 <Field
