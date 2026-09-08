@@ -205,3 +205,42 @@ jobs:
           # fleet topic migration retires the inkcast TrueNAS app.
           docker push ghcr.io/sawtaytoes/castkit:latest
           docker push ghcr.io/sawtaytoes/castkit:${{ github.sha }}
+
+  remote-display-tests:
+    needs: [changes]
+    if: ${{ needs.changes.outputs.isDocsOnly != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.13' }
+      - run: pip install -r device-client/remote-display/requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m unittest discover -s device-client/remote-display -p 'test_*.py'
+      - name: Validate firmware configuration
+        run: |
+          pip install esphome==2026.8.2
+          printf 'api_encryption_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="\nota_password: "test-only"\nwifi_ssid: "test-only"\nwifi_password: "test-only-password"\n' > device-client/esphome/secrets.yaml
+          esphome config device-client/esphome/wt32-sc01-plus.yaml > /dev/null
+
+  remote-display-deploy:
+    needs: [remote-display-tests, lint, typecheck, unit-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push the remote-display client
+        run: |
+          docker build -f device-client/remote-display/Dockerfile -t ghcr.io/sawtaytoes/castkit-remote-display:latest -t ghcr.io/sawtaytoes/castkit-remote-display:${{ github.sha }} .
+          docker push ghcr.io/sawtaytoes/castkit-remote-display:latest
+          docker push ghcr.io/sawtaytoes/castkit-remote-display:${{ github.sha }}
