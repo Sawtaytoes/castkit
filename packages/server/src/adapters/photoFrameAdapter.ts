@@ -17,6 +17,7 @@ import {
   isPortraitImage,
   type PhotoFitMode,
   preparePhotoFrameImage,
+  type VisibleInset,
 } from "../immich/photoFrameImage.ts"
 import type { DeviceConfigStore } from "../state/deviceConfigStore.ts"
 import type { ViewDataStore } from "../state/viewDataStore.ts"
@@ -42,12 +43,12 @@ const HISTORY_LIMIT = 20
 const DUAL_PORTRAIT_GUTTER_PIXELS = 8
 
 /**
- * How many candidate assets to draw when building a dual-portrait frame. We
- * keep the first two that are portrait; drawing a handful makes it likely two
- * portraits turn up even in a mixed-orientation pool before we fall back to a
- * single photo.
+ * How many candidate assets to draw when building a dual-portrait frame. The
+ * draw is already portrait-only (the pool records each asset's orientation), so
+ * two candidates almost always suffice; the third is a spare for the rare asset
+ * whose stored dimensions disagree with the preview JPEG we crop.
  */
-const DUAL_PORTRAIT_CANDIDATE_DRAW = 6
+const DUAL_PORTRAIT_CANDIDATE_DRAW = 3
 
 type PhotoHistory = {
   assetIds: readonly string[]
@@ -96,6 +97,36 @@ export const createPhotoFrameAdapter = ({
       assetIds: [],
       cursorIndex: -1,
     }
+
+  /**
+   * The device's mat crop inset, in native panel pixels. A photo view still
+   * bleeds to the panel edge, but the crop is composed for the box the mat
+   * leaves visible, so a face never lands underneath it.
+   */
+  const resolveVisibleInset = (
+    deviceId: string,
+  ): VisibleInset => ({
+    top:
+      deviceConfigStore.getCropInset({
+        deviceId,
+        edge: "top",
+      }) ?? 0,
+    right:
+      deviceConfigStore.getCropInset({
+        deviceId,
+        edge: "right",
+      }) ?? 0,
+    bottom:
+      deviceConfigStore.getCropInset({
+        deviceId,
+        edge: "bottom",
+      }) ?? 0,
+    left:
+      deviceConfigStore.getCropInset({
+        deviceId,
+        edge: "left",
+      }) ?? 0,
+  })
 
   const recordShownAsset = ({
     deviceId,
@@ -146,6 +177,7 @@ export const createPhotoFrameAdapter = ({
       targetHeight: device.height,
       faceBoxes,
       fitMode,
+      visibleInset: resolveVisibleInset(device.id),
     })
 
     viewDataStore.setPhotoFrame({
@@ -196,10 +228,11 @@ export const createPhotoFrameAdapter = ({
 
   /**
    * Try to build a dual-portrait frame: two portrait photos face-steered into
-   * their own half-panel columns and composited side by side. Draws a handful
-   * of candidates and keeps the first two that are portrait. Returns false
-   * (caller falls back to a single photo) when fewer than two portraits turn
-   * up. The primary (left) asset is what history records.
+   * their own half-panel columns and composited side by side. Draws portrait
+   * candidates only and keeps the first two whose preview verifies as portrait.
+   * Returns false (caller falls back to a single photo) when the pool genuinely
+   * holds fewer than two portraits. The primary (left) asset is what history
+   * records.
    */
   const showDualPortrait = async ({
     device,
@@ -220,6 +253,7 @@ export const createPhotoFrameAdapter = ({
       ),
       peopleMinimum: getPeopleMinimum(device.id),
       count: DUAL_PORTRAIT_CANDIDATE_DRAW,
+      isPortraitOnly: true,
     })
 
     const candidates = await Promise.all(
@@ -274,6 +308,7 @@ export const createPhotoFrameAdapter = ({
       targetWidth: device.width,
       targetHeight: device.height,
       gutterPixels: DUAL_PORTRAIT_GUTTER_PIXELS,
+      visibleInset: resolveVisibleInset(device.id),
     })
 
     viewDataStore.setPhotoFrame({
