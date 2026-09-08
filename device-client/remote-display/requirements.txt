@@ -1,0 +1,5 @@
+aioesphomeapi==46.3.0
+playwright==1.62.0
+PyYAML==6.0.3
+Pillow==12.3.0
+numpy>=2.3,<3

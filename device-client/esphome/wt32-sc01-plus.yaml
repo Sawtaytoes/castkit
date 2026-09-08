@@ -1,0 +1,122 @@
+# Generic example. Supply Wi-Fi/API/OTA credentials through ESPHome secrets.yaml.
+substitutions:
+  device_name: castkit-display
+  friendly_name: CastKit Display
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2026.8.2
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB
+  cpu_frequency: 240MHz
+  framework:
+    type: esp-idf
+psram:
+  mode: quad
+  speed: 80MHz
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+  level: INFO
+api:
+  encryption:
+    key: !secret api_encryption_key
+  reboot_timeout: 0s
+  batch_delay: 0ms
+  actions:
+    - action: configure_touch_regions
+      variables:
+        frame_id: int
+        regions: string
+      then:
+        - lambda: id(bitmap_receiver).configure_touch_regions(frame_id, regions);
+    - action: frame_chunk
+      variables:
+        frame_id: int
+        touch_id: int
+        format: int
+        offset: int
+        final_chunk: bool
+        image_data: string
+      then:
+        - lambda: id(bitmap_receiver).frame_chunk(frame_id, touch_id, format, offset, final_chunk, image_data);
+ota:
+  - platform: esphome
+    password: !secret ota_password
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  reboot_timeout: 0s
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [castkit_display]
+spi:
+  - id: display_bus
+    type: octal
+    clk_pin: 47
+    data_pins:
+      - 9
+      - number: 46
+        ignore_strapping_warning: true
+      - number: 3
+        ignore_strapping_warning: true
+      - 8
+      - 18
+      - 17
+      - 16
+      - 15
+display:
+  - platform: mipi_spi
+    id: panel
+    model: WT32-SC01-PLUS
+    data_rate: 10MHz
+    rotation: 90
+    byte_order: big_endian
+    update_interval: never
+    auto_clear_enabled: false
+output:
+  - platform: ledc
+    id: backlight_output
+    pin: 45
+light:
+  - platform: monochromatic
+    id: backlight
+    output: backlight_output
+    restore_mode: ALWAYS_ON
+i2c:
+  sda: 6
+  scl: 5
+  frequency: 400kHz
+touchscreen:
+  - platform: ft63x6
+    id: touch_panel
+    display: panel
+    interrupt_pin: 7
+    transform:
+      swap_xy: true
+      mirror_y: true
+    on_touch:
+      - lambda: |-
+          id(bitmap_receiver).touch(0, touch.x, touch.y);
+    on_update:
+      - lambda: |-
+          for (const auto &point : touches) {
+            if (point.state == 2) id(bitmap_receiver).touch(1, point.x, point.y);
+          }
+    on_release:
+      - lambda: id(bitmap_receiver).touch(2, 0, 0);
+text_sensor:
+  - platform: template
+    id: test_events
+    name: Display Events
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+castkit_display:
+  id: bitmap_receiver
+  display_id: panel
+  events_id: test_events

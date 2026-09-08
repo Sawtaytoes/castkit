@@ -1,0 +1,6 @@
+# Infrastructure only. Rendering and cache instructions come from the app manifest.
+manifest_url: https://app.example.com/panel/castkit.json
+host: display.local
+mac: "02:00:00:00:00:01"
+secrets_path: /run/secrets/esphome.yaml
+api_key_name: api_encryption_key
