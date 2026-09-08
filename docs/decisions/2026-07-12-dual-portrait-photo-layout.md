@@ -5,6 +5,7 @@
 - **Type:** Product behavior
 - **Supersedes:** —
 - **Superseded by:** —
+- **Refined by:** [2026-09-07-photo-views-compose-for-the-visible-window](2026-09-07-photo-views-compose-for-the-visible-window.md) — the two columns and the gutter are measured on the visible window when a mat is configured
 
 ## Decision
 

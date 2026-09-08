@@ -33,10 +33,18 @@ export type FaceBox = {
   y2: number
 }
 
-/** One asset in the pick pool: its id plus its creation time (0 = unknown). */
+/**
+ * One asset in the pick pool: its id, its creation time (0 = unknown), and
+ * whether it is taller than it is wide. Both search endpoints return an
+ * orientation-corrected `width`/`height` per item, so the Duo view can draw
+ * only portraits instead of sampling blind and falling back to a single photo
+ * whenever two portraits fail to turn up. An asset with no dimensions reads as
+ * not-portrait — Duo verifies the real preview before it composes anyway.
+ */
 export type AssetPoolEntry = {
   id: string
   createdAtMs: number
+  isPortrait: boolean
 }
 
 /**
@@ -198,6 +206,22 @@ const parseCreatedAtMs = (
   return Number.isNaN(parsedMs) ? 0 : parsedMs
 }
 
+/**
+ * Whether a search item is taller than it is wide. Immich's `width`/`height`
+ * are already EXIF-orientation corrected, so they match the preview JPEG the
+ * frame actually crops. Missing dimensions read as false.
+ */
+export const getIsPortraitAsset = ({
+  width,
+  height,
+}: {
+  width: number | undefined
+  height: number | undefined
+}) =>
+  width !== undefined &&
+  height !== undefined &&
+  height > width
+
 const fetchSearchPoolEntries = async ({
   config,
   searchPath,
@@ -223,12 +247,20 @@ const fetchSearchPoolEntries = async ({
     },
   })
   const assets = result.assets ?? {}
-  const items: { id: string; fileCreatedAt?: string }[] =
-    assets.items ?? []
+  const items: {
+    id: string
+    fileCreatedAt?: string
+    width?: number
+    height?: number
+  }[] = assets.items ?? []
   const nextCollected = collected.concat(
     items.map((item) => ({
       id: item.id,
       createdAtMs: parseCreatedAtMs(item.fileCreatedAt),
+      isPortrait: getIsPortraitAsset({
+        width: item.width,
+        height: item.height,
+      }),
     })),
   )
   const nextPage = assets.nextPage
@@ -509,6 +541,7 @@ export const pickRandomAssetIds = async ({
   recencyHalfLifeDays = DEFAULT_RECENCY_HALF_LIFE_DAYS,
   peopleMinimum = DEFAULT_PEOPLE_MINIMUM,
   count,
+  isPortraitOnly = false,
 }: {
   config: ImmichConfig
   personIds: readonly string[]
@@ -516,8 +549,15 @@ export const pickRandomAssetIds = async ({
   recencyHalfLifeDays?: number
   peopleMinimum?: number
   count: number
+  /**
+   * Draw only from portrait assets — what the Duo view needs. Unlike
+   * `peopleMinimum` this does NOT fall back to the whole pool: a landscape
+   * photo is useless to a two-up column, and the caller has its own
+   * single-photo fallback.
+   */
+  isPortraitOnly?: boolean
 }): Promise<readonly string[]> => {
-  const pool = applyPeopleMinimum({
+  const matchedPool = applyPeopleMinimum({
     pool: await buildAssetPool({
       config,
       personIds,
@@ -525,6 +565,9 @@ export const pickRandomAssetIds = async ({
     }),
     peopleMinimum,
   })
+  const pool = isPortraitOnly
+    ? matchedPool.filter((entry) => entry.isPortrait)
+    : matchedPool
   if (pool.length === 0) {
     return []
   }

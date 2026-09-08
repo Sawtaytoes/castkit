@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest"
 import {
   applyPeopleMinimum,
   computeRecencyWeight,
+  getIsPortraitAsset,
   pickWeightedIndex,
 } from "./immichClient.ts"
 
@@ -143,21 +144,59 @@ describe("pickWeightedIndex", () => {
   })
 })
 
+describe("getIsPortraitAsset", () => {
+  test("taller than wide is portrait", () => {
+    expect(
+      getIsPortraitAsset({ width: 3000, height: 4000 }),
+    ).toBe(true)
+  })
+
+  test("wider than tall is not portrait", () => {
+    expect(
+      getIsPortraitAsset({ width: 4000, height: 3000 }),
+    ).toBe(false)
+  })
+
+  test("a square asset is not portrait", () => {
+    expect(
+      getIsPortraitAsset({ width: 2000, height: 2000 }),
+    ).toBe(false)
+  })
+
+  test("missing dimensions read as not portrait", () => {
+    expect(
+      getIsPortraitAsset({
+        width: undefined,
+        height: 4000,
+      }),
+    ).toBe(false)
+    expect(
+      getIsPortraitAsset({
+        width: undefined,
+        height: undefined,
+      }),
+    ).toBe(false)
+  })
+})
+
 describe("applyPeopleMinimum", () => {
   const POOL = [
     {
       id: "all-three",
       createdAtMs: 0,
+      isPortrait: true,
       matchedPersonCount: 3,
     },
     {
       id: "two-of-them",
       createdAtMs: 0,
+      isPortrait: false,
       matchedPersonCount: 2,
     },
     {
       id: "just-one",
       createdAtMs: 0,
+      isPortrait: true,
       matchedPersonCount: 1,
     },
   ]
