@@ -1,10 +1,7 @@
 import type { SafeAreaInset } from "@castkit/core/panels/safeArea"
 import { resolveSafeArea } from "@castkit/core/panels/safeArea"
 import type { ViewName } from "@castkit/shared/views/viewNames"
-import {
-  getIsBleedView,
-  getIsPhotoView,
-} from "@castkit/shared/views/viewNames"
+import { getIsPhotoView } from "@castkit/shared/views/viewNames"
 import type { ViewColourMode } from "@castkit/views/viewProps"
 import { useEffect, useState } from "react"
 import { pickPhotoForPanel } from "../stories/__fixtures__/samplePhotos.ts"
@@ -24,7 +21,7 @@ import { buildStoryView } from "./storyViewCatalog.tsx"
  * disagree about the box or the clamping.
  *
  * Bleed views — the photo-frame family — ignore the inset and fill the panel,
- * matching `pushController`'s `isBleedView ? undefined : {…}`.
+ * matching `pushController`, which applies the inset to every view.
  *
  * Photos are cover-cropped to the exact content pixels first (see
  * `coverCropToDataUrl`), so a view receives a photo the panel's own size — as
@@ -49,12 +46,11 @@ export const PanelStage = ({
   isEmpty,
   photoUrl,
 }: PanelStageProps) => {
-  const isBleedView = getIsBleedView(viewName)
   const { inset, contentWidth, contentHeight } =
     resolveSafeArea({
       width,
       height,
-      safeAreaInset: isBleedView ? undefined : cropInset,
+      safeAreaInset: cropInset,
     })
 
   const sourcePhotoUrl = getIsPhotoView(viewName)
