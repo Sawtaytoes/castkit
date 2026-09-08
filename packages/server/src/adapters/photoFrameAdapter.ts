@@ -1,3 +1,4 @@
+import { resolveSafeArea } from "@castkit/core/panels/safeArea"
 import {
   getIsPhotoView,
   type ViewName,
@@ -17,7 +18,6 @@ import {
   isPortraitImage,
   type PhotoFitMode,
   preparePhotoFrameImage,
-  type VisibleInset,
 } from "../immich/photoFrameImage.ts"
 import type { DeviceConfigStore } from "../state/deviceConfigStore.ts"
 import type { ViewDataStore } from "../state/viewDataStore.ts"
@@ -99,34 +99,29 @@ export const createPhotoFrameAdapter = ({
     }
 
   /**
-   * The device's mat crop inset, in native panel pixels. A photo view still
-   * bleeds to the panel edge, but the crop is composed for the box the mat
-   * leaves visible, so a face never lands underneath it.
+   * The size the photo must be composed at: the panel minus the mat, so the
+   * whole picture lands inside the box the owner can actually see. The render
+   * pipeline lays the view out at this same size and pads the mat margin with
+   * white (`resolveSafeArea` + `renderDeviceImage`), so a photo composed here
+   * maps one-to-one onto the visible window.
    */
-  const resolveVisibleInset = (
-    deviceId: string,
-  ): VisibleInset => ({
-    top:
-      deviceConfigStore.getCropInset({
-        deviceId,
-        edge: "top",
-      }) ?? 0,
-    right:
-      deviceConfigStore.getCropInset({
-        deviceId,
-        edge: "right",
-      }) ?? 0,
-    bottom:
-      deviceConfigStore.getCropInset({
-        deviceId,
-        edge: "bottom",
-      }) ?? 0,
-    left:
-      deviceConfigStore.getCropInset({
-        deviceId,
-        edge: "left",
-      }) ?? 0,
-  })
+  const resolvePhotoTargetSize = (
+    device: ConfiguredDevice,
+  ) => {
+    const { contentWidth, contentHeight } = resolveSafeArea(
+      {
+        width: device.width,
+        height: device.height,
+        safeAreaInset: deviceConfigStore.getSafeAreaInset(
+          device.id,
+        ),
+      },
+    )
+    return {
+      targetWidth: contentWidth,
+      targetHeight: contentHeight,
+    }
+  }
 
   const recordShownAsset = ({
     deviceId,
@@ -173,11 +168,9 @@ export const createPhotoFrameAdapter = ({
     ])
     const { png, mode } = await preparePhotoFrameImage({
       jpegBytes,
-      targetWidth: device.width,
-      targetHeight: device.height,
+      ...resolvePhotoTargetSize(device),
       faceBoxes,
       fitMode,
-      visibleInset: resolveVisibleInset(device.id),
     })
 
     viewDataStore.setPhotoFrame({
@@ -305,10 +298,8 @@ export const createPhotoFrameAdapter = ({
       leftFaceBoxes,
       rightJpegBytes: right.jpegBytes,
       rightFaceBoxes,
-      targetWidth: device.width,
-      targetHeight: device.height,
+      ...resolvePhotoTargetSize(device),
       gutterPixels: DUAL_PORTRAIT_GUTTER_PIXELS,
-      visibleInset: resolveVisibleInset(device.id),
     })
 
     viewDataStore.setPhotoFrame({
@@ -364,9 +355,13 @@ export const createPhotoFrameAdapter = ({
         device.rotation
       const isWidthAxisHorizontal =
         effectiveRotation === 0 || effectiveRotation === 180
+      // Measured on the VISIBLE box, not the panel: a deep mat on the left and
+      // right is what decides whether two columns still fit side by side.
+      const photoTargetSize = resolvePhotoTargetSize(device)
       const isDualPortrait =
         activeView === DUAL_PHOTO_VIEW &&
-        device.width > device.height &&
+        photoTargetSize.targetWidth >
+          photoTargetSize.targetHeight &&
         isWidthAxisHorizontal
       if (isDualPortrait) {
         const hasShownDual = await showDualPortrait({
