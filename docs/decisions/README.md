@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-08 | [Remote displays read an app-owned manifest](2026-09-08-remote-display-reads-an-app-owned-manifest.md) | Accepted |
 | 2026-09-07 | [Photo views compose for the visible window, then bleed under the mat](2026-09-07-photo-views-compose-for-the-visible-window.md) | Accepted |
 | 2026-08-30 | [The Web UI is full configuration; HA MQTT is automation](2026-08-30-web-ui-is-full-config-ha-mqtt-is-automation.md) | Accepted |
 | 2026-08-29 | [CastKit views retain rendering autonomy](2026-08-29-castkit-views-retain-rendering-autonomy.md) | Accepted |
