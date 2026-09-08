@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { MONO_PALETTE } from "@castkit/core/panels/palette"
 import type { FullColourEncoding } from "@castkit/core/pipeline/dither"
 import {
-  getIsBleedView,
+  getIsLossyEncodableView,
   type ViewName,
 } from "@castkit/shared/views/viewNames"
 import type { ConfiguredDevice } from "./config/env.ts"
@@ -133,9 +133,8 @@ export const createPushController = ({
       (saturationPercent !== undefined &&
         saturationPercent !== 100)
 
-    // Text views honour the mat's safe-area crop; photos bleed to the edge.
+    // EVERY view honours the mat's safe-area crop, photos included.
     const activeView = deviceStore.getActiveView(deviceId)
-    const isBleedView = getIsBleedView(activeView)
     // A "http-pull" panel is an ESPHome `online_image`, whose decoder is chosen
     // at COMPILE time (`format: png`) — it sniffs the magic bytes and rejects
     // anything else with "Incorrect PNG signature". So the photo-format knobs
@@ -145,36 +144,15 @@ export const createPushController = ({
     // retained per-device override a future session could set back to "Auto".
     const isFormatLockedToPng =
       device.imageDelivery === "http-pull"
-    // Only the bleed photo view may ship a lossy full-colour frame; every
-    // other view stays lossless PNG (exact text + palette colours).
+    // Only a photo view may ship a lossy full-colour frame; every other view
+    // stays lossless PNG (exact text + palette colours).
     const fullColourEncoding: FullColourEncoding =
-      isBleedView && !isFormatLockedToPng
+      getIsLossyEncodableView(activeView) &&
+      !isFormatLockedToPng
         ? resolvePhotoEncoding(deviceId)
         : { format: "png" }
-    const safeAreaInset = isBleedView
-      ? undefined
-      : {
-          top:
-            deviceConfigStore.getCropInset({
-              deviceId,
-              edge: "top",
-            }) ?? 0,
-          right:
-            deviceConfigStore.getCropInset({
-              deviceId,
-              edge: "right",
-            }) ?? 0,
-          bottom:
-            deviceConfigStore.getCropInset({
-              deviceId,
-              edge: "bottom",
-            }) ?? 0,
-          left:
-            deviceConfigStore.getCropInset({
-              deviceId,
-              edge: "left",
-            }) ?? 0,
-        }
+    const safeAreaInset =
+      deviceConfigStore.getSafeAreaInset(deviceId)
 
     return renderService.renderDevice({
       device: effectiveDevice,

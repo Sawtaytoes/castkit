@@ -4,7 +4,7 @@
 - **Date:** 2026-07-02
 - **Type:** Architecture
 - **Supersedes:** —
-- **Superseded by:** [2026-09-07-photo-views-compose-for-the-visible-window](2026-09-07-photo-views-compose-for-the-visible-window.md) (in part — the four HA number entities are unchanged; only the "photo views bleed and ignore the inset" clause below is)
+- **Superseded by:** [2026-09-08-photo-views-fit-the-visible-window](2026-09-08-photo-views-fit-the-visible-window.md) (in part — the four HA number entities are unchanged; the "photo views bleed and ignore the inset" clause below is gone, and every view now honours the inset)
 
 ## Decision
 
