@@ -17,6 +17,7 @@ import {
   isPortraitImage,
   type PhotoFitMode,
   preparePhotoFrameImage,
+  type VisibleInset,
 } from "../immich/photoFrameImage.ts"
 import type { DeviceConfigStore } from "../state/deviceConfigStore.ts"
 import type { ViewDataStore } from "../state/viewDataStore.ts"
@@ -97,6 +98,36 @@ export const createPhotoFrameAdapter = ({
       cursorIndex: -1,
     }
 
+  /**
+   * The device's mat crop inset, in native panel pixels. A photo view still
+   * bleeds to the panel edge, but the crop is composed for the box the mat
+   * leaves visible, so a face never lands underneath it.
+   */
+  const resolveVisibleInset = (
+    deviceId: string,
+  ): VisibleInset => ({
+    top:
+      deviceConfigStore.getCropInset({
+        deviceId,
+        edge: "top",
+      }) ?? 0,
+    right:
+      deviceConfigStore.getCropInset({
+        deviceId,
+        edge: "right",
+      }) ?? 0,
+    bottom:
+      deviceConfigStore.getCropInset({
+        deviceId,
+        edge: "bottom",
+      }) ?? 0,
+    left:
+      deviceConfigStore.getCropInset({
+        deviceId,
+        edge: "left",
+      }) ?? 0,
+  })
+
   const recordShownAsset = ({
     deviceId,
     assetId,
@@ -146,6 +177,7 @@ export const createPhotoFrameAdapter = ({
       targetHeight: device.height,
       faceBoxes,
       fitMode,
+      visibleInset: resolveVisibleInset(device.id),
     })
 
     viewDataStore.setPhotoFrame({
@@ -276,6 +308,7 @@ export const createPhotoFrameAdapter = ({
       targetWidth: device.width,
       targetHeight: device.height,
       gutterPixels: DUAL_PORTRAIT_GUTTER_PIXELS,
+      visibleInset: resolveVisibleInset(device.id),
     })
 
     viewDataStore.setPhotoFrame({
