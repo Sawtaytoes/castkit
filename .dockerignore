@@ -21,3 +21,11 @@ certs
 storybook-static
 playwright-report
 test-results
+
+# Documentation. Nothing at runtime reads a `.md`, but `COPY . .` was baking
+# every one of them into the image — so a docs-only merge really did change the
+# layer. Excluding them is what makes skipping the build on a docs-only change
+# provably correct rather than merely cheap.
+*.md
+**/*.md
+docs
