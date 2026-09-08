@@ -7,14 +7,6 @@ import {
 
 const PANEL = { targetWidth: 800, targetHeight: 480 }
 
-/** The Kitchen Counter display's measured mat, in native panel pixels. */
-const KITCHEN_MAT = {
-  top: 36,
-  right: 63,
-  bottom: 28,
-  left: 59,
-}
-
 describe("computeFaceCropRect", () => {
   test("returns null with no face boxes (caller letterboxes)", () => {
     expect(
@@ -189,111 +181,6 @@ describe("computeFaceCropRect", () => {
     expect(
       columns.leftWidth + 10 + columns.rightWidth,
     ).toBe(1601)
-  })
-
-  test("mat: the gutter splits the VISIBLE window into equal halves", () => {
-    const columns = computeDualPortraitColumns({
-      targetWidth: 800,
-      gutterPixels: 8,
-      visibleInset: KITCHEN_MAT,
-    })
-
-    // Visible window 678 px wide → two 335 px halves and the 8 px gutter.
-    expect(columns.leftWidth).toBe(394)
-    expect(columns.rightWidth).toBe(398)
-    expect(columns.rightLeftOffset).toBe(402)
-    // Both columns still reach a panel edge, so no white peeks past the mat.
-    expect(columns.leftWidth + 8 + columns.rightWidth).toBe(
-      800,
-    )
-    // What the owner actually sees: two equal halves.
-    const leftVisible = columns.leftWidth - KITCHEN_MAT.left
-    const rightVisible =
-      800 - KITCHEN_MAT.right - columns.rightLeftOffset
-    expect(leftVisible).toBe(335)
-    expect(rightVisible).toBe(335)
-  })
-
-  test("mat: fill centres the VISIBLE box, not the panel, with no faces", () => {
-    const withoutMat = computeFillCropRect({
-      imageWidth: 1200,
-      imageHeight: 1600,
-      ...PANEL,
-      faceBoxes: [],
-    })
-    const withMat = computeFillCropRect({
-      imageWidth: 1200,
-      imageHeight: 1600,
-      ...PANEL,
-      faceBoxes: [],
-      visibleInset: KITCHEN_MAT,
-    })
-
-    expect(withoutMat.top).toBe(440)
-    // The mat hides more at the top (36 px) than the bottom (28 px), so the
-    // window shifts up to keep the visible slice centred on the image.
-    expect(withMat.top).toBe(434)
-    expect(withMat.height).toBe(withoutMat.height)
-  })
-
-  test("mat: fill shifts so the face clears the mat, not the panel edge", () => {
-    const faceBoxes = [
-      { x1: 0.1, y1: 0.4, x2: 0.16, y2: 0.6 },
-    ]
-    const withoutMat = computeFillCropRect({
-      imageWidth: 2000,
-      imageHeight: 600,
-      ...PANEL,
-      faceBoxes,
-    })
-    const withMat = computeFillCropRect({
-      imageWidth: 2000,
-      imageHeight: 600,
-      ...PANEL,
-      faceBoxes,
-      visibleInset: KITCHEN_MAT,
-    })
-
-    // Maximal window is 1000×600 either way — the mat never zooms the crop.
-    expect(withoutMat.width).toBe(1000)
-    expect(withMat.width).toBe(1000)
-    // Without the mat the padded face (from x 182) sits flush at the window's
-    // left edge — i.e. under 73.75 image px of mat. With it, the window shifts
-    // left so the face clears the mat.
-    expect(withoutMat.left).toBe(182)
-    expect(withMat.left).toBe(108)
-    const matInImagePixels =
-      (KITCHEN_MAT.left * withMat.width) / PANEL.targetWidth
-    expect(
-      withMat.left + matInImagePixels,
-    ).toBeLessThanOrEqual(182)
-  })
-
-  test("mat: letterboxes when the faces fit the window but not its visible part", () => {
-    const faceBoxes = [
-      { x1: 0.4, y1: 0.24, x2: 0.6, y2: 0.3 },
-      { x1: 0.4, y1: 0.61, x2: 0.6, y2: 0.67 },
-    ]
-    const image = { imageWidth: 1000, imageHeight: 1000 }
-
-    // Padded span is 559 px: inside the 600 px window…
-    expect(
-      computeFaceCropRect({
-        ...image,
-        ...PANEL,
-        faceBoxes,
-      }),
-    ).not.toBe(null)
-    // …but outside the 520 px the mat leaves showing, so it letterboxes
-    // rather than hide someone under the frame.
-    expect(
-      computeFaceCropRect({
-        ...image,
-        ...PANEL,
-        faceBoxes,
-        visibleInset: KITCHEN_MAT,
-      }),
-    ).toBe(null)
   })
 
   test("clamps the crop inside the image for an edge face", () => {

@@ -1,10 +1,10 @@
 # Photo views compose for the visible window, then bleed under the mat
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-09-07
 - **Type:** Product behavior
 - **Supersedes:** [2026-07-02-safe-area-crop-via-mqtt](2026-07-02-safe-area-crop-via-mqtt.md) (in part — the knob stays exactly as it was; only what a photo view does with it changes)
-- **Superseded by:** —
+- **Superseded by:** [2026-09-08-photo-views-fit-the-visible-window](2026-09-08-photo-views-fit-the-visible-window.md) — the owner rejected the bleed the next day; photo views now fit inside the visible window and the mat margin is white
 
 ## Decision
 

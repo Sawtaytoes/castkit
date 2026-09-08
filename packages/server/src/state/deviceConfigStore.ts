@@ -1,4 +1,5 @@
 import type { DitherAlgorithm } from "@castkit/core/devices/device"
+import type { SafeAreaInset } from "@castkit/core/panels/safeArea"
 
 /**
  * A colour-rendering override for a colour panel: "bw" renders the view in
@@ -245,6 +246,12 @@ export type DeviceConfigStore = {
     pixels: number
   }) => void
   /**
+   * All four crop insets at once, in native px, unset edges reading 0 — the
+   * box the mat leaves visible. Every render path needs the whole shape, so it
+   * is resolved here rather than re-assembled edge by edge at each call site.
+   */
+  getSafeAreaInset: (deviceId: string) => SafeAreaInset
+  /**
    * Whether the display accepts new renders. False = paused: the panel keeps
    * the last frame on glass (ePaper holds it at zero power) and every push path
    * is skipped. Defaults to true, so an install that never touches the switch
@@ -471,6 +478,19 @@ export const createDeviceConfigStore =
           pixels,
         )
       },
+      getSafeAreaInset: (deviceId) => ({
+        top:
+          cropInsetByDeviceEdge.get(`${deviceId}:top`) ?? 0,
+        right:
+          cropInsetByDeviceEdge.get(`${deviceId}:right`) ??
+          0,
+        bottom:
+          cropInsetByDeviceEdge.get(`${deviceId}:bottom`) ??
+          0,
+        left:
+          cropInsetByDeviceEdge.get(`${deviceId}:left`) ??
+          0,
+      }),
       getIsUpdatesEnabled: (deviceId) =>
         isUpdatesEnabledByDeviceId.get(deviceId) ?? true,
       setIsUpdatesEnabled: ({ deviceId, isEnabled }) => {

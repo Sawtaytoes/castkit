@@ -1,4 +1,3 @@
-import type { SafeAreaInset } from "@castkit/core/panels/safeArea"
 import sharp from "sharp"
 import type { FaceBox } from "./immichClient.ts"
 
@@ -10,24 +9,7 @@ import type { FaceBox } from "./immichClient.ts"
  * where the unavoidable aspect-ratio trim happens. When the faces span more
  * than even the maximal window can hold, the whole image is letterboxed on
  * white instead so nobody is cut out.
- *
- * `visibleInset` is the mat: the photo still fills the whole target (it bleeds
- * under the mat so no white sliver shows at the edge), but every crop decision
- * is made for the box the mat leaves VISIBLE, so a face never lands underneath
- * it. See docs/decisions/2026-09-07-photo-views-compose-for-the-visible-window.md.
  */
-
-/** The edges of the target a physical mat covers, in target pixels. */
-export type VisibleInset = SafeAreaInset
-
-const NO_VISIBLE_INSET: VisibleInset = {
-  top: 0,
-  right: 0,
-  bottom: 0,
-  left: 0,
-}
-
-const WHITE = { r: 255, g: 255, b: 255 }
 
 export type CropRect = {
   left: number
@@ -49,6 +31,12 @@ const clamp = ({
   maximum: number
 }) => Math.min(Math.max(value, minimum), maximum)
 
+/**
+ * The maximal target-aspect cover-crop window, centered on the image but
+ * shifted the minimum distance needed to contain every (padded) face box —
+ * or null when the padded face union is bigger than the window itself
+ * (caller letterboxes so no face is lost).
+ */
 /** The largest panel-aspect cover-crop window that fits inside the image. */
 const computeCoverWindow = ({
   imageWidth,
@@ -69,40 +57,6 @@ const computeCoverWindow = ({
       : imageWidth
   return { cropWidth, cropHeight: cropWidth / targetAspect }
 }
-
-/**
- * One edge of the mat inset expressed in IMAGE pixels. The crop window is
- * resized onto the whole target, so an inset of N target px hides
- * `N × cropSize / targetSize` image px at that edge of the window.
- */
-const scaleInsetToImage = ({
-  insetPixels,
-  cropSize,
-  targetSize,
-}: {
-  insetPixels: number
-  cropSize: number
-  targetSize: number
-}) => (insetPixels * cropSize) / targetSize
-
-/**
- * Where the crop window starts so that its VISIBLE part — the slice the mat
- * does not cover — is centered on the image. With no inset this is the plain
- * centered cover-crop.
- */
-const computeCentredOffset = ({
-  imageSize,
-  cropSize,
-  insetStart,
-  insetEnd,
-}: {
-  imageSize: number
-  cropSize: number
-  insetStart: number
-  insetEnd: number
-}) =>
-  imageSize / 2 -
-  (insetStart + (cropSize - insetStart - insetEnd) / 2)
 
 /** The padded bounding box of every face, clamped inside the image (px). */
 const computePaddedFaceUnion = ({
@@ -139,112 +93,18 @@ const computePaddedFaceUnion = ({
   }
 }
 
-/**
- * One axis of a crop: shift the maximal cover-crop the minimum distance that
- * brings the whole face span inside the VISIBLE part of the window, or — when
- * the span is wider than that — centre the visible part on the span's midpoint
- * (keeping the middle faces and cropping the outliers). Always inside the
- * image, so the window itself never letterboxes. `insetStart` / `insetEnd` are
- * the mat edges in image pixels; both 0 means the whole window is visible.
- */
-const computeCropOffset = ({
-  imageSize,
-  cropSize,
-  spanStart,
-  spanEnd,
-  insetStart,
-  insetEnd,
-}: {
-  imageSize: number
-  cropSize: number
-  spanStart: number
-  spanEnd: number
-  insetStart: number
-  insetEnd: number
-}) => {
-  const visibleSize = cropSize - insetStart - insetEnd
-  const centred = computeCentredOffset({
-    imageSize,
-    cropSize,
-    insetStart,
-    insetEnd,
-  })
-  const isSpanWithinWindow =
-    spanEnd - spanStart <= visibleSize
-  const value = isSpanWithinWindow
-    ? clamp({
-        value: centred,
-        minimum: spanEnd + insetEnd - cropSize,
-        maximum: spanStart - insetStart,
-      })
-    : (spanStart + spanEnd) / 2 -
-      (insetStart + visibleSize / 2)
-  return clamp({
-    value,
-    minimum: 0,
-    maximum: imageSize - cropSize,
-  })
-}
-
-/**
- * The mat inset scaled from target pixels into the crop window's image pixels,
- * one value per edge.
- */
-const scaleVisibleInset = ({
-  visibleInset,
-  cropWidth,
-  cropHeight,
-  targetWidth,
-  targetHeight,
-}: {
-  visibleInset: VisibleInset
-  cropWidth: number
-  cropHeight: number
-  targetWidth: number
-  targetHeight: number
-}) => ({
-  insetLeft: scaleInsetToImage({
-    insetPixels: visibleInset.left,
-    cropSize: cropWidth,
-    targetSize: targetWidth,
-  }),
-  insetRight: scaleInsetToImage({
-    insetPixels: visibleInset.right,
-    cropSize: cropWidth,
-    targetSize: targetWidth,
-  }),
-  insetTop: scaleInsetToImage({
-    insetPixels: visibleInset.top,
-    cropSize: cropHeight,
-    targetSize: targetHeight,
-  }),
-  insetBottom: scaleInsetToImage({
-    insetPixels: visibleInset.bottom,
-    cropSize: cropHeight,
-    targetSize: targetHeight,
-  }),
-})
-
-/**
- * The maximal target-aspect cover-crop window, centered on the image but
- * shifted the minimum distance needed to contain every (padded) face box —
- * or null when the padded face union is bigger than the window's VISIBLE part
- * (caller letterboxes so no face is lost).
- */
 export const computeFaceCropRect = ({
   imageWidth,
   imageHeight,
   targetWidth,
   targetHeight,
   faceBoxes,
-  visibleInset = NO_VISIBLE_INSET,
 }: {
   imageWidth: number
   imageHeight: number
   targetWidth: number
   targetHeight: number
   faceBoxes: readonly FaceBox[]
-  visibleInset?: VisibleInset
 }): CropRect | null => {
   if (faceBoxes.length === 0) {
     return null
@@ -256,14 +116,6 @@ export const computeFaceCropRect = ({
     targetWidth,
     targetHeight,
   })
-  const { insetLeft, insetRight, insetTop, insetBottom } =
-    scaleVisibleInset({
-      visibleInset,
-      cropWidth,
-      cropHeight,
-      targetWidth,
-      targetHeight,
-    })
   const { unionLeft, unionTop, unionRight, unionBottom } =
     computePaddedFaceUnion({
       imageWidth,
@@ -271,41 +123,76 @@ export const computeFaceCropRect = ({
       faceBoxes,
     })
 
-  // Faces wider/taller than the visible part of the maximal window: no shift
-  // can save them.
+  // Faces wider/taller than the maximal window: no shift can save them.
   if (
-    unionRight - unionLeft >
-      cropWidth - insetLeft - insetRight + 1 ||
-    unionBottom - unionTop >
-      cropHeight - insetTop - insetBottom + 1
+    unionRight - unionLeft > cropWidth + 1 ||
+    unionBottom - unionTop > cropHeight + 1
   ) {
     return null
   }
 
+  // Start where a plain cover-crop would (image center), then shift the
+  // minimum distance that brings the face union fully inside the window.
+  const centeredLeft = (imageWidth - cropWidth) / 2
+  const centeredTop = (imageHeight - cropHeight) / 2
+  const left = clamp({
+    value: clamp({
+      value: centeredLeft,
+      minimum: unionRight - cropWidth,
+      maximum: unionLeft,
+    }),
+    minimum: 0,
+    maximum: imageWidth - cropWidth,
+  })
+  const top = clamp({
+    value: clamp({
+      value: centeredTop,
+      minimum: unionBottom - cropHeight,
+      maximum: unionTop,
+    }),
+    minimum: 0,
+    maximum: imageHeight - cropHeight,
+  })
+
   return {
-    left: Math.round(
-      computeCropOffset({
-        imageSize: imageWidth,
-        cropSize: cropWidth,
-        spanStart: unionLeft,
-        spanEnd: unionRight,
-        insetStart: insetLeft,
-        insetEnd: insetRight,
-      }),
-    ),
-    top: Math.round(
-      computeCropOffset({
-        imageSize: imageHeight,
-        cropSize: cropHeight,
-        spanStart: unionTop,
-        spanEnd: unionBottom,
-        insetStart: insetTop,
-        insetEnd: insetBottom,
-      }),
-    ),
+    left: Math.round(left),
+    top: Math.round(top),
     width: Math.round(cropWidth),
     height: Math.round(cropHeight),
   }
+}
+
+/**
+ * One axis of a fill crop: shift the maximal cover-crop the minimum distance to
+ * fit the whole face span when it fits, otherwise centre on the face span's
+ * midpoint (keeping the middle faces and cropping the outliers). Always inside
+ * the image — a fill crop never letterboxes.
+ */
+const computeFillOffset = ({
+  imageSize,
+  cropSize,
+  spanStart,
+  spanEnd,
+}: {
+  imageSize: number
+  cropSize: number
+  spanStart: number
+  spanEnd: number
+}) => {
+  const centered = (imageSize - cropSize) / 2
+  const isSpanWithinWindow = spanEnd - spanStart <= cropSize
+  const value = isSpanWithinWindow
+    ? clamp({
+        value: centered,
+        minimum: spanEnd - cropSize,
+        maximum: spanStart,
+      })
+    : (spanStart + spanEnd) / 2 - cropSize / 2
+  return clamp({
+    value,
+    minimum: 0,
+    maximum: imageSize - cropSize,
+  })
 }
 
 /**
@@ -322,14 +209,12 @@ export const computeFillCropRect = ({
   targetWidth,
   targetHeight,
   faceBoxes,
-  visibleInset = NO_VISIBLE_INSET,
 }: {
   imageWidth: number
   imageHeight: number
   targetWidth: number
   targetHeight: number
   faceBoxes: readonly FaceBox[]
-  visibleInset?: VisibleInset
 }): CropRect => {
   const { cropWidth, cropHeight } = computeCoverWindow({
     imageWidth,
@@ -337,41 +222,11 @@ export const computeFillCropRect = ({
     targetWidth,
     targetHeight,
   })
-  const { insetLeft, insetRight, insetTop, insetBottom } =
-    scaleVisibleInset({
-      visibleInset,
-      cropWidth,
-      cropHeight,
-      targetWidth,
-      targetHeight,
-    })
 
   if (faceBoxes.length === 0) {
     return {
-      left: Math.round(
-        clamp({
-          value: computeCentredOffset({
-            imageSize: imageWidth,
-            cropSize: cropWidth,
-            insetStart: insetLeft,
-            insetEnd: insetRight,
-          }),
-          minimum: 0,
-          maximum: imageWidth - cropWidth,
-        }),
-      ),
-      top: Math.round(
-        clamp({
-          value: computeCentredOffset({
-            imageSize: imageHeight,
-            cropSize: cropHeight,
-            insetStart: insetTop,
-            insetEnd: insetBottom,
-          }),
-          minimum: 0,
-          maximum: imageHeight - cropHeight,
-        }),
-      ),
+      left: Math.round((imageWidth - cropWidth) / 2),
+      top: Math.round((imageHeight - cropHeight) / 2),
       width: Math.round(cropWidth),
       height: Math.round(cropHeight),
     }
@@ -386,23 +241,19 @@ export const computeFillCropRect = ({
 
   return {
     left: Math.round(
-      computeCropOffset({
+      computeFillOffset({
         imageSize: imageWidth,
         cropSize: cropWidth,
         spanStart: unionLeft,
         spanEnd: unionRight,
-        insetStart: insetLeft,
-        insetEnd: insetRight,
       }),
     ),
     top: Math.round(
-      computeCropOffset({
+      computeFillOffset({
         imageSize: imageHeight,
         cropSize: cropHeight,
         spanStart: unionTop,
         spanEnd: unionBottom,
-        insetStart: insetTop,
-        insetEnd: insetBottom,
       }),
     ),
     width: Math.round(cropWidth),
@@ -442,14 +293,12 @@ const renderToTarget = async ({
   targetHeight,
   faceBoxes,
   fitMode,
-  visibleInset = NO_VISIBLE_INSET,
 }: {
   jpegBytes: Buffer
   targetWidth: number
   targetHeight: number
   faceBoxes: readonly FaceBox[]
   fitMode: PhotoFitMode
-  visibleInset?: VisibleInset
 }): Promise<{ png: Buffer; mode: string }> => {
   const image = sharp(jpegBytes)
   const metadata = await image.metadata()
@@ -464,7 +313,6 @@ const renderToTarget = async ({
           targetWidth,
           targetHeight,
           faceBoxes,
-          visibleInset,
         })
       : computeFaceCropRect({
           imageWidth,
@@ -472,7 +320,6 @@ const renderToTarget = async ({
           targetWidth,
           targetHeight,
           faceBoxes,
-          visibleInset,
         })
 
   if (cropRect) {
@@ -490,41 +337,18 @@ const renderToTarget = async ({
     }
   }
 
-  // Letterbox. The bars go inside the VISIBLE box, then plain white pads out
-  // to the target — the mat covers white rather than a cut edge, and the whole
-  // photo still reads inside the window.
-  const visibleWidth =
-    targetWidth - visibleInset.left - visibleInset.right
-  const visibleHeight =
-    targetHeight - visibleInset.top - visibleInset.bottom
-  const containedPng = await image
-    .resize(visibleWidth, visibleHeight, {
+  const png = await image
+    .resize(targetWidth, targetHeight, {
       fit: "contain",
-      background: { ...WHITE, alpha: 1 },
+      background: {
+        r: 255,
+        g: 255,
+        b: 255,
+        alpha: 1,
+      },
     })
     .png()
     .toBuffer()
-  const png =
-    visibleWidth === targetWidth &&
-    visibleHeight === targetHeight
-      ? containedPng
-      : await sharp({
-          create: {
-            width: targetWidth,
-            height: targetHeight,
-            channels: 3,
-            background: WHITE,
-          },
-        })
-          .composite([
-            {
-              input: containedPng,
-              left: visibleInset.left,
-              top: visibleInset.top,
-            },
-          ])
-          .png()
-          .toBuffer()
   return {
     png,
     mode:
@@ -545,14 +369,12 @@ export const preparePhotoFrameImage = ({
   targetHeight,
   faceBoxes,
   fitMode,
-  visibleInset,
 }: {
   jpegBytes: Buffer
   targetWidth: number
   targetHeight: number
   faceBoxes: readonly FaceBox[]
   fitMode: PhotoFitMode
-  visibleInset?: VisibleInset
 }) =>
   renderToTarget({
     jpegBytes,
@@ -560,38 +382,27 @@ export const preparePhotoFrameImage = ({
     targetHeight,
     faceBoxes,
     fitMode,
-    ...(visibleInset ? { visibleInset } : {}),
   })
 
 /**
  * Split `targetWidth` into two photo columns separated by a white gutter. The
- * two halves are measured on the VISIBLE window, so the gutter sits at the
- * centre of what the mat leaves showing and both photos read as equal halves;
- * each column then reaches the panel edge so nothing white peeks out past the
- * mat. The left visible half absorbs any odd remainder, and the columns plus
- * the gutter always sum to exactly `targetWidth`. With no inset the gutter is
- * at the panel centre, exactly as before.
+ * left column absorbs any odd remainder so the two columns plus the gutter
+ * always sum to exactly `targetWidth`.
  */
 export const computeDualPortraitColumns = ({
   targetWidth,
   gutterPixels,
-  visibleInset = NO_VISIBLE_INSET,
 }: {
   targetWidth: number
   gutterPixels: number
-  visibleInset?: VisibleInset
 }) => {
-  const visibleWidth =
-    targetWidth - visibleInset.left - visibleInset.right
-  const visibleColumnWidth = Math.ceil(
-    (visibleWidth - gutterPixels) / 2,
-  )
-  const leftWidth = visibleInset.left + visibleColumnWidth
-  const rightLeftOffset = leftWidth + gutterPixels
+  const usableWidth = targetWidth - gutterPixels
+  const leftWidth = Math.ceil(usableWidth / 2)
+  const rightWidth = usableWidth - leftWidth
   return {
     leftWidth,
-    rightWidth: targetWidth - rightLeftOffset,
-    rightLeftOffset,
+    rightWidth,
+    rightLeftOffset: leftWidth + gutterPixels,
   }
 }
 
@@ -611,7 +422,6 @@ export const composeDualPortrait = async ({
   targetWidth,
   targetHeight,
   gutterPixels,
-  visibleInset = NO_VISIBLE_INSET,
 }: {
   leftJpegBytes: Buffer
   leftFaceBoxes: readonly FaceBox[]
@@ -620,18 +430,13 @@ export const composeDualPortrait = async ({
   targetWidth: number
   targetHeight: number
   gutterPixels: number
-  visibleInset?: VisibleInset
 }): Promise<{ png: Buffer; mode: string }> => {
   const { leftWidth, rightWidth, rightLeftOffset } =
     computeDualPortraitColumns({
       targetWidth,
       gutterPixels,
-      visibleInset,
     })
 
-  // Each column carries only the mat edges that touch it: the left column
-  // bleeds under the mat on the left, the right column on the right, and both
-  // share the top and bottom. The gutter side of a column is fully visible.
   const [leftColumn, rightColumn] = await Promise.all([
     renderToTarget({
       jpegBytes: leftJpegBytes,
@@ -639,12 +444,6 @@ export const composeDualPortrait = async ({
       targetHeight,
       faceBoxes: leftFaceBoxes,
       fitMode: "fill",
-      visibleInset: {
-        top: visibleInset.top,
-        right: 0,
-        bottom: visibleInset.bottom,
-        left: visibleInset.left,
-      },
     }),
     renderToTarget({
       jpegBytes: rightJpegBytes,
@@ -652,12 +451,6 @@ export const composeDualPortrait = async ({
       targetHeight,
       faceBoxes: rightFaceBoxes,
       fitMode: "fill",
-      visibleInset: {
-        top: visibleInset.top,
-        right: visibleInset.right,
-        bottom: visibleInset.bottom,
-        left: 0,
-      },
     }),
   ])
 
@@ -666,7 +459,7 @@ export const composeDualPortrait = async ({
       width: targetWidth,
       height: targetHeight,
       channels: 3,
-      background: WHITE,
+      background: { r: 255, g: 255, b: 255 },
     },
   })
     .composite([

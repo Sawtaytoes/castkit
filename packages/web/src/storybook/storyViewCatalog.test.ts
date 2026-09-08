@@ -1,9 +1,6 @@
 import { EXAMPLE_DEVICES } from "@castkit/core/devices/device"
 import { resolveSafeArea } from "@castkit/core/panels/safeArea"
-import {
-  getIsBleedView,
-  VIEW_NAMES,
-} from "@castkit/shared/views/viewNames"
+import { VIEW_NAMES } from "@castkit/shared/views/viewNames"
 import { describe, expect, test } from "vitest"
 import {
   getPanelCatalogEntry,
@@ -79,25 +76,27 @@ describe("panelCatalog", () => {
 })
 
 describe("crop insets in the preview", () => {
-  test("a bleed view keeps the whole panel", () => {
-    // PanelStage passes `undefined` for bleed views; this is that contract.
-    expect(getIsBleedView("Photo Frame")).toBe(true)
-
+  test("a photo view shrinks to the safe box, same as text", () => {
+    // Photo views used to bleed past the mat, which hid part of every picture.
+    // PanelStage now passes the inset for EVERY view; this is that contract.
     const { contentWidth, contentHeight, hasInset } =
       resolveSafeArea({
         width: 800,
         height: 480,
-        safeAreaInset: undefined,
+        safeAreaInset: {
+          top: 36,
+          right: 63,
+          bottom: 28,
+          left: 59,
+        },
       })
 
-    expect(contentWidth).toBe(800)
-    expect(contentHeight).toBe(480)
-    expect(hasInset).toBe(false)
+    expect(contentWidth).toBe(678)
+    expect(contentHeight).toBe(416)
+    expect(hasInset).toBe(true)
   })
 
   test("a text view shrinks to the safe box", () => {
-    expect(getIsBleedView("Clock (Agenda)")).toBe(false)
-
     const { contentWidth, contentHeight } = resolveSafeArea(
       {
         width: 800,
