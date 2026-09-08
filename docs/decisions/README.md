@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-07 | [Photo views compose for the visible window, then bleed under the mat](2026-09-07-photo-views-compose-for-the-visible-window.md) | Accepted |
 | 2026-08-30 | [The Web UI is full configuration; HA MQTT is automation](2026-08-30-web-ui-is-full-config-ha-mqtt-is-automation.md) | Accepted |
 | 2026-08-29 | [CastKit views retain rendering autonomy](2026-08-29-castkit-views-retain-rendering-autonomy.md) | Accepted |
 | 2026-08-27 | [Device management uses a list and editor](2026-08-27-device-management-uses-a-list-and-editor.md) | Accepted |
@@ -35,7 +36,7 @@ proposing a change; a settled decision here overrides default instinct.
 | 2026-07-02 | [The "no dithering" option is labeled `off`, not `none` (HA reserves `none`)](2026-07-02-dither-off-token-not-none-ha-reserved.md) | Accepted |
 | 2026-07-02 | [Follow-mode player exclusion is decided by the HA automation, not by Inkcast](2026-07-02-follow-exclusion-moves-to-ha-automation.md) | Accepted |
 | 2026-07-02 | [A "none" dither option hands the panel a full-colour image](2026-07-02-none-dither-panel-native.md) | Superseded |
-| 2026-07-02 | [Mat safe-area crop is a per-device MQTT/HA control, not device config](2026-07-02-safe-area-crop-via-mqtt.md) | Accepted |
+| 2026-07-02 | [Mat safe-area crop is a per-device MQTT/HA control, not device config](2026-07-02-safe-area-crop-via-mqtt.md) — the knob still works exactly this way; what a photo view does with it is superseded by [2026-09-07](2026-09-07-photo-views-compose-for-the-visible-window.md) | Accepted |
 | 2026-07-02 | [Fitted text has a readable floor and condenses before it shrinks](2026-07-02-fit-text-readable-floor-and-condense.md) | Accepted |
 | 2026-07-02 | [Now-playing Dashboard uses one compact layout at every panel size](2026-07-02-now-playing-single-compact-layout.md) | Accepted |
 | 2026-07-02 | [View switching is driven by HA automations; no server-side idle fallback](2026-07-02-view-switching-via-ha-automations.md) | Accepted |
