@@ -1,5 +1,5 @@
 import { IMPRESSION_DEVICE } from "@castkit/core/devices/device"
-import type { SafeAreaInset } from "@castkit/core/panels/safeArea"
+import type { PanelMargin } from "@castkit/core/panels/safeArea"
 import type { ViewName } from "@castkit/shared/views/viewNames"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { PanelStage } from "../storybook/PanelStage.tsx"
@@ -11,19 +11,18 @@ import {
 } from "../storybook/panelArgs.tsx"
 
 /**
- * The safe-area crop — the HA `Display: Crop {edge}` numbers (0–200px), which
+ * The panel margin — the HA `Display: Margin {edge}` numbers (0-200px), which
  * exist because a physical mat overlaps the panel edge and hides whatever is
  * under it.
  *
- * The important thing to see here is that a crop is **not** a clip. The view
- * is laid out *inside* the reduced box, so its text reflows and re-fits to what
- * stays visible; it is then composited onto a full-size white panel. Cropping
- * by hiding overflow would show the uncropped layout with its edges chopped —
- * which is what you might expect from the name, and is not what happens.
+ * A margin **cuts nothing**. The view is laid out *inside* the reduced box, so
+ * its text reflows and re-fits to what stays visible; it is then composited
+ * onto a full-size white panel. Clipping instead would show the full-size
+ * layout with its edges chopped, which is not what happens.
  *
- * Photo views are the deliberate exception: they bleed to the panel edge and
- * ignore the inset entirely, because a photo looks right filling the panel even
- * under a mat.
+ * **Every** view honours the margin, photos included. The knob that does cut is
+ * `Photo Frame: Crop`, a separate control on a separate axis. See
+ * docs/decisions/2026-09-08-margin-pushes-in-and-crop-cuts-away.md.
  */
 
 const CAPTION_STYLE = {
@@ -33,13 +32,13 @@ const CAPTION_STYLE = {
   marginBottom: 4,
 } as const
 
-const CropCell = ({
+const MarginCell = ({
   viewName,
-  cropInset,
+  panelMargin,
   caption,
 }: {
   viewName: ViewName
-  cropInset?: SafeAreaInset
+  panelMargin?: PanelMargin
   caption: string
 }) => (
   <figure style={{ margin: 0 }}>
@@ -56,7 +55,7 @@ const CropCell = ({
         width={IMPRESSION_DEVICE.width}
         height={IMPRESSION_DEVICE.height}
         colourMode="e6"
-        cropInset={cropInset}
+        panelMargin={panelMargin}
       />
     </div>
   </figure>
@@ -77,20 +76,20 @@ const ComparisonRow = ({
       backgroundColor: "#ffffff",
     }}
   >
-    <CropCell viewName={viewName} caption="No crop" />
-    <CropCell
+    <MarginCell viewName={viewName} caption="No margin" />
+    <MarginCell
       viewName={viewName}
-      cropInset={{
+      panelMargin={{
         top: 40,
         right: 40,
         bottom: 40,
         left: 40,
       }}
-      caption="40px all round — text reflows into the smaller box"
+      caption="40px all round — the view reflows into the smaller box"
     />
-    <CropCell
+    <MarginCell
       viewName={viewName}
-      cropInset={{
+      panelMargin={{
         top: 20,
         right: 80,
         bottom: 60,
@@ -102,7 +101,7 @@ const ComparisonRow = ({
 )
 
 const meta = {
-  title: "Safe area (crop)/Behaviour",
+  title: "Margin/Behaviour",
   parameters: {
     layout: "fullscreen",
     controls: { disable: true },
@@ -113,23 +112,23 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-export const TextViewHonoursCrop: Story = {
-  name: "A text view reflows into the crop",
+export const TextViewHonoursMargin: Story = {
+  name: "A text view reflows into the margin",
   render: () => <ComparisonRow viewName="Clock (Agenda)" />,
 }
 
-export const AgendaHonoursCrop: Story = {
-  name: "Agenda — same crop, different layout budget",
+export const AgendaHonoursMargin: Story = {
+  name: "Agenda — same margin, different layout budget",
   render: () => <ComparisonRow viewName="Agenda" />,
 }
 
-export const PhotoViewIgnoresCrop: Story = {
-  name: "A photo view bleeds and ignores the crop",
+export const PhotoViewHonoursMargin: Story = {
+  name: "A photo view fits the margin too",
   render: () => <ComparisonRow viewName="Photo Frame" />,
 }
 
-export const ExtremeCropClamps: Story = {
-  name: "An impossible crop clamps instead of collapsing",
+export const ExtremeMarginClamps: Story = {
+  name: "An impossible margin clamps instead of collapsing",
   render: () => (
     <div
       style={{
@@ -140,35 +139,34 @@ export const ExtremeCropClamps: Story = {
         backgroundColor: "#ffffff",
       }}
     >
-      <CropCell
+      <MarginCell
         viewName="Clock"
-        cropInset={{
+        panelMargin={{
           top: 400,
           right: 600,
           bottom: 400,
           left: 600,
         }}
-        caption="Crops larger than the panel — clamped to a 1×1 content box"
+        caption="Margins larger than the panel - clamped to a 1x1 content box"
       />
     </div>
   ),
 }
 
 /**
- * The interactive one: drag the four crop numbers and watch the view re-fit.
- * Switch `Device` to check a crop against every panel, and flip to a photo
- * view to confirm it stays put.
+ * The interactive one: drag the four margin numbers and watch the view re-fit.
+ * Switch `Device` to check a margin against every panel.
  */
 export const Interactive: StoryObj<PanelStoryArgs> = {
-  name: "Interactive — drag the crop numbers",
+  name: "Interactive — drag the margin numbers",
   parameters: { layout: "centered", controls: {} },
   argTypes: PANEL_ARG_TYPES,
   args: {
     ...DEFAULT_PANEL_ARGS,
-    cropTop: 30,
-    cropRight: 30,
-    cropBottom: 30,
-    cropLeft: 30,
+    marginTop: 30,
+    marginRight: 30,
+    marginBottom: 30,
+    marginLeft: 30,
   },
   render: (args: PanelStoryArgs) =>
     renderPanelStory({

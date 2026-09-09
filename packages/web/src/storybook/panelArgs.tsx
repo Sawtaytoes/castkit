@@ -30,10 +30,10 @@ export type PanelStoryArgs = {
   paletteVariant: PaletteVariant
   zoom: number
   isShownAsMounted: boolean
-  cropTop: number
-  cropRight: number
-  cropBottom: number
-  cropLeft: number
+  marginTop: number
+  marginRight: number
+  marginBottom: number
+  marginLeft: number
   isEmpty: boolean
 }
 
@@ -100,25 +100,25 @@ export const PANEL_ARG_TYPES = {
     table: { category: "Dither" },
   },
 
-  cropTop: {
-    name: "Crop top",
+  marginTop: {
+    name: "Margin top",
     control: { type: "number" as const, min: 0, max: 200 },
-    table: { category: "Safe area (crop)" },
+    table: { category: "Margin" },
   },
-  cropRight: {
-    name: "Crop right",
+  marginRight: {
+    name: "Margin right",
     control: { type: "number" as const, min: 0, max: 200 },
-    table: { category: "Safe area (crop)" },
+    table: { category: "Margin" },
   },
-  cropBottom: {
-    name: "Crop bottom",
+  marginBottom: {
+    name: "Margin bottom",
     control: { type: "number" as const, min: 0, max: 200 },
-    table: { category: "Safe area (crop)" },
+    table: { category: "Margin" },
   },
-  cropLeft: {
-    name: "Crop left",
+  marginLeft: {
+    name: "Margin left",
     control: { type: "number" as const, min: 0, max: 200 },
-    table: { category: "Safe area (crop)" },
+    table: { category: "Margin" },
   },
 
   isEmpty: {
@@ -139,10 +139,10 @@ export const DEFAULT_PANEL_ARGS: PanelStoryArgs = {
   paletteVariant: "default",
   zoom: 1,
   isShownAsMounted: false,
-  cropTop: 0,
-  cropRight: 0,
-  cropBottom: 0,
-  cropLeft: 0,
+  marginTop: 0,
+  marginRight: 0,
+  marginBottom: 0,
+  marginLeft: 0,
   isEmpty: false,
 }
 
@@ -177,11 +177,11 @@ export const renderPanelStory = ({
       colourMode={colourMode}
       photoUrl={photoUrl}
       isEmpty={args.isEmpty}
-      cropInset={{
-        top: args.cropTop,
-        right: args.cropRight,
-        bottom: args.cropBottom,
-        left: args.cropLeft,
+      panelMargin={{
+        top: args.marginTop,
+        right: args.marginRight,
+        bottom: args.marginBottom,
+        left: args.marginLeft,
       }}
     />
   )

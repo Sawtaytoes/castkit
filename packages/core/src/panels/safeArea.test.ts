@@ -17,7 +17,7 @@ describe("resolveSafeArea", () => {
     const { hasInset } = resolveSafeArea({
       width: 800,
       height: 480,
-      safeAreaInset: {
+      margin: {
         top: 0,
         right: 0,
         bottom: 0,
@@ -33,7 +33,7 @@ describe("resolveSafeArea", () => {
       resolveSafeArea({
         width: 800,
         height: 480,
-        safeAreaInset: {
+        margin: {
           top: 10,
           right: 20,
           bottom: 30,
@@ -53,7 +53,7 @@ describe("resolveSafeArea", () => {
       {
         width: 250,
         height: 122,
-        safeAreaInset: {
+        margin: {
           top: 500,
           right: 500,
           bottom: 500,
@@ -70,7 +70,7 @@ describe("resolveSafeArea", () => {
     const { inset, contentWidth } = resolveSafeArea({
       width: 250,
       height: 122,
-      safeAreaInset: {
+      margin: {
         top: 0,
         right: 100,
         bottom: 0,
@@ -87,7 +87,7 @@ describe("resolveSafeArea", () => {
     const { inset, hasInset } = resolveSafeArea({
       width: 800,
       height: 480,
-      safeAreaInset: {
+      margin: {
         top: -10,
         right: -10,
         bottom: -10,

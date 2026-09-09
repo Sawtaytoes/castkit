@@ -48,9 +48,16 @@ display at a different resolution) needs **no code change** — just a new entry
 On boot the server publishes, per device: an **Image** entity named after the
 device itself (it *is* the display, so it carries no suffix), a **View**
 select, a **Refresh** button, and the config entities **Display: Dither**,
-**Display: Rotation**, **Display: Brightness/Saturation**, the mat **Crop**
-insets, **Photo Frame: People/People-minimum/Query/Format/Quality/Rotation-minutes/Recency**,
-and Next/Previous photo buttons. All are editable live; their retained MQTT state
+**Display: Rotation**, **Display: Brightness/Saturation**, the mat
+**Display: Margin** edges, **Photo Frame: People/People-minimum/Query/Format/Quality/Rotation-minutes/Recency**,
+the **Photo Frame: Crop** edges, and Next/Previous photo buttons.
+
+**Margin and Crop are opposites, and both exist.** A *margin* is how far the
+physical mat overlaps the panel; every view is laid out inside what is left and
+the covered band renders white, so nothing is cut. A *crop* throws part of the
+picture away and zooms the rest to fill the frame; it applies to photo views
+only. Both default to 0. See
+[docs/decisions/2026-09-08-margin-pushes-in-and-crop-cuts-away.md](decisions/2026-09-08-margin-pushes-in-and-crop-cuts-away.md). All are editable live; their retained MQTT state
 is the persistence, so they survive a restart with no config file for user
 settings. (**Rotation** in particular is a live select — you can correct an
 upside-down panel from HA without editing this file.)

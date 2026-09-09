@@ -1,5 +1,5 @@
 import type { DeviceMetadata } from "@castkit/core/devices/device"
-import type { SafeAreaInset } from "@castkit/core/panels/safeArea"
+import type { PanelMargin } from "@castkit/core/panels/safeArea"
 import { resolveSafeArea } from "@castkit/core/panels/safeArea"
 import type {
   DitherAdjustments,
@@ -18,7 +18,7 @@ import type { RenderEngine } from "./engine.ts"
  * Optional `adjustments` (brightness/saturation, 1 = neutral) pass through to
  * the dither pipeline so the server can expose them as Home Assistant knobs.
  *
- * When `safeAreaInset` is set the view is laid out in the smaller safe box
+ * When `margin` is set the view is laid out in the smaller safe box
  * (so its text reflows/sizes to what stays visible) and composited onto a
  * full-size white canvas at the inset offset before dithering.
  *
@@ -30,14 +30,14 @@ export const renderDeviceImage = async ({
   element,
   device,
   adjustments,
-  safeAreaInset,
+  margin,
   fullColourEncoding,
 }: {
   engine: RenderEngine
   element: ReactElement
   device: DeviceMetadata
   adjustments?: DitherAdjustments
-  safeAreaInset?: SafeAreaInset
+  margin?: PanelMargin
   fullColourEncoding?: FullColourEncoding
 }): Promise<Buffer> => {
   const supersampleFactor =
@@ -46,7 +46,7 @@ export const renderDeviceImage = async ({
     resolveSafeArea({
       width: device.width,
       height: device.height,
-      safeAreaInset,
+      margin,
     })
 
   const supersampledPng = await engine.render({

@@ -151,8 +151,7 @@ export const createPushController = ({
       !isFormatLockedToPng
         ? resolvePhotoEncoding(deviceId)
         : { format: "png" }
-    const safeAreaInset =
-      deviceConfigStore.getSafeAreaInset(deviceId)
+    const margin = deviceConfigStore.getMargin(deviceId)
 
     return renderService.renderDevice({
       device: effectiveDevice,
@@ -172,7 +171,7 @@ export const createPushController = ({
             },
           }
         : {}),
-      ...(safeAreaInset ? { safeAreaInset } : {}),
+      ...(margin ? { margin } : {}),
       fullColourEncoding,
     })
   }
