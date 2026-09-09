@@ -52,6 +52,12 @@ per-device history. That is what a framing control wants: the owner nudges an
 edge and watches *that* picture change, rather than being handed a different one
 each time. With no history yet, it falls back to fetching a fresh photo.
 
+A **dual-portrait** device is the exception and always refetches. The history
+remembers single assets, not the pair a Duo frame is built from, so replaying it
+would quietly collapse two columns into one. The owner gets a different pair,
+but the frame keeps its shape, which is the property worth protecting while
+tuning a crop. `getShouldRefetchOnRecompose` is that rule, with tests.
+
 ### The new crop does NOT reuse the `crop_*` topic slug
 
 Retained MQTT is this server's persistence layer, so `castkit/<device>/crop_top`
