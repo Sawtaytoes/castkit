@@ -43,6 +43,15 @@ any photo editor. `resolveCropBand` in
 
 A crop can never remove more than 80% of the picture.
 
+### Turning a crop knob re-cuts the picture already on screen
+
+The composed PNG is cached, so re-pushing alone would keep showing the old
+framing until the next photo rotation, and the knob would look broken. The crop
+knobs call `recomposeCurrentPhoto`, which re-cuts the **same** asset from the
+per-device history. That is what a framing control wants: the owner nudges an
+edge and watches *that* picture change, rather than being handed a different one
+each time. With no history yet, it falls back to fetching a fresh photo.
+
 ### The new crop does NOT reuse the `crop_*` topic slug
 
 Retained MQTT is this server's persistence layer, so `castkit/<device>/crop_top`

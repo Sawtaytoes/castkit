@@ -437,13 +437,18 @@ export const createPhotoFrameAdapter = ({
     }
   }
 
-  /** Step through the per-device history; `next` past the end = new random. */
+  /**
+   * Step through the per-device history; `next` past the end = new random.
+   * Step 0 re-composes the photo already on screen, which is what a framing
+   * knob wants: the owner nudges Crop and watches THAT picture re-cut, rather
+   * than being handed a different one each time.
+   */
   const navigateHistory = async ({
     deviceId,
     step,
   }: {
     deviceId: string
-    step: -1 | 1
+    step: -1 | 0 | 1
   }) => {
     const device = devices.find(
       (candidate) => candidate.id === deviceId,
@@ -493,6 +498,23 @@ export const createPhotoFrameAdapter = ({
   const showPreviousPhoto = (deviceId: string) =>
     navigateHistory({ deviceId, step: -1 })
 
+  /**
+   * Re-cut the photo already on screen with the current settings. Used by the
+   * crop knobs, which otherwise appear to do nothing: the composed PNG is
+   * cached, so a re-push alone would show the old framing until the next photo
+   * rotation. Falls back to a fresh photo when there is no history yet.
+   */
+  const recomposeCurrentPhoto = async (
+    deviceId: string,
+  ) => {
+    const history = getHistory(deviceId)
+    if (history.assetIds.length === 0) {
+      await refreshDevice(deviceId)
+      return
+    }
+    await navigateHistory({ deviceId, step: 0 })
+  }
+
   const subscription = timer(
     TICK_MILLISECONDS,
     TICK_MILLISECONDS,
@@ -522,6 +544,7 @@ export const createPhotoFrameAdapter = ({
   })
 
   return {
+    recomposeCurrentPhoto,
     refreshDevice,
     showPhotoFrame,
     showNextPhoto,
