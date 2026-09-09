@@ -15,14 +15,26 @@ const makeController = ({
   activeView = "Clock",
   imageDelivery,
   photoEncoding = { format: "png" },
+  onRender,
 }: {
   activeView?: string
   imageDelivery?: "mqtt-image" | "http-pull"
   photoEncoding?: { format: string; quality?: number }
+  /**
+   * Runs INSIDE the fake render, so a test can do what Home Assistant's
+   * retained state does on a restart: arrive while the render is in flight.
+   */
+  onRender?: () => Promise<void> | void
 } = {}) => {
   const deviceConfigStore = createDeviceConfigStore()
   const publishedTopics: string[] = []
+  const publishedPayloads: {
+    topic: string
+    payload: unknown
+  }[] = []
   const renderedEncodings: unknown[] = []
+  const renderedViews: unknown[] = []
+  const currentView = { value: activeView }
 
   const device = {
     ...IMPRESSION_DEVICE,
@@ -32,7 +44,7 @@ const makeController = ({
   const pushController = createPushController({
     devices: [device] as never,
     deviceStore: {
-      getActiveView: () => activeView,
+      getActiveView: () => currentView.value,
       setActiveView: () => {},
     } as never,
     deviceConfigStore,
@@ -45,16 +57,27 @@ const makeController = ({
     renderService: {
       renderDevice: async ({
         fullColourEncoding,
+        viewName,
       }: {
         fullColourEncoding: unknown
+        viewName: unknown
       }) => {
         renderedEncodings.push(fullColourEncoding)
+        renderedViews.push(viewName)
+        await onRender?.()
         return PNG
       },
     } as never,
     publisher: {
-      publish: async ({ topic }: { topic: string }) => {
+      publish: async ({
+        topic,
+        payload,
+      }: {
+        topic: string
+        payload: unknown
+      }) => {
         publishedTopics.push(topic)
+        publishedPayloads.push({ topic, payload })
       },
     } as never,
     baseTopic: "castkit",
@@ -75,7 +98,10 @@ const makeController = ({
     pushController,
     deviceConfigStore,
     publishedTopics,
+    publishedPayloads,
     renderedEncodings,
+    renderedViews,
+    currentView,
   }
 }
 
@@ -232,5 +258,88 @@ describe("deviceConfigStore — updates-enabled semantics", () => {
     expect(store.getIsUpdatesEnabled("eink-office")).toBe(
       true,
     )
+  })
+})
+
+/**
+ * A render takes seconds — 15 s for five cold Chromium panels on the last
+ * deploy — and Home Assistant's retained `updates` and `view` land inside that
+ * window on every restart. Checking only before the render is what published a
+ * frame to two displays the owner had paused; they then held that wrong frame,
+ * because a paused display is never pushed to again.
+ */
+describe("pushDevice — state that changes DURING the render", () => {
+  test("a pause that lands mid-render drops the frame", async () => {
+    const {
+      pushController,
+      deviceConfigStore,
+      publishedTopics,
+    } = makeController({
+      onRender: () => {
+        deviceConfigStore.setIsUpdatesEnabled({
+          deviceId: IMPRESSION_DEVICE.id,
+          isEnabled: false,
+        })
+      },
+    })
+
+    const isPushed = await pushController.pushDevice(
+      IMPRESSION_DEVICE.id,
+    )
+
+    expect(isPushed).toBe(false)
+    expect(publishedTopics).toEqual([])
+  })
+
+  test("a view switch mid-render drops the now-stale frame", async () => {
+    // Whatever changed the view has queued its own push, so this frame is
+    // stale rather than late. Publishing it would also leave the retained
+    // `view` topic disagreeing with the retained image bytes.
+    const { pushController, publishedTopics, currentView } =
+      makeController({
+        activeView: "Clock",
+        onRender: () => {
+          currentView.value = "Agenda"
+        },
+      })
+
+    const isPushed = await pushController.pushDevice(
+      IMPRESSION_DEVICE.id,
+    )
+
+    expect(isPushed).toBe(false)
+    expect(publishedTopics).toEqual([])
+  })
+
+  test("an unchanged device still publishes normally", async () => {
+    const { pushController, publishedTopics } =
+      makeController()
+
+    const isPushed = await pushController.pushDevice(
+      IMPRESSION_DEVICE.id,
+    )
+
+    expect(isPushed).toBe(true)
+    expect(publishedTopics.length).toBeGreaterThan(0)
+  })
+
+  test("the rendered view is the one published, not a later one", async () => {
+    // The bug this pins: the view was read once for the render and AGAIN for
+    // the log line and the `view` topic, so a switch mid-render made the
+    // published name describe bytes that were never rendered.
+    const {
+      pushController,
+      publishedPayloads,
+      renderedViews,
+    } = makeController({ activeView: "Clock" })
+
+    await pushController.pushDevice(IMPRESSION_DEVICE.id)
+
+    expect(renderedViews).toEqual(["Clock"])
+    expect(
+      publishedPayloads.find((published) =>
+        published.topic.endsWith("/view"),
+      )?.payload,
+    ).toBe("Clock")
   })
 })
