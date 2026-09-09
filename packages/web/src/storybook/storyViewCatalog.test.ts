@@ -83,7 +83,7 @@ describe("crop insets in the preview", () => {
       resolveSafeArea({
         width: 800,
         height: 480,
-        safeAreaInset: {
+        margin: {
           top: 36,
           right: 63,
           bottom: 28,
@@ -101,7 +101,7 @@ describe("crop insets in the preview", () => {
       {
         width: 800,
         height: 480,
-        safeAreaInset: {
+        margin: {
           top: 40,
           right: 40,
           bottom: 40,

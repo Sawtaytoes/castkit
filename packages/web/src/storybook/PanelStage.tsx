@@ -1,4 +1,4 @@
-import type { SafeAreaInset } from "@castkit/core/panels/safeArea"
+import type { PanelMargin } from "@castkit/core/panels/safeArea"
 import { resolveSafeArea } from "@castkit/core/panels/safeArea"
 import type { ViewName } from "@castkit/shared/views/viewNames"
 import { getIsPhotoView } from "@castkit/shared/views/viewNames"
@@ -32,7 +32,7 @@ export type PanelStageProps = {
   width: number
   height: number
   colourMode: ViewColourMode
-  cropInset?: SafeAreaInset
+  panelMargin?: PanelMargin
   isEmpty?: boolean
   photoUrl?: string
 }
@@ -42,7 +42,7 @@ export const PanelStage = ({
   width,
   height,
   colourMode,
-  cropInset,
+  panelMargin,
   isEmpty,
   photoUrl,
 }: PanelStageProps) => {
@@ -50,7 +50,7 @@ export const PanelStage = ({
     resolveSafeArea({
       width,
       height,
-      safeAreaInset: cropInset,
+      margin: panelMargin,
     })
 
   const sourcePhotoUrl = getIsPhotoView(viewName)

@@ -65,10 +65,10 @@ describe("buildDiscoveryMessages", () => {
       "select", // Display: Rotation
       "number", // Display: Brightness
       "number", // Display: Saturation
-      "number", // Display: Crop top
-      "number", // Display: Crop right
-      "number", // Display: Crop bottom
-      "number", // Display: Crop left
+      "number", // Display: Margin top
+      "number", // Display: Margin right
+      "number", // Display: Margin bottom
+      "number", // Display: Margin left
       "text", // Photo Frame: People
       "text", // Photo Frame: Query
       "text", // Clock: Timezone
@@ -79,6 +79,10 @@ describe("buildDiscoveryMessages", () => {
       "number", // Photo Frame: People minimum
       "select", // Photo Frame: Format
       "number", // Photo Frame: Quality
+      "number", // Photo Frame: Crop top
+      "number", // Photo Frame: Crop right
+      "number", // Photo Frame: Crop bottom
+      "number", // Photo Frame: Crop left
       "button", // Photo Frame: Next photo
       "button", // Photo Frame: Previous photo
       "sensor", // last render

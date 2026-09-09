@@ -112,9 +112,7 @@ export const createPhotoFrameAdapter = ({
       {
         width: device.width,
         height: device.height,
-        safeAreaInset: deviceConfigStore.getSafeAreaInset(
-          device.id,
-        ),
+        margin: deviceConfigStore.getMargin(device.id),
       },
     )
     return {
@@ -171,6 +169,7 @@ export const createPhotoFrameAdapter = ({
       ...resolvePhotoTargetSize(device),
       faceBoxes,
       fitMode,
+      crop: deviceConfigStore.getPhotoCrop(device.id),
     })
 
     viewDataStore.setPhotoFrame({
@@ -300,6 +299,7 @@ export const createPhotoFrameAdapter = ({
       rightFaceBoxes,
       ...resolvePhotoTargetSize(device),
       gutterPixels: DUAL_PORTRAIT_GUTTER_PIXELS,
+      crop: deviceConfigStore.getPhotoCrop(device.id),
     })
 
     viewDataStore.setPhotoFrame({

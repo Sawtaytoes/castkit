@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-08 | [A margin pushes content in; a crop cuts content away. They are two controls](2026-09-08-margin-pushes-in-and-crop-cuts-away.md) | Accepted |
 | 2026-09-08 | [Photo views fit inside the visible window, and nothing bleeds](2026-09-08-photo-views-fit-the-visible-window.md) | Accepted |
 | 2026-09-08 | [Remote displays read an app-owned manifest](2026-09-08-remote-display-reads-an-app-owned-manifest.md) | Accepted |
 | 2026-09-07 | [Photo views compose for the visible window, then bleed under the mat](2026-09-07-photo-views-compose-for-the-visible-window.md) | Superseded |

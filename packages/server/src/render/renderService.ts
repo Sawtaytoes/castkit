@@ -1,5 +1,5 @@
 import type { DeviceMetadata } from "@castkit/core/devices/device"
-import type { SafeAreaInset } from "@castkit/core/panels/safeArea"
+import type { PanelMargin } from "@castkit/core/panels/safeArea"
 import { resolveSafeArea } from "@castkit/core/panels/safeArea"
 import type {
   DitherAdjustments,
@@ -36,7 +36,7 @@ export type RenderService = {
     weather?: WeatherData
     agenda?: AgendaData
     adjustments?: DitherAdjustments
-    safeAreaInset?: SafeAreaInset
+    margin?: PanelMargin
     fullColourEncoding?: FullColourEncoding
   }) => Promise<Buffer>
   close: () => Promise<void>
@@ -65,7 +65,7 @@ export const createRenderService = async ({
       weather,
       agenda,
       adjustments,
-      safeAreaInset,
+      margin,
       fullColourEncoding,
     }) => {
       // The view must be laid out in the safe box (device minus the mat
@@ -75,7 +75,7 @@ export const createRenderService = async ({
         resolveSafeArea({
           width: device.width,
           height: device.height,
-          safeAreaInset,
+          margin,
         })
       const contentDevice: DeviceMetadata = {
         ...device,
@@ -97,7 +97,7 @@ export const createRenderService = async ({
         }),
         device,
         adjustments,
-        safeAreaInset,
+        margin,
         fullColourEncoding,
       })
     },

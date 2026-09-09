@@ -609,23 +609,43 @@ export const App = () => {
                             "number",
                           ],
                           [
-                            "Crop top (px)",
-                            "crop_top",
+                            "Margin top (px)",
+                            "margin_top",
                             "number",
                           ],
                           [
-                            "Crop right (px)",
-                            "crop_right",
+                            "Margin right (px)",
+                            "margin_right",
                             "number",
                           ],
                           [
-                            "Crop bottom (px)",
-                            "crop_bottom",
+                            "Margin bottom (px)",
+                            "margin_bottom",
                             "number",
                           ],
                           [
-                            "Crop left (px)",
-                            "crop_left",
+                            "Margin left (px)",
+                            "margin_left",
+                            "number",
+                          ],
+                          [
+                            "Photo crop top (px)",
+                            "photo_crop_top",
+                            "number",
+                          ],
+                          [
+                            "Photo crop right (px)",
+                            "photo_crop_right",
+                            "number",
+                          ],
+                          [
+                            "Photo crop bottom (px)",
+                            "photo_crop_bottom",
+                            "number",
+                          ],
+                          [
+                            "Photo crop left (px)",
+                            "photo_crop_left",
                             "number",
                           ],
                         ].map(([label, kind, type]) => (

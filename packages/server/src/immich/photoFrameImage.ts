@@ -1,4 +1,11 @@
+import {
+  applyPhotoCrop,
+  getHasPhotoCrop,
+  NO_PHOTO_CROP,
+  type PhotoCrop,
+} from "@castkit/core/panels/photoCrop"
 import sharp from "sharp"
+
 import type { FaceBox } from "./immichClient.ts"
 
 /**
@@ -293,12 +300,14 @@ const renderToTarget = async ({
   targetHeight,
   faceBoxes,
   fitMode,
+  crop = NO_PHOTO_CROP,
 }: {
   jpegBytes: Buffer
   targetWidth: number
   targetHeight: number
   faceBoxes: readonly FaceBox[]
   fitMode: PhotoFitMode
+  crop?: PhotoCrop
 }): Promise<{ png: Buffer; mode: string }> => {
   const image = sharp(jpegBytes)
   const metadata = await image.metadata()
@@ -322,22 +331,45 @@ const renderToTarget = async ({
           faceBoxes,
         })
 
+  // The owner's crop cuts into whichever rectangle the fit logic chose, so the
+  // pixels are re-cut from the full-resolution source and stay sharp. Cropping
+  // the finished frame instead would upscale an already-downscaled raster.
+  const croppedRect = applyPhotoCrop({
+    crop,
+    rect: cropRect ?? {
+      left: 0,
+      top: 0,
+      width: imageWidth,
+      height: imageHeight,
+    },
+    targetWidth,
+    targetHeight,
+  })
+  const hasCrop = getHasPhotoCrop(crop)
+  const cropNote = hasCrop ? " + owner crop" : ""
+
   if (cropRect) {
     const png = await image
-      .extract(cropRect)
+      .extract(croppedRect)
       .resize(targetWidth, targetHeight)
       .png()
       .toBuffer()
     return {
       png,
       mode:
-        fitMode === "fill"
+        (fitMode === "fill"
           ? "face-steered fill-crop"
-          : "face-steered cover-crop",
+          : "face-steered cover-crop") + cropNote,
     }
   }
 
-  const png = await image
+  // Letterbox: the faces span too far to cover-crop (or there is no face data),
+  // so the whole photo is contained on white. An owner crop still zooms it —
+  // it just zooms a letterboxed picture, keeping the bars it already had.
+  const letterboxSource = hasCrop
+    ? sharp(jpegBytes).extract(croppedRect)
+    : sharp(jpegBytes)
+  const png = await letterboxSource
     .resize(targetWidth, targetHeight, {
       fit: "contain",
       background: {
@@ -352,9 +384,9 @@ const renderToTarget = async ({
   return {
     png,
     mode:
-      faceBoxes.length > 0
+      (faceBoxes.length > 0
         ? "letterbox (faces span too far)"
-        : "letterbox (no face data)",
+        : "letterbox (no face data)") + cropNote,
   }
 }
 
@@ -369,12 +401,14 @@ export const preparePhotoFrameImage = ({
   targetHeight,
   faceBoxes,
   fitMode,
+  crop,
 }: {
   jpegBytes: Buffer
   targetWidth: number
   targetHeight: number
   faceBoxes: readonly FaceBox[]
   fitMode: PhotoFitMode
+  crop?: PhotoCrop
 }) =>
   renderToTarget({
     jpegBytes,
@@ -382,6 +416,7 @@ export const preparePhotoFrameImage = ({
     targetHeight,
     faceBoxes,
     fitMode,
+    crop,
   })
 
 /**
@@ -422,6 +457,7 @@ export const composeDualPortrait = async ({
   targetWidth,
   targetHeight,
   gutterPixels,
+  crop,
 }: {
   leftJpegBytes: Buffer
   leftFaceBoxes: readonly FaceBox[]
@@ -430,6 +466,7 @@ export const composeDualPortrait = async ({
   targetWidth: number
   targetHeight: number
   gutterPixels: number
+  crop?: PhotoCrop
 }): Promise<{ png: Buffer; mode: string }> => {
   const { leftWidth, rightWidth, rightLeftOffset } =
     computeDualPortraitColumns({
@@ -444,6 +481,7 @@ export const composeDualPortrait = async ({
       targetHeight,
       faceBoxes: leftFaceBoxes,
       fitMode: "fill",
+      crop,
     }),
     renderToTarget({
       jpegBytes: rightJpegBytes,
@@ -451,6 +489,7 @@ export const composeDualPortrait = async ({
       targetHeight,
       faceBoxes: rightFaceBoxes,
       fitMode: "fill",
+      crop,
     }),
   ])
 

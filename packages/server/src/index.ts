@@ -42,10 +42,12 @@ import {
   type ClockDateStyleSetting,
   type ClockTimeFormat,
   type ClockTimeFormatSetting,
-  CROP_EDGES,
-  type CropEdge,
   createDeviceConfigStore,
+  MARGIN_EDGES,
+  type MarginEdge,
   type PanelRotation,
+  PHOTO_CROP_EDGES,
+  type PhotoCropEdge,
   type PhotoFormat,
   type PhotoFormatSetting,
 } from "./state/deviceConfigStore.ts"
@@ -231,7 +233,7 @@ const parsePercentPayload = (payload: string) => {
   return Math.min(200, Math.max(50, Math.round(value)))
 }
 
-/** Parse + clamp a crop-inset HA number-entity payload ("0".."200" px). */
+/** Parse + clamp a margin/crop HA number-entity payload ("0".."200" px). */
 const parsePixelPayload = (payload: string) => {
   const value = Number.parseFloat(payload)
   if (Number.isNaN(value)) {
@@ -273,8 +275,13 @@ const parseBoundedInteger = ({
   return Math.min(max, Math.max(min, Math.round(value)))
 }
 
-/** The config-knob kind key for a crop edge (matches the MQTT topic slug). */
-const getCropKnobKind = (edge: CropEdge) => `crop_${edge}`
+/** The config-knob kind key for a margin edge (matches the MQTT topic slug). */
+const getMarginKnobKind = (edge: MarginEdge) =>
+  `margin_${edge}`
+
+/** The config-knob kind key for a photo-crop edge (matches its topic slug). */
+const getPhotoCropKnobKind = (edge: PhotoCropEdge) =>
+  `photo_crop_${edge}`
 
 // The ConfigKnob framework type lives in @castkit/shared — both client modes
 // use retained-MQTT-state-as-persistence knobs.
@@ -1019,33 +1026,65 @@ const main = async () => {
             },
           },
         ],
-        // One crop-inset knob per edge — the mat safe area, tuned live per
-        // device (a reframed / unmatted unit can differ).
-        ...CROP_EDGES.map((edge): [string, ConfigKnob] => [
-          getCropKnobKind(edge),
-          {
-            applyPayload: ({ deviceId, payload }) => {
-              const pixels = parsePixelPayload(payload)
-              if (pixels === null) {
-                return null
-              }
-              deviceConfigStore.setCropInset({
-                deviceId,
-                edge,
-                pixels,
-              })
-              return String(pixels)
+        // One margin knob per edge — how far the mat overlaps the panel, so
+        // every view is laid out inside what is left. Tuned live per device (a
+        // reframed / unmatted unit can differ). This never cuts the picture.
+        ...MARGIN_EDGES.map(
+          (edge): [string, ConfigKnob] => [
+            getMarginKnobKind(edge),
+            {
+              applyPayload: ({ deviceId, payload }) => {
+                const pixels = parsePixelPayload(payload)
+                if (pixels === null) {
+                  return null
+                }
+                deviceConfigStore.setMarginEdge({
+                  deviceId,
+                  edge,
+                  pixels,
+                })
+                return String(pixels)
+              },
+              getHasValue: (deviceId) =>
+                deviceConfigStore.getMarginEdge({
+                  deviceId,
+                  edge,
+                }) !== undefined,
+              onApplied: async (deviceId) => {
+                await pushController.pushDevice(deviceId)
+              },
             },
-            getHasValue: (deviceId) =>
-              deviceConfigStore.getCropInset({
-                deviceId,
-                edge,
-              }) !== undefined,
-            onApplied: async (deviceId) => {
-              await pushController.pushDevice(deviceId)
+          ],
+        ),
+        // One photo-crop knob per edge — how much of the picture to throw away
+        // so the rest fills the frame. Photo views only; 0 = keep everything.
+        ...PHOTO_CROP_EDGES.map(
+          (edge): [string, ConfigKnob] => [
+            getPhotoCropKnobKind(edge),
+            {
+              applyPayload: ({ deviceId, payload }) => {
+                const pixels = parsePixelPayload(payload)
+                if (pixels === null) {
+                  return null
+                }
+                deviceConfigStore.setPhotoCropEdge({
+                  deviceId,
+                  edge,
+                  pixels,
+                })
+                return String(pixels)
+              },
+              getHasValue: (deviceId) =>
+                deviceConfigStore.getPhotoCropEdge({
+                  deviceId,
+                  edge,
+                }) !== undefined,
+              onApplied: async (deviceId) => {
+                await pushController.pushDevice(deviceId)
+              },
             },
-          },
-        ]),
+          ],
+        ),
         [
           // Master pause. Deliberately per-device ONLY — no global counterpart.
           // Every other knob is a household *default* a display may override,
@@ -1156,21 +1195,37 @@ const main = async () => {
           command: topics.saturationCommand,
           state: topics.saturationState,
         },
-        crop_top: {
-          command: topics.cropTopCommand,
-          state: topics.cropTopState,
+        margin_top: {
+          command: topics.marginTopCommand,
+          state: topics.marginTopState,
         },
-        crop_right: {
-          command: topics.cropRightCommand,
-          state: topics.cropRightState,
+        margin_right: {
+          command: topics.marginRightCommand,
+          state: topics.marginRightState,
         },
-        crop_bottom: {
-          command: topics.cropBottomCommand,
-          state: topics.cropBottomState,
+        margin_bottom: {
+          command: topics.marginBottomCommand,
+          state: topics.marginBottomState,
         },
-        crop_left: {
-          command: topics.cropLeftCommand,
-          state: topics.cropLeftState,
+        margin_left: {
+          command: topics.marginLeftCommand,
+          state: topics.marginLeftState,
+        },
+        photo_crop_top: {
+          command: topics.photoCropTopCommand,
+          state: topics.photoCropTopState,
+        },
+        photo_crop_right: {
+          command: topics.photoCropRightCommand,
+          state: topics.photoCropRightState,
+        },
+        photo_crop_bottom: {
+          command: topics.photoCropBottomCommand,
+          state: topics.photoCropBottomState,
+        },
+        photo_crop_left: {
+          command: topics.photoCropLeftCommand,
+          state: topics.photoCropLeftState,
         },
         updates: {
           command: topics.updatesCommand,
@@ -1760,10 +1815,19 @@ const main = async () => {
               ) !== undefined,
             payload: "100",
           },
-          ...CROP_EDGES.map((edge) => ({
-            kind: getCropKnobKind(edge),
+          ...MARGIN_EDGES.map((edge) => ({
+            kind: getMarginKnobKind(edge),
             hasValue:
-              deviceConfigStore.getCropInset({
+              deviceConfigStore.getMarginEdge({
+                deviceId: device.id,
+                edge,
+              }) !== undefined,
+            payload: "0",
+          })),
+          ...PHOTO_CROP_EDGES.map((edge) => ({
+            kind: getPhotoCropKnobKind(edge),
+            hasValue:
+              deviceConfigStore.getPhotoCropEdge({
                 deviceId: device.id,
                 edge,
               }) !== undefined,
@@ -1984,26 +2048,50 @@ const main = async () => {
             deviceId,
           ) ?? 100,
         ),
-        crop_top: String(
-          deviceConfigStore.getCropInset({
+        margin_top: String(
+          deviceConfigStore.getMarginEdge({
             deviceId,
             edge: "top",
           }) ?? 0,
         ),
-        crop_right: String(
-          deviceConfigStore.getCropInset({
+        margin_right: String(
+          deviceConfigStore.getMarginEdge({
             deviceId,
             edge: "right",
           }) ?? 0,
         ),
-        crop_bottom: String(
-          deviceConfigStore.getCropInset({
+        margin_bottom: String(
+          deviceConfigStore.getMarginEdge({
             deviceId,
             edge: "bottom",
           }) ?? 0,
         ),
-        crop_left: String(
-          deviceConfigStore.getCropInset({
+        margin_left: String(
+          deviceConfigStore.getMarginEdge({
+            deviceId,
+            edge: "left",
+          }) ?? 0,
+        ),
+        photo_crop_top: String(
+          deviceConfigStore.getPhotoCropEdge({
+            deviceId,
+            edge: "top",
+          }) ?? 0,
+        ),
+        photo_crop_right: String(
+          deviceConfigStore.getPhotoCropEdge({
+            deviceId,
+            edge: "right",
+          }) ?? 0,
+        ),
+        photo_crop_bottom: String(
+          deviceConfigStore.getPhotoCropEdge({
+            deviceId,
+            edge: "bottom",
+          }) ?? 0,
+        ),
+        photo_crop_left: String(
+          deviceConfigStore.getPhotoCropEdge({
             deviceId,
             edge: "left",
           }) ?? 0,
@@ -2044,10 +2132,14 @@ const main = async () => {
         colourMode: "colourModeCommand",
         brightness: "brightnessCommand",
         saturation: "saturationCommand",
-        crop_top: "cropTopCommand",
-        crop_right: "cropRightCommand",
-        crop_bottom: "cropBottomCommand",
-        crop_left: "cropLeftCommand",
+        margin_top: "marginTopCommand",
+        margin_right: "marginRightCommand",
+        margin_bottom: "marginBottomCommand",
+        margin_left: "marginLeftCommand",
+        photo_crop_top: "photoCropTopCommand",
+        photo_crop_right: "photoCropRightCommand",
+        photo_crop_bottom: "photoCropBottomCommand",
+        photo_crop_left: "photoCropLeftCommand",
         updates: "updatesCommand",
       }
       const commandKey = commandTopicByKind[kind]

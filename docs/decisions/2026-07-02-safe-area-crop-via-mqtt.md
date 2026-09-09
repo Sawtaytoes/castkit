@@ -4,7 +4,7 @@
 - **Date:** 2026-07-02
 - **Type:** Architecture
 - **Supersedes:** —
-- **Superseded by:** [2026-09-08-photo-views-fit-the-visible-window](2026-09-08-photo-views-fit-the-visible-window.md) (in part — the four HA number entities are unchanged; the "photo views bleed and ignore the inset" clause below is gone, and every view now honours the inset)
+- **Superseded by:** [2026-09-08-photo-views-fit-the-visible-window](2026-09-08-photo-views-fit-the-visible-window.md) (in part — the four HA number entities are unchanged; the "photo views bleed and ignore the inset" clause below is gone, and every view now honours the inset); and [2026-09-08-margin-pushes-in-and-crop-cuts-away](2026-09-08-margin-pushes-in-and-crop-cuts-away.md) for the NAME — the four entities are now `Display: Margin {edge}`, because they never cropped anything
 
 ## Decision
 

@@ -1,5 +1,6 @@
 import type { DitherAlgorithm } from "@castkit/core/devices/device"
-import type { SafeAreaInset } from "@castkit/core/panels/safeArea"
+import type { PhotoCrop } from "@castkit/core/panels/photoCrop"
+import type { PanelMargin } from "@castkit/core/panels/safeArea"
 
 /**
  * A colour-rendering override for a colour panel: "bw" renders the view in
@@ -48,19 +49,34 @@ export type ClockDateStyleSetting = ClockDateStyle | "auto"
 export type PanelRotation = 0 | 90 | 180 | 270
 
 /**
- * The four edges of a device's safe-area crop inset, in native panel pixels.
- * A physical mat/frame overlaps the panel edges and hides content under it, so
- * text views render inside these insets (white margin); photo views ignore
- * them and bleed to the edge. Tunable live per device from Home Assistant.
+ * The four edges of a device's panel margin, in native panel pixels. A physical
+ * mat/frame overlaps the panel edges and hides content under it, so EVERY view
+ * — photos included — is laid out inside what is left and the covered margin
+ * renders white. Nothing is cut off. Tunable live per device from Home
+ * Assistant, because a reframed or unmatted unit differs.
  */
-export type CropEdge = "top" | "right" | "bottom" | "left"
+export type MarginEdge = "top" | "right" | "bottom" | "left"
 
-export const CROP_EDGES: readonly CropEdge[] = [
+export const MARGIN_EDGES: readonly MarginEdge[] = [
   "top",
   "right",
   "bottom",
   "left",
 ]
+
+/**
+ * The four edges of a device's photo crop, in native px of the box a photo is
+ * composed into (the panel minus the margin). This is the knob that DOES cut:
+ * it throws pixels away and zooms what is left to fill the frame.
+ *
+ * Deliberately a separate axis from `MarginEdge`, and deliberately a separate
+ * MQTT topic slug (`photo_crop_*`, not the retired `crop_*`) — the old slug
+ * held margins, and reusing it would have read every mat as a zoom.
+ */
+export type PhotoCropEdge = MarginEdge
+
+export const PHOTO_CROP_EDGES: readonly PhotoCropEdge[] =
+  MARGIN_EDGES
 
 /**
  * In-memory per-device USER configuration, edited from Home Assistant via the
@@ -236,21 +252,33 @@ export type DeviceConfigStore = {
     percent: number
   }) => void
   /** Safe-area crop inset for one edge, in native px (undefined = not set). */
-  getCropInset: (params: {
+  getMarginEdge: (params: {
     deviceId: string
-    edge: CropEdge
+    edge: MarginEdge
   }) => number | undefined
-  setCropInset: (params: {
+  setMarginEdge: (params: {
     deviceId: string
-    edge: CropEdge
+    edge: MarginEdge
     pixels: number
   }) => void
   /**
-   * All four crop insets at once, in native px, unset edges reading 0 — the
-   * box the mat leaves visible. Every render path needs the whole shape, so it
-   * is resolved here rather than re-assembled edge by edge at each call site.
+   * All four margins at once, in native px, unset edges reading 0 — what the
+   * mat covers. Every render path needs the whole shape, so it is resolved
+   * here rather than re-assembled edge by edge at each call site.
    */
-  getSafeAreaInset: (deviceId: string) => SafeAreaInset
+  getMargin: (deviceId: string) => PanelMargin
+  /** Photo crop for one edge, in native px (undefined = not set). */
+  getPhotoCropEdge: (params: {
+    deviceId: string
+    edge: PhotoCropEdge
+  }) => number | undefined
+  setPhotoCropEdge: (params: {
+    deviceId: string
+    edge: PhotoCropEdge
+    pixels: number
+  }) => void
+  /** All four photo-crop edges at once, unset edges reading 0 (= no crop). */
+  getPhotoCrop: (deviceId: string) => PhotoCrop
   /**
    * Whether the display accepts new renders. False = paused: the panel keeps
    * the last frame on glass (ePaper holds it at zero power) and every push path
@@ -344,7 +372,8 @@ export const createDeviceConfigStore =
     const brightnessByDeviceId = new Map<string, number>()
     const saturationByDeviceId = new Map<string, number>()
     // Keyed by `${deviceId}:${edge}`.
-    const cropInsetByDeviceEdge = new Map<string, number>()
+    const marginByDeviceEdge = new Map<string, number>()
+    const photoCropByDeviceEdge = new Map<string, number>()
     // Absent = never set = updates enabled (the safe default).
     const isUpdatesEnabledByDeviceId = new Map<
       string,
@@ -470,25 +499,42 @@ export const createDeviceConfigStore =
       setSaturationPercent: ({ deviceId, percent }) => {
         saturationByDeviceId.set(deviceId, percent)
       },
-      getCropInset: ({ deviceId, edge }) =>
-        cropInsetByDeviceEdge.get(`${deviceId}:${edge}`),
-      setCropInset: ({ deviceId, edge, pixels }) => {
-        cropInsetByDeviceEdge.set(
+      getMarginEdge: ({ deviceId, edge }) =>
+        marginByDeviceEdge.get(`${deviceId}:${edge}`),
+      setMarginEdge: ({ deviceId, edge, pixels }) => {
+        marginByDeviceEdge.set(
           `${deviceId}:${edge}`,
           pixels,
         )
       },
-      getSafeAreaInset: (deviceId) => ({
-        top:
-          cropInsetByDeviceEdge.get(`${deviceId}:top`) ?? 0,
+      getMargin: (deviceId) => ({
+        top: marginByDeviceEdge.get(`${deviceId}:top`) ?? 0,
         right:
-          cropInsetByDeviceEdge.get(`${deviceId}:right`) ??
+          marginByDeviceEdge.get(`${deviceId}:right`) ?? 0,
+        bottom:
+          marginByDeviceEdge.get(`${deviceId}:bottom`) ?? 0,
+        left:
+          marginByDeviceEdge.get(`${deviceId}:left`) ?? 0,
+      }),
+      getPhotoCropEdge: ({ deviceId, edge }) =>
+        photoCropByDeviceEdge.get(`${deviceId}:${edge}`),
+      setPhotoCropEdge: ({ deviceId, edge, pixels }) => {
+        photoCropByDeviceEdge.set(
+          `${deviceId}:${edge}`,
+          pixels,
+        )
+      },
+      getPhotoCrop: (deviceId) => ({
+        top:
+          photoCropByDeviceEdge.get(`${deviceId}:top`) ?? 0,
+        right:
+          photoCropByDeviceEdge.get(`${deviceId}:right`) ??
           0,
         bottom:
-          cropInsetByDeviceEdge.get(`${deviceId}:bottom`) ??
+          photoCropByDeviceEdge.get(`${deviceId}:bottom`) ??
           0,
         left:
-          cropInsetByDeviceEdge.get(`${deviceId}:left`) ??
+          photoCropByDeviceEdge.get(`${deviceId}:left`) ??
           0,
       }),
       getIsUpdatesEnabled: (deviceId) =>

@@ -1,21 +1,27 @@
 /**
  * A physical mat/frame overlaps the panel edges and hides whatever is under
- * it. `SafeAreaInset` pushes a text view inward by this many *native* pixels
- * per edge so nothing important lands under the mat; the freed margin renders
- * white. Photo views pass no inset and bleed to the panel edge instead.
+ * it. `PanelMargin` is how far it overlaps, per edge, in *native* panel
+ * pixels. Every view — photos included — is laid out inside what is left, and
+ * the covered margin renders white. Nothing is cut off: the picture is made
+ * smaller so all of it stays visible.
+ *
+ * This is NOT a crop. A margin pushes content inward; a crop cuts content away
+ * to zoom what is left (`PhotoCrop`, applied to photo views only). Both exist
+ * and they compose: the margin decides the box, the crop decides how much of
+ * the photo fills it.
  *
  * Kept here, free of sharp, so the browser preview resolves the same box from
  * the same code the server renders against — a preview that approximated this
- * would show crops the device never produces.
+ * would show framing the device never produces.
  */
-export type SafeAreaInset = {
+export type PanelMargin = {
   top: number
   right: number
   bottom: number
   left: number
 }
 
-const NO_INSET: SafeAreaInset = {
+const NO_INSET: PanelMargin = {
   top: 0,
   right: 0,
   bottom: 0,
@@ -28,10 +34,10 @@ const clampInset = ({
   width,
   height,
 }: {
-  inset: SafeAreaInset
+  inset: PanelMargin
   width: number
   height: number
-}): SafeAreaInset => {
+}): PanelMargin => {
   const left = Math.max(0, Math.min(inset.left, width - 1))
   const right = Math.max(
     0,
@@ -56,14 +62,14 @@ const clampInset = ({
 export const resolveSafeArea = ({
   width,
   height,
-  safeAreaInset,
+  margin,
 }: {
   width: number
   height: number
-  safeAreaInset?: SafeAreaInset
+  margin?: PanelMargin
 }) => {
   const inset = clampInset({
-    inset: safeAreaInset ?? NO_INSET,
+    inset: margin ?? NO_INSET,
     width,
     height,
   })
