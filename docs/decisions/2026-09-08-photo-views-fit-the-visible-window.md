@@ -4,7 +4,7 @@
 - **Date:** 2026-09-08
 - **Type:** Product behavior
 - **Supersedes:** [2026-09-07-photo-views-compose-for-the-visible-window](2026-09-07-photo-views-compose-for-the-visible-window.md) (one day old, and wrong about the bleed), and with it the "photo views bleed" clause of [2026-07-02-safe-area-crop-via-mqtt](2026-07-02-safe-area-crop-via-mqtt.md)
-- **Superseded by:** —
+- **Superseded by:** [2026-09-08-margin-pushes-in-and-crop-cuts-away](2026-09-08-margin-pushes-in-and-crop-cuts-away.md), for the NAME only — the inset named here is now the panel *margin*. The behaviour described below stands.
 
 ## Decision
 
