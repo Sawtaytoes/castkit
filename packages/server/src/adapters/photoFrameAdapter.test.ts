@@ -2,7 +2,10 @@ import { describe, expect, test, vi } from "vitest"
 import type { ConfiguredDevice } from "../config/env.ts"
 import { createDeviceConfigStore } from "../state/deviceConfigStore.ts"
 import { createViewDataStore } from "../state/viewDataStore.ts"
-import { createPhotoFrameAdapter } from "./photoFrameAdapter.ts"
+import {
+  createPhotoFrameAdapter,
+  getShouldRefetchOnRecompose,
+} from "./photoFrameAdapter.ts"
 
 const DEVICE_ID = "living-room"
 
@@ -98,5 +101,36 @@ describe("photoFrameAdapter.recomposeCurrentPhoto", () => {
       adapter.recomposeCurrentPhoto("not-a-device"),
     ).resolves.toBeUndefined()
     expect(pushDevice).not.toHaveBeenCalled()
+  })
+})
+
+describe("getShouldRefetchOnRecompose", () => {
+  test("a Duo frame always refetches, even with history to replay", () => {
+    // The history holds single assets, not the pair a Duo frame needs. Replaying
+    // it would collapse two columns into one while the owner tunes a crop.
+    expect(
+      getShouldRefetchOnRecompose({
+        activeView: "Photo Frame (Duo)",
+        historyLength: 5,
+      }),
+    ).toBe(true)
+  })
+
+  test("a single-photo frame replays its history", () => {
+    expect(
+      getShouldRefetchOnRecompose({
+        activeView: "Photo Frame",
+        historyLength: 5,
+      }),
+    ).toBe(false)
+  })
+
+  test("an empty history has nothing to replay", () => {
+    expect(
+      getShouldRefetchOnRecompose({
+        activeView: "Photo Frame",
+        historyLength: 0,
+      }),
+    ).toBe(true)
   })
 })

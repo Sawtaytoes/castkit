@@ -26,6 +26,23 @@ import type { ViewDataStore } from "../state/viewDataStore.ts"
 const DUAL_PHOTO_VIEW: ViewName = "Photo Frame (Duo)"
 
 /**
+ * Whether a recompose must refetch rather than replay the photo history.
+ *
+ * The history remembers single assets, not the PAIR a dual-portrait frame is
+ * built from, so replaying it on a Duo device would quietly collapse two
+ * columns into one. A Duo device takes a fresh pair instead: the owner sees a
+ * different picture, but the frame keeps its shape, which is the property worth
+ * protecting while tuning a crop. An empty history has nothing to replay.
+ */
+export const getShouldRefetchOnRecompose = ({
+  activeView,
+  historyLength,
+}: {
+  activeView: ViewName
+  historyLength: number
+}) => activeView === DUAL_PHOTO_VIEW || historyLength === 0
+
+/**
  * How each photo view fits a single photo to the panel: the plain "Photo Frame"
  * letterboxes when faces don't fit; "(Fill)" and "(Duo)" fill the panel. (Duo
  * only falls back to a single photo when two portraits aren't available, and it
@@ -502,13 +519,18 @@ export const createPhotoFrameAdapter = ({
    * Re-cut the photo already on screen with the current settings. Used by the
    * crop knobs, which otherwise appear to do nothing: the composed PNG is
    * cached, so a re-push alone would show the old framing until the next photo
-   * rotation. Falls back to a fresh photo when there is no history yet.
+   * rotation. `getShouldRefetchOnRecompose` decides whether the history can be
+   * replayed or a fresh photo is needed.
    */
   const recomposeCurrentPhoto = async (
     deviceId: string,
   ) => {
-    const history = getHistory(deviceId)
-    if (history.assetIds.length === 0) {
+    if (
+      getShouldRefetchOnRecompose({
+        activeView: getActiveView(deviceId),
+        historyLength: getHistory(deviceId).assetIds.length,
+      })
+    ) {
       await refreshDevice(deviceId)
       return
     }
