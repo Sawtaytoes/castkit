@@ -3,6 +3,7 @@ import {
   computeDualPortraitColumns,
   computeFaceCropRect,
   computeFillCropRect,
+  preparePhotoFrameImage,
 } from "./photoFrameImage.ts"
 
 const PANEL = { targetWidth: 800, targetHeight: 480 }
@@ -202,5 +203,75 @@ describe("computeFaceCropRect", () => {
         cropRect.top + cropRect.height,
       ).toBeLessThanOrEqual(1200)
     }
+  })
+})
+
+/**
+ * The owner's crop, end to end on real bytes. A crop CUTS: it throws pixels
+ * away and zooms what is left. The margin does the opposite (it shrinks the
+ * picture so all of it survives) — see
+ * docs/decisions/2026-09-08-margin-pushes-in-and-crop-cuts-away.md.
+ */
+describe("preparePhotoFrameImage with an owner crop", () => {
+  const readSample = async () =>
+    (await import("node:fs/promises")).readFile(
+      new URL(
+        "../../../../assets/sample-photos/portrait-face.jpg",
+        import.meta.url,
+      ),
+    )
+
+  test("a cropped frame is still exactly panel-sized", async () => {
+    const sharp = (await import("sharp")).default
+    const { png } = await preparePhotoFrameImage({
+      jpegBytes: await readSample(),
+      targetWidth: 678,
+      targetHeight: 416,
+      faceBoxes: [],
+      fitMode: "fill",
+      crop: { top: 0, right: 0, bottom: 80, left: 0 },
+    })
+    const metadata = await sharp(png).metadata()
+    expect(metadata.width).toBe(678)
+    expect(metadata.height).toBe(416)
+  })
+
+  test("a crop changes the pixels; no crop leaves them alone", async () => {
+    const jpegBytes = await readSample()
+    const target = {
+      targetWidth: 678,
+      targetHeight: 416,
+      faceBoxes: [],
+      fitMode: "fill" as const,
+    }
+    const [plain, cropped, sameAsPlain] = await Promise.all(
+      [
+        preparePhotoFrameImage({ jpegBytes, ...target }),
+        preparePhotoFrameImage({
+          jpegBytes,
+          ...target,
+          crop: { top: 0, right: 0, bottom: 80, left: 0 },
+        }),
+        preparePhotoFrameImage({
+          jpegBytes,
+          ...target,
+          crop: { top: 0, right: 0, bottom: 0, left: 0 },
+        }),
+      ],
+    )
+    expect(cropped.png.equals(plain.png)).toBe(false)
+    expect(sameAsPlain.png.equals(plain.png)).toBe(true)
+  })
+
+  test("the mode string says a crop was applied", async () => {
+    const { mode } = await preparePhotoFrameImage({
+      jpegBytes: await readSample(),
+      targetWidth: 678,
+      targetHeight: 416,
+      faceBoxes: [],
+      fitMode: "fill",
+      crop: { top: 0, right: 0, bottom: 80, left: 0 },
+    })
+    expect(mode).toContain("owner crop")
   })
 })

@@ -92,14 +92,24 @@ export const buildDeviceTopics = ({
     brightnessState: `${base}/brightness`,
     saturationCommand: `${base}/saturation/set`,
     saturationState: `${base}/saturation`,
-    cropTopCommand: `${base}/crop_top/set`,
-    cropTopState: `${base}/crop_top`,
-    cropRightCommand: `${base}/crop_right/set`,
-    cropRightState: `${base}/crop_right`,
-    cropBottomCommand: `${base}/crop_bottom/set`,
-    cropBottomState: `${base}/crop_bottom`,
-    cropLeftCommand: `${base}/crop_left/set`,
-    cropLeftState: `${base}/crop_left`,
+    marginTopCommand: `${base}/margin_top/set`,
+    marginTopState: `${base}/margin_top`,
+    marginRightCommand: `${base}/margin_right/set`,
+    marginRightState: `${base}/margin_right`,
+    marginBottomCommand: `${base}/margin_bottom/set`,
+    marginBottomState: `${base}/margin_bottom`,
+    marginLeftCommand: `${base}/margin_left/set`,
+    marginLeftState: `${base}/margin_left`,
+    // Photo crop. A NEW slug on purpose: `crop_*` used to hold the margins,
+    // and reusing it would have read every mat as a zoom on the first boot.
+    photoCropTopCommand: `${base}/photo_crop_top/set`,
+    photoCropTopState: `${base}/photo_crop_top`,
+    photoCropRightCommand: `${base}/photo_crop_right/set`,
+    photoCropRightState: `${base}/photo_crop_right`,
+    photoCropBottomCommand: `${base}/photo_crop_bottom/set`,
+    photoCropBottomState: `${base}/photo_crop_bottom`,
+    photoCropLeftCommand: `${base}/photo_crop_left/set`,
+    photoCropLeftState: `${base}/photo_crop_left`,
     // Master pause. OFF = hold the last frame and skip every render/push.
     updatesCommand: `${base}/updates/set`,
     updatesState: `${base}/updates`,
@@ -390,44 +400,46 @@ export const buildDiscoveryMessages = ({
         device: deviceBlock,
       },
     },
-    // Safe-area crop insets (px per edge): a physical mat overlaps the panel
-    // edges, so text views render inside these; photo views bleed past them.
+    // Panel margin (px per edge): a physical mat overlaps the panel edges, so
+    // EVERY view — photos included — is laid out inside what is left, and the
+    // margin renders white. Nothing is cut off; the picture is made smaller.
+    // The knob that DOES cut is "Photo Frame: Crop", further down.
     // Tunable live so a reframed unit (or a second, unmatted one) can differ.
     ...(
       [
         {
           edge: "top",
-          command: topics.cropTopCommand,
-          state: topics.cropTopState,
+          command: topics.marginTopCommand,
+          state: topics.marginTopState,
         },
         {
           edge: "right",
-          command: topics.cropRightCommand,
-          state: topics.cropRightState,
+          command: topics.marginRightCommand,
+          state: topics.marginRightState,
         },
         {
           edge: "bottom",
-          command: topics.cropBottomCommand,
-          state: topics.cropBottomState,
+          command: topics.marginBottomCommand,
+          state: topics.marginBottomState,
         },
         {
           edge: "left",
-          command: topics.cropLeftCommand,
-          state: topics.cropLeftState,
+          command: topics.marginLeftCommand,
+          state: topics.marginLeftState,
         },
       ] as const
-    ).map((cropEdge) => ({
+    ).map((marginEdge) => ({
       topic: discoveryTopic(
         "number",
-        `crop_${cropEdge.edge}`,
+        `margin_${marginEdge.edge}`,
       ),
       isRetained: true as const,
       payload: {
         ...availability,
-        name: `Display: Crop ${cropEdge.edge}`,
-        unique_id: `inkcast_${device.id}_crop_${cropEdge.edge}`,
-        command_topic: cropEdge.command,
-        state_topic: cropEdge.state,
+        name: `Display: Margin ${marginEdge.edge}`,
+        unique_id: `inkcast_${device.id}_margin_${marginEdge.edge}`,
+        command_topic: marginEdge.command,
+        state_topic: marginEdge.state,
         min: 0,
         max: 200,
         step: 1,
@@ -613,6 +625,53 @@ export const buildDiscoveryMessages = ({
         device: deviceBlock,
       },
     },
+    // Photo crop (px per edge, of the box a photo is composed into). Unlike the
+    // margin above, this one CUTS: it throws pixels away and zooms what is left
+    // to fill the frame. Photo views only — cropping a text view would scale an
+    // already-rendered raster up and only blur the text. 0 = no crop.
+    ...(
+      [
+        {
+          edge: "top",
+          command: topics.photoCropTopCommand,
+          state: topics.photoCropTopState,
+        },
+        {
+          edge: "right",
+          command: topics.photoCropRightCommand,
+          state: topics.photoCropRightState,
+        },
+        {
+          edge: "bottom",
+          command: topics.photoCropBottomCommand,
+          state: topics.photoCropBottomState,
+        },
+        {
+          edge: "left",
+          command: topics.photoCropLeftCommand,
+          state: topics.photoCropLeftState,
+        },
+      ] as const
+    ).map((cropEdge) => ({
+      topic: discoveryTopic(
+        "number",
+        `photo_crop_${cropEdge.edge}`,
+      ),
+      isRetained: true as const,
+      payload: {
+        ...availability,
+        name: `Photo Frame: Crop ${cropEdge.edge}`,
+        unique_id: `inkcast_${device.id}_photo_crop_${cropEdge.edge}`,
+        command_topic: cropEdge.command,
+        state_topic: cropEdge.state,
+        min: 0,
+        max: 200,
+        step: 1,
+        unit_of_measurement: "px",
+        entity_category: "config",
+        device: deviceBlock,
+      },
+    })),
     {
       topic: discoveryTopic("button", "photo_next"),
       isRetained: true,
