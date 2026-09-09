@@ -1079,7 +1079,16 @@ const main = async () => {
                   deviceId,
                   edge,
                 }) !== undefined,
+              // Re-cut the picture already on screen. The composed PNG is
+              // cached, so a plain re-push would keep showing the old framing
+              // until the next photo rotation, and the knob would look broken.
               onApplied: async (deviceId) => {
+                if (photoFrameAdapter) {
+                  await photoFrameAdapter.recomposeCurrentPhoto(
+                    deviceId,
+                  )
+                  return
+                }
                 await pushController.pushDevice(deviceId)
               },
             },

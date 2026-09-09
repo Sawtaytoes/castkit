@@ -76,3 +76,27 @@ describe("photoFrameAdapter.showPhotoFrame", () => {
     ).toBeUndefined()
   })
 })
+
+describe("photoFrameAdapter.recomposeCurrentPhoto", () => {
+  test("falls back to a fresh photo when there is no history yet", async () => {
+    const { adapter, viewDataStore } = buildAdapter()
+
+    // No people and no query configured, so the fallback fetch finds nothing
+    // and stores nothing. What matters is that it did not throw, and did not
+    // silently leave a stale cached frame behind.
+    await adapter.recomposeCurrentPhoto(DEVICE_ID)
+
+    expect(
+      viewDataStore.getPhotoFrame(DEVICE_ID),
+    ).toBeUndefined()
+  })
+
+  test("is a no-op for a device this adapter does not own", async () => {
+    const { adapter, pushDevice } = buildAdapter()
+
+    await expect(
+      adapter.recomposeCurrentPhoto("not-a-device"),
+    ).resolves.toBeUndefined()
+    expect(pushDevice).not.toHaveBeenCalled()
+  })
+})
