@@ -89,7 +89,16 @@ export const createPushController = ({
     string
   >()
 
-  const renderDevice = async (deviceId: string) => {
+  /**
+   * `viewName` pins which view to render. `pushDevice` passes the view it read
+   * before starting, so the rendered bytes, the logged name and the published
+   * `view` state all describe the same frame even if the owner switches views
+   * mid-render. Callers that just want "whatever is current" omit it.
+   */
+  const renderDevice = async (
+    deviceId: string,
+    viewName?: ViewName,
+  ) => {
     const device = deviceById.get(deviceId)
     if (!device) {
       return null
@@ -134,7 +143,8 @@ export const createPushController = ({
         saturationPercent !== 100)
 
     // EVERY view honours the mat's safe-area crop, photos included.
-    const activeView = deviceStore.getActiveView(deviceId)
+    const activeView =
+      viewName ?? deviceStore.getActiveView(deviceId)
     // A "http-pull" panel is an ESPHome `online_image`, whose decoder is chosen
     // at COMPILE time (`format: png`) — it sniffs the magic bytes and rejects
     // anything else with "Incorrect PNG signature". So the photo-format knobs
@@ -191,15 +201,46 @@ export const createPushController = ({
     }
 
     const device = deviceById.get(deviceId)
-    const image = await renderDevice(deviceId)
+    // Pin the view BEFORE the render. A cold Chromium render of five panels
+    // took 15 s on the last deploy, and both the pause switch and the view
+    // select can land inside that window.
+    const viewAtRenderStart =
+      deviceStore.getActiveView(deviceId)
+    const image = await renderDevice(
+      deviceId,
+      viewAtRenderStart,
+    )
     if (!device || !image) {
+      return false
+    }
+
+    // Re-check what was true when the render STARTED. The check at the top of
+    // this function is seconds stale by now, and on a restart that is exactly
+    // when Home Assistant's retained `updates` and `view` land: the boot push
+    // read the defaults (updates = on), rendered for 15 s, and published to two
+    // displays the owner had paused. They then hold that wrong frame, because a
+    // paused display is never pushed to again.
+    if (!deviceConfigStore.getIsUpdatesEnabled(deviceId)) {
+      console.log(
+        `[inkcast] drop ${deviceId} (paused during render)`,
+      )
+      return false
+    }
+    const viewNow = deviceStore.getActiveView(deviceId)
+    if (viewNow !== viewAtRenderStart) {
+      // Whatever changed the view has already queued its own push, so this
+      // frame is stale rather than merely late. Publishing it would also make
+      // the retained `view` topic disagree with the retained image bytes.
+      console.log(
+        `[inkcast] drop ${deviceId} (view changed ${viewAtRenderStart} -> ${viewNow} during render)`,
+      )
       return false
     }
 
     const topics = buildDeviceTopics({ baseTopic, device })
 
     console.log(
-      `[inkcast] push ${deviceId} (${deviceStore.getActiveView(deviceId)}, ${image.length} bytes)`,
+      `[inkcast] push ${deviceId} (${viewAtRenderStart}, ${image.length} bytes)`,
     )
     await publisher.publish({
       topic: topics.image,
@@ -208,7 +249,7 @@ export const createPushController = ({
     })
     await publisher.publish({
       topic: topics.viewState,
-      payload: deviceStore.getActiveView(deviceId),
+      payload: viewAtRenderStart,
       isRetained: true,
     })
     await publisher.publish({

@@ -286,6 +286,14 @@ const getPhotoCropKnobKind = (edge: PhotoCropEdge) =>
 // The ConfigKnob framework type lives in @castkit/shared — both client modes
 // use retained-MQTT-state-as-persistence knobs.
 
+/**
+ * How long to let the broker replay retained messages before the server acts on
+ * what it thinks the saved state is. MQTT has no end-of-retained signal, so this
+ * is a window, not a handshake — `pushDevice` re-checks after every render for
+ * the case where a value still arrives late.
+ */
+const RETAINED_SETTLE_MILLISECONDS = 5_000
+
 const main = async () => {
   loadEnvironmentFile()
 
@@ -1762,17 +1770,30 @@ const main = async () => {
       },
     })
 
-    // Populate each HA image entity with a first frame.
-    await Promise.all(
-      config.devices.map((device) =>
-        pushController.pushDevice(device.id),
-      ),
-    )
-
-    // Seed the config entities' retained state with defaults for devices
-    // with no retained value yet (any retained restore lands within the
-    // first seconds of the subscription — hence the delay).
+    // Both of the jobs below wait out the retained replay.
+    //
+    // MQTT gives no "retained messages finished" signal, so the only honest
+    // way to read Home Assistant's saved `view`, `updates` and knob values is
+    // to let them land first. Acting sooner is what pushed a first frame to two
+    // displays the owner had paused: the boot push read the defaults
+    // (updates = on, the default view), spent 15 s in a cold Chromium render,
+    // and published just as the real values arrived.
+    //
+    // `pushDevice` also re-checks both AFTER its render, so a late arrival is
+    // caught even if it beats this window. This delay is what stops the wasted
+    // render; that re-check is what makes it correct.
     setTimeout(() => {
+      // Populate each HA image entity with a first frame. Not awaited: the
+      // image topic is retained, so a panel is already showing its last frame
+      // and nothing downstream needs this to finish.
+      void Promise.all(
+        config.devices.map((device) =>
+          pushController.pushDevice(device.id),
+        ),
+      )
+
+      // Seed the config entities' retained state with defaults for devices
+      // with no retained value yet.
       config.devices.forEach((device) => {
         const seedPairs: readonly {
           kind: string
@@ -1969,7 +1990,7 @@ const main = async () => {
             })
             .catch(() => {})
         })
-    }, 5_000)
+    }, RETAINED_SETTLE_MILLISECONDS)
   }
 
   // Browser-mode (Slatecast) devices: HA discovery + MQTT routes + the
