@@ -36,7 +36,12 @@ export const createBrowserStateStore = ({
     deviceId: string,
   ): BrowserDeviceSettings => ({
     orientation: deviceById.get(deviceId)?.rotation ?? 0,
-    theme: "Auto",
+    // Dark, not Auto. "Auto" reads the display's own OS colour preference,
+    // and a kiosk Pi has no one to set that, so Auto is a permanent Light in
+    // practice. A wall panel painting a white rectangle at night is the wrong
+    // default for the one thing every one of these devices is. "Auto" stays a
+    // selectable option for anyone whose panel really does track an OS scheme.
+    theme: "Dark",
     photoIntervalMinutes: DEFAULT_PHOTO_INTERVAL_MINUTES,
   })
 
