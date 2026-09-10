@@ -33,6 +33,18 @@
   --fg-dim: var(--color-content-secondary);
   --surface: var(--color-surface-raised);
   --accent: var(--color-intent-accent-solid);
+  /*
+   * Accent as TEXT, which is a different token from accent as a fill.
+   * `--accent` is the solid meant to be painted behind white; reading it as
+   * type on a dark surface measured 2.87:1 on the agenda rows, the worst
+   * contrast on the panel and on the one number an agenda exists to show.
+   * `--color-intent-accent-content` is the on-surface pair and measures 8.6:1.
+   *
+   * It is deliberately NOT folded into `--accent`: `NowPlaying` overrides that
+   * one inline with a colour sampled from the album art, and a token it could
+   * not override would end that feature.
+   */
+  --accent-content: var(--color-intent-accent-content);
 }
 
 * {
@@ -53,6 +65,15 @@ body {
   cursor: none;
 }
 
+/*
+ * Distance legibility: a panel on a wall is read from across the room, so
+ * secondary lines carry `font-weight: 600`, not the 400 they default to.
+ *
+ * 600 and not 500. The `system-ui` family these panels resolve (Raspberry Pi
+ * OS, Chromium) ships no medium face: measured on the basement panel, a 100px
+ * string is 754.61px wide at BOTH 400 and 500, and 776.50px at 600. A 500 here
+ * would read as a no-op change that nobody could see.
+ */
 .stage {
   display: flex;
   flex-direction: column;
@@ -126,6 +147,7 @@ body {
 
 .artist {
   font-size: 3.6vmin;
+  font-weight: 600;
   color: var(--accent);
   margin-top: 0.8vmin;
   white-space: nowrap;
@@ -135,6 +157,7 @@ body {
 
 .album {
   font-size: 2.8vmin;
+  font-weight: 600;
   color: var(--fg-dim);
   margin-top: 0.5vmin;
   white-space: nowrap;
@@ -153,6 +176,7 @@ body {
 
 .seek-time {
   font-size: 2.6vmin;
+  font-weight: 600;
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
   min-width: 8vmin;
@@ -296,6 +320,7 @@ body {
 
 .queue-artist {
   font-size: 2.6vmin;
+  font-weight: 600;
   color: var(--fg-dim);
   white-space: nowrap;
   overflow: hidden;
@@ -304,6 +329,7 @@ body {
 
 .queue-duration {
   font-size: 2.6vmin;
+  font-weight: 600;
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -319,11 +345,13 @@ body {
 
 .idle-title {
   font-size: 5vmin;
+  font-weight: 600;
   color: var(--fg-dim);
 }
 
 .idle-label {
   font-size: 3vmin;
+  font-weight: 600;
   color: var(--fg-dim);
   opacity: 0.6;
 }
@@ -349,6 +377,7 @@ body {
 
 .ambient-date {
   font-size: 5vmin;
+  font-weight: 600;
   color: var(--fg-dim);
 }
 
@@ -366,6 +395,7 @@ body {
 
 .ambient-condition {
   font-size: 5vmin;
+  font-weight: 600;
   color: var(--fg-dim);
 }
 
@@ -397,11 +427,13 @@ body {
 
 .weather-condition {
   font-size: 6vmin;
+  font-weight: 600;
   color: var(--fg-dim);
 }
 
 .weather-empty {
   font-size: 5vmin;
+  font-weight: 600;
   color: var(--fg-dim);
 }
 
@@ -419,6 +451,7 @@ body {
 
 .weather-date {
   font-size: 4vmin;
+  font-weight: 600;
   color: var(--fg-dim);
 }
 
@@ -434,24 +467,34 @@ body {
   justify-content: center;
 }
 
+/*
+ * Stacked, not a baseline row. Side by side, the clock and a long date
+ * ("Wednesday, September 9") measured 669px against a 648px content box on the
+ * 720px square, so the date wrapped and left the day number alone on its own
+ * line. `Ambient` already stacks these two for the same reason.
+ */
 .calendar-header {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 3vmin;
+  gap: 1vmin;
   text-align: center;
 }
 
 .calendar-time {
-  font-size: 10vmin;
+  font-size: 13vmin;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .calendar-date {
-  font-size: 4.5vmin;
+  font-size: 5vmin;
+  font-weight: 600;
   color: var(--fg-dim);
+  /* A full width line should not wrap, but balance it if a longer locale does. */
+  text-wrap: balance;
 }
 
 .calendar-weather {
@@ -466,6 +509,7 @@ body {
 }
 .calendar-condition {
   font-size: 4vmin;
+  font-weight: 600;
   color: var(--fg-dim);
 }
 .calendar-events {
@@ -487,8 +531,8 @@ body {
 
 .calendar-event-time {
   font-size: 3.4vmin;
-  font-weight: 600;
-  color: var(--accent);
+  font-weight: 700;
+  color: var(--accent-content);
   font-variant-numeric: tabular-nums;
   min-width: 22vmin;
   flex-shrink: 0;
@@ -496,6 +540,7 @@ body {
 
 .calendar-event-summary {
   font-size: 3.4vmin;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -503,6 +548,7 @@ body {
 
 .calendar-empty {
   font-size: 4vmin;
+  font-weight: 600;
   color: var(--fg-dim);
   text-align: center;
 }
