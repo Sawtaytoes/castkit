@@ -63,7 +63,8 @@ const readInlineSnapshot = (): Snapshot | null => {
 
 const DEFAULT_SETTINGS: BrowserDeviceSettings = {
   orientation: 0,
-  theme: "Auto",
+  // Matches the server default; see `browserStateStore.getDefaultSettings`.
+  theme: "Dark",
   photoIntervalMinutes: DEFAULT_PHOTO_INTERVAL_MINUTES,
 }
 

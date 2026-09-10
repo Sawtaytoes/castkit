@@ -1,3 +1,87 @@
+type Channels = readonly [number, number, number]
+
+/**
+ * The relative luminance an accent must reach to stay legible as TYPE on the
+ * panel's raised surface, per scheme. Both are the 4.5:1 solve against the
+ * `--color-surface-raised` token, so they move if that token moves:
+ *
+ *   dark  surface #1D2430, luminance 0.0174 -> accent luminance >= 0.253
+ *   light surface #FFFFFF, luminance 1.0000 -> accent luminance <= 0.183
+ */
+const MINIMUM_LUMINANCE_ON_DARK = 0.253
+const MAXIMUM_LUMINANCE_ON_LIGHT = 0.183
+
+const toLinear = (channel: number) => {
+  const scaled = channel / 255
+  return scaled <= 0.03928
+    ? scaled / 12.92
+    : ((scaled + 0.055) / 1.055) ** 2.4
+}
+
+const getRelativeLuminance = ([
+  red,
+  green,
+  blue,
+]: Channels) =>
+  0.2126 * toLinear(red) +
+  0.7152 * toLinear(green) +
+  0.0722 * toLinear(blue)
+
+/**
+ * Blend a derived accent toward white (on dark) or black (on light) until it
+ * clears the 4.5:1 floor against the surface it is painted on.
+ *
+ * Album art votes on HUE, and nothing in that vote is aware of the panel's
+ * scheme. A cover whose dominant colour is a deep navy used to be fine, because
+ * the panel was light; with the panels defaulting to Dark that same navy is the
+ * artist line and the progress fill rendered nearly invisible on a dark field.
+ *
+ * Luminance and not HSL lightness: lightness is not perceptual, so a pure blue
+ * at 62% lightness still fails the contrast check while a yellow at the same
+ * lightness passes by a wide margin. Blending preserves the hue the artwork
+ * voted for, which is the part of the feature worth keeping.
+ */
+export const clampAccentToScheme = ({
+  color,
+  isDarkScheme,
+}: {
+  color: string
+  isDarkScheme: boolean
+}): string => {
+  const parsed = color.match(/\d+(?:\.\d+)?/g)
+  if (!parsed || parsed.length < 3) {
+    return color
+  }
+  const channels = parsed
+    .slice(0, 3)
+    .map(Number) as unknown as Channels
+
+  const isAcceptable = (candidate: Channels) =>
+    isDarkScheme
+      ? getRelativeLuminance(candidate) >=
+        MINIMUM_LUMINANCE_ON_DARK
+      : getRelativeLuminance(candidate) <=
+        MAXIMUM_LUMINANCE_ON_LIGHT
+
+  if (isAcceptable(channels)) {
+    return `rgb(${channels[0]} ${channels[1]} ${channels[2]})`
+  }
+
+  const destination = isDarkScheme ? 255 : 0
+  // 20 steps of 5%: the last one IS the destination, so this always terminates
+  // on a value that clears the floor (white and black are the extremes).
+  for (let step = 1; step <= 20; step += 1) {
+    const ratio = step / 20
+    const blended = channels.map((channel) =>
+      Math.round(channel + (destination - channel) * ratio),
+    ) as unknown as Channels
+    if (isAcceptable(blended)) {
+      return `rgb(${blended[0]} ${blended[1]} ${blended[2]})`
+    }
+  }
+  return `rgb(${destination} ${destination} ${destination})`
+}
+
 /**
  * Derive an accent colour from album art, client-side: downscale to 16×16 on
  * a canvas, bucket pixels by hue, and pick the most saturated-populous
@@ -91,7 +175,12 @@ export const extractAccentColor = (
         const toChannel = (value: number) =>
           Math.round((value / best.weight) * 255)
         resolvePromise(
-          `rgb(${toChannel(best.r)} ${toChannel(best.g)} ${toChannel(best.b)})`,
+          clampAccentToScheme({
+            color: `rgb(${toChannel(best.r)} ${toChannel(best.g)} ${toChannel(best.b)})`,
+            isDarkScheme:
+              document.documentElement.dataset.scheme ===
+              "dark",
+          }),
         )
       } catch {
         resolvePromise(null) // Tainted canvas (no CORS) or decode failure.
