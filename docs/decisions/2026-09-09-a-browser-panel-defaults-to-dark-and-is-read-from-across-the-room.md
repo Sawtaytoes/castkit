@@ -28,6 +28,14 @@ arm's length. Two rules follow:
 `Calendar`'s header stacks the clock over the date, the way `Ambient` already
 did.
 
+3. **An accent derived from album art is clamped to the scheme.** The extractor
+   votes on hue and knows nothing about the panel's colours, so the result is
+   blended toward white (on dark) or black (on light) until it clears 4.5:1
+   against `--color-surface-raised`. Blending, not a lightness clamp, because
+   HSL lightness is not perceptual: a pure blue at 62% lightness still fails
+   while a yellow at the same lightness passes easily. The hue the artwork voted
+   for survives, which is the part of the feature worth keeping.
+
 ## Context
 
 The HyperPixel Square moved to the basement 3D printers workbench and idled on
@@ -74,6 +82,11 @@ Every text element on `Calendar` now measures above 6.7:1 in both schemes.
   on all day.
 - **`Ambient` had already solved the header.** The wrap was `Calendar` being the
   outlier, not a new layout problem.
+- **Changing the default made the album-art accent a hazard, so it is fixed in
+  the same change.** On a light panel a deep navy pulled from a cover was
+  perfectly readable. On a dark panel it is the artist line and the progress
+  fill rendered nearly invisible. A default flip that leaves that behind has not
+  finished the job it was asked to do.
 
 ## Evidence
 
