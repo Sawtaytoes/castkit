@@ -183,9 +183,10 @@ export const createBrowserMode = ({
     if (!device) {
       return null
     }
-    const activeView = getBrowserViewByName(
-      stateStore.getActiveView(deviceId),
-    )
+    const activeView = getBrowserViewByName({
+      device,
+      name: stateStore.getActiveView(deviceId),
+    })
     return {
       type: "snapshot",
       device: {
@@ -196,6 +197,7 @@ export const createBrowserMode = ({
         shape: device.shape,
         hasTouch: device.hasTouch,
         colour: device.colour,
+        externalViews: device.externalViews,
       },
       settings: settingsWithClock(deviceId),
       view:
@@ -216,9 +218,14 @@ export const createBrowserMode = ({
     isRestore: boolean
   }) => {
     const device = stateStore.deviceById.get(deviceId)
-    const view = getBrowserViewByName(payload)
+    if (!device) {
+      return
+    }
+    const view = getBrowserViewByName({
+      device,
+      name: payload,
+    })
     if (
-      !device ||
       !view ||
       !getBrowserViewsForDevice(device).some(
         (allowedView) => allowedView.name === view.name,
@@ -705,6 +712,32 @@ export const createBrowserMode = ({
         )
       }
       return context.html(buildDevicePageHtml({ snapshot }))
+    })
+
+    app.get("/d/:id/castkit.json", (context) => {
+      const deviceId = context.req.param("id") ?? ""
+      const device = stateStore.deviceById.get(deviceId)
+      if (!device) {
+        return context.json(
+          { error: "unknown device" },
+          404,
+        )
+      }
+      return context.json({
+        version: 1,
+        viewport: {
+          width: device.width,
+          height: device.height,
+        },
+        page_url: `/d/${device.id}`,
+        ready_selector: "[data-castkit-ready]",
+        input: {
+          target_attribute: "data-castkit-target",
+          max_frame_age_ms: 7000,
+        },
+        cache: [],
+        refresh: { max_fps: 10, heartbeat_ms: 2000 },
+      })
     })
 
     // A fresh, face-cropped Immich photo sized to this browser panel. The SPA

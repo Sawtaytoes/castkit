@@ -56,3 +56,31 @@ test("rejects photoPeople written as a comma string", () => {
     }),
   ).toThrow()
 })
+
+test("reads deployment-configured external browser views", () => {
+  const config = loadConfig({
+    INKCAST_DEVICES_FILE: writeDevicesFile([
+      {
+        renderer: "browser",
+        id: "workbench",
+        label: "Workbench Display",
+        mac: "02:00:00:00:00:10",
+        width: 480,
+        height: 320,
+        externalViews: [
+          {
+            name: "Disc App",
+            url: "https://example.com/kiosk",
+          },
+        ],
+      },
+    ]),
+  })
+
+  expect(config.browserDevices[0]?.externalViews).toEqual([
+    {
+      name: "Disc App",
+      url: "https://example.com/kiosk",
+    },
+  ])
+})

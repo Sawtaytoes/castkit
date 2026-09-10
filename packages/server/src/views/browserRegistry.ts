@@ -16,6 +16,15 @@ export type BrowserViewDefinition = {
   isTouchRequired: boolean
 }
 
+const getExternalViewsForDevice = (
+  device: BrowserDeviceConfig,
+): readonly BrowserViewDefinition[] =>
+  device.externalViews.map((view, index) => ({
+    name: view.name,
+    clientId: `external-view:${index}`,
+    isTouchRequired: true,
+  }))
+
 export const BROWSER_VIEWS: readonly BrowserViewDefinition[] =
   [
     {
@@ -61,11 +70,19 @@ export const DEFAULT_BROWSER_VIEW = BROWSER_VIEWS[0]!
 export const getBrowserViewsForDevice = (
   device: BrowserDeviceConfig,
 ): readonly BrowserViewDefinition[] =>
-  BROWSER_VIEWS.filter(
+  BROWSER_VIEWS.concat(
+    getExternalViewsForDevice(device),
+  ).filter(
     (view) => !view.isTouchRequired || device.hasTouch,
   )
 
-export const getBrowserViewByName = (
-  name: string,
-): BrowserViewDefinition | undefined =>
-  BROWSER_VIEWS.find((view) => view.name === name)
+export const getBrowserViewByName = ({
+  device,
+  name,
+}: {
+  device: BrowserDeviceConfig
+  name: string
+}): BrowserViewDefinition | undefined =>
+  getBrowserViewsForDevice(device).find(
+    (view) => view.name === name,
+  )

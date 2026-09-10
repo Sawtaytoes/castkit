@@ -16,6 +16,7 @@ export const MEDIA_CONTROLS_PROFILE: BrowserDeviceProfile =
     shape: "square",
     hasTouch: true,
     colour: "full",
+    externalViews: [],
   }
 
 export const PORTHOLE_PROFILE: BrowserDeviceProfile = {
@@ -26,6 +27,7 @@ export const PORTHOLE_PROFILE: BrowserDeviceProfile = {
   shape: "round",
   hasTouch: false,
   colour: "full",
+  externalViews: [],
 }
 
 export const BROWSER_DEVICE_PROFILES: readonly BrowserDeviceProfile[] =

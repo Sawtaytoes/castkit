@@ -182,33 +182,38 @@ export const buildBrowserDiscoveryMessages = ({
         device: deviceBlock,
       },
     },
-    {
-      // Panel backlight as a dimmable light — commands are consumed by the
-      // per-Pi castkit-backlight agent (pure-MQTT peer, same contract style
-      // as the tap commands). Brightness is the panel's real PWM backlight
-      // (0–255); on a stock gpio-backlight the agent collapses it to on/off.
-      // Availability = the agent's LWT, not the server's.
-      topic: discoveryTopic("light", "backlight"),
-      isRetained: true,
-      payload: {
-        availability_topic: topics.backlightAvailability,
-        payload_available: "online",
-        payload_not_available: "offline",
-        name: "Backlight",
-        unique_id: `castkit_${device.id}_backlight`,
-        command_topic: topics.backlightCommand,
-        state_topic: topics.backlightState,
-        payload_on: "ON",
-        payload_off: "OFF",
-        brightness_command_topic:
-          topics.backlightBrightnessCommand,
-        brightness_state_topic:
-          topics.backlightBrightnessState,
-        brightness_scale: 255,
-        icon: "mdi:television-ambient-light",
-        device: deviceBlock,
-      },
-    },
+    ...(device.hasMqttBacklight
+      ? [
+          {
+            // Panel backlight as a dimmable light — commands are consumed by the
+            // per-Pi castkit-backlight agent (pure-MQTT peer, same contract style
+            // as the tap commands). Brightness is the panel's real PWM backlight
+            // (0–255); on a stock gpio-backlight the agent collapses it to on/off.
+            // Availability = the agent's LWT, not the server's.
+            topic: discoveryTopic("light", "backlight"),
+            isRetained: true as const,
+            payload: {
+              availability_topic:
+                topics.backlightAvailability,
+              payload_available: "online",
+              payload_not_available: "offline",
+              name: "Backlight",
+              unique_id: `castkit_${device.id}_backlight`,
+              command_topic: topics.backlightCommand,
+              state_topic: topics.backlightState,
+              payload_on: "ON",
+              payload_off: "OFF",
+              brightness_command_topic:
+                topics.backlightBrightnessCommand,
+              brightness_state_topic:
+                topics.backlightBrightnessState,
+              brightness_scale: 255,
+              icon: "mdi:television-ambient-light",
+              device: deviceBlock,
+            },
+          },
+        ]
+      : []),
     {
       // Mount orientation (clockwise degrees), applied by the SPA as a CSS
       // transform — dynamic so an automation (or a future motorized mount)

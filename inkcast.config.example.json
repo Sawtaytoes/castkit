@@ -35,7 +35,13 @@
     "height": 720,
     "shape": "square",
     "hasTouch": true,
-    "colour": "full"
+    "colour": "full",
+    "externalViews": [
+      {
+        "name": "Disc App",
+        "url": "https://discs.example.test/kiosk"
+      }
+    ]
   },
   {
     "renderer": "browser",

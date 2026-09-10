@@ -2,7 +2,15 @@
 
 The remote-display renderer runs Chromium for a constrained ESPHome display. The application owns its UI and serves a JSON manifest. CastKit reads the manifest, pre-renders its cache URLs, sends compressed RGB565 frames, and returns physical touches to the same browser session. It does not fetch application data or issue application commands itself.
 
-This is a renderer worker under `device-client/remote-display`, packaged separately to isolate Python/Chromium dependencies from the CastKit server. It exposes no additional server or public HTTP API. It is not yet a device managed through the central CastKit registry or its HA discovery settings. Existing Inkcast and Slatecast clients retain their current paths.
+A receiver can also be a normal Slatecast device. Register it as a 480×320
+browser device, then point the worker at `/d/<device-id>/castkit.json`. CastKit
+generates that manifest from the registry and renders `/d/<device-id>`, so the
+display receives the standard View select, Now Playing controls, Calendar view,
+weather, agenda, and Home Assistant automation policy. Deployment-configured
+`externalViews` appear in the same View select and fill the panel through the
+Slatecast client.
+
+This is a renderer worker under `device-client/remote-display`, packaged separately to isolate Python/Chromium dependencies from the CastKit server. It exposes no additional server or public HTTP API. It can load either an application's manifest directly or the manifest of a browser device in CastKit's central registry. Existing Inkcast and direct-browser Slatecast clients retain their current paths.
 
 ## Application manifest, version 1
 
@@ -40,6 +48,11 @@ Version 1 requires the WT32's 480×320 viewport and supports **zero or one** ful
 3. Run `ghcr.io/sawtaytoes/castkit-remote-display:latest` with that configuration mounted at `/config/display.yaml` and the existing ESPHome secrets file at its configured path. The image runs as UID 10001. Give it read access to those mounts and outbound access to the application and encrypted ESPHome API on port 6053. No inbound port is needed.
 
 The worker validates device identity before transferring images. API messages use 12,000-character base64 chunks and one acknowledged frame at a time. RGB565 zlib frames use format 2; cache uploads use format 3. The firmware decodes on a worker task, draws on the main loop, and keeps the loading bitmap in PSRAM. Cache contents are volatile and are sent again after reconnect. A disconnected renderer never dispatches a retained release event as a new tap.
+
+The example firmware exposes its monochromatic backlight as an ESPHome light.
+For a registered receiver, set `hasMqttBacklight: false` in the CastKit device
+entry. Home Assistant can then apply the same room-light policy as other
+CastKit displays without creating a duplicate MQTT backlight entity.
 
 Source run and tests:
 

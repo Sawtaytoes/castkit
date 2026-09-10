@@ -15,6 +15,8 @@ const buildDevice = (
     shape: "square",
     hasTouch: true,
     colour: "full",
+    hasMqttBacklight: true,
+    externalViews: [],
     ...overrides,
   }) as BrowserDeviceConfig
 

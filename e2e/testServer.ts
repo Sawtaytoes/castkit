@@ -84,6 +84,12 @@ export const startTestServer = async ({
         shape: "square",
         hasTouch: true,
         colour: "full",
+        externalViews: [
+          {
+            name: "Disc App",
+            url: `http://localhost:${port}/__test__/external`,
+          },
+        ],
       },
     ]),
   )
@@ -133,6 +139,11 @@ export const startTestServer = async ({
   // Everything the server has published to the broker, for command assertions.
   app.get("/__test__/published", (context) =>
     context.json(published),
+  )
+  app.get("/__test__/external", (context) =>
+    context.html(
+      '<button type="button">External control</button>',
+    ),
   )
 
   const { injectWebSocket } = browserMode.attach(app)

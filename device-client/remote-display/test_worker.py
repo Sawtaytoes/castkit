@@ -63,6 +63,22 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         await self.event(4, 2)
         self.assertEqual(await self.page.locator('button').inner_text(), 'Slot 1')
 
+    async def test_external_view_frame_receives_a_guarded_touch(self):
+        await self.page.set_content('''
+          <iframe data-castkit-target="external-view:Disc App"
+           style="position:absolute;inset:0;width:100%;height:100%;border:0"
+           srcdoc="<button onclick=&quot;this.textContent='Opened'&quot; style=&quot;width:200px;height:40px&quot;>Disc App</button>"></iframe>''')
+        frame = self.page.frames[1]
+        self.session.guard.remember(
+            43,
+            [Target('external-view:Disc App', 0, 0, 480, 320)],
+        )
+
+        await self.event(1, 0, frame=43)
+        await self.event(2, 2, frame=43)
+
+        self.assertEqual(await frame.locator('button').inner_text(), 'Opened')
+
     async def test_cache_frame_is_acknowledged_but_never_becomes_a_touch_target(self):
         self.session.client = AsyncMock()
         self.session.services = {'frame_chunk': object()}

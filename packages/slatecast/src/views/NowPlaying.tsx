@@ -84,6 +84,7 @@ const SeekBar = ({
           aria-valuemax={valueMax}
           aria-valuenow={valueNow}
           aria-valuetext={valueText}
+          data-castkit-target="now-playing-seek"
           onPointerDown={(event) => {
             ;(
               event.currentTarget as HTMLElement
@@ -130,6 +131,7 @@ const TransportRow = () => {
       <button
         type="button"
         aria-label="Previous track"
+        data-castkit-target="now-playing-previous"
         onClick={playPrevious}
       >
         <Icon path={ICON_PATHS.previous} />
@@ -138,6 +140,7 @@ const TransportRow = () => {
         type="button"
         class="play-pause"
         aria-label={data?.isPlaying ? "Pause" : "Play"}
+        data-castkit-target="now-playing-play-pause"
         onClick={togglePlayPause}
       >
         <Icon
@@ -151,6 +154,7 @@ const TransportRow = () => {
       <button
         type="button"
         aria-label="Next track"
+        data-castkit-target="now-playing-next"
         onClick={playNext}
       >
         <Icon path={ICON_PATHS.next} />
@@ -169,6 +173,7 @@ const VolumeRow = () => {
       <button
         type="button"
         aria-label="Mute"
+        data-castkit-target="now-playing-mute"
         onClick={toggleMute}
       >
         <Icon
@@ -185,6 +190,7 @@ const VolumeRow = () => {
         max="100"
         value={Math.round(data.volume * 100)}
         aria-label="Volume"
+        data-castkit-target="now-playing-volume"
         // onInput, not onChange: onChange only fires on release, so the slider
         // sat still under a moving finger. setVolume throttles the publishes.
         onInput={(event) =>

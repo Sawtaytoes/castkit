@@ -26,6 +26,7 @@ export const buildDeviceProfile = (
   shape: "square" as const,
   hasTouch: true,
   colour: "full" as const,
+  externalViews: [],
   ...overrides,
 })
 
