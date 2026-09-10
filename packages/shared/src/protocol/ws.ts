@@ -56,6 +56,10 @@ export type BrowserDeviceProfile = {
   shape: "square" | "round" | "rect"
   hasTouch: boolean
   colour: "mono" | "grayscale" | "e6" | "full"
+  externalViews: readonly {
+    name: string
+    url: string
+  }[]
 }
 
 export type ViewDataState = {

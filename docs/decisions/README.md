@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-10 | [An ESPHome receiver can be a registered Slatecast device](2026-09-10-an-esphome-receiver-can-be-a-registered-slatecast-device.md) | Accepted |
 | 2026-09-09 | [A browser panel defaults to Dark, and is typeset to be read from across the room](2026-09-09-a-browser-panel-defaults-to-dark-and-is-read-from-across-the-room.md) | Accepted |
 | 2026-09-09 | [The Slatecast `Calendar` view carries weather, like the ePaper `Clock (Agenda)`](2026-09-09-the-slatecast-calendar-view-carries-weather.md) | Accepted |
 | 2026-09-09 | [A push re-checks pause and view AFTER the render, not just before](2026-09-09-a-push-re-checks-pause-and-view-after-the-render.md) | Accepted |

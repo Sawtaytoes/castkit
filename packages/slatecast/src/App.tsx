@@ -4,6 +4,7 @@ import { activeView, device, settings } from "./state.ts"
 import { Ambient } from "./views/Ambient.tsx"
 import { Calendar } from "./views/Calendar.tsx"
 import { Clock } from "./views/Clock.tsx"
+import { ExternalView } from "./views/ExternalView.tsx"
 import { NowPlaying } from "./views/NowPlaying.tsx"
 import { PhotoFrame } from "./views/PhotoFrame.tsx"
 import { Queue } from "./views/Queue.tsx"
@@ -72,13 +73,17 @@ export const App = () => {
     )
   }
 
-  const ActiveView =
-    viewByClientId[activeView.value] ?? NowPlaying
+  const ActiveView = activeView.value.startsWith(
+    "external-view:",
+  )
+    ? ExternalView
+    : (viewByClientId[activeView.value] ?? NowPlaying)
 
   return (
     <div
       class={`stage shape-${profile.shape}${profile.hasTouch ? "" : " touchless"}`}
       data-theme={theme.toLowerCase()}
+      data-castkit-ready="true"
       style={{
         transform:
           orientation === 0

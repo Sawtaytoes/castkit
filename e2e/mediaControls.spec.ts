@@ -183,4 +183,37 @@ test.describe("Media Controls end to end", () => {
     })
     await expect(page.getByText("Roygbiv")).toBeVisible()
   })
+
+  test("serves a receiver manifest and a configured external view", async ({
+    page,
+  }) => {
+    const manifestResponse = await page.request.get(
+      `/d/${E2E_DEVICE_ID}/castkit.json`,
+    )
+    expect(manifestResponse.ok()).toBe(true)
+    await expect(
+      manifestResponse.json(),
+    ).resolves.toMatchObject({
+      viewport: { width: 720, height: 720 },
+      page_url: `/d/${E2E_DEVICE_ID}`,
+      input: {
+        target_attribute: "data-castkit-target",
+      },
+    })
+
+    await publishFromHomeAssistant({
+      page,
+      topic: e2eTopics.view,
+      payload: "Disc App",
+    })
+
+    const externalFrame = page.frameLocator(
+      'iframe[title="Disc App"]',
+    )
+    await expect(
+      externalFrame.getByRole("button", {
+        name: "External control",
+      }),
+    ).toBeVisible()
+  })
 })
