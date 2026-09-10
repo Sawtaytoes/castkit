@@ -121,6 +121,7 @@ const BrowserDeviceConfigSchema = z.object({
     z.enum(["mono", "grayscale", "e6", "full"]),
     "full",
   ),
+  hasMqttBacklight: z._default(z.boolean(), true),
   rotation: z._default(
     z.union([
       z.literal(0),
@@ -129,6 +130,15 @@ const BrowserDeviceConfigSchema = z.object({
       z.literal(270),
     ]),
     0,
+  ),
+  externalViews: z._default(
+    z.array(
+      z.object({
+        name: z.string(),
+        url: z.url(),
+      }),
+    ),
+    [],
   ),
 })
 

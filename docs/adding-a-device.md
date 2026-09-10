@@ -38,6 +38,18 @@ working file.
 | `nowPlayingEntityId` | — | Pin this display's Now Playing to a specific HA `media_player`; omit to follow the active player. |
 | `photoPeople` | — | Array of Immich person names, e.g. `["Ada", "Grace"]`. **Seed only:** fills the Photo Frame people filter when the broker has no retained value (first boot, or after a retained wipe). HA owns the live value — editing it there never writes back here, and the seed never overwrites what the broker restored. Omit and the frame starts blank. |
 
+Browser-mode entries use `renderer: "browser"`, `shape`, `hasTouch`, and
+`colour` instead of the image palette fields. An optional `externalViews` array
+adds deployment-owned applications to that device's Home Assistant **View**
+select. Each entry has a display name and an absolute HTTP(S) URL. The Slatecast
+client presents the application in a full-panel frame, while the remote-display
+receiver keeps its frame-bound touch guard around the whole application view.
+
+Browser devices normally publish a CastKit backlight entity for the kiosk-side
+MQTT agent. Set `hasMqttBacklight: false` when the receiver already exposes its
+backlight through another Home Assistant integration, such as ESPHome. This
+prevents a second unavailable backlight entity.
+
 **Palette note:** there are exactly two palettes — `MONO_PALETTE` and
 `E6_DEFAULT_PALETTE`, keyed by `colourMode`. There is no per-device custom
 palette. A new panel of an existing colour family (e.g. another 6-colour E6
