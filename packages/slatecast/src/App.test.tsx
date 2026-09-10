@@ -47,6 +47,35 @@ describe("view switching", () => {
       ).toBeVisible()
     })
   })
+
+  test("shows a configured external application as a CastKit view", async () => {
+    await mountSlatecast({
+      snapshot: buildSnapshot({
+        view: "external-view:0",
+        device: buildDeviceProfile({
+          externalViews: [
+            {
+              name: "Disc App",
+              url: "https://example.com/kiosk",
+            },
+          ],
+        }),
+      }),
+    })
+
+    expect(screen.getByTitle("Disc App")).toHaveAttribute(
+      "src",
+      "https://example.com/kiosk",
+    )
+    expect(screen.getByTitle("Disc App")).toHaveAttribute(
+      "data-castkit-target",
+      "external-view:Disc App",
+    )
+    expect(stage()).toHaveAttribute(
+      "data-castkit-ready",
+      "true",
+    )
+  })
 })
 
 describe("device settings", () => {

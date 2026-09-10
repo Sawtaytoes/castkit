@@ -15,7 +15,11 @@ const TEST_DEVICE: BrowserDeviceConfig = {
   shape: "square",
   hasTouch: true,
   colour: "full",
+  hasMqttBacklight: true,
   rotation: 0,
+  externalViews: [
+    { name: "Disc App", url: "https://example.com/kiosk" },
+  ],
 }
 
 describe("buildBrowserDeviceTopics", () => {
@@ -118,6 +122,26 @@ describe("buildBrowserDiscoveryMessages", () => {
       "Weather",
       "Calendar",
       "Photo Frame",
+      "Disc App",
     ])
+  })
+
+  test("omits the MQTT backlight when the device supplies its own entity", () => {
+    const externalBacklightMessages =
+      buildBrowserDiscoveryMessages({
+        device: {
+          ...TEST_DEVICE,
+          hasMqttBacklight: false,
+        },
+      })
+
+    expect(
+      externalBacklightMessages.some((message) =>
+        message.topic.includes("_backlight/"),
+      ),
+    ).toBe(false)
+    expect(
+      externalBacklightMessages[0]?.payload.options,
+    ).toContain("Disc App")
   })
 })
