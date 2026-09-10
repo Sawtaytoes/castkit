@@ -5,6 +5,7 @@ import {
   buildAgendaEvent,
   buildSettings,
   buildSnapshot,
+  buildWeather,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
 
@@ -22,12 +23,15 @@ const UTC_CLOCK = {
 
 const mountCalendar = async (
   events: ReturnType<typeof buildAgenda>["events"],
+  weather?: ReturnType<typeof buildWeather>,
 ) =>
   mountSlatecast({
     snapshot: buildSnapshot({
       view: "calendar",
       settings: buildSettings({ clock: UTC_CLOCK }),
-      data: { agenda: { events } },
+      data: weather
+        ? { agenda: { events }, weather }
+        : { agenda: { events } },
     }),
   })
 
@@ -127,5 +131,46 @@ describe("upcoming filter", () => {
     expect(screen.queryByText("Morning standup")).toBeNull()
     expect(screen.getByText("Design review")).toBeVisible()
     expect(eventRows().length).toBe(1)
+  })
+})
+
+describe("calendar weather", () => {
+  test("shows the temperature and condition alongside the agenda", async () => {
+    await mountCalendar(
+      buildAgenda().events,
+      buildWeather({
+        temperatureText: "73°",
+        conditionText: "Partly cloudy",
+      }),
+    )
+
+    expect(screen.getByText("73°")).toBeVisible()
+    expect(screen.getByText("Partly cloudy")).toBeVisible()
+    expect(
+      screen.getByText("Dentist appointment"),
+    ).toBeVisible()
+  })
+
+  test("omits the weather line entirely until Home Assistant pushes weather", async () => {
+    await mountCalendar(buildAgenda().events)
+
+    expect(
+      document.querySelector(".calendar-weather"),
+    ).toBeNull()
+  })
+
+  test("keeps the weather line on an empty day", async () => {
+    await mountCalendar(
+      [],
+      buildWeather({
+        temperatureText: "41°",
+        conditionText: "Snowy",
+      }),
+    )
+
+    expect(screen.getByText("41°")).toBeVisible()
+    expect(
+      screen.getByText("No upcoming events"),
+    ).toBeVisible()
   })
 })

@@ -454,6 +454,20 @@ body {
   color: var(--fg-dim);
 }
 
+.calendar-weather {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2.5vmin;
+}
+.calendar-temp {
+  font-size: 6vmin;
+  font-weight: 600;
+}
+.calendar-condition {
+  font-size: 4vmin;
+  color: var(--fg-dim);
+}
 .calendar-events {
   list-style: none;
   display: flex;

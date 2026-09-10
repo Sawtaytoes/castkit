@@ -1,4 +1,9 @@
-import { agenda, clockConfig, nowMs } from "../state.ts"
+import {
+  agenda,
+  clockConfig,
+  nowMs,
+  weather,
+} from "../state.ts"
 import {
   formatClockDate,
   formatClockTime,
@@ -15,13 +20,21 @@ const EVENT_BUDGET = 6
 const IN_PROGRESS_GRACE_MILLIS = 60 * 60 * 1_000
 
 /**
- * Calendar view: a header clock + date over today's upcoming agenda. Home
- * Assistant pushes the full day's events (sorted ascending) to
- * `<base>/<id>/agenda/set`; this filters to still-upcoming and slices to the
- * panel's budget on every 1 Hz tick — no refetch. All-day events always show.
+ * Calendar view: a header clock + date, the current weather, then today's
+ * upcoming agenda. Home Assistant pushes the full day's events (sorted
+ * ascending) to `<base>/<id>/agenda/set`; this filters to still-upcoming and
+ * slices to the panel's budget on every 1 Hz tick — no refetch. All-day events
+ * always show.
+ *
+ * The weather line mirrors the ePaper `Clock (Agenda)` view, which has always
+ * carried time + date + weather + agenda together. It is the idle view a
+ * display parks on, so the same four facts belong on both renderers. Weather
+ * comes from retained MQTT (`<base>/<id>/weather/set`), so the line is absent
+ * until Home Assistant publishes and then survives reconnects.
  */
 export const Calendar = () => {
   const currentMillis = nowMs.value
+  const weatherData = weather.value
   const upcomingEvents = (agenda.value?.events ?? [])
     .filter(
       (event) =>
@@ -47,6 +60,16 @@ export const Calendar = () => {
           )}
         </span>
       </div>
+      {weatherData ? (
+        <div class="calendar-weather">
+          <span class="calendar-temp">
+            {weatherData.temperatureText}
+          </span>
+          <span class="calendar-condition">
+            {weatherData.conditionText}
+          </span>
+        </div>
+      ) : null}
       {upcomingEvents.length > 0 ? (
         <ul class="calendar-events">
           {upcomingEvents.map((event) => (
