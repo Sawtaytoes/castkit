@@ -12,6 +12,7 @@ import {
   buildQueue,
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
+import { dragArtwork } from "../__tests__/setup/dragArtwork.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "../__tests__/setup/slatecastServer.ts"
 
@@ -41,50 +42,6 @@ const artwork = () =>
   document.querySelector(
     ".artwork-slot.is-current .artwork",
   ) ?? document.querySelector(".artwork")
-
-/**
- * Drag the artwork through `offsets` pixels from where the finger landed, then
- * release unless `isReleased` is false.
- *
- * The frame is given real layout first: no stylesheet is loaded in the test
- * page, so without it `clientWidth` is zero and the handler has no width to
- * measure the commit distance against — the same reason the seek-bar test
- * sizes its track.
- */
-const dragArtwork = async ({
-  offsets,
-  isReleased = true,
-}: {
-  offsets: readonly number[]
-  isReleased?: boolean
-}) => {
-  const frame = document.querySelector(
-    ".artwork-frame",
-  ) as HTMLElement
-  frame.style.width = "200px"
-  frame.style.height = "200px"
-  const rect = frame.getBoundingClientRect()
-  const pointAt = (offsetX: number) => ({
-    target: frame,
-    coords: {
-      clientX: rect.left + 100 + offsetX,
-      clientY: rect.top + 100,
-    },
-  })
-  const user = userEvent.setup()
-  await user.pointer([
-    { ...pointAt(0), keys: "[MouseLeft>]" },
-    ...offsets.map(pointAt),
-    ...(isReleased
-      ? [
-          {
-            ...pointAt(offsets.at(-1) ?? 0),
-            keys: "[/MouseLeft]",
-          },
-        ]
-      : []),
-  ])
-}
 
 const seekTimes = () =>
   Array.from(document.querySelectorAll(".seek-time")).map(
@@ -287,20 +244,21 @@ describe("artwork gestures", () => {
 })
 
 describe("controls", () => {
-  test("offers transport and volume on a touch device", async () => {
+  test("offers the artwork as the transport, plus volume, on a touch device", async () => {
     await mountNowPlaying()
 
+    // The picture is the play/pause button; there is no transport row.
     expect(
-      screen.getByRole("button", {
+      screen.getByRole("button", { name: /^Pause/ }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole("button", {
         name: "Previous track",
       }),
-    ).toBeVisible()
+    ).toBeNull()
     expect(
-      screen.getByRole("button", { name: "Pause" }),
-    ).toBeVisible()
-    expect(
-      screen.getByRole("button", { name: "Next track" }),
-    ).toBeVisible()
+      screen.queryByRole("button", { name: "Next track" }),
+    ).toBeNull()
     expect(
       screen.getByRole("button", { name: "Mute" }),
     ).toBeVisible()
@@ -318,10 +276,7 @@ describe("controls", () => {
     })
 
     expect(
-      screen.queryByRole("button", { name: "Pause" }),
-    ).toBeNull()
-    expect(
-      screen.queryByRole("button", { name: "Next track" }),
+      screen.queryByRole("button", { name: /^Pause/ }),
     ).toBeNull()
     expect(
       screen.queryByRole("slider", { name: "Volume" }),
