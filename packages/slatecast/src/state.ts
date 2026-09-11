@@ -138,6 +138,29 @@ export const nowPlaying = computed(() => {
 export const queue = signal<QueueData | null>(
   inlineSnapshot?.data.queue ?? null,
 )
+
+/**
+ * The track that follows the current one, when Home Assistant has pushed a
+ * queue that names it.
+ *
+ * A queue with no item marked current has no "next" — the position is unknown,
+ * and guessing the first row would name the wrong track on the swipe hint.
+ * Home Assistant's Music Assistant integration can only report the current and
+ * the next item, so there is deliberately no `previousQueueItem` to match:
+ * the swipe hint names the next track and only labels the previous one.
+ */
+export const nextQueueItem = computed(() => {
+  const items = queue.value?.items
+  if (!items?.length) {
+    return null
+  }
+  const currentIndex = items.findIndex(
+    (item) => item.isCurrent,
+  )
+  return currentIndex < 0
+    ? null
+    : (items[currentIndex + 1] ?? null)
+})
 export const weather = signal<WeatherData | null>(
   inlineSnapshot?.data.weather ?? null,
 )
