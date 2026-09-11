@@ -7,6 +7,7 @@ import {
   buildSettings,
   buildSnapshot,
 } from "./__fixtures__/buildSnapshot.ts"
+import { dragArtwork } from "./__tests__/setup/dragArtwork.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
 import { connectionStatus } from "./state.ts"
@@ -160,13 +161,15 @@ describe("connection lifecycle", () => {
     // Predict a pause, then have the server re-snapshot as still playing —
     // a fresh snapshot means the client just (re)connected, so whatever it
     // says wins over anything predicted before the drop.
-    const pause = screen.getByRole("button", {
-      name: "Pause",
-    })
-    pause.click()
+    // The artwork is the play/pause button, and it listens to pointer events
+    // rather than clicks — a tap is a press with no travel.
+    expect(
+      screen.getByRole("button", { name: /^Pause/ }),
+    ).toBeVisible()
+    await dragArtwork({ offsets: [] })
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: "Play" }),
+        screen.getByRole("button", { name: /^Play/ }),
       ).toBeVisible()
     })
 
@@ -180,7 +183,7 @@ describe("connection lifecycle", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: "Pause" }),
+        screen.getByRole("button", { name: /^Pause/ }),
       ).toBeVisible()
     })
   })

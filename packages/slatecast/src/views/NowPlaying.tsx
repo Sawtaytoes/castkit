@@ -1,5 +1,10 @@
 import type { QueueItem } from "@castkit/shared/viewData/types"
-import { useEffect, useRef, useState } from "preact/hooks"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks"
 import { extractAccentColor } from "../accentColor.ts"
 import { formatTime } from "../formatTime.ts"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
@@ -16,6 +21,7 @@ import {
   toggleMute,
   togglePlayPause,
 } from "../state.ts"
+import { fitTrackLines } from "./trackLineFit.ts"
 
 /**
  * Movement under this many pixels is a tap, not a drag. A finger never lands
@@ -337,6 +343,10 @@ const SeekBar = ({
           }}
         >
           {trackFill}
+          <div
+            class="seek-knob"
+            style={{ left: `${fraction * 100}%` }}
+          />
         </div>
       ) : (
         <div
@@ -356,50 +366,20 @@ const SeekBar = ({
   )
 }
 
-const TransportRow = () => {
-  const data = nowPlaying.value
-  return (
-    <div class="transport">
-      <button
-        type="button"
-        aria-label="Previous track"
-        data-castkit-target="now-playing-previous"
-        onClick={playPrevious}
-      >
-        <Icon path={ICON_PATHS.previous} />
-      </button>
-      <button
-        type="button"
-        class="play-pause"
-        aria-label={data?.isPlaying ? "Pause" : "Play"}
-        data-castkit-target="now-playing-play-pause"
-        onClick={togglePlayPause}
-      >
-        <Icon
-          path={
-            data?.isPlaying
-              ? ICON_PATHS.pause
-              : ICON_PATHS.play
-          }
-        />
-      </button>
-      <button
-        type="button"
-        aria-label="Next track"
-        data-castkit-target="now-playing-next"
-        onClick={playNext}
-      >
-        <Icon path={ICON_PATHS.next} />
-      </button>
-    </div>
-  )
-}
+/*
+  There is no transport row. The artwork is the transport on every touch
+  panel: a tap is play/pause, a drag past a third of the frame is next or
+  previous. The three buttons under the picture went on 2026-09-11 — the
+  owner asked for the picture to be the control everywhere, and the row they
+  took is now art and slider.
+*/
 
 const VolumeRow = () => {
   const data = nowPlaying.value
   if (data?.volume === undefined) {
     return null
   }
+  const percent = Math.round(data.volume * 100)
   return (
     <div class="volume">
       <button
@@ -420,7 +400,10 @@ const VolumeRow = () => {
         type="range"
         min="0"
         max="100"
-        value={Math.round(data.volume * 100)}
+        value={percent}
+        // The stylesheet paints the filled part of the hand-drawn track from
+        // this; `accent-color` cannot size the thumb for a finger.
+        style={{ "--volume-fill": `${percent}%` }}
         aria-label="Volume"
         data-castkit-target="now-playing-volume"
         // onInput, not onChange: onChange only fires on release, so the slider
@@ -491,20 +474,58 @@ export const NowPlaying = () => {
           <Icon path={ICON_PATHS.note} size="1em" />
         </div>
       )}
-      <div class="track">
-        <div class="title">{data.title}</div>
-        <div class="artist">{data.artist}</div>
-        {data.album ? (
-          <div class="album">{data.album}</div>
-        ) : null}
-      </div>
+      <TrackText
+        title={data.title}
+        artist={data.artist}
+        album={data.album}
+      />
       <SeekBar isInteractive={isInteractive} />
-      {isInteractive ? (
-        <>
-          <TransportRow />
-          <VolumeRow />
-        </>
-      ) : null}
+      {isInteractive ? <VolumeRow /> : null}
+    </div>
+  )
+}
+
+/**
+ * Title, artist and album. On the short landscape panel each line may wrap,
+ * and {@link fitTrackLines} hands out the row counts after every text change
+ * and whenever the grid is resized, so a long title takes the rows a short
+ * artist left over. Elsewhere the stylesheet's fixed counts apply.
+ */
+const TrackText = ({
+  title,
+  artist,
+  album,
+}: {
+  title: string
+  artist: string
+  album?: string
+}) => {
+  const track = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const element = track.current
+    if (!element) {
+      return
+    }
+    const applyFit = () => fitTrackLines(element)
+    applyFit()
+    // The first paint may be in the fallback face; Outfit wraps differently.
+    document.fonts?.ready.then(applyFit)
+    if (typeof ResizeObserver === "undefined") {
+      return
+    }
+    // The grid, for a panel that changes shape; the block itself, for a font
+    // swap that rewraps it. The pass converges: once its counts fit, writing
+    // them again changes nothing and the observer goes quiet.
+    const observer = new ResizeObserver(applyFit)
+    observer.observe(element.parentElement ?? element)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [title, artist, album])
+  return (
+    <div class="track" ref={track}>
+      <div class="title">{title}</div>
+      <div class="artist">{artist}</div>
+      {album ? <div class="album">{album}</div> : null}
     </div>
   )
 }

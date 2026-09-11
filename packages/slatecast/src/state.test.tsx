@@ -5,14 +5,16 @@ import {
   buildNowPlaying,
   buildSnapshot,
 } from "./__fixtures__/buildSnapshot.ts"
+import { swipeToNextTrack } from "./__tests__/setup/dragArtwork.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
 import { connectionStatus, nowPlaying } from "./state.ts"
 
+// The artwork is the play/pause button; its name carries the title too.
 const pauseButton = () =>
-  screen.getByRole("button", { name: "Pause" })
+  screen.getByRole("button", { name: /^Pause/ })
 const playButton = () =>
-  screen.getByRole("button", { name: "Play" })
+  screen.getByRole("button", { name: /^Play/ })
 
 describe("optimistic play/pause", () => {
   test("flips the button before the server confirms", async () => {
@@ -197,9 +199,7 @@ describe("optimistic mute and skips", () => {
     await user.click(pauseButton())
     expect(playButton()).toBeVisible()
 
-    await user.click(
-      screen.getByRole("button", { name: "Next track" }),
-    )
+    await swipeToNextTrack()
 
     // The pause prediction belonged to the old track; the incoming frame for
     // the new track must be believed immediately.

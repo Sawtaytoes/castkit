@@ -4,7 +4,7 @@
 - **Date:** 2026-09-10
 - **Type:** Interaction
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md](2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md) in part — the transport row under the art is gone on every panel
 
 ## Decision
 
