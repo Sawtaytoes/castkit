@@ -47,6 +47,39 @@ describe("parseDeviceCommand", () => {
     ).toBeNull()
   })
 
+  test("view requires a non-empty view id", () => {
+    expect(
+      parseDeviceCommand({
+        action: "view",
+        value: "now-playing",
+      }),
+    ).toEqual({ action: "view", value: "now-playing" })
+    expect(
+      parseDeviceCommand({ action: "view" }),
+    ).toBeNull()
+    expect(
+      parseDeviceCommand({ action: "view", value: "" }),
+    ).toBeNull()
+    expect(
+      parseDeviceCommand({ action: "view", value: 3 }),
+    ).toBeNull()
+  })
+
+  test("a measuring action still refuses a string", () => {
+    expect(
+      parseDeviceCommand({
+        action: "seek",
+        value: "120",
+      }),
+    ).toBeNull()
+    expect(
+      parseDeviceCommand({
+        action: "volume_set",
+        value: "0.5",
+      }),
+    ).toBeNull()
+  })
+
   test("unknown actions and junk are rejected", () => {
     expect(
       parseDeviceCommand({ action: "self_destruct" }),
