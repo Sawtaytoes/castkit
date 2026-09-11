@@ -64,7 +64,15 @@ export const ClockWeatherView = ({
     availableWidth,
     text: time,
   })
-  const dateFontSize = Math.round(height * 0.13)
+  // Fitted for the same reason as the time above: a long date beats the time
+  // for character count, and unfitted it wrapped onto a second line on the
+  // 13.3" Impressions. Mirrors ClockAgendaView and AgendaView.
+  const fittedDate = fitText({
+    baseFontSize: Math.round(height * 0.13),
+    minimumFontSize: readableFloor,
+    availableWidth,
+    text: date,
+  })
 
   // The compact panel packs date + weather into one line, so size the whole
   // line as one string (the temperature keeps a fixed bump over the rest).
@@ -137,9 +145,11 @@ export const ClockWeatherView = ({
 
   const dateStyle: CSSProperties = {
     display: "flex",
-    fontSize: dateFontSize,
+    fontSize: fittedDate.fontSize,
+    letterSpacing: fittedDate.letterSpacing,
     fontWeight: 700,
     lineHeight: 1,
+    whiteSpace: "nowrap",
   }
 
   const compactInfoRowStyle: CSSProperties = {

@@ -35,8 +35,13 @@ describe("panelCatalog", () => {
   test("the M5Paper is previewable — it is the panel with no hardware dither", () => {
     const { device } = getPanelCatalogEntry("m5paper")
 
-    expect(device.width).toBe(540)
-    expect(device.height).toBe(960)
+    // 960x540, the firmware's landscape canvas — NOT the glass's 540x960
+    // datasheet figure. A view lays itself out in this box, so recording the
+    // portrait pair and correcting it with `rotation: 90` composed every text
+    // view for a 540px-wide column and then tipped it on its side.
+    expect(device.width).toBe(960)
+    expect(device.height).toBe(540)
+    expect(device.rotation).toBe(0)
     expect(device.colourMode).toBe("mono")
   })
 

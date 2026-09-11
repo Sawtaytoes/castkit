@@ -192,8 +192,8 @@ http_request:
 #
 # ⚠️ ORIENTATION IS A THREE-WAY CONTRACT — all three must agree, or the frame
 # shrinks instead of filling the panel:
-#   1. CastKit's `castkit/m5paper/rotation` knob — decides the RENDER size
-#      (0/180 -> 540x960 portrait, 90/270 -> 960x540 landscape). RUNTIME.
+#   1. The panel's `width`/`height` in CastKit's device registry — decides the
+#      RENDER size, and is the box every view lays itself out in. 960x540 here.
 #   2. `display: rotation:` below — decides the CANVAS size. COMPILE-TIME.
 #   3. `resize:` here — must equal that canvas. COMPILE-TIME.
 # ESPHome scales to FIT, preserving aspect (runtime_image.cpp:
@@ -201,12 +201,20 @@ http_request:
 # letterboxes. A 960x540 render into a 540x960 resize scales by 0.5625, i.e. a
 # 540x303 strip on a 960-tall panel. Because 2 and 3 are compile-time, ROTATING
 # THIS PANEL REQUIRES A REFLASH, not just the MQTT knob.
+#
+# ⚠️ The `castkit/m5paper/rotation` knob is NOT part of that contract, and it
+# cannot stand in for item 1. It turns the finished bitmap and never re-runs
+# the layout. Registering the panel 540x960 and setting the knob to 90 produced
+# a correctly-sized 960x540 frame carrying a PORTRAIT composition on its side,
+# with the time and date running off the edge — which is what the panel showed
+# from 2026-07-27 until 2026-09-11. Keep this knob on 0 or 180; 180 is the flip
+# to reach for when the frame lands upside-down.
 online_image:
   - id: now_playing_image
     url: "http://192.0.2.1/placeholder.png"
     format: png
     type: BINARY
-    # Landscape: matches `display: rotation: 0` (native 960x540) + CastKit 90/270.
+    # Landscape: matches `display: rotation: 0` and the registry's 960x540.
     resize: 960x540
     on_download_finished:
       - lambda: id(m5paper_display).update_slow();
@@ -227,7 +235,7 @@ display:
     # until 2026-07-27, when the panel was rotated to landscape).
     # Must match `resize:` above and CastKit's rotation knob — see the
     # three-way contract there.
-    # If the frame lands upside-down, flip CastKit's rotation knob 90 <-> 270
+    # If the frame lands upside-down, flip CastKit's rotation knob 0 <-> 180
     # (retained MQTT, no reflash) before touching this.
     rotation: 0
     reversed: false
