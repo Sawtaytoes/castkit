@@ -1,10 +1,12 @@
-import { useEffect, useState } from "preact/hooks"
+import type { QueueItem } from "@castkit/shared/viewData/types"
+import { useEffect, useRef, useState } from "preact/hooks"
 import { extractAccentColor } from "../accentColor.ts"
 import { formatTime } from "../formatTime.ts"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
 import {
   device,
   livePositionSeconds,
+  nextQueueItem,
   nowPlaying,
   playNext,
   playPrevious,
@@ -14,6 +16,236 @@ import {
   toggleMute,
   togglePlayPause,
 } from "../state.ts"
+
+/**
+ * Movement under this many pixels is a tap, not a drag. A finger never lands
+ * perfectly still, so without a slop band every tap on the artwork would also
+ * arm the swipe hint for a frame.
+ */
+const DRAG_SLOP_PIXELS = 8
+
+/**
+ * How far the artwork must travel before releasing it changes track, as a
+ * fraction of the artwork's own width. Short enough to reach with one thumb on
+ * the 480x320 panel, long enough that a clumsy tap cannot reach it.
+ */
+const TRACK_CHANGE_RATIO = 0.32
+
+/**
+ * The furthest the artwork can travel, as a fraction of its width. The rubber
+ * band approaches this and never passes it, so the card cannot be flung off the
+ * panel and the growing resistance tells the finger it has gone far enough.
+ */
+const DRAG_LIMIT_RATIO = 0.75
+
+/**
+ * Follow the finger one to one at first, then give progressively less. `tanh`
+ * is the whole rubber band: it is linear near zero and flattens to `limit`.
+ */
+const rubberBand = ({
+  distance,
+  limit,
+}: {
+  distance: number
+  limit: number
+}) =>
+  limit <= 0
+    ? 0
+    : Math.sign(distance) *
+      limit *
+      Math.tanh(Math.abs(distance) / limit)
+
+type DragState = {
+  pointerId: number
+  startX: number
+  /** Raw finger travel; what the commit distance is measured against. */
+  distanceX: number
+  /** Rubber-banded travel; what the artwork is actually drawn at. */
+  offsetX: number
+  isDragging: boolean
+}
+
+/** One cell of the artwork rail: real art when known, a glyph when not. */
+const ArtworkSlot = ({
+  item,
+  position,
+  placeholderIcon,
+}: {
+  item?: QueueItem | null
+  position: "previous" | "current" | "next"
+  placeholderIcon: string
+}) => (
+  <div class={`artwork-slot is-${position}`}>
+    {item?.artworkPath ? (
+      <img
+        class="artwork"
+        src={item.artworkPath}
+        alt=""
+        draggable={false}
+      />
+    ) : (
+      <div class="artwork placeholder">
+        <Icon path={placeholderIcon} size="1em" />
+      </div>
+    )}
+  </div>
+)
+
+/**
+ * The artwork, as a control.
+ *
+ * A tap toggles play and pause — the owner reaches for the picture, not the
+ * small transport button under it. A drag slides the rail towards the
+ * neighbouring track and names it at the top of the panel; releasing past
+ * {@link TRACK_CHANGE_RATIO} changes track, and bringing it back to the middle
+ * cancels.
+ *
+ * Only the next track can carry a name. Home Assistant's Music Assistant
+ * integration reports the current queue item and the one after it, and nothing
+ * before it, so the previous side is a labelled glyph rather than a wrong
+ * title. See `nextQueueItem`.
+ */
+const Artwork = () => {
+  const data = nowPlaying.value
+  const next = nextQueueItem.value
+  const frame = useRef<HTMLButtonElement>(null)
+  const [drag, setDrag] = useState<DragState | null>(null)
+
+  const width = frame.current?.clientWidth ?? 0
+  const commitDistance = width * TRACK_CHANGE_RATIO
+  const isDragging = drag?.isDragging ?? false
+  const isTowardsNext = (drag?.distanceX ?? 0) < 0
+  const isArmed =
+    isDragging &&
+    commitDistance > 0 &&
+    Math.abs(drag?.distanceX ?? 0) >= commitDistance
+
+  const endDrag = () => {
+    setDrag(null)
+  }
+
+  return (
+    <>
+      {isDragging ? (
+        <div
+          class={`swipe-hint${isArmed ? " is-armed" : ""}`}
+          aria-live="polite"
+        >
+          <Icon
+            path={
+              isTowardsNext
+                ? ICON_PATHS.next
+                : ICON_PATHS.previous
+            }
+            size="1em"
+          />
+          <span class="swipe-hint-label">
+            {isTowardsNext ? "Next Song" : "Previous Song"}
+          </span>
+          {isTowardsNext && next ? (
+            <span class="swipe-hint-track">
+              {next.title}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      <button
+        type="button"
+        ref={frame}
+        class="artwork-frame"
+        aria-label={`${data?.isPlaying ? "Pause" : "Play"} ${data?.title ?? ""}`.trim()}
+        data-castkit-target="now-playing-artwork"
+        onPointerDown={(event) => {
+          ;(
+            event.currentTarget as HTMLElement
+          ).setPointerCapture(event.pointerId)
+          setDrag({
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            distanceX: 0,
+            offsetX: 0,
+            isDragging: false,
+          })
+        }}
+        onPointerMove={(event) => {
+          if (!drag || event.pointerId !== drag.pointerId) {
+            return
+          }
+          const distanceX = event.clientX - drag.startX
+          setDrag({
+            ...drag,
+            distanceX,
+            offsetX: rubberBand({
+              distance: distanceX,
+              limit:
+                (event.currentTarget as HTMLElement)
+                  .clientWidth * DRAG_LIMIT_RATIO,
+            }),
+            isDragging:
+              drag.isDragging ||
+              Math.abs(distanceX) >= DRAG_SLOP_PIXELS,
+          })
+        }}
+        onPointerUp={(event) => {
+          if (!drag || event.pointerId !== drag.pointerId) {
+            return
+          }
+          // `hasMoved` rather than `isDragging`: by the time the finger is
+          // lifted the drag is over, and the question the release asks is
+          // whether it ever left the slop band.
+          const { distanceX, isDragging: hasMoved } = drag
+          const limit =
+            (event.currentTarget as HTMLElement)
+              .clientWidth * TRACK_CHANGE_RATIO
+          endDrag()
+          if (!hasMoved) {
+            togglePlayPause()
+            return
+          }
+          // With no layout there is no commit distance, and every drag would
+          // clear a limit of zero.
+          if (limit <= 0) {
+            return
+          }
+          if (distanceX <= -limit) {
+            playNext()
+          } else if (distanceX >= limit) {
+            playPrevious()
+          }
+        }}
+        onPointerCancel={endDrag}
+      >
+        <div
+          class={`artwork-rail${isDragging ? " is-dragging" : ""}`}
+          style={{
+            transform: `translateX(${drag?.offsetX ?? 0}px)`,
+          }}
+        >
+          <ArtworkSlot
+            position="previous"
+            placeholderIcon={ICON_PATHS.previous}
+          />
+          <ArtworkSlot
+            position="current"
+            item={
+              data?.artworkPath
+                ? ({
+                    artworkPath: data.artworkPath,
+                  } as QueueItem)
+                : null
+            }
+            placeholderIcon={ICON_PATHS.note}
+          />
+          <ArtworkSlot
+            position="next"
+            item={next}
+            placeholderIcon={ICON_PATHS.next}
+          />
+        </div>
+      </button>
+    </>
+  )
+}
 
 /** Drag-to-scrub seek bar; a passive progress bar on touchless devices. */
 const SeekBar = ({
@@ -245,7 +477,9 @@ export const NowPlaying = () => {
       class="now-playing"
       style={accent ? { "--accent": accent } : undefined}
     >
-      {artworkUrl ? (
+      {isInteractive ? (
+        <Artwork />
+      ) : artworkUrl ? (
         <img
           class="artwork"
           src={artworkUrl}

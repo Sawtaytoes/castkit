@@ -1,11 +1,15 @@
 import type { BrowserDeviceProfile } from "@castkit/shared/protocol/ws"
-import type { NowPlayingData } from "@castkit/shared/viewData/types"
+import type {
+  NowPlayingData,
+  QueueData,
+} from "@castkit/shared/viewData/types"
 import { screen } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, test } from "vitest"
 import {
   buildDeviceProfile,
   buildNowPlaying,
+  buildQueue,
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
@@ -14,19 +18,73 @@ import { waitUntil } from "../__tests__/setup/slatecastServer.ts"
 const mountNowPlaying = async ({
   nowPlaying = buildNowPlaying(),
   device = buildDeviceProfile(),
+  queue,
 }: {
   nowPlaying?: NowPlayingData
   device?: BrowserDeviceProfile
+  queue?: QueueData
 } = {}) =>
   mountSlatecast({
     snapshot: buildSnapshot({
       view: "now-playing",
       device,
-      data: { nowPlaying },
+      data: { nowPlaying, ...(queue ? { queue } : {}) },
     }),
   })
 
-const artwork = () => document.querySelector(".artwork")
+/**
+ * The picture the view is showing now. On a touch device it sits in the middle
+ * cell of the swipe rail, with a neighbouring cell either side of it; on a
+ * touchless one it is the only picture on the page.
+ */
+const artwork = () =>
+  document.querySelector(
+    ".artwork-slot.is-current .artwork",
+  ) ?? document.querySelector(".artwork")
+
+/**
+ * Drag the artwork through `offsets` pixels from where the finger landed, then
+ * release unless `isReleased` is false.
+ *
+ * The frame is given real layout first: no stylesheet is loaded in the test
+ * page, so without it `clientWidth` is zero and the handler has no width to
+ * measure the commit distance against — the same reason the seek-bar test
+ * sizes its track.
+ */
+const dragArtwork = async ({
+  offsets,
+  isReleased = true,
+}: {
+  offsets: readonly number[]
+  isReleased?: boolean
+}) => {
+  const frame = document.querySelector(
+    ".artwork-frame",
+  ) as HTMLElement
+  frame.style.width = "200px"
+  frame.style.height = "200px"
+  const rect = frame.getBoundingClientRect()
+  const pointAt = (offsetX: number) => ({
+    target: frame,
+    coords: {
+      clientX: rect.left + 100 + offsetX,
+      clientY: rect.top + 100,
+    },
+  })
+  const user = userEvent.setup()
+  await user.pointer([
+    { ...pointAt(0), keys: "[MouseLeft>]" },
+    ...offsets.map(pointAt),
+    ...(isReleased
+      ? [
+          {
+            ...pointAt(offsets.at(-1) ?? 0),
+            keys: "[/MouseLeft]",
+          },
+        ]
+      : []),
+  ])
+}
 
 const seekTimes = () =>
   Array.from(document.querySelectorAll(".seek-time")).map(
@@ -96,6 +154,135 @@ describe("artwork", () => {
       "artwork placeholder",
     )
     expect(placeholder).toBeVisible()
+  })
+})
+
+describe("artwork gestures", () => {
+  test("a tap on the artwork toggles play and pause", async () => {
+    const { server } = await mountNowPlaying()
+
+    await dragArtwork({ offsets: [] })
+
+    expect(server.commands).toEqual([
+      { action: "play_pause" },
+    ])
+  })
+
+  test("a nudge inside the slop band is still a tap", async () => {
+    const { server } = await mountNowPlaying()
+
+    await dragArtwork({ offsets: [-4] })
+
+    expect(server.commands).toEqual([
+      { action: "play_pause" },
+    ])
+    expect(document.querySelector(".swipe-hint")).toBeNull()
+  })
+
+  test("dragging the artwork left and releasing plays the next track", async () => {
+    const { server } = await mountNowPlaying()
+
+    await dragArtwork({ offsets: [-30, -90] })
+
+    expect(server.commands).toEqual([{ action: "next" }])
+  })
+
+  test("dragging the artwork right and releasing plays the previous track", async () => {
+    const { server } = await mountNowPlaying()
+
+    await dragArtwork({ offsets: [30, 90] })
+
+    expect(server.commands).toEqual([
+      { action: "previous" },
+    ])
+  })
+
+  test("bringing the artwork back to the middle cancels the change", async () => {
+    const { server } = await mountNowPlaying()
+
+    await dragArtwork({ offsets: [-90, -40, 0] })
+
+    expect(server.commands).toEqual([])
+  })
+
+  test("a drag that never reaches the commit distance cancels", async () => {
+    const { server } = await mountNowPlaying()
+
+    await dragArtwork({ offsets: [-20, -40] })
+
+    expect(server.commands).toEqual([])
+  })
+
+  test("the hint names the next track while the artwork is dragged left", async () => {
+    await mountNowPlaying({ queue: buildQueue() })
+
+    await dragArtwork({
+      offsets: [-90],
+      isReleased: false,
+    })
+
+    const hint = document.querySelector(
+      ".swipe-hint",
+    ) as HTMLElement
+    expect(hint).toBeVisible()
+    expect(hint.textContent).toContain("Next Song")
+    expect(hint.textContent).toContain("Olson")
+    // Past the commit distance, so the release will act.
+    expect(hint.className).toContain("is-armed")
+  })
+
+  test("the hint labels the previous side, which Home Assistant cannot name", async () => {
+    await mountNowPlaying({ queue: buildQueue() })
+
+    await dragArtwork({ offsets: [90], isReleased: false })
+
+    const hint = document.querySelector(
+      ".swipe-hint",
+    ) as HTMLElement
+    expect(hint.textContent).toContain("Previous Song")
+    expect(hint.textContent).not.toContain("Olson")
+  })
+
+  test("the next cell carries the next track's artwork", async () => {
+    await mountNowPlaying({
+      queue: buildQueue({
+        items: [
+          {
+            title: "Roygbiv",
+            artist: "Boards of Canada",
+            isCurrent: true,
+          },
+          {
+            title: "Olson",
+            artist: "Boards of Canada",
+            artworkPath: "/artwork/olson.jpg",
+            isCurrent: false,
+          },
+        ],
+      }),
+    })
+
+    const next = document.querySelector(
+      ".artwork-slot.is-next .artwork",
+    ) as HTMLImageElement
+    expect(next.tagName).toBe("IMG")
+    expect(next.getAttribute("src")).toBe(
+      "/artwork/olson.jpg",
+    )
+  })
+
+  test("a touchless device keeps a plain picture with no gesture target", async () => {
+    await mountNowPlaying({
+      device: buildDeviceProfile({ hasTouch: false }),
+      nowPlaying: buildNowPlaying({
+        artworkPath: "/artwork/roygbiv.jpg",
+      }),
+    })
+
+    expect(
+      document.querySelector(".artwork-frame"),
+    ).toBeNull()
+    expect((artwork() as HTMLElement).tagName).toBe("IMG")
   })
 })
 
