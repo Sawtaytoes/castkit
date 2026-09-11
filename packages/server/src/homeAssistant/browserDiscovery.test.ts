@@ -40,6 +40,12 @@ describe("buildBrowserDeviceTopics", () => {
     expect(topics.connected).toBe(
       "castkit/dev-square/connected",
     )
+    expect(topics.backlightLevelCommand).toBe(
+      "castkit/dev-square/backlight_level/set",
+    )
+    expect(topics.backlightLevelState).toBe(
+      "castkit/dev-square/backlight_level",
+    )
   })
 })
 
@@ -59,6 +65,7 @@ describe("buildBrowserDiscoveryMessages", () => {
       "homeassistant/binary_sensor/castkit/dev-square_connected/config",
       "homeassistant/select/castkit/dev-square_theme/config",
       "homeassistant/light/castkit/dev-square_backlight/config",
+      "homeassistant/number/castkit/dev-square_backlight_level/config",
       "homeassistant/select/castkit/dev-square_rotation/config",
       "homeassistant/text/castkit/dev-square_photo_people/config",
       "homeassistant/text/castkit/dev-square_photo_query/config",
@@ -84,13 +91,34 @@ describe("buildBrowserDiscoveryMessages", () => {
     })
   })
 
-  test("availability points at the bridge topic (backlight: the Pi agent's LWT)", () => {
+  test("availability points at the bridge topic (backlight light: the Pi agent's LWT)", () => {
     messages.forEach((message) => {
       expect(message.payload.availability_topic).toBe(
-        message.topic.includes("_backlight/")
+        message.topic.includes("/light/")
           ? "castkit/dev-square/backlight/available"
           : "castkit/availability",
       )
+    })
+  })
+
+  test("the backlight level is a config number on CastKit's own topics", () => {
+    const backlightLevel = messages.find((message) =>
+      message.topic.includes(
+        "number/castkit/dev-square_backlight_level/",
+      ),
+    )
+    expect(backlightLevel?.payload).toMatchObject({
+      name: "Display: Backlight level",
+      unique_id: "castkit_dev-square_backlight_level",
+      command_topic:
+        "castkit/dev-square/backlight_level/set",
+      state_topic: "castkit/dev-square/backlight_level",
+      min: 0,
+      max: 100,
+      step: 1,
+      unit_of_measurement: "%",
+      icon: "mdi:brightness-6",
+      entity_category: "config",
     })
   })
 
@@ -137,7 +165,7 @@ describe("buildBrowserDiscoveryMessages", () => {
 
     expect(
       externalBacklightMessages.some((message) =>
-        message.topic.includes("_backlight/"),
+        message.topic.includes("_backlight"),
       ),
     ).toBe(false)
     expect(
