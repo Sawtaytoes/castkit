@@ -1,6 +1,12 @@
 import type { ComponentType } from "preact"
 import { useEffect } from "preact/hooks"
 import { activeView, device, settings } from "./state.ts"
+import {
+  beginViewSwipe,
+  cancelViewSwipe,
+  endViewSwipe,
+  trackViewSwipe,
+} from "./viewSwipe.ts"
 import { Ambient } from "./views/Ambient.tsx"
 import { Calendar } from "./views/Calendar.tsx"
 import { Clock } from "./views/Clock.tsx"
@@ -31,6 +37,11 @@ export const viewByClientId: Record<string, ComponentType> =
  * automation can flip a motorized mount live; theme), the circle-safe inset
  * for round panels, and swaps views on the WebSocket `view` message — no
  * reloads, ever.
+ *
+ * The stage also carries the view swipe, because a gesture that reveals a view
+ * cannot live inside the view it replaces. A touch panel only: the handlers go
+ * on when `hasTouch` is set, so a mouse-driven display behaves as it always
+ * did.
  *
  * Lives here rather than in `main.tsx` so tests can mount the real root
  * without triggering that module's render/connect side effects.
@@ -84,6 +95,18 @@ export const App = () => {
       class={`stage shape-${profile.shape}${profile.hasTouch ? "" : " touchless"}`}
       data-theme={theme.toLowerCase()}
       data-castkit-ready="true"
+      onPointerDown={
+        profile.hasTouch ? beginViewSwipe : undefined
+      }
+      onPointerMove={
+        profile.hasTouch ? trackViewSwipe : undefined
+      }
+      onPointerUp={
+        profile.hasTouch ? endViewSwipe : undefined
+      }
+      onPointerCancel={
+        profile.hasTouch ? cancelViewSwipe : undefined
+      }
       style={{
         transform:
           orientation === 0
