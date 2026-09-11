@@ -7,6 +7,8 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-10 | [A short landscape panel lays Now Playing out beside the art](2026-09-10-a-short-landscape-panel-lays-now-playing-out-beside-the-art.md) | Accepted |
+| 2026-09-10 | [Slatecast uses the Charcuterie sans, not `system-ui`](2026-09-10-slatecast-uses-the-charcuterie-sans.md) | Accepted |
 | 2026-09-10 | [The artwork is a control: a tap toggles play, a drag changes track](2026-09-10-the-artwork-is-a-control-not-a-picture.md) | Accepted |
 | 2026-09-10 | [The ESPHome frame receiver allocates nothing per frame](2026-09-10-the-frame-receiver-allocates-nothing.md) | Accepted |
 | 2026-09-10 | [An ESPHome receiver can be a registered Slatecast device](2026-09-10-an-esphome-receiver-can-be-a-registered-slatecast-device.md) | Accepted |
