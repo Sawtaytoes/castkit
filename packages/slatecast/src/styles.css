@@ -145,11 +145,14 @@ body {
 
 /* ————— Artwork as a control (touch devices) ————— */
 
-/* The window the rail slides behind, and the tap target for play and pause. */
+/* The window the rail slides behind, and the tap target for play and pause.
+   52vmin, the same as the touchless picture: the transport row is gone from
+   every panel now (the art is the transport), and the 10vmin it took go to
+   the picture the finger actually lands on. */
 .artwork-frame {
   position: relative;
-  width: 42vmin;
-  height: 42vmin;
+  width: 52vmin;
+  height: 52vmin;
   flex: none;
   padding: 0;
   border: 0;
@@ -267,13 +270,16 @@ body {
   max-width: 88%;
 }
 
+/* The line counts are variables so the short-panel rule (and the fit pass
+   behind it, `useTrackLineFit`) can hand each line as many rows as the panel
+   has room for. */
 .title {
   font-size: 5vmin;
   font-weight: 700;
   line-height: 1.2;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: var(--title-lines, 2);
   -webkit-box-orient: vertical;
 }
 
@@ -315,10 +321,12 @@ body {
   text-align: center;
 }
 
+/* 2vmin (14px on the square), up from 1.2: the owner asked for a bar that is
+   easier to land a finger on. The knob below is the real target. */
 .seek-track {
   flex: 1;
-  height: 1.2vmin;
-  border-radius: 0.6vmin;
+  height: 2vmin;
+  border-radius: 1vmin;
   background: var(--surface);
   position: relative;
 }
@@ -331,7 +339,7 @@ body {
 .seek-track.interactive::before {
   content: "";
   position: absolute;
-  inset: -3vmin 0;
+  inset: -4vmin 0;
 }
 
 .seek-fill {
@@ -340,21 +348,37 @@ body {
   background: var(--accent);
 }
 
+/* The knob at the end of the fill: a slider that shows where to put a finger
+   is dragged; a bare bar is tapped once and then wondered at. Interactive
+   tracks only — the touchless progress bar is a bar. */
+.seek-knob {
+  position: absolute;
+  top: 50%;
+  width: 4.5vmin;
+  height: 4.5vmin;
+  border-radius: 50%;
+  background: var(--fg);
+  box-shadow: 0 0.4vmin 1.6vmin rgb(0 0 0 / 0.4);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .seek-fill {
     transition: width 0.4s linear;
   }
+
+  .seek-knob {
+    transition: left 0.4s linear;
+  }
 }
 
-/* ————— Transport + volume ————— */
+/* ————— Volume ————— */
 
-.transport {
-  display: flex;
-  align-items: center;
-  gap: 6vmin;
-}
+/* There is no transport row. The artwork is the transport on every touch
+   panel — a tap is play/pause and a drag is next/previous — so the three
+   buttons that used to sit under it went to the picture and the sliders. */
 
-.transport button,
 .volume button {
   background: none;
   border: none;
@@ -365,18 +389,6 @@ body {
   cursor: none;
 }
 
-.transport .play-pause {
-  font-size: 9vmin;
-  width: 14vmin;
-  height: 14vmin;
-  border-radius: 50%;
-  background: var(--surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.transport button:active,
 .volume button:active {
   color: var(--accent);
 }
@@ -385,13 +397,51 @@ body {
   display: flex;
   align-items: center;
   gap: 2.5vmin;
-  width: 70%;
+  width: 86%;
 }
 
+/*
+ * Drawn by hand, not `accent-color`. The native slider's thumb is a fixed
+ * 16px, which on a 720px panel at arm's length is a dot, and its track was
+ * 1.2vmin. The fill is a two-stop gradient at `--volume-fill`, which the
+ * component sets from the value.
+ *
+ * `touch-action: none` for the same reason the artwork carries it: the
+ * panel's browser otherwise claims a horizontal drag as a pan, the slider
+ * gets the first touch and none of the moves, and a drag reads as a tap.
+ */
 .volume input[type="range"] {
   flex: 1;
-  accent-color: var(--accent);
-  height: 1.2vmin;
+  height: 2vmin;
+  border-radius: 1vmin;
+  appearance: none;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0 var(--volume-fill, 0%),
+    var(--surface) var(--volume-fill, 0%) 100%
+  );
+  outline: none;
+  cursor: none;
+  touch-action: none;
+}
+
+.volume input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 5.5vmin;
+  height: 5.5vmin;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fg);
+  box-shadow: 0 0.4vmin 1.6vmin rgb(0 0 0 / 0.4);
+}
+
+.volume input[type="range"]::-moz-range-thumb {
+  width: 5.5vmin;
+  height: 5.5vmin;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fg);
+  box-shadow: 0 0.4vmin 1.6vmin rgb(0 0 0 / 0.4);
 }
 
 /* ————— Now Playing on a short landscape panel ————— */
@@ -410,18 +460,34 @@ body {
  *
  * Layout: the art fills the height at the left, as on the 2" ePaper card;
  * title, artist, album and the seek bar sit beside it; the volume runs across
- * the bottom. The transport row goes — the art is the transport (a tap is
- * play/pause, a drag past a third of its width is next/previous), and three
- * buttons under a 232px picture would have cost the text its 27px.
+ * the bottom. There is no transport row on any panel (the art is the
+ * transport), and here that matters most: three buttons under a 232px picture
+ * would have cost the text its 27px.
+ *
+ * The text block is centred on the art, not pinned to its foot. The two
+ * `1fr` rows above and below it are equal, so whatever height the text takes
+ * it sits at the art's middle — the first cut put it in one `1fr` row with
+ * `align-self: end` and the owner read a title floating at the bottom-right
+ * as a layout fault.
+ *
+ * Each line may wrap: title to three rows, artist and album to two. That is
+ * the most the column ever needs (about 221px of 256), so an artist called
+ * "Beck" under a three-row title and a two-row album under a one-row title
+ * both fit without clipping. `useTrackLineFit` in NowPlaying.tsx trims the
+ * counts on the rare track that still overflows.
  */
 @media (min-aspect-ratio: 5 / 4) and (max-height: 400px) {
   .now-playing {
     display: grid;
     grid-template-columns: 232px minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-rows:
+      minmax(0, 1fr) auto auto minmax(0, 1fr)
+      auto;
     grid-template-areas:
+      "art ."
       "art track"
       "art seek"
+      "art ."
       "volume volume";
     gap: 0 14px;
     padding: 10px;
@@ -450,6 +516,9 @@ body {
     max-width: 100%;
     text-align: left;
     padding-bottom: 8px;
+    --title-lines: 3;
+    --artist-lines: 2;
+    --album-lines: 2;
   }
 
   .title {
@@ -457,14 +526,24 @@ body {
     line-height: 1.15;
   }
 
+  .artist,
+  .album {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    line-height: 1.2;
+  }
+
   .artist {
     font-size: 21px;
     margin-top: 4px;
+    -webkit-line-clamp: var(--artist-lines);
   }
 
   .album {
     font-size: 16px;
     margin-top: 3px;
+    -webkit-line-clamp: var(--album-lines);
   }
 
   .seek {
@@ -480,16 +559,17 @@ body {
   }
 
   .seek-track {
-    height: 8px;
-    border-radius: 4px;
+    height: 10px;
+    border-radius: 5px;
   }
 
   .seek-track.interactive::before {
     inset: -14px 0;
   }
 
-  .transport {
-    display: none;
+  .seek-knob {
+    width: 22px;
+    height: 22px;
   }
 
   .volume {
@@ -505,7 +585,18 @@ body {
   }
 
   .volume input[type="range"] {
-    height: 8px;
+    height: 10px;
+    border-radius: 5px;
+  }
+
+  .volume input[type="range"]::-webkit-slider-thumb {
+    width: 26px;
+    height: 26px;
+  }
+
+  .volume input[type="range"]::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
   }
 
   .swipe-hint {
