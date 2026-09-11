@@ -10,6 +10,16 @@
  */
 
 @import "@charcuterie/tokens/variables.css";
+/*
+ * The fleet's faces. Every other owned app already loads these through
+ * `@charcuterie/tokens/fonts.css`; slatecast was the one panel still resolving
+ * `system-ui`, which on Raspberry Pi OS is DejaVu Sans and on the WT32
+ * renderer is whatever the container image ships. Outfit is a variable face
+ * (100–900), so the 600 weight below is a real weight on every panel. The
+ * woff2 files ride along as Vite assets; the browser fetches only the faces
+ * a rule names, so Baloo 2 and Victor Mono cost nothing here.
+ */
+@import "@charcuterie/tokens/fonts.css";
 
 /*
  * Five names, and every rule below still uses them.
@@ -69,10 +79,11 @@ body {
  * Distance legibility: a panel on a wall is read from across the room, so
  * secondary lines carry `font-weight: 600`, not the 400 they default to.
  *
- * 600 and not 500. The `system-ui` family these panels resolve (Raspberry Pi
- * OS, Chromium) ships no medium face: measured on the basement panel, a 100px
- * string is 754.61px wide at BOTH 400 and 500, and 776.50px at 600. A 500 here
- * would read as a no-op change that nobody could see.
+ * 600 and not 500. The weight was chosen when these panels resolved
+ * `system-ui`, which ships no medium face on Raspberry Pi OS: measured on the
+ * basement panel, a 100px string was 754.61px wide at BOTH 400 and 500, and
+ * 776.50px at 600. Outfit has a 500, but 600 is still the weight that reads
+ * from across the room, and it is what the `system-ui` fallback can honour.
  */
 .stage {
   display: flex;
@@ -81,8 +92,7 @@ body {
   justify-content: center;
   background: var(--bg);
   color: var(--fg);
-  font-family:
-    system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   transform-origin: center center;
   position: absolute;
   inset: 0;
@@ -382,6 +392,137 @@ body {
   flex: 1;
   accent-color: var(--accent);
   height: 1.2vmin;
+}
+
+/* ————— Now Playing on a short landscape panel ————— */
+
+/*
+ * The 480×320 WT32 panel. Sized in `vmin`, this view gave it a 16px title, an
+ * 11.5px artist line and 8px seek times — 1 px is 0.156 mm on that glass, so
+ * the artist line stood 1.7 mm tall and could not be read from the workbench.
+ * The 720×720 square gets 36/26/19 px from the same rules, which is why the
+ * problem is this panel's alone.
+ *
+ * The rule is keyed on the two numbers the panel actually has — wider than it
+ * is tall by a clear margin, and short — so the square (1:1, 720 tall) and the
+ * round porthole (1:1) never match it. Sizes are in px: the query already
+ * bounds the height, and a panel this small has no room for proportion.
+ *
+ * Layout: the art fills the height at the left, as on the 2" ePaper card;
+ * title, artist, album and the seek bar sit beside it; the volume runs across
+ * the bottom. The transport row goes — the art is the transport (a tap is
+ * play/pause, a drag past a third of its width is next/previous), and three
+ * buttons under a 232px picture would have cost the text its 27px.
+ */
+@media (min-aspect-ratio: 5 / 4) and (max-height: 400px) {
+  .now-playing {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "art track"
+      "art seek"
+      "volume volume";
+    gap: 0 14px;
+    padding: 10px;
+    align-items: center;
+    justify-items: stretch;
+  }
+
+  .now-playing > .artwork,
+  .artwork-frame {
+    grid-area: art;
+    align-self: center;
+    width: 232px;
+    height: 232px;
+    border-radius: 10px;
+    box-shadow: 0 6px 24px
+      color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  .artwork.placeholder {
+    font-size: 80px;
+  }
+
+  .track {
+    grid-area: track;
+    align-self: end;
+    max-width: 100%;
+    text-align: left;
+    padding-bottom: 8px;
+  }
+
+  .title {
+    font-size: 27px;
+    line-height: 1.15;
+  }
+
+  .artist {
+    font-size: 21px;
+    margin-top: 4px;
+  }
+
+  .album {
+    font-size: 16px;
+    margin-top: 3px;
+  }
+
+  .seek {
+    grid-area: seek;
+    align-self: start;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .seek-time {
+    font-size: 16px;
+    min-width: 40px;
+  }
+
+  .seek-track {
+    height: 8px;
+    border-radius: 4px;
+  }
+
+  .seek-track.interactive::before {
+    inset: -14px 0;
+  }
+
+  .transport {
+    display: none;
+  }
+
+  .volume {
+    grid-area: volume;
+    width: 100%;
+    gap: 10px;
+    padding-top: 6px;
+  }
+
+  .volume button {
+    font-size: 30px;
+    padding: 4px;
+  }
+
+  .volume input[type="range"] {
+    height: 8px;
+  }
+
+  .swipe-hint {
+    top: 8px;
+    gap: 6px;
+    max-width: 92%;
+    padding: 4px 12px;
+    font-size: 16px;
+  }
+
+  .idle-title {
+    font-size: 30px;
+  }
+
+  .idle-label {
+    font-size: 18px;
+  }
 }
 
 /* ————— Queue ————— */

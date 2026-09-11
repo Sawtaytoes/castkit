@@ -18,6 +18,7 @@ import { App } from "../App.tsx"
 import {
   MEDIA_CONTROLS_PROFILE,
   PORTHOLE_PROFILE,
+  WORKBENCH_PROFILE,
 } from "./deviceProfiles.ts"
 import { seedSlatecastState } from "./seedSlatecastState.ts"
 
@@ -64,19 +65,27 @@ const buildViewportParameters = (
   },
 })
 
+/** The artwork URL the Now Playing stories name; served by the handler below. */
+export const STORY_ARTWORK_PATH = "/d/story/artwork.jpg"
+
 /**
- * A handler for the PhotoFrame's `/d/<id>/photo` endpoint, answering with one
- * of the shared sample photos so the view paints a real image.
+ * Handlers for the PhotoFrame's `/d/<id>/photo` endpoint and the Now Playing
+ * artwork, answering with one of the shared sample photos so the view paints a
+ * real image rather than the placeholder glyph.
  */
-export const buildPhotoHandlers = (photoPath: string) => [
-  http.get("*/d/:deviceId/photo", async () => {
+export const buildPhotoHandlers = (photoPath: string) => {
+  const servePhoto = async () => {
     const response = await fetch(photoPath)
     const body = await response.arrayBuffer()
     return HttpResponse.arrayBuffer(body, {
       headers: { "Content-Type": "image/jpeg" },
     })
-  }),
-]
+  }
+  return [
+    http.get("*/d/:deviceId/photo", servePhoto),
+    http.get(STORY_ARTWORK_PATH, servePhoto),
+  ]
+}
 
 /**
  * A decorator that seeds the module state for a given view before rendering.
@@ -103,7 +112,7 @@ export const renderApp = () => <App />
 export type { Meta }
 
 /**
- * The square + round device stories for a view. `data` defaults to a fully
+ * The square + round + workbench device stories for a view. `data` defaults to a fully
  * populated panel; pass an emptier set to exercise a view's no-data state.
  */
 export const buildDeviceStories = ({
@@ -139,6 +148,14 @@ export const buildDeviceStories = ({
         ...buildViewportParameters(PORTHOLE_PROFILE),
         ...mswParameters,
         slatecast: { device: PORTHOLE_PROFILE, data },
+      },
+    },
+    Workbench: {
+      name: "Workbench (480×320 landscape)",
+      parameters: {
+        ...buildViewportParameters(WORKBENCH_PROFILE),
+        ...mswParameters,
+        slatecast: { device: WORKBENCH_PROFILE, data },
       },
     },
   }
