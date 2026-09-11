@@ -58,8 +58,8 @@
     "id": "m5paper",
     "label": "M5Paper (ESP32 ePaper)",
     "mac": "aa:bb:cc:00:00:05",
-    "width": 540,
-    "height": 960,
+    "width": 960,
+    "height": 540,
     "colourMode": "mono",
     "rotation": 0,
     "ditherProfile": {

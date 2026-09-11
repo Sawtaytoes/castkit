@@ -58,11 +58,28 @@ export type DeviceMetadata = {
   label: string
   /** Lower-case colon-separated MAC; the device's stable identity on the wire. */
   mac: string
+  /**
+   * The panel's framebuffer, in the orientation the device presents it — NOT
+   * the glass's datasheet resolution. This pair is the box every view lays
+   * itself out in, and the M5Paper is why the distinction is spelled out: its
+   * glass is a 540x960 portrait panel, but the firmware drives it as a 960x540
+   * landscape canvas, and recording the datasheet number composed every text
+   * view for a tall narrow box.
+   */
   width: number
   height: number
   colourMode: ColourMode
   palette: Palette
-  /** Clockwise degrees applied before the panel draws (pHAT mounts USB-up = 180). */
+  /**
+   * Clockwise degrees applied to the FINISHED bitmap, to cancel out how the
+   * panel is mounted (pHAT mounts USB-up = 180).
+   *
+   * This turns the composed frame; it never re-runs the layout. A quarter turn
+   * therefore does NOT give you a landscape view of a portrait panel — it
+   * gives you the portrait view, on its side, with the text running off what
+   * is now the long edge. A panel read in landscape is a landscape
+   * `width`/`height` above with rotation 0 or 180.
+   */
   rotation: 0 | 90 | 180 | 270
   ditherProfile: DitherProfile
   /**
@@ -132,18 +149,22 @@ export const IMPRESSION_DEVICE: DeviceMetadata = {
 }
 
 /**
- * Example M5Paper (ESP32): 540×960 1-bit mono, portrait, pulled over HTTP
- * rather than pushed as an MQTT image. Unlike the Inky panels it has no
- * on-device dithering to fall back on, so what our pipeline emits is exactly
- * what the glass shows — which is why it is the panel the dither comparison
- * matters most for.
+ * Example M5Paper (ESP32): 1-bit mono, pulled over HTTP rather than pushed as
+ * an MQTT image. Unlike the Inky panels it has no on-device dithering to fall
+ * back on, so what our pipeline emits is exactly what the glass shows — which
+ * is why it is the panel the dither comparison matters most for.
+ *
+ * 960×540 LANDSCAPE, which is the firmware's canvas, not the glass's 540×960
+ * datasheet figure. See `rotation` on DeviceMetadata: this entry read 540×960
+ * with the mount corrected by a 90-degree turn, and every text view was
+ * composed for a 540px-wide box and then tipped on its side.
  */
 export const M5PAPER_DEVICE: DeviceMetadata = {
   id: "m5paper",
   label: "M5Paper",
   mac: "02:00:00:00:00:05",
-  width: 540,
-  height: 960,
+  width: 960,
+  height: 540,
   colourMode: "mono",
   palette: MONO_PALETTE,
   rotation: 0,
