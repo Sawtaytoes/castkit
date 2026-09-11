@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-11 | [A vertical swipe asks the house for a view](2026-09-11-a-vertical-swipe-asks-the-house-for-a-view.md) | Accepted |
 | 2026-09-11 | [The artwork is the transport on every touch panel, and the text is centred on it](2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md) | Accepted |
 | 2026-09-11 | [CastKit owns the backlight level and restores it on reconnect](2026-09-11-castkit-owns-the-backlight-level-and-restores-it-on-reconnect.md) | Accepted |
 | 2026-09-10 | [A short landscape panel lays Now Playing out beside the art](2026-09-10-a-short-landscape-panel-lays-now-playing-out-beside-the-art.md) | Accepted |

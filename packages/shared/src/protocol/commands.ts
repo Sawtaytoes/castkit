@@ -16,6 +16,7 @@ export const DEVICE_COMMAND_ACTIONS = [
   "seek",
   "volume_set",
   "volume_mute",
+  "view",
 ] as const
 
 export type DeviceCommandAction =
@@ -23,8 +24,11 @@ export type DeviceCommandAction =
 
 export const DeviceCommandSchema = z.object({
   action: z.enum(DEVICE_COMMAND_ACTIONS),
-  /** seek: seconds into the track; volume_set: 0.0–1.0; volume_mute: unused (toggle). */
-  value: z.optional(z.number()),
+  /**
+   * seek: seconds into the track; volume_set: 0.0–1.0; volume_mute: unused
+   * (toggle); view: the requested view's `clientId`, a string.
+   */
+  value: z.optional(z.union([z.number(), z.string()])),
 })
 
 export type DeviceCommand = z.infer<
@@ -34,6 +38,11 @@ export type DeviceCommand = z.infer<
 /**
  * Parse a client-sent command, or null when malformed. Range-checks the
  * value-carrying actions so a broken client can't publish garbage to HA.
+ *
+ * `view` names a view rather than measuring one, so its value is a string and
+ * the numeric range checks do not apply to it. Which views a device may ask
+ * for is Home Assistant's call, not the client's: the automation maps the id
+ * onto that display's `select` options and ignores anything it does not know.
  */
 export const parseDeviceCommand = (
   payload: unknown,
@@ -45,15 +54,22 @@ export const parseDeviceCommand = (
   const command = result.data
   if (
     command.action === "seek" &&
-    (command.value === undefined || command.value < 0)
+    (typeof command.value !== "number" || command.value < 0)
   ) {
     return null
   }
   if (
     command.action === "volume_set" &&
-    (command.value === undefined ||
+    (typeof command.value !== "number" ||
       command.value < 0 ||
       command.value > 1)
+  ) {
+    return null
+  }
+  if (
+    command.action === "view" &&
+    (typeof command.value !== "string" ||
+      command.value.length === 0)
   ) {
     return null
   }

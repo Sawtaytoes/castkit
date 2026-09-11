@@ -21,6 +21,7 @@ import {
   toggleMute,
   togglePlayPause,
 } from "../state.ts"
+import { isViewSwipe } from "../viewSwipe.ts"
 import { fitTrackLines } from "./trackLineFit.ts"
 
 /**
@@ -204,6 +205,12 @@ const Artwork = () => {
             (event.currentTarget as HTMLElement)
               .clientWidth * TRACK_CHANGE_RATIO
           endDrag()
+          // A swipe up to the agenda starts on the artwork as often as not.
+          // The stage has already claimed this finger, so the release is not
+          // ours: without this it would also read as a tap and stop the music.
+          if (isViewSwipe.peek()) {
+            return
+          }
           if (!hasMoved) {
             togglePlayPause()
             return
