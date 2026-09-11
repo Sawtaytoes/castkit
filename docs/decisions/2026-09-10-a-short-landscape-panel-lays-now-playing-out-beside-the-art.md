@@ -4,7 +4,7 @@
 - **Date:** 2026-09-10
 - **Type:** View layout
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md](2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md) in part — the text block is centred on the art and each line may wrap; the transport row is gone everywhere
 
 ## Decision
 
