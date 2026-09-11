@@ -50,6 +50,17 @@ MQTT agent. Set `hasMqttBacklight: false` when the receiver already exposes its
 backlight through another Home Assistant integration, such as ESPHome. This
 prevents a second unavailable backlight entity.
 
+For a `hasMqttBacklight` device CastKit also **owns the backlight level**: a
+**Display: Backlight level** number (0–100 %, default 100) on
+`castkit/<id>/backlight_level/set` / `castkit/<id>/backlight_level`. The agent
+keeps nothing across a reboot and the HA light only sends what was last touched,
+so the server stores the level (retained state = persistence, like theme and
+rotation), sends it as `backlight/brightness/set` the moment it is set, and sends
+it again whenever `backlight/available` returns to `online`. A brightness the HA
+light sends is folded into the level without an echo. The management UI shows
+the same knob as **Backlight (%)** on a browser device. See
+[the decision](decisions/2026-09-11-castkit-owns-the-backlight-level-and-restores-it-on-reconnect.md).
+
 **Palette note:** there are exactly two palettes — `MONO_PALETTE` and
 `E6_DEFAULT_PALETTE`, keyed by `colourMode`. There is no per-device custom
 palette. A new panel of an existing colour family (e.g. another 6-colour E6

@@ -22,6 +22,8 @@ type Device = {
   rotation?: 0 | 90 | 180 | 270
   shape?: "square" | "round" | "rect"
   hasTouch?: boolean
+  /** A backlight agent listens on the device's MQTT light topics. */
+  hasMqttBacklight?: boolean
 }
 
 type AutomationSettings = Record<string, string>
@@ -175,10 +177,7 @@ export const App = () => {
   }, [loadDevices])
 
   useEffect(() => {
-    if (
-      !selectedDevice ||
-      selectedDevice.renderer === "browser"
-    ) {
+    if (!selectedDevice) {
       setAutomationSettings({})
       return
     }
@@ -196,12 +195,7 @@ export const App = () => {
       setAutomationSettings(body.settings)
     }
     void loadAutomationSettings()
-  }, [
-    apiToken,
-    selectedDevice?.id,
-    selectedDevice?.renderer,
-    selectedDevice,
-  ])
+  }, [apiToken, selectedDevice?.id, selectedDevice])
 
   const updateSelectedDevice = (
     updates: Partial<Device>,
@@ -521,6 +515,50 @@ export const App = () => {
                         )}
                       />
                     </Field>
+                    {selectedDevice.hasMqttBacklight ? (
+                      <Card heading="Automation settings">
+                        <p className="mb-4 text-content-secondary text-sm">
+                          The backlight level CastKit keeps
+                          for this display and sends again
+                          when its backlight agent
+                          reconnects. Home Assistant exposes
+                          the same control as Display:
+                          Backlight level.
+                        </p>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Field label="Backlight (%)">
+                            <input
+                              className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
+                              max={100}
+                              min={0}
+                              onChange={(event) =>
+                                updateAutomationSetting({
+                                  kind: "backlightLevel",
+                                  value: event.target.value,
+                                })
+                              }
+                              step={1}
+                              type="number"
+                              value={
+                                automationSettings.backlightLevel ??
+                                ""
+                              }
+                            />
+                          </Field>
+                        </div>
+                        <div className="mt-4">
+                          <Button
+                            isLoading={isSavingAutomation}
+                            onClick={() =>
+                              void saveAutomationSettings()
+                            }
+                            type="button"
+                          >
+                            Save automation settings
+                          </Button>
+                        </div>
+                      </Card>
+                    ) : null}
                   </>
                 ) : (
                   <>

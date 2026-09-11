@@ -34,6 +34,13 @@ import {
   getBrowserViewByName,
   getBrowserViewsForDevice,
 } from "../views/browserRegistry.ts"
+import {
+  brightnessToPercent,
+  createBrowserBacklightStore,
+  parseBacklightBrightnessPayload,
+  parseBacklightPercentPayload,
+  percentToBrightness,
+} from "./browserBacklightStore.ts"
 import { createBrowserPhotoConfigStore } from "./browserPhotoConfigStore.ts"
 import { createBrowserStateStore } from "./browserStateStore.ts"
 import { createBrowserHub, type HubSocket } from "./hub.ts"
@@ -108,6 +115,11 @@ export const createBrowserMode = ({
   const stateStore = createBrowserStateStore({ devices })
   const viewDataStore = createViewDataStore()
   const photoConfigStore = createBrowserPhotoConfigStore()
+  const backlightStore = createBrowserBacklightStore()
+  // Devices whose backlight agent last reported `online`. A transition INTO
+  // online (including the first one seen after server start) is when the
+  // stored level is re-sent — that is what survives a panel reboot.
+  const backlightOnlineDeviceIds = new Set<string>()
   const immichConfig = config.immich
   const isPhotoFrameEnabled = Boolean(
     immichConfig.url && immichConfig.apiKey,
@@ -119,6 +131,7 @@ export const createBrowserMode = ({
     photoPeople: new Set<string>(),
     photoQuery: new Set<string>(),
     photoInterval: new Set<string>(),
+    backlight: new Set<string>(),
   }
 
   const topicsByDeviceId = new Map(
@@ -274,6 +287,10 @@ export const createBrowserMode = ({
     | "photoQueryRestore"
     | "photoInterval"
     | "photoIntervalRestore"
+    | "backlightLevel"
+    | "backlightLevelRestore"
+    | "backlightBrightness"
+    | "backlightAvailability"
     | "nowPlayingData"
     | "queueData"
     | "weatherData"
@@ -307,9 +324,33 @@ export const createBrowserMode = ({
       [topics.weatherDataCommand, "weatherData"],
       [topics.agendaDataCommand, "agendaData"],
     ]
-    routeEntries.forEach(([topic, kind]) => {
-      routes.set(topic, { deviceId: device.id, kind })
-    })
+    // The backlight level only means something when a backlight agent listens
+    // on the device's MQTT light topics.
+    const backlightRouteEntries: readonly [
+      string,
+      RouteKind,
+    ][] = device.hasMqttBacklight
+      ? [
+          [topics.backlightLevelCommand, "backlightLevel"],
+          [
+            topics.backlightLevelState,
+            "backlightLevelRestore",
+          ],
+          [
+            topics.backlightBrightnessCommand,
+            "backlightBrightness",
+          ],
+          [
+            topics.backlightAvailability,
+            "backlightAvailability",
+          ],
+        ]
+      : []
+    routeEntries
+      .concat(backlightRouteEntries)
+      .forEach(([topic, kind]) => {
+        routes.set(topic, { deviceId: device.id, kind })
+      })
   })
 
   const broadcastSettings = (deviceId: string) => {
@@ -333,6 +374,27 @@ export const createBrowserMode = ({
   const broadcastSettingsToAll = () => {
     devices.forEach((device) => {
       broadcastSettings(device.id)
+    })
+  }
+
+  /**
+   * Push the stored level to the agent as the light's brightness command.
+   * Not retained: the agent's availability transition is the restore path,
+   * and a retained command would replay under Home Assistant's own sends.
+   */
+  const sendBacklightLevel = async (deviceId: string) => {
+    const topics = topicsByDeviceId.get(deviceId)
+    if (!topics) {
+      return
+    }
+    await publisher.publish({
+      topic: topics.backlightBrightnessCommand,
+      payload: String(
+        percentToBrightness(
+          backlightStore.getPercent(deviceId),
+        ),
+      ),
+      isRetained: false,
     })
   }
 
@@ -502,6 +564,74 @@ export const createBrowserMode = ({
       broadcastSettings(deviceId)
       return
     }
+    if (
+      kind === "backlightLevel" ||
+      kind === "backlightLevelRestore"
+    ) {
+      const percent = parseBacklightPercentPayload(payload)
+      if (percent === null) {
+        return
+      }
+      if (
+        kind === "backlightLevelRestore" &&
+        knobSetByDeviceId.backlight.has(deviceId)
+      ) {
+        return
+      }
+      knobSetByDeviceId.backlight.add(deviceId)
+      backlightStore.setPercent({ deviceId, percent })
+      if (kind === "backlightLevel") {
+        await publisher.publish({
+          topic: topics.backlightLevelState,
+          payload: String(percent),
+          isRetained: true,
+        })
+      }
+      // A fresh command dims the panel at once. A boot-time restore sends it
+      // too when the agent is already online — the retained level and the
+      // retained availability arrive in either order, and whichever lands
+      // second must be the one that reaches the panel.
+      if (
+        kind === "backlightLevel" ||
+        backlightOnlineDeviceIds.has(deviceId)
+      ) {
+        await sendBacklightLevel(deviceId)
+      }
+      return
+    }
+    if (kind === "backlightBrightness") {
+      // Home Assistant's light entity (0–255) is the second source of truth.
+      // Store + retained state ONLY: the agent already consumed this command,
+      // and echoing it back to `backlight/brightness/set` would loop.
+      const brightness =
+        parseBacklightBrightnessPayload(payload)
+      if (brightness === null) {
+        return
+      }
+      const percent = brightnessToPercent(brightness)
+      knobSetByDeviceId.backlight.add(deviceId)
+      backlightStore.setPercent({ deviceId, percent })
+      await publisher.publish({
+        topic: topics.backlightLevelState,
+        payload: String(percent),
+        isRetained: true,
+      })
+      return
+    }
+    if (kind === "backlightAvailability") {
+      const isOnline = payload === "online"
+      const isPreviouslyOnline =
+        backlightOnlineDeviceIds.has(deviceId)
+      if (isOnline) {
+        backlightOnlineDeviceIds.add(deviceId)
+      } else {
+        backlightOnlineDeviceIds.delete(deviceId)
+      }
+      if (isOnline && !isPreviouslyOnline) {
+        await sendBacklightLevel(deviceId)
+      }
+      return
+    }
     if (kind === "nowPlayingData") {
       const data = parseNowPlayingPayload(
         parseJsonPayload(payload),
@@ -640,6 +770,19 @@ export const createBrowserMode = ({
               stateStore.getSettings(device.id).orientation,
             ),
           },
+          ...(device.hasMqttBacklight
+            ? [
+                {
+                  topic: topics.backlightLevelState,
+                  hasValue: knobSetByDeviceId.backlight.has(
+                    device.id,
+                  ),
+                  payload: String(
+                    backlightStore.getPercent(device.id),
+                  ),
+                },
+              ]
+            : []),
         ]
         seedPairs
           .filter((seedPair) => !seedPair.hasValue)
@@ -875,9 +1018,63 @@ export const createBrowserMode = ({
     return { injectWebSocket }
   }
 
+  /**
+   * The management UI's read of a browser device's knobs (the same shape the
+   * image devices return). Null for an unknown device.
+   */
+  const getDeviceSettings = (
+    deviceId: string,
+  ): Record<string, string> | null => {
+    const device = stateStore.deviceById.get(deviceId)
+    if (!device) {
+      return null
+    }
+    return device.hasMqttBacklight
+      ? {
+          backlightLevel: String(
+            backlightStore.getPercent(deviceId),
+          ),
+        }
+      : {}
+  }
+
+  /**
+   * The management UI's write: publish the knob's command topic, so the
+   * change takes the same MQTT path Home Assistant's entity would.
+   */
+  const setDeviceSetting = async ({
+    deviceId,
+    kind,
+    payload,
+  }: {
+    deviceId: string
+    kind: string
+    payload: string
+  }) => {
+    const device = stateStore.deviceById.get(deviceId)
+    const topics = topicsByDeviceId.get(deviceId)
+    if (
+      !device ||
+      !topics ||
+      !publisher.isEnabled ||
+      kind !== "backlightLevel" ||
+      !device.hasMqttBacklight
+    ) {
+      return false
+    }
+    await publisher.publish({
+      topic: topics.backlightLevelCommand,
+      payload,
+      isRetained: false,
+    })
+    return true
+  }
+
   return {
     deviceCount: devices.length,
     start,
     attach,
+    getDeviceSettings,
+    setDeviceSetting,
   }
 }

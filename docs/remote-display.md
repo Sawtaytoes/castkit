@@ -54,6 +54,16 @@ For a registered receiver, set `hasMqttBacklight: false` in the CastKit device
 entry. Home Assistant can then apply the same room-light policy as other
 CastKit displays without creating a duplicate MQTT backlight entity.
 
+The firmware's `restore_mode: ALWAYS_ON` brings the panel back at full
+brightness after every reboot, and an ON/OFF automation never sets a level. A
+receiver whose backlight **does** listen on the CastKit MQTT light topics
+(`hasMqttBacklight: true`) gets its level from CastKit instead: the server keeps
+a per-device **Display: Backlight level** (0–100 %), applies it through
+`backlight/brightness/set`, and sends it again each time the receiver's
+`backlight/available` returns to `online`. Leave it at the default 100 % to
+keep today's behaviour; see
+[the decision](decisions/2026-09-11-castkit-owns-the-backlight-level-and-restores-it-on-reconnect.md).
+
 Source run and tests:
 
 ```sh
