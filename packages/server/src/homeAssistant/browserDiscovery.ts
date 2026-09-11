@@ -14,7 +14,9 @@ import { ROTATION_OPTIONS } from "./discovery.ts"
  *   - a **Button** (tell the kiosk browser to reload),
  *   - a diagnostic **Sensor** (the page URL this device shows),
  *   - a diagnostic **Binary sensor** (a browser is connected over WS),
- *   - config **Selects** (theme, rotation — retained state = persistence).
+ *   - config **Selects** (theme, rotation — retained state = persistence),
+ *   - for `hasMqttBacklight` devices, the agent's **Light** plus a config
+ *     **Number** (the backlight level CastKit owns and restores on reconnect).
  */
 
 export const THEME_OPTIONS = [
@@ -62,6 +64,13 @@ export const buildBrowserDeviceTopics = ({
     backlightBrightnessCommand: `${base}/backlight/brightness/set`,
     backlightBrightnessState: `${base}/backlight/brightness`,
     backlightAvailability: `${base}/backlight/available`,
+    // The backlight LEVEL (0–100 %) is CastKit's, not the agent's: the agent
+    // keeps nothing across a reboot and HA's light only sends what was last
+    // touched, so the server stores the level here (retained state = the
+    // persistence) and re-sends it as `backlight/brightness/set` whenever the
+    // agent's availability comes back online.
+    backlightLevelCommand: `${base}/backlight_level/set`,
+    backlightLevelState: `${base}/backlight_level`,
     // View data HA pushes to this display (retained) — same contract as the
     // image devices, plus the queue.
     nowPlayingDataCommand: `${base}/now_playing/set`,
@@ -209,6 +218,32 @@ export const buildBrowserDiscoveryMessages = ({
                 topics.backlightBrightnessState,
               brightness_scale: 255,
               icon: "mdi:television-ambient-light",
+              device: deviceBlock,
+            },
+          },
+          {
+            // The level CastKit owns (0–100 %). Setting it dims the panel at
+            // once through the light's brightness command, and the server
+            // sends it again when the agent's availability returns to online
+            // — the light alone forgets it on every panel reboot. Availability
+            // is the server's: the number is CastKit state, not agent state.
+            topic: discoveryTopic(
+              "number",
+              "backlight_level",
+            ),
+            isRetained: true as const,
+            payload: {
+              ...availability,
+              name: "Display: Backlight level",
+              unique_id: `castkit_${device.id}_backlight_level`,
+              command_topic: topics.backlightLevelCommand,
+              state_topic: topics.backlightLevelState,
+              min: 0,
+              max: 100,
+              step: 1,
+              unit_of_measurement: "%",
+              icon: "mdi:brightness-6",
+              entity_category: "config",
               device: deviceBlock,
             },
           },
