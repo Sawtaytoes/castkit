@@ -111,13 +111,21 @@ touchscreen:
     on_release:
       - lambda: id(bitmap_receiver).touch(2, 0, 0);
 text_sensor:
+  # The renderer's transport channel: frame acknowledgements, touch reports and
+  # decode errors. The worker reads it over the native API, so it must stay an
+  # entity. It is not a household reading: it changes every two seconds and the
+  # owner saw it as a live sensor on the device page. Diagnostic and disabled by
+  # default keeps it out of Home Assistant without hiding it from the renderer.
   - platform: template
-    id: test_events
+    id: castkit_events
     name: Display Events
+    entity_category: diagnostic
+    disabled_by_default: true
   - platform: wifi_info
     ip_address:
       name: IP Address
+      entity_category: diagnostic
 castkit_display:
   id: bitmap_receiver
   display_id: panel
-  events_id: test_events
+  events_id: castkit_events
