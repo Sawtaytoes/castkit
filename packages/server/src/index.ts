@@ -2010,7 +2010,8 @@ const main = async () => {
     getDeviceSettings: (deviceId) => {
       const device = pushController.deviceById.get(deviceId)
       if (!device) {
-        return null
+        // Not an image device: a browser device answers with its own knobs.
+        return browserMode.getDeviceSettings(deviceId)
       }
       return {
         photoPeople:
@@ -2146,6 +2147,13 @@ const main = async () => {
       payload,
     }) => {
       const device = pushController.deviceById.get(deviceId)
+      if (!device) {
+        return browserMode.setDeviceSetting({
+          deviceId,
+          kind,
+          payload,
+        })
+      }
       const commandTopicByKind: Record<string, string> = {
         photoPeople: "photoPeopleCommand",
         photoQuery: "photoQueryCommand",
@@ -2173,7 +2181,7 @@ const main = async () => {
         updates: "updatesCommand",
       }
       const commandKey = commandTopicByKind[kind]
-      if (!device || !commandKey || !publisher.isEnabled) {
+      if (!commandKey || !publisher.isEnabled) {
         return false
       }
       const topics = buildDeviceTopics({

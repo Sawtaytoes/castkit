@@ -237,7 +237,7 @@ export const createApp = ({
     )
     return settings
       ? context.json({ settings })
-      : context.json({ error: "unknown image device" }, 404)
+      : context.json({ error: "unknown device" }, 404)
   })
 
   app.put(
