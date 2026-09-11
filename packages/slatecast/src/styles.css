@@ -112,6 +112,10 @@ body {
   height: 100%;
   padding: 4vmin;
   justify-content: center;
+  /* The swipe hint is an overlay, not a row: a row would reflow the whole
+     column the moment a finger moved, and on the WT32 every reflowed pixel is
+     another full-screen frame over the wire. */
+  position: relative;
 }
 
 .artwork {
@@ -127,6 +131,117 @@ body {
 .stage.touchless .artwork {
   width: 52vmin;
   height: 52vmin;
+}
+
+/* ————— Artwork as a control (touch devices) ————— */
+
+/* The window the rail slides behind, and the tap target for play and pause. */
+.artwork-frame {
+  position: relative;
+  width: 42vmin;
+  height: 42vmin;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 2.5vmin;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 1.5vmin 6vmin
+    color-mix(in srgb, var(--accent) 35%, transparent);
+  cursor: none;
+  /* Without this the panel's browser claims the horizontal drag for a pan and
+     the pointermove events stop arriving mid-gesture. */
+  touch-action: none;
+}
+
+.artwork-rail {
+  position: absolute;
+  inset: 0;
+}
+
+.artwork-slot {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* A whole card's width plus a gutter, so a neighbour is fully out of the
+   window until the finger pulls it in. */
+.artwork-slot.is-previous {
+  left: -108%;
+}
+
+.artwork-slot.is-current {
+  left: 0;
+}
+
+.artwork-slot.is-next {
+  left: 108%;
+}
+
+/* Inside the rail the frame owns the size, the corners and the shadow. */
+.artwork-slot .artwork {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.artwork-slot.is-previous .artwork,
+.artwork-slot.is-next .artwork {
+  opacity: 0.72;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Springs back to the middle on release. The renderer that drives the WT32
+     asks for reduced motion, so that panel snaps instead — which is what a
+     display redrawn about once a second wants anyway. */
+  .artwork-rail {
+    transition: transform 0.32s
+      cubic-bezier(0.22, 1.4, 0.36, 1);
+  }
+
+  .artwork-rail.is-dragging {
+    transition: none;
+  }
+}
+
+.swipe-hint {
+  position: absolute;
+  top: 2.5vmin;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 1.2vmin;
+  max-width: 84%;
+  padding: 1vmin 2.6vmin;
+  border-radius: 100vmax;
+  background: var(--surface);
+  color: var(--fg-dim);
+  font-size: 2.8vmin;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Release now and the track changes. Release from the unarmed state and it
+   does not — the colour is the only warning the panel can give. */
+.swipe-hint.is-armed {
+  color: var(--fg);
+  background: color-mix(
+    in srgb,
+    var(--accent) 32%,
+    var(--surface)
+  );
+}
+
+.swipe-hint-track {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  opacity: 0.85;
 }
 
 .artwork.placeholder {
