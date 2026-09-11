@@ -18,8 +18,8 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-// With artwork: the picture is the view's anchor (and, on a touch panel, its
-// transport), so a story without one shows the wrong thing.
+// With artwork: the picture is the view's anchor and, on a touch panel, its
+// only transport, so a story without one shows the wrong thing.
 const deviceStories = buildDeviceStories({
   data: {
     ...FULL_VIEW_DATA,
