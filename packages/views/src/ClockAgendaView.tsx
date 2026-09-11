@@ -105,7 +105,16 @@ export const ClockAgendaView = ({
     compactInfoFontSize * 1.25,
   )
 
-  const dateFontSize = Math.round(height * 0.13)
+  // The date is the widest single string this view ever draws — a long one
+  // ("Wednesday, September 11") beats "4:59 AM" for character count — so it is
+  // fitted to the panel exactly like the time. Left unfitted it wrapped onto a
+  // second line on the 13.3" Impressions, which also broke the centred column.
+  const fittedDate = fitText({
+    baseFontSize: Math.round(height * 0.13),
+    minimumFontSize: readableFloor,
+    availableWidth,
+    text: date,
+  })
   const largeTemperatureFontSize = Math.round(height * 0.14)
   const largeConditionFontSize = Math.round(height * 0.075)
   const headingFontSize = Math.round(height * 0.055)
@@ -207,9 +216,11 @@ export const ClockAgendaView = ({
 
   const largeDateStyle: CSSProperties = {
     display: "flex",
-    fontSize: dateFontSize,
+    fontSize: fittedDate.fontSize,
+    letterSpacing: fittedDate.letterSpacing,
     fontWeight: 700,
     lineHeight: 1,
+    whiteSpace: "nowrap",
     marginTop: Math.round(height * 0.045),
   }
 
