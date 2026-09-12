@@ -2,7 +2,7 @@
  * How many rows the title, artist and album may each wrap to on the short
  * landscape panel, chosen so the whole block fits beside the art.
  *
- * The 480×320 panel lays the text out in a 224px-wide column, so a long
+ * The 480×320 panel lays the text out in a 230px-wide column, so a long
  * title wraps; clipping it to two rows while the artist is "Beck" wastes the
  * rows the artist did not need. The stylesheet gives each line a row count
  * through `--title-lines`, `--artist-lines` and `--album-lines`, and this pass
@@ -22,12 +22,22 @@ export const SHORT_PANEL_QUERY =
  * `[title, artist, album]` row counts, tried in order until the block fits.
  * The last entry is the floor: it always fits at 480×320 and is what the
  * panel showed before this pass existed (a two-row title, one-row lines).
+ *
+ * The first entry gives the album a third row. The short panel leaves about
+ * 60px unused between the seek bar and the volume row, so a name too long for
+ * two rows — "Music Has the Right to Children (20th Anniversary Edition)" is
+ * 58 characters and reached only "(20th Anniversary" — was being cut with the
+ * room to finish sitting empty underneath it. Nothing above the album moves to
+ * pay for it: a budget is only tried if the measured block fits, so the third
+ * row is taken when it is free and dropped the moment the title needs the
+ * height instead.
  */
 export const LINE_BUDGETS: readonly (readonly [
   number,
   number,
   number,
 ])[] = [
+  [4, 3, 3],
   [4, 3, 2],
   [4, 2, 2],
   [3, 2, 2],
