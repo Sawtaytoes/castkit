@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clock, Weather and Calendar at 480x320</title>
+<style>
+/* Outfit, the fleet sans, bundled so the render is exact. */
+@font-face{font-family:"Outfit";font-style:normal;font-weight:100 900;font-display:block;src:url(fonts/outfit-0.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Outfit";font-style:normal;font-weight:100 900;font-display:block;src:url(fonts/outfit-1.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+/* @charcuterie/tokens, daylight variant, dark scheme: what the panel resolves today. */
+:root{--bg:#131822;--surface:#1D2430;--fg:#EDF0F5;--dim:#A9B2C1;--accent:#5A54E8;--accent-content:#B4B0F7;--border:#2E3745}
+
+body{margin:0;padding:24px 20px 60px;background:#05070b;color:#cfd5df;font-family:Outfit,sans-serif}
+h1{font-size:26px;font-weight:700;color:#fff;margin:0 0 6px}
+h2{font-size:22px;font-weight:700;color:#fff;margin:36px 0 10px;padding-top:18px;border-top:1px solid #222a36}
+.lead{max-width:920px;font-size:16px;line-height:1.45;margin:0 0 4px}
+.lead b{color:#fff}
+.row{display:flex;flex-wrap:wrap;gap:26px 22px;align-items:flex-start}
+figure{margin:0;width:480px}
+figcaption{margin-top:8px;font-size:15px;line-height:1.4}
+figcaption b{color:#fff;font-size:16px}
+figcaption span{display:block;color:#98a2b3}
+
+/* The glass: 480x320, dark scheme, Outfit, no cursor, nothing selectable. */
+.panel{width:480px;height:320px;overflow:hidden;background:var(--bg);color:var(--fg);position:relative;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;outline:1px solid #2a3140;user-select:none}
+.panel *{box-sizing:border-box;margin:0;padding:0}
+.tab{font-variant-numeric:tabular-nums}
+.dim{color:var(--dim)}
+.acc{color:var(--accent-content)}
+.nowrap{white-space:nowrap}
+ul{list-style:none}
+.ellipsis{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
+/* ---------- CURRENT (vmin rules at vmin = 3.2px) ---------- */
+.cur-clock{gap:6.4px}
+.cur-clock .time{font-size:54.4px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.cur-clock .date{font-size:16px;font-weight:600}
+
+.cur-weather{gap:12.8px}
+.cur-weather .main{display:flex;flex-direction:column;align-items:center;gap:3.2px}
+.cur-weather .temp{font-size:70.4px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.cur-weather .cond{font-size:19.2px;font-weight:600}
+.cur-weather .clock{display:flex;align-items:baseline;gap:8px}
+.cur-weather .time{font-size:22.4px;font-weight:600}
+.cur-weather .date{font-size:12.8px;font-weight:600}
+
+.cur-cal{padding:16px;gap:9.6px;align-items:stretch}
+.cur-cal .head{display:flex;flex-direction:column;align-items:center;gap:3.2px}
+.cur-cal .time{font-size:41.6px;font-weight:700;line-height:1}
+.cur-cal .date{font-size:16px;font-weight:600}
+.cur-cal .wx{display:flex;align-items:baseline;justify-content:center;gap:8px}
+.cur-cal .temp{font-size:19.2px;font-weight:600}
+.cur-cal .cond{font-size:12.8px;font-weight:600}
+.cur-cal ul{display:flex;flex-direction:column;gap:4.8px;overflow:hidden;text-align:left}
+.cur-cal li{display:flex;align-items:baseline;gap:8px;padding:3.2px 6.4px;border-radius:4.8px;background:var(--surface);font-size:10.9px}
+.cur-cal li .t{font-weight:700;min-width:70.4px;flex-shrink:0}
+.cur-cal li .s{font-weight:600}
+
+/* ---------- A: same shape, sized in px for this glass ---------- */
+.a-clock{gap:14px}
+.a-clock .time{display:flex;align-items:baseline;gap:12px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.a-clock .time .h{font-size:136px}
+.a-clock .time .m{font-size:44px;font-weight:600;color:var(--dim);letter-spacing:0}
+.a-clock .date{font-size:32px;font-weight:600}
+
+.a-weather{gap:18px;padding:0 16px}
+.a-weather .main{display:flex;flex-direction:column;align-items:center;gap:4px}
+.a-weather .temp{font-size:150px;font-weight:700;line-height:.86;letter-spacing:-.03em}
+.a-weather .cond{font-size:36px;font-weight:600}
+.a-weather .clock{display:flex;flex-direction:column;align-items:center;gap:2px}
+.a-weather .time{font-size:40px;font-weight:600}
+.a-weather .date{font-size:26px;font-weight:600}
+
+.a-cal{padding:10px 12px;gap:8px;align-items:stretch}
+.a-cal .head{display:flex;flex-direction:column;align-items:center;gap:2px}
+.a-cal .time{display:flex;align-items:baseline;gap:8px;font-weight:700;line-height:1;justify-content:center}
+.a-cal .time .h{font-size:62px}
+.a-cal .time .m{font-size:26px;font-weight:600;color:var(--dim)}
+.a-cal .date{font-size:24px;font-weight:600}
+.a-cal .wx{display:flex;align-items:baseline;justify-content:center;gap:10px}
+.a-cal .temp{font-size:26px;font-weight:600}
+.a-cal .cond{font-size:22px;font-weight:600}
+.a-cal ul{display:flex;flex-direction:column;gap:5px;overflow:hidden;text-align:left}
+.a-cal li{display:flex;align-items:baseline;gap:12px;padding:5px 12px;border-radius:8px;background:var(--surface);font-size:20px;line-height:1.15}
+.a-cal li .t{font-weight:700;min-width:92px;flex-shrink:0}
+.a-cal li .s{font-weight:600}
+
+/* ---------- B: beside, two columns, like Now Playing ---------- */
+.b-clock{flex-direction:row;gap:26px;padding:0 20px}
+.b-clock .tile{width:176px;height:232px;border-radius:18px;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;flex:none}
+.b-clock .tile .wd{font-size:28px;font-weight:700;letter-spacing:.1em;color:var(--dim)}
+.b-clock .tile .dn{font-size:112px;font-weight:700;line-height:1;letter-spacing:-.03em}
+.b-clock .tile .mo{font-size:28px;font-weight:700;letter-spacing:.1em;color:var(--dim)}
+.b-clock .stack{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-width:0}
+.b-clock .stack .h{font-size:92px;font-weight:700;line-height:1;letter-spacing:-.03em}
+.b-clock .stack .m{font-size:40px;font-weight:600;color:var(--dim);line-height:1;margin-top:10px}
+
+.b-weather{flex-direction:row;gap:22px;padding:0 18px;justify-content:space-between}
+.b-weather .main{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-width:0}
+.b-weather .temp{font-size:148px;font-weight:700;line-height:.86;letter-spacing:-.04em}
+.b-weather .cond{font-size:36px;font-weight:600;margin-top:4px}
+.b-weather .side{display:flex;flex-direction:column;align-items:flex-end;text-align:right;flex:none;gap:4px}
+.b-weather .side .time{font-size:48px;font-weight:700;line-height:1}
+.b-weather .side .wd{font-size:30px;font-weight:600;line-height:1.1;margin-top:8px}
+.b-weather .side .md{font-size:26px;font-weight:600;line-height:1.1}
+.b-weather .mark{width:96px;height:96px;margin-bottom:6px}
+
+.b-cal{display:grid;grid-template-columns:208px minmax(0,1fr);gap:14px;padding:12px;align-items:center;text-align:left}
+.b-cal .left{display:flex;flex-direction:column;align-items:flex-start;gap:0}
+.b-cal .time{display:flex;align-items:baseline;gap:8px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.b-cal .time .h{font-size:60px}
+.b-cal .time .m{font-size:24px;font-weight:600;color:var(--dim);letter-spacing:0}
+.b-cal .wd{font-size:30px;font-weight:600;margin-top:12px;line-height:1.1}
+.b-cal .md{font-size:24px;font-weight:600;line-height:1.1}
+.b-cal .wx{display:flex;align-items:baseline;gap:8px;margin-top:14px}
+.b-cal .temp{font-size:28px;font-weight:600}
+.b-cal .cond{font-size:22px;font-weight:600}
+.b-cal ul{display:flex;flex-direction:column;gap:6px;overflow:hidden;align-self:center}
+.b-cal li{display:flex;align-items:baseline;gap:10px;padding:8px 10px;border-radius:8px;background:var(--surface);font-size:21px;line-height:1.15}
+.b-cal li .t{font-weight:700;min-width:82px;flex-shrink:0}
+.b-cal li .s{font-weight:600}
+
+/* ---------- C: a slim band across the top, the body to one subject ---------- */
+.c .band{position:absolute;left:0;right:0;top:0;height:46px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:22px;font-weight:600;line-height:1}
+.c .band .l{display:flex;align-items:baseline;gap:12px;min-width:0}
+.c .band .tab,.c .band .nowrap{white-space:nowrap;flex:none}
+.c .body{position:absolute;left:0;right:0;top:46px;bottom:0;display:flex;align-items:center;justify-content:center}
+
+.c-clock .body .time{display:flex;align-items:baseline;gap:14px;font-weight:700;line-height:1;letter-spacing:-.03em}
+.c-clock .body .h{font-size:148px}
+.c-clock .body .m{font-size:52px;font-weight:600;color:var(--dim);letter-spacing:0}
+
+.c-weather .body{flex-direction:row;gap:26px;padding:0 20px}
+.c-weather .temp{font-size:176px;font-weight:700;line-height:.86;letter-spacing:-.04em}
+.c-weather .side{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-width:0}
+.c-weather .cond{font-size:40px;font-weight:600;line-height:1.1}
+
+.c-cal .body{flex-direction:column;align-items:stretch;justify-content:flex-start;padding:10px 12px;gap:6px;text-align:left}
+.c-cal li{display:flex;align-items:baseline;gap:12px;padding:9px 12px;border-radius:8px;background:var(--surface);font-size:24px;line-height:1.15}
+.c-cal li .t{font-weight:700;min-width:96px;flex-shrink:0}
+.c-cal li .s{font-weight:600}
+.c-cal .empty{font-size:28px;font-weight:600;color:var(--dim);text-align:center;margin:auto}
+
+/* Sun mark, an owned path: Slatecast draws no emoji (they render as tofu on WPE). */
+.mark{fill:none;stroke:var(--accent-content);stroke-width:2.2;stroke-linecap:round}
+</style>
+<body>
+<h1>Clock, Weather and Calendar on the 480x320 glass</h1>
+<p class="lead">Every panel below is drawn at true size in <b>Outfit</b>, on the dark daylight palette the panel resolves today. The <b>Current</b> column is the deployed CSS with <code>vmin</code> = 3.2px. The other three are candidates, all in fixed px under the same <code>(min-aspect-ratio: 5/4) and (max-height: 400px)</code> rule that Now Playing already uses, so the square and the porthole are untouched.</p>
+<p class="lead">Fixture data: <b>12:45 PM</b> is the widest 12-hour time; <b>Friday, September 11</b> is today; <b>85° Sunny</b> is the live PirateWeather reading; the agenda is the test fixture, not the household calendar.</p>
+
+<h2>Clock</h2>
+<div class="row">
+<figure><div class="panel cur-clock" id="clock-current">
+  <div class="time tab" data-time>12:45 PM</div>
+  <div class="date dim" data-date>Friday, September 11</div>
+</div><figcaption><b>Current</b><span>time 54px · date 16px</span></figcaption></figure>
+
+<figure><div class="panel a-clock" id="clock-a">
+  <div class="time tab"><span class="h" data-time-h>12:45</span><span class="m" data-time-m>PM</span></div>
+  <div class="date dim" data-date>Friday, September 11</div>
+</div><figcaption><b>A · Same shape, bigger</b><span>time 136px with the meridiem at 44px · date 32px</span></figcaption></figure>
+
+<figure><div class="panel b-clock" id="clock-b">
+  <div class="tile"><div class="wd">FRI</div><div class="dn tab">11</div><div class="mo">SEP</div></div>
+  <div class="stack"><div class="h tab" data-time-h>12:45</div><div class="m" data-time-m>PM</div></div>
+</div><figcaption><b>B · Beside</b><span>date tile 28 / 112 / 28px · time 92px · meridiem 40px. The weekday and month are three letters, so the tile never needs fitting.</span></figcaption></figure>
+
+<figure><div class="panel c c-clock" id="clock-c">
+  <div class="band"><span class="l"><span class="dim" data-date>Friday, September 11</span></span><span></span></div>
+  <div class="body"><div class="time tab"><span class="h" data-time-h>12:45</span><span class="m" data-time-m>PM</span></div></div>
+</div><figcaption><b>C · Band and body</b><span>band: date 22px · body: time 148px, meridiem 52px</span></figcaption></figure>
+</div>
+
+<h2>Weather</h2>
+<div class="row">
+<figure><div class="panel cur-weather" id="weather-current">
+  <div class="main"><div class="temp tab">85°</div><div class="cond dim">Sunny</div></div>
+  <div class="clock"><span class="time tab" data-time>12:45 PM</span><span class="date dim" data-date>Friday, September 11</span></div>
+</div><figcaption><b>Current</b><span>temperature 70px · condition 19px · time 22px · date 13px</span></figcaption></figure>
+
+<figure><div class="panel a-weather" id="weather-a">
+  <div class="main"><div class="temp tab">85°</div><div class="cond dim">Sunny</div></div>
+  <div class="clock"><span class="time tab" data-time>12:45 PM</span><span class="date dim" data-date>Friday, September 11</span></div>
+</div><figcaption><b>A · Same shape, bigger</b><span>temperature 150px · condition 36px · time 40px · date 26px</span></figcaption></figure>
+
+<figure><div class="panel b-weather" id="weather-b">
+  <div class="main"><div class="temp tab">85°</div><div class="cond dim">Sunny</div></div>
+  <div class="side">
+    <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+    <div class="time tab" data-time>12:45 PM</div>
+    <div class="wd dim" data-weekday>Friday</div>
+    <div class="md dim" data-monthday>September 11</div>
+  </div>
+</div><figcaption><b>B · Beside</b><span>temperature 148px, condition 36px at the left; time 48px, weekday 30px, date 26px at the right. The sun is a condition mark: one owned SVG path per Home Assistant condition (about ten), which the app does not draw today.</span></figcaption></figure>
+
+<figure><div class="panel c c-weather" id="weather-c">
+  <div class="band"><span class="l"><span class="tab" data-time>12:45 PM</span></span><span class="dim ellipsis" data-date>Friday, September 11</span></div>
+  <div class="body"><div class="temp tab">85°</div><div class="side"><div class="cond dim">Sunny</div></div></div>
+</div><figcaption><b>C · Band and body</b><span>band: time 22px, date 22px · body: temperature 176px, condition 40px</span></figcaption></figure>
+</div>
+
+<h2>Calendar (time, date, weather, agenda)</h2>
+<div class="row">
+<figure><div class="panel cur-cal" id="calendar-current">
+  <div class="head"><span class="time tab" data-time>12:45 PM</span><span class="date dim" data-date>Friday, September 11</span></div>
+  <div class="wx"><span class="temp tab">85°</span><span class="cond dim">Sunny</span></div>
+  <ul>
+    <li><span class="t acc tab">All day</span><span class="s ellipsis">Trash and recycling pickup</span></li>
+    <li><span class="t acc tab">2:30 PM</span><span class="s ellipsis">Dentist appointment</span></li>
+    <li><span class="t acc tab">4:00 PM</span><span class="s ellipsis">Grocery delivery</span></li>
+    <li><span class="t acc tab">6:30 PM</span><span class="s ellipsis">Piano lesson</span></li>
+    <li><span class="t acc tab">7:00 PM</span><span class="s ellipsis">Dinner with the neighbours at the place on the corner</span></li>
+    <li><span class="t acc tab">9:15 PM</span><span class="s ellipsis">Start the dishwasher</span></li>
+  </ul>
+</div><figcaption><b>Current</b><span>time 42px · date 16px · weather 19 / 13px · six agenda rows at 11px</span></figcaption></figure>
+
+<figure><div class="panel a-cal" id="calendar-a">
+  <div class="head"><div class="time tab"><span class="h" data-time-h>12:45</span><span class="m" data-time-m>PM</span></div><span class="date dim" data-date>Friday, September 11</span></div>
+  <div class="wx"><span class="temp tab">85°</span><span class="cond dim">Sunny</span></div>
+  <ul>
+    <li><span class="t acc tab">All day</span><span class="s ellipsis">Trash and recycling pickup</span></li>
+    <li><span class="t acc tab">2:30 PM</span><span class="s ellipsis">Dentist appointment</span></li>
+    <li><span class="t acc tab">4:00 PM</span><span class="s ellipsis">Grocery delivery</span></li>
+    <li><span class="t acc tab">6:30 PM</span><span class="s ellipsis">Piano lesson</span></li>
+  </ul>
+</div><figcaption><b>A · Same shape, bigger</b><span>time 62px · date 24px · weather 26 / 22px · four agenda rows at 20px (the budget drops from six)</span></figcaption></figure>
+
+<figure><div class="panel b-cal" id="calendar-b">
+  <div class="left">
+    <div class="time tab"><span class="h" data-time-h>12:45</span><span class="m" data-time-m>PM</span></div>
+    <div class="wd" data-weekday>Friday</div>
+    <div class="md dim" data-monthday>September 11</div>
+    <div class="wx"><span class="temp tab">85°</span><span class="cond dim">Sunny</span></div>
+  </div>
+  <ul>
+    <li><span class="t acc tab">All day</span><span class="s ellipsis">Trash and recycling pickup</span></li>
+    <li><span class="t acc tab">2:30 PM</span><span class="s ellipsis">Dentist appointment</span></li>
+    <li><span class="t acc tab">4:00 PM</span><span class="s ellipsis">Grocery delivery</span></li>
+    <li><span class="t acc tab">6:30 PM</span><span class="s ellipsis">Piano lesson</span></li>
+    <li><span class="t acc tab">7:00 PM</span><span class="s ellipsis">Dinner with the neighbours at the place on the corner</span></li>
+  </ul>
+</div><figcaption><b>B · Beside</b><span>left column: time 60px, weekday 30px, date 24px, weather 28 / 22px · right: five agenda rows at 21px</span></figcaption></figure>
+
+<figure><div class="panel c c-cal" id="calendar-c">
+  <div class="band"><span class="l"><span class="tab" data-time>12:45 PM</span><span class="dim ellipsis" data-date>Friday, September 11</span></span><span class="nowrap"><span class="tab">85°</span> <span class="dim">Sunny</span></span></div>
+  <div class="body"><ul style="display:contents">
+    <li><span class="t acc tab">All day</span><span class="s ellipsis">Trash and recycling pickup</span></li>
+    <li><span class="t acc tab">2:30 PM</span><span class="s ellipsis">Dentist appointment</span></li>
+    <li><span class="t acc tab">4:00 PM</span><span class="s ellipsis">Grocery delivery</span></li>
+    <li><span class="t acc tab">6:30 PM</span><span class="s ellipsis">Piano lesson</span></li>
+    <li><span class="t acc tab">7:00 PM</span><span class="s ellipsis">Dinner with the neighbours at the place on the corner</span></li>
+  </ul></div>
+</div><figcaption><b>C · Band and body</b><span>band: time, date and weather at 22px · body: five agenda rows at 24px. On the widest dates the band date truncates ("Wednesday, Septem…"); a short date form for the band would be a small extra change. On a free day the body says "No upcoming events" and the band still carries the four facts.</span></figcaption></figure>
+</div>
+
+<h2>The widest strings</h2>
+<p class="lead">The same candidates with the widest values the views can be asked to draw: <b>Wednesday, September 30</b> for the date and <b>12:45 PM</b> for the time. Anything that clips or wraps here fails on the panel one day a year. (Populated by the check script; the panels above are copied here with the date swapped.)</p>
+<div class="row" id="stress"></div>
+
+<script>
+// Duplicate every candidate with the widest date so the stress row is a real render, not a claim.
+const WIDEST = { date: "Wednesday, September 30", weekday: "Wednesday", monthday: "September 30" }
+const stressRow = document.getElementById("stress")
+document.querySelectorAll('.panel[id$="-a"], .panel[id$="-b"], .panel[id$="-c"]').forEach((panel) => {
+  const copy = panel.cloneNode(true)
+  copy.id = `${panel.id}-widest`
+  copy.querySelectorAll("[data-date]").forEach((node) => { node.textContent = WIDEST.date })
+  copy.querySelectorAll("[data-weekday]").forEach((node) => { node.textContent = WIDEST.weekday })
+  copy.querySelectorAll("[data-monthday]").forEach((node) => { node.textContent = WIDEST.monthday })
+  const figure = document.createElement("figure")
+  figure.appendChild(copy)
+  const caption = document.createElement("figcaption")
+  caption.innerHTML = `<b>${panel.id} · widest</b>`
+  figure.appendChild(caption)
+  stressRow.appendChild(figure)
+})
+</script>
+</body>
+</html>

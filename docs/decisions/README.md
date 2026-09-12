@@ -7,6 +7,8 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-11 | [A short landscape panel lays the clock, weather and calendar out beside, in px](2026-09-11-a-short-landscape-panel-lays-the-clock-weather-and-calendar-out-beside-in-px.md) | Accepted |
+| 2026-09-11 | [A weather condition mark is drawn by CastKit from the Home Assistant code](2026-09-11-a-weather-condition-mark-is-drawn-by-castkit-from-the-home-assistant-code.md) | Accepted |
 | 2026-09-11 | [A panel's registry size is its layout box, and rotation never re-lays-out a view](2026-09-11-a-panels-registry-size-is-its-layout-box-and-rotation-never-re-lays-out.md) | Accepted |
 | 2026-09-11 | [A vertical swipe asks the house for a view](2026-09-11-a-vertical-swipe-asks-the-house-for-a-view.md) | Accepted |
 | 2026-09-11 | [The artwork is the transport on every touch panel, and the text is centred on it](2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md) | Accepted |
