@@ -464,10 +464,10 @@ body {
  * round porthole (1:1) never match it. Sizes are in px: the query already
  * bounds the height, and a panel this small has no room for proportion.
  *
- * Layout: the art fills the height at the left, as on the 2" ePaper card;
- * title, artist, album and the seek bar sit beside it; the volume runs across
- * the bottom. There is no transport row on any panel (the art is the
- * transport), and here that matters most: three buttons under a 232px picture
+ * Layout: the art fills most of the height at the left, as on the 2" ePaper
+ * card; title, artist, album and the seek bar sit beside it; the volume runs
+ * across the bottom. There is no transport row on any panel (the art is the
+ * transport), and here that matters most: three buttons under the picture
  * would have cost the text its 27px.
  *
  * The text block is centred on the art, not pinned to its foot. The two
@@ -476,16 +476,31 @@ body {
  * `align-self: end` and the owner read a title floating at the bottom-right
  * as a layout fault.
  *
- * Each line may wrap: title to three rows, artist and album to two. That is
- * the most the column ever needs (about 221px of 256), so an artist called
- * "Beck" under a three-row title and a two-row album under a one-row title
- * both fit without clipping. `useTrackLineFit` in NowPlaying.tsx trims the
- * counts on the rare track that still overflows.
+ * ⚠️ The row counts below are a FLOOR, not the layout. `fitTrackLines` in
+ * trackLineFit.ts measures the block and writes the most generous counts that
+ * still fit, which reaches four title rows and three each for artist and
+ * album. These values are what a panel gets before that pass runs, so they
+ * must be counts that always fit.
  */
 @media (min-aspect-ratio: 5 / 4) and (max-height: 400px) {
   .now-playing {
+    /*
+     * The art's edge, and the one number that trades picture for words. The
+     * text column is whatever is left: 480 less 20px of padding, less this,
+     * less the 14px gap. At 232px the column was 214px and the owner read the
+     * block as cramped under an enormous picture. 216px gives it 230px, which
+     * is the smallest step that stops a 31-character album name wrapping, at a
+     * 7% size difference the eye reads as the same picture.
+     *
+     * The owner chose this value from a rendered ladder of 232/216/208/200/190
+     * and may revisit it; the ladder and its measurements are in
+     * docs/decisions/2026-09-12-the-short-panels-now-playing-art-is-216px-and-the-album-may-take-a-third-row.md.
+     * Changing it is this one declaration — every other number in this block
+     * is independent of it.
+     */
+    --art-size: 216px;
     display: grid;
-    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-columns: var(--art-size) minmax(0, 1fr);
     grid-template-rows:
       minmax(0, 1fr) auto auto minmax(0, 1fr)
       auto;
@@ -505,8 +520,8 @@ body {
   .artwork-frame {
     grid-area: art;
     align-self: center;
-    width: 232px;
-    height: 232px;
+    width: var(--art-size);
+    height: var(--art-size);
     border-radius: 10px;
     box-shadow: 0 6px 24px
       color-mix(in srgb, var(--accent) 35%, transparent);

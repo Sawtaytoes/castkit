@@ -95,7 +95,10 @@ describe("now playing on a short landscape panel", () => {
     const title = rectOf(".title")
     // Side by side: the text starts to the right of the art, not under it.
     expect(title.left).toBeGreaterThan(artwork.right)
-    expect(artwork.width).toBe(232)
+    // The art and the column it leaves are one decision, so assert both: 480
+    // less 20px of padding, less the art, less the 14px gap.
+    expect(artwork.width).toBe(216)
+    expect(rectOf(".track").width).toBe(230)
 
     // The text and the seek bar sit as one block at the art's middle, not at
     // its foot.
@@ -153,6 +156,50 @@ describe("now playing on a short landscape panel", () => {
     expect(rectOf(".title").height).toBeGreaterThanOrEqual(
       124,
     )
+  })
+
+  test("gives a long album name a third row rather than clipping it", async () => {
+    await mountOnPanel({
+      ...SHORT_PANEL,
+      nowPlaying: buildNowPlaying({
+        title: "Roygbiv",
+        artist: "Boards of Canada",
+        // 58 characters: two rows of the 230px column reach the "(20th
+        // Anniversary" and the name used to end there.
+        album:
+          "Music Has the Right to Children (20th Anniversary Edition)",
+      }),
+    })
+
+    expect(lineCountOf("album")).toBe("3")
+    const album = document.querySelector(
+      ".album",
+    ) as HTMLElement
+    // Nothing is cut: the clamp is not reached, so the rendered height is the
+    // whole name's height.
+    expect(
+      album.scrollHeight - album.clientHeight,
+    ).toBeLessThanOrEqual(1)
+    // And it still ends above the volume row.
+    expect(rectOf(".seek").bottom).toBeLessThanOrEqual(
+      rectOf(".volume").top,
+    )
+  })
+
+  test("keeps a 31-character album name on one row, which the 214px column could not", async () => {
+    await mountOnPanel(SHORT_PANEL)
+
+    // The fixture's album is "Music Has the Right to Children". At 232px of
+    // art it wrapped to two rows for no reason.
+    const album = document.querySelector(
+      ".album",
+    ) as HTMLElement
+    const lineHeight = Number.parseFloat(
+      getComputedStyle(album).lineHeight,
+    )
+    expect(
+      Math.round(album.clientHeight / lineHeight),
+    ).toBe(1)
   })
 
   test("trims the rows when every line is long, and keeps the block above the volume row", async () => {

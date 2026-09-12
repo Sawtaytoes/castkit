@@ -86,6 +86,15 @@ temperature 56 px, condition 30 px, and the drawn condition mark:
 
 ![Ambient on the workbench panel after](images/2026-09-12-ambient-short-panel-after.png)
 
+Second concrete debt, same day: **Now Playing's art size was the same number
+written three times** — the grid column, the artwork width and the artwork
+height — so "make the picture smaller" was a three-place edit with two chances
+to leave one behind. It is now one `--art-size` declaration and the text column
+is derived from it
+([decision](decisions/2026-09-12-the-short-panels-now-playing-art-is-216px-and-the-album-may-take-a-third-row.md)).
+That is the phase 2 shape in one view. Phase 2 is naming the *panel* property
+the whole media query keys on, so no view can be missed the way `Ambient` was.
+
 The 720x720 square is untouched, measured byte-for-byte at the old `vmin`
 sizes (122 px time, 36 px date):
 
