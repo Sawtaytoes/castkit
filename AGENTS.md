@@ -1,13 +1,24 @@
 # AGENTS.md
 
 Guidelines for AI agents working on **CastKit** — a self-hostable home display
-platform. One server, two per-device client modes: **Inkcast** (`image` — server
-renders per-device PNGs, React → Chromium/Satori → per-panel dither, pushed over
-MQTT to dumb ePaper Pis) and **Slatecast** (`browser` — the device's kiosk browser
-loads `/d/<id>` and a tiny Preact SPA renders live, optionally touch-interactive
-views over one WebSocket). All devices surface in Home Assistant via MQTT
-discovery; HA pushes view data and executes device commands — the CastKit↔house
-contract is MQTT and nothing else.
+platform. **One app, one view vocabulary.** A display's output depends on that
+display's **properties**: colour depth, dithering pattern, size, orientation,
+touch, and whether it renders live (`browser` — a kiosk browser loads `/d/<id>`
+and a tiny Preact SPA renders over one WebSocket) or is sent finished images
+(`image` — the server renders per-device PNGs, React → Chromium/Satori →
+per-panel dither, pushed over MQTT). All displays surface in Home Assistant via
+MQTT discovery; HA switches views and executes device commands — the
+CastKit↔house contract is MQTT and nothing else.
+
+> ⛔ **"Inkcast" and "Slatecast" are RETIRED product names, and panel type is
+> never the axis.** Do not divide a view, a layout, a test or a Storybook by
+> "the ePaper one" against "the touch one" — an ePaper panel can have touch and a
+> touch panel can be sent finished images. Ask which **property** the difference
+> keys on and name that. The names still appear in live identifiers (package
+> names, the `inkcast/` topic base, `INKCAST_*` env vars); those are scheduled
+> last, not kept
+> ([decision](docs/decisions/2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md),
+> [plan](docs/2026-09-12-unify-one-view-vocabulary-plan.md)).
 
 ## ⛔ Locked decisions — read before changing behavior
 
@@ -19,19 +30,34 @@ non-trivial task. Highlights:
 
 - **Public OSS app.** No secrets, credentials, hostnames, or real device
   identifiers in git — config comes from the environment (`.env`, gitignored).
-- **⛔ User-tunable settings are HA/MQTT config entities — NEVER new env vars.**
-  Anything a user might want to change per install or per display (view settings,
-  photo format/quality/interval, crop insets, brightness, …) is
-  exposed as a Home Assistant MQTT-discovery config entity — a **global default**
-  on the "Inkcast Server" device **plus a per-device override** — with the
-  retained state topic as its persistence. Do **not** reach for a `process.env`
-  knob for these. Env vars are reserved for **deploy-time infrastructure** only
-  (broker host/creds, HA URL/token, render engine, ports). To add a user knob,
-  mirror an existing one end-to-end: `deviceConfigStore` field → `buildDeviceTopics`
-  / `buildGlobalTopics` → `buildDiscoveryMessages` / `buildGlobalDiscoveryMessages`
-  → the `configKnobs` / `globalConfigKnobs` maps + `getKnobTopics` + the seed list
-  in `index.ts`. See
-  [docs/decisions/2026-07-03-user-tunable-view-settings-are-ha-config-entities.md](docs/decisions/2026-07-03-user-tunable-view-settings-are-ha-config-entities.md).
+- **⛔ User-tunable settings NEVER become env vars — and the admin panel, not
+  Home Assistant, is where they must all be reachable.** Anything a user might
+  change per install or per display (view settings, photo format/quality/interval,
+  crop insets, brightness, …) belongs in CastKit's own admin panel, which is the
+  **complete** control surface. Env vars stay reserved for **deploy-time
+  infrastructure** (broker host/creds, HA URL/token, render engine, ports).
+  A knob additionally earns a **Home Assistant MQTT entity** only by answering
+  *"would an automation change this?"* — the view, the pause switch, the
+  backlight, the photo step. A value a person sets once while hanging a panel
+  (margins, photo crop, dither, registered size/rotation) does not, and a
+  published install must configure fully with **no broker and no Home
+  Assistant**. When a knob does earn an MQTT entity, mirror an existing one
+  end-to-end: `deviceConfigStore` field → `buildDeviceTopics` /
+  `buildGlobalTopics` → `buildDiscoveryMessages` /
+  `buildGlobalDiscoveryMessages` → the `configKnobs` / `globalConfigKnobs` maps +
+  `getKnobTopics` + the seed list in `index.ts`.
+  ⚠️ The retained state topic is still today's persistence for the existing
+  knobs, so do not delete a knob's discovery payload before moving its
+  persistence — the value is lost on the next restart.
+  ([ownership](docs/decisions/2026-09-12-castkit-owns-every-control-and-home-assistant-mqtt-is-only-the-automation-surface.md),
+  [the original rule it narrows](docs/decisions/2026-07-03-user-tunable-view-settings-are-ha-config-entities.md),
+  [web UI](docs/decisions/2026-08-30-web-ui-is-full-config-ha-mqtt-is-automation.md))
+- **⛔ Home Assistant only SWITCHES views.** It never learns whether a display is
+  interactable or whether it is live or image-streamed — CastKit alone knows
+  those, and CastKit decides which view names a display is offered. An automation
+  that needs to branch on panel kind means the view vocabulary is still split;
+  fix the vocabulary.
+  ([decision](docs/decisions/2026-09-12-home-assistant-only-switches-views-and-castkit-owns-interactivity-and-delivery.md))
 - **Develop on a local disk (node-modules linker).** A mapped network share
   can't host the Yarn-workspace symlinks (both `node-modules` and PnP fail over
   SMB) — keep the working tree on a local drive.
