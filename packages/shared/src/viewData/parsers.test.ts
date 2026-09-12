@@ -169,6 +169,19 @@ describe("parseWeatherPayload", () => {
     ).toEqual({
       temperatureText: "79°",
       conditionText: "Partly cloudy",
+      condition: "partlycloudy",
+    })
+  })
+
+  test("passes an unknown condition through as text with no code", () => {
+    expect(
+      parseWeatherPayload({
+        temperature: 60,
+        condition: "haboob",
+      }),
+    ).toEqual({
+      temperatureText: "60°",
+      conditionText: "haboob",
     })
   })
 
