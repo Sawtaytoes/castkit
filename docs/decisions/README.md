@@ -7,6 +7,9 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-12 | [CastKit is one app with one view vocabulary, not Inkcast plus Slatecast](2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md) | Accepted |
+| 2026-09-12 | [CastKit owns every control, and Home Assistant MQTT is only the automation surface](2026-09-12-castkit-owns-every-control-and-home-assistant-mqtt-is-only-the-automation-surface.md) | Accepted |
+| 2026-09-12 | [Home Assistant only switches views; CastKit alone knows interactivity and delivery](2026-09-12-home-assistant-only-switches-views-and-castkit-owns-interactivity-and-delivery.md) | Accepted |
 | 2026-09-11 | [A short landscape panel lays the clock, weather and calendar out beside, in px](2026-09-11-a-short-landscape-panel-lays-the-clock-weather-and-calendar-out-beside-in-px.md) | Accepted |
 | 2026-09-11 | [A weather condition mark is drawn by CastKit from the Home Assistant code](2026-09-11-a-weather-condition-mark-is-drawn-by-castkit-from-the-home-assistant-code.md) | Accepted |
 | 2026-09-11 | [A panel's registry size is its layout box, and rotation never re-lays-out a view](2026-09-11-a-panels-registry-size-is-its-layout-box-and-rotation-never-re-lays-out.md) | Accepted |

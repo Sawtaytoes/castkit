@@ -953,7 +953,7 @@ body {
   text-align: center;
 }
 
-/* ————— Clock, Weather and Calendar on a short landscape panel ————— */
+/* ————— Clock, Weather, Calendar and Ambient on a short landscape panel ————— */
 
 /*
  * The same 480×320 panel as the Now Playing rule above, the same defect: the
@@ -968,6 +968,17 @@ body {
  * clock draws a date tile, the meridiem is its own span, and the weather
  * carries a drawn condition mark. The query here and the one in
  * `useIsShortPanel.ts` must stay identical.
+ *
+ * Ambient joined on 2026-09-12. It was missed by the 2026-09-11 change and
+ * kept its `vmin` column, so it rendered a 16px date and a 16px condition on
+ * this glass — and an empty day now lands on it, so it is read daily. Its two
+ * halves are not a new design: the left is Clock's time-plus-meridiem and the
+ * right is Weather's mark-over-text column.
+ *
+ * ⛔ A view added here is added by PROPERTY, not by panel type. The query asks
+ * about the aspect ratio and the height. It does not ask, and must never ask,
+ * whether the glass is ePaper or whether the panel accepts touch
+ * (docs/decisions/2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md).
  */
 @media (min-aspect-ratio: 5 / 4) and (max-height: 400px) {
   /* Clock: a wall-calendar tile beside the time, the meridiem under the last
@@ -1111,6 +1122,88 @@ body {
   .weather-side .weather-date-weekday {
     font-size: 30px;
     margin-top: 8px;
+  }
+
+  /* Ambient: the time with its meridiem beside it and the date beneath at the
+     left, the condition's mark over the temperature and condition at the
+     right. The two treatments are Clock's left half and Weather's right half,
+     both already chosen on 2026-09-11; this view was missed by that change and
+     kept its `vmin` column, which gave this glass a 16px date. */
+  .ambient-short {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 22px;
+    width: 100%;
+    height: 100%;
+    padding: 0 18px;
+    text-align: left;
+  }
+
+  .ambient-short .ambient-clock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .ambient-short .ambient-clock-row {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .ambient-short .ambient-time {
+    font-size: 110px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .ambient-short .ambient-meridiem {
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--fg-dim);
+  }
+
+  /* The weekday over the month and day, as on the Weather view. The weekday
+     leads at the larger size; the numeric-date setting collapses both to one
+     line, and that line takes the weekday size. */
+  .ambient-short .ambient-date {
+    font-size: 30px;
+    line-height: 1.15;
+  }
+
+  .ambient-short .ambient-date-weekday {
+    font-size: 34px;
+    margin-top: 12px;
+  }
+
+  .ambient-short .ambient-weather {
+    flex-direction: column;
+    align-items: flex-end;
+    flex: none;
+    gap: 2px;
+    margin-top: 0;
+    text-align: right;
+  }
+
+  .ambient-short .ambient-weather .weather-mark {
+    width: 110px;
+    height: 110px;
+    margin-bottom: 6px;
+    color: var(--accent-content);
+  }
+
+  .ambient-short .ambient-temp {
+    font-size: 56px;
+    line-height: 1;
+  }
+
+  .ambient-short .ambient-condition {
+    font-size: 30px;
+    line-height: 1.1;
   }
 
   /* Calendar: one header row — time over date at the left, the mark with the
