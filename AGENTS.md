@@ -246,11 +246,19 @@ interactions with `@testing-library/user-event`. Tests are colocated
 
 Commit small and often; conventional commits; one logical change per commit.
 
-**Push as you go — no go-ahead needed.** While this is a **single-maintainer** repo,
-commit each logical change and **push it straight to `master`** so CI rebuilds the
-`:latest` image and TrueNAS/Home Assistant self-update without the maintainer touching
-the server. Don't wait to be asked and don't batch pushes. (If this repo ever gains
-other contributors, revert to a review-before-push flow — supersede this line then.)
+**Push as you go — no go-ahead needed.** Commit each logical change and get it onto
+`master` yourself so CI rebuilds the `:latest` image and TrueNAS/Home Assistant
+self-update without the maintainer touching the server. Don't wait to be asked and
+don't batch pushes.
+
+⚠️ **`master` is protected and a direct push is REJECTED** — "6 of 6 required status
+checks are expected" (measured 2026-09-12). So: push a branch, open a pull request,
+and **squash-merge it yourself once the checks are green**. This is still a
+single-maintainer repo and nobody else is reviewing; the pull request is the gate CI
+needs, not a request for permission. Never merge on red or pending. Then finish the
+job: `midclt call app.pull_images castkit` and `app.redeploy castkit` on
+`root@storeman.octen`, and verify a **marker from the new build** — a 200 is also true
+of the old image.
 
 ## Package manager
 
