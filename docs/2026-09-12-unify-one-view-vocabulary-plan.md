@@ -71,9 +71,25 @@ property once, derive both tests from it, and delete the second constant.
 
 First concrete debt this repays: **`Ambient` never got the short landscape layout
 that `Clock`, `Weather` and `Calendar` got on 2026-09-11**, so on the 480x320
-workbench panel it renders its date and condition at 16 px. It is now the view an
-empty day lands on, so it is read daily. A shared property test makes that class
-of miss impossible.
+workbench panel it rendered its date and condition at 16 px. It is now the view an
+empty day lands on, so it is read daily. **Fixed on 2026-09-12** — but by hand,
+one view at a time, which is exactly what phase 2 is meant to stop. A shared
+property test makes that class of miss impossible.
+
+Before, at true size on the 480x320 panel — time 54 px, date 16 px,
+temperature 26 px, condition 16 px, no condition mark:
+
+![Ambient on the workbench panel before](images/2026-09-12-ambient-short-panel-before.png)
+
+After — time 110 px, weekday 34 px over the month and day at 30 px,
+temperature 56 px, condition 30 px, and the drawn condition mark:
+
+![Ambient on the workbench panel after](images/2026-09-12-ambient-short-panel-after.png)
+
+The 720x720 square is untouched, measured byte-for-byte at the old `vmin`
+sizes (122 px time, 36 px date):
+
+![Ambient on the square, unchanged](images/2026-09-12-ambient-square-unchanged.png)
 
 ### Phase 3 — the variants that are really settings
 
