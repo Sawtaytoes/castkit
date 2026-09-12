@@ -42,6 +42,131 @@ const formatSafely = ({
   }
 }
 
+/**
+ * `Intl.formatToParts` with the same unknown-timezone fallback as
+ * `formatSafely`, for the callers that need the pieces rather than the string.
+ */
+const formatPartsSafely = ({
+  millis,
+  options,
+  timeZone,
+}: {
+  millis: number
+  options: Intl.DateTimeFormatOptions
+  timeZone?: string
+}) => {
+  const date = new Date(millis)
+  if (!timeZone) {
+    return new Intl.DateTimeFormat(
+      "en-US",
+      options,
+    ).formatToParts(date)
+  }
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      ...options,
+      timeZone,
+    }).formatToParts(date)
+  } catch {
+    return new Intl.DateTimeFormat(
+      "en-US",
+      options,
+    ).formatToParts(date)
+  }
+}
+
+/**
+ * The clock time as two pieces — "12:45" and "PM" — so a panel can set the
+ * meridiem in its own size. The meridiem is "" in twenty-four-hour mode.
+ */
+export const formatClockTimeParts = (
+  millis: number,
+  clock: BrowserClockConfig = DEFAULT_CLOCK,
+) => {
+  const parts = formatPartsSafely({
+    millis,
+    timeZone: clock.timeZone,
+    options: {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: clock.isTwelveHour,
+    },
+  })
+  const meridiem =
+    parts.find((part) => part.type === "dayPeriod")
+      ?.value ?? ""
+  const time = parts
+    .filter((part) => part.type !== "dayPeriod")
+    .map((part) => part.value)
+    .join("")
+    .trim()
+  return { time, meridiem }
+}
+
+/**
+ * The date as a wall-calendar tile: "FRI", "11", "SEP". Always this shape —
+ * the tile is a fixed frame, so the numeric-date setting does not reach it.
+ */
+export const formatDateTile = (
+  millis: number,
+  clock: BrowserClockConfig = DEFAULT_CLOCK,
+) => {
+  const parts = formatPartsSafely({
+    millis,
+    timeZone: clock.timeZone,
+    options: {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    },
+  })
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ""
+  return {
+    weekday: pick("weekday").toUpperCase(),
+    day: pick("day"),
+    month: pick("month").toUpperCase(),
+  }
+}
+
+/**
+ * The long date as two lines — "Friday" and "September 11" — for a panel that
+ * has the height for the weekday but not the width for the whole string. A
+ * numeric date has no weekday and comes back as one line.
+ */
+export const formatClockDateLines = (
+  millis: number,
+  clock: BrowserClockConfig = DEFAULT_CLOCK,
+) => {
+  if (clock.isNumericDate) {
+    return [formatClockDate(millis, clock)]
+  }
+  const parts = formatPartsSafely({
+    millis,
+    timeZone: clock.timeZone,
+    options: {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    },
+  })
+  const weekday =
+    parts.find((part) => part.type === "weekday")?.value ??
+    ""
+  const monthDay = parts
+    .filter(
+      (part) =>
+        part.type === "month" ||
+        part.type === "day" ||
+        (part.type === "literal" &&
+          part.value.trim() === ""),
+    )
+    .map((part) => part.value)
+    .join("")
+    .trim()
+  return [weekday, monthDay]
+}
+
 export const formatClockTime = (
   millis: number,
   clock: BrowserClockConfig = DEFAULT_CLOCK,
