@@ -48,12 +48,42 @@ export type QueueData = {
   items: readonly QueueItem[]
 }
 
+/**
+ * The condition codes a Home Assistant weather entity reports. The list is
+ * HA's, verbatim; CastKit maps each one to text and to a drawn mark.
+ */
+export const WEATHER_CONDITION_CODES = [
+  "clear-night",
+  "cloudy",
+  "exceptional",
+  "fog",
+  "hail",
+  "lightning",
+  "lightning-rainy",
+  "partlycloudy",
+  "pouring",
+  "rainy",
+  "snowy",
+  "snowy-rainy",
+  "sunny",
+  "windy",
+  "windy-variant",
+] as const
+
+export type WeatherConditionCode =
+  (typeof WEATHER_CONDITION_CODES)[number]
+
 /** Current-weather data for the weather-bearing views, pushed by HA. */
 export type WeatherData = {
   /** e.g. "79°" */
   temperatureText: string
   /** e.g. "Partly cloudy" */
   conditionText: string
+  /**
+   * The HA code behind `conditionText`, kept so a view can draw a mark for it.
+   * Absent when HA sent no condition, an unknown one, or `unavailable`.
+   */
+  condition?: WeatherConditionCode
 }
 
 /** One calendar event on the agenda view, as pushed by Home Assistant. */

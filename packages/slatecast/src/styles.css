@@ -865,6 +865,14 @@ body {
   justify-content: center;
   gap: 2.5vmin;
 }
+/*
+ * The temperature and condition sit in one span so the short panel can stack
+ * them beside the mark; on every other panel the span is transparent and the
+ * two children lay out in the row above as before.
+ */
+.calendar-weather-text {
+  display: contents;
+}
 .calendar-temp {
   font-size: 6vmin;
   font-weight: 600;
@@ -943,4 +951,278 @@ body {
   font-size: 4vmin;
   color: var(--fg-dim);
   text-align: center;
+}
+
+/* ————— Clock, Weather and Calendar on a short landscape panel ————— */
+
+/*
+ * The same 480×320 panel as the Now Playing rule above, the same defect: the
+ * `vmin` sizes that give the square a 94px clock gave this glass a 54px clock
+ * with a 16px date, a 13px date under the weather, and agenda rows at 11px.
+ * The owner chose these three from candidates served at true size on
+ * 2026-09-11 (docs/previews/2026-09-11-short-panel-clock-views-round-1.html
+ * and -round-2.html). Sizes are px for the same reason as Now Playing: the
+ * query bounds the height, and a panel this small has no room for proportion.
+ *
+ * The views change their markup on this panel too (`useIsShortPanel`): the
+ * clock draws a date tile, the meridiem is its own span, and the weather
+ * carries a drawn condition mark. The query here and the one in
+ * `useIsShortPanel.ts` must stay identical.
+ */
+@media (min-aspect-ratio: 5 / 4) and (max-height: 400px) {
+  /* Clock: a wall-calendar tile beside the time, the meridiem under the last
+     digit. The tile's strings are three characters at most, so nothing here
+     is fitted. */
+  .clock-short {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    width: 100%;
+    height: 100%;
+    padding: 0 18px;
+  }
+
+  .date-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 144px;
+    height: 196px;
+    border-radius: 16px;
+    background: var(--surface);
+  }
+
+  .date-tile-weekday,
+  .date-tile-month {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.2;
+    color: var(--fg-dim);
+  }
+
+  .date-tile-day {
+    font-size: 90px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .clock-short-time {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 0;
+  }
+
+  .clock-short-hours {
+    font-size: 110px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .clock-short-meridiem {
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1;
+    margin-top: 10px;
+    color: var(--fg-dim);
+  }
+
+  /* Weather: temperature and condition at the left, the mark over the clock
+     and the date at the right. */
+  .weather-short {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 22px;
+    width: 100%;
+    height: 100%;
+    padding: 0 18px;
+  }
+
+  .weather-short .weather-main {
+    align-items: flex-start;
+    text-align: left;
+    min-width: 0;
+    gap: 0;
+  }
+
+  .weather-short .weather-temp {
+    font-size: 148px;
+    line-height: 0.86;
+    letter-spacing: -0.04em;
+  }
+
+  /* "-12°" and "104°" are a fourth character the 148px size has no room for. */
+  .weather-short .weather-temp.is-long {
+    font-size: 112px;
+    line-height: 1.05;
+  }
+
+  .weather-short .weather-condition {
+    font-size: 36px;
+    margin-top: 4px;
+  }
+
+  /* "Thunderstorms", "Severe weather". */
+  .weather-short .weather-condition.is-long {
+    font-size: 28px;
+  }
+
+  .weather-short .weather-empty {
+    font-size: 36px;
+    text-align: left;
+  }
+
+  .weather-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex: none;
+    gap: 4px;
+    text-align: right;
+  }
+
+  .weather-side .weather-mark {
+    width: 96px;
+    height: 96px;
+    margin-bottom: 6px;
+    color: var(--accent-content);
+  }
+
+  .weather-side .weather-time {
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .weather-side .weather-date {
+    font-size: 26px;
+    line-height: 1.1;
+  }
+
+  .weather-side .weather-date-weekday {
+    font-size: 30px;
+    margin-top: 8px;
+  }
+
+  /* Calendar: one header row — time over date at the left, the mark with the
+     temperature over the condition at the right — and the rest of the glass
+     to the agenda. */
+  .calendar-short {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 66px minmax(0, 1fr);
+    grid-template-areas:
+      "header weather"
+      "events events";
+    align-items: center;
+    padding: 10px 12px;
+    gap: 8px 12px;
+  }
+
+  .calendar-short .calendar-header {
+    grid-area: header;
+    align-items: flex-start;
+    text-align: left;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .calendar-clock {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .calendar-short .calendar-time {
+    font-size: 44px;
+    letter-spacing: -0.02em;
+  }
+
+  .calendar-meridiem {
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--fg-dim);
+  }
+
+  .calendar-short .calendar-date {
+    font-size: 22px;
+    line-height: 1.1;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .calendar-short .calendar-weather {
+    grid-area: weather;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+  }
+
+  .calendar-short .weather-mark {
+    width: 54px;
+    height: 54px;
+    flex: none;
+    color: var(--accent-content);
+  }
+
+  .calendar-short .calendar-weather-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .calendar-short .calendar-temp {
+    font-size: 30px;
+    line-height: 1.1;
+  }
+
+  .calendar-short .calendar-condition {
+    font-size: 20px;
+    line-height: 1.1;
+  }
+
+  .calendar-short .calendar-events,
+  .calendar-short .calendar-empty {
+    grid-area: events;
+    align-self: start;
+  }
+
+  .calendar-short .calendar-events {
+    gap: 5px;
+  }
+
+  .calendar-short .calendar-event {
+    gap: 12px;
+    padding: 5px 12px;
+    border-radius: 8px;
+    line-height: 1.15;
+  }
+
+  .calendar-short .calendar-event-time {
+    font-size: 22px;
+    min-width: 96px;
+  }
+
+  .calendar-short .calendar-event-summary {
+    font-size: 22px;
+  }
+
+  .calendar-short .calendar-empty {
+    font-size: 28px;
+    padding-top: 40px;
+  }
 }

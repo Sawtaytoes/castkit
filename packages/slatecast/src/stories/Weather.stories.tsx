@@ -20,3 +20,4 @@ const deviceStories = buildDeviceStories({})
 export const MediaControls: Story =
   deviceStories.MediaControls
 export const Porthole: Story = deviceStories.Porthole
+export const Workbench: Story = deviceStories.Workbench

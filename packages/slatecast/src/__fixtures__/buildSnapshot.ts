@@ -84,6 +84,7 @@ export const buildWeather = (
 ): WeatherData => ({
   temperatureText: "72°",
   conditionText: "Partly cloudy",
+  condition: "partlycloudy",
   ...overrides,
 })
 

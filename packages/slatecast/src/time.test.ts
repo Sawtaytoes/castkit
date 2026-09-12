@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest"
 import {
   formatClockDate,
+  formatClockDateLines,
   formatClockTime,
+  formatClockTimeParts,
+  formatDateTile,
   formatEventTime,
 } from "./time.ts"
 
@@ -190,5 +193,94 @@ describe("formatEventTime", () => {
       /^\d{1,2}:\d{2} (AM|PM)$/,
     )
     expect(withBadZone).toBe(deviceLocal)
+  })
+})
+
+describe("formatClockTimeParts", () => {
+  test("splits a twelve-hour time into the digits and the meridiem", () => {
+    expect(
+      formatClockTimeParts(AFTERNOON_MILLIS, {
+        timeZone: CHICAGO,
+        isTwelveHour: true,
+        isNumericDate: false,
+      }),
+    ).toEqual({ time: "3:05", meridiem: "PM" })
+  })
+
+  test("has no meridiem in twenty-four-hour mode", () => {
+    expect(
+      formatClockTimeParts(AFTERNOON_MILLIS, {
+        timeZone: CHICAGO,
+        isTwelveHour: false,
+        isNumericDate: false,
+      }),
+    ).toEqual({ time: "15:05", meridiem: "" })
+  })
+
+  test("falls back to the device zone when the configured one is unknown", () => {
+    const { time, meridiem } = formatClockTimeParts(
+      AFTERNOON_MILLIS,
+      {
+        timeZone: "Not/AZone",
+        isTwelveHour: true,
+        isNumericDate: false,
+      },
+    )
+    expect(time).toMatch(/^\d{1,2}:\d{2}$/)
+    expect(["AM", "PM"]).toContain(meridiem)
+  })
+})
+
+describe("formatDateTile", () => {
+  test("renders the weekday, day and month as a three-line tile", () => {
+    expect(
+      formatDateTile(AFTERNOON_MILLIS, {
+        timeZone: CHICAGO,
+        isTwelveHour: true,
+        isNumericDate: false,
+      }),
+    ).toEqual({ weekday: "FRI", day: "24", month: "JUL" })
+  })
+
+  test("keeps the tile shape when the config asks for a numeric date", () => {
+    expect(
+      formatDateTile(AFTERNOON_MILLIS, {
+        timeZone: CHICAGO,
+        isTwelveHour: true,
+        isNumericDate: true,
+      }),
+    ).toEqual({ weekday: "FRI", day: "24", month: "JUL" })
+  })
+
+  test("crosses the date line with the zone", () => {
+    expect(
+      formatDateTile(AFTERNOON_MILLIS, {
+        timeZone: "Australia/Sydney",
+        isTwelveHour: true,
+        isNumericDate: false,
+      }),
+    ).toEqual({ weekday: "SAT", day: "25", month: "JUL" })
+  })
+})
+
+describe("formatClockDateLines", () => {
+  test("splits the long date into the weekday and the month-day", () => {
+    expect(
+      formatClockDateLines(AFTERNOON_MILLIS, {
+        timeZone: CHICAGO,
+        isTwelveHour: true,
+        isNumericDate: false,
+      }),
+    ).toEqual(["Friday", "July 24"])
+  })
+
+  test("keeps a numeric date as one line", () => {
+    expect(
+      formatClockDateLines(AFTERNOON_MILLIS, {
+        timeZone: CHICAGO,
+        isTwelveHour: true,
+        isNumericDate: true,
+      }),
+    ).toEqual(["7/24/2026"])
   })
 })

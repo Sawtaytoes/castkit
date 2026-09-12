@@ -1,10 +1,12 @@
-import type {
-  AgendaData,
-  AgendaEvent,
-  NowPlayingData,
-  QueueData,
-  QueueItem,
-  WeatherData,
+import {
+  type AgendaData,
+  type AgendaEvent,
+  type NowPlayingData,
+  type QueueData,
+  type QueueItem,
+  WEATHER_CONDITION_CODES,
+  type WeatherConditionCode,
+  type WeatherData,
 } from "./types.ts"
 
 /**
@@ -186,7 +188,10 @@ export const parseQueuePayload = (
 }
 
 /** HA weather-entity condition codes → panel-friendly text. */
-const WEATHER_CONDITION_TEXT: Record<string, string> = {
+const WEATHER_CONDITION_TEXT: Record<
+  WeatherConditionCode,
+  string
+> = {
   "clear-night": "Clear night",
   cloudy: "Cloudy",
   exceptional: "Severe weather",
@@ -225,17 +230,28 @@ export const parseWeatherPayload = (
     typeof record.condition === "string"
       ? record.condition
       : ""
+  const conditionCode = isWeatherConditionCode(condition)
+    ? condition
+    : undefined
 
   return {
     temperatureText: `${Math.round(temperature)}°`,
-    conditionText:
-      WEATHER_CONDITION_TEXT[condition] ??
-      (condition === "unavailable" ||
-      condition === "unknown"
+    conditionText: conditionCode
+      ? WEATHER_CONDITION_TEXT[conditionCode]
+      : condition === "unavailable" ||
+          condition === "unknown"
         ? ""
-        : condition),
+        : condition,
+    ...(conditionCode ? { condition: conditionCode } : {}),
   }
 }
+
+const isWeatherConditionCode = (
+  value: string,
+): value is WeatherConditionCode =>
+  (WEATHER_CONDITION_CODES as readonly string[]).includes(
+    value,
+  )
 
 const toStartMs = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) {
