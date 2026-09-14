@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import AsyncMock
 from playwright.async_api import async_playwright
 from interaction import Target
+from preview import PreviewServer
 from worker import DisplaySession
 
 
@@ -20,7 +21,8 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         await self.page.set_content('''<meta name="viewport" content="width=device-width,initial-scale=1">
           <button data-castkit-target="slot:one" style="width:200px;height:40px;touch-action:manipulation"
            onclick="this.textContent='Disc details';this.dataset.castkitTarget='removed:one:job-a'">Slot 1</button>''')
-        self.session = DisplaySession({}, self.page, None, {}, asyncio.Event())
+        self.session = DisplaySession({}, self.page, None, {}, asyncio.Event(),
+                                      PreviewServer('castkit-remote-display-test', 10))
         self.session.cdp = await self.context.new_cdp_session(self.page)
         self.session.guard.remember(42, [Target('slot:one', 8, 8, 200, 40)])
         self.task = asyncio.create_task(self.session.input_loop())
