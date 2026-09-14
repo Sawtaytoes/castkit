@@ -1,17 +1,21 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createChromiumEngine } from "@castkit/render/chromiumEngine"
+import { AgendaView } from "@castkit/views/AgendaView"
+import type { ClockAgendaEvent } from "@castkit/views/ClockAgendaView"
+import { ClockAgendaView } from "@castkit/views/ClockAgendaView"
 import { ClockWeatherView } from "@castkit/views/ClockWeatherView"
 import { NowPlayingDashboard } from "@castkit/views/NowPlayingDashboard"
 import { createElement, type ReactElement } from "react"
 import sharp from "sharp"
 
 /**
- * View-iteration preview: renders the dashboard + clock-weather views through
- * the Chromium engine at both real panel sizes with representative data
- * (including the awkward cases — no artist, marathon YouTube Music titles) so
- * layout changes can be eyeballed as PNGs before touching a physical panel.
- * Writes `render-output/preview/<scenario>--<panel>.png` (gitignored).
+ * View-iteration preview: renders the dashboard, clock-weather and agenda
+ * views through the Chromium engine at every real panel size with
+ * representative data (including the awkward cases — no artist, marathon
+ * YouTube Music titles, a day with more events than the glass holds) so layout
+ * changes can be eyeballed as PNGs before touching a physical panel. Writes
+ * `render-output/preview/<scenario>--<panel>.png` (gitignored).
  *
  * Run: `yarn tsx scripts/preview-views.ts`
  */
@@ -32,7 +36,34 @@ type PreviewPanel = {
   /** Pre-formatted per-panel strings, as the server would supply them. */
   time: string
   date: string
+  /**
+   * More events than any panel here can hold. The agenda views trim to what
+   * finishes on the glass, so this is what proves the trim rather than a
+   * comfortable three.
+   */
+  events: readonly ClockAgendaEvent[]
 }
+
+/** Large-panel event rows, pre-formatted the way the server hands them over. */
+const LARGE_PANEL_EVENTS: readonly ClockAgendaEvent[] = [
+  { timeText: "12:00 PM", summary: "Piano lesson" },
+  {
+    timeText: "12:40 PM",
+    summary: "Early childhood program pickup",
+  },
+  {
+    timeText: "1:45 PM",
+    summary: "Doctor's appointment",
+  },
+  {
+    timeText: "3:15 PM",
+    summary: "Pick up the dry cleaning",
+  },
+  {
+    timeText: "6:00 PM",
+    summary: "Dinner with the neighbours",
+  },
+]
 
 const PANELS: readonly PreviewPanel[] = [
   {
@@ -42,6 +73,25 @@ const PANELS: readonly PreviewPanel[] = [
     colourMode: "mono",
     time: "12:45a",
     date: "Th-02",
+    events: [
+      { timeText: "12:00p", summary: "Piano lesson" },
+      {
+        timeText: "12:40p",
+        summary: "Early childhood program pickup",
+      },
+      {
+        timeText: "1:45p",
+        summary: "Doctor's appointment",
+      },
+      {
+        timeText: "3:15p",
+        summary: "Pick up the dry cleaning",
+      },
+      {
+        timeText: "6:00p",
+        summary: "Dinner with the neighbours",
+      },
+    ],
   },
   {
     key: "impression-e6",
@@ -50,6 +100,16 @@ const PANELS: readonly PreviewPanel[] = [
     colourMode: "e6",
     time: "12:45 AM",
     date: "Thursday, July 2",
+    events: LARGE_PANEL_EVENTS,
+  },
+  {
+    key: "m5paper-mono",
+    width: 960,
+    height: 540,
+    colourMode: "mono",
+    time: "12:58 AM",
+    date: "Monday, September 14",
+    events: LARGE_PANEL_EVENTS,
   },
 ]
 
@@ -167,6 +227,34 @@ const buildScenarios = ({
         colourMode: panel.colourMode,
         time: panel.time,
         date: panel.date,
+      }),
+  },
+  {
+    key: "clock-agenda",
+    buildElement: ({ panel }) =>
+      createElement(ClockAgendaView, {
+        width: panel.width,
+        height: panel.height,
+        colourMode: panel.colourMode,
+        time: panel.time,
+        date: panel.date,
+        temperatureText: "71°",
+        conditionText: "Clear night",
+        events: panel.events,
+      }),
+  },
+  {
+    key: "agenda",
+    buildElement: ({ panel }) =>
+      createElement(AgendaView, {
+        width: panel.width,
+        height: panel.height,
+        colourMode: panel.colourMode,
+        date: panel.date,
+        temperatureText: "71°",
+        conditionText: "Clear night",
+        events: panel.events,
+        emptyText: "Nothing else today",
       }),
   },
 ]

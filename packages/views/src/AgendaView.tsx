@@ -4,6 +4,7 @@ import type { ClockAgendaEvent } from "./ClockAgendaView.tsx"
 import type { PanelViewProps } from "./viewProps.ts"
 import {
   buildPanelRootStyle,
+  countRowsThatFit,
   fitText,
   getAccentColour,
   READABLE_FONT_FLOOR_PX,
@@ -26,12 +27,20 @@ import {
  * text is bold to survive 1-bit dithering. Inline styles + flexbox only
  * (Satori-safe). Event rows reuse `ClockAgendaEvent` so both agenda views
  * speak the same shape.
+ *
+ * Like `ClockAgendaView`, it draws only the rows that FINISH on the panel. It
+ * is handed more events than a short panel can hold and drops the least
+ * imminent ones rather than letting them run off the bottom edge; they arrive
+ * on a later repaint as the earlier events start and leave the list.
  */
+/** Every event row is `fontSize × this`, matching the rows' `lineHeight`. */
+const EVENT_LINE_HEIGHT = 1.1
+
 export type AgendaViewProps = PanelViewProps & {
   date: string
   temperatureText?: string
   conditionText?: string
-  /** Upcoming events, already sorted and sliced to the panel's budget. */
+  /** Upcoming events, already sorted; the view trims them to what fits. */
   events: readonly ClockAgendaEvent[]
   /** Shown when there is nothing left today, e.g. "Nothing else today". */
   emptyText: string
@@ -83,6 +92,38 @@ export const AgendaView = ({
   const eventTimeColumnWidth = Math.round(width * 0.26)
   const eventGutterWidth = Math.round(width * 0.02)
 
+  // Named once so the layout maths and the style objects below can never
+  // disagree about the rhythm.
+  const topPadding = Math.round(height * 0.06)
+  const weatherGap = Math.round(height * 0.025)
+  const agendaGap = Math.round(height * 0.06)
+  const eventRowGap = Math.round(height * 0.03)
+  // Held back from the row budget, for the same reason as ClockAgendaView: a
+  // row that ends on the last pixel row reads as clipped even when it is not.
+  const bottomBreathingRoom = Math.round(height * 0.02)
+
+  // What sits above the rows, so they get exactly the height that is left. The
+  // date and weather lines are `lineHeight: 1`, so their ink height is their
+  // font size.
+  const headerHeight =
+    topPadding +
+    fittedDate.fontSize +
+    (hasWeather ? weatherGap + weatherFontSize : 0) +
+    agendaGap
+  const eventRowHeight =
+    eventRowGap +
+    Math.ceil(eventFontSize * EVENT_LINE_HEIGHT)
+
+  const visibleEvents = events.slice(
+    0,
+    countRowsThatFit({
+      availableHeight:
+        height - headerHeight - bottomBreathingRoom,
+      rowHeight: eventRowHeight,
+    }),
+  )
+  const hasVisibleEvents = visibleEvents.length > 0
+
   const rootStyle: CSSProperties = {
     ...buildPanelRootStyle({
       width,
@@ -91,7 +132,7 @@ export const AgendaView = ({
     }),
     alignItems: "flex-start",
     justifyContent: "flex-start",
-    paddingTop: Math.round(height * 0.06),
+    paddingTop: topPadding,
     paddingLeft: horizontalPadding,
     paddingRight: horizontalPadding,
   }
@@ -110,7 +151,7 @@ export const AgendaView = ({
     display: "flex",
     flexDirection: "row",
     alignItems: "baseline",
-    marginTop: Math.round(height * 0.025),
+    marginTop: weatherGap,
   }
 
   const temperatureStyle: CSSProperties = {
@@ -133,7 +174,7 @@ export const AgendaView = ({
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
-    marginTop: Math.round(height * 0.06),
+    marginTop: agendaGap,
   }
 
   // A definite row width is what gives the summary something to shrink
@@ -143,7 +184,7 @@ export const AgendaView = ({
     flexDirection: "row",
     alignItems: "baseline",
     width: availableWidth,
-    marginTop: Math.round(height * 0.03),
+    marginTop: eventRowGap,
   }
 
   // flexShrink 0 + nowrap keeps the time on one line; without both, "12:30 PM"
@@ -210,9 +251,9 @@ export const AgendaView = ({
         </div>
       ) : null}
 
-      {hasEvents ? (
+      {hasVisibleEvents ? (
         <div style={agendaBlockStyle}>
-          {events.map((event) => (
+          {visibleEvents.map((event) => (
             <div
               key={`${event.timeText}-${event.summary}`}
               style={eventRowStyle}
@@ -226,7 +267,12 @@ export const AgendaView = ({
             </div>
           ))}
         </div>
-      ) : (
+      ) : null}
+
+      {/* Only a genuinely free day says so. A panel too short to finish even
+          one row has events — it just cannot draw them — and "Nothing else
+          today" there would be a lie. */}
+      {hasEvents ? null : (
         <div style={emptyStyle}>{emptyText}</div>
       )}
     </div>
