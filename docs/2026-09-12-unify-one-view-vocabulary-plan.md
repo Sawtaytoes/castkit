@@ -5,18 +5,18 @@ phase 1 not started · **Decisions:**
 [one app, one vocabulary](decisions/2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md),
 [CastKit owns every control](decisions/2026-09-12-castkit-owns-every-control-and-home-assistant-mqtt-is-only-the-automation-surface.md),
 [HA only switches views](decisions/2026-09-12-home-assistant-only-switches-views-and-castkit-owns-interactivity-and-delivery.md),
-[a display is nine properties](decisions/2026-09-13-a-display-is-a-set-of-properties-and-panel-technology-is-not-one-of-them.md),
+[a display is a panel model plus an installation](decisions/2026-09-13-a-display-is-a-panel-model-plus-an-installation.md),
 [CastKit stamps the properties](decisions/2026-09-13-castkit-stamps-a-panels-properties-and-a-view-never-asks-the-browser-what-the-panel-is.md),
 [Storybook names a property](decisions/2026-09-13-storybook-names-a-view-and-a-property-never-a-panel-technology.md)
 
 Read the decision records first. They are the settled rules. This file is
 only the order of work and the traps in it.
 
-⚠️ **Revised 2026-09-13.** The property vocabulary is now settled and is nine
-named fields, not the three-field sketch this file first showed — see the
-[property decision](decisions/2026-09-13-a-display-is-a-set-of-properties-and-panel-technology-is-not-one-of-them.md).
-The Storybook taxonomy moved from "not in scope" into phase 0, and visual
-regression testing joined as phase 6.
+⚠️ **Revised 2026-09-13, twice.** The property vocabulary is settled: a display
+is a **panel model plus an installation**, and every value states what it
+changes ([rule](decisions/2026-09-13-a-display-is-a-panel-model-plus-an-installation.md),
+[reference](display-properties.md)). The Storybook taxonomy moved from "not in
+scope" into phase 0, and visual regression testing joined as phase 6.
 
 ## What is actually split today
 
@@ -63,14 +63,22 @@ a client mode:
 {
   name: "Clock (Weather)",
   requires: {
-    input: "any",          // "touch" when a view cannot degrade to display-only
-    repaint: "fast",       // a clock ticks; a `slow` panel gets the clockless variant
+    input: "any",           // "touch" when a view cannot degrade to display-only
+    valueLifetimeMs: 60_000, // it prints the minute, so it needs a panel that can repaint in 6 s
   },
 }
 ```
 
-The requirement names a **property** from the nine, and a value or a floor
-within it. It never names a delivery mode, a panel technology or a device id.
+The requirement names a **property** from axis A, or the **lifetime of the
+shortest-lived value the view prints**. `getViewsForDevice` then compares that
+lifetime against the panel's repaint time by the freshness rule — ten to one —
+so no list of allowed views has to be hand-maintained per panel. It never names
+a delivery mode, a panel technology or a device id.
+
+⚠️ **This phase is where the live defect closes.** Today `packages/server`
+offers all nine view names to every image-mode device, and `startClockTicker`
+re-pushes any device on a clock view every minute. The Impression is offered
+three clock views and flashes for 28 seconds each time it takes one.
 
 `getViewsForDevice` then answers "what can this panel do" from the device's
 properties alone, and both discovery builders publish its answer. Nothing about
@@ -101,6 +109,10 @@ different rules.
 Both express "this panel is short, lay out beside instead of stacked". Name the
 property once, derive both tests from it, and delete the second constant.
 
+The installation settings (`orientation`, `margins`, `crop`, `mask`) are the
+other half of this phase. They are per unit, not per model, so a second M5Paper
+hung portrait is one more installation rather than a second panel entry.
+
 **This is also where the stamp lands**
 ([decision](decisions/2026-09-13-castkit-stamps-a-panels-properties-and-a-view-never-asks-the-browser-what-the-panel-is.md)).
 `:root` carries `data-shape`, `data-colour`, `data-input`, `data-repaint`,
@@ -108,8 +120,8 @@ property once, derive both tests from it, and delete the second constant.
 record by each renderer.
 
 ⚠️ **The stamp is not additive on the live half — it needs the protocol first.**
-`BrowserDeviceProfile` carries three of the nine properties today (`shape`,
-`hasTouch`, `colour`). `repaint`, `ditheredBy`, `pixelGrid` and `delivery` are
+`BrowserDeviceProfile` carries three of the eight panel facts today (`shape`,
+`hasTouch`, `colour`). `repaint`, `dithersItself`, `pixelGrid` and `delivery` are
 not on the wire at all, and `delivery` is the one the SPA cannot infer: the same
 Preact app serves a HyperPixel kiosk (`live-browser`) and the WT32-SC01, where a
 server-side headless browser renders this app and pushes finished frames

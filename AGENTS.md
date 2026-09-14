@@ -20,12 +20,34 @@ CastKit↔house contract is MQTT and nothing else.
 > ([decision](docs/decisions/2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md),
 > [plan](docs/2026-09-12-unify-one-view-vocabulary-plan.md)).
 >
-> **The properties are named, and there are nine:** `size`, `rotation`, `shape`,
-> `pixelGrid`, `colour`, `ditheredBy`, `repaint`, `input`, `delivery`. None
-> implies another — the M5Paper is ePaper with touch and a fast repaint, the
-> WT32-SC01 is a colour LCD fed finished frames because an ESP32 runs no
-> browser. A view declares the properties it needs and never a device id
-> ([property table](docs/decisions/2026-09-13-a-display-is-a-set-of-properties-and-panel-technology-is-not-one-of-them.md)).
+> **A display is a PANEL MODEL plus an INSTALLATION.** Panel facts, fixed by the
+> hardware: `nativeSize`, `pixelGrid`, `colour`, `dithersItself`, `repaint`,
+> `input`, `shape`, `delivery`. Installation settings, chosen per unit:
+> `orientation`, `margins`, `crop`, `mask`. Two M5Papers are one model and two
+> installations — one may hang portrait and one landscape, and nothing about the
+> glass changed. None of the panel facts implies another: the M5Paper is ePaper
+> with touch and a fast repaint, the WT32-SC01 is a colour LCD fed finished
+> frames because an ESP32 runs no browser. A view declares the properties it
+> needs and never a device id
+> ([rule](docs/decisions/2026-09-13-a-display-is-a-panel-model-plus-an-installation.md)).
+>
+> ⛔ **Every property value states what it CHANGES, and the reference is
+> [docs/display-properties.md](docs/display-properties.md).** Adding a value
+> without its consequence row is an incomplete change. The load-bearing one is
+> the **freshness rule**: a view may show a value only if the value will still
+> be true when the panel finishes drawing it — show it when its lifetime is at
+> least **ten times** the repaint time. `repaint` is graded `instant` / `fast` /
+> `slow` / `super-slow`, and the last two are not a matter of degree: a 3-second
+> Inky pHAT can carry a clock, a 28-second Impression cannot, because the next
+> minute arrives while it is still drawing the last one. Where a view can state
+> a fact two ways, a slow panel gets the **absolute** form — "Next song at
+> 9:42", never "3:21 remaining".
+>
+> **Dithering is three questions.** CastKit dithers only when the content
+> carries colour or tone, AND `colour` is not `full`, AND `dithersItself` is
+> `false`. Pure black-and-white content needs no dithering on any panel, ever,
+> and a panel whose own controller dithers (every Inky) gets the full-colour
+> downscale untouched.
 >
 > ⛔ **CastKit stamps those properties onto `:root`, and CSS keys on the stamp.**
 > `@media` is for what a document truly knows — its own size, aspect ratio and
