@@ -129,7 +129,7 @@ const UUID_PATTERN =
 /**
  * Match one config entry against the people list: raw UUID, exact full name
  * (case-insensitive), or — the friendly path — a UNIQUE first name
- * ("Xander" → "Xander Ghadyani"). Ambiguous or missing = undefined.
+ * ("Alex" → "Alex Morgan"). Ambiguous or missing = undefined.
  */
 const matchPersonId = ({
   entry,
