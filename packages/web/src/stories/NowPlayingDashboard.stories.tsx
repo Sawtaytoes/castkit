@@ -29,7 +29,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const PhatMono: Story = {
-  name: "pHAT mono (250×122)",
+  name: "pHAT mono (250x122)",
   args: {
     ...DEFAULT_PANEL_ARGS,
     deviceId: "inky-phat",
@@ -38,7 +38,7 @@ export const PhatMono: Story = {
 }
 
 export const ImpressionE6: Story = {
-  name: "Impression E6 (800×480)",
+  name: "Impression E6 (800x480)",
   args: {
     ...DEFAULT_PANEL_ARGS,
     deviceId: "inky-impression",
@@ -46,7 +46,7 @@ export const ImpressionE6: Story = {
 }
 
 export const M5PaperMono: Story = {
-  name: "M5Paper mono (540×960)",
+  name: "M5Paper mono (960x540)",
   args: { ...DEFAULT_PANEL_ARGS, deviceId: "m5paper" },
 }
 

@@ -103,7 +103,7 @@ export const PanelFrame = ({
         />
       </div>
       <div style={CAPTION_STYLE}>
-        {device.label} — {device.width}×{device.height}
+        {device.label} — {device.width}x{device.height}
         {isRound ? " — masked to the round bezel" : ""}
       </div>
     </div>

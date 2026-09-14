@@ -6,7 +6,7 @@ import {
 } from "./slatecastStory.tsx"
 
 const meta = {
-  title: "Browser views/Calendar",
+  title: "Views/Calendar",
   render: renderApp,
   decorators: [seedDecorator("calendar")],
 }

@@ -16,7 +16,7 @@ const panelViewports = Object.fromEntries(
   BROWSER_DEVICE_PROFILES.map((device) => [
     device.id,
     {
-      name: `${device.label} — ${device.width}×${device.height}`,
+      name: `${device.label} — ${device.width}x${device.height}`,
       styles: {
         height: `${device.height}px`,
         width: `${device.width}px`,
