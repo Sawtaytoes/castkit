@@ -41,6 +41,7 @@ import {
   parseBacklightPercentPayload,
   percentToBrightness,
 } from "./browserBacklightStore.ts"
+import { resolveBrowserPanelProperties } from "./browserPanelProperties.ts"
 import { createBrowserPhotoConfigStore } from "./browserPhotoConfigStore.ts"
 import { createBrowserStateStore } from "./browserStateStore.ts"
 import { createBrowserHub, type HubSocket } from "./hub.ts"
@@ -229,6 +230,7 @@ export const createBrowserMode = ({
         shape: device.shape,
         hasTouch: device.hasTouch,
         color: device.color,
+        ...resolveBrowserPanelProperties(device),
         // Legacy aliases for a kiosk still on the pre-rename bundle. See
         // BrowserDeviceProfile. Drop once every panel has reloaded.
         colour: toLegacyColor(device.color),

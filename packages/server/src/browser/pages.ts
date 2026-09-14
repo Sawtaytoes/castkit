@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
+import { getIsGrayscaleTextRequired } from "@castkit/shared/panels/pixelGrid"
 import type {
   BrowserDeviceSettings,
   ServerToClientMessage,
@@ -59,6 +60,49 @@ export const buildDevicePageHtml = ({
   const scheme = resolveExplicitScheme(
     snapshot.settings.theme,
   )
+  /*
+   * The Axis A panel facts, stamped on the root element so a CSS rule can
+   * read them before the bundle runs. The client re-stamps the same
+   * attributes from the live profile, so a reconnect that changes one takes
+   * effect without a reload — see `App.tsx`.
+   *
+   * `data-grayscale-text` is derived rather than raw, because whether
+   * subpixel antialiasing is safe depends on BOTH the stripe and how the unit
+   * is hung, and a stylesheet cannot do that arithmetic.
+   */
+  const panelStamp = [
+    `data-repaint="${device.repaint}"`,
+    `data-panel-dithering="${device.hasPanelDithering}"`,
+    `data-pixel-grid="${device.pixelGrid}"`,
+    `data-delivery="${device.delivery}"`,
+    /*
+     * `pointer` exists in the model and nothing in the fleet is there, so the
+     * profile carries the boolean and the stamp names the two values that can
+     * actually occur. A `pointer` panel gets its own field the day one is
+     * registered.
+     */
+    `data-input="${device.hasTouch ? "touch" : "none"}"`,
+    `data-grayscale-text="${getIsGrayscaleTextRequired({
+      orientation: snapshot.settings.orientation,
+      pixelGrid: device.pixelGrid,
+    })}"`,
+  ].join(" ")
+  /*
+   * The layout box as custom properties, so a view can size against the PANEL
+   * rather than the viewport.
+   *
+   * `vw`, `vh` and `vmin` are right for an unrotated live-browser panel and
+   * wrong the moment one is hung sideways: the stage is turned with a CSS
+   * transform, so its box is `100vh` wide while a child's `vw` still resolves
+   * against the untransformed viewport. Nothing reads these yet — the existing
+   * views are all viewport-sized and correct today — but a view that needs the
+   * real box no longer has to invent a way to find it.
+   */
+  const panelSizeStyle = [
+    `--panel-width: ${device.width}px`,
+    `--panel-height: ${device.height}px`,
+    `--panel-min: ${Math.min(device.width, device.height)}px`,
+  ].join("; ")
   const schemeAttribute = scheme
     ? ` data-scheme="${scheme}"`
     : ""
@@ -66,7 +110,7 @@ export const buildDevicePageHtml = ({
     ? ""
     : `<script>document.documentElement.dataset.scheme=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"</script>`
   return `<!doctype html>
-<html lang="en" data-shape="${device.shape}" data-touch="${device.hasTouch}" data-color="${device.color}"${schemeAttribute} data-density="kiosk">
+<html lang="en" data-shape="${device.shape}" data-touch="${device.hasTouch}" data-color="${device.color}" ${panelStamp}${schemeAttribute} data-density="kiosk" style="${panelSizeStyle}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />

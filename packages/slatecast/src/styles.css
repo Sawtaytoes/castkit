@@ -74,6 +74,50 @@ body {
 }
 
 /*
+ * ————— Axis A panel facts —————
+ *
+ * The server stamps `data-repaint`, `data-pixel-grid`, `data-panel-dithering`
+ * and the derived `data-grayscale-text` on <html>, in the page shell and again
+ * from the live profile. See `docs/display-properties.md`.
+ */
+
+/*
+ * Only `instant` may animate. On `fast` an animation is a stutter; below that
+ * it is a flicker, and on a 28-second panel it is a panel that never settles.
+ *
+ * This is a blanket override and not a condition on each animated rule,
+ * because the rule has to hold for a view nobody has written yet. Every
+ * animation in this file is already inside
+ * `@media (prefers-reduced-motion: no-preference)`, which the WT32 renderer
+ * trips — but that is a fact about one renderer's settings, not about the
+ * glass, and a kiosk browser on a slow panel asks for no such thing.
+ *
+ * `!important` is doing real work here: the rules it overrides are equally
+ * specific and come later in the file.
+ */
+html:not([data-repaint="instant"]) * {
+  animation: none;
+  transition: none;
+}
+
+/*
+ * Antialias text in gray, not in subpixels, when the stripe cannot be trusted.
+ *
+ * Two panels reach this: one with no stripe at all (every ePaper panel), and
+ * one with a stripe hung sideways — Chromium takes the subpixel order from
+ * fontconfig's `rgba`, which names a HORIZONTAL order, so a quarter-turned
+ * panel puts every fringe on the wrong axis. `getIsGrayscaleTextRequired` does
+ * that arithmetic; this rule only reads the answer.
+ *
+ * In Blink these two properties force grayscale antialiasing. ⚠️ Unverified on
+ * hardware — the fringing case has not been reproduced on a Pi.
+ */
+html[data-grayscale-text="true"] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
  * Distance legibility: a panel on a wall is read from across the room, so
  * secondary lines carry `font-weight: 600`, not the 400 they default to.
  *

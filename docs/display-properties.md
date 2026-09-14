@@ -95,7 +95,10 @@ it.
   the track, the artist and the album, and prints no position bar. The same view
   on an `instant` panel prints the bar and the running position.
 - **Whether an animation is allowed at all.** Only `instant` may animate. On
-  `fast` an animation is a stutter; below that it is a flicker.
+  `fast` an animation is a stutter; below that it is a flicker. Enforced since
+  2026-09-14 by a blanket rule on `html:not([data-repaint="instant"])`, so a
+  view written next year inherits it without its author knowing the rule
+  exists.
 
 ---
 
@@ -237,20 +240,31 @@ with `--enable-lcd-text` and with `--disable-lcd-text`. So `pushed-frames` and
 **For a `live-browser` panel it matters only when the panel is mounted
 rotated.** Chromium on Linux takes the subpixel order from fontconfig's `rgba`
 setting. A panel turned 90 degrees has a vertical stripe, and fontconfig has
-`vrgb` and `vbgr` for exactly that case. If a rotated kiosk shows color
-fringing on small text, there are three fixes in order of preference:
+`vrgb` and `vbgr` for exactly that case.
+
+**CastKit handles this itself as of 2026-09-14.** The page shell stamps
+`data-grayscale-text` on `:root`, computed from the stripe AND the mount, and
+the stylesheet answers it with `-webkit-font-smoothing: antialiased`. In Blink
+that forces grayscale antialiasing, which is what `--disable-lcd-text` does —
+without needing a launch flag on somebody else's Pi. It fires in two cases:
+`pixelGrid: none`, and a stripe on a panel hung at 90 or 270 degrees. A half
+turn is left alone, because it keeps the stripe horizontal and only reverses
+the order, which is a `pixelGrid` value to correct rather than a reason to give
+subpixel rendering up.
+
+There is still a better fix for the rotated case, and it is not ours to make:
 
 1. Set fontconfig `rgba` to `vrgb` or `vbgr` on that Pi, to match the mounted
-   stripe.
-2. Launch that kiosk's Chromium with `--disable-lcd-text`. Text goes grayscale
-   and slightly softer, and the fringes are gone. This is a flag we already
-   control.
-3. Design around it — larger type, heavier weight. This is the last resort, not
+   stripe. The stripe then gets used instead of abandoned, and the panel's
+   `pixelGrid` should be set to `none` only if it genuinely has no stripe.
+2. Design around it — larger type, heavier weight. This is the last resort, not
    the first.
 
 ⚠️ Unverified on hardware. The fringing case has not been reproduced on a Pi;
 the test is to mount a panel rotated, render small text, and photograph it
-closely.
+closely. What IS verified is the mechanism: four tests in real Chromium assert
+the computed `-webkit-font-smoothing` and the computed transition against the
+real stylesheet.
 
 ---
 
@@ -408,9 +422,19 @@ This file is the rule. The code does not follow all of it.
    `startClockTicker` now skips a device whose active view is not in its own
    allowed list, which catches a panel parked on a clock view by a retained
    state written before the filter existed.
-3. **`repaint`, `hasPanelDithering` and `pixelGrid` are not on the wire.** The live
-   half's `BrowserDeviceProfile` carries `shape`, `hasTouch` and `color` and
-   nothing else.
+3. ~~`repaint`, `hasPanelDithering` and `pixelGrid` are not on the wire.~~
+   **Done 2026-09-14.** `BrowserDeviceProfile` carries `repaint`,
+   `hasPanelDithering`, `pixelGrid` and `delivery`, and the page shell stamps
+   all of them on `:root` with the layout box and the derived
+   `data-grayscale-text`. The client re-stamps from the live profile, so an
+   edit reaches a panel without somebody walking to the glass. Two rules read
+   the stamp today: only an `instant` panel may animate, and a panel whose
+   stripe cannot be trusted antialiases text in gray.
+   ⚠️ None of the three is written in any devices file, so all three are
+   **derived** for now, the same way `repaint` is on the image half — see
+   item 6. A live-browser panel derives honestly: it is the browser that draws
+   the frame, nothing sits between that frame and the glass, and a full-color
+   panel is an LCD with a stripe.
 4. **The panel reports its battery, and CastKit ignores it.** Half of this is
    now done. Since 2026-09-14 the M5Paper firmware reads the cell and publishes
    a retained `castkit/m5paper/battery` message with `volts`, `percent` and
