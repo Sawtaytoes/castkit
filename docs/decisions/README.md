@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-13 | [A touch target's bounding box is its touch area](2026-09-13-a-touch-targets-bounding-box-is-its-touch-area.md) | Accepted |
 | 2026-09-12 | [The short panel's Now Playing art is 216px, and the album may take a third row](2026-09-12-the-short-panels-now-playing-art-is-216px-and-the-album-may-take-a-third-row.md) | Accepted |
 | 2026-09-12 | [CastKit is one app with one view vocabulary, not Inkcast plus Slatecast](2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md) | Accepted |
 | 2026-09-12 | [CastKit owns every control, and Home Assistant MQTT is only the automation surface](2026-09-12-castkit-owns-every-control-and-home-assistant-mqtt-is-only-the-automation-surface.md) | Accepted |
