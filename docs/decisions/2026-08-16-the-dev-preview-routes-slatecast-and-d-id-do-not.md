@@ -23,6 +23,28 @@ client-routed SPA:
 | `/d/:id` | a page **rendered by the server**, per device | no — the server IS the router, and the URL is already a real path |
 | `packages/slatecast` | the panel the `/d/:id` page boots | no — one view, and its device id comes from the rendered HTML, not the URL |
 
+## Context
+
+The workspace decision
+`2026-08-16-owned-web-apps-use-react-router-with-path-urls` requires every owned
+web app to route with React Router and real path URLs, and says it binds apps
+that have only one view today.
+
+This repo has **three** browser surfaces, not one, and they are not the same
+kind of thing. `packages/web` is a client-side single-page app. `/d/:id` is
+rendered by the server, one page per device. `packages/slatecast` is the Preact
+client that the `/d/:id` page boots, and it never reads the URL at all — it
+takes its device id from the server-rendered snapshot.
+
+Applying the fleet decision uniformly to all three would have added a client
+router to two surfaces that do not navigate, and in Slatecast's case would have
+pulled in `preact/compat` aliasing for it. This record exists so that the two
+exclusions read as a decision rather than as an app that was missed.
+
+⚠️ This section was added on 2026-09-14. The record was written without it and
+the decision-record lint caught the gap. Nothing above or below it was changed;
+only the missing background was supplied, from the record's own content.
+
 ## Why the other two stay as they are
 
 - **`/d/:id` already satisfies the fleet decision.** The point of that decision is real
