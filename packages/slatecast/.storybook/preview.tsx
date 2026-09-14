@@ -1,51 +1,45 @@
 import type { Preview } from "@storybook/preact-vite"
-import { setupWorker } from "msw/browser"
-import { mswLoader } from "msw-storybook-addon/csf3"
+import { BROWSER_DEVICE_PROFILES } from "../src/stories/deviceProfiles.ts"
 import "../src/styles.css"
 
+/**
+ * Every panel CastKit drives, offered in the toolbar's viewport list.
+ *
+ * A view story already renders inside a frame of its own panel's size, so this
+ * list is not what makes a story correct — see `src/stories/panelFrame.tsx` for
+ * why it cannot be. It is here so any story can be re-checked at any other
+ * panel's size without editing code, and so the list names the screens this
+ * project actually targets rather than Storybook's generic phone and tablet
+ * presets, which match no device in the house.
+ */
+const panelViewports = Object.fromEntries(
+  BROWSER_DEVICE_PROFILES.map((device) => [
+    device.id,
+    {
+      name: `${device.label} — ${device.width}×${device.height}`,
+      styles: {
+        height: `${device.height}px`,
+        width: `${device.width}px`,
+      },
+      type: "other" as const,
+    },
+  ]),
+)
+
 /*
-  Slatecast's PhotoFrame fetches `/d/<id>/photo` over HTTP, so stories need that
-  endpoint mocked with MSW's service worker (generated into `public/`). The
-  photo story supplies its own handler in `parameters.msw`.
+  There is no Mock Service Worker here any more. It used to answer the app's
+  image endpoints, and a service worker has to register, activate and claim the
+  page before the first `<img>` fires — when it lost that race the Photo Frame
+  story showed "No photos configured". The sample photos below are served as
+  static files instead, which cannot lose a race. `msw` is still a dependency:
+  the test harness uses it for the WebSocket, where there is no static
+  equivalent.
 */
 const preview: Preview = {
   parameters: {
     layout: "fullscreen",
+    viewport: { options: panelViewports },
   },
-  /**
-   * A **custom** MSW setup, for one reason: the service worker has to register
-   * RELATIVE TO THIS STORYBOOK, not the origin root.
-   *
-   * The addon's default is `/mockServiceWorker.js` at scope `/`, which is
-   * correct when a Storybook *is* the site. This one is not: `storybook.octen.dev`
-   * composes it as a ref under `/refs/castkit-slatecast/`, where a root
-   * `/mockServiceWorker.js` does not exist — every story then renders the
-   * "component failed to render" panel with *"Service Worker script does not
-   * exist at the given path"*. It passed locally the whole time, because
-   * locally the ref is served at `/`.
-   *
-   * `url` and `scope` resolve against the preview document (`…/iframe.html`), so
-   * `./` is whatever prefix the site mounts this Storybook at — the identical
-   * build works at localhost, at a devshare hostname, and at the composed
-   * subpath. The scope is narrower than the app's `/d/<id>/photo` request path,
-   * which is fine: a worker intercepts requests from the clients it CONTROLS
-   * (the preview iframe, under `./`), not by URL prefix. This mirrors
-   * gallery-downloader's Storybook, which hit and documented the same wall.
-   */
-  loaders: [
-    mswLoader(async () => {
-      const worker = setupWorker()
-      await worker.start({
-        onUnhandledRequest: "bypass",
-        quiet: true,
-        serviceWorker: {
-          options: { scope: "./" },
-          url: "./mockServiceWorker.js",
-        },
-      })
-      return worker
-    }),
-  ],
 }
 
 export default preview

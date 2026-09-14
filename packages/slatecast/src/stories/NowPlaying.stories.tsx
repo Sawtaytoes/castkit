@@ -27,10 +27,13 @@ const deviceStories = buildDeviceStories({
       artworkPath: STORY_ARTWORK_PATH,
     }),
   },
-  photoHandlerPath: "sample-photos/landscape-colour.jpg",
 })
 
 export const MediaControls: Story =
   deviceStories.MediaControls
 export const Porthole: Story = deviceStories.Porthole
 export const Workbench: Story = deviceStories.Workbench
+export const PiTouchLandscape: Story =
+  deviceStories.PiTouchLandscape
+export const PiTouchPortrait: Story =
+  deviceStories.PiTouchPortrait
