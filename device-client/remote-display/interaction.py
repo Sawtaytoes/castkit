@@ -1,4 +1,5 @@
 """Bind a contact to the actionable element in the acknowledged display frame."""
+
 from dataclasses import dataclass
 from time import monotonic
 

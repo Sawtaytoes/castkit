@@ -15,12 +15,14 @@ Buttons (BCM). 13.3" is portrait, so A/B match the 7.3"; C moved off GPIO16
 Broker + device topic come from the same root-owned drop-in the receiver uses
 (MQTT_HOST/PORT/USERNAME/PASSWORD + INKCAST_IMAGE_TOPIC).
 """
+
+import contextlib
 import os
 import time
 
 import gpiod
-from gpiod.line import Bias, Direction, Value
 import paho.mqtt.client as mqtt
+from gpiod.line import Bias, Direction, Value
 
 BUTTON_ACTIONS = {
     5: "photo_next",
@@ -69,7 +71,7 @@ def main():
         client.username_pw_set(username, password)
     if use_tls:
         client.tls_set(ca_certs=ca_file)
-        print(f"[buttons] TLS enabled (ca={'system' if not ca_file else ca_file})", flush=True)
+        print(f"[buttons] TLS enabled (ca={ca_file if ca_file else 'system'})", flush=True)
     client.connect_async(host, port)
     client.loop_start()
 
@@ -86,8 +88,8 @@ def main():
         flush=True,
     )
 
-    last_level = {pin: Value.ACTIVE for pin in BUTTON_ACTIONS}
-    last_fire = {pin: 0.0 for pin in BUTTON_ACTIONS}
+    last_level = dict.fromkeys(BUTTON_ACTIONS, Value.ACTIVE)
+    last_fire = dict.fromkeys(BUTTON_ACTIONS, 0.0)
     try:
         while True:
             now = time.time()
@@ -103,10 +105,8 @@ def main():
             time.sleep(0.01)
     finally:
         for request in requests.values():
-            try:
+            with contextlib.suppress(Exception):
                 request.release()
-            except Exception:
-                pass
         client.loop_stop()
 
 
