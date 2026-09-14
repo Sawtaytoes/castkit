@@ -352,10 +352,25 @@ display:
 # flash, compare `Battery voltage` against a meter across the cell and adjust the
 # multiplier before anyone trusts `Battery`. Publish the VOLTS regardless: they
 # are the honest reading and they survive a wrong percentage curve.
+# ⚠️ `internal: true` ON ALL THREE, AND IT IS LOAD-BEARING. `discovery: false`
+# above only silences ESPHome's MQTT discovery. It does NOT silence the ESPHome
+# NATIVE API, which is a separate path: Home Assistant's ESPHome integration
+# reads this node over the API and creates an entity for every sensor that
+# carries a `name`. Measured 2026-09-14, minutes after CastKit started
+# publishing its own battery discovery — the house got TWO "Battery" entities,
+# TWO "Battery voltage" entities and TWO "On battery" entities, on two devices
+# with the same name, differing only in a `_2` suffix.
+#
+# `internal: true` keeps a sensor fully usable in lambdas and in the
+# `mqtt.publish_json` below, and stops it reaching Home Assistant on its own.
+# CastKit is then the single publisher, and the battery lands on the display
+# device the house already has — beside the View select, which is the whole
+# point of CastKit owning this panel's discovery.
 sensor:
   - platform: adc
     id: battery_voltage
     name: "Battery voltage"
+    internal: true
     pin: GPIO35
     attenuation: 12db
     device_class: voltage
@@ -375,6 +390,7 @@ sensor:
   - platform: template
     id: battery_percent
     name: "Battery"
+    internal: true
     device_class: battery
     unit_of_measurement: "%"
     accuracy_decimals: 0
@@ -393,10 +409,13 @@ sensor:
       if (fraction > 1.0f) { fraction = 1.0f; }
       return fraction * 100.0f;
 
-# CastKit owns this panel's Home Assistant discovery (`discovery: false` above),
-# so the battery reaches the house as ONE retained CastKit topic rather than as
-# three ESPHome entities on a second device. CastKit republishes it as a
-# `device_class: battery` sensor on the display it already owns.
+# CastKit owns this panel's Home Assistant discovery, so the battery reaches the
+# house as ONE retained CastKit topic rather than as three ESPHome entities on a
+# second device. CastKit points Home Assistant at this topic; it does not
+# republish a copy, so there is one writer and no way for the two to disagree.
+#
+# ⚠️ `discovery: false` is NOT what makes that true — see the `internal: true`
+# note above the sensors. It takes both.
 #
 # ⚠️ THIS TOPIC IS HARDCODED AND CASTKIT BUILDS THE SAME STRING FROM ITS OWN
 # CONFIG: `${MQTT_BASE_TOPIC}/${device.id}/battery`. The two agree today because
@@ -438,6 +457,7 @@ binary_sensor:
   - platform: template
     id: is_on_battery
     name: "On battery"
+    internal: true
     device_class: plug
     # ⚠️ INFERRED, NOT MEASURED. The M5Paper exposes no VBUS sense line through
     # the vendored component, so there is no honest way to ask "is mains
