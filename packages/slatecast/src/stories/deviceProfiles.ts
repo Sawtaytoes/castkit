@@ -12,6 +12,18 @@ import type { BrowserDeviceProfile } from "@castkit/shared/protocol/ws"
  */
 
 /** HyperPixel 4.0 Square on a Pi 4 — Basement 3D Printers Workbench Display. */
+/**
+ * The Axis A facts every directly-driven kiosk panel shares: an LCD composited
+ * by the browser on the panel itself. `instant`, no controller between the
+ * frame and the glass, and a stripe the renderer can use.
+ */
+const LIVE_LCD_PANEL = {
+  delivery: "live-browser",
+  repaint: "instant",
+  hasPanelDithering: false,
+  pixelGrid: "rgb-stripe",
+} as const
+
 export const MEDIA_CONTROLS_PROFILE: BrowserDeviceProfile =
   {
     id: "media-controls",
@@ -21,6 +33,7 @@ export const MEDIA_CONTROLS_PROFILE: BrowserDeviceProfile =
     shape: "square",
     hasTouch: true,
     color: "full",
+    ...LIVE_LCD_PANEL,
     externalViews: [],
   }
 
@@ -33,6 +46,7 @@ export const PORTHOLE_PROFILE: BrowserDeviceProfile = {
   shape: "round",
   hasTouch: false,
   color: "full",
+  ...LIVE_LCD_PANEL,
   externalViews: [],
 }
 
@@ -49,6 +63,21 @@ export const WORKBENCH_PROFILE: BrowserDeviceProfile = {
   shape: "rectangle",
   hasTouch: true,
   color: "full",
+  /*
+   * The one profile here that is NOT a directly-driven kiosk. The WT32-SC01 is
+   * `delivery: pushed-frames`: a browser on the worker host composites the
+   * frame and the panel is a remote framebuffer, so it repaints in about a
+   * second rather than instantly, and it may not animate. That also makes it
+   * the only story that exercises the non-`instant` branch of the panel stamp.
+   *
+   * `pixelGrid: "none"` even though the glass is an LCD, because the frame
+   * arrives as a bitmap. Headless Chromium antialiases in gray and will not do
+   * otherwise, so there is no stripe for anything to line up with.
+   */
+  delivery: "pushed-frames",
+  repaint: "fast",
+  hasPanelDithering: false,
+  pixelGrid: "none",
   externalViews: [],
 }
 
@@ -67,6 +96,7 @@ export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
     shape: "rectangle",
     hasTouch: true,
     color: "full",
+    ...LIVE_LCD_PANEL,
     externalViews: [],
   }
 
@@ -79,6 +109,7 @@ export const PI_TOUCH_PORTRAIT_PROFILE: BrowserDeviceProfile =
     shape: "rectangle",
     hasTouch: true,
     color: "full",
+    ...LIVE_LCD_PANEL,
     externalViews: [],
   }
 
