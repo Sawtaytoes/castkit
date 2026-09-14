@@ -127,15 +127,32 @@ api:
       then:
         - it8951e.fill_dark: m5paper_display
 
+    # The same wipe with the constant chosen by the caller, for diagnosis.
+    # 0x0000 is black and 0xFFFF is white on this path. Use it to walk the four
+    # grey levels a 4bpp load can carry when a mark on the glass has to be told
+    # apart from a mark in the frame.
+    #   esphome.m5paper_fill_panel(fill: 0)
+    - action: fill_panel
+      variables:
+        fill: int
+      then:
+        - lambda: id(m5paper_display).fill_panel((uint16_t) fill);
+
 ota:
   - platform: esphome
 
 # --- CastKit render delivery (MQTT signal + HTTP pull) -----------------------
-# The panel can't blit MQTT image BYTES, so CastKit publishes a single-use
+# This node runs STOCK components, and the stock image component is
+# `online_image`, which is an HTTP client. So CastKit publishes a single-use
 # render URL to `castkit/<node>/image_url` once the server re-renders (every
 # minute for a clock, plus on any data change). The panel subscribes, re-points
 # online_image at that URL, and pulls the PNG over HTTP — MQTT for the *signal*,
-# HTTP for the *bytes*. The broker is TLS-only; ESPHome MQTT-TLS needs esp-idf
+# HTTP for the *bytes*.
+#
+# ⚠️ It is NOT "because ESPHome cannot consume MQTT image bytes". The WT32-SC01
+# runs ESPHome too and is fed pushed bytes, decoded by a custom
+# `castkit_display` component. The difference is this node's component set, not
+# the framework. The broker is TLS-only; ESPHome MQTT-TLS needs esp-idf
 # (see the framework note above). CastKit owns this panel's HA discovery, so the
 # device publishes none of its own (`discovery: false`).
 mqtt:
