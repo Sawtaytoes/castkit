@@ -1,10 +1,10 @@
 # A display is a set of properties, and panel technology is not one of them
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-09-13
 - **Type:** Architecture / Device model
 - **Supersedes:** — it names the property vocabulary that [2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md](2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md) left as "the properties", and replaces that plan's three-field sketch (`needsTouch` / `needsLiveRender` / `isRepaintCheap`)
-- **Superseded by:** —
+- **Superseded by:** [2026-09-13-a-display-is-a-panel-model-plus-an-installation.md](2026-09-13-a-display-is-a-panel-model-plus-an-installation.md) — it keeps the property model and the "panel technology is not an axis" rule, splits the installation settings out of the hardware list, adds a fourth `repaint` grade, and requires every value to state what it changes
 
 ## Decision
 
