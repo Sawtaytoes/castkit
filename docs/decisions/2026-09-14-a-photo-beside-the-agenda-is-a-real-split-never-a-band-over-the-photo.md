@@ -5,6 +5,7 @@
 - **Type:** Product behavior
 - **Supersedes:** —
 - **Superseded by:** —
+- **Refined by:** [2026-09-14-the-photo-beside-agenda-rail-is-paper-and-the-split-is-even.md](2026-09-14-the-photo-beside-agenda-rail-is-paper-and-the-split-is-even.md) — both questions this record left open are now answered: the rail is paper, and the split is even
 
 ## Decision
 
