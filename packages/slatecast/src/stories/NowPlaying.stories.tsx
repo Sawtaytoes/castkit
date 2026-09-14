@@ -9,7 +9,7 @@ import {
 } from "./slatecastStory.tsx"
 
 const meta = {
-  title: "Browser views/Now Playing",
+  title: "Views/Now Playing",
   render: renderApp,
   decorators: [seedDecorator("now-playing")],
 }

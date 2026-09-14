@@ -4,7 +4,7 @@ import { PANEL_QUERY_FLAG } from "./panelFrame.tsx"
 import { STORY_EXPORT_BY_DEVICE_ID } from "./slatecastStory.tsx"
 
 /**
- * Every browser view on every browser panel, in one scrollable grid.
+ * Every view on every panel this renderer drives, in one scrollable grid.
  *
  * Each cell is a real `<iframe>` pointing at the matching per-view story, sized
  * to the panel. That is not a flourish: slatecast lays out in `vmin`/`vw`/`vh`,
@@ -15,21 +15,30 @@ import { STORY_EXPORT_BY_DEVICE_ID } from "./slatecastStory.tsx"
  *
  * The cells ask for the panel document directly ({@link PANEL_QUERY_FLAG}), so
  * a cell holds the app rather than the app inside its own single-panel frame.
+ *
+ * ⚠️ **Every cell is `loading="lazy"`, and that is not an optimisation — it is
+ * what makes the page usable.** A cell is a whole Storybook preview boot: the
+ * Storybook runtime, the Preact app, the fonts, the sample photos, and a 1 Hz
+ * clock tick that runs for as long as the document lives. Seven views times
+ * five panels is 35 of them. Measured eagerly on 2026-09-13 against
+ * storybook.octen.dev: 400 requests, 42 MiB, 35 live documents, and roughly 25
+ * seconds before the grid settled, with the owner's machine pinned the whole
+ * time. Lazy cells boot only the ones scrolled into view.
  */
 
 const VIEW_STORIES = [
   {
     label: "Now Playing",
-    storyId: "browser-views-now-playing",
+    storyId: "views-now-playing",
   },
-  { label: "Queue", storyId: "browser-views-queue" },
-  { label: "Ambient", storyId: "browser-views-ambient" },
-  { label: "Clock", storyId: "browser-views-clock" },
-  { label: "Weather", storyId: "browser-views-weather" },
-  { label: "Calendar", storyId: "browser-views-calendar" },
+  { label: "Queue", storyId: "views-queue" },
+  { label: "Ambient", storyId: "views-ambient" },
+  { label: "Clock", storyId: "views-clock" },
+  { label: "Weather", storyId: "views-weather" },
+  { label: "Calendar", storyId: "views-calendar" },
   {
     label: "Photo Frame",
-    storyId: "browser-views-photo-frame",
+    storyId: "views-photo-frame",
   },
 ] as const
 
@@ -60,7 +69,7 @@ const buildStoryUrl = ({
 }) =>
   `iframe.html?viewMode=story&id=${storyId}--${toStoryExportId(storyExport)}&${PANEL_QUERY_FLAG}=1`
 
-const AllBrowserScreens = () => (
+const AllScreens = () => (
   <div
     style={{
       backgroundColor: "#ffffff",
@@ -92,11 +101,12 @@ const AllBrowserScreens = () => (
           {BROWSER_DEVICE_PROFILES.map((device) => (
             <figure key={device.id} style={{ margin: 0 }}>
               <figcaption style={CELL_LABEL_STYLE}>
-                {device.label} — {device.width}×
+                {device.label} — {device.width}x
                 {device.height}
               </figcaption>
               <iframe
                 height={device.height}
+                loading="lazy"
                 src={buildStoryUrl({
                   storyExport: STORY_EXPORT_BY_DEVICE_ID[
                     device.id
@@ -124,7 +134,7 @@ const AllBrowserScreens = () => (
 )
 
 const meta = {
-  title: "Overview/All browser screens",
+  title: "Overview/All screens",
   parameters: {
     layout: "fullscreen",
   },
@@ -135,6 +145,6 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const EveryViewEveryPanel: Story = {
-  name: "Every browser view × every browser panel",
-  render: () => <AllBrowserScreens />,
+  name: "Every view x every panel",
+  render: () => <AllScreens />,
 }

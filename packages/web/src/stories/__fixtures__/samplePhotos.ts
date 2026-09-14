@@ -61,9 +61,11 @@ export const SAMPLE_PHOTO_LIST: readonly SamplePhoto[] =
   Object.values(SAMPLE_PHOTOS)
 
 /**
- * A photo whose orientation suits the panel — the 540×960 M5Paper wants a
+ * A photo whose orientation suits the panel — a taller-than-wide panel wants a
  * portrait, the landscape panels want a landscape — so the matrix does not
- * letterbox every cell just to prove a point.
+ * letterbox every cell just to prove a point. It reads the registered layout
+ * box, never a device id: the M5Paper was the portrait case until it was
+ * re-registered as the 960x540 landscape canvas its firmware actually drives.
  */
 export const pickPhotoForPanel = ({
   width,

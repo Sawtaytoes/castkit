@@ -43,7 +43,7 @@ export const PORTHOLE_PROFILE: BrowserDeviceProfile = {
  */
 export const WORKBENCH_PROFILE: BrowserDeviceProfile = {
   id: "workbench",
-  label: "Workbench (480×320 landscape, touch)",
+  label: "Workbench (480x320 landscape, touch)",
   width: 480,
   height: 320,
   shape: "rect",
@@ -61,7 +61,7 @@ export const WORKBENCH_PROFILE: BrowserDeviceProfile = {
 export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
   {
     id: "pi-touch-landscape",
-    label: "Pi Touch 2 (1280×720 landscape, touch)",
+    label: "Pi Touch 2 (1280x720 landscape, touch)",
     width: 1280,
     height: 720,
     shape: "rect",
@@ -73,7 +73,7 @@ export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
 export const PI_TOUCH_PORTRAIT_PROFILE: BrowserDeviceProfile =
   {
     id: "pi-touch-portrait",
-    label: "Pi Touch 2 (720×1280 portrait, touch)",
+    label: "Pi Touch 2 (720x1280 portrait, touch)",
     width: 720,
     height: 1280,
     shape: "rect",

@@ -6,7 +6,7 @@ import {
 } from "./slatecastStory.tsx"
 
 const meta = {
-  title: "Browser views/Clock",
+  title: "Views/Clock",
   render: renderApp,
   decorators: [seedDecorator("clock")],
 }

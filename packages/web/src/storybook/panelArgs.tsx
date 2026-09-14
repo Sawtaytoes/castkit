@@ -88,7 +88,7 @@ export const PANEL_ARG_TYPES = {
     control: { type: "inline-radio" as const },
     options: [1, 2, 3, 4],
     description:
-      "Render at N× native then downscale, baking anti-aliasing in before quantizing. Approximate: canvas bilinear here, Lanczos3 on the server.",
+      "Render at Nx native then downscale, baking anti-aliasing in before quantizing. Approximate: canvas bilinear here, Lanczos3 on the server.",
     table: { category: "Dither" },
   },
   paletteVariant: {
@@ -212,9 +212,9 @@ export const renderPanelStory = ({
           color: "#333",
         }}
       >
-        {label} — {device.width}×{device.height}{" "}
-        {colourMode} · {zoom}× · {args.ditherAlgorithm} @{" "}
-        {args.supersampleFactor}×
+        {label} — {device.width}x{device.height}{" "}
+        {colourMode} · {zoom}x · {args.ditherAlgorithm} @{" "}
+        {args.supersampleFactor}x
       </figcaption>
       <DitherPreview
         width={device.width}

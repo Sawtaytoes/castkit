@@ -19,6 +19,27 @@ CastKit↔house contract is MQTT and nothing else.
 > last, not kept
 > ([decision](docs/decisions/2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md),
 > [plan](docs/2026-09-12-unify-one-view-vocabulary-plan.md)).
+>
+> **The properties are named, and there are nine:** `size`, `rotation`, `shape`,
+> `pixelGrid`, `colour`, `ditheredBy`, `repaint`, `input`, `delivery`. None
+> implies another — the M5Paper is ePaper with touch and a fast repaint, the
+> WT32-SC01 is a colour LCD fed finished frames because an ESP32 runs no
+> browser. A view declares the properties it needs and never a device id
+> ([property table](docs/decisions/2026-09-13-a-display-is-a-set-of-properties-and-panel-technology-is-not-one-of-them.md)).
+>
+> ⛔ **CastKit stamps those properties onto `:root`, and CSS keys on the stamp.**
+> `@media` is for what a document truly knows — its own size, aspect ratio and
+> the user preferences. `(update: …)`, `(monochrome)`, `(color)`, `(pointer: …)`
+> and `(hover: …)` are **banned**: the image half renders in server-side
+> Chromium, which answers all four wrongly for every ePaper panel we own, and
+> Chromium's `Emulation.setEmulatedMedia` accepts a correction and silently
+> ignores it
+> ([decision](docs/decisions/2026-09-13-castkit-stamps-a-panels-properties-and-a-view-never-asks-the-browser-what-the-panel-is.md)).
+>
+> **Storybook titles are `Views/<View>` in BOTH builds**, and a composed ref is
+> named for its renderer (`server-rendered frames` / `panel-rendered views`),
+> never for a panel technology
+> ([decision](docs/decisions/2026-09-13-storybook-names-a-view-and-a-property-never-a-panel-technology.md)).
 
 ## ⛔ Locked decisions — read before changing behavior
 

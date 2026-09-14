@@ -1,12 +1,22 @@
 # Unifying CastKit: one view vocabulary, properties not panel types
 
-**Date:** 2026-09-12 · **Status:** Plan, phase 1 not started · **Decisions:**
+**Date:** 2026-09-12, revised 2026-09-13 · **Status:** Plan, phase 0 done,
+phase 1 not started · **Decisions:**
 [one app, one vocabulary](decisions/2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md),
 [CastKit owns every control](decisions/2026-09-12-castkit-owns-every-control-and-home-assistant-mqtt-is-only-the-automation-surface.md),
-[HA only switches views](decisions/2026-09-12-home-assistant-only-switches-views-and-castkit-owns-interactivity-and-delivery.md)
+[HA only switches views](decisions/2026-09-12-home-assistant-only-switches-views-and-castkit-owns-interactivity-and-delivery.md),
+[a display is nine properties](decisions/2026-09-13-a-display-is-a-set-of-properties-and-panel-technology-is-not-one-of-them.md),
+[CastKit stamps the properties](decisions/2026-09-13-castkit-stamps-a-panels-properties-and-a-view-never-asks-the-browser-what-the-panel-is.md),
+[Storybook names a property](decisions/2026-09-13-storybook-names-a-view-and-a-property-never-a-panel-technology.md)
 
-Read the three decision records first. They are the settled rules. This file is
+Read the decision records first. They are the settled rules. This file is
 only the order of work and the traps in it.
+
+⚠️ **Revised 2026-09-13.** The property vocabulary is now settled and is nine
+named fields, not the three-field sketch this file first showed — see the
+[property decision](decisions/2026-09-13-a-display-is-a-set-of-properties-and-panel-technology-is-not-one-of-them.md).
+The Storybook taxonomy moved from "not in scope" into phase 0, and visual
+regression testing joined as phase 6.
 
 ## What is actually split today
 
@@ -25,6 +35,24 @@ under a different name. The mapping is in the
 
 ## The order of work
 
+### Phase 0 — the taxonomy, and two bugs in the review surface (done 2026-09-13)
+
+Ahead of any type change, the things a reader trips over:
+
+- **Storybook stopped naming panel technology.** `Browser views/<name>` became
+  `Views/<name>` in both builds, `Overview/All browser screens` became
+  `Overview/All screens`, and the composed refs became
+  `CastKit — server-rendered frames` and `CastKit — panel-rendered views`.
+- **Four story names claimed `M5Paper mono (540×960)`** while rendering the
+  registered 960x540 canvas. Corrected.
+- **The all-screens matrix booted 35 Storybook previews at once.** Measured on
+  the deployed site: 400 requests, 42 MiB, about 25 seconds, and the owner's
+  machine pinned throughout. The cells are `loading="lazy"` now — 129 requests,
+  16 MiB, 9 booted cells locally.
+- **The kiosk's `cursor: none` sat on `html, body` in a stylesheet Storybook
+  also loads**, so the pointer vanished over the whole Storybook canvas, not
+  just inside a panel. It sits on `.stage` now, which is the appliance.
+
 ### Phase 1 — one name list, two renderers behind it
 
 Move the view vocabulary into one exported list in `@castkit/shared` that both
@@ -34,11 +62,15 @@ a client mode:
 ```ts
 {
   name: "Clock (Weather)",
-  needsTouch: false,
-  needsLiveRender: false,
-  isRepaintCheap: false,   // a clock ticks; an expensive panel needs the clockless variant
+  requires: {
+    input: "any",          // "touch" when a view cannot degrade to display-only
+    repaint: "fast",       // a clock ticks; a `slow` panel gets the clockless variant
+  },
 }
 ```
+
+The requirement names a **property** from the nine, and a value or a floor
+within it. It never names a delivery mode, a panel technology or a device id.
 
 `getViewsForDevice` then answers "what can this panel do" from the device's
 properties alone, and both discovery builders publish its answer. Nothing about
@@ -68,6 +100,21 @@ different rules.
 
 Both express "this panel is short, lay out beside instead of stacked". Name the
 property once, derive both tests from it, and delete the second constant.
+
+**This is also where the stamp lands**
+([decision](decisions/2026-09-13-castkit-stamps-a-panels-properties-and-a-view-never-asks-the-browser-what-the-panel-is.md)).
+`:root` carries `data-shape`, `data-colour`, `data-input`, `data-repaint`,
+`data-delivery` and the `--panel-*` custom properties, written from the device
+record by each renderer.
+
+⚠️ **The stamp is not additive on the live half — it needs the protocol first.**
+`BrowserDeviceProfile` carries three of the nine properties today (`shape`,
+`hasTouch`, `colour`). `repaint`, `ditheredBy`, `pixelGrid` and `delivery` are
+not on the wire at all, and `delivery` is the one the SPA cannot infer: the same
+Preact app serves a HyperPixel kiosk (`live-browser`) and the WT32-SC01, where a
+server-side headless browser renders this app and pushes finished frames
+(`pushed-frames`). Extend the snapshot message in the same change, or the stamp
+will assert `live-browser` on a panel that has no browser.
 
 First concrete debt this repays: **`Ambient` never got the short landscape layout
 that `Clock`, `Weather` and `Calendar` got on 2026-09-11**, so on the 480x320
@@ -139,15 +186,43 @@ identifier, the topic migration is already gated
 ([2026-07-07](decisions/2026-07-07-flat-castkit-topics-migration-gated.md)), and
 none of them is what the owner is actually asking to fix.
 
+### Phase 6 — a snapshot per (view, profile)
+
+There is no visual regression testing in this repo today. The all-screens
+matrix is the manual substitute, and it only catches what somebody looks at.
+
+The unit is the story, because the story is already the (view, profile) pair.
+What that buys: a change that only affects round panels fails only the round
+cells and names them; a change that affects every panel fails everything and
+says so in one run.
+
+Two constraints the harness has to meet:
+
+1. **It must drive the panel document, not a scaled preview.** Slatecast lays
+   out in `vw`/`vh`/`vmin`, so a snapshot taken at any viewport other than the
+   panel's own size is a picture of a layout no panel shows — the mistake
+   [2026-09-13](decisions/2026-09-13-a-panel-story-renders-in-its-own-iframe-not-a-storybook-viewport.md)
+   was written about.
+2. **The ePaper half must snapshot the dithered output, not the source
+   render.** The dither is the part that differs per panel, and an undithered
+   snapshot would pass while the panel shows mud.
+
+Playwright is already a dependency and already drives a real Chromium here, so
+the cheapest first cut is a spec that walks the built `index.json`, opens each
+story's panel document at its own size, and compares against a committed PNG.
+Storybook's own test-runner is the alternative and brings its own runner.
+Neither is chosen yet.
+
 ## What is deliberately NOT in scope
 
 - **Merging the two renderers into one component tree.** `@charcuterie/ui` is
   React and Slatecast is Preact under a 60 KB gz budget; `preact/compat` is ruled
   out. One vocabulary and one property model do not require one component library
   — see [the M5b handoff](../../charcuterie/docs/2026-07-31-m5b-castkit-the-second-consumer.md).
-- **Folding the two Storybooks together.** They are separate because Slatecast
-  lays out in `vw`/`vh`/`vmin`, which only resolve when the viewport *is* the
-  panel. That is a property difference, and it is a legitimate one.
+- **Folding the two Storybook BUILDS into one.** ⚠️ Narrowed 2026-09-13: the
+  taxonomy is no longer out of scope and was unified in phase 0. What stays out
+  is one *build*, and only because no single framework can host both renderers.
+  The refs are named for the renderer now, not for panel technology.
 
 ## Done when
 
