@@ -81,6 +81,26 @@ export const getRepaintForDevice = (
  * Home Assistant and cannot be recovered without editing a config file, so a
  * panel too slow for anything still keeps the longest-lived view it has.
  */
+/**
+ * Read the repaint facts off a configured image device.
+ *
+ * One reader, because the two call sites — the discovery `select` and the
+ * minute re-push — must agree. They are the same question asked twice, and a
+ * panel offered a view the ticker then refuses to re-push is a panel showing a
+ * clock that never moves.
+ */
+export const getRepaintFactsForDevice = (device: {
+  colorMode?: string
+  imageDelivery?: "mqtt-image" | "http-pull"
+  power?: "wired" | "battery"
+  repaint?: RepaintGrade
+}): RepaintFacts => ({
+  colorMode: device.colorMode,
+  imageDelivery: device.imageDelivery,
+  power: device.power,
+  repaint: device.repaint,
+})
+
 export const getViewsForDevice = (
   facts: RepaintFacts,
 ): readonly ViewName[] => {

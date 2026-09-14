@@ -1,3 +1,4 @@
+import type { RepaintGrade } from "@castkit/shared/panels/repaint"
 import type { Palette } from "../panels/palette.ts"
 import {
   MONOCHROME_PALETTE,
@@ -85,11 +86,47 @@ export type DeviceMetadata = {
   /**
    * How the panel receives its render. Default `"mqtt-image"`: the server
    * publishes the PNG bytes to `<base>/image` (the Pi fleet + HA's image entity
-   * consume them). `"http-pull"`: the panel can't consume MQTT image bytes
-   * (e.g. the ESPHome M5Paper), so the server instead publishes a single-use
+   * consume them). `"http-pull"`: the server instead publishes a single-use
    * render URL to `<base>/image_url`, which the panel fetches over HTTP.
+   *
+   * ⚠️ It is NOT "because ESPHome cannot consume MQTT image bytes", which this
+   * comment used to say. The WT32-SC01 runs ESPHome too and is fed pushed
+   * bytes by a custom component. The M5Paper pulls because it runs STOCK
+   * components, and `online_image` is an HTTP client — a fact about one
+   * firmware's component set, not a limit of ESPHome.
    */
   imageDelivery?: "mqtt-image" | "http-pull"
+  /**
+   * Whether the panel carries a cell. A panel fact, not an installation:
+   * the M5Paper has one whether or not this unit is running off it.
+   *
+   * `true` gains the display battery telemetry, a low threshold and an end
+   * state. ⚠️ On ePaper a flat battery does not look flat — the glass holds
+   * its last frame at zero power, so a dead panel keeps showing yesterday's
+   * agenda and reads as a working display with wrong data.
+   */
+  hasBattery?: boolean
+  /**
+   * How long this glass takes to show a new frame, and therefore which views
+   * the display is offered and which values those views may print.
+   *
+   * Optional because it is INFERRED when absent — `getDefaultRepaint` reads
+   * the grade off `imageDelivery` and `colorMode`, which gets every panel in
+   * the current fleet right. Setting it explicitly always wins, and a new
+   * panel kind that breaks the pattern should set one rather than lean on the
+   * inference.
+   */
+  repaint?: RepaintGrade
+  /**
+   * How THIS unit is actually supplied. An installation fact: a panel with a
+   * cell may still be plugged in, and the M5Paper is today.
+   *
+   * `"battery"` makes every repaint cost charge, so the display is offered the
+   * view list of the next slower grade. ⚠️ That does not take the clock off a
+   * `fast` panel — `fast` and `slow` offer the same list, and the clock comes
+   * off at `super-slow`. What it really buys is fewer repaints per day.
+   */
+  power?: "wired" | "battery"
   /**
    * Default Immich people for the Photo Frame view. This SEEDS the device's
    * retained `photo_people` state when the broker has no value for it — first

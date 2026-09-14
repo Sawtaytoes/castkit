@@ -167,6 +167,16 @@ const DeviceConfigSchema = z.object({
   // Optional: seeds the Photo Frame people filter when the broker has no
   // retained value. NOT a live setting — HA owns that. See DeviceMetadata.
   photoPeople: z.optional(z.array(z.string())),
+  // Axis A: how long the glass takes to show a new frame. Absent = inferred
+  // from `imageDelivery` and `colorMode`; see `getDefaultRepaint`.
+  repaint: z.optional(z.enum(REPAINT_GRADES)),
+  // Axis A: whether the panel carries a cell. Absent = false, which is right
+  // for every panel in the fleet except the M5Paper.
+  hasBattery: z._default(z.boolean(), false),
+  // Axis B: how THIS unit is supplied. Absent = `wired`, because a panel
+  // nobody has said anything about is plugged in — including the M5Paper,
+  // which has a cell and is on a lead today.
+  power: z._default(z.enum(["wired", "battery"]), "wired"),
 })
 
 /**

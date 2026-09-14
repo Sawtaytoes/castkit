@@ -122,6 +122,12 @@ export const buildDeviceTopics = ({
     // Master pause. OFF = hold the last frame and skip every render/push.
     updatesCommand: `${base}/updates/set`,
     updatesState: `${base}/updates`,
+    // Telemetry the PANEL writes, not a knob CastKit sets. One retained JSON
+    // message holding `volts`, `percent` and `isOnBattery`, published by the
+    // firmware every five minutes. CastKit points Home Assistant straight at
+    // it rather than re-publishing a copy, so there is one writer and no way
+    // for the two to disagree.
+    battery: `${base}/battery`,
   }
 }
 
@@ -224,6 +230,108 @@ const buildDeviceBlock = (device: DeviceMetadata) => ({
   manufacturer: "CastKit",
   model: `${device.colorMode} ${device.width}×${device.height}`,
 })
+
+/**
+ * The three entities a panel with a cell adds to its own Home Assistant device.
+ *
+ * Empty for every panel without one, which is the whole fleet except the
+ * M5Paper. A `hasBattery: false` panel that published these would show a
+ * permanently unknown battery on a display that is simply plugged in.
+ *
+ * ⚠️ These read the PANEL's topic directly. CastKit does not republish the
+ * values: the firmware already publishes them retained, and a copy would add a
+ * second writer, a staleness window, and a way for the two to disagree with no
+ * way to tell which was right.
+ *
+ * They are all `entity_category: "diagnostic"` on purpose. A wired panel's cell
+ * is a UPS, not something anybody watches, and `isOnBattery` in particular must
+ * not look like an alert source — on a device with no VBUS sense line it is
+ * inferred from the cell voltage and lags by hours.
+ */
+const buildBatteryDiscoveryMessages = ({
+  availability,
+  device,
+  deviceBlock,
+  discoveryTopic,
+  topics,
+}: {
+  availability: Record<string, string>
+  device: DeviceMetadata
+  deviceBlock: ReturnType<typeof buildDeviceBlock>
+  discoveryTopic: (
+    component: string,
+    entity: string,
+  ) => string
+  topics: ReturnType<typeof buildDeviceTopics>
+}): DiscoveryMessage[] => {
+  if (!device.hasBattery) {
+    return []
+  }
+
+  return [
+    {
+      topic: discoveryTopic("sensor", "battery"),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "Battery",
+        unique_id: `inkcast_${device.id}_battery`,
+        state_topic: topics.battery,
+        value_template: "{{ value_json.percent }}",
+        device_class: "battery",
+        state_class: "measurement",
+        unit_of_measurement: "%",
+        suggested_display_precision: 0,
+        entity_category: "diagnostic",
+        device: deviceBlock,
+      },
+    },
+    {
+      /*
+       * The volts are the honest reading and the only one that survives a
+       * wrong calibration, so they get their own entity rather than hiding as
+       * an attribute of the percentage. The M5Paper's percentage is a flat
+       * linear map over an uncalibrated ADC today.
+       */
+      topic: discoveryTopic("sensor", "battery_voltage"),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "Battery voltage",
+        unique_id: `inkcast_${device.id}_battery_voltage`,
+        state_topic: topics.battery,
+        value_template: "{{ value_json.volts }}",
+        device_class: "voltage",
+        state_class: "measurement",
+        unit_of_measurement: "V",
+        suggested_display_precision: 2,
+        entity_category: "diagnostic",
+        device: deviceBlock,
+      },
+    },
+    {
+      /*
+       * No `device_class`. Home Assistant's binary-sensor classes do not have
+       * one that means this: `battery` is ON-means-LOW, `power` and `plug` are
+       * ON-means-MAINS-PRESENT, and dressing the field up as any of them would
+       * make the entity read as the opposite of what the panel published.
+       * The model's own name is the clearest thing to call it.
+       */
+      topic: discoveryTopic("binary_sensor", "on_battery"),
+      isRetained: true,
+      payload: {
+        ...availability,
+        name: "On battery",
+        unique_id: `inkcast_${device.id}_on_battery`,
+        state_topic: topics.battery,
+        value_template:
+          "{{ 'ON' if value_json.isOnBattery else 'OFF' }}",
+        entity_category: "diagnostic",
+        device: deviceBlock,
+      },
+    },
+  ]
+}
 
 /**
  * Build every retained discovery message for one device. `viewNames` populates
@@ -726,6 +834,13 @@ export const buildDiscoveryMessages = ({
         device: deviceBlock,
       },
     },
+    ...buildBatteryDiscoveryMessages({
+      availability,
+      device,
+      deviceBlock,
+      discoveryTopic,
+      topics,
+    }),
   ]
 }
 
