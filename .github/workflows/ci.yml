@@ -42,6 +42,25 @@ jobs:
   docs:
     uses: Sawtaytoes/charcuterie/.github/workflows/shared-docs-lint.yml@workflows-v1
 
+  # ESLint and Biome read every `.ts` and `.tsx`. Until this job nothing read
+  # the Python on the Pis or the C++ in the ESPHome components.
+  #
+  # ⚠️ Both exclusions name the same two directories. `it8951e/` and `m5paper/`
+  # are patched copies of `ilia-ae/m5paper_esphome`, and `PATCHES.md` states
+  # every patch as a diff against that upstream — so a formatter would rewrite
+  # every line and destroy it. An ESPHome component is C++ AND Python: those
+  # directories hold `display.py` and `__init__.py` beside the `.cpp` and `.h`.
+  # `castkit_display/` is ours and IS linted.
+  nativeLint:
+    uses: Sawtaytoes/charcuterie/.github/workflows/shared-native-lint.yml@workflows-v1
+    with:
+      pythonExclude: >-
+        device-client/esphome/components/it8951e
+        device-client/esphome/components/m5paper
+      cppExclude: >-
+        device-client/esphome/components/it8951e
+        device-client/esphome/components/m5paper
+
 
   lint:
     needs: [changes]
@@ -225,7 +244,7 @@ jobs:
           esphome config device-client/esphome/wt32-sc01-plus.yaml > /dev/null
 
   remote-display-deploy:
-    needs: [remote-display-tests, lint, typecheck, unit-tests]
+    needs: [remote-display-tests, nativeLint, lint, typecheck, unit-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 20

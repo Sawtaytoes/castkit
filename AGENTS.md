@@ -246,6 +246,38 @@ which is the thing to read before touching any of this.
   MQTT swapped for a recording stub). Run when you touch the browser-mode
   server, the page shell, or the WebSocket protocol.
 
+### Touched a `.py` or a `.cpp`? Those are linted too, as of 2026-09-14
+
+`yarn lint` reads TypeScript only. The Python under `device-client/` and the C++ in
+`device-client/esphome/components/` are gated by CI's `nativeLint` job, which imports
+Charcuterie's `shared-native-lint.yml@workflows-v1`
+([decision](https://github.com/Sawtaytoes/charcuterie/blob/master/docs/decisions/2026-09-14-shared-python-and-c-lint-config-lives-in-charcuterie-ci.md)).
+
+The config is not in this repo — it is read from a Charcuterie checkout, because a Python
+project on a Raspberry Pi has no way to install an npm package. Run the same check locally
+against a clone:
+
+```sh
+CHARCUTERIE=/mnt/TrueNAS-Apps/Repos/charcuterie
+
+ruff check  --config "$CHARCUTERIE/packages/ci/configs/ruff.toml" --fix device-client/
+ruff format --config "$CHARCUTERIE/packages/ci/configs/ruff.toml"       device-client/
+
+npx --yes clang-format@1.8.0 \
+  --style=file:"$CHARCUTERIE/packages/ci/configs/clang-format.yml" \
+  -i device-client/esphome/components/castkit_display/*.h
+```
+
+⚠️ **Never run either tool over `it8951e/` or `m5paper/`.** Both are patched copies of
+`ilia-ae/m5paper_esphome`, and `device-client/esphome/components/PATCHES.md` states every
+patch as a diff against that upstream. A formatter would rewrite every line and destroy it.
+CI excludes them; a local run over the whole `device-client/` tree does not, and the first
+one caught both vendored `.py` files.
+
+⚠️ **Pin `clang-format@1.8.0`.** Two clang-format majors do not agree on the same file, so
+an unpinned run disagrees with the gate. The npm package carries the binary; the version CI
+uses is the workflow's `clangFormatVersion` default.
+
 > ### `yarn test` and `yarn e2e` will not start in an agent sandbox — that is the container
 >
 > Both need a Playwright chromium build: `slatecast` runs in browser mode and `yarn e2e`
