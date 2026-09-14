@@ -6,7 +6,7 @@ import {
 } from "./slatecastStory.tsx"
 
 const meta = {
-  title: "Browser views/Photo Frame",
+  title: "Views/Photo Frame",
   render: renderApp,
   decorators: [seedDecorator("photo-frame")],
 }

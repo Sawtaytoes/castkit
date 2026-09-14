@@ -58,7 +58,7 @@ const AllScreensGrid = ({
           {PANEL_CATALOG.map(({ device }) => (
             <figure key={device.id} style={{ margin: 0 }}>
               <figcaption style={CELL_LABEL_STYLE}>
-                {device.label} — {device.width}×
+                {device.label} — {device.width}x
                 {device.height} {device.colourMode}
               </figcaption>
               <div
@@ -96,7 +96,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const EveryViewEveryPanel: Story = {
-  name: "Every view × every panel",
+  name: "Every view x every panel",
   render: () => (
     <AllScreensGrid viewNames={STORY_VIEW_NAMES} />
   ),
