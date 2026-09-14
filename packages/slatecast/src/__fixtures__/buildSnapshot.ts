@@ -26,6 +26,12 @@ export const buildDeviceProfile = (
   shape: "square" as const,
   hasTouch: true,
   color: "full" as const,
+  // Axis A panel facts. A live-browser LCD: instant, nothing between the
+  // composited frame and the glass, and a stripe the renderer can use.
+  delivery: "live-browser" as const,
+  repaint: "instant" as const,
+  hasPanelDithering: false,
+  pixelGrid: "rgb-stripe" as const,
   externalViews: [],
   ...overrides,
 })

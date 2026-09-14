@@ -9,6 +9,8 @@ import {
   SPECTRA6_DEFAULT_PALETTE,
 } from "@castkit/core/panels/palette"
 import type { MqttConnectionConfig } from "@castkit/shared/mqtt/publisher"
+import { PIXEL_GRIDS } from "@castkit/shared/panels/pixelGrid"
+import { REPAINT_GRADES } from "@castkit/shared/panels/repaint"
 import * as z from "zod/mini"
 
 /**
@@ -190,6 +192,17 @@ const BrowserDeviceConfigSchema = z.object({
     "full",
   ),
   hasMqttBacklight: z._default(z.boolean(), true),
+  /*
+   * Axis A panel facts. All three are OPTIONAL and all three are derived when
+   * absent — see `resolveBrowserPanelProperties`. A devices file written
+   * before 2026-09-14 carries none of them, and a live-browser panel's honest
+   * values are derivable from what it already carries, so requiring them would
+   * have shipped a stamp that stayed empty until every deployment was
+   * hand-edited.
+   */
+  repaint: z.optional(z.enum(REPAINT_GRADES)),
+  hasPanelDithering: z.optional(z.boolean()),
+  pixelGrid: z.optional(z.enum(PIXEL_GRIDS)),
   rotation: z._default(
     z.union([
       z.literal(0),

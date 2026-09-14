@@ -1,3 +1,4 @@
+import { getIsGrayscaleTextRequired } from "@castkit/shared/panels/pixelGrid"
 import type { ComponentType } from "preact"
 import { useEffect } from "preact/hooks"
 import { activeView, device, settings } from "./state.ts"
@@ -75,6 +76,58 @@ export const App = () => {
       mediaQuery.removeEventListener("change", applyScheme)
     }
   }, [theme])
+
+  /*
+   * Re-stamp the Axis A panel facts on <html>. The page shell already wrote
+   * them, so this changes nothing on a first load; it exists because the
+   * profile arrives again on every reconnect, and a panel holds its page for
+   * weeks. Without this, editing a display's `pixelGrid` in the admin panel
+   * would need somebody to walk to the glass and reload it.
+   *
+   * `data-grayscale-text` is the derived one: whether subpixel antialiasing is
+   * safe depends on the stripe AND on how the unit is hung, and `orientation`
+   * is a live setting an HA automation can flip under a motorized mount.
+   */
+  useEffect(() => {
+    if (!profile) {
+      return
+    }
+    const { dataset } = document.documentElement
+    dataset.repaint = profile.repaint
+    dataset.panelDithering = String(
+      profile.hasPanelDithering,
+    )
+    dataset.pixelGrid = profile.pixelGrid
+    dataset.delivery = profile.delivery
+    dataset.input = profile.hasTouch ? "touch" : "none"
+    dataset.grayscaleText = String(
+      getIsGrayscaleTextRequired({
+        orientation,
+        pixelGrid: profile.pixelGrid,
+      }),
+    )
+    // The layout box, so a view can size against the panel rather than the
+    // viewport. See the page shell for why the two differ on a rotated mount.
+    const { style } = document.documentElement
+    style.setProperty("--panel-width", `${profile.width}px`)
+    style.setProperty(
+      "--panel-height",
+      `${profile.height}px`,
+    )
+    style.setProperty(
+      "--panel-min",
+      `${Math.min(profile.width, profile.height)}px`,
+    )
+  }, [
+    orientation,
+    profile?.delivery,
+    profile?.hasPanelDithering,
+    profile?.hasTouch,
+    profile?.height,
+    profile?.pixelGrid,
+    profile?.repaint,
+    profile?.width,
+  ])
 
   if (!profile) {
     return (

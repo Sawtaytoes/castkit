@@ -2,7 +2,7 @@ import {
   getEffectiveRepaint,
   getIsValueFreshEnough,
   type RepaintGrade,
-} from "@castkit/core/panels/repaint"
+} from "@castkit/shared/panels/repaint"
 import { VIEW_VALUE_LIFETIME_MILLISECONDS } from "@castkit/shared/views/viewFreshness"
 import {
   VIEW_NAMES,
