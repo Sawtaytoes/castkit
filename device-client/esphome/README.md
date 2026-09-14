@@ -172,6 +172,31 @@ against `Battery voltage`, and adjust the `multiply:` filter before anyone
 trusts the percentage. The nominal 1:1 divider ratio is a datasheet figure, not
 a measurement of this unit, and the ESP32's ADC is non-linear near the rails.
 
+### First reading, 2026-09-14
+
+The panel was flashed over the air and reported:
+
+| Value | Reading |
+| --- | --- |
+| `Battery voltage` | 4.29 V |
+| `Battery` | 100 % |
+| `On battery` | off |
+| Retained MQTT payload | `{"volts":4.288,"percent":100,"isOnBattery":false}` |
+
+The voltage arrived **10 minutes** after the boot, not immediately. The median
+filter waits for its third sample and a sample is 300 s apart.
+
+⚠️ **4.29 V is above the 4.20 V the percentage map calls full**, so the
+percentage pins at 100 and tells you nothing yet. Two explanations fit, and this
+reading cannot separate them:
+
+1. The divider ratio is off, so every voltage reads about 0.09 V high.
+2. GPIO35 sees the charge rail while the panel is plugged in, not the cell.
+
+Unplug the panel and watch the reading fall to settle it. Until then, treat
+`isOnBattery: false` as the only trustworthy field — it is correct, and it is
+what the one-grade-slower repaint rule keys on.
+
 ⚠️ **This firmware never sleeps.** The `m5paper:` power latch holds the main
 rail on so the panel stays awake on battery. That is the worst case for battery
 life, and it is deliberate — the panel has always been plugged in. A genuinely
