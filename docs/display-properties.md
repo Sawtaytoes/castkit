@@ -371,12 +371,15 @@ This file is the rule. The code does not follow all of it.
 3. **`repaint`, `dithersItself` and `pixelGrid` are not on the wire.** The live
    half's `BrowserDeviceProfile` carries `shape`, `hasTouch` and `colour` and
    nothing else.
-4. **Nothing in CastKit knows about the battery.** There is no `hasBattery`
-   field, no `power` setting, no `castkit/<id>/battery` topic and no discovery
-   payload. The M5Paper's own firmware declares no battery sensor either, so the
-   charge is unreadable from anywhere — and that firmware deliberately holds the
-   power rail on, so an unplugged panel drains continuously and gives no
-   warning.
+4. **The panel reports its battery, and CastKit ignores it.** Half of this is
+   now done. Since 2026-09-14 the M5Paper firmware reads the cell and publishes
+   a retained `castkit/m5paper/battery` message with `volts`, `percent` and
+   `isOnBattery` — measured that day at 4.29 V, 100 %, `isOnBattery: false`.
+   CastKit does not read it. There is no `hasBattery` field, no `power` setting,
+   no discovery payload, no one-grade-slower repaint, and no low-battery mark on
+   the glass. The firmware also still holds the power rail on, so an unplugged
+   panel drains continuously; the difference is that the drain is now visible on
+   the broker instead of invisible everywhere.
 5. **The freshness rule is followed by accident, not by check.** The ePaper Now
    Playing views print no position; the live one prints a seek bar. Both are
    correct, and nothing would catch it if one changed.
