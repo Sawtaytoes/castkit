@@ -162,7 +162,8 @@ is [`power`](#the-installation), and how full the cell is, is
 frame at zero power, so a panel that dies keeps showing yesterday's agenda and
 looks like a working display with wrong data. Every other display kind goes
 dark and announces itself. This is why a battery install paints a final
-"battery empty" frame instead of simply stopping.
+"battery empty" frame instead of simply stopping, and why the on-glass mark
+appears at the low threshold rather than never.
 
 ---
 
@@ -320,7 +321,19 @@ publishes to `castkit/<id>/battery`, and CastKit's discovery publishes a
 not arrive as a second ESPHome device, because CastKit already owns this panel's
 discovery and the node runs with `discovery: false`.
 
-An on-glass battery indicator is a separate decision and is not settled.
+**On the glass, the battery appears only when it is low**
+([decision](decisions/2026-09-14-a-battery-indicator-appears-on-the-glass-only-when-the-battery-is-low.md)).
+
+| State | What the glass shows |
+| --- | --- |
+| Above the low threshold | Nothing. The view has the whole panel. |
+| Below the low threshold | The view, plus a battery mark drawn as an **overlay**. No view reserves room for it. |
+| Empty | The view stops repainting, and one final frame says the battery is empty. |
+
+The mark is a shape, never a colour — the only panel in the fleet with a cell is
+`colour: mono`. The threshold is a setting in the admin panel, and a wired panel
+never reaches it, so the mark stays off for months and means something when it
+appears.
 
 ---
 
