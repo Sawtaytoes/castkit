@@ -371,6 +371,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@castkit/core@workspace:packages/core"
   dependencies:
+    "@castkit/shared": "workspace:*"
     image-q: "npm:^4.0.0"
     sharp: "npm:^0.35.3"
     tsx: "npm:^4.22.4"
