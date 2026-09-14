@@ -376,9 +376,22 @@ such a device, and must not build a mains-failure alert on it.
 
 They reach Home Assistant over MQTT on the **CastKit** device: the panel
 publishes to `castkit/<id>/battery`, and CastKit's discovery publishes a
-`device_class: battery` sensor plus a binary sensor for `isOnBattery`. It does
-not arrive as a second ESPHome device, because CastKit already owns this panel's
-discovery and the node runs with `discovery: false`.
+`device_class: battery` sensor, a `device_class: voltage` sensor and a binary
+sensor for `isOnBattery`. All three point at the panel's own retained topic —
+CastKit does not republish a copy, so there is one writer and no way for the
+two to disagree.
+
+⚠️ **Keeping it off a second device takes `internal: true` on the firmware
+sensors, not `discovery: false`.** An earlier version of this paragraph said
+otherwise and was wrong. `discovery: false` silences only ESPHome's **MQTT**
+discovery. The ESPHome **native API** is a separate path, and Home Assistant's
+ESPHome integration creates an entity for every sensor that carries a `name`,
+whatever the MQTT setting says. Measured 2026-09-14, minutes after CastKit
+started publishing its own battery discovery: the house got two `Battery`
+entities, two `Battery voltage` entities and two `On battery` entities, on two
+devices with the same name, differing only by a `_2` suffix. `internal: true`
+keeps a sensor usable in lambdas and in the firmware's own `mqtt.publish_json`
+and stops it reaching Home Assistant on its own.
 
 **On the glass, the battery appears only when it is low**
 ([decision](decisions/2026-09-14-a-battery-indicator-appears-on-the-glass-only-when-the-battery-is-low.md)).
