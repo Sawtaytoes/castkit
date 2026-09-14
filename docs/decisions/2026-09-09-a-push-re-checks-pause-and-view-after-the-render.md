@@ -32,7 +32,7 @@ seeing it for a while:
 > Yes fix. That explains the issue I keep seeing.
 
 I twice reported the cause as "the server renders before the retained MQTT
-topics arrive". That was the right neighbourhood and the wrong mechanism, and
+topics arrive". That was the right neighborhood and the wrong mechanism, and
 the log disproves it:
 
 ```
@@ -57,7 +57,7 @@ The window is not closable by waiting. MQTT has no end-of-retained signal, so
 any pre-render delay is a guess, and a render is slow enough that the owner can
 also pause a display or switch its view by hand while one is in flight. The
 check has to happen where the decision is acted on — immediately before the
-publish — and the delay is only an optimisation that avoids five pointless cold
+publish — and the delay is only an optimization that avoids five pointless cold
 renders.
 
 Dropping the frame is safe because whatever changed the state has already queued

@@ -111,7 +111,7 @@ touchscreen:
     on_release:
       - lambda: id(bitmap_receiver).touch(2, 0, 0);
 text_sensor:
-  # The renderer's transport channel: frame acknowledgements, touch reports and
+  # The renderer's transport channel: frame acknowledgments, touch reports and
   # decode errors. The worker reads it over the native API, so it must stay an
   # entity. It is not a household reading: it changes every two seconds and the
   # owner saw it as a live sensor on the device page. Diagnostic and disabled by

@@ -63,8 +63,8 @@ it also pushes every frame onto a topic.
 frame, so the recorder writes nothing whatever the frame rate. Home Assistant
 polls the still image while a card is on an open dashboard, and it opens the
 MJPEG connection when a viewer watches and closes it when the last viewer
-leaves. The "close the connection when nobody is looking" behaviour the owner
-asked for is the camera domain's own behaviour and does not have to be built.
+leaves. The "close the connection when nobody is looking" behavior the owner
+asked for is the camera domain's own behavior and does not have to be built.
 
 **MJPEG, not RTSP.** RTSP needs an H.264 encoder and an RTSP server added to a
 worker that has neither, and Home Assistant plays an RTSP source through HLS,

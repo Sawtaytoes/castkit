@@ -3,7 +3,7 @@ import type { CSSProperties } from "react"
 import type { PanelViewProps } from "./viewProps.ts"
 import {
   buildPanelRootStyle,
-  getAccentColour,
+  getAccentColor,
 } from "./viewStyles.ts"
 
 /**
@@ -20,12 +20,12 @@ export type ClockViewProps = PanelViewProps & {
 export const ClockView = ({
   width,
   height,
-  colourMode,
+  colorMode,
   time,
   date,
 }: ClockViewProps) => {
-  const accentColour = getAccentColour({
-    colourMode,
+  const accentColor = getAccentColor({
+    colorMode,
     intent: "accent",
   })
 
@@ -33,7 +33,7 @@ export const ClockView = ({
     ...buildPanelRootStyle({
       width,
       height,
-      colourMode,
+      colorMode,
     }),
     alignItems: "center",
     justifyContent: "center",
@@ -44,7 +44,7 @@ export const ClockView = ({
     fontSize: Math.round(height * 0.42),
     fontWeight: 700,
     lineHeight: 1,
-    color: accentColour,
+    color: accentColor,
   }
 
   const dateStyle: CSSProperties = {

@@ -30,7 +30,7 @@ live half it is a fixed-position element on the stage, outside the active view.
 M5Paper never shows the mark, because its cell never gets low. If mains fails
 and the cell drains, it shows — which is exactly when somebody needs to know.
 
-**It is a shape, never a colour.** Half the panels that can have a battery are
+**It is a shape, never a color.** Half the panels that can have a battery are
 one-bit mono, so a red mark and a black mark are the same mark.
 
 **The threshold is a setting in the admin panel**, not an environment variable
@@ -78,6 +78,6 @@ compact layouts already cap summaries to the row's remaining width because text
 runs off the edge.
 
 The mono argument is the fleet: of the two panel models that could carry a cell
-in this house, the one that does — the M5Paper — is `colour: mono`.
+in this house, the one that does — the M5Paper — is `color: monochrome`.
 
 Chat: T3 Code thread `a7e03562-acab-4308-ba0d-fc93531ece7f`.

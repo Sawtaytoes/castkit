@@ -66,7 +66,7 @@ export const buildDevicePageHtml = ({
     ? ""
     : `<script>document.documentElement.dataset.scheme=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"</script>`
   return `<!doctype html>
-<html lang="en" data-shape="${device.shape}" data-touch="${device.hasTouch}" data-colour="${device.colour}"${schemeAttribute} data-density="kiosk">
+<html lang="en" data-shape="${device.shape}" data-touch="${device.hasTouch}" data-color="${device.color}"${schemeAttribute} data-density="kiosk">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />

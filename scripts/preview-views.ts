@@ -32,7 +32,7 @@ type PreviewPanel = {
   key: string
   width: number
   height: number
-  colourMode: "mono" | "e6"
+  colorMode: "monochrome" | "spectra6"
   /** Pre-formatted per-panel strings, as the server would supply them. */
   time: string
   date: string
@@ -61,7 +61,7 @@ const LARGE_PANEL_EVENTS: readonly ClockAgendaEvent[] = [
   },
   {
     timeText: "6:00 PM",
-    summary: "Dinner with the neighbours",
+    summary: "Dinner with the neighbors",
   },
 ]
 
@@ -70,7 +70,7 @@ const PANELS: readonly PreviewPanel[] = [
     key: "phat-mono",
     width: 250,
     height: 122,
-    colourMode: "mono",
+    colorMode: "monochrome",
     time: "12:45a",
     date: "Th-02",
     events: [
@@ -89,7 +89,7 @@ const PANELS: readonly PreviewPanel[] = [
       },
       {
         timeText: "6:00p",
-        summary: "Dinner with the neighbours",
+        summary: "Dinner with the neighbors",
       },
     ],
   },
@@ -97,7 +97,7 @@ const PANELS: readonly PreviewPanel[] = [
     key: "impression-e6",
     width: 800,
     height: 480,
-    colourMode: "e6",
+    colorMode: "spectra6",
     time: "12:45 AM",
     date: "Thursday, July 2",
     events: LARGE_PANEL_EVENTS,
@@ -106,14 +106,14 @@ const PANELS: readonly PreviewPanel[] = [
     key: "m5paper-mono",
     width: 960,
     height: 540,
-    colourMode: "mono",
+    colorMode: "monochrome",
     time: "12:58 AM",
     date: "Monday, September 14",
     events: LARGE_PANEL_EVENTS,
   },
 ]
 
-/** A tiny solid-colour PNG data URI standing in for real album artwork. */
+/** A tiny solid-color PNG data URI standing in for real album artwork. */
 const buildArtworkDataUri = async () => {
   const pngBuffer = await sharp({
     create: {
@@ -149,7 +149,7 @@ const buildScenarios = ({
       createElement(NowPlayingDashboard, {
         width: panel.width,
         height: panel.height,
-        colourMode: panel.colourMode,
+        colorMode: panel.colorMode,
         artist: "ALI PROJECT",
         title: "sekka zange shinjuu",
         album: "Kinsho",
@@ -164,7 +164,7 @@ const buildScenarios = ({
       createElement(NowPlayingDashboard, {
         width: panel.width,
         height: panel.height,
-        colourMode: panel.colourMode,
+        colorMode: panel.colorMode,
         artist: "ALI PROJECT",
         title: "sekka zange shinjuu",
         album: "Kinsho",
@@ -180,7 +180,7 @@ const buildScenarios = ({
       createElement(NowPlayingDashboard, {
         width: panel.width,
         height: panel.height,
-        colourMode: panel.colourMode,
+        colorMode: panel.colorMode,
         artist: "",
         title:
           "My Neighbor Totoro - Bedtime Music - Baby Music, Lullaby Music, Sleep Music",
@@ -195,7 +195,7 @@ const buildScenarios = ({
       createElement(NowPlayingDashboard, {
         width: panel.width,
         height: panel.height,
-        colourMode: panel.colourMode,
+        colorMode: panel.colorMode,
         artist: "—",
         title:
           "My Neighbor Totoro - Bedtime Music - Baby Music, Lullaby Music, Sleep Music",
@@ -211,7 +211,7 @@ const buildScenarios = ({
       createElement(ClockWeatherView, {
         width: panel.width,
         height: panel.height,
-        colourMode: panel.colourMode,
+        colorMode: panel.colorMode,
         time: panel.time,
         date: panel.date,
         temperatureText: "79°",
@@ -224,7 +224,7 @@ const buildScenarios = ({
       createElement(ClockWeatherView, {
         width: panel.width,
         height: panel.height,
-        colourMode: panel.colourMode,
+        colorMode: panel.colorMode,
         time: panel.time,
         date: panel.date,
       }),
@@ -235,7 +235,7 @@ const buildScenarios = ({
       createElement(ClockAgendaView, {
         width: panel.width,
         height: panel.height,
-        colourMode: panel.colourMode,
+        colorMode: panel.colorMode,
         time: panel.time,
         date: panel.date,
         temperatureText: "71°",
@@ -249,7 +249,7 @@ const buildScenarios = ({
       createElement(AgendaView, {
         width: panel.width,
         height: panel.height,
-        colourMode: panel.colourMode,
+        colorMode: panel.colorMode,
         date: panel.date,
         temperatureText: "71°",
         conditionText: "Clear night",

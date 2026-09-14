@@ -48,7 +48,7 @@ The album name was **clipped**. The row budgets in `trackLineFit.ts` capped the
 album at two rows, and a 58-character name reached only "(20th Anniversary" on
 the second row before the clamp cut it. Meanwhile the panel held **61px of empty
 space** between the seek bar and the volume row, because the two `1fr` rows that
-centre the text block on the art are equal and nothing was allowed to grow into
+center the text block on the art are equal and nothing was allowed to grow into
 the lower one.
 
 A 31-character name wrapped to two rows for no reason at all. It fits on one row
@@ -70,7 +70,7 @@ Both are in. They are independent, and each one alone removes the clipping.
 **Two fixes, because they fail in different places.** The width fix helps every
 line at every length. The third row only helps a name too long for two rows. A
 name long enough to overflow three rows at 230px still exists, and then the
-clamp is correct behaviour rather than a fault.
+clamp is correct behavior rather than a fault.
 
 **216px over a bigger reduction, because the owner asked for "slightly".** He
 also called the picture enormous, so the question was which of those two

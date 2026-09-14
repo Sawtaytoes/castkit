@@ -6,7 +6,7 @@
  *
  * The palette is `@charcuterie/tokens` as of M5b. Plain custom properties, not
  * the Tailwind `@theme` bridge: slatecast has no Tailwind and is not getting
- * one for five colours.
+ * one for five colors.
  */
 
 @import "@charcuterie/tokens/variables.css";
@@ -34,7 +34,7 @@
  * (the server stamps it into the page shell), so the scheme-conditional token
  * values have already resolved by the time these read them. `html, body` need
  * them too, and a `.stage`-scoped definition would leave the page behind the
- * stage painting the wrong colour in light mode — which is what happened
+ * stage painting the wrong color in light mode — which is what happened
  * before, invisibly, because the stage covers the viewport.
  */
 :root {
@@ -51,7 +51,7 @@
    * `--color-intent-accent-content` is the on-surface pair and measures 8.6:1.
    *
    * It is deliberately NOT folded into `--accent`: `NowPlaying` overrides that
-   * one inline with a colour sampled from the album art, and a token it could
+   * one inline with a color sampled from the album art, and a token it could
    * not override would end that feature.
    */
   --accent-content: var(--color-intent-accent-content);
@@ -81,7 +81,7 @@ body {
  * `system-ui`, which ships no medium face on Raspberry Pi OS: measured on the
  * basement panel, a 100px string was 754.61px wide at BOTH 400 and 500, and
  * 776.50px at 600. Outfit has a 500, but 600 is still the weight that reads
- * from across the room, and it is what the `system-ui` fallback can honour.
+ * from across the room, and it is what the `system-ui` fallback can honor.
  */
 .stage {
   /*
@@ -195,7 +195,7 @@ body {
   height: 100%;
 }
 
-/* A whole card's width plus a gutter, so a neighbour is fully out of the
+/* A whole card's width plus a gutter, so a neighbor is fully out of the
    window until the finger pulls it in. */
 .artwork-slot.is-previous {
   left: -108%;
@@ -256,7 +256,7 @@ body {
 }
 
 /* Release now and the track changes. Release from the unarmed state and it
-   does not — the colour is the only warning the panel can give. */
+   does not — the color is the only warning the panel can give. */
 .swipe-hint.is-armed {
   color: var(--fg);
   background: color-mix(
@@ -360,8 +360,8 @@ body {
  * browser said hit the control. `slidersAreTheirOwnTouchArea.test.tsx` asserts
  * the invariant.
  *
- * The padding is cancelled by an equal negative margin, so the row's layout
- * height is still the bar's — the pad overlaps its neighbours exactly as the
+ * The padding is canceled by an equal negative margin, so the row's layout
+ * height is still the bar's — the pad overlaps its neighbors exactly as the
  * `::before` did.
  */
 .seek-track.interactive {
@@ -527,7 +527,7 @@ body {
  * transport), and here that matters most: three buttons under the picture
  * would have cost the text its 27px.
  *
- * The text block is centred on the art, not pinned to its foot. The two
+ * The text block is centered on the art, not pinned to its foot. The two
  * `1fr` rows above and below it are equal, so whatever height the text takes
  * it sits at the art's middle — the first cut put it in one `1fr` row with
  * `align-self: end` and the owner read a title floating at the bottom-right

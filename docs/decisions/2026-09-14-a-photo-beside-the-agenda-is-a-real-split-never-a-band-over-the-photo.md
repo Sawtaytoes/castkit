@@ -52,7 +52,7 @@ that panel's retained image topic. That is where the ratio finding came from.
 | 50 / 50 | 320 px | **6 of 6** | beside, time in its own column |
 
 The Spectra 6 readable floor is 24 px
-(`viewStyles.READABLE_FONT_FLOOR_PX.e6`). Below about 11 times the row's font
+(`viewStyles.READABLE_FONT_FLOOR_PX.spectra6`). Below about 11 times the row's font
 size, the time cannot sit beside the summary, so the row stacks and each event
 costs three lines instead of one. A 239 px rail is on the wrong side of that
 line. At 50 / 50 the rows go beside and every event fits, at the cost of

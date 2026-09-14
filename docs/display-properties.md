@@ -28,7 +28,7 @@ This is the property that decides **which views a display is offered** and
 | `instant` | under ~100 ms | HyperPixel Square, HyperPixel Round, Pi Touch 2 | Anything. A second hand, a seek bar that counts down, a drag that follows the finger. |
 | `fast` | under ~1 s, partial update, no full flash | M5Paper, WT32-SC01 | Restate a value about once a second. A clock with minutes, a coarse progress bar, a swipe that lands within a frame or two. |
 | `slow` | 2–5 s, full refresh | Inky pHAT | Restate a value about once a minute. The time, the current song, the weather. No seconds and no countdown. |
-| `super-slow` | 20–40 s, full refresh with a visible flash | Inky Impression 7.3" E6 | Restate a value a few times an hour. The agenda, a photo, the day's weather. No clock at all. |
+| `super-slow` | 20–40 s, full refresh with a visible flash | Inky Impression 7.3" E Ink Spectra 6 | Restate a value a few times an hour. The agenda, a photo, the day's weather. No clock at all. |
 
 The line between `slow` and `super-slow` is not a matter of degree. A 3-second
 panel can carry a clock, because the minute is still the right minute when the
@@ -61,9 +61,9 @@ Applied:
 | Inky pHAT | 3 s | clock minute | 20x | show it |
 | Inky pHAT | 3 s | current song | 60x | show it |
 | Inky pHAT | 3 s | time remaining | 0.3x | refuse |
-| Impression E6 | 28 s | clock minute | 2x | refuse |
-| Impression E6 | 28 s | current song | 6x | refuse by default |
-| Impression E6 | 28 s | the agenda | 128x | show it |
+| Impression E Ink Spectra 6 | 28 s | clock minute | 2x | refuse |
+| Impression E Ink Spectra 6 | 28 s | current song | 6x | refuse by default |
+| Impression E Ink Spectra 6 | 28 s | the agenda | 128x | show it |
 
 Ten is a default, not a law. A view may state a stricter requirement of its own.
 
@@ -85,7 +85,9 @@ it.
 #### What `repaint` changes, concretely
 
 - **Which views the display is offered.** A `super-slow` panel is not offered a
-  clock-bearing view. It is offered `Agenda`, the photo views, and the weather.
+  clock-bearing view. It is offered `Agenda` and the three photo views.
+  ⚠️ Not the weather: the only weather view today is `Clock (Weather)`, which
+  carries a clock. A weather-only view does not exist yet.
 - **Whether the minute re-push reaches it.** `startClockTicker` re-pushes every
   device sitting on a clock view at the top of each minute. On a `super-slow`
   panel that is a panel which is always flashing.
@@ -97,36 +99,48 @@ it.
 
 ---
 
-### `colour` — which inks the glass has
+### `colorMode` — which inks the glass has
 
-| Value | Panels | What it changes |
+| Value | Example panels | What it changes |
 | --- | --- | --- |
-| `mono` | Inky pHAT, M5Paper | One ink. **No hue can carry meaning** — every distinction must be shape, weight, size, position or fill. Continuous-tone content needs dithering. Pure black-and-white content does not. |
+| `monochrome` | Inky pHAT, M5Paper | One ink. **No hue can carry meaning** — every distinction must be shape, weight, size, position or fill. Continuous-tone content needs dithering. Pure black-and-white content does not. |
 | `grayscale` | none today | Hue still carries nothing; tone does. Photos dither to the available levels rather than to two. |
-| `e6` | Inky Impression 7.3" | Six inks. A chosen colour is snapped to the nearest ink, so a brand colour will not survive the trip — pick from the palette instead of hoping. Photos need dithering. |
-| `e7` | none today | As `e6`, one more ink. |
-| `full` | every LCD | Any colour, no dithering, no palette to design around. |
+| `spectra6` | Inky Impression 7.3" | Six inks. A chosen color is snapped to the nearest ink, so a brand color will not survive the trip — pick from the palette instead of hoping. Photos need dithering. |
+| `galleryPalette7` | none today | ACeP / E Ink Gallery Palette (7 color). As `spectra6`, one more ink. Not in this fleet. |
+| `full` | every LCD | Any color, no dithering, no palette to design around. |
 
-On `mono` and the E-ink palettes, **contrast is the only reliable signal.** A
-red "recording" dot and a grey one are the same dot. This is why the weather
-views draw a condition mark rather than tinting the temperature.
+On `monochrome` and the ePaper palettes, **contrast is the only reliable
+signal.** A red "recording" dot and a gray one are the same dot. This is why the
+weather views draw a condition mark rather than tinting the temperature.
+
+⚠️ **There is no such thing as "E7".** An earlier draft of this file listed
+`e6` and `e7` as if they were a matched pair. `E6` is real — it is **E Ink
+Spectra 6**, and panel part numbers carry `(E6)`. The seven-color technology is
+real too, but it is **ACeP / E Ink Gallery Palette**, and vendors code those
+panels `(F)`. Nothing is called E7. The value is `galleryPalette7`.
+
+⚠️ **Two names for one property, for now.** An image device carries
+`colorMode`; a browser device's profile still spells the same idea `color`.
+That is an inconsistency, not a distinction, and unifying it is a protocol
+change listed in
+[the unification plan](2026-09-12-unify-one-view-vocabulary-plan.md).
 
 ---
 
-### `dithersItself` — whether the panel's own controller dithers
+### `hasPanelDithering` — whether the panel's own controller dithers
 
 CastKit dithers when **all three** are true:
 
-1. The content carries colour or continuous tone. **Pure black-and-white
+1. The content carries color or continuous tone. **Pure black-and-white
    content needs no dithering on any panel, ever.**
-2. `colour` is not `full`.
-3. `dithersItself` is `false`.
+2. `color` is not `full`.
+3. `hasPanelDithering` is `false`.
 
-| Panel | `dithersItself` | Result |
+| Panel | `hasPanelDithering` | Result |
 | --- | --- | --- |
-| Inky pHAT, Inky Impression | `true` | The Inky library dithers on the Pi. CastKit sends the full-colour downscale and does not quantize. This is what the `off` dither algorithm means. |
+| Inky pHAT, Inky Impression | `true` | The Inky library dithers on the Pi. CastKit sends the full-color downscale and does not quantize. This is what the `off` dither algorithm means. |
 | M5Paper | `false` | Nothing downstream dithers. What CastKit emits is exactly what the glass shows, so the dither choice matters more here than anywhere else in the fleet. |
-| Every LCD | not applicable | `colour: full`, so there is nothing to reduce. |
+| Every LCD | not applicable | `color: full`, so there is nothing to reduce. |
 
 A text view on a mono panel therefore takes **no dithering at all**, on any
 panel, because the content is already one ink on one background. The dither
@@ -136,20 +150,20 @@ setting only starts mattering when a photo, a gradient or album art appears.
 
 ### `input` — what a person can do to the glass
 
-| Value | Panels | What it changes |
+| Value | Example panels | What it changes |
 | --- | --- | --- |
-| `none` | Inky pHAT, Inky Impression, HyperPixel Round | No control may be the only way to reach a function. Every state the display can be in must be reachable from Home Assistant or the admin panel. A view may still show a control-shaped thing only if it is labelled as status. |
+| `none` | Inky pHAT, Inky Impression, HyperPixel Round | No control may be the only way to reach a function. Every state the display can be in must be reachable from Home Assistant or the admin panel. A view may still show a control-shaped thing only if it is labeled as status. |
 | `touch` | M5Paper, WT32-SC01, HyperPixel Square, Pi Touch 2 | Targets are sized for a finger. ⚠️ On a frame-pushed panel **a target's bounding box IS its touch area** — a hit-area pad drawn on a `::before`, or a part that overflows its box, is discarded silently ([decision](decisions/2026-09-13-a-touch-targets-bounding-box-is-its-touch-area.md)). |
 | `pointer` | none today | Hover exists, so a hover affordance is allowed. Nothing in the fleet is here. |
 
 `input` is independent of everything else. The M5Paper is ePaper with touch.
-The HyperPixel Round is a colour LCD with none.
+The HyperPixel Round is a color LCD with none.
 
 ---
 
 ### `hasBattery` — whether the panel carries a cell
 
-| Value | Panels | What it changes |
+| Value | Example panels | What it changes |
 | --- | --- | --- |
 | `false` | Inky pHAT, Inky Impression, WT32-SC01, every HyperPixel, Pi Touch 2 | Nothing. The display is on when its supply is on. Loss of power is loss of the display, and nobody has to be told a number. |
 | `true` | M5Paper | The display can be hung where there is no socket, can keep running through a power cut, and can **run out**. It gains telemetry, a low threshold, and an end state. |
@@ -169,9 +183,9 @@ appears at the low threshold rather than never.
 
 ### `shape` — whether the glass fills its box
 
-| Value | Panels | What it changes |
+| Value | Example panels | What it changes |
 | --- | --- | --- |
-| `rect` | Inky panels, M5Paper, WT32, Pi Touch 2 | Nothing. Every pixel is visible. |
+| `rectangle` | Inky panels, M5Paper, WT32, Pi Touch 2 | Nothing. Every pixel is visible. |
 | `square` | HyperPixel 4.0 Square | Nothing beyond the aspect ratio, which the layout reads anyway. |
 | `round` | HyperPixel 2.1 Round | CastKit masks the render to the circle, and content takes a safe inset so a corner cannot be clipped. A square preview of a round panel hides exactly the corners the bezel eats, so every preview masks too. |
 
@@ -179,16 +193,28 @@ appears at the low threshold rather than never.
 
 ### `delivery` — who draws the pixels
 
-| Value | Panels | What it changes |
+| Value | Example panels | What it changes |
 | --- | --- | --- |
 | `live-browser` | HyperPixel Square, HyperPixel Round, Pi Touch 2 | A kiosk browser loads `/d/<id>` and the Preact SPA renders over one WebSocket. `vw`, `vh` and `vmin` resolve against the panel, so they are safe. JavaScript runs on the panel. |
-| `pushed-frames` | Inky pHAT, Inky Impression, WT32-SC01 | CastKit renders a finished frame and publishes it. Nothing runs on the panel. The frame is the entire contract. |
-| `pulled-frames` | M5Paper | CastKit publishes a single-use render URL and the panel fetches the PNG over HTTP, because ESPHome cannot consume MQTT image bytes. |
+| `pushed-frames` | Inky pHAT, Inky Impression, WT32-SC01 | CastKit renders a finished frame and pushes it. Nothing on the panel decides what to draw. ⚠️ **Two transports carry this**: the Pi receivers take the PNG as a retained MQTT payload on `<base>/image`; the WT32-SC01 takes base64 chunks through the ESPHome native API's `frame_chunk` action. |
+| `pulled-frames` | M5Paper | MQTT carries the **signal** — a single-use render URL on `<base>/image_url` — and HTTP carries the **bytes**, fetched by stock `online_image`. |
 
 **`delivery` is not panel technology.** The M5Paper is ePaper and the WT32-SC01
-is a colour LCD, and both are fed finished frames, because neither runs a
-browser. It selects the renderer and nothing else: it does not tell you whether
-a panel is interactive, or fast, or colour.
+is a color LCD, and both are fed finished frames — for different reasons.
+
+⚠️ **It is not "because ESPHome cannot consume MQTT image bytes" either.** Both
+of those panels run ESPHome. The WT32-SC01 is fed *pushed* bytes, decoded by a
+custom `castkit_display` component, and has no `http_request` and no
+`online_image` at all. The M5Paper pulls because it runs **stock** components,
+and `online_image` is an HTTP client. That is a fact about one firmware's
+component set, not a limit of ESPHome.
+
+Nothing runs on the M5Paper. The WT32-SC01's frames *are* produced by a browser
+— that browser runs on the worker host, and the panel is a remote framebuffer
+with a touch return path.
+
+`delivery` selects the renderer and the transport, and nothing else: it does not
+tell you whether a panel is interactive, or fast, or color.
 
 ---
 
@@ -196,7 +222,7 @@ a panel is interactive, or fast, or colour.
 
 | Value | What it changes |
 | --- | --- |
-| `none` | Every ePaper panel. Subpixel antialiasing would be coloured noise; grayscale antialiasing is the only correct choice. |
+| `none` | Every ePaper panel. Subpixel antialiasing would be colored noise; grayscale antialiasing is the only correct choice. |
 | `rgb-stripe` / `bgr-stripe` | An LCD. Subpixel antialiasing is available and sharpens small text, but only while the stripe runs the way the renderer assumes. |
 
 Two measured facts decide how much this matters.
@@ -204,14 +230,14 @@ Two measured facts decide how much this matters.
 **For every frame-fed panel, it does not matter at all.** Headless Chromium
 renders text with **grayscale** antialiasing and will not do otherwise.
 Measured 2026-09-13 on a 320x48 black-on-white text render: 827 antialiased
-pixels, **zero** with any colour in them, and the numbers are byte-identical
+pixels, **zero** with any color in them, and the numbers are byte-identical
 with `--enable-lcd-text` and with `--disable-lcd-text`. So `pushed-frames` and
 `pulled-frames` never carry subpixel fringes, whatever the glass is.
 
 **For a `live-browser` panel it matters only when the panel is mounted
 rotated.** Chromium on Linux takes the subpixel order from fontconfig's `rgba`
 setting. A panel turned 90 degrees has a vertical stripe, and fontconfig has
-`vrgb` and `vbgr` for exactly that case. If a rotated kiosk shows colour
+`vrgb` and `vbgr` for exactly that case. If a rotated kiosk shows color
 fringing on small text, there are three fixes in order of preference:
 
 1. Set fontconfig `rgba` to `vrgb` or `vbgr` on that Pi, to match the mounted
@@ -266,7 +292,16 @@ repaint grade.**
 
 | Panel | `repaint` | On `wired` | On `battery` |
 | --- | --- | --- | --- |
-| M5Paper | `fast` | treated as `fast` — a clock is allowed | treated as `slow` — the clock comes off, the agenda, weather and photo views stay |
+| M5Paper | `fast` | treated as `fast` | treated as `slow` |
+
+⚠️ **This does not take the clock off the M5Paper, and an earlier version of
+this file wrongly said it did.** `slow` still passes the freshness rule for a
+clock minute — that is the whole reason the 3-second Inky pHAT can show one.
+Dropping a grade changes what the panel is *offered* only where the two grades
+actually differ, and `fast` and `slow` offer the same list today.
+
+The clock comes off at `super-slow`, and only there. What a battery install
+really buys is fewer repaints per day, which is a budget, not a view filter.
 
 The freshness rule says what a panel **can** show. `power` says what it
 **should**. A panel that gains a power lead later moves back with no other
@@ -339,30 +374,23 @@ discovery and the node runs with `discovery: false`.
 | Below the low threshold | The view, plus a battery mark drawn as an **overlay**. No view reserves room for it. |
 | Empty | The view stops repainting, and one final frame says the battery is empty. |
 
-The mark is a shape, never a colour — the only panel in the fleet with a cell is
-`colour: mono`. The threshold is a setting in the admin panel, and a wired panel
+The mark is a shape, never a color — the only panel in the fleet with a cell is
+`color: monochrome`. The threshold is a setting in the admin panel, and a wired panel
 never reaches it, so the mark stays off for months and means something when it
 appears.
 
 ---
 
-## The fleet, read as properties
+## Reading a real fleet
 
-| Panel | `repaint` | `colour` | `dithersItself` | `input` | `shape` | `delivery` | `pixelGrid` | `hasBattery` | `power` today |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Inky pHAT | `slow` | `mono` | `true` | `none` | `rect` | `pushed-frames` | `none` | `false` | `wired` |
-| Inky Impression 7.3" | `super-slow` | `e6` | `true` | `none` | `rect` | `pushed-frames` | `none` | `false` | `wired` |
-| M5Paper | `fast` | `mono` | `false` | `touch` | `rect` | `pulled-frames` | `none` | **`true`** | `wired` |
-| WT32-SC01 Plus | `fast` | `full` | n/a | `touch` | `rect` | `pushed-frames` | `rgb-stripe` | `false` | `wired` |
-| HyperPixel 4.0 Square | `instant` | `full` | n/a | `touch` | `square` | `live-browser` | `rgb-stripe` | `false` | `wired` |
-| HyperPixel 2.1 Round | `instant` | `full` | n/a | `none` | `round` | `live-browser` | `rgb-stripe` | `false` | `wired` |
-| Pi Touch Display 2 | `instant` | `full` | n/a | `touch` | `rect` | `live-browser` | `rgb-stripe` | `false` | `wired` |
+This file is the model. It deliberately carries **no inventory** — which panels
+a particular house owns, and how each one is hung, is not CastKit's business and
+would tell a stranger about somebody's home.
 
-Every display in the house runs on USB or PoE today. The M5Paper is the only one
-that can be moved somewhere without a socket, and it is the only one that can
-run out.
-
-Read down the "is it ePaper" question and it predicts none of these columns.
+To read a deployment, write the same table for it: one row per panel, one column
+per property above. The useful test is to add an "is it ePaper?" column and see
+how much it predicts. The answer is none of the others — which is the whole
+argument for keying behavior on properties instead of on panel technology.
 
 ---
 
@@ -377,8 +405,8 @@ This file is the rule. The code does not follow all of it.
 2. **The minute re-push does not check `repaint`.** `startClockTicker` pushes
    any device sitting on a clock view, every minute, including a `super-slow`
    one.
-3. **`repaint`, `dithersItself` and `pixelGrid` are not on the wire.** The live
-   half's `BrowserDeviceProfile` carries `shape`, `hasTouch` and `colour` and
+3. **`repaint`, `hasPanelDithering` and `pixelGrid` are not on the wire.** The live
+   half's `BrowserDeviceProfile` carries `shape`, `hasTouch` and `color` and
    nothing else.
 4. **The panel reports its battery, and CastKit ignores it.** Half of this is
    now done. Since 2026-09-14 the M5Paper firmware reads the cell and publishes

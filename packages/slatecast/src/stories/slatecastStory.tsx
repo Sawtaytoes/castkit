@@ -62,7 +62,7 @@ export type SlatecastStoryParameters = {
  * the story reads as broken. A static file cannot lose a race.
  */
 const SAMPLE_PHOTOS = {
-  landscape: "sample-photos/landscape-colour.jpg",
+  landscape: "sample-photos/landscape-color.jpg",
   landscapeAlternate:
     "sample-photos/landscape-gradient.jpg",
   portrait: "sample-photos/portrait-face.jpg",
@@ -105,7 +105,7 @@ const seedPhotoSource = (device: BrowserDeviceProfile) => {
  * A decorator that seeds the module state for a given view before rendering.
  * Exported (rather than wrapped in a meta factory) because Storybook's CSF
  * indexer requires each story file's default export to be a literal object —
- * a `buildMeta(...)` call cannot be statically analysed.
+ * a `buildMeta(...)` call cannot be statically analyzed.
  */
 export const seedDecorator =
   (view: string): Decorator =>

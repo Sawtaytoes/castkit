@@ -3,7 +3,7 @@ import type { PanelMargin } from "@castkit/core/panels/safeArea"
 import { resolveSafeArea } from "@castkit/core/panels/safeArea"
 import type {
   DitherAdjustments,
-  FullColourEncoding,
+  FullColorEncoding,
 } from "@castkit/core/pipeline/dither"
 import { createChromiumEngine } from "@castkit/render/chromiumEngine"
 import type { RenderEngine } from "@castkit/render/engine"
@@ -37,7 +37,7 @@ export type RenderService = {
     agenda?: AgendaData
     adjustments?: DitherAdjustments
     margin?: PanelMargin
-    fullColourEncoding?: FullColourEncoding
+    fullColorEncoding?: FullColorEncoding
   }) => Promise<Buffer>
   close: () => Promise<void>
 }
@@ -66,7 +66,7 @@ export const createRenderService = async ({
       agenda,
       adjustments,
       margin,
-      fullColourEncoding,
+      fullColorEncoding,
     }) => {
       // The view must be laid out in the safe box (device minus the mat
       // inset), not the full panel, so its text reflows to what stays
@@ -98,7 +98,7 @@ export const createRenderService = async ({
         device,
         adjustments,
         margin,
-        fullColourEncoding,
+        fullColorEncoding,
       })
     },
     close: async () => {

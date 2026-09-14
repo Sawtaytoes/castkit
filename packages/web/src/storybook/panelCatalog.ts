@@ -1,11 +1,11 @@
 import type { DeviceMetadata } from "@castkit/core/devices/device"
 import { EXAMPLE_DEVICES } from "@castkit/core/devices/device"
 import {
-  E6_DEFAULT_PALETTE,
-  E6_DEVICE_PALETTE,
-  E6_VIVID_PALETTE,
-  MONO_PALETTE,
+  MONOCHROME_PALETTE,
   type Palette,
+  SPECTRA6_DEFAULT_PALETTE,
+  SPECTRA6_DEVICE_PALETTE,
+  SPECTRA6_VIVID_PALETTE,
 } from "@castkit/core/panels/palette"
 
 /**
@@ -45,7 +45,7 @@ export const getPanelCatalogEntry = (deviceId: string) =>
 
 /**
  * Which Spectra 6 palette the preview quantizes against. The device blends
- * vivid and device-measured at 0.5 by default (`E6_DEFAULT_PALETTE`); the two
+ * vivid and device-measured at 0.5 by default (`SPECTRA6_DEFAULT_PALETTE`); the two
  * ends are offered because the difference is only visible once dithered, which
  * is exactly what this preview is for. Mono panels ignore this entirely.
  */
@@ -58,23 +58,23 @@ export const PALETTE_VARIANTS = [
 export type PaletteVariant =
   (typeof PALETTE_VARIANTS)[number]
 
-const E6_PALETTES_BY_VARIANT: Record<
+const SPECTRA6_PALETTES_BY_VARIANT: Record<
   PaletteVariant,
   Palette
 > = {
-  default: E6_DEFAULT_PALETTE,
-  vivid: E6_VIVID_PALETTE,
-  device: E6_DEVICE_PALETTE,
+  default: SPECTRA6_DEFAULT_PALETTE,
+  vivid: SPECTRA6_VIVID_PALETTE,
+  device: SPECTRA6_DEVICE_PALETTE,
 }
 
-/** The palette to dither against for a colour mode + chosen E6 variant. */
+/** The palette to dither against for a color mode + chosen E Ink Spectra 6 variant. */
 export const resolvePalette = ({
-  colourMode,
+  colorMode,
   paletteVariant,
 }: {
-  colourMode: "mono" | "e6"
+  colorMode: "monochrome" | "spectra6"
   paletteVariant: PaletteVariant
 }) =>
-  colourMode === "mono"
-    ? MONO_PALETTE
-    : E6_PALETTES_BY_VARIANT[paletteVariant]
+  colorMode === "monochrome"
+    ? MONOCHROME_PALETTE
+    : SPECTRA6_PALETTES_BY_VARIANT[paletteVariant]

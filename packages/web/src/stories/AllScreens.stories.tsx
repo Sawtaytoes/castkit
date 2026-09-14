@@ -8,7 +8,7 @@ import { STORY_VIEW_NAMES } from "../storybook/storyViewCatalog.tsx"
  * Every view on every panel, at 1:1, in one scrollable grid — the page for
  * spotting the thing you only notice by comparison: a row that overflows the
  * panel, a title that wraps differently on one device, an empty state that
- * looks broken next to its neighbours.
+ * looks broken next to its neighbors.
  *
  * Deliberately undithered. Rasterizing 9 views × 3 panels at once takes
  * seconds to settle and would make the page useless for scanning; the
@@ -59,7 +59,7 @@ const AllScreensGrid = ({
             <figure key={device.id} style={{ margin: 0 }}>
               <figcaption style={CELL_LABEL_STYLE}>
                 {device.label} — {device.width}x
-                {device.height} {device.colourMode}
+                {device.height} {device.colorMode}
               </figcaption>
               <div
                 style={{
@@ -72,7 +72,7 @@ const AllScreensGrid = ({
                   viewName={viewName}
                   width={device.width}
                   height={device.height}
-                  colourMode={device.colourMode}
+                  colorMode={device.colorMode}
                 />
               </div>
             </figure>

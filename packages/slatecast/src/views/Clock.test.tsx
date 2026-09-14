@@ -34,7 +34,7 @@ const dateTextIn = (container: Element) =>
   container.querySelector(".ambient-date")?.textContent ??
   ""
 
-/** The hour the clock is showing, normalised past the h24 midnight quirk. */
+/** The hour the clock is showing, normalized past the h24 midnight quirk. */
 const hourIn = (container: Element) =>
   Number(timeTextIn(container).split(":")[0]) % 24
 

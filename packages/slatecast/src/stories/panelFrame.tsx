@@ -9,7 +9,7 @@ import type { BrowserDeviceProfile } from "@castkit/shared/protocol/ws"
  * shows this Storybook as a COMPOSED REF, and a composition's toolbar belongs
  * to the host site, which knows nothing about a ref's `parameters.viewport`.
  * Every panel story therefore rendered at the host canvas size — measured
- * 1200×610 on 2026-09-13 for a story labelled 480×320 — where `10vmin` is
+ * 1200×610 on 2026-09-13 for a story labeled 480×320 — where `10vmin` is
  * 61px instead of 32px and the short-landscape media query never matches at
  * all. The layout the owner reviewed was not a layout any panel ever shows.
  *

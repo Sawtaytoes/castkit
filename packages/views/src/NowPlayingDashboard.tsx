@@ -4,7 +4,7 @@ import type { NowPlayingViewProps } from "./viewProps.ts"
 import {
   buildPanelRootStyle,
   fitText,
-  getPanelColours,
+  getPanelColors,
   READABLE_FONT_FLOOR_PX,
 } from "./viewStyles.ts"
 
@@ -35,7 +35,7 @@ const ARTIST_PLACEHOLDER = "—"
 export const NowPlayingDashboard = ({
   width,
   height,
-  colourMode,
+  colorMode,
   artist,
   title,
   album,
@@ -61,7 +61,7 @@ export const NowPlayingDashboard = ({
   const padding = Math.round(height * 0.06)
 
   const artworkSide = Math.round(
-    height * (colourMode === "e6" ? 0.5 : 0.6),
+    height * (colorMode === "spectra6" ? 0.5 : 0.6),
   )
   const artworkToTextGap = Math.round(height * 0.06)
   const solidLineThickness = Math.max(
@@ -77,9 +77,9 @@ export const NowPlayingDashboard = ({
   // Never shrink a line below the panel's readable floor — past that the view
   // wraps (the lonely-title case raises `titleLineCount`) or ellipsis-clips
   // instead of rendering illegibly small.
-  const readableFloor = READABLE_FONT_FLOOR_PX[colourMode]
+  const readableFloor = READABLE_FONT_FLOOR_PX[colorMode]
 
-  const colours = getPanelColours({ colourMode })
+  const colors = getPanelColors({ colorMode })
 
   const fittedTitle = fitText({
     baseFontSize: baseTitleFontSize,
@@ -123,7 +123,7 @@ export const NowPlayingDashboard = ({
     ...buildPanelRootStyle({
       width,
       height,
-      colourMode,
+      colorMode,
     }),
     padding,
   }
@@ -135,7 +135,7 @@ export const NowPlayingDashboard = ({
     flexGrow: 1,
     minWidth: 0,
     // The centered body reads bottom-heavy next to the footer strip, so bias
-    // the optical centre upward a touch.
+    // the optical center upward a touch.
     paddingBottom: Math.round(height * 0.06),
   }
 
@@ -144,7 +144,7 @@ export const NowPlayingDashboard = ({
     width: artworkSide,
     height: artworkSide,
     flexShrink: 0,
-    border: `${solidLineThickness}px solid ${colours.border.default}`,
+    border: `${solidLineThickness}px solid ${colors.border.default}`,
   }
 
   const artworkImageStyle: CSSProperties = {
@@ -221,7 +221,7 @@ export const NowPlayingDashboard = ({
     display: "flex",
     width: "100%",
     height: solidLineThickness,
-    backgroundColor: colours.border.default,
+    backgroundColor: colors.border.default,
   }
 
   const footerRowStyle: CSSProperties = {

@@ -4,7 +4,7 @@
 - **Date:** 2026-09-08
 - **Type:** Product behavior
 - **Supersedes:** [2026-09-07-photo-views-compose-for-the-visible-window](2026-09-07-photo-views-compose-for-the-visible-window.md) (one day old, and wrong about the bleed), and with it the "photo views bleed" clause of [2026-07-02-safe-area-crop-via-mqtt](2026-07-02-safe-area-crop-via-mqtt.md)
-- **Superseded by:** [2026-09-08-margin-pushes-in-and-crop-cuts-away](2026-09-08-margin-pushes-in-and-crop-cuts-away.md), for the NAME only — the inset named here is now the panel *margin*. The behaviour described below stands.
+- **Superseded by:** [2026-09-08-margin-pushes-in-and-crop-cuts-away](2026-09-08-margin-pushes-in-and-crop-cuts-away.md), for the NAME only — the inset named here is now the panel *margin*. The behavior described below stands.
 
 ## Decision
 
@@ -17,10 +17,10 @@ no bleed view any more:
 - `pushController` passes the crop inset to `renderService` for every view.
   `resolveSafeArea` + `renderDeviceImage` already build the element at the
   content size and place it on a white panel-sized canvas, which is exactly the
-  behaviour text views have always had. Photo views now take the same path.
+  behavior text views have always had. Photo views now take the same path.
 - The margin under the mat renders **white**.
 - `getIsBleedView` is **deleted**. The one thing it still decided — which views
-  may ship a lossy full-colour frame — is now `getIsLossyEncodableView`, keyed
+  may ship a lossy full-color frame — is now `getIsLossyEncodableView`, keyed
   on the photo-view family directly.
 - The `visibleInset` crop math added on 2026-09-07 is **removed**. It existed
   only to aim a panel-sized crop at a smaller window. When the crop target *is*

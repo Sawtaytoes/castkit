@@ -12,7 +12,7 @@ Add a generic remote-browser renderer worker within CastKit's device clients. Th
 
 ## Context
 
-A colour LCD needs faster interaction than the existing ePaper render/pull path. The browser must run on the host, while the display reports touches and shows pixels. The renderer worker is packaged independently for its Python/Chromium dependencies; it exposes no second server and does not create a separate product or application view system. Central registry/HA discovery management is not part of this receiver's initial implementation.
+A color LCD needs faster interaction than the existing ePaper render/pull path. The browser must run on the host, while the display reports touches and shows pixels. The renderer worker is packaged independently for its Python/Chromium dependencies; it exposes no second server and does not create a separate product or application view system. Central registry/HA discovery management is not part of this receiver's initial implementation.
 
 ## Why
 
