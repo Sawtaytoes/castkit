@@ -109,9 +109,25 @@ different rules.
 Both express "this panel is short, lay out beside instead of stacked". Name the
 property once, derive both tests from it, and delete the second constant.
 
-The installation settings (`orientation`, `margins`, `crop`, `mask`) are the
-other half of this phase. They are per unit, not per model, so a second M5Paper
-hung portrait is one more installation rather than a second panel entry.
+The installation settings (`orientation`, `power`, `margins`, `crop`, `mask`)
+are the other half of this phase. They are per unit, not per model, so a second
+M5Paper hung portrait is one more installation rather than a second panel entry.
+
+**Battery lands here too, and it is three separate pieces of work**
+([decision](decisions/2026-09-13-a-battery-is-a-panel-fact-a-power-source-is-an-installation-and-charge-is-telemetry.md)):
+
+1. `hasBattery` on the panel record and `power` on the installation, with
+   `getViewsForDevice` dropping a `battery` install one repaint grade.
+2. A `castkit/<id>/battery` state topic and its discovery payload — a
+   `device_class: battery` sensor plus a binary sensor for `isOnBattery`, on the
+   CastKit device. The M5Paper firmware already publishes that JSON as of
+   2026-09-13, so the server side is the missing half.
+3. The low-battery end state: stop repainting the view and paint one notice.
+   This is not a cosmetic nicety on ePaper — a panel that simply stops keeps
+   showing a stale frame that reads as a working display.
+
+An on-glass battery indicator is deliberately NOT in this list. It is a visible
+design choice and needs its own decision.
 
 **This is also where the stamp lands**
 ([decision](decisions/2026-09-13-castkit-stamps-a-panels-properties-and-a-view-never-asks-the-browser-what-the-panel-is.md)).

@@ -22,8 +22,11 @@ CastKit↔house contract is MQTT and nothing else.
 >
 > **A display is a PANEL MODEL plus an INSTALLATION.** Panel facts, fixed by the
 > hardware: `nativeSize`, `pixelGrid`, `colour`, `dithersItself`, `repaint`,
-> `input`, `shape`, `delivery`. Installation settings, chosen per unit:
-> `orientation`, `margins`, `crop`, `mask`. Two M5Papers are one model and two
+> `input`, `shape`, `delivery`, `hasBattery`. Installation settings, chosen per
+> unit: `orientation`, `power`, `margins`, `crop`, `mask`. **Telemetry is a
+> third kind and is not a property** — `batteryVolts`, `batteryPercent`,
+> `isOnBattery` are written by the device, not by a person
+> ([battery](docs/decisions/2026-09-13-a-battery-is-a-panel-fact-a-power-source-is-an-installation-and-charge-is-telemetry.md)). Two M5Papers are one model and two
 > installations — one may hang portrait and one landscape, and nothing about the
 > glass changed. None of the panel facts implies another: the M5Paper is ePaper
 > with touch and a fast repaint, the WT32-SC01 is a colour LCD fed finished
@@ -42,6 +45,14 @@ CastKit↔house contract is MQTT and nothing else.
 > minute arrives while it is still drawing the last one. Where a view can state
 > a fact two ways, a slow panel gets the **absolute** form — "Next song at
 > 9:42", never "3:21 remaining".
+>
+> ⛔ **`power: battery` drops a display one repaint grade.** Every repaint costs
+> charge, so the budget becomes repaints per day. The M5Paper is `repaint: fast`
+> and may carry a clock on mains; unplugged it is treated as `slow` and the
+> clock comes off. ⚠️ **On ePaper a flat battery does not look flat** — the glass
+> holds its last frame at zero power, so a dead panel shows yesterday's agenda
+> and reads as a working display. Below the low threshold a battery install
+> paints one "battery empty" notice and stops.
 >
 > **Dithering is three questions.** CastKit dithers only when the content
 > carries colour or tone, AND `colour` is not `full`, AND `dithersItself` is
