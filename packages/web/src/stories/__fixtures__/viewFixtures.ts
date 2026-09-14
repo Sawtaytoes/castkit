@@ -32,9 +32,12 @@ export const buildWeatherFixture = () => ({
 })
 
 /**
- * Upcoming events, already sorted and sliced the way the server would: three
- * for a compact panel, four for a large one. The long summary is deliberate —
- * an agenda row that overflows is the failure this preview exists to catch.
+ * Upcoming events, already sorted, in the strings the server would send for
+ * this panel's size. Deliberately MORE than any panel here can draw: the views
+ * trim to the rows that finish on the glass, so a story that handed over
+ * exactly three would never show that trim working. The long summary is
+ * deliberate too — a row that runs off the right edge is the other failure
+ * this preview exists to catch.
  */
 export const buildAgendaEventsFixture = (
   height: number,
@@ -43,7 +46,10 @@ export const buildAgendaEventsFixture = (
     ? [
         { timeText: "2:30p", summary: "Dentist" },
         { timeText: "4:00p", summary: "Pick up kids" },
-        { timeText: "All", summary: "Ashlee's birthday" },
+        { timeText: "All", summary: "Family birthday" },
+        { timeText: "6:30p", summary: "Dinner, Parkers" },
+        { timeText: "8:00p", summary: "Trash to the curb" },
+        { timeText: "9:15p", summary: "Call Grandma" },
       ]
     : [
         {
@@ -60,7 +66,15 @@ export const buildAgendaEventsFixture = (
         },
         {
           timeText: "All day",
-          summary: "Ashlee's birthday",
+          summary: "Family birthday",
+        },
+        {
+          timeText: "8:00 PM",
+          summary: "Take the trash to the curb",
+        },
+        {
+          timeText: "9:15 PM",
+          summary: "Call Grandma",
         },
       ]
 

@@ -3,6 +3,7 @@ import type { CSSProperties } from "react"
 import type { PanelViewProps } from "./viewProps.ts"
 import {
   buildPanelRootStyle,
+  countRowsThatFit,
   fitText,
   getAccentColour,
   READABLE_FONT_FLOOR_PX,
@@ -25,6 +26,12 @@ import {
  * (time, date, weather, and each event's `timeText`) arrives pre-formatted so
  * the view stays a pure function of its props; all text is bold to survive
  * 1-bit dithering. Inline styles + flexbox only (Satori-safe).
+ *
+ * The view draws only the event rows that FINISH on the panel. It is handed
+ * more events than it can show, tightens its own vertical rhythm to buy room
+ * for as many as possible, measures what is left, and drops the rest — the
+ * least imminent ones, which arrive on a later repaint once the earlier ones
+ * have started and fallen off the list.
  */
 export type ClockAgendaEvent = {
   /** Pre-formatted per panel size, e.g. "2:30p" / "2:30 PM" / "All day". */
@@ -42,6 +49,18 @@ export type ClockAgendaViewProps = PanelViewProps & {
 }
 
 const COMPACT_PANEL_MAX_HEIGHT = 200
+
+/**
+ * How much of the view's vertical whitespace survives once events are on the
+ * panel. The airy rhythm this view inherits from `ClockWeatherView` reads well
+ * with three blocks on the glass; with an agenda under them it is the gaps, not
+ * the rows, that have to give — at full spacing a 960x540 M5Paper finished two
+ * event rows and cut the third, and cut the top off the clock as well.
+ */
+const AGENDA_GAP_SCALE = 0.5
+
+/** Every event row is `fontSize × this`, matching the rows' `lineHeight`. */
+const EVENT_LINE_HEIGHT = 1.1
 
 export const ClockAgendaView = ({
   width,
@@ -127,13 +146,89 @@ export const ClockAgendaView = ({
   )
   const compactEventSummaryFontSize = readableFloor
 
-  // Pin the time to the top once a compact panel is carrying events: the agenda
-  // stack can be taller than the short pHAT, and a centred column overflows
-  // *both* edges — clipping the time (the anchor) off the top. Anchoring to the
-  // top keeps the time fully on-panel and lets any overflow fall off the bottom
-  // (the last, least-imminent event) instead. With no events the view still
-  // centres, so it reads identically to ClockWeatherView on a free day.
-  const isPinnedToTop = isCompactPanel && hasEvents
+  // Every vertical gap in the view, named once so the layout maths below and
+  // the style objects further down can never disagree about the rhythm. With
+  // events on the panel they all tighten together; with none the view keeps
+  // ClockWeatherView's spacing, because on a free day it *is* that view.
+  const gapScale = hasEvents ? AGENDA_GAP_SCALE : 1
+  const compactInfoGap = Math.round(
+    height * 0.05 * gapScale,
+  )
+  const compactAgendaGap = Math.round(
+    height * 0.03 * gapScale,
+  )
+  const compactEventRowGap = Math.round(
+    height * 0.01 * gapScale,
+  )
+  const dateGap = Math.round(height * 0.045 * gapScale)
+  const weatherGap = Math.round(height * 0.05 * gapScale)
+  const agendaGap = Math.round(height * 0.05 * gapScale)
+  const headingGap = Math.round(height * 0.02 * gapScale)
+  const eventRowGap = Math.round(height * 0.015 * gapScale)
+  const pinnedTopPadding = Math.round(height * 0.04)
+  // Held back from the row budget. A row that ends on the last pixel row reads
+  // as clipped even when it is not, and it is one rounding change away from
+  // actually being clipped.
+  const bottomBreathingRoom = Math.round(height * 0.02)
+
+  // What the blocks above the agenda cost, so the rows get exactly the height
+  // that is actually left. Every term mirrors a style object below: the time,
+  // date and weather lines are `lineHeight: 1`, so their ink height is their
+  // font size, and a weather row is as tall as its tallest member.
+  const compactWeatherRowHeight = hasTemperature
+    ? compactTemperatureFontSize
+    : compactInfoFontSize
+  const largeWeatherRowHeight = hasTemperature
+    ? largeTemperatureFontSize
+    : largeConditionFontSize
+  const headerHeight = isCompactPanel
+    ? pinnedTopPadding +
+      fittedTime.fontSize +
+      compactInfoGap +
+      compactWeatherRowHeight +
+      compactAgendaGap
+    : fittedTime.fontSize +
+      dateGap +
+      fittedDate.fontSize +
+      (hasWeather
+        ? weatherGap + largeWeatherRowHeight
+        : 0) +
+      agendaGap +
+      headingFontSize +
+      headingGap
+
+  const eventRowHeight = isCompactPanel
+    ? compactEventRowGap +
+      Math.ceil(
+        compactEventTimeFontSize * EVENT_LINE_HEIGHT,
+      )
+    : eventRowGap +
+      Math.ceil(
+        Math.max(eventTimeFontSize, eventSummaryFontSize) *
+          EVENT_LINE_HEIGHT,
+      )
+
+  // Only the rows that finish on the glass are drawn. The dropped ones are the
+  // least imminent, and they arrive on a later repaint as the earlier events
+  // start and leave the list.
+  const visibleEvents = events.slice(
+    0,
+    countRowsThatFit({
+      availableHeight:
+        height - headerHeight - bottomBreathingRoom,
+      rowHeight: eventRowHeight,
+    }),
+  )
+  const hasVisibleEvents = visibleEvents.length > 0
+
+  // Pin the time to the top once a compact panel is carrying events. The row
+  // count above already guarantees the column fits, so this is about stability
+  // rather than overflow: the pHAT's agenda gains and loses rows through the
+  // day, and a centred column would walk the clock up and down the glass on
+  // every repaint. Pinned, the time stays where the reader last saw it. With no
+  // events the view still centres, so it reads identically to ClockWeatherView
+  // on a free day.
+  const isPinnedToTop = isCompactPanel && hasVisibleEvents
   const rootStyle: CSSProperties = {
     ...buildPanelRootStyle({
       width,
@@ -142,9 +237,7 @@ export const ClockAgendaView = ({
     }),
     alignItems: "center",
     justifyContent: isPinnedToTop ? "flex-start" : "center",
-    paddingTop: isPinnedToTop
-      ? Math.round(height * 0.04)
-      : 0,
+    paddingTop: isPinnedToTop ? pinnedTopPadding : 0,
     paddingLeft: horizontalPadding,
     paddingRight: horizontalPadding,
   }
@@ -175,7 +268,7 @@ export const ClockAgendaView = ({
     display: "flex",
     flexDirection: "row",
     alignItems: "center",
-    marginTop: Math.round(height * 0.05),
+    marginTop: compactInfoGap,
   }
 
   const compactDateStyle: CSSProperties = {
@@ -221,14 +314,14 @@ export const ClockAgendaView = ({
     fontWeight: 700,
     lineHeight: 1,
     whiteSpace: "nowrap",
-    marginTop: Math.round(height * 0.045),
+    marginTop: dateGap,
   }
 
   const largeWeatherRowStyle: CSSProperties = {
     display: "flex",
     flexDirection: "row",
     alignItems: "center",
-    marginTop: Math.round(height * 0.05),
+    marginTop: weatherGap,
   }
 
   const largeTemperatureStyle: CSSProperties = {
@@ -254,14 +347,14 @@ export const ClockAgendaView = ({
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
-    marginTop: Math.round(height * 0.03),
+    marginTop: compactAgendaGap,
   }
 
   const compactEventRowStyle: CSSProperties = {
     display: "flex",
     flexDirection: "row",
     alignItems: "baseline",
-    marginTop: Math.round(height * 0.01),
+    marginTop: compactEventRowGap,
   }
 
   const compactEventTimeStyle: CSSProperties = {
@@ -297,7 +390,7 @@ export const ClockAgendaView = ({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    marginTop: Math.round(height * 0.05),
+    marginTop: agendaGap,
   }
 
   const headingStyle: CSSProperties = {
@@ -308,14 +401,14 @@ export const ClockAgendaView = ({
     letterSpacing: 1,
     textTransform: "uppercase",
     color: accentColour,
-    marginBottom: Math.round(height * 0.02),
+    marginBottom: headingGap,
   }
 
   const eventRowStyle: CSSProperties = {
     display: "flex",
     flexDirection: "row",
     alignItems: "baseline",
-    marginTop: Math.round(height * 0.015),
+    marginTop: eventRowGap,
   }
 
   const eventTimeStyle: CSSProperties = {
@@ -383,9 +476,9 @@ export const ClockAgendaView = ({
         </div>
       )}
 
-      {!hasEvents ? null : isCompactPanel ? (
+      {!hasVisibleEvents ? null : isCompactPanel ? (
         <div style={compactAgendaBlockStyle}>
-          {events.map((event) => (
+          {visibleEvents.map((event) => (
             <div
               key={`${event.timeText}-${event.summary}`}
               style={compactEventRowStyle}
@@ -402,7 +495,7 @@ export const ClockAgendaView = ({
       ) : (
         <div style={agendaBlockStyle}>
           <div style={headingStyle}>Today</div>
-          {events.map((event) => (
+          {visibleEvents.map((event) => (
             <div
               key={`${event.timeText}-${event.summary}`}
               style={eventRowStyle}
