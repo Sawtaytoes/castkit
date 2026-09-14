@@ -8,7 +8,6 @@ import type { ConfigKnob } from "@castkit/shared/framework/configKnob"
 import {
   getIsPhotoView,
   getIsViewName,
-  VIEW_NAMES,
   type ViewName,
 } from "@castkit/shared/views/viewNames"
 import { serve } from "@hono/node-server"
@@ -60,6 +59,7 @@ import {
   getIsClockBearingView,
   getIsNowPlayingView,
 } from "./views/registry.ts"
+import { getViewsForDevice } from "./views/viewsForDevice.ts"
 
 /**
  * Inkcast server entrypoint. Boots the render engine + MQTT bridge, advertises
@@ -475,8 +475,13 @@ const main = async () => {
 
   /** Push every device whose SELECTED view matches, without awaiting. */
   const pushDevicesShowingView = ({
+    getIsDeviceIncluded,
     getIsViewIncluded,
   }: {
+    /** Optional second gate on the DEVICE, not the view it is showing. */
+    getIsDeviceIncluded?: (
+      device: (typeof config.devices)[number],
+    ) => boolean
     getIsViewIncluded: (viewName: ViewName) => boolean
   }) => {
     config.devices
@@ -484,6 +489,9 @@ const main = async () => {
         getIsViewIncluded(
           deviceStore.getActiveView(device.id),
         ),
+      )
+      .filter(
+        (device) => getIsDeviceIncluded?.(device) ?? true,
       )
       .forEach((device) => {
         pushDeviceLogged(device.id)
@@ -589,6 +597,15 @@ const main = async () => {
     onMinuteTick: () => {
       pushDevicesShowingView({
         getIsViewIncluded: getIsClockBearingView,
+        // A minute re-push is only worth sending to a panel that can finish
+        // drawing inside a minute. A `super-slow` panel parked on a clock view
+        // — from a retained state written before the view filter existed —
+        // would otherwise flash continuously and never show the right time.
+        getIsDeviceIncluded: (device) =>
+          getViewsForDevice({
+            colorMode: device.colorMode,
+            imageDelivery: device.imageDelivery,
+          }).includes(deviceStore.getActiveView(device.id)),
       })
     },
   })
@@ -654,7 +671,15 @@ const main = async () => {
         .flatMap((device) =>
           buildDiscoveryMessages({
             device,
-            viewNames: VIEW_NAMES,
+            // Not every view, per device. A panel is only offered views whose
+            // shortest-lived value survives its repaint — see the freshness
+            // rule in docs/display-properties.md. Passing VIEW_NAMES here is
+            // what put `Clock` in a 28-second Impression's Home Assistant
+            // select.
+            viewNames: getViewsForDevice({
+              colorMode: device.colorMode,
+              imageDelivery: device.imageDelivery,
+            }),
             config: discoveryConfig,
           }),
         )
