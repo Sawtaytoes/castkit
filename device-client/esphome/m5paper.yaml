@@ -102,6 +102,21 @@ api:
             url: !lambda return image_url;
             update: true
 
+    # Diagnostic wipe. `it8951e.clear` fills the CONTROLLER's own image memory
+    # with a constant and runs the panel's INIT waveform, so it paints without
+    # our render, our decoded image and our dirty-rectangle buffer. It is the
+    # only call that separates a panel fault from anything CastKit or this node
+    # draws, and it is also the strongest clear for ghosting. The panel lands on
+    # white; the next CastKit push repaints it.
+    #   esphome.m5paper_clear_panel()
+    #
+    # ⚠️ NOT the boot action that was removed above. That one ran on EVERY boot
+    # and wiped the last frame after each reboot or OTA. This one runs only when
+    # Home Assistant asks for it.
+    - action: clear_panel
+      then:
+        - it8951e.clear: m5paper_display
+
 ota:
   - platform: esphome
 
