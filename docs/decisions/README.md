@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-13 | [A panel story renders in its own iframe, not a Storybook viewport](2026-09-13-a-panel-story-renders-in-its-own-iframe-not-a-storybook-viewport.md) | Accepted |
 | 2026-09-13 | [A touch target's bounding box is its touch area](2026-09-13-a-touch-targets-bounding-box-is-its-touch-area.md) | Accepted |
 | 2026-09-12 | [The short panel's Now Playing art is 216px, and the album may take a third row](2026-09-12-the-short-panels-now-playing-art-is-216px-and-the-album-may-take-a-third-row.md) | Accepted |
 | 2026-09-12 | [CastKit is one app with one view vocabulary, not Inkcast plus Slatecast](2026-09-12-castkit-is-one-app-with-one-view-vocabulary-not-inkcast-plus-slatecast.md) | Accepted |
