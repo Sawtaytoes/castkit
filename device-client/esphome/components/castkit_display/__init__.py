@@ -1,17 +1,20 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import display, text_sensor, runtime_image
+from esphome.components import display, runtime_image, text_sensor
 from esphome.const import CONF_ID
 
 DEPENDENCIES = ["display"]
 AUTO_LOAD = ["runtime_image", "text_sensor"]
 ns = cg.esphome_ns.namespace("castkit_display")
 CastKitDisplay = ns.class_("CastKitDisplay", cg.Component)
-CONFIG_SCHEMA = cv.Schema({
-    cv.GenerateID(): cv.declare_id(CastKitDisplay),
-    cv.Required("display_id"): cv.use_id(display.Display),
-    cv.Required("events_id"): cv.use_id(text_sensor.TextSensor),
-}).extend(cv.COMPONENT_SCHEMA)
+CONFIG_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(): cv.declare_id(CastKitDisplay),
+        cv.Required("display_id"): cv.use_id(display.Display),
+        cv.Required("events_id"): cv.use_id(text_sensor.TextSensor),
+    }
+).extend(cv.COMPONENT_SCHEMA)
+
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
