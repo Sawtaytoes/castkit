@@ -21,7 +21,10 @@
 
 substitutions:
   node_name: m5paper
-  friendly_name: "M5Paper"
+  # A show-something device is a "… Display", never a "… Screen", and it names
+  # its place first. Home Assistant carries the new name through name_by_user
+  # already; this value reaches the panel on the next flash.
+  friendly_name: "Office M5Paper ePaper Display"
 
 esphome:
   name: ${node_name}
