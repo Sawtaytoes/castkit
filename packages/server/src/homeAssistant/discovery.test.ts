@@ -221,3 +221,112 @@ describe("buildDiscoveryMessages", () => {
     )
   })
 })
+
+describe("battery entities", () => {
+  const buildPayloads = (
+    device: typeof PHAT_DEVICE,
+  ): Record<string, Record<string, unknown>> =>
+    Object.fromEntries(
+      buildDiscoveryMessages({
+        device,
+        viewNames: ["Agenda"],
+      }).map((message) => [
+        message.topic,
+        message.payload as Record<string, unknown>,
+      ]),
+    )
+
+  /*
+   * Every panel in the fleet but one. A panel with no cell that published
+   * these would show a permanently unknown battery on a display that is simply
+   * plugged in.
+   */
+  test("a panel with no cell publishes none of them", () => {
+    const topics = Object.keys(buildPayloads(PHAT_DEVICE))
+
+    expect(
+      topics.filter((topic) => topic.includes("battery")),
+    ).toEqual([])
+    expect(
+      topics.filter((topic) =>
+        topic.includes("on_battery"),
+      ),
+    ).toEqual([])
+  })
+
+  const BATTERY_DEVICE = {
+    ...PHAT_DEVICE,
+    hasBattery: true,
+  }
+
+  test("a panel with a cell gets percent, volts and on-battery", () => {
+    const payloads = buildPayloads(BATTERY_DEVICE)
+
+    expect(
+      payloads[
+        "homeassistant/sensor/inkcast/inky-phat_battery/config"
+      ],
+    ).toMatchObject({
+      name: "Battery",
+      unique_id: "inkcast_inky-phat_battery",
+      state_topic: "inkcast/inky-phat/battery",
+      value_template: "{{ value_json.percent }}",
+      device_class: "battery",
+      unit_of_measurement: "%",
+    })
+    expect(
+      payloads[
+        "homeassistant/sensor/inkcast/inky-phat_battery_voltage/config"
+      ],
+    ).toMatchObject({
+      device_class: "voltage",
+      unit_of_measurement: "V",
+      value_template: "{{ value_json.volts }}",
+    })
+    expect(
+      payloads[
+        "homeassistant/binary_sensor/inkcast/inky-phat_on_battery/config"
+      ],
+    ).toMatchObject({
+      name: "On battery",
+      value_template:
+        "{{ 'ON' if value_json.isOnBattery else 'OFF' }}",
+    })
+  })
+
+  /*
+   * All three read the PANEL's retained topic. CastKit republishing a copy
+   * would add a second writer, a staleness window, and no way to tell which of
+   * the two was right.
+   */
+  test("every one reads the panel's own topic", () => {
+    const payloads = buildPayloads(BATTERY_DEVICE)
+
+    for (const topic of Object.keys(payloads)) {
+      if (!topic.includes("battery")) {
+        continue
+      }
+      expect(payloads[topic]).toMatchObject({
+        state_topic: "inkcast/inky-phat/battery",
+        entity_category: "diagnostic",
+      })
+      expect(payloads[topic]).not.toHaveProperty(
+        "command_topic",
+      )
+    }
+  })
+
+  /*
+   * Home Assistant has no binary-sensor device class that means this:
+   * `battery` is ON-means-LOW and `power`/`plug` are ON-means-MAINS-PRESENT,
+   * so any of them would make the entity read as the opposite of what the
+   * panel published.
+   */
+  test("on-battery claims no device class", () => {
+    expect(
+      buildPayloads(BATTERY_DEVICE)[
+        "homeassistant/binary_sensor/inkcast/inky-phat_on_battery/config"
+      ],
+    ).not.toHaveProperty("device_class")
+  })
+})
