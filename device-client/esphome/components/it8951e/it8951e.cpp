@@ -141,6 +141,12 @@ void IT8951ESensor::check_busy(uint32_t timeout) {
             return;
         }
 
+        // Feed the task watchdog. Every caller in upstream passes the 30 ms
+        // default and cannot reach the 5-second timeout, but a caller that
+        // genuinely waits for a full waveform — fill_panel below — spins here
+        // for a second or more, and a slightly slower panel would reboot the
+        // board inside a wait whose whole job is to be patient.
+        App.feed_wdt();
     }
 }
 
@@ -275,6 +281,20 @@ void IT8951ESensor::write_buffer_to_display(uint16_t x, uint16_t y, uint16_t w,
         this->write_byte16(word);
         this->disable();
         pos += 2;
+
+        // Feed the task watchdog. A full 960x540 frame is 129,600 SPI
+        // transactions in this one loop, which starves the loop task long
+        // enough to reboot the board: "Reason: Task wdt", crashing inside
+        // write_byte16() below write_display_slow(). Caught on the Office
+        // M5Paper 2026-09-14, where it also rolled an OTA back, because the
+        // crash landed before the new image was marked good.
+        //
+        // Every 256 words, not every word. `feed_wdt()` is cheap but not free,
+        // and 506 feeds across a full frame is far more than the 5-second
+        // timeout needs.
+        if ((x & 0xFF) == 0) {
+            App.feed_wdt();
+        }
     }
 
     this->write_command(IT8951_TCON_LD_IMG_END);
@@ -319,6 +339,10 @@ void IT8951ESensor::clear(bool init) {
         this->write_byte16(0x0000);
         this->write_byte16(0xFFFF);
         this->disable();
+
+        if ((x & 0xFF) == 0) {
+            App.feed_wdt();   // same loop length as the blit above
+        }
     }
 
     this->write_command(IT8951_TCON_LD_IMG_END);
@@ -336,7 +360,16 @@ void IT8951ESensor::clear(bool init) {
  * write_buffer_to_display does).
  */
 void IT8951ESensor::fill_panel(uint16_t word) {
-    this->m_endian_type = IT8951_LDIMG_L_ENDIAN;
+    uint32_t started = millis();
+    ESP_LOGI(TAG, "fill_panel 0x%04X over %dx%d", word, this->get_width_internal(), this->get_height_internal());
+
+    // BIG endian, matching write_buffer_to_display. Upstream's clear() sets
+    // LITTLE here and appears to work only because it finishes with the INIT
+    // waveform, which whitens the panel whatever is in image memory. With GC16
+    // the same load produced no visible change at all, so that load never
+    // lands — the first version of this action did nothing and looked like a
+    // panel that had gone deaf.
+    this->m_endian_type = IT8951_LDIMG_B_ENDIAN;
     this->m_pix_bpp     = IT8951_4BPP;
 
     this->write_command(IT8951_TCON_SYS_RUN);
@@ -349,10 +382,30 @@ void IT8951ESensor::fill_panel(uint16_t word) {
         this->write_byte16(0x0000);
         this->write_byte16(word);
         this->disable();
+
+        if ((i & 0xFF) == 0) {
+            App.feed_wdt();   // same loop length as the blit above
+        }
     }
 
     this->write_command(IT8951_TCON_LD_IMG_END);
+    ESP_LOGI(TAG, "fill_panel wrote memory in %u ms", (unsigned) (millis() - started));
+
+    uint32_t painting = millis();
     this->update_area(0, 0, this->get_width_internal(), this->get_height_internal(), update_mode_e::UPDATE_MODE_GC16);
+    // Wait for the waveform before sleeping the controller. The elapsed time is
+    // the proof the panel actually painted: a real GC16 pass takes on the order
+    // of a second, and an instant return means the frame never reached the
+    // glass. Sleeping the controller mid-waveform is also how a half-drawn
+    // frame gets stuck on the panel.
+    //
+    // ⚠️ The timeout is EXPLICIT. `check_busy()` defaults to 30 ms, which is
+    // right for the register waits every other caller makes and useless here —
+    // it would log "SPI busy timeout" and return while the panel was still
+    // drawing, which reads exactly like a panel that refused the frame.
+    this->check_busy(10000);
+    ESP_LOGI(TAG, "fill_panel painted in %u ms", (unsigned) (millis() - painting));
+
     this->write_command(IT8951_TCON_SLEEP);
 }
 
