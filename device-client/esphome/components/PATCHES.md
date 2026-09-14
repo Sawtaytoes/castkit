@@ -50,3 +50,31 @@ draws.
 
 Added files: `it8951e.h` (declaration + `FillDarkAction`), `it8951e.cpp`
 (`fill_panel`), `display.py` (registers `it8951e.fill_dark`).
+
+### it8951e — feed the task watchdog inside every long SPI loop (ours, not upstream)
+
+A full 960x540 frame is 129,600 SPI transactions in one `for` loop, with
+nothing yielding to the scheduler. On the Office M5Paper that starves the loop
+task past the ESP-IDF task watchdog's 5-second timeout and reboots the board:
+`Reason: Task wdt`, crashing inside `write_byte16()` below
+`write_display_slow()`.
+
+⚠️ **It also rolls an OTA back.** The crash lands inside the validation window,
+before the new image is marked good, so a flash that reported `OTA successful`
+came back running the old firmware and reported
+`OTA rollback detected! Rolled back from partition 'app1'`. The upload looks
+like it worked and the change is simply absent.
+
+`App.feed_wdt()` now runs every 256 words in `write_buffer_to_display`,
+`clear()` and `fill_panel()`, and on every pass of `check_busy()`. Upstream's
+callers all pass the 30 ms default and cannot reach the timeout; `fill_panel`
+waits for a real GC16 waveform and needs an explicit 10,000 ms, which is only
+safe because the loop feeds.
+
+⚠️ **This is not the fix for the underlying defect.** The Office M5Paper also
+logs `Pin busy timeout` on the GPIO27 busy read, and the repaint durations are
+bimodal — 104 passes over 7 s, 107 under 5 s, nothing in between. Feeding the
+watchdog stops the reboot; it does not make the panel read its busy line. That
+fix needs a component patch, because `setup()` forces `FLAG_INPUT`.
+
+Changed file: `it8951e.cpp`.
