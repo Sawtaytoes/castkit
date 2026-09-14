@@ -40,6 +40,7 @@ server during development.
 
 - [Setup and configuration](docs/setup.md)
 - [Add a display](docs/adding-a-device.md)
+- [Display properties, and what each one changes](docs/display-properties.md)
 - [Remote browser displays and app-owned JSON manifests](docs/remote-display.md)
 - [Architecture](docs/architecture.md)
 - [Decision records](docs/decisions/README.md)
