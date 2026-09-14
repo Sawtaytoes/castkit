@@ -6,14 +6,14 @@ import {
   buildPanelRootStyle,
   countRowsThatFit,
   fitText,
-  getAccentColour,
+  getAccentColor,
   READABLE_FONT_FLOOR_PX,
 } from "./viewStyles.ts"
 
 /**
  * The day's upcoming events, with NO clock. This is the whole point of the
  * view: `ClockAgendaView` shows a time, so it must be re-rendered every minute
- * to stay honest, and a full ePaper refresh on a 7.3" E6 panel takes ~28
+ * to stay honest, and a full ePaper refresh on a 7.3" E Ink Spectra 6 panel takes ~28
  * seconds — a per-minute repaint there is a panel that is essentially always
  * flashing. Dropping the time makes the render valid until the agenda data
  * itself changes, so this view repaints only when Home Assistant pushes new
@@ -49,15 +49,15 @@ export type AgendaViewProps = PanelViewProps & {
 export const AgendaView = ({
   width,
   height,
-  colourMode,
+  colorMode,
   date,
   temperatureText,
   conditionText,
   events,
   emptyText,
 }: AgendaViewProps) => {
-  const accentColour = getAccentColour({
-    colourMode,
+  const accentColor = getAccentColor({
+    colorMode,
     intent: "accent",
   })
   const hasTemperature =
@@ -69,7 +69,7 @@ export const AgendaView = ({
 
   const horizontalPadding = Math.round(width * 0.04)
   const availableWidth = width - horizontalPadding * 2
-  const readableFloor = READABLE_FONT_FLOOR_PX[colourMode]
+  const readableFloor = READABLE_FONT_FLOOR_PX[colorMode]
 
   // The date is the anchor here (the clock views' role), so it gets the
   // headline treatment — fitted so a long "Wednesday, September 24" still sits
@@ -128,7 +128,7 @@ export const AgendaView = ({
     ...buildPanelRootStyle({
       width,
       height,
-      colourMode,
+      colorMode,
     }),
     alignItems: "flex-start",
     justifyContent: "flex-start",
@@ -144,7 +144,7 @@ export const AgendaView = ({
     fontWeight: 700,
     lineHeight: 1,
     whiteSpace: "nowrap",
-    color: accentColour,
+    color: accentColor,
   }
 
   const weatherRowStyle: CSSProperties = {
@@ -195,7 +195,7 @@ export const AgendaView = ({
     fontWeight: 700,
     lineHeight: 1.1,
     whiteSpace: "nowrap",
-    color: accentColour,
+    color: accentColor,
     width: eventTimeColumnWidth,
     flexShrink: 0,
   }

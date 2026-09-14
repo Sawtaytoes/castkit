@@ -131,13 +131,13 @@ design choice and needs its own decision.
 
 **This is also where the stamp lands**
 ([decision](decisions/2026-09-13-castkit-stamps-a-panels-properties-and-a-view-never-asks-the-browser-what-the-panel-is.md)).
-`:root` carries `data-shape`, `data-colour`, `data-input`, `data-repaint`,
+`:root` carries `data-shape`, `data-color`, `data-input`, `data-repaint`,
 `data-delivery` and the `--panel-*` custom properties, written from the device
 record by each renderer.
 
 ⚠️ **The stamp is not additive on the live half — it needs the protocol first.**
 `BrowserDeviceProfile` carries three of the eight panel facts today (`shape`,
-`hasTouch`, `colour`). `repaint`, `dithersItself`, `pixelGrid` and `delivery` are
+`hasTouch`, `color`). `repaint`, `hasPanelDithering`, `pixelGrid` and `delivery` are
 not on the wire at all, and `delivery` is the one the SPA cannot infer: the same
 Preact app serves a HyperPixel kiosk (`live-browser`) and the WT32-SC01, where a
 server-side headless browser renders this app and pushes finished frames

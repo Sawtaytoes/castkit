@@ -17,11 +17,11 @@ they are not the same kind of thing.
 | --- | --- |
 | `nativeSize` | the glass's own pixel pair |
 | `pixelGrid` | `rgb-stripe` \| `bgr-stripe` \| `none` |
-| `colour` | `mono` \| `grayscale` \| `e6` \| `e7` \| `full` |
-| `dithersItself` | `true` \| `false` |
+| `color` | `monochrome` \| `grayscale` \| `spectra6` \| `galleryPalette7` \| `full` |
+| `hasPanelDithering` | `true` \| `false` |
 | `repaint` | `instant` \| `fast` \| `slow` \| `super-slow` |
 | `input` | `none` \| `touch` \| `pointer` |
-| `shape` | `rect` \| `square` \| `round` |
+| `shape` | `rectangle` \| `square` \| `round` |
 | `delivery` | `live-browser` \| `pushed-frames` \| `pulled-frames` |
 
 ### Axis B — the installation. The owner decides these, per display.
@@ -66,8 +66,8 @@ That one test reproduces every case the owner named:
 | Inky pHAT | 3 s | clock minute | 20x | show it |
 | Inky pHAT | 3 s | current song | 60x | show it |
 | Inky pHAT | 3 s | time remaining | 0.3x | refuse |
-| Impression E6 | 28 s | clock minute | 2x | refuse |
-| Impression E6 | 28 s | the agenda | 128x | show it |
+| Impression E Ink Spectra 6 | 28 s | clock minute | 2x | refuse |
+| Impression E Ink Spectra 6 | 28 s | the agenda | 128x | show it |
 | HyperPixel | instant | seek position | very large | show it |
 
 **An absolute value beats a relative one on every slow panel.** "Next song at
@@ -79,13 +79,13 @@ way, a `slow` or `super-slow` panel gets the absolute form.
 
 CastKit dithers when **all three** are true:
 
-1. The content carries colour or continuous tone. Pure black-and-white content
+1. The content carries color or continuous tone. Pure black-and-white content
    needs no dithering on any panel, ever.
-2. The panel cannot show that content directly — `colour` is not `full`.
-3. `dithersItself` is `false`. When the panel's own controller dithers, CastKit
-   sends the full-colour downscale and keeps its hands off.
+2. The panel cannot show that content directly — `color` is not `full`.
+3. `hasPanelDithering` is `false`. When the panel's own controller dithers, CastKit
+   sends the full-color downscale and keeps its hands off.
 
-`dithersItself` replaces the previous `ditheredBy: castkit | panel | none`. The
+`hasPanelDithering` replaces the previous `ditheredBy: castkit | panel | none`. The
 old name asked "who did it", which mixed a hardware fact with our answer to it;
 the panel either has a dithering controller or it does not, and what CastKit
 then does is derived.
@@ -134,7 +134,7 @@ The freshness rule is worth more than a list of allowed views because it answers
 questions nobody has asked yet. "May the agenda show a countdown to the next
 event?" has an answer without a meeting.
 
-`dithersItself` is the smaller change and the same idea. A boolean about the
+`hasPanelDithering` is the smaller change and the same idea. A boolean about the
 hardware can be read off a datasheet. "Who dithers" cannot, because it depends
 on what we decided to send.
 

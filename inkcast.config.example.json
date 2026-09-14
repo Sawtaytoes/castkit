@@ -5,7 +5,7 @@
     "mac": "aa:bb:cc:00:00:01",
     "width": 250,
     "height": 122,
-    "colourMode": "mono",
+    "colorMode": "monochrome",
     "rotation": 180,
     "ditherProfile": {
       "algorithm": "atkinson",
@@ -18,7 +18,7 @@
     "mac": "aa:bb:cc:00:00:02",
     "width": 800,
     "height": 480,
-    "colourMode": "e6",
+    "colorMode": "spectra6",
     "rotation": 0,
     "ditherProfile": {
       "algorithm": "floyd-steinberg",
@@ -35,7 +35,7 @@
     "height": 720,
     "shape": "square",
     "hasTouch": true,
-    "colour": "full",
+    "color": "full",
     "externalViews": [
       {
         "name": "Disc App",
@@ -52,7 +52,7 @@
     "height": 480,
     "shape": "round",
     "hasTouch": false,
-    "colour": "full"
+    "color": "full"
   },
   {
     "id": "m5paper",
@@ -60,7 +60,7 @@
     "mac": "aa:bb:cc:00:00:05",
     "width": 960,
     "height": 540,
-    "colourMode": "mono",
+    "colorMode": "monochrome",
     "rotation": 0,
     "ditherProfile": {
       "algorithm": "floyd-steinberg",

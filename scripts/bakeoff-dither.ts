@@ -16,7 +16,7 @@ import {
 /**
  * Decision-2 bake-off: for each panel, dither three test images (the card, a
  * gradient, and — if reachable — a photo) with every algorithm at supersample
- * 1×/2×/4×, and emit one contact sheet per (panel, image). Mono and E6 get
+ * 1×/2×/4×, and emit one contact sheet per (panel, image). Mono and E Ink Spectra 6 get
  * SEPARATE sheets so a different algorithm can be chosen per panel type.
  *
  * Rows = supersample factor, columns = algorithm. Chromium is the reference
@@ -52,9 +52,9 @@ type SampleSource = {
 
 /** How big to draw each tile in the sheet, and with which resize kernel. */
 const getDisplayGeometry = (panel: BakeoffPanel) => {
-  const isMono = panel.colourMode === "mono"
+  const isMono = panel.colorMode === "monochrome"
   // Mono: integer 2× upscale with nearest so individual dithered pixels stay
-  // crisp. E6/photo: scale to 500px wide with a smooth kernel.
+  // crisp. E Ink Spectra 6/photo: scale to 500px wide with a smooth kernel.
   const displayScale = isMono ? 2 : 500 / panel.width
 
   return {
@@ -88,7 +88,7 @@ const buildSources = ({
         element: buildNowPlayingElement({
           width: panel.width,
           height: panel.height,
-          colourMode: panel.colourMode,
+          colorMode: panel.colorMode,
         }),
         width: panel.width,
         height: panel.height,
@@ -209,7 +209,7 @@ const run = async () => {
   const chromiumEngine = await createChromiumEngine()
 
   try {
-    // Panels sequentially (bounds memory on the big E6 4× buffers); within a
+    // Panels sequentially (bounds memory on the big E Ink Spectra 6 4× buffers); within a
     // panel, its sources + factors + algorithms fan out.
     await PANELS.reduce(
       (previousPanel, panel) =>

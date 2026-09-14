@@ -56,13 +56,13 @@ const makeController = ({
     } as never,
     renderService: {
       renderDevice: async ({
-        fullColourEncoding,
+        fullColorEncoding,
         viewName,
       }: {
-        fullColourEncoding: unknown
+        fullColorEncoding: unknown
         viewName: unknown
       }) => {
-        renderedEncodings.push(fullColourEncoding)
+        renderedEncodings.push(fullColorEncoding)
         renderedViews.push(viewName)
         await onRender?.()
         return PNG

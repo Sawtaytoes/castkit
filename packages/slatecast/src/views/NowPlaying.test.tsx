@@ -35,7 +35,7 @@ const mountNowPlaying = async ({
 
 /**
  * The picture the view is showing now. On a touch device it sits in the middle
- * cell of the swipe rail, with a neighbouring cell either side of it; on a
+ * cell of the swipe rail, with a neighboring cell either side of it; on a
  * touchless one it is the only picture on the page.
  */
 const artwork = () =>

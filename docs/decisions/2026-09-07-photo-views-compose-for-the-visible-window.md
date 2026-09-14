@@ -16,14 +16,14 @@ changes is that every crop decision is now made for the box the mat leaves
 - `computeFaceCropRect` / `computeFillCropRect` take an optional
   `visibleInset`. The cover-crop window is still the maximal one at the target's
   aspect (the crop never zooms), but the padded face union must land inside the
-  window's *visible* part, and a face-less crop centres the visible part on the
-  image rather than centring the whole window.
+  window's *visible* part, and a face-less crop centers the visible part on the
+  image rather than centering the whole window.
 - When the faces span wider than the visible part, `computeFaceCropRect`
   letterboxes — as it always did when they outgrew the window.
 - A letterboxed frame is contained inside the visible box and padded out to the
   panel with white, so the mat covers white rather than a cut edge.
 - `computeDualPortraitColumns` measures its two halves on the visible window.
-  The gutter sits at the centre of what shows, both photos read as equal halves,
+  The gutter sits at the center of what shows, both photos read as equal halves,
   and each column still reaches its panel edge.
 
 `pushController` is unchanged: photo views still pass **no** `safeAreaInset` to
@@ -42,7 +42,7 @@ Every other display is 0, or 9 to 11 px on the Living Room Mantle.
 The 2026-07-02 decision said photos bleed and ignore the inset, and at that time
 there was one photo view showing one photo. `Photo Frame (Duo)`
 ([2026-07-12](2026-07-12-dual-portrait-photo-layout.md)) then added a composite
-with structure — two columns and a gutter — and laid it out on the panel centre.
+with structure — two columns and a gutter — and laid it out on the panel center.
 Through the kitchen mat the two columns read as 337 px and 333 px, and each face
 sat pushed outward toward the frame. The owner reported the kitchen display as
 "not correct".
@@ -52,7 +52,7 @@ sat pushed outward toward the frame. The owner reported the kitchen display as
 "Photos are fine bleeding under a mat" is still true, and still the reason the
 render fills the panel. It was never a claim that the *subject* may sit under
 the mat. A face-steering rule that aims at a rectangle 15% of which is covered
-by wood is not steering at all, and a two-up layout centred on the wrong
+by wood is not steering at all, and a two-up layout centered on the wrong
 rectangle is visibly lopsided.
 
 Keeping the bleed and moving only the composition gets both: no white edge, and

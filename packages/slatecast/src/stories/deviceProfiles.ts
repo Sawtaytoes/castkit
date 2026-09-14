@@ -20,7 +20,7 @@ export const MEDIA_CONTROLS_PROFILE: BrowserDeviceProfile =
     height: 720,
     shape: "square",
     hasTouch: true,
-    colour: "full",
+    color: "full",
     externalViews: [],
   }
 
@@ -32,7 +32,7 @@ export const PORTHOLE_PROFILE: BrowserDeviceProfile = {
   height: 480,
   shape: "round",
   hasTouch: false,
-  colour: "full",
+  color: "full",
   externalViews: [],
 }
 
@@ -46,9 +46,9 @@ export const WORKBENCH_PROFILE: BrowserDeviceProfile = {
   label: "Workbench (480x320 landscape, touch)",
   width: 480,
   height: 320,
-  shape: "rect",
+  shape: "rectangle",
   hasTouch: true,
-  colour: "full",
+  color: "full",
   externalViews: [],
 }
 
@@ -64,9 +64,9 @@ export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
     label: "Pi Touch 2 (1280x720 landscape, touch)",
     width: 1280,
     height: 720,
-    shape: "rect",
+    shape: "rectangle",
     hasTouch: true,
-    colour: "full",
+    color: "full",
     externalViews: [],
   }
 
@@ -76,9 +76,9 @@ export const PI_TOUCH_PORTRAIT_PROFILE: BrowserDeviceProfile =
     label: "Pi Touch 2 (720x1280 portrait, touch)",
     width: 720,
     height: 1280,
-    shape: "rect",
+    shape: "rectangle",
     hasTouch: true,
-    colour: "full",
+    color: "full",
     externalViews: [],
   }
 

@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-09-08
 - **Type:** Naming + product behavior
-- **Supersedes:** the *name* used by [2026-07-02-safe-area-crop-via-mqtt](2026-07-02-safe-area-crop-via-mqtt.md) and [2026-09-08-photo-views-fit-the-visible-window](2026-09-08-photo-views-fit-the-visible-window.md). Their behaviour stands unchanged — only the word "crop" was wrong for it.
+- **Supersedes:** the *name* used by [2026-07-02-safe-area-crop-via-mqtt](2026-07-02-safe-area-crop-via-mqtt.md) and [2026-09-08-photo-views-fit-the-visible-window](2026-09-08-photo-views-fit-the-visible-window.md). Their behavior stands unchanged — only the word "crop" was wrong for it.
 - **Superseded by:** —
 
 ## Decision

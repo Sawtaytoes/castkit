@@ -4,7 +4,7 @@ import type { Palette } from "../panels/palette.ts"
 import { quantizeRgbaToPalette } from "./quantize.ts"
 
 /**
- * The per-panel image pipeline: take a full-colour render, downscale it to the
+ * The per-panel image pipeline: take a full-color render, downscale it to the
  * panel's native resolution with a high-quality (Lanczos) filter to bake in
  * anti-aliasing, then quantize/dither to the panel's fixed palette.
  *
@@ -27,27 +27,27 @@ export type DitherAdjustments = {
 }
 
 /**
- * How the `"off"` (panel-dithers-it-itself) path encodes its full-colour
+ * How the `"off"` (panel-dithers-it-itself) path encodes its full-color
  * output. `png` is lossless (exact, but a photographic RGB PNG is large);
  * `webp`/`jpeg` are lossy and shrink a photo frame ~10× on the wire — fine
  * there because the panel re-quantizes anyway. `quality` (1–100) applies to
  * the lossy formats only. Defaults to lossless PNG so non-photo callers are
  * never silently degraded.
  */
-export type FullColourEncoding = {
+export type FullColorEncoding = {
   format: "png" | "webp" | "jpeg"
   quality?: number
 }
 
 const DEFAULT_LOSSY_QUALITY = 80
 
-/** Encode a sharp pipeline as the chosen full-colour format. */
-const encodeFullColour = ({
+/** Encode a sharp pipeline as the chosen full-color format. */
+const encodeFullColor = ({
   pipeline,
   encoding,
 }: {
   pipeline: ReturnType<typeof sharp>
-  encoding: FullColourEncoding
+  encoding: FullColorEncoding
 }): Promise<Buffer> => {
   const quality = encoding.quality ?? DEFAULT_LOSSY_QUALITY
   if (encoding.format === "webp") {
@@ -60,7 +60,7 @@ const encodeFullColour = ({
 }
 
 /**
- * Downscale a full-colour render to a panel's native resolution and dither it
+ * Downscale a full-color render to a panel's native resolution and dither it
  * to the panel palette. `imageBuffer` may be rendered larger than native
  * (supersampled) — the Lanczos downscale here is what bakes in the anti-alias.
  * Returns a PNG at `width × height`, rotated into the panel's mount orientation.
@@ -73,7 +73,7 @@ export const ditherToPanel = async ({
   algorithm,
   rotation = 0,
   adjustments,
-  fullColourEncoding = { format: "png" },
+  fullColorEncoding = { format: "png" },
 }: {
   imageBuffer: Buffer
   width: number
@@ -82,7 +82,7 @@ export const ditherToPanel = async ({
   algorithm: DitherAlgorithm
   rotation?: number
   adjustments?: DitherAdjustments
-  fullColourEncoding?: FullColourEncoding
+  fullColorEncoding?: FullColorEncoding
 }): Promise<Buffer> => {
   const brightness = adjustments?.brightness ?? 1
   const saturation = adjustments?.saturation ?? 1
@@ -102,17 +102,17 @@ export const ditherToPanel = async ({
     ? downscalePipeline.modulate({ brightness, saturation })
     : downscalePipeline
 
-  // "off": skip our palette quantization and hand the panel a full-colour
+  // "off": skip our palette quantization and hand the panel a full-color
   // (downscaled, tone-adjusted) image so its own controller dithers. Rotated
-  // into the mount orientation and encoded per `fullColourEncoding` — lossless
+  // into the mount orientation and encoded per `fullColorEncoding` — lossless
   // RGB PNG by default, or a lossy WebP/JPEG (much smaller on the wire) for the
   // photo frame, where the panel re-dithers anyway.
   if (algorithm === "off") {
-    return encodeFullColour({
+    return encodeFullColor({
       pipeline: adjustedPipeline
         .rotate(rotation)
         .removeAlpha(),
-      encoding: fullColourEncoding,
+      encoding: fullColorEncoding,
     })
   }
 
@@ -141,7 +141,7 @@ export const ditherToPanel = async ({
       // Emit a plain RGB PNG, NOT an indexed-palette one. A palette PNG's index
       // order is content-dependent, and a device that reads palette indices
       // directly (the Inky library) then swaps black/white between frames —
-      // intermittent colour inversion on the panel. RGB is unambiguous.
+      // intermittent color inversion on the panel. RGB is unambiguous.
       .removeAlpha()
       .png()
       .toBuffer()

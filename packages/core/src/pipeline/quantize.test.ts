@@ -1,28 +1,28 @@
 import { describe, expect, test } from "vitest"
 import {
-  E6_DEFAULT_PALETTE,
-  MONO_PALETTE,
+  MONOCHROME_PALETTE,
   type Palette,
+  SPECTRA6_DEFAULT_PALETTE,
 } from "../panels/palette.ts"
 import { quantizeRgbaToPalette } from "./quantize.ts"
 
-/** A flat field of one RGB colour, as the RGBA pixels the quantizer takes. */
+/** A flat field of one RGB color, as the RGBA pixels the quantizer takes. */
 const buildSolidPixels = ({
   width,
   height,
-  colour,
+  color,
 }: {
   width: number
   height: number
-  colour: [number, number, number]
+  color: [number, number, number]
 }) => {
   const pixels = new Uint8ClampedArray(width * height * 4)
   Array.from({ length: width * height }).forEach(
     (_unused, pixelIndex) => {
       const byteOffset = pixelIndex * 4
-      pixels[byteOffset] = colour[0]
-      pixels[byteOffset + 1] = colour[1]
-      pixels[byteOffset + 2] = colour[2]
+      pixels[byteOffset] = color[0]
+      pixels[byteOffset + 1] = color[1]
+      pixels[byteOffset + 2] = color[2]
       pixels[byteOffset + 3] = 255
     },
   )
@@ -50,7 +50,7 @@ const readPixel = ({
 }
 
 /** Every distinct RGB triple present in a quantized result. */
-const collectColours = (pixels: Uint8ClampedArray) =>
+const collectColors = (pixels: Uint8ClampedArray) =>
   Array.from({ length: pixels.length / 4 })
     .map((_unused, pixelIndex) =>
       [
@@ -60,23 +60,23 @@ const collectColours = (pixels: Uint8ClampedArray) =>
       ].join(","),
     )
     .filter(
-      (colour, index, colours) =>
-        colours.indexOf(colour) === index,
+      (color, index, colors) =>
+        colors.indexOf(color) === index,
     )
 
 const getIsPaletteMember = ({
-  colour,
+  color,
   palette,
 }: {
-  colour: string
+  color: string
   palette: Palette
 }) =>
   palette.some(
-    (paletteColour) => paletteColour.join(",") === colour,
+    (paletteColor) => paletteColor.join(",") === color,
   )
 
 describe("quantizeRgbaToPalette", () => {
-  test("threshold snaps a light grey to white and a dark grey to black", () => {
+  test("threshold snaps a light gray to white and a dark gray to black", () => {
     const width = 4
     const height = 4
 
@@ -84,52 +84,52 @@ describe("quantizeRgbaToPalette", () => {
       rgbaPixels: buildSolidPixels({
         width,
         height,
-        colour: [200, 200, 200],
+        color: [200, 200, 200],
       }),
       width,
       height,
-      palette: MONO_PALETTE,
+      palette: MONOCHROME_PALETTE,
       algorithm: "threshold",
     })
     const darkResult = quantizeRgbaToPalette({
       rgbaPixels: buildSolidPixels({
         width,
         height,
-        colour: [40, 40, 40],
+        color: [40, 40, 40],
       }),
       width,
       height,
-      palette: MONO_PALETTE,
+      palette: MONOCHROME_PALETTE,
       algorithm: "threshold",
     })
 
-    expect(collectColours(lightResult)).toEqual([
+    expect(collectColors(lightResult)).toEqual([
       "255,255,255",
     ])
-    expect(collectColours(darkResult)).toEqual(["0,0,0"])
+    expect(collectColors(darkResult)).toEqual(["0,0,0"])
   })
 
-  test("ordered varies neighbouring pixels on a flat field where threshold does not", () => {
+  test("ordered varies neighboring pixels on a flat field where threshold does not", () => {
     const width = 8
     const height = 8
-    const midGrey = buildSolidPixels({
+    const midGray = buildSolidPixels({
       width,
       height,
-      colour: [128, 128, 128],
+      color: [128, 128, 128],
     })
 
     const thresholdResult = quantizeRgbaToPalette({
-      rgbaPixels: midGrey,
+      rgbaPixels: midGray,
       width,
       height,
-      palette: MONO_PALETTE,
+      palette: MONOCHROME_PALETTE,
       algorithm: "threshold",
     })
     const orderedResult = quantizeRgbaToPalette({
-      rgbaPixels: midGrey,
+      rgbaPixels: midGray,
       width,
       height,
-      palette: MONO_PALETTE,
+      palette: MONOCHROME_PALETTE,
       algorithm: "ordered",
     })
 
@@ -149,23 +149,23 @@ describe("quantizeRgbaToPalette", () => {
       readAt(thresholdResult, 1),
     )
     // The Bayer bias is what makes `ordered` ordered — adjacent cells of the
-    // 8×8 matrix differ, so the same input colour lands on different inks.
+    // 8×8 matrix differ, so the same input color lands on different inks.
     expect(readAt(orderedResult, 0)).not.toEqual(
       readAt(orderedResult, 1),
     )
-    expect(collectColours(orderedResult).sort()).toEqual([
+    expect(collectColors(orderedResult).sort()).toEqual([
       "0,0,0",
       "255,255,255",
     ])
   })
 
-  test("every error-diffusion algorithm emits only palette colours", () => {
+  test("every error-diffusion algorithm emits only palette colors", () => {
     const width = 8
     const height = 8
     const pixels = buildSolidPixels({
       width,
       height,
-      colour: [120, 90, 160],
+      color: [120, 90, 160],
     })
 
     const algorithms = [
@@ -180,22 +180,22 @@ describe("quantizeRgbaToPalette", () => {
         rgbaPixels: pixels,
         width,
         height,
-        palette: E6_DEFAULT_PALETTE,
+        palette: SPECTRA6_DEFAULT_PALETTE,
         algorithm,
       })
 
-      collectColours(result).forEach((colour) => {
+      collectColors(result).forEach((color) => {
         expect(
           getIsPaletteMember({
-            colour,
-            palette: E6_DEFAULT_PALETTE,
+            color,
+            palette: SPECTRA6_DEFAULT_PALETTE,
           }),
         ).toBe(true)
       })
     })
   })
 
-  test("neutral protection keeps grey off the colour inks, but not saturated red", () => {
+  test("neutral protection keeps gray off the color inks, but not saturated red", () => {
     const width = 8
     const height = 8
 
@@ -205,33 +205,33 @@ describe("quantizeRgbaToPalette", () => {
       rgbaPixels: buildSolidPixels({
         width,
         height,
-        colour: [128, 128, 128],
+        color: [128, 128, 128],
       }),
       width,
       height,
-      palette: E6_DEFAULT_PALETTE,
+      palette: SPECTRA6_DEFAULT_PALETTE,
       algorithm: "floyd-steinberg",
     })
 
-    expect(collectColours(neutralResult).sort()).toEqual([
+    expect(collectColors(neutralResult).sort()).toEqual([
       "0,0,0",
       "208,210,210",
     ])
 
-    // Chroma 170 — a genuine panel colour, which must still reach the red ink.
+    // Chroma 170 — a genuine panel color, which must still reach the red ink.
     const saturatedResult = quantizeRgbaToPalette({
       rgbaPixels: buildSolidPixels({
         width,
         height,
-        colour: [200, 30, 30],
+        color: [200, 30, 30],
       }),
       width,
       height,
-      palette: E6_DEFAULT_PALETTE,
+      palette: SPECTRA6_DEFAULT_PALETTE,
       algorithm: "floyd-steinberg",
     })
 
-    expect(collectColours(saturatedResult)).toContain(
+    expect(collectColors(saturatedResult)).toContain(
       "206,36,38",
     )
   })
@@ -244,19 +244,19 @@ describe("quantizeRgbaToPalette", () => {
       rgbaPixels: buildSolidPixels({
         width,
         height,
-        colour: [128, 128, 128],
+        color: [128, 128, 128],
       }),
       width,
       height,
-      palette: MONO_PALETTE,
+      palette: MONOCHROME_PALETTE,
       algorithm: "atkinson",
     })
 
-    collectColours(result).forEach((colour) => {
+    collectColors(result).forEach((color) => {
       expect(
         getIsPaletteMember({
-          colour,
-          palette: MONO_PALETTE,
+          color,
+          palette: MONOCHROME_PALETTE,
         }),
       ).toBe(true)
     })

@@ -10,9 +10,9 @@ from preview import BOUNDARY, PreviewServer, encode_jpeg, validate_preview_port
 MARKER = 'castkit-remote-display-test'
 
 
-def png_bytes(colour):
+def png_bytes(color):
     buffer = io.BytesIO()
-    Image.new('RGB', (480, 320), colour).save(buffer, format='PNG')
+    Image.new('RGB', (480, 320), color).save(buffer, format='PNG')
     return buffer.getvalue()
 
 

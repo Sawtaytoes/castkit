@@ -16,9 +16,9 @@ subject of a branch in code, in CSS, in a test name or in a Storybook title.**
 | --- | --- | --- |
 | `size` | `width` × `height`, in the orientation the device presents | Every layout. It is the layout box, not the datasheet pair ([2026-09-11](2026-09-11-a-panels-registry-size-is-its-layout-box-and-rotation-never-re-lays-out.md)). |
 | `rotation` | `0` \| `90` \| `180` \| `270` | The receiver, applied to the finished frame. It never re-runs the layout. |
-| `shape` | `rect` \| `square` \| `round` | The internal mask and the safe inset. A shape that does not fill its box is masked by CastKit, so no view draws into pixels the glass cannot show. |
-| `pixelGrid` | the glass's own pixel pair, plus subpixel order `rgb-stripe` \| `bgr-stripe` \| `none` | Text antialiasing, and the `size`-against-datasheet check. Subpixel AA on a `none` grid (any ePaper) is coloured noise; on a `bgr-stripe` panel an RGB assumption fringes every glyph the wrong way. |
-| `colour` | `mono` \| `grayscale` \| `e6` \| `e7` \| `full` | The palette, the contrast floor, and whether a view may signal with hue at all. |
+| `shape` | `rectangle` \| `square` \| `round` | The internal mask and the safe inset. A shape that does not fill its box is masked by CastKit, so no view draws into pixels the glass cannot show. |
+| `pixelGrid` | the glass's own pixel pair, plus subpixel order `rgb-stripe` \| `bgr-stripe` \| `none` | Text antialiasing, and the `size`-against-datasheet check. Subpixel AA on a `none` grid (any ePaper) is colored noise; on a `bgr-stripe` panel an RGB assumption fringes every glyph the wrong way. |
+| `color` | `monochrome` \| `grayscale` \| `spectra6` \| `galleryPalette7` \| `full` | The palette, the contrast floor, and whether a view may signal with hue at all. |
 | `ditheredBy` | `castkit` \| `panel` \| `none` | Whether the pipeline quantises. `panel` means the controller does it (the Inky library); `none` means nobody does, so what we emit is exactly what the glass shows (the M5Paper). |
 | `repaint` | `instant` \| `fast` \| `slow`, derived from full-frame milliseconds and whether partial update exists | Whether a view may carry a second hand, a moving progress bar, a crossfade, or a live drag. |
 | `input` | `none` \| `touch` \| `pointer` | Whether controls exist at all, and how big they are. |
@@ -27,7 +27,7 @@ subject of a branch in code, in CSS, in a test name or in a Storybook title.**
 Two rules follow from the table, and they are the whole point of it.
 
 1. **No property implies another.** The M5Paper is ePaper with `input: touch`
-   and a `repaint` fast enough to animate. The WT32-SC01 is a colour LCD with
+   and a `repaint` fast enough to animate. The WT32-SC01 is a color LCD with
    `delivery: pushed-frames`, because an ESP32 has no browser — so it is fed
    exactly the way an Inky is. The Inky Impression is `ditheredBy: panel`; the
    M5Paper beside it is `ditheredBy: none`. Any code that reads one of these
@@ -39,9 +39,9 @@ Two rules follow from the table, and they are the whole point of it.
 ## Context
 
 CastKit was Inkcast plus Slatecast, and the seam is still in the type system.
-The image half carries `DeviceMetadata` — `colourMode`, `rotation`,
+The image half carries `DeviceMetadata` — `colorMode`, `rotation`,
 `ditherProfile`, `imageDelivery`. The live half carries `BrowserDeviceProfile` —
-`shape`, `hasTouch`, `colour`, `externalViews`. Neither is a superset of the
+`shape`, `hasTouch`, `color`, `externalViews`. Neither is a superset of the
 other, both describe the same nine facts about a piece of glass, and four facts
 appear in neither: `pixelGrid`, `repaint`, panel-side dithering as distinct from
 our own, and the mask a non-rectangular panel needs.
@@ -51,12 +51,12 @@ The household fleet already breaks every shortcut the two-type split encodes:
 | Panel | Technology | `input` | `delivery` | `ditheredBy` | `repaint` |
 | --- | --- | --- | --- | --- | --- |
 | Inky pHAT | ePaper mono | `none` | `pushed-frames` | `panel` | `slow` |
-| Inky Impression 7.3" | ePaper E6 | `none` | `pushed-frames` | `panel` | `slow` |
+| Inky Impression 7.3" | ePaper E Ink Spectra 6 | `none` | `pushed-frames` | `panel` | `slow` |
 | M5Paper | ePaper mono | `touch` | `pulled-frames` | `none` | `fast` |
-| WT32-SC01 Plus | colour LCD | `touch` | `pushed-frames` | `none` | `fast` |
-| HyperPixel 4.0 Square | colour LCD | `touch` | `live-browser` | `none` | `instant` |
-| HyperPixel 2.1 Round | colour LCD | `none` | `live-browser` | `none` | `instant` |
-| Pi Touch Display 2 | colour LCD | `touch` | `live-browser` | `none` | `instant` |
+| WT32-SC01 Plus | color LCD | `touch` | `pushed-frames` | `none` | `fast` |
+| HyperPixel 4.0 Square | color LCD | `touch` | `live-browser` | `none` | `instant` |
+| HyperPixel 2.1 Round | color LCD | `none` | `live-browser` | `none` | `instant` |
+| Pi Touch Display 2 | color LCD | `touch` | `live-browser` | `none` | `instant` |
 
 Read down the technology column and nothing else lines up with it. Read down
 `delivery` and the M5Paper sits with the WT32, an ePaper panel and an LCD
@@ -100,7 +100,7 @@ and the ESPHome node config. The WT32 row is from
 [2026-09-10-an-esphome-receiver-can-be-a-registered-slatecast-device.md](2026-09-10-an-esphome-receiver-can-be-a-registered-slatecast-device.md).
 
 `ditheredBy` already exists in disguise: `DITHER_ALGORITHMS` includes `off`,
-documented as "skips our quantization entirely and sends the full-colour
+documented as "skips our quantization entirely and sends the full-color
 downscaled image so the panel's own controller does the dithering". That is a
 device property wearing an algorithm's clothes.
 

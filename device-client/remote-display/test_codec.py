@@ -6,10 +6,10 @@ from codec import encode_frame
 
 
 class CodecTests(unittest.TestCase):
-    def test_rgb565_exact_colour_and_size(self):
+    def test_rgb565_exact_color_and_size(self):
         image = Image.new('RGB', (480,320), 'black')
-        for index, colour in enumerate([(255,0,0),(0,255,0),(0,0,255),(255,255,255)]):
-            image.putpixel((index,0),colour)
+        for index, color in enumerate([(255,0,0),(0,255,0),(0,0,255),(255,255,255)]):
+            image.putpixel((index,0),color)
         source = io.BytesIO()
         image.save(source,format='PNG')
         decoded = zlib.decompress(encode_frame(source.getvalue()))

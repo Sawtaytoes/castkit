@@ -4,7 +4,7 @@ import type { PanelViewProps } from "./viewProps.ts"
 import {
   buildPanelRootStyle,
   fitText,
-  getAccentColour,
+  getAccentColor,
   READABLE_FONT_FLOOR_PX,
 } from "./viewStyles.ts"
 
@@ -32,14 +32,14 @@ const COMPACT_PANEL_MAX_HEIGHT = 200
 export const ClockWeatherView = ({
   width,
   height,
-  colourMode,
+  colorMode,
   time,
   date,
   temperatureText,
   conditionText,
 }: ClockWeatherViewProps) => {
-  const accentColour = getAccentColour({
-    colourMode,
+  const accentColor = getAccentColor({
+    colorMode,
     intent: "accent",
   })
   const isCompactPanel = height <= COMPACT_PANEL_MAX_HEIGHT
@@ -51,7 +51,7 @@ export const ClockWeatherView = ({
 
   const horizontalPadding = Math.round(width * 0.04)
   const availableWidth = width - horizontalPadding * 2
-  const readableFloor = READABLE_FONT_FLOOR_PX[colourMode]
+  const readableFloor = READABLE_FONT_FLOOR_PX[colorMode]
 
   // With weather present the time cedes a little height to the extra line;
   // without it the proportions match ClockView. Long time strings
@@ -118,7 +118,7 @@ export const ClockWeatherView = ({
     ...buildPanelRootStyle({
       width,
       height,
-      colourMode,
+      colorMode,
     }),
     alignItems: "center",
     justifyContent: "center",
@@ -131,7 +131,7 @@ export const ClockWeatherView = ({
     fontWeight: 700,
     lineHeight: 1,
     whiteSpace: "nowrap",
-    color: accentColour,
+    color: accentColor,
   }
 
   const compactDateStyle: CSSProperties = {
@@ -173,7 +173,7 @@ export const ClockWeatherView = ({
     fontSize: compactTemperatureFontSize,
     fontWeight: 700,
     lineHeight: 1,
-    color: accentColour,
+    color: accentColor,
   }
 
   const compactConditionStyle: CSSProperties = {
@@ -203,7 +203,7 @@ export const ClockWeatherView = ({
     fontSize: largeTemperatureFontSize,
     fontWeight: 700,
     lineHeight: 1,
-    color: accentColour,
+    color: accentColor,
   }
 
   const largeConditionStyle: CSSProperties = {

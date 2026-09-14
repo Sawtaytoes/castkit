@@ -110,7 +110,7 @@ describe("computeFaceCropRect", () => {
 
   test("fill: fills the panel (never null) when faces span too far", () => {
     // Same faces that make computeFaceCropRect letterbox (return null): here
-    // fill must still return a crop that fills the panel, centred on the mass.
+    // fill must still return a crop that fills the panel, centered on the mass.
     const cropRect = computeFillCropRect({
       imageWidth: 1000,
       imageHeight: 1000,
@@ -120,14 +120,14 @@ describe("computeFaceCropRect", () => {
         { x1: 0.4, y1: 0.8, x2: 0.6, y2: 0.98 },
       ],
     })
-    // Maximal window is 1000×600; the crop fills that, centred vertically on
+    // Maximal window is 1000×600; the crop fills that, centered vertically on
     // the face mass (midpoint ≈ y 500 → top ≈ 200).
     expect(cropRect.width).toBe(1000)
     expect(cropRect.height).toBe(600)
     expect(cropRect.top).toBe(200)
   })
 
-  test("fill: centre cover-crop when there are no faces", () => {
+  test("fill: center cover-crop when there are no faces", () => {
     const cropRect = computeFillCropRect({
       imageWidth: 1200,
       imageHeight: 1600,
@@ -135,7 +135,7 @@ describe("computeFaceCropRect", () => {
       faceBoxes: [],
     })
     // 1200×1600 portrait into 800×480 landscape → full-width 1200×720 band,
-    // vertically centred (top = (1600-720)/2 = 440).
+    // vertically centered (top = (1600-720)/2 = 440).
     expect(cropRect.width).toBe(1200)
     expect(cropRect.height).toBe(720)
     expect(cropRect.top).toBe(440)

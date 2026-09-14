@@ -11,7 +11,7 @@ import {
 /**
  * Decision-1 bake-off: render the now-playing card through BOTH engines
  * (Chromium and Satori) at each panel size and lay them side by side so you
- * can compare fidelity + preview-parity. Writes full-colour (pre-dither) PNGs
+ * can compare fidelity + preview-parity. Writes full-color (pre-dither) PNGs
  * and one comparison sheet to `render-output/render/`.
  */
 
@@ -43,7 +43,7 @@ const run = async () => {
       element: buildNowPlayingElement({
         width: panel.width,
         height: panel.height,
-        colourMode: panel.colourMode,
+        colorMode: panel.colorMode,
       }),
       width: panel.width,
       height: panel.height,

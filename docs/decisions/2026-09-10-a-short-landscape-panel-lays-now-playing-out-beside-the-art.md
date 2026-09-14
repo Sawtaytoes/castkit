@@ -4,13 +4,13 @@
 - **Date:** 2026-09-10
 - **Type:** View layout
 - **Supersedes:** —
-- **Superseded by:** [2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md](2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md) in part — the text block is centred on the art and each line may wrap; the transport row is gone everywhere
+- **Superseded by:** [2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md](2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md) in part — the text block is centered on the art and each line may wrap; the transport row is gone everywhere
 
 ## Decision
 
 On a panel that is wider than it is tall by a clear margin and short — the media
 query is `(min-aspect-ratio: 5/4) and (max-height: 400px)`, which today is only the
-480×320 WT32 workbench panel — the Now Playing view is a grid, not the centred
+480×320 WT32 workbench panel — the Now Playing view is a grid, not the centered
 column: the art fills the height at the left (232 px), the title, artist, album and
 seek bar sit beside it, and the volume row runs across the bottom. The transport
 row is not rendered on that panel: the art is the transport (a tap is play/pause, a
@@ -25,9 +25,9 @@ Slatecast sizes everything in `vmin`. On the 720×720 square that gives a 36 px
 title; on the 480×320 WT32 the same rules gave 16 px, an 11.5 px artist line and 8 px
 seek times, on glass where 1 px is 0.156 mm. The owner could not read the panel from
 the workbench and barely up close, and the panel's low-contrast glass makes small
-grey type worse. A 4x render was considered and rejected: the panel still has
+gray type worse. A 4x render was considered and rejected: the panel still has
 480×320 pixels, and the renderer already screenshots at scale 1 with grayscale
-antialiasing (measured: text edges sit on the grey ramp, residual 0.56 levels).
+antialiasing (measured: text edges sit on the gray ramp, residual 0.56 levels).
 
 Three candidates were served at true size on 2026-09-10: A (art left, text beside,
 volume across the bottom, transport on the art), B (art at full height, one 160 px

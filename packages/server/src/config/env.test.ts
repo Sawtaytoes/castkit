@@ -19,7 +19,7 @@ const BASE_DEVICE = {
   mac: "02:00:00:00:00:09",
   width: 1600,
   height: 1200,
-  colourMode: "e6",
+  colorMode: "spectra6",
 }
 
 test("reads a device's photoPeople seed list", () => {

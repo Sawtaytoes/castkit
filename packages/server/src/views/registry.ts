@@ -36,7 +36,7 @@ const NOW_PLAYING_VIEW_NAMES: ReadonlySet<ViewName> =
  * Views that display the time and need the minute re-push. "Agenda" is
  * deliberately ABSENT: it shows no clock, so it stays valid until the agenda
  * data changes. That is the entire reason it exists — a per-minute repaint on
- * a slow-refreshing colour ePaper panel is unusable.
+ * a slow-refreshing color ePaper panel is unusable.
  */
 const CLOCK_BEARING_VIEW_NAMES: ReadonlySet<ViewName> =
   new Set([
@@ -193,7 +193,7 @@ export const renderViewElement = ({
   const panel = {
     width: device.width,
     height: device.height,
-    colourMode: device.colourMode,
+    colorMode: device.colorMode,
   }
   const nowPlayingProps = nowPlaying ?? IDLE_NOW_PLAYING
   const isCompactClock =

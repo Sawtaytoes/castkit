@@ -34,7 +34,7 @@ it exposes only the read-only "Music playing" sensor.
 
 This continues the same-day move of all view/follow *policy* into HA automations
 (see [view switching via HA automations](2026-07-02-view-switching-via-ha-automations.md)).
-The exclusion list was the last piece of behaviour policy still living inside the
+The exclusion list was the last piece of behavior policy still living inside the
 server. With view switching already automation-driven, an automation that keys
 off the bedtime speaker is the natural, visible place to exclude it — and it
 removes a config surface that only ever held one value.

@@ -17,8 +17,8 @@ The repo is renamed **`castkit`** and becomes the umbrella platform. There is
   tiny Preact SPA renders live views itself, with a WebSocket to the server.
 
 Devices declare **static capabilities** in the devices file — `renderer`,
-`touch`, `colour` (`mono`/`grayscale`/`e6`/`full`), `width`/`height`, `shape`
-(`square`/`round`/`rect`) — which gate view availability (a touchless device
+`touch`, `color` (`monochrome`/`grayscale`/`spectra6`/`full`), `width`/`height`, `shape`
+(`square`/`round`/`rectangle`) — which gate view availability (a touchless device
 never gets an interactive-only view) and adapt rendering (touchless →
 controls become passive; grayscale → no color accents; round → circle-safe
 insets). Orientation is NOT a capability: it's a runtime HA config knob so an

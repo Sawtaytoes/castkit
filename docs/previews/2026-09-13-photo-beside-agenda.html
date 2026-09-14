@@ -182,7 +182,7 @@
     </p>
     <p class="blurb">
       <b>What settled it was the real panel, not this drawing.</b> Both rail
-      colours were built for the Kitchen Counter display with a live calendar
+      colors were built for the Kitchen Counter display with a live calendar
       and published to the glass. Two numbers moved the decision, and neither
       is visible here: real event titles ran to 41 characters against 12 to 16
       in the fixtures, and at 62 / 38 that fits 2 of a 6-event day against 6 of
@@ -213,13 +213,13 @@
 
     <script>
       const INKS = {
-        e6: {
+        spectra6: {
           paper: "#D0D2D2",
           ink: "#000000",
           accent: "#1F1EAF",
           floor: 24,
         },
-        mono: {
+        monochrome: {
           paper: "#FFFFFF",
           ink: "#000000",
           accent: "#000000",
@@ -234,7 +234,7 @@
           label: 'Inky Impression 13.3" — 1600 x 1200, Spectra 6',
           width: 1600,
           height: 1200,
-          mode: "e6",
+          mode: "spectra6",
           inset: { top: 0, right: 0, bottom: 0, left: 0 },
           zoom: 0.52,
         },
@@ -245,7 +245,7 @@
             "Kitchen Counter — 800 x 480, Spectra 6, mat 36 / 63 / 28 / 59",
           width: 800,
           height: 480,
-          mode: "e6",
+          mode: "spectra6",
           inset: { top: 36, right: 63, bottom: 28, left: 59 },
           zoom: 1,
         },
@@ -255,7 +255,7 @@
           label: "M5Paper — 960 x 540, 1-bit mono",
           width: 960,
           height: 540,
-          mode: "mono",
+          mode: "monochrome",
           inset: { top: 0, right: 0, bottom: 0, left: 0 },
           zoom: 1,
         },
@@ -280,8 +280,8 @@
       const PHOTOS = {
         portrait: "photos/portrait-face.jpg",
         portraitSecond: "photos/portrait-face.jpg",
-        landscape: "photos/landscape-colour.jpg",
-        landscapeAlt: "photos/landscape-colour.jpg",
+        landscape: "photos/landscape-color.jpg",
+        landscapeAlt: "photos/landscape-color.jpg",
       }
 
       const state = {
@@ -344,9 +344,9 @@
         events,
         density,
       }) => {
-        const _paperColour = onInk ? inks.ink : inks.paper
-        const textColour = onInk ? inks.paper : inks.ink
-        const accentColour = onInk ? inks.paper : inks.accent
+        const _paperColor = onInk ? inks.ink : inks.paper
+        const textColor = onInk ? inks.paper : inks.ink
+        const accentColor = onInk ? inks.paper : inks.accent
 
         // Every line is fitted to the RAIL, not just scaled off the panel
         // height: at 34% of a 1600 px panel "9:41 AM" overran the band and
@@ -427,7 +427,7 @@
               fontSize: `${timeSize}px`,
               fontWeight: 700,
               lineHeight: 1,
-              color: accentColour,
+              color: accentColor,
               letterSpacing: "-0.02em",
             },
             DATA.time,
@@ -438,7 +438,7 @@
               fontSize: `${meridiemSize}px`,
               fontWeight: 700,
               lineHeight: 1,
-              color: textColour,
+              color: textColor,
               marginLeft: `${Math.round(timeSize * 0.1)}px`,
             },
             DATA.meridiem,
@@ -458,7 +458,7 @@
               fontSize: `${dateSize}px`,
               fontWeight: 700,
               lineHeight: 1.15,
-              color: textColour,
+              color: textColor,
               whiteSpace: "nowrap",
             },
             DATA.weekday,
@@ -469,7 +469,7 @@
               fontSize: `${dateSize}px`,
               fontWeight: 700,
               lineHeight: 1.15,
-              color: textColour,
+              color: textColor,
               whiteSpace: "nowrap",
             },
             DATA.monthDay,
@@ -490,7 +490,7 @@
               fontSize: `${tempSize}px`,
               fontWeight: 700,
               lineHeight: 1,
-              color: accentColour,
+              color: accentColor,
             },
             DATA.temperature,
           ),
@@ -500,7 +500,7 @@
               fontSize: `${conditionSize}px`,
               fontWeight: 700,
               lineHeight: 1,
-              color: textColour,
+              color: textColor,
               marginLeft: `${Math.round(visibleHeight * 0.018)}px`,
               whiteSpace: "nowrap",
               overflow: "hidden",
@@ -516,7 +516,7 @@
         const rule = el("div", {
           height: `${Math.max(2, Math.round(visibleHeight * 0.005))}px`,
           width: "100%",
-          backgroundColor: accentColour,
+          backgroundColor: accentColor,
           marginTop: `${Math.round(visibleHeight * 0.045)}px`,
           marginBottom: `${Math.round(visibleHeight * 0.03)}px`,
         })
@@ -531,7 +531,7 @@
               lineHeight: 1,
               letterSpacing: "1px",
               textTransform: "uppercase",
-              color: accentColour,
+              color: accentColor,
               marginBottom: `${Math.round(visibleHeight * 0.022)}px`,
             },
             density === "quiet" ? "Next" : "Today",
@@ -557,7 +557,7 @@
                 fontSize: `${rowSize}px`,
                 fontWeight: 700,
                 lineHeight: 1.15,
-                color: accentColour,
+                color: accentColor,
                 width: isStackedRow ? "auto" : `${timeColumnWidth}px`,
                 flexShrink: 0,
                 whiteSpace: "nowrap",
@@ -570,7 +570,7 @@
                 fontSize: `${rowSize}px`,
                 fontWeight: 700,
                 lineHeight: 1.15,
-                color: textColour,
+                color: textColor,
                 whiteSpace: isStackedRow ? "normal" : "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -618,7 +618,7 @@
         {
           id: "baseline-agenda",
           title: "Baseline B — Clock (Agenda), as it is today",
-          note: "One centred column. It is readable from across the room and it uses about a third of a 13.3\" panel.",
+          note: "One centered column. It is readable from across the room and it uses about a third of a 13.3\" panel.",
           build: (panel, events) => {
             const root = panelRoot(panel)
             const inks = INKS[panel.mode]

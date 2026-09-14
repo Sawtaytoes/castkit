@@ -17,10 +17,10 @@ type Device = {
   renderer?: "browser"
   width: number
   height: number
-  colourMode?: "mono" | "e6"
-  colour?: "mono" | "grayscale" | "e6" | "full"
+  colorMode?: "monochrome" | "spectra6"
+  color?: "monochrome" | "grayscale" | "spectra6" | "full"
   rotation?: 0 | 90 | 180 | 270
-  shape?: "square" | "round" | "rect"
+  shape?: "square" | "round" | "rectangle"
   hasTouch?: boolean
   /** A backlight agent listens on the device's MQTT light topics. */
   hasMqttBacklight?: boolean
@@ -28,21 +28,21 @@ type Device = {
 
 type AutomationSettings = Record<string, string>
 
-const IMAGE_COLOUR_OPTIONS = [
-  { label: "Mono", value: "mono" },
-  { label: "Spectra 6", value: "e6" },
+const IMAGE_COLOR_OPTIONS = [
+  { label: "Mono", value: "monochrome" },
+  { label: "Spectra 6", value: "spectra6" },
 ]
-const BROWSER_COLOUR_OPTIONS = [
-  { label: "Full colour", value: "full" },
-  { label: "Greyscale", value: "grayscale" },
-  { label: "Mono", value: "mono" },
-  { label: "Spectra 6", value: "e6" },
+const BROWSER_COLOR_OPTIONS = [
+  { label: "Full color", value: "full" },
+  { label: "Grayscale", value: "grayscale" },
+  { label: "Mono", value: "monochrome" },
+  { label: "Spectra 6", value: "spectra6" },
 ]
 const ROTATION_OPTIONS = [0, 90, 180, 270].map((value) => ({
   label: `${value}°`,
   value: String(value),
 }))
-const SHAPE_OPTIONS = ["rect", "square", "round"].map(
+const SHAPE_OPTIONS = ["rectangle", "square", "round"].map(
   (value) => ({
     label: value[0]?.toUpperCase() + value.slice(1),
     value,
@@ -71,7 +71,7 @@ const TIME_FORMAT_OPTIONS = [
 const DATE_STYLE_OPTIONS = ["Auto", "Long", "Numeric"].map(
   (value) => ({ label: value, value }),
 )
-const COLOUR_MODE_OPTIONS = ["Color", "Black & White"].map(
+const COLOR_MODE_OPTIONS = ["Color", "Black & White"].map(
   (value) => ({ label: value, value }),
 )
 const AUTOMATION_PICKERS: readonly {
@@ -112,7 +112,7 @@ const getBlankDevice = (): Device => ({
   mac: "",
   width: 800,
   height: 480,
-  colourMode: "e6",
+  colorMode: "spectra6",
   rotation: 0,
 })
 
@@ -437,15 +437,15 @@ export const App = () => {
                         value === "browser"
                           ? {
                               renderer: "browser",
-                              colour: "full",
-                              shape: "rect",
+                              color: "full",
+                              shape: "rectangle",
                             }
                           : {
                               renderer: undefined,
-                              colour: undefined,
+                              color: undefined,
                               shape: undefined,
                               hasTouch: undefined,
-                              colourMode: "e6",
+                              colorMode: "spectra6",
                               rotation: 0,
                             },
                       )
@@ -464,17 +464,16 @@ export const App = () => {
                 </Field>
                 {isBrowserDevice ? (
                   <>
-                    <Field label="Colour">
+                    <Field label="Color">
                       <Picker
-                        label="Colour"
+                        label="Color"
                         onChange={(value) =>
                           updateSelectedDevice({
-                            colour:
-                              value as Device["colour"],
+                            color: value as Device["color"],
                           })
                         }
-                        options={BROWSER_COLOUR_OPTIONS}
-                        value={selectedDevice.colour}
+                        options={BROWSER_COLOR_OPTIONS}
+                        value={selectedDevice.color}
                       />
                     </Field>
                     <Field label="Shape">
@@ -562,17 +561,17 @@ export const App = () => {
                   </>
                 ) : (
                   <>
-                    <Field label="Colour mode">
+                    <Field label="Color mode">
                       <Picker
-                        label="Colour mode"
+                        label="Color mode"
                         onChange={(value) =>
                           updateSelectedDevice({
-                            colourMode:
-                              value as Device["colourMode"],
+                            colorMode:
+                              value as Device["colorMode"],
                           })
                         }
-                        options={IMAGE_COLOUR_OPTIONS}
-                        value={selectedDevice.colourMode}
+                        options={IMAGE_COLOR_OPTIONS}
+                        value={selectedDevice.colorMode}
                       />
                     </Field>
                     <Field label="Rotation">
@@ -725,20 +724,20 @@ export const App = () => {
                             </Field>
                           ),
                         )}
-                        {selectedDevice.colourMode ===
-                        "e6" ? (
-                          <Field label="Colour mode">
+                        {selectedDevice.colorMode ===
+                        "spectra6" ? (
+                          <Field label="Color mode">
                             <Picker
-                              label="Colour mode"
+                              label="Color mode"
                               onChange={(value) =>
                                 updateAutomationSetting({
-                                  kind: "colourMode",
+                                  kind: "colorMode",
                                   value,
                                 })
                               }
-                              options={COLOUR_MODE_OPTIONS}
+                              options={COLOR_MODE_OPTIONS}
                               value={
-                                automationSettings.colourMode ??
+                                automationSettings.colorMode ??
                                 "Color"
                               }
                             />

@@ -7,7 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
-| 2026-09-14 | [A reflective panel's chrome is dark on paper, and the accent ink carries the emphasis](2026-09-14-a-reflective-panels-chrome-is-dark-on-paper-and-the-accent-ink-carries-the-emphasis.md) — reversed text is not used on a display the room lights; a filled ink panel is a reflective display's worst case, and reversing a surface silently collapses the accent into the body colour. Does not contradict the browser panel's Dark default: that display emits its own light | Accepted |
+| 2026-09-14 | [A reflective panel's chrome is dark on paper, and the accent ink carries the emphasis](2026-09-14-a-reflective-panels-chrome-is-dark-on-paper-and-the-accent-ink-carries-the-emphasis.md) — reversed text is not used on a display the room lights; a filled ink panel is a reflective display's worst case, and reversing a surface silently collapses the accent into the body color. Does not contradict the browser panel's Dark default: that display emits its own light | Accepted |
 | 2026-09-14 | [The photo-beside-agenda rail is paper, and the split is even](2026-09-14-the-photo-beside-agenda-rail-is-paper-and-the-split-is-even.md) — closes both questions the split record left open, with the measured geometry for an 800 x 480 panel | Accepted |
 | 2026-09-14 | [An agenda view draws only the rows that finish on the panel](2026-09-14-an-agenda-view-draws-only-the-rows-that-finish-on-the-panel.md) — the view measures its own header, divides what is left by a row, and drops the least imminent events instead of pushing them off the glass; the gaps halve while an agenda is on the panel | Accepted |
 | 2026-09-14 | [A photo beside the agenda is a real split, never a band over the photo](2026-09-14-a-photo-beside-the-agenda-is-a-real-split-never-a-band-over-the-photo.md) — the band over a full-bleed photo is rejected; the rail's background (paper or ink) and the split ratio stay open, with a 62 / 38 rail fitting 2 of 6 events against 6 of 6 at 50 / 50 | Accepted |
@@ -28,7 +28,7 @@ proposing a change; a settled decision here overrides default instinct.
 | 2026-09-11 | [A weather condition mark is drawn by CastKit from the Home Assistant code](2026-09-11-a-weather-condition-mark-is-drawn-by-castkit-from-the-home-assistant-code.md) | Accepted |
 | 2026-09-11 | [A panel's registry size is its layout box, and rotation never re-lays-out a view](2026-09-11-a-panels-registry-size-is-its-layout-box-and-rotation-never-re-lays-out.md) | Accepted |
 | 2026-09-11 | [A vertical swipe asks the house for a view](2026-09-11-a-vertical-swipe-asks-the-house-for-a-view.md) | Accepted |
-| 2026-09-11 | [The artwork is the transport on every touch panel, and the text is centred on it](2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md) | Accepted |
+| 2026-09-11 | [The artwork is the transport on every touch panel, and the text is centered on it](2026-09-11-the-artwork-is-the-transport-on-every-touch-panel-and-the-text-is-centred-on-it.md) | Accepted |
 | 2026-09-11 | [CastKit owns the backlight level and restores it on reconnect](2026-09-11-castkit-owns-the-backlight-level-and-restores-it-on-reconnect.md) | Accepted |
 | 2026-09-10 | [A short landscape panel lays Now Playing out beside the art](2026-09-10-a-short-landscape-panel-lays-now-playing-out-beside-the-art.md) | Accepted |
 | 2026-09-10 | [Slatecast uses the Charcuterie sans, not `system-ui`](2026-09-10-slatecast-uses-the-charcuterie-sans.md) | Accepted |
@@ -47,7 +47,7 @@ proposing a change; a settled decision here overrides default instinct.
 | 2026-08-27 | [Device management uses a list and editor](2026-08-27-device-management-uses-a-list-and-editor.md) | Accepted |
 | 2026-08-16 | [The dev preview gets a router; `/d/:id` and Slatecast deliberately do not](2026-08-16-the-dev-preview-routes-slatecast-and-d-id-do-not.md) — `packages/web` takes `<BrowserRouter>` + a one-entry `<Routes>` table per the fleet decision. The other two browser surfaces stay put on purpose: `/d/:id` is **server-rendered per device** and already a real path (the server IS the router), and Slatecast has one view and gets its device id from the rendered HTML rather than the URL. `hasSpaFallback: false` on `/assets/*` stays false — that is an asset origin, where a missing chunk must 404 rather than return HTML | Accepted |
 | 2026-07-27 | [A per-device "Updates" switch pauses a display, with no global counterpart](2026-07-27-per-device-updates-pause-switch.md) | Accepted |
-| 2026-07-27 | [A clockless "Agenda" view, so slow colour panels can show a calendar](2026-07-27-clockless-agenda-view.md) | Accepted |
+| 2026-07-27 | [A clockless "Agenda" view, so slow color panels can show a calendar](2026-07-27-clockless-agenda-view.md) | Accepted |
 | 2026-07-26 | [The Photo Frame people filter combines by a "minimum matches" threshold, not an AND/OR toggle](2026-07-26-photo-people-minimum-is-a-threshold-not-an-and-or-toggle.md) | Accepted |
 | 2026-07-26 | [The Photo Frame people filter seeds from the device registry, not an HA self-heal automation](2026-07-26-photo-people-seeds-from-the-device-registry.md) | Accepted |
 | 2026-07-24 | [Slatecast tests run in real Chromium, with MSW's WebSocket link as the server](2026-07-24-slatecast-tests-real-chromium-msw-websocket.md) | Accepted |
@@ -62,14 +62,14 @@ proposing a change; a settled decision here overrides default instinct.
 | 2026-07-05 | [Device `id` is an opaque, immutable identity — location/model live only in Home Assistant](2026-07-05-device-id-is-opaque-immutable-identity.md) | Accepted |
 | 2026-07-04 | [Inkcast is a HA-agnostic renderer: HA pushes view data over MQTT; Inkcast never reads HA](2026-07-04-inkcast-renders-ha-pushed-data-not-reads-ha.md) | Accepted |
 | 2026-07-04 | [The now-playing source is an HA config entity: a per-device priority-ordered media_player list](2026-07-04-now-playing-source-is-ha-config-priority-list.md) | Superseded |
-| 2026-07-03 | [The full-colour photo frame ships JPEG, not WebP, because the panel Pi is ARMv6](2026-07-03-photo-frame-jpeg-not-webp-on-armv6.md) | Accepted |
+| 2026-07-03 | [The full-color photo frame ships JPEG, not WebP, because the panel Pi is ARMv6](2026-07-03-photo-frame-jpeg-not-webp-on-armv6.md) | Accepted |
 | 2026-07-03 | [ESPHome clients pull images over HTTP via ephemeral single-use token URLs (evict after full flush)](2026-07-03-esphome-http-image-delivery.md) | Accepted |
 | 2026-07-03 | [User-tunable view settings are HA/MQTT config entities (global + per-device), never env vars](2026-07-03-user-tunable-view-settings-are-ha-config-entities.md) | Accepted |
 | 2026-07-02 | [Agenda calendars are HA/MQTT config entities (global + per-device), never env vars](2026-07-02-agenda-calendars-are-ha-config-entities-not-env.md) | Accepted |
 | 2026-07-02 | [The Clock (Agenda) view pulls calendar events from HA; it is not pushed](2026-07-02-clock-agenda-view-pulls-calendar-from-ha.md) | Superseded |
 | 2026-07-02 | [The "no dithering" option is labeled `off`, not `none` (HA reserves `none`)](2026-07-02-dither-off-token-not-none-ha-reserved.md) | Accepted |
 | 2026-07-02 | [Follow-mode player exclusion is decided by the HA automation, not by Inkcast](2026-07-02-follow-exclusion-moves-to-ha-automation.md) | Accepted |
-| 2026-07-02 | [A "none" dither option hands the panel a full-colour image](2026-07-02-none-dither-panel-native.md) | Superseded |
+| 2026-07-02 | [A "none" dither option hands the panel a full-color image](2026-07-02-none-dither-panel-native.md) | Superseded |
 | 2026-07-02 | [Mat safe-area crop is a per-device MQTT/HA control, not device config](2026-07-02-safe-area-crop-via-mqtt.md) — the knob still works exactly this way; what a photo view does with it is superseded by [2026-09-07](2026-09-07-photo-views-compose-for-the-visible-window.md) | Accepted |
 | 2026-07-02 | [Fitted text has a readable floor and condenses before it shrinks](2026-07-02-fit-text-readable-floor-and-condense.md) | Accepted |
 | 2026-07-02 | [Now-playing Dashboard uses one compact layout at every panel size](2026-07-02-now-playing-single-compact-layout.md) | Accepted |

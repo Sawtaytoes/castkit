@@ -2,7 +2,7 @@ import type { PanelMargin } from "@castkit/core/panels/safeArea"
 import { resolveSafeArea } from "@castkit/core/panels/safeArea"
 import type { ViewName } from "@castkit/shared/views/viewNames"
 import { getIsPhotoView } from "@castkit/shared/views/viewNames"
-import type { ViewColourMode } from "@castkit/views/viewProps"
+import type { ViewColorMode } from "@castkit/views/viewProps"
 import { useEffect, useState } from "react"
 import { pickPhotoForPanel } from "../stories/__fixtures__/samplePhotos.ts"
 import { coverCropToDataUrl } from "./coverCropPhoto.ts"
@@ -31,7 +31,7 @@ export type PanelStageProps = {
   viewName: ViewName
   width: number
   height: number
-  colourMode: ViewColourMode
+  colorMode: ViewColorMode
   panelMargin?: PanelMargin
   isEmpty?: boolean
   photoUrl?: string
@@ -41,7 +41,7 @@ export const PanelStage = ({
   viewName,
   width,
   height,
-  colourMode,
+  colorMode,
   panelMargin,
   isEmpty,
   photoUrl,
@@ -112,7 +112,7 @@ export const PanelStage = ({
           viewName,
           width: contentWidth,
           height: contentHeight,
-          colourMode,
+          colorMode,
           isEmpty,
           photoUrl: croppedPhotoUrl ?? sourcePhotoUrl,
         })}

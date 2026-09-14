@@ -53,7 +53,7 @@ are visibly a temporary bridge rather than a design.
 - **Interactivity and delivery are rendering concerns.** CastKit owns the
   renderers, the WebSocket, the dither pipeline and the image topics. It is the
   only component that can be correct about them.
-- **Home Assistant should hold one rule per behaviour, not one per renderer.** A
+- **Home Assistant should hold one rule per behavior, not one per renderer.** A
   rule duplicated per display type is a rule that will be fixed in one place and
   not the other.
 - **It keeps Home Assistant optional.** A surface that only names views is a

@@ -31,7 +31,7 @@ interval `INKCAST_CALENDAR_MINUTES`, like `INKCAST_PHOTO_MINUTES`).
 
 The agenda view first shipped its calendar source as `HOME_ASSISTANT_CALENDAR_ENTITIES`
 env + a `calendarEntityIds` field in the devices file. That repeats the mistake
-the project already settled: entity ids referenced by behaviour must be
+the project already settled: entity ids referenced by behavior must be
 HA-editable, visible, and automatable — not buried in the environment where
 changing them means editing the TrueNAS app config and redeploying.
 

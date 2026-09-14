@@ -45,17 +45,17 @@ type StoryViewBuilder = (
 const buildPanel = ({
   width,
   height,
-  colourMode,
-}: PanelViewProps) => ({ width, height, colourMode })
+  colorMode,
+}: PanelViewProps) => ({ width, height, colorMode })
 
 const buildPhotoView = ({
   width,
   height,
-  colourMode,
+  colorMode,
   photoUrl,
 }: StoryViewOptions) => (
   <PhotoFrameView
-    {...buildPanel({ width, height, colourMode })}
+    {...buildPanel({ width, height, colorMode })}
     photoDataUri={
       photoUrl ?? pickPhotoForPanel({ width, height }).url
     }
@@ -66,16 +66,16 @@ const STORY_VIEW_BUILDERS: Record<
   ViewName,
   StoryViewBuilder
 > = {
-  Clock: ({ width, height, colourMode }) => (
+  Clock: ({ width, height, colorMode }) => (
     <ClockView
-      {...buildPanel({ width, height, colourMode })}
+      {...buildPanel({ width, height, colorMode })}
       {...buildClockStringsFixture(height)}
     />
   ),
 
-  "Clock (Weather)": ({ width, height, colourMode }) => (
+  "Clock (Weather)": ({ width, height, colorMode }) => (
     <ClockWeatherView
-      {...buildPanel({ width, height, colourMode })}
+      {...buildPanel({ width, height, colorMode })}
       {...buildClockStringsFixture(height)}
       {...buildWeatherFixture()}
     />
@@ -84,11 +84,11 @@ const STORY_VIEW_BUILDERS: Record<
   "Clock (Agenda)": ({
     width,
     height,
-    colourMode,
+    colorMode,
     isEmpty,
   }) => (
     <ClockAgendaView
-      {...buildPanel({ width, height, colourMode })}
+      {...buildPanel({ width, height, colorMode })}
       {...buildClockStringsFixture(height)}
       {...buildWeatherFixture()}
       events={
@@ -99,9 +99,9 @@ const STORY_VIEW_BUILDERS: Record<
     />
   ),
 
-  Agenda: ({ width, height, colourMode, isEmpty }) => (
+  Agenda: ({ width, height, colorMode, isEmpty }) => (
     <AgendaView
-      {...buildPanel({ width, height, colourMode })}
+      {...buildPanel({ width, height, colorMode })}
       date={buildClockStringsFixture(height).date}
       {...buildWeatherFixture()}
       events={
@@ -116,10 +116,10 @@ const STORY_VIEW_BUILDERS: Record<
   "Now Playing (Poster)": ({
     width,
     height,
-    colourMode,
+    colorMode,
   }) => (
     <NowPlayingPoster
-      {...buildPanel({ width, height, colourMode })}
+      {...buildPanel({ width, height, colorMode })}
       {...buildNowPlayingFixture()}
     />
   ),
@@ -127,10 +127,10 @@ const STORY_VIEW_BUILDERS: Record<
   "Now Playing (Dashboard)": ({
     width,
     height,
-    colourMode,
+    colorMode,
   }) => (
     <NowPlayingDashboard
-      {...buildPanel({ width, height, colourMode })}
+      {...buildPanel({ width, height, colorMode })}
       {...buildNowPlayingFixture()}
       {...buildClockStringsFixture(height)}
     />

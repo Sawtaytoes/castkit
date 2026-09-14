@@ -22,7 +22,7 @@ Three rules follow:
    string still becomes text (as before) and draws nothing. `unavailable` and
    `unknown` draw nothing, as they print nothing.
 2. **A mark is stroked paths in `currentColor`, no fills, in a 24-unit box.** Feather-style
-   geometry (MIT). Strokes read on the dark scheme and the light one, take the colour of
+   geometry (MIT). Strokes read on the dark scheme and the light one, take the color of
    the text around them, and scale from 30 px to 96 px without a second set. Every mark
    fits inside the box: a test measures each one's bounding box, because the fog and
    windy marks first shipped clipped at the top in the mockup and the owner saw it.

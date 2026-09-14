@@ -18,7 +18,7 @@ import { WeatherMark } from "../WeatherMark.tsx"
  * On the short landscape panel the column becomes two: the time with its
  * meridiem beside it and the date beneath at the left, and the condition's
  * mark over the temperature and condition at the right. Same treatment its
- * three neighbours got on 2026-09-11 — this view was left out of that change
+ * three neighbors got on 2026-09-11 — this view was left out of that change
  * and kept sizing in `vmin`, which is 3.2 px on that glass, so its date and
  * condition rendered at 16 px. It is the view an empty day lands on, so it is
  * read daily from a workbench.

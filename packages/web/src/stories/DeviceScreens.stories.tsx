@@ -39,14 +39,14 @@ const DeviceSheet = ({
         label={viewName}
         width={device.width}
         height={device.height}
-        colourMode={device.colourMode}
+        colorMode={device.colorMode}
         zoom={zoom}
       >
         <PanelStage
           viewName={viewName}
           width={device.width}
           height={device.height}
-          colourMode={device.colourMode}
+          colorMode={device.colorMode}
         />
       </PanelFrame>
     ))}

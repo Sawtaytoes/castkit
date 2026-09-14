@@ -15,7 +15,7 @@ import {
   buildWeather,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
-// The sibling Ambient test loads no stylesheet: it tests behaviour. This one
+// The sibling Ambient test loads no stylesheet: it tests behavior. This one
 // tests a media query, so it needs the real rules in the page.
 import "../styles.css"
 

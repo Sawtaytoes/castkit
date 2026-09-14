@@ -85,7 +85,7 @@ const AlgorithmComparison = ({
           width={device.width}
           height={device.height}
           palette={resolvePalette({
-            colourMode: device.colourMode,
+            colorMode: device.colorMode,
             paletteVariant,
           })}
           algorithm={algorithm}
@@ -98,7 +98,7 @@ const AlgorithmComparison = ({
             viewName="Photo Frame"
             width={device.width}
             height={device.height}
-            colourMode={device.colourMode}
+            colorMode={device.colorMode}
             photoUrl={photoUrl}
           />
         </DitherPreview>
@@ -136,7 +136,7 @@ const SupersampleComparison = ({
           width={device.width}
           height={device.height}
           palette={resolvePalette({
-            colourMode: device.colourMode,
+            colorMode: device.colorMode,
             paletteVariant: "default",
           })}
           algorithm={algorithm}
@@ -149,7 +149,7 @@ const SupersampleComparison = ({
             viewName="Photo Frame"
             width={device.width}
             height={device.height}
-            colourMode={device.colourMode}
+            colorMode={device.colorMode}
             photoUrl={photoUrl}
           />
         </DitherPreview>
@@ -180,12 +180,12 @@ export const M5PaperEveryAlgorithm: Story = {
   ),
 }
 
-export const M5PaperColourSource: Story = {
-  name: "M5Paper mono — a saturated colour photo",
+export const M5PaperColorSource: Story = {
+  name: "M5Paper mono — a saturated color photo",
   render: () => (
     <AlgorithmComparison
       device={M5PAPER_DEVICE}
-      photoUrl={SAMPLE_PHOTOS.colour.url}
+      photoUrl={SAMPLE_PHOTOS.color.url}
     />
   ),
 }
@@ -201,11 +201,11 @@ export const M5PaperGradient: Story = {
 }
 
 export const ImpressionEveryAlgorithm: Story = {
-  name: "Impression E6 — every algorithm",
+  name: "Impression E Ink Spectra 6 — every algorithm",
   render: () => (
     <AlgorithmComparison
       device={IMPRESSION_DEVICE}
-      photoUrl={SAMPLE_PHOTOS.colour.url}
+      photoUrl={SAMPLE_PHOTOS.color.url}
     />
   ),
 }
@@ -233,7 +233,7 @@ export const SupersampleFactors: Story = {
 }
 
 export const EverySamplePhoto: Story = {
-  name: "Every sample photo, Impression E6",
+  name: "Every sample photo, Impression E Ink Spectra 6",
   render: () => (
     <div
       style={{
@@ -253,7 +253,7 @@ export const EverySamplePhoto: Story = {
             width={IMPRESSION_DEVICE.width}
             height={IMPRESSION_DEVICE.height}
             palette={resolvePalette({
-              colourMode: "e6",
+              colorMode: "spectra6",
               paletteVariant: "default",
             })}
             algorithm="floyd-steinberg"
@@ -266,7 +266,7 @@ export const EverySamplePhoto: Story = {
               viewName="Photo Frame"
               width={IMPRESSION_DEVICE.width}
               height={IMPRESSION_DEVICE.height}
-              colourMode="e6"
+              colorMode="spectra6"
               photoUrl={photo.url}
             />
           </DitherPreview>

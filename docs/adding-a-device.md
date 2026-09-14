@@ -32,14 +32,14 @@ working file.
 | `label` | ✅ | Human name shown in Home Assistant. |
 | `mac` | ✅ | The device's wire identity; shown in HA's device `connections`. Lower-case colon-separated. |
 | `width`, `height` | ✅ | Native panel resolution in px. Any positive integers — no fixed list. |
-| `colourMode` | ✅ | `"mono"` (2-ink black/white) or `"e6"` (6-colour Spectra). **The palette is derived from this** — you never hand-write RGB. |
+| `colorMode` | ✅ | `"monochrome"` (2-ink black/white) or `"spectra6"` (6-color Spectra). **The palette is derived from this** — you never hand-write RGB. |
 | `rotation` | — | Clockwise degrees (`0`/`90`/`180`/`270`), default `0`. Also tunable live from HA (see below), so a rough guess here is fine. |
-| `ditherProfile` | — | `{ algorithm, supersampleFactor }`, default `{ "floyd-steinberg", 2 }`. `algorithm` is one of the dither options; `off` hands the panel a full-colour image (photo frame). |
+| `ditherProfile` | — | `{ algorithm, supersampleFactor }`, default `{ "floyd-steinberg", 2 }`. `algorithm` is one of the dither options; `off` hands the panel a full-color image (photo frame). |
 | `nowPlayingEntityId` | — | Pin this display's Now Playing to a specific HA `media_player`; omit to follow the active player. |
 | `photoPeople` | — | Array of Immich person names, e.g. `["Ada", "Grace"]`. **Seed only:** fills the Photo Frame people filter when the broker has no retained value (first boot, or after a retained wipe). HA owns the live value — editing it there never writes back here, and the seed never overwrites what the broker restored. Omit and the frame starts blank. |
 
 Browser-mode entries use `renderer: "browser"`, `shape`, `hasTouch`, and
-`colour` instead of the image palette fields. An optional `externalViews` array
+`color` instead of the image palette fields. An optional `externalViews` array
 adds deployment-owned applications to that device's Home Assistant **View**
 select. Each entry has a display name and an absolute HTTP(S) URL. The Slatecast
 client presents the application in a full-panel frame, while the remote-display
@@ -61,9 +61,9 @@ light sends is folded into the level without an echo. The management UI shows
 the same knob as **Backlight (%)** on a browser device. See
 [the decision](decisions/2026-09-11-castkit-owns-the-backlight-level-and-restores-it-on-reconnect.md).
 
-**Palette note:** there are exactly two palettes — `MONO_PALETTE` and
-`E6_DEFAULT_PALETTE`, keyed by `colourMode`. There is no per-device custom
-palette. A new panel of an existing colour family (e.g. another 6-colour E6
+**Palette note:** there are exactly two palettes — `MONOCHROME_PALETTE` and
+`SPECTRA6_DEFAULT_PALETTE`, keyed by `colorMode`. There is no per-device custom
+palette. A new panel of an existing color family (e.g. another E Ink Spectra 6
 display at a different resolution) needs **no code change** — just a new entry.
 
 ## What each device automatically gets in Home Assistant
@@ -120,8 +120,8 @@ dither, photo config, …) is live over MQTT and needs no restart.
 Same as above — one entry each. Before adding them, confirm:
 
 - **Native resolution** (`width`×`height`).
-- **Colour mode**: 6-colour (`"e6"`) or mono (`"mono"`). If the panel is a
-  different colour technology than E6/mono, that's a palette question to settle
+- **Color mode**: 6-color (`"spectra6"`) or mono (`"monochrome"`). If the panel is a
+  different color technology than E Ink Spectra 6 or monochrome, that's a palette question to settle
   first (only those two palettes exist today).
 - **MAC** of each unit.
 - **Provenance**: Pimoroni/official is fine; **Waveshare is Chinese-origin** and

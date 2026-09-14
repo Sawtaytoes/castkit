@@ -60,7 +60,7 @@ sender** (packet spreading, pacing, redundancy) and fit/crop/dither pipeline.
 
 **Why it fits cleanly.** An LED matrix is just another `image`-mode dumb sink —
 "who renders" is the server, exactly like Inkcast. The device model already
-covers it: a matrix is a small **full-colour `rect`/`square`** panel declaring
+covers it: a matrix is a small **full-color `rectangle`/`square`** panel declaring
 tiny `width`/`height` (e.g. 32x32) in the devices file. The render path also
 largely exists — downscale a React view to the panel grid and emit RGB via the
 existing dither-**off** path (see

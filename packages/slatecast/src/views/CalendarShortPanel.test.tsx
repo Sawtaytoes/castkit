@@ -20,7 +20,7 @@ import {
   buildWeather,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
-// The sibling test files load no stylesheet: they test behaviour. This one
+// The sibling test files load no stylesheet: they test behavior. This one
 // tests a media query, so it needs the real rules in the page.
 import "../styles.css"
 

@@ -3,7 +3,7 @@ import { Resvg } from "@resvg/resvg-js"
 import sharp from "sharp"
 
 /**
- * Bake-off contact-sheet helpers. Composes labelled PNG tiles into a grid so
+ * Bake-off contact-sheet helpers. Composes labeled PNG tiles into a grid so
  * you can eyeball render-engine and dither differences side by side (the
  * Decision-1 and Decision-2 deliverables). Labels are rasterized with resvg +
  * the DejaVu font so this works headless on any OS.
@@ -51,14 +51,14 @@ const renderLabel = ({
   return Buffer.from(resvg.render().asPng())
 }
 
-export type LabelledTile = {
+export type LabeledTile = {
   label: string
   png: Buffer
 }
 
 /**
  * Stack a label above its image and pad the image onto a neutral background so
- * every tile in a row shares the same footprint (mono and E6 tiles differ in
+ * every tile in a row shares the same footprint (mono and E Ink Spectra 6 tiles differ in
  * size otherwise). Returns a fixed-size PNG tile.
  */
 const buildTile = async ({
@@ -66,7 +66,7 @@ const buildTile = async ({
   cellWidth,
   cellImageHeight,
 }: {
-  tile: LabelledTile
+  tile: LabeledTile
   cellWidth: number
   cellImageHeight: number
 }) => {
@@ -100,7 +100,7 @@ const buildTile = async ({
 }
 
 /**
- * Compose a grid of labelled tiles into one contact sheet. `columns` sets the
+ * Compose a grid of labeled tiles into one contact sheet. `columns` sets the
  * wrap width; tiles are sized to the largest native dimensions so panels of
  * different resolutions line up.
  */
@@ -110,7 +110,7 @@ export const buildContactSheet = async ({
   cellWidth,
   cellImageHeight,
 }: {
-  tiles: readonly LabelledTile[]
+  tiles: readonly LabeledTile[]
   columns: number
   cellWidth: number
   cellImageHeight: number

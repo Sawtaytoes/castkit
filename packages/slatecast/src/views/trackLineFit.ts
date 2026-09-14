@@ -57,7 +57,7 @@ const LINE_VARIABLES = [
  * The vertical room the text column has: the Now Playing grid's content box
  * less the rows the seek bar and the volume row take. The art's height is
  * not the limit — the column is taller than the art, and the block is
- * centred on the art either way.
+ * centered on the art either way.
  */
 const availableHeight = (track: HTMLElement) => {
   const grid = track.parentElement

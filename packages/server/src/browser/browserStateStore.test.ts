@@ -14,7 +14,7 @@ const buildDevice = (
     height: 720,
     shape: "square",
     hasTouch: true,
-    colour: "full",
+    color: "full",
     hasMqttBacklight: true,
     externalViews: [],
     ...overrides,
@@ -29,7 +29,7 @@ const buildStore = (
 
 /**
  * These panels are wall appliances, not browsers. "Auto" delegates the scheme
- * to the display's own OS colour preference, which nobody ever sets on a kiosk
+ * to the display's own OS color preference, which nobody ever sets on a kiosk
  * Pi, so an Auto default is a permanent Light in practice — a white rectangle
  * glowing in a dark room. The default is Dark; Auto stays selectable.
  */

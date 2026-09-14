@@ -68,7 +68,7 @@ honest while leaving the reflash requirement in place.
 
 Fitting the date is separate from the orientation question and would have been
 worth doing anyway. The 13.3" Impressions wrap "Friday, September 11" onto two
-lines today, which also breaks the centred column.
+lines today, which also breaks the centered column.
 
 `ClockView` is deliberately **not** changed. It has no horizontal padding and no
 fitting at all, including for the time, so giving it one is a design change

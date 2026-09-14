@@ -9,7 +9,7 @@ import type { RenderEngine } from "./engine.ts"
 import { renderDeviceImage } from "./renderDeviceImage.ts"
 
 /**
- * A stub engine that returns a solid full-colour PNG at the supersampled size
+ * A stub engine that returns a solid full-color PNG at the supersampled size
  * the contract promises — so this test exercises the render→dither composition
  * without launching Chromium.
  */
@@ -33,7 +33,7 @@ const paletteKeys = (
 ) =>
   new Set(
     palette.map(
-      (colour) => `${colour[0]},${colour[1]},${colour[2]}`,
+      (color) => `${color[0]},${color[1]},${color[2]}`,
     ),
   )
 
@@ -59,21 +59,21 @@ describe("renderDeviceImage", () => {
     expect(info.height).toBe(device.height)
 
     const allowed = paletteKeys(device.palette)
-    const offendingColours = new Set<string>()
+    const offendingColors = new Set<string>()
     Array.from({
       length: info.width * info.height,
     }).forEach((_unused, pixelIndex) => {
       const byteOffset = pixelIndex * info.channels
       const key = `${data[byteOffset]},${data[byteOffset + 1]},${data[byteOffset + 2]}`
       if (!allowed.has(key)) {
-        offendingColours.add(key)
+        offendingColors.add(key)
       }
     })
 
     // Collect, then assert once. One expect() per pixel is 384k calls on the
     // Impression, which took ~6.5 s on CI against a 5 s timeout — and the set
-    // of off-palette colours localises a dither bug better than the first bad
+    // of off-palette colors localizes a dither bug better than the first bad
     // pixel's index does.
-    expect(Array.from(offendingColours)).toEqual([])
+    expect(Array.from(offendingColors)).toEqual([])
   })
 })

@@ -13,12 +13,12 @@ the layout previously reserved for the small pHAT: album art beside the
 title/artist/album block, with the date and time together on a single footer
 strip. The large-panel-specific branch (top banner row with the play-state
 glyph + "Now Playing" / "Last Played" text and a corner clock) is **removed**.
-There is no play/paused indicator; the big E6 panel now matches the small mono
+There is no play/paused indicator; the big E Ink Spectra 6 panel now matches the small mono
 one. All text is bold.
 
 ## Context
 
-On the physical 800×480 E6 Impression the Dashboard rendered its large-panel
+On the physical 800×480 E Ink Spectra 6 Impression the Dashboard rendered its large-panel
 branch: a red "LAST PLAYED" banner, a corner clock, and looser type. The
 maintainer found it markedly worse than the small pHAT rendering.
 

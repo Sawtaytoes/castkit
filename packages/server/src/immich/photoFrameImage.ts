@@ -171,7 +171,7 @@ export const computeFaceCropRect = ({
 
 /**
  * One axis of a fill crop: shift the maximal cover-crop the minimum distance to
- * fit the whole face span when it fits, otherwise centre on the face span's
+ * fit the whole face span when it fits, otherwise center on the face span's
  * midpoint (keeping the middle faces and cropping the outliers). Always inside
  * the image — a fill crop never letterboxes.
  */
@@ -205,7 +205,7 @@ const computeFillOffset = ({
 /**
  * The face-steered maximal cover-crop that ALWAYS fills the panel — it never
  * letterboxes. When the faces fit the window it behaves exactly like
- * `computeFaceCropRect`; when they span too far to all fit, it centres on the
+ * `computeFaceCropRect`; when they span too far to all fit, it centers on the
  * face mass (keeping the primary/central faces, cropping the outermost) instead
  * of giving up to white bars. Powers the "Photo Frame (Fill)" view and each
  * column of a dual-portrait composite.
@@ -284,7 +284,7 @@ export const isPortraitImage = async ({
  * How a photo is fit to its target window:
  * - `letterbox` — face-steered cover-crop when every face fits the maximal
  *   window, else white letterbox bars so no one is cut ("Photo Frame").
- * - `fill` — always fills the window, centring on the face mass when the faces
+ * - `fill` — always fills the window, centering on the face mass when the faces
  *   can't all fit ("Photo Frame (Fill)" and dual-portrait columns).
  */
 export type PhotoFitMode = "letterbox" | "fill"

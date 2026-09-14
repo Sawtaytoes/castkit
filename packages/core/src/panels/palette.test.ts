@@ -1,26 +1,28 @@
 import { describe, expect, test } from "vitest"
 import {
-  blendE6Palette,
-  E6_DEFAULT_PALETTE,
-  E6_DEVICE_PALETTE,
-  E6_VIVID_PALETTE,
+  blendSpectra6Palette,
+  SPECTRA6_DEFAULT_PALETTE,
+  SPECTRA6_DEVICE_PALETTE,
+  SPECTRA6_VIVID_PALETTE,
 } from "./palette.ts"
 
-describe("blendE6Palette", () => {
+describe("blendSpectra6Palette", () => {
   test("saturation 0 returns the vivid palette", () => {
-    expect(blendE6Palette({ saturation: 0 })).toEqual(
-      E6_VIVID_PALETTE,
+    expect(blendSpectra6Palette({ saturation: 0 })).toEqual(
+      SPECTRA6_VIVID_PALETTE,
     )
   })
 
   test("saturation 1 returns the device palette", () => {
-    expect(blendE6Palette({ saturation: 1 })).toEqual(
-      E6_DEVICE_PALETTE,
+    expect(blendSpectra6Palette({ saturation: 1 })).toEqual(
+      SPECTRA6_DEVICE_PALETTE,
     )
   })
 
   test("saturation 0.5 averages the two palettes per channel", () => {
-    const blended = blendE6Palette({ saturation: 0.5 })
+    const blended = blendSpectra6Palette({
+      saturation: 0.5,
+    })
 
     // black is identical in both palettes, so it is unchanged.
     expect(blended[0]).toEqual([0, 0, 0])
@@ -29,8 +31,8 @@ describe("blendE6Palette", () => {
   })
 
   test("the fleet default is the 0.5 blend", () => {
-    expect(E6_DEFAULT_PALETTE).toEqual(
-      blendE6Palette({ saturation: 0.5 }),
+    expect(SPECTRA6_DEFAULT_PALETTE).toEqual(
+      blendSpectra6Palette({ saturation: 0.5 }),
     )
   })
 })

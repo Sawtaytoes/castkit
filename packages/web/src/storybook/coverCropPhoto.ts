@@ -9,7 +9,7 @@
  * dithered result. An image whose intrinsic size already equals the panel has
  * nothing to scale, so it rasterizes edge-to-edge.
  *
- * `cover` is the framing: fill the panel, centre-crop the overflow — matching
+ * `cover` is the framing: fill the panel, center-crop the overflow — matching
  * the photo adapter's fill mode.
  */
 

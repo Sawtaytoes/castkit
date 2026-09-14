@@ -59,19 +59,19 @@ const EVENTS: readonly ClockAgendaEvent[] = [
 const M5PAPER = {
   width: 960,
   height: 540,
-  colourMode: "mono",
+  colorMode: "monochrome",
 } as const
 
 const IMPRESSION = {
   width: 800,
   height: 480,
-  colourMode: "e6",
+  colorMode: "spectra6",
 } as const
 
 const PHAT = {
   width: 250,
   height: 122,
-  colourMode: "mono",
+  colorMode: "monochrome",
 } as const
 
 describe("countRowsThatFit", () => {

@@ -18,18 +18,18 @@ arm's length. Two rules follow:
 1. **Secondary lines carry `font-weight: 600`**, never the default 400. Not
    500: the `system-ui` family these panels resolve ships no medium face, so a
    500 renders identically to a 400.
-2. **Accent-coloured TEXT reads `--accent-content`**, an alias of
+2. **Accent-colored TEXT reads `--accent-content`**, an alias of
    `--color-intent-accent-content`. `--accent` is the accent *solid*, meant to
-   be painted behind white. It is not a text colour on a dark surface.
+   be painted behind white. It is not a text color on a dark surface.
    `--accent-content` is deliberately a second alias rather than a redefinition
-   of `--accent`, because `NowPlaying` overrides `--accent` inline with a colour
+   of `--accent`, because `NowPlaying` overrides `--accent` inline with a color
    sampled from the album art.
 
 `Calendar`'s header stacks the clock over the date, the way `Ambient` already
 did.
 
 3. **An accent derived from album art is clamped to the scheme.** The extractor
-   votes on hue and knows nothing about the panel's colours, so the result is
+   votes on hue and knows nothing about the panel's colors, so the result is
    blended toward white (on dark) or black (on light) until it clears 4.5:1
    against `--color-surface-raised`. Blending, not a lightness clamp, because
    HSL lightness is not perceptual: a pure blue at 62% lightness still fails
@@ -43,7 +43,7 @@ The HyperPixel Square moved to the basement 3D printers workbench and idled on
 were off.
 
 Nothing was misconfigured. `Auto` resolves the scheme from the display's own
-operating-system colour preference. A kiosk Pi runs Chromium with no profile
+operating-system color preference. A kiosk Pi runs Chromium with no profile
 anybody has ever opened, so that preference is the stock light, forever. `Auto`
 therefore is not "follow the room" on this class of device — it is a permanent
 `Light` wearing a name that suggests otherwise. The house's other browser panel
@@ -66,7 +66,7 @@ Every text element on `Calendar` now measures above 6.7:1 in both schemes.
 
 - **A default should be right for the device the software is for.** Every
   browser-mode CastKit device is a panel fixed to a wall or a bench. None of
-  them has a user who will open display settings and choose a colour scheme.
+  them has a user who will open display settings and choose a color scheme.
   A default that delegates to a setting nobody will ever make is not a default,
   it is an accident with a plausible name.
 - **A bright panel in a dark room is a real cost, not a taste.** The owner's
@@ -76,7 +76,7 @@ Every text element on `Calendar` now measures above 6.7:1 in both schemes.
   string measures 754.61px at weight 400 **and at weight 500**, and 776.50px at
   600. A 500 would have been a change nobody could see, shipped and believed.
   The available steps on this family are 400, 600/700, and 800.
-- **A solid and an on-surface content colour are different tokens.** Reading a
+- **A solid and an on-surface content color are different tokens.** Reading a
   fill token as type is how the agenda row ended up at 2.87:1 — under the 4.5:1
   floor, on the one number an agenda exists to show, on the view the panel idles
   on all day.

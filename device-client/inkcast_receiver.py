@@ -149,9 +149,10 @@ def main():
     from inky.auto import auto
 
     panel = auto(ask_user=False)
+    # `panel.colour` is Pimoroni inky's own attribute name. Do not change it.
     print(
         f"[init] {type(panel).__name__} {panel.resolution} "
-        f"colour={panel.colour} (import+detect {time.time() - import_started_at:.1f}s)",
+        f"color={panel.colour} (import+detect {time.time() - import_started_at:.1f}s)",
         flush=True,
     )
     print(

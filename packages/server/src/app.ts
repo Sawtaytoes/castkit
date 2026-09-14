@@ -88,7 +88,7 @@ export const createApp = ({
         label: device.label,
         width: device.width,
         height: device.height,
-        colourMode: device.colourMode,
+        colorMode: device.colorMode,
         rotation: device.rotation,
         activeView: deviceStore.getActiveView(device.id),
       })),

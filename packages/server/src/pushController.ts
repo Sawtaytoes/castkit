@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
-import { MONO_PALETTE } from "@castkit/core/panels/palette"
-import type { FullColourEncoding } from "@castkit/core/pipeline/dither"
+import { MONOCHROME_PALETTE } from "@castkit/core/panels/palette"
+import type { FullColorEncoding } from "@castkit/core/pipeline/dither"
 import {
   getIsLossyEncodableView,
   type ViewName,
@@ -64,14 +64,14 @@ export const createPushController = ({
   /** Public base URL a "http-pull" panel fetches, e.g. https://castkit.octen.dev. */
   publicUrl: string
   /**
-   * The device's resolved full-colour wire format (per-device override or
+   * The device's resolved full-color wire format (per-device override or
    * global default, both HA config). Only the bleed photo view uses it; every
-   * other view stays lossless PNG so text and exact palette colours are never
+   * other view stays lossless PNG so text and exact palette colors are never
    * degraded.
    */
   resolvePhotoEncoding: (
     deviceId: string,
-  ) => FullColourEncoding
+  ) => FullColorEncoding
   /** The device's resolved clock timezone + time/date format (HA config). */
   resolveClockConfig: (deviceId: string) => ClockConfig
 }): PushController => {
@@ -110,7 +110,7 @@ export const createPushController = ({
     const rotationOverride =
       deviceConfigStore.getRotationOverride(deviceId)
     const isBlackAndWhite =
-      deviceConfigStore.getColourModeOverride(deviceId) ===
+      deviceConfigStore.getColorModeOverride(deviceId) ===
       "bw"
     const brightnessPercent =
       deviceConfigStore.getBrightnessPercent(deviceId)
@@ -121,8 +121,8 @@ export const createPushController = ({
       ...device,
       ...(isBlackAndWhite
         ? {
-            colourMode: "mono" as const,
-            palette: MONO_PALETTE,
+            colorMode: "monochrome" as const,
+            palette: MONOCHROME_PALETTE,
           }
         : {}),
       ...(rotationOverride !== undefined
@@ -142,7 +142,7 @@ export const createPushController = ({
       (saturationPercent !== undefined &&
         saturationPercent !== 100)
 
-    // EVERY view honours the mat's safe-area crop, photos included.
+    // EVERY view honors the mat's safe-area crop, photos included.
     const activeView =
       viewName ?? deviceStore.getActiveView(deviceId)
     // A "http-pull" panel is an ESPHome `online_image`, whose decoder is chosen
@@ -154,9 +154,9 @@ export const createPushController = ({
     // retained per-device override a future session could set back to "Auto".
     const isFormatLockedToPng =
       device.imageDelivery === "http-pull"
-    // Only a photo view may ship a lossy full-colour frame; every other view
-    // stays lossless PNG (exact text + palette colours).
-    const fullColourEncoding: FullColourEncoding =
+    // Only a photo view may ship a lossy full-color frame; every other view
+    // stays lossless PNG (exact text + palette colors).
+    const fullColorEncoding: FullColorEncoding =
       getIsLossyEncodableView(activeView) &&
       !isFormatLockedToPng
         ? resolvePhotoEncoding(deviceId)
@@ -182,7 +182,7 @@ export const createPushController = ({
           }
         : {}),
       ...(margin ? { margin } : {}),
-      fullColourEncoding,
+      fullColorEncoding,
     })
   }
 

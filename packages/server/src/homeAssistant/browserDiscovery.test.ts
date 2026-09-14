@@ -14,7 +14,7 @@ const TEST_DEVICE: BrowserDeviceConfig = {
   height: 720,
   shape: "square",
   hasTouch: true,
-  colour: "full",
+  color: "full",
   hasMqttBacklight: true,
   rotation: 0,
   externalViews: [

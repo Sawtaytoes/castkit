@@ -5,8 +5,8 @@ import {
   SEED_DEVICES,
 } from "@castkit/core/devices/device"
 import {
-  E6_DEFAULT_PALETTE,
-  MONO_PALETTE,
+  MONOCHROME_PALETTE,
+  SPECTRA6_DEFAULT_PALETTE,
 } from "@castkit/core/panels/palette"
 import type { MqttConnectionConfig } from "@castkit/shared/mqtt/publisher"
 import * as z from "zod/mini"
@@ -64,15 +64,83 @@ const EnvSchema = z.object({
 
 /**
  * A device as written in the gitignored devices file. Palette is derived from
- * `colourMode`, so a real deployment never has to hand-write RGB triples.
+ * `colorMode`, so a real deployment never has to hand-write RGB triples.
  */
+/**
+ * Read a devices file written before the 2026-09-14 American-spelling rename.
+ *
+ * The rename is a source-code rule, not a licence to invalidate a file the
+ * owner already has on disk. A deployed `castkit.config.json` carries
+ * `colourMode: "mono" | "e6"`, `colour: "full"` and `shape: "rect"`, and a
+ * plain `zod.parse` of the new schema REJECTS all three — the server would not
+ * boot, and the first symptom would be a dead fleet rather than a helpful
+ * error.
+ *
+ * So the reader accepts both spellings and normalizes to the new one. The old
+ * key wins nothing: when both are present the NEW key is authoritative, because
+ * that is the one an admin-panel write produced most recently.
+ *
+ * This is a read-side shim and it is meant to be permanent. It costs one object
+ * copy per device at boot, and removing it would break any deployment that has
+ * not re-saved its config since the rename — which is not something this repo
+ * can observe.
+ */
+export const migrateLegacyDeviceEntry = (
+  entry: Record<string, unknown>,
+): Record<string, unknown> => {
+  const migrated = { ...entry }
+
+  const renameKey = (
+    legacyKey: string,
+    currentKey: string,
+  ) => {
+    if (
+      legacyKey in migrated &&
+      !(currentKey in migrated)
+    ) {
+      migrated[currentKey] = migrated[legacyKey]
+    }
+    delete migrated[legacyKey]
+  }
+
+  renameKey("colourMode", "colorMode")
+  renameKey("colour", "color")
+
+  const renameValue = (
+    key: string,
+    legacyValues: Record<string, string>,
+  ) => {
+    const value = migrated[key]
+    if (
+      typeof value === "string" &&
+      value in legacyValues
+    ) {
+      migrated[key] = legacyValues[value]
+    }
+  }
+
+  renameValue("colorMode", {
+    mono: "monochrome",
+    e6: "spectra6",
+  })
+  renameValue("color", {
+    mono: "monochrome",
+    grey: "grayscale",
+    greyscale: "grayscale",
+    e6: "spectra6",
+  })
+  renameValue("shape", { rect: "rectangle" })
+
+  return migrated
+}
+
 const DeviceConfigSchema = z.object({
   id: z.string(),
   label: z.string(),
   mac: z.string(),
   width: z.int().check(z.positive()),
   height: z.int().check(z.positive()),
-  colourMode: z.enum(["mono", "e6"]),
+  colorMode: z.enum(["monochrome", "spectra6"]),
   rotation: z._default(
     z.union([
       z.literal(0),
@@ -113,12 +181,12 @@ const BrowserDeviceConfigSchema = z.object({
   width: z.int().check(z.positive()),
   height: z.int().check(z.positive()),
   shape: z._default(
-    z.enum(["square", "round", "rect"]),
-    "rect",
+    z.enum(["square", "round", "rectangle"]),
+    "rectangle",
   ),
   hasTouch: z._default(z.boolean(), false),
-  colour: z._default(
-    z.enum(["mono", "grayscale", "e6", "full"]),
+  color: z._default(
+    z.enum(["monochrome", "grayscale", "spectra6", "full"]),
     "full",
   ),
   hasMqttBacklight: z._default(z.boolean(), true),
@@ -158,9 +226,9 @@ const expandDevice = (
 ) => ({
   ...deviceConfig,
   palette:
-    deviceConfig.colourMode === "mono"
-      ? MONO_PALETTE
-      : E6_DEFAULT_PALETTE,
+    deviceConfig.colorMode === "monochrome"
+      ? MONOCHROME_PALETTE
+      : SPECTRA6_DEFAULT_PALETTE,
 })
 
 /**
@@ -184,6 +252,7 @@ const loadDevices = (
   const rawEntries = z
     .array(z.record(z.string(), z.unknown()))
     .parse(JSON.parse(readFileSync(devicesFile, "utf8")))
+    .map(migrateLegacyDeviceEntry)
 
   const imageDevices = rawEntries
     .filter((entry) => entry.renderer !== "browser")

@@ -16,7 +16,7 @@ import { STORY_EXPORT_BY_DEVICE_ID } from "./slatecastStory.tsx"
  * The cells ask for the panel document directly ({@link PANEL_QUERY_FLAG}), so
  * a cell holds the app rather than the app inside its own single-panel frame.
  *
- * ⚠️ **Every cell is `loading="lazy"`, and that is not an optimisation — it is
+ * ⚠️ **Every cell is `loading="lazy"`, and that is not an optimization — it is
  * what makes the page usable.** A cell is a whole Storybook preview boot: the
  * Storybook runtime, the Preact app, the fonts, the sample photos, and a 1 Hz
  * clock tick that runs for as long as the document lives. Seven views times

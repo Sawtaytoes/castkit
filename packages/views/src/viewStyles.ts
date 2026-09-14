@@ -2,19 +2,19 @@ import type { IntentName } from "@charcuterie/tokens"
 import type { EpaperPalette } from "@charcuterie/tokens/epaper"
 import { epaperColours } from "@charcuterie/tokens/epaper"
 import type { CSSProperties } from "react"
-import type { ViewColourMode } from "./viewProps.ts"
+import type { ViewColorMode } from "./viewProps.ts"
 
 /**
  * Style bits shared by every Inkcast view, so panel-wide constants (font,
  * background, Satori-safe flex column root) live in one place instead of being
  * copied into each component.
  *
- * Every colour here comes from `@charcuterie/tokens/epaper`, which resolves to
+ * Every color here comes from `@charcuterie/tokens/epaper`, which resolves to
  * literals precisely because Satori renders to PNG and cannot evaluate a
  * `var()`. Before M5b the views spelled their own inks — `#ffffff`, `#000000`,
  * `#1f4fd0` in four files, `rgb(255, 0, 0)` in a fifth — and none of those five
- * is a colour this repo's own quantizer maps 1:1, so none of them was the
- * colour that reached the panel.
+ * is a color this repo's own quantizer maps 1:1, so none of them was the
+ * color that reached the panel.
  */
 
 /**
@@ -28,45 +28,46 @@ export const PANEL_FONT_FAMILY =
   '"Atkinson Hyperlegible", "DejaVu Sans", sans-serif'
 
 /**
- * castkit's colour mode, in charcuterie's name for the same thing. `e6` is the
- * Spectra 6 Impression; `mono` is the 1-bit pHAT, and the two disagree about
- * white — an E6 panel's paper is `#D0D2D2`, the pHAT's is `#FFFFFF`.
+ * castkit's color mode, in charcuterie's name for the same thing. `spectra6` is the
+ * Spectra 6 Impression; `monochrome` is the 1-bit pHAT, and the two disagree about
+ * white — an E Ink Spectra 6 panel's paper is `#D0D2D2`, the pHAT's is `#FFFFFF`.
  */
-const EPAPER_PALETTE_BY_COLOUR_MODE: Record<
-  ViewColourMode,
+const EPAPER_PALETTE_BY_COLOR_MODE: Record<
+  ViewColorMode,
   EpaperPalette
 > = {
-  e6: "spectra6",
-  mono: "mono",
+  spectra6: "spectra6",
+  // `mono` and `epaperColours` are @charcuterie/tokens' own spelling of these
+  // two names. Left as the library exports them; only our side is renamed.
+  monochrome: "mono",
 }
 
 /** Every ink available to a view, for the panel it is being rendered for. */
-export const getPanelColours = ({
-  colourMode,
+export const getPanelColors = ({
+  colorMode,
 }: {
-  colourMode: ViewColourMode
-}) =>
-  epaperColours[EPAPER_PALETTE_BY_COLOUR_MODE[colourMode]]
+  colorMode: ViewColorMode
+}) => epaperColours[EPAPER_PALETTE_BY_COLOR_MODE[colorMode]]
 
 /** The Satori-safe base every view's root element starts from. */
 export const buildPanelRootStyle = ({
   width,
   height,
-  colourMode,
+  colorMode,
 }: {
   width: number
   height: number
-  colourMode: ViewColourMode
+  colorMode: ViewColorMode
 }): CSSProperties => {
-  const colours = getPanelColours({ colourMode })
+  const colors = getPanelColors({ colorMode })
 
   return {
     width,
     height,
     display: "flex",
     flexDirection: "column",
-    backgroundColor: colours.surface.base,
-    color: colours.content.primary,
+    backgroundColor: colors.surface.base,
+    color: colors.content.primary,
     fontFamily: PANEL_FONT_FAMILY,
     boxSizing: "border-box",
   }
@@ -77,18 +78,18 @@ export const buildPanelRootStyle = ({
  *
  * **On a six-ink panel the intent scale *is* the ink set** — accent is the
  * blue, danger the red, warning the yellow, success the green — so a view
- * choosing a colour is choosing an intent whether it says so or not. Saying so
- * is what makes the mono collapse free: `mono` maps every intent to black, so
- * the `colourMode === "e6" ? … : "#000000"` ternary this replaced is now a
+ * choosing a color is choosing an intent whether it says so or not. Saying so
+ * is what makes the mono collapse free: `monochrome` maps every intent to black, so
+ * the `colorMode === "spectra6" ? … : "#000000"` ternary this replaced is now a
  * property of the profile rather than a line each view could forget.
  */
-export const getAccentColour = ({
-  colourMode,
+export const getAccentColor = ({
+  colorMode,
   intent,
 }: {
-  colourMode: ViewColourMode
+  colorMode: ViewColorMode
   intent: IntentName
-}) => getPanelColours({ colourMode }).intent[intent].solid
+}) => getPanelColors({ colorMode }).intent[intent].solid
 
 /**
  * Average glyph advance of Atkinson Hyperlegible, as a fraction of the font
@@ -113,11 +114,11 @@ const MAXIMUM_CONDENSE_EM = 0.06
  * or ellipsis-truncate instead of shrinking further. Below these the text
  * stops being readable across a room / after 1-bit dithering, which is the
  * bug this guards against (a long title shrank until it was illegible). Split
- * by panel because the mono pHAT dithers fine detail away sooner than the E6.
+ * by panel because the mono pHAT dithers fine detail away sooner than the E Ink Spectra 6.
  */
 export const READABLE_FONT_FLOOR_PX = {
-  mono: 15,
-  e6: 24,
+  monochrome: 15,
+  spectra6: 24,
 } as const
 
 /** Round a letter-spacing to a tenth of a pixel — granular but tidy. */
@@ -152,7 +153,7 @@ export const fitText = ({
   lineCount = 1,
 }: {
   baseFontSize: number
-  /** Readable floor (px); pass `READABLE_FONT_FLOOR_PX[colourMode]`. */
+  /** Readable floor (px); pass `READABLE_FONT_FLOOR_PX[colorMode]`. */
   minimumFontSize: number
   availableWidth: number
   text: string
@@ -209,7 +210,7 @@ export const fitText = ({
  *
  * A panel has no scrollbar and an ePaper panel has no second chance: a row the
  * layout starts but cannot finish is simply cut in half by the glass edge, and
- * on a centred column it pushes the anchor off the *top* edge as well. So a
+ * on a centered column it pushes the anchor off the *top* edge as well. So a
  * view asks this how many rows it may draw and renders only those — the rows
  * it drops are the least imminent ones, which arrive on a later repaint as the
  * earlier ones fall off the front of the list.

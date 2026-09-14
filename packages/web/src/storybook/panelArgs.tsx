@@ -1,7 +1,7 @@
 import type { DitherAlgorithm } from "@castkit/core/devices/device"
 import { DITHER_ALGORITHMS } from "@castkit/core/devices/device"
 import type { ViewName } from "@castkit/shared/views/viewNames"
-import type { ViewColourMode } from "@castkit/views/viewProps"
+import type { ViewColorMode } from "@castkit/views/viewProps"
 import { PanelFrame } from "../PanelFrame.tsx"
 import { DitherPreview } from "./DitherPreview.tsx"
 import { PanelStage } from "./PanelStage.tsx"
@@ -23,7 +23,7 @@ import {
  */
 export type PanelStoryArgs = {
   deviceId: string
-  colourMode: ViewColourMode | "device default"
+  colorMode: ViewColorMode | "device default"
   isDithered: boolean
   ditherAlgorithm: DitherAlgorithm
   supersampleFactor: number
@@ -43,13 +43,13 @@ export const PANEL_ARG_TYPES = {
     control: { type: "select" as const },
     options: PANEL_DEVICE_IDS,
     description:
-      "Drives width, height, colour mode, palette and the supersample default.",
+      "Drives width, height, color mode, palette and the supersample default.",
     table: { category: "Panel" },
   },
-  colourMode: {
-    name: "Colour mode",
+  colorMode: {
+    name: "Color mode",
     control: { type: "inline-radio" as const },
-    options: ["device default", "mono", "e6"],
+    options: ["device default", "monochrome", "spectra6"],
     table: { category: "Panel" },
   },
   zoom: {
@@ -80,7 +80,7 @@ export const PANEL_ARG_TYPES = {
     control: { type: "select" as const },
     options: DITHER_ALGORITHMS,
     description:
-      '"off" ships full colour for the panel to dither itself.',
+      '"off" ships full color for the panel to dither itself.',
     table: { category: "Dither" },
   },
   supersampleFactor: {
@@ -92,7 +92,7 @@ export const PANEL_ARG_TYPES = {
     table: { category: "Dither" },
   },
   paletteVariant: {
-    name: "E6 palette",
+    name: "E Ink Spectra 6 palette",
     control: { type: "inline-radio" as const },
     options: PALETTE_VARIANTS,
     description:
@@ -132,7 +132,7 @@ export const PANEL_ARG_TYPES = {
 
 export const DEFAULT_PANEL_ARGS: PanelStoryArgs = {
   deviceId: "inky-impression",
-  colourMode: "device default",
+  colorMode: "device default",
   isDithered: false,
   ditherAlgorithm: "floyd-steinberg",
   supersampleFactor: 2,
@@ -163,10 +163,10 @@ export const renderPanelStory = ({
   const { device, defaultZoom } = getPanelCatalogEntry(
     args.deviceId,
   )
-  const colourMode =
-    args.colourMode === "device default"
-      ? device.colourMode
-      : args.colourMode
+  const colorMode =
+    args.colorMode === "device default"
+      ? device.colorMode
+      : args.colorMode
   const zoom = args.zoom || defaultZoom
 
   const stage = (
@@ -174,7 +174,7 @@ export const renderPanelStory = ({
       viewName={viewName}
       width={device.width}
       height={device.height}
-      colourMode={colourMode}
+      colorMode={colorMode}
       photoUrl={photoUrl}
       isEmpty={args.isEmpty}
       panelMargin={{
@@ -194,7 +194,7 @@ export const renderPanelStory = ({
         label={label}
         width={device.width}
         height={device.height}
-        colourMode={colourMode}
+        colorMode={colorMode}
         zoom={zoom}
       >
         {stage}
@@ -212,15 +212,15 @@ export const renderPanelStory = ({
           color: "#333",
         }}
       >
-        {label} — {device.width}x{device.height}{" "}
-        {colourMode} · {zoom}x · {args.ditherAlgorithm} @{" "}
+        {label} — {device.width}x{device.height} {colorMode}{" "}
+        · {zoom}x · {args.ditherAlgorithm} @{" "}
         {args.supersampleFactor}x
       </figcaption>
       <DitherPreview
         width={device.width}
         height={device.height}
         palette={resolvePalette({
-          colourMode,
+          colorMode,
           paletteVariant: args.paletteVariant,
         })}
         algorithm={args.ditherAlgorithm}

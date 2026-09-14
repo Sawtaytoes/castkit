@@ -38,11 +38,32 @@ server during development.
 
 ## Documentation
 
-- [Setup and configuration](docs/setup.md)
-- [Add a display](docs/adding-a-device.md)
-- [Display properties, and what each one changes](docs/display-properties.md)
-- [Remote browser displays and app-owned JSON manifests](docs/remote-display.md)
-- [Architecture](docs/architecture.md)
-- [Decision records](docs/decisions/README.md)
+**Start here**
+
+- [Setup and configuration](docs/setup.md) — what to install and what to put in `.env`
+- [Add a display](docs/adding-a-device.md) — registering a panel and giving it its properties
+- [Architecture](docs/architecture.md) — how the pieces fit together
+
+**The display model**
+
+- [Display properties, and what each one changes](docs/display-properties.md) —
+  the reference. A display is a **panel model** plus an **installation**, and
+  every property states what it changes. Read this before adding a panel kind,
+  designing a view, or deciding what a view is allowed to print.
+- [Remote browser displays and app-owned JSON manifests](docs/remote-display.md) —
+  the `live-browser` and remote-framebuffer paths
+- [One view vocabulary — the unification plan](docs/2026-09-12-unify-one-view-vocabulary-plan.md) —
+  what is built, what is not, and the order of the remaining work
+
+**Reference**
+
+- [Decision records](docs/decisions/README.md) — why things are the way they
+  are. Read the relevant one before proposing a change; a settled decision
+  outranks a fresh instinct.
+- [Future work](docs/future-work.md)
+- [Handoff notes](docs/HANDOFF.md)
+
+⚠️ CastKit carries **no household inventory**. The property model lives here;
+which panels a given deployment owns lives with that deployment.
 
 CastKit is available under the [MIT License](LICENSE).

@@ -22,7 +22,7 @@ import {
  * the M5Paper paints our pixels exactly as delivered, and until now there was
  * no way to see that anywhere but on the glass.
  *
- * `"off"` is not a dither — it means "ship full colour and let the panel's own
+ * `"off"` is not a dither — it means "ship full color and let the panel's own
  * controller handle it" — so it is rendered as the undithered source.
  */
 export type DitherPreviewProps = {
@@ -192,8 +192,8 @@ export const DitherPreview = ({
           style={{
             width,
             height,
-            // Nearest-neighbour, so a dithered pixel stays a pixel when zoomed
-            // instead of being smoothed back into the greys it just removed.
+            // Nearest-neighbor, so a dithered pixel stays a pixel when zoomed
+            // instead of being smoothed back into the grays it just removed.
             imageRendering: "pixelated",
             transform: `scale(${zoom})${
               isShownAsMounted

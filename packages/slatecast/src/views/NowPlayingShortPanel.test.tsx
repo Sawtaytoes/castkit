@@ -14,7 +14,7 @@ import {
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
-// The sibling test files load no stylesheet: they test behaviour. This one
+// The sibling test files load no stylesheet: they test behavior. This one
 // tests a media query, so it needs the real rules in the page.
 import "../styles.css"
 
@@ -86,7 +86,7 @@ describe("now playing on a short landscape panel", () => {
     )
   })
 
-  test("sets the art beside the text, centred on it, with no transport row", async () => {
+  test("sets the art beside the text, centered on it, with no transport row", async () => {
     await mountOnPanel(SHORT_PANEL)
 
     const artwork = screen

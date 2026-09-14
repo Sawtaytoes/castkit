@@ -7,7 +7,7 @@ import type { WeatherConditionCode } from "@castkit/shared/viewData/types"
  * CastKit already turns that into the words a panel prints; this is the same
  * mapping with a path instead of a string. Stroked, no fills, in
  * `currentColor`, so the mark reads on the dark scheme and the light one and
- * takes its colour from the text around it. Feather-style geometry (MIT), in a
+ * takes its color from the text around it. Feather-style geometry (MIT), in a
  * 24-unit box.
  *
  * Same rule as `Icon`: no emoji, no symbol font — a kiosk OS ships neither,

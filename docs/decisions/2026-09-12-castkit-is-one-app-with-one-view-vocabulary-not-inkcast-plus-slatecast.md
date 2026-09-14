@@ -13,7 +13,7 @@
 
 There is one product, **CastKit**. **Inkcast** and **Slatecast** are retired as
 product names. They were two ideas that became one app, and the repo must stop
-modelling them as two entities.
+modeling them as two entities.
 
 One consequence binds everything below: **there is ONE view vocabulary.** A view
 name means the same thing on every display. The pairs that exist today are the
@@ -31,7 +31,7 @@ same view under two names and they merge:
 A view **adapts to the panel's properties and feature set**, never to a client
 mode. The axes are:
 
-1. black and white against colour, and the colour depth,
+1. black and white against color, and the color depth,
 2. the dithering pattern, default none,
 3. the panel size,
 4. the orientation,
@@ -70,7 +70,7 @@ The drift is measurable, not theoretical:
 - `Ambient` never got the short landscape layout that `Clock`, `Weather` and
   `Calendar` got on 2026-09-11, so the plain view the owner asked for renders its
   date at 16 px on the 480x320 workbench panel — the exact defect that change
-  fixed for its three neighbours.
+  fixed for its three neighbors.
 - An in-progress event leaves the agenda at its start time on an image panel and
   an hour later on a live one. Neither number is wrong; nobody chose to have two.
 - `Clock (Agenda)` with no events renders identically to `Clock (Weather)`, and
@@ -89,8 +89,8 @@ The drift is measurable, not theoretical:
   switches views. It cannot hold a rule about views if the same view has two
   names.
 - **Drift is silent.** Nothing failed when `Ambient` missed the short-panel fix.
-  A shared view cannot miss a fix its own neighbours got.
-- **The properties are the interesting part.** Colour depth, dithering, size,
+  A shared view cannot miss a fix its own neighbors got.
+- **The properties are the interesting part.** Color depth, dithering, size,
   orientation, touch and repaint cost are real differences worth handling well.
   "Which package renders it" is not.
 

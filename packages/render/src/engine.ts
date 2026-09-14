@@ -13,7 +13,7 @@ export type RenderRequest = {
 }
 
 /**
- * A render engine turns a view element into a full-colour PNG at
+ * A render engine turns a view element into a full-color PNG at
  * `width × supersampleFactor` by `height × supersampleFactor`. The two
  * implementations (Chromium, Satori) are interchangeable so the bake-off can
  * run the same view through both and compare fidelity + preview parity.

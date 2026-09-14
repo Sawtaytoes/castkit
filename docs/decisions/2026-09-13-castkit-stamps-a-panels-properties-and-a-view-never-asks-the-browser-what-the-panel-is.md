@@ -15,7 +15,7 @@ kind of panel it is on.**
 ```html
 <html
   data-shape="round"
-  data-colour="mono"
+  data-color="monochrome"
   data-input="touch"
   data-repaint="slow"
   data-delivery="pulled-frames"
@@ -28,7 +28,7 @@ kind of panel it is on.**
 | Ask the browser (`@media`) | Ask the stamp (`:root[data-…]`) |
 | --- | --- |
 | `width`, `height`, `aspect-ratio`, `orientation` | `shape`, and the mask a non-rectangular panel needs |
-| `prefers-reduced-motion`, `prefers-color-scheme`, `forced-colors` | `colour`, `ditheredBy` |
+| `prefers-reduced-motion`, `prefers-color-scheme`, `forced-colors` | `color`, `ditheredBy` |
 | — | `repaint`, `input`, `delivery`, `pixelGrid` |
 
 Two consequences:

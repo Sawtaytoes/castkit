@@ -7,7 +7,7 @@ import {
 } from "../storybook/panelArgs.tsx"
 
 /**
- * A full-bleed photo, cropped and composed server-side to the exact panel size. Photo views bleed to the edge and ignore the crop insets — set a crop and nothing moves, which is the intended behaviour.
+ * A full-bleed photo, cropped and composed server-side to the exact panel size. Photo views bleed to the edge and ignore the crop insets — set a crop and nothing moves, which is the intended behavior.
  *
  * Every story here is the same view under the shared panel controls — switch
  * `Device` to see it on another panel, turn `Dither` on to see what the glass
@@ -35,7 +35,7 @@ export const PhatMono: Story = {
 }
 
 export const ImpressionE6: Story = {
-  name: "Impression E6 (800x480)",
+  name: "Impression E Ink Spectra 6 (800x480)",
   args: {
     ...DEFAULT_PANEL_ARGS,
     deviceId: "inky-impression",

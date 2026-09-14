@@ -38,7 +38,7 @@ rather than claiming the day is clear.
 ## Context
 
 The 960x540 M5Paper was handed four events and had room for two. The column is
-centred, so the overflow did not fall off the bottom — it went off **both**
+centered, so the overflow did not fall off the bottom — it went off **both**
 edges at once, cutting the top off "12:58 AM" and the bottom off the third
 event. The clock is the anchor of this view, and it was the first thing the
 panel threw away.
@@ -48,7 +48,7 @@ The numbers behind that: at full spacing the time, date, weather row and
 two 50px rows. The server was sending four.
 
 The 250x122 pHAT had the same fault in a milder form. It pins its column to the
-top *because* a centred one overflowed both edges, so its fourth row was cut in
+top *because* a centered one overflowed both edges, so its fourth row was cut in
 half by the bottom edge instead. The clockless `AgendaView` cut its fourth row
 on that panel too.
 

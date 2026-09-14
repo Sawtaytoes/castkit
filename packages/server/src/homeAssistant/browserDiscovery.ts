@@ -89,7 +89,7 @@ const buildDeviceBlock = (device: BrowserDeviceConfig) => ({
   connections: [["mac", device.mac]],
   name: device.label,
   manufacturer: "CastKit",
-  model: `browser · ${device.hasTouch ? "touch" : "display-only"} · ${device.colour} · ${device.width}×${device.height} ${device.shape}`,
+  model: `browser · ${device.hasTouch ? "touch" : "display-only"} · ${device.color} · ${device.width}×${device.height} ${device.shape}`,
 })
 
 export const buildBrowserDiscoveryMessages = ({

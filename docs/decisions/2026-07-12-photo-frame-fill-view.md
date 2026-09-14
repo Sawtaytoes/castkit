@@ -16,7 +16,7 @@ maximal cover-crop window:
 
 - **`Photo Frame`** — letterboxes on white so no configured face is cut. (The
   2026-07-02 behavior, unchanged.)
-- **`Photo Frame (Fill)`** — always fills the panel: it centres the crop on the
+- **`Photo Frame (Fill)`** — always fills the panel: it centers the crop on the
   face mass (keeping the primary/central faces, cropping the outermost) rather
   than adding white bars.
 

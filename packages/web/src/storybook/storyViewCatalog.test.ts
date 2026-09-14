@@ -42,7 +42,7 @@ describe("panelCatalog", () => {
     expect(device.width).toBe(960)
     expect(device.height).toBe(540)
     expect(device.rotation).toBe(0)
-    expect(device.colourMode).toBe("mono")
+    expect(device.colorMode).toBe("monochrome")
   })
 
   test("an unknown device id falls back to a real panel", () => {
@@ -51,13 +51,13 @@ describe("panelCatalog", () => {
     ).toBe(PANEL_CATALOG[0].device.id)
   })
 
-  test("mono panels ignore the E6 palette variant", () => {
+  test("mono panels ignore the E Ink Spectra 6 palette variant", () => {
     const vividOnMono = resolvePalette({
-      colourMode: "mono",
+      colorMode: "monochrome",
       paletteVariant: "vivid",
     })
     const deviceOnMono = resolvePalette({
-      colourMode: "mono",
+      colorMode: "monochrome",
       paletteVariant: "device",
     })
 
@@ -65,13 +65,13 @@ describe("panelCatalog", () => {
     expect(vividOnMono).toHaveLength(2)
   })
 
-  test("the E6 variants are genuinely different palettes", () => {
+  test("the E Ink Spectra 6 variants are genuinely different palettes", () => {
     const vivid = resolvePalette({
-      colourMode: "e6",
+      colorMode: "spectra6",
       paletteVariant: "vivid",
     })
     const device = resolvePalette({
-      colourMode: "e6",
+      colorMode: "spectra6",
       paletteVariant: "device",
     })
 
