@@ -398,13 +398,16 @@ argument for keying behavior on properties instead of on panel technology.
 
 This file is the rule. The code does not follow all of it.
 
-1. **Every image-mode device is offered all nine view names.** There is no
-   per-device filter on that half; only the browser half filters, and only on
-   touch. The Impression is offered `Clock`, `Clock (Weather)` and
-   `Clock (Agenda)` today.
-2. **The minute re-push does not check `repaint`.** `startClockTicker` pushes
-   any device sitting on a clock view, every minute, including a `super-slow`
-   one.
+1. ~~Every image-mode device is offered all nine view names.~~ **Done
+   2026-09-14.** `getViewsForDevice` runs the freshness rule over every view
+   and the discovery `select` carries only what the panel can draw. A
+   `super-slow` panel is offered four views and no clock. Measured against a
+   real deployment: three Impressions dropped from nine views to four, and
+   nothing else changed.
+2. ~~The minute re-push does not check `repaint`.~~ **Done 2026-09-14.**
+   `startClockTicker` now skips a device whose active view is not in its own
+   allowed list, which catches a panel parked on a clock view by a retained
+   state written before the filter existed.
 3. **`repaint`, `hasPanelDithering` and `pixelGrid` are not on the wire.** The live
    half's `BrowserDeviceProfile` carries `shape`, `hasTouch` and `color` and
    nothing else.
@@ -418,9 +421,16 @@ This file is the rule. The code does not follow all of it.
    the glass. The firmware also still holds the power rail on, so an unplugged
    panel drains continuously; the difference is that the drain is now visible on
    the broker instead of invisible everywhere.
-5. **The freshness rule is followed by accident, not by check.** The ePaper Now
-   Playing views print no position; the live one prints a seek bar. Both are
-   correct, and nothing would catch it if one changed.
+5. **The freshness rule gates the view LIST, not the fields inside a view.**
+   `getViewsForDevice` decides which views a panel is offered. It does not stop
+   a view printing a value that is too short-lived for that panel. The ePaper
+   Now Playing views print no position and the live one prints a seek bar; both
+   are correct, and nothing would catch it if one changed.
+6. **`repaint` is inferred, not declared.** No devices file carries a `repaint`
+   value, so `getDefaultRepaint` reads the grade off `imageDelivery` and
+   `colorMode`. It gets every panel in the current fleet right, and an explicit
+   `repaint` always wins — but it is a default, and a new panel kind that
+   breaks the pattern will be graded wrongly until somebody sets one.
 
 The order of work is in
 [the unification plan](2026-09-12-unify-one-view-vocabulary-plan.md).
