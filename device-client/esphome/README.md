@@ -152,6 +152,32 @@ ESPHome **binary sensors** — wire them in HA automations to do whatever you wa
 re-enable the `touchscreen:` block, taps publish `(x, y)` to a text sensor HA can
 act on; add touch-zone binary_sensors for fixed hit targets.
 
+## Battery — the only panel in the fleet with one
+
+The M5Paper carries a cell; every other display in the house runs on USB or PoE.
+The node publishes three things as of 2026-09-13:
+
+| Entity | Source | Note |
+| --- | --- | --- |
+| `Battery voltage` | `adc` on GPIO35, `multiply: 2.0` for the on-board divider | The honest reading. Sampled every 5 minutes. |
+| `Battery` | template, linear 3.20 V–4.20 V | Crude on purpose. A real LiPo curve is not linear. |
+| `On battery` | template, voltage below 4.10 V | ⚠️ **Inferred, not measured** — no VBUS sense line is exposed, so this is a proxy and it lags. |
+
+They also go out as one retained JSON payload on `castkit/m5paper/battery`, so
+CastKit can republish them as Home Assistant entities on the display it already
+owns (the node runs `discovery: false`).
+
+⚠️ **Calibrate on the first flash.** Put a meter across the cell, compare it
+against `Battery voltage`, and adjust the `multiply:` filter before anyone
+trusts the percentage. The nominal 1:1 divider ratio is a datasheet figure, not
+a measurement of this unit, and the ESP32's ADC is non-linear near the rails.
+
+⚠️ **This firmware never sleeps.** The `m5paper:` power latch holds the main
+rail on so the panel stays awake on battery. That is the worst case for battery
+life, and it is deliberate — the panel has always been plugged in. A genuinely
+battery-powered install wants deep sleep between pulls, which is a separate
+change to make before unplugging one for good.
+
 ## Fast-update progress bar (experimental)
 
 The IT8951E can partial-refresh a strip much faster than a full flash, so a

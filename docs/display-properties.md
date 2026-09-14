@@ -4,9 +4,12 @@
 [a display is a panel model plus an installation](decisions/2026-09-13-a-display-is-a-panel-model-plus-an-installation.md)
 
 A registered display is a **panel model** plus an **installation**. The panel
-model is what the hardware is. The installation is how this unit is hung and
-what the owner wants hidden. Both change the final render, and they change it in
-different ways.
+model is what the hardware is. The installation is how this unit is hung, how it
+is powered, and what the owner wants hidden. Both change the final render, and
+they change it in different ways.
+
+A third kind of value sits beside them: **telemetry**. It describes what the
+display is doing right now, the device writes it, and it is not a property.
 
 This file is the reference. Every value below states what it changes, because a
 property that does not say what it changes is a label, not a model.
@@ -144,6 +147,25 @@ The HyperPixel Round is a colour LCD with none.
 
 ---
 
+### `hasBattery` — whether the panel carries a cell
+
+| Value | Panels | What it changes |
+| --- | --- | --- |
+| `false` | Inky pHAT, Inky Impression, WT32-SC01, every HyperPixel, Pi Touch 2 | Nothing. The display is on when its supply is on. Loss of power is loss of the display, and nobody has to be told a number. |
+| `true` | M5Paper | The display can be hung where there is no socket, can keep running through a power cut, and can **run out**. It gains telemetry, a low threshold, and an end state. |
+
+`hasBattery` is a fact about the hardware. Whether this unit is *using* the cell
+is [`power`](#the-installation), and how full the cell is, is
+[telemetry](#axis-c--telemetry).
+
+⚠️ **On ePaper, a flat battery does not look flat.** The glass holds its last
+frame at zero power, so a panel that dies keeps showing yesterday's agenda and
+looks like a working display with wrong data. Every other display kind goes
+dark and announces itself. This is why a battery install paints a final
+"battery empty" frame instead of simply stopping.
+
+---
+
 ### `shape` — whether the glass fills its box
 
 | Value | Panels | What it changes |
@@ -228,6 +250,40 @@ it gives the portrait view, on its side.
 A second M5Paper hung portrait is the same panel model with a different
 installation. Nothing about the glass changed.
 
+### `power`
+
+How **this unit** is actually supplied. A panel with a cell may still be plugged
+in; the M5Paper is, today.
+
+| Value | What it changes |
+| --- | --- |
+| `wired` | Nothing about the view list. If `hasBattery` is `true` the cell is a UPS, and the signal worth an alert is `isOnBattery` going true, not the percentage. |
+| `battery` | Every repaint costs charge. The budget becomes **repaints per day**, not seconds per repaint. |
+
+**A display installed on battery is offered the view list of the next slower
+repaint grade.**
+
+| Panel | `repaint` | On `wired` | On `battery` |
+| --- | --- | --- | --- |
+| M5Paper | `fast` | treated as `fast` — a clock is allowed | treated as `slow` — the clock comes off, the agenda, weather and photo views stay |
+
+The freshness rule says what a panel **can** show. `power` says what it
+**should**. A panel that gains a power lead later moves back with no other
+change.
+
+Two more consequences:
+
+- **A sleeping device cannot be pushed to.** A battery ESP32 that deep-sleeps
+  between updates is unreachable on demand, so CastKit queues and the device
+  pulls on wake. The M5Paper is already `delivery: pulled-frames` for an
+  unrelated reason, which fits.
+  ⚠️ It does **not** sleep today. Its firmware holds the power rail on
+  deliberately, which is the worst case for battery life.
+- **Below the low threshold, stop repainting the view and paint one notice.**
+  See `hasBattery` for why a silent stop is worse than a message.
+
+---
+
 ### `margins`
 
 Push content in from the edge, so a bezel or a frame cannot eat it. The content
@@ -247,17 +303,42 @@ pixels the glass technically has.
 
 ---
 
+## Axis C — telemetry
+
+Not properties. The device writes these, they change minute to minute, and
+CastKit republishes them.
+
+| Value | Type | What it is for |
+| --- | --- | --- |
+| `batteryVolts` | number | The raw reading. Honest, and the only value that survives a wrong calibration. |
+| `batteryPercent` | number | Derived from the voltage. Needs a calibrated curve before anyone should trust it. |
+| `isOnBattery` | boolean | Mains present or not. On a `wired` install with a cell, this going true is the alert. |
+
+They reach Home Assistant over MQTT on the **CastKit** device: the panel
+publishes to `castkit/<id>/battery`, and CastKit's discovery publishes a
+`device_class: battery` sensor plus a binary sensor for `isOnBattery`. It does
+not arrive as a second ESPHome device, because CastKit already owns this panel's
+discovery and the node runs with `discovery: false`.
+
+An on-glass battery indicator is a separate decision and is not settled.
+
+---
+
 ## The fleet, read as properties
 
-| Panel | `repaint` | `colour` | `dithersItself` | `input` | `shape` | `delivery` | `pixelGrid` |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Inky pHAT | `slow` | `mono` | `true` | `none` | `rect` | `pushed-frames` | `none` |
-| Inky Impression 7.3" | `super-slow` | `e6` | `true` | `none` | `rect` | `pushed-frames` | `none` |
-| M5Paper | `fast` | `mono` | `false` | `touch` | `rect` | `pulled-frames` | `none` |
-| WT32-SC01 Plus | `fast` | `full` | n/a | `touch` | `rect` | `pushed-frames` | `rgb-stripe` |
-| HyperPixel 4.0 Square | `instant` | `full` | n/a | `touch` | `square` | `live-browser` | `rgb-stripe` |
-| HyperPixel 2.1 Round | `instant` | `full` | n/a | `none` | `round` | `live-browser` | `rgb-stripe` |
-| Pi Touch Display 2 | `instant` | `full` | n/a | `touch` | `rect` | `live-browser` | `rgb-stripe` |
+| Panel | `repaint` | `colour` | `dithersItself` | `input` | `shape` | `delivery` | `pixelGrid` | `hasBattery` | `power` today |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Inky pHAT | `slow` | `mono` | `true` | `none` | `rect` | `pushed-frames` | `none` | `false` | `wired` |
+| Inky Impression 7.3" | `super-slow` | `e6` | `true` | `none` | `rect` | `pushed-frames` | `none` | `false` | `wired` |
+| M5Paper | `fast` | `mono` | `false` | `touch` | `rect` | `pulled-frames` | `none` | **`true`** | `wired` |
+| WT32-SC01 Plus | `fast` | `full` | n/a | `touch` | `rect` | `pushed-frames` | `rgb-stripe` | `false` | `wired` |
+| HyperPixel 4.0 Square | `instant` | `full` | n/a | `touch` | `square` | `live-browser` | `rgb-stripe` | `false` | `wired` |
+| HyperPixel 2.1 Round | `instant` | `full` | n/a | `none` | `round` | `live-browser` | `rgb-stripe` | `false` | `wired` |
+| Pi Touch Display 2 | `instant` | `full` | n/a | `touch` | `rect` | `live-browser` | `rgb-stripe` | `false` | `wired` |
+
+Every display in the house runs on USB or PoE today. The M5Paper is the only one
+that can be moved somewhere without a socket, and it is the only one that can
+run out.
 
 Read down the "is it ePaper" question and it predicts none of these columns.
 
@@ -277,7 +358,13 @@ This file is the rule. The code does not follow all of it.
 3. **`repaint`, `dithersItself` and `pixelGrid` are not on the wire.** The live
    half's `BrowserDeviceProfile` carries `shape`, `hasTouch` and `colour` and
    nothing else.
-4. **The freshness rule is followed by accident, not by check.** The ePaper Now
+4. **Nothing in CastKit knows about the battery.** There is no `hasBattery`
+   field, no `power` setting, no `castkit/<id>/battery` topic and no discovery
+   payload. The M5Paper's own firmware declares no battery sensor either, so the
+   charge is unreadable from anywhere — and that firmware deliberately holds the
+   power rail on, so an unplugged panel drains continuously and gives no
+   warning.
+5. **The freshness rule is followed by accident, not by check.** The ePaper Now
    Playing views print no position; the live one prints a seek bar. Both are
    correct, and nothing would catch it if one changed.
 

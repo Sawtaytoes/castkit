@@ -295,7 +295,78 @@ display:
 #     name: "Touch Coordinates"
 #     id: touch_coordinates
 
-# --- Buttons (read by Home Assistant) ---------------------------------------
+# --- Battery ----------------------------------------------------------------
+# The M5Paper is the ONLY display in the fleet with a cell, and until this block
+# existed nothing anywhere could read it — not CastKit, not Home Assistant, not
+# the panel itself. See docs/decisions/
+# 2026-09-13-a-battery-is-a-panel-fact-a-power-source-is-an-installation-and-charge-is-telemetry.md
+#
+# ⚠️ NOTHING HERE TAKES EFFECT UNTIL THE PANEL IS RE-FLASHED. The node is already
+# ESPHome; it simply declared no sensors.
+#
+# ⚠️ THE VOLTAGE IS UNCALIBRATED ON THIS UNIT. The battery sits on GPIO35 behind
+# an on-board divider, and `multiply: 2.0` is the nominal 1:1 ratio — not a
+# measured one. The ESP32's ADC is also non-linear near the rails. On the first
+# flash, compare `Battery voltage` against a meter across the cell and adjust the
+# multiplier before anyone trusts `Battery`. Publish the VOLTS regardless: they
+# are the honest reading and they survive a wrong percentage curve.
+sensor:
+  - platform: adc
+    id: battery_voltage
+    name: "Battery voltage"
+    pin: GPIO35
+    attenuation: 12db
+    device_class: voltage
+    unit_of_measurement: V
+    accuracy_decimals: 2
+    # Five minutes, not five seconds. This panel exists to be read across a
+    # room; a battery curve does not need a fast sample, and each wake costs
+    # the very charge it is measuring.
+    update_interval: 300s
+    filters:
+      - multiply: 2.0
+      - median:
+          window_size: 5
+          send_every: 5
+          send_first_at: 3
+
+  - platform: template
+    id: battery_percent
+    name: "Battery"
+    device_class: battery
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: 300s
+    # A flat linear map between an empty and a full LiPo. It is deliberately
+    # crude: a real discharge curve is not linear, and inventing one before the
+    # voltage itself is calibrated would be false precision. Replace it with a
+    # measured curve once the panel has run a cell down once.
+    lambda: |-
+      const float empty_volts = 3.20f;
+      const float full_volts = 4.20f;
+      float volts = id(battery_voltage).state;
+      if (isnan(volts)) { return {}; }
+      float fraction = (volts - empty_volts) / (full_volts - empty_volts);
+      if (fraction < 0.0f) { fraction = 0.0f; }
+      if (fraction > 1.0f) { fraction = 1.0f; }
+      return fraction * 100.0f;
+
+# CastKit owns this panel's Home Assistant discovery (`discovery: false` above),
+# so the battery reaches the house as ONE retained CastKit topic rather than as
+# three ESPHome entities on a second device. CastKit republishes it as a
+# `device_class: battery` sensor on the display it already owns.
+interval:
+  - interval: 300s
+    then:
+      - mqtt.publish_json:
+          topic: castkit/m5paper/battery
+          retain: true
+          payload: |-
+            root["volts"] = id(battery_voltage).state;
+            root["percent"] = id(battery_percent).state;
+            root["isOnBattery"] = id(is_on_battery).state;
+
+# --- Buttons and battery state (read by Home Assistant) ---------------------
 binary_sensor:
   # The three hardware buttons down the edge of the M5Paper (active-low).
   - platform: gpio
@@ -313,3 +384,19 @@ binary_sensor:
     pin:
       number: GPIO37
       inverted: true
+
+  - platform: template
+    id: is_on_battery
+    name: "On battery"
+    device_class: plug
+    # ⚠️ INFERRED, NOT MEASURED. The M5Paper exposes no VBUS sense line through
+    # the vendored component, so there is no honest way to ask "is mains
+    # present". A charger holds the cell at its ceiling, so a reading below the
+    # ceiling means the cell is discharging. It is a proxy, it lags, and it
+    # cannot tell a full-but-unplugged panel from a charging one for the first
+    # few minutes. Treat a `true` as "probably unplugged", and replace this the
+    # day a real sense line is wired.
+    lambda: |-
+      float volts = id(battery_voltage).state;
+      if (isnan(volts)) { return {}; }
+      return volts < 4.10f;
