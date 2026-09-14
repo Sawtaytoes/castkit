@@ -48,6 +48,7 @@ Environment / config (all optional except the broker host):
 
 Run: /home/pi/inky-venv/bin/python3 inkcast_receiver.py
 """
+
 import hashlib
 import io
 import os
@@ -57,7 +58,6 @@ from urllib.parse import urlparse
 
 import paho.mqtt.client as mqtt
 from PIL import Image
-
 
 DEFAULT_IMAGE_TOPIC = "inkcast/inky-phat/image"
 RECONNECT_DELAY_SECONDS = 5
@@ -72,17 +72,15 @@ def read_broker_config():
     mqtt_url = os.environ.get("MQTT_URL", "").strip()
     parsed_url = urlparse(mqtt_url) if mqtt_url else None
 
-    host = os.environ.get("MQTT_HOST", "").strip() or (
-        parsed_url.hostname if parsed_url else None
-    )
+    host = os.environ.get("MQTT_HOST", "").strip() or (parsed_url.hostname if parsed_url else None)
     if not host:
-        raise RuntimeError(
-            "no broker host: set MQTT_HOST (or MQTT_URL=mqtt://host:port)"
-        )
+        raise RuntimeError("no broker host: set MQTT_HOST (or MQTT_URL=mqtt://host:port)")
 
     port_from_env = os.environ.get("MQTT_PORT", "").strip()
-    port = int(port_from_env) if port_from_env else (
-        (parsed_url.port if parsed_url and parsed_url.port else 1883)
+    port = (
+        int(port_from_env)
+        if port_from_env
+        else (parsed_url.port if parsed_url and parsed_url.port else 1883)
     )
 
     username = os.environ.get("MQTT_USERNAME", "").strip() or None
@@ -195,8 +193,7 @@ def main():
             draw_png_to_panel(panel, png_bytes, rotate_degrees)
             last_drawn_hash["value"] = message_hash
             print(
-                f"[draw] {len(png_bytes)}B pushed in "
-                f"{time.time() - drawing_started_at:.1f}s",
+                f"[draw] {len(png_bytes)}B pushed in {time.time() - drawing_started_at:.1f}s",
                 flush=True,
             )
         except Exception as draw_error:
