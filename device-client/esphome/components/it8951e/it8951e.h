@@ -139,6 +139,13 @@ shown in Figure 1. The use of a white image in the transition from 4-bit to
   display::DisplayType get_display_type() override { return IT8951DevAll[this->model_].displayType; }
 
   void clear(bool init);
+  /**
+   * Fill the CONTROLLER's image memory with one constant and paint it with the
+   * full GC16 waveform. Nothing from the display buffer reaches the panel, so
+   * this is the only way to put a solid frame on the glass without our own
+   * drawing path. `clear()` can only land on white, which hides a light defect.
+   */
+  void fill_panel(uint16_t word);
 
  protected:
   void draw_absolute_pixel_internal(int x, int y, Color color) override;
@@ -213,6 +220,11 @@ shown in Figure 1. The use of a white image in the transition from 4-bit to
 template<typename... Ts> class ClearAction : public Action<Ts...>, public Parented<IT8951ESensor> {
  public:
   void play(Ts... x) override { this->parent_->clear(true); }
+};
+
+template<typename... Ts> class FillDarkAction : public Action<Ts...>, public Parented<IT8951ESensor> {
+ public:
+  void play(Ts... x) override { this->parent_->fill_panel(0x0000); }
 };
 
 template<typename... Ts> class UpdateSlowAction : public Action<Ts...>, public Parented<IT8951ESensor> {

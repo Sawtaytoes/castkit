@@ -328,6 +328,34 @@ void IT8951ESensor::clear(bool init) {
     }
 }
 
+/** @brief Fill the panel with one constant straight from controller memory.
+ * Writes the same 16-bit word over the whole image buffer and paints it with
+ * GC16. It skips the display buffer, the dirty rectangle and the image decode,
+ * so the frame on the glass carries nothing this node drew. 0x0000 is black and
+ * 0xFFFF is white (this path does not apply the `reversed_` inversion that
+ * write_buffer_to_display does).
+ */
+void IT8951ESensor::fill_panel(uint16_t word) {
+    this->m_endian_type = IT8951_LDIMG_L_ENDIAN;
+    this->m_pix_bpp     = IT8951_4BPP;
+
+    this->write_command(IT8951_TCON_SYS_RUN);
+    this->set_target_memory_addr(this->IT8951DevAll[this->model_].devInfo.usImgBufAddrL, this->IT8951DevAll[this->model_].devInfo.usImgBufAddrH);
+    this->set_area(0, 0, this->get_width_internal(), this->get_height_internal());
+
+    uint32_t looping = (this->get_width_internal() * this->get_height_internal()) >> 2;
+    for (uint32_t i = 0; i < looping; i++) {
+        this->enable();
+        this->write_byte16(0x0000);
+        this->write_byte16(word);
+        this->disable();
+    }
+
+    this->write_command(IT8951_TCON_LD_IMG_END);
+    this->update_area(0, 0, this->get_width_internal(), this->get_height_internal(), update_mode_e::UPDATE_MODE_GC16);
+    this->write_command(IT8951_TCON_SLEEP);
+}
+
 void IT8951ESensor::update() {
     if (this->is_ready()) {
         this->do_update_();

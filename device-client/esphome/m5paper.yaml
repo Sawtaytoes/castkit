@@ -117,6 +117,16 @@ api:
       then:
         - it8951e.clear: m5paper_display
 
+    # The same wipe, but BLACK. `it8951e.clear` can only land on white, and a
+    # light defect is invisible on white — that is exactly how the Office
+    # panel's hairline hid from its first wipe test. `fill_dark` writes the
+    # constant 0x0000 over the controller's image memory and paints it with
+    # GC16, so the glass shows solid black from controller memory alone.
+    #   esphome.m5paper_fill_dark()
+    - action: fill_dark
+      then:
+        - it8951e.fill_dark: m5paper_display
+
 ota:
   - platform: esphome
 
