@@ -2,21 +2,21 @@ import sharp from "sharp"
 import { describe, expect, test } from "vitest"
 import type { DitherAlgorithm } from "../devices/device.ts"
 import {
-  E6_DEFAULT_PALETTE,
-  MONO_PALETTE,
+  MONOCHROME_PALETTE,
   type Palette,
+  SPECTRA6_DEFAULT_PALETTE,
 } from "../panels/palette.ts"
 import { ditherToPanel } from "./dither.ts"
 
-/** A solid-colour source PNG at the given size. */
+/** A solid-color source PNG at the given size. */
 const buildSolidPng = ({
   width,
   height,
-  colour,
+  color,
 }: {
   width: number
   height: number
-  colour: [number, number, number]
+  color: [number, number, number]
 }): Promise<Buffer> =>
   sharp({
     create: {
@@ -24,9 +24,9 @@ const buildSolidPng = ({
       height,
       channels: 3,
       background: {
-        r: colour[0],
-        g: colour[1],
-        b: colour[2],
+        r: color[0],
+        g: color[1],
+        b: color[2],
       },
     },
   })
@@ -34,7 +34,7 @@ const buildSolidPng = ({
     .toBuffer()
 
 /** Every distinct RGB triple present in a raw RGB(A) buffer. */
-const collectColours = ({
+const collectColors = ({
   rgbaBuffer,
   channels,
 }: {
@@ -53,14 +53,14 @@ const collectColours = ({
 const paletteKeys = (palette: Palette): Set<string> =>
   new Set(
     palette.map(
-      (colour) => `${colour[0]},${colour[1]},${colour[2]}`,
+      (color) => `${color[0]},${color[1]},${color[2]}`,
     ),
   )
 
 /**
  * A horizontal black→white gray ramp PNG: every pixel has equal RGB channels,
- * increasing left to right. The classic trigger for colour speckle when
- * error-diffused across a colour palette.
+ * increasing left to right. The classic trigger for color speckle when
+ * error-diffused across a color palette.
  */
 const buildGrayRampPng = ({
   width,
@@ -148,15 +148,15 @@ const buildOutlinedRectanglePng = ({
     .toBuffer()
 }
 
-/** How many pixels in a raw RGB(A) buffer exactly match a palette colour. */
+/** How many pixels in a raw RGB(A) buffer exactly match a palette color. */
 const countMatchingPixels = ({
   rgbaBuffer,
   channels,
-  colour,
+  color,
 }: {
   rgbaBuffer: Buffer
   channels: number
-  colour: readonly [number, number, number]
+  color: readonly [number, number, number]
 }) =>
   Array.from({
     length: rgbaBuffer.length / channels,
@@ -164,18 +164,18 @@ const countMatchingPixels = ({
     const byteOffset = pixelIndex * channels
 
     return (
-      rgbaBuffer[byteOffset] === colour[0] &&
-      rgbaBuffer[byteOffset + 1] === colour[1] &&
-      rgbaBuffer[byteOffset + 2] === colour[2]
+      rgbaBuffer[byteOffset] === color[0] &&
+      rgbaBuffer[byteOffset + 1] === color[1] &&
+      rgbaBuffer[byteOffset + 2] === color[2]
     )
   }).length
 
 /**
- * The E6 default palette's black and white entries (its darkest/lightest by
+ * The E Ink Spectra 6 default palette's black and white entries (its darkest/lightest by
  * luminance): pure black and the 0.5-blend white. Neutral-protected output
  * must contain nothing else.
  */
-const E6_BLACK_AND_WHITE_KEYS = new Set([
+const SPECTRA6_BLACK_AND_WHITE_KEYS = new Set([
   "0,0,0",
   "208,210,210",
 ])
@@ -194,14 +194,14 @@ describe("ditherToPanel", () => {
     const source = await buildSolidPng({
       width: 40,
       height: 20,
-      colour: [120, 180, 60],
+      color: [120, 180, 60],
     })
 
     const output = await ditherToPanel({
       imageBuffer: source,
       width: 20,
       height: 10,
-      palette: MONO_PALETTE,
+      palette: MONOCHROME_PALETTE,
       algorithm: "floyd-steinberg",
     })
 
@@ -212,7 +212,7 @@ describe("ditherToPanel", () => {
 
   // A portrait-mounted panel renders portrait then rotates onto the panel's
   // native landscape buffer — the output must land at height × width, on the
-  // full-colour "off" path and the dithered path alike.
+  // full-color "off" path and the dithered path alike.
   test.each([
     "off",
     "floyd-steinberg",
@@ -220,14 +220,14 @@ describe("ditherToPanel", () => {
     const source = await buildSolidPng({
       width: 30,
       height: 40,
-      colour: [120, 180, 60],
+      color: [120, 180, 60],
     })
 
     const output = await ditherToPanel({
       imageBuffer: source,
       width: 30,
       height: 40,
-      palette: E6_DEFAULT_PALETTE,
+      palette: SPECTRA6_DEFAULT_PALETTE,
       algorithm,
       rotation: 90,
     })
@@ -237,18 +237,18 @@ describe("ditherToPanel", () => {
     expect(metadata.height).toBe(30)
   })
 
-  test("every algorithm emits only palette colours (mono + E6)", async () => {
+  test("every algorithm emits only palette colors (mono + E Ink Spectra 6)", async () => {
     const source = await buildSolidPng({
       width: 60,
       height: 40,
-      colour: [130, 90, 200],
+      color: [130, 90, 200],
     })
 
     await Promise.all(
       (
         [
-          { palette: MONO_PALETTE },
-          { palette: E6_DEFAULT_PALETTE },
+          { palette: MONOCHROME_PALETTE },
+          { palette: SPECTRA6_DEFAULT_PALETTE },
         ] as const
       ).flatMap(({ palette }) =>
         ALGORITHMS.map(async (algorithm) => {
@@ -264,21 +264,21 @@ describe("ditherToPanel", () => {
             .raw()
             .toBuffer({ resolveWithObject: true })
 
-          const colours = collectColours({
+          const colors = collectColors({
             rgbaBuffer: data,
             channels: info.channels,
           })
           const allowed = paletteKeys(palette)
 
-          colours.forEach((colour) => {
-            expect(allowed.has(colour)).toBe(true)
+          colors.forEach((color) => {
+            expect(allowed.has(color)).toBe(true)
           })
         }),
       ),
     )
   })
 
-  test("a gray ramp dithered to E6 stays black/white — no colour speckle", async () => {
+  test("a gray ramp dithered to E Ink Spectra 6 stays black/white — no color speckle", async () => {
     const source = await buildGrayRampPng({
       width: 160,
       height: 40,
@@ -288,7 +288,7 @@ describe("ditherToPanel", () => {
       imageBuffer: source,
       width: 80,
       height: 20,
-      palette: E6_DEFAULT_PALETTE,
+      palette: SPECTRA6_DEFAULT_PALETTE,
       algorithm: "floyd-steinberg",
     })
 
@@ -296,13 +296,15 @@ describe("ditherToPanel", () => {
       .raw()
       .toBuffer({ resolveWithObject: true })
 
-    const colours = collectColours({
+    const colors = collectColors({
       rgbaBuffer: data,
       channels: info.channels,
     })
 
-    colours.forEach((colour) => {
-      expect(E6_BLACK_AND_WHITE_KEYS.has(colour)).toBe(true)
+    colors.forEach((color) => {
+      expect(SPECTRA6_BLACK_AND_WHITE_KEYS.has(color)).toBe(
+        true,
+      )
     })
   })
 
@@ -310,14 +312,14 @@ describe("ditherToPanel", () => {
     const source = await buildSolidPng({
       width: 60,
       height: 40,
-      colour: [255, 0, 0],
+      color: [255, 0, 0],
     })
 
     const output = await ditherToPanel({
       imageBuffer: source,
       width: 30,
       height: 20,
-      palette: E6_DEFAULT_PALETTE,
+      palette: SPECTRA6_DEFAULT_PALETTE,
       algorithm: "floyd-steinberg",
     })
 
@@ -325,18 +327,18 @@ describe("ditherToPanel", () => {
       .raw()
       .toBuffer({ resolveWithObject: true })
 
-    const colours = collectColours({
+    const colors = collectColors({
       rgbaBuffer: data,
       channels: info.channels,
     })
 
-    const paletteRed = E6_DEFAULT_PALETTE[3]
+    const paletteRed = SPECTRA6_DEFAULT_PALETTE[3]
     const paletteRedKey = `${paletteRed[0]},${paletteRed[1]},${paletteRed[2]}`
 
-    expect(colours).toEqual(new Set([paletteRedKey]))
+    expect(colors).toEqual(new Set([paletteRedKey]))
   })
 
-  test("anti-aliased-text-like gray edges dither to only black/white on E6", async () => {
+  test("anti-aliased-text-like gray edges dither to only black/white on E Ink Spectra 6", async () => {
     const source = await buildOutlinedRectanglePng({
       width: 120,
       height: 80,
@@ -346,7 +348,7 @@ describe("ditherToPanel", () => {
       imageBuffer: source,
       width: 60,
       height: 40,
-      palette: E6_DEFAULT_PALETTE,
+      palette: SPECTRA6_DEFAULT_PALETTE,
       algorithm: "floyd-steinberg",
     })
 
@@ -354,13 +356,15 @@ describe("ditherToPanel", () => {
       .raw()
       .toBuffer({ resolveWithObject: true })
 
-    const colours = collectColours({
+    const colors = collectColors({
       rgbaBuffer: data,
       channels: info.channels,
     })
 
-    colours.forEach((colour) => {
-      expect(E6_BLACK_AND_WHITE_KEYS.has(colour)).toBe(true)
+    colors.forEach((color) => {
+      expect(SPECTRA6_BLACK_AND_WHITE_KEYS.has(color)).toBe(
+        true,
+      )
     })
   })
 
@@ -368,7 +372,7 @@ describe("ditherToPanel", () => {
     const source = await buildSolidPng({
       width: 40,
       height: 20,
-      colour: [128, 128, 128],
+      color: [128, 128, 128],
     })
 
     const renderWithAdjustments = async (adjustments?: {
@@ -378,7 +382,7 @@ describe("ditherToPanel", () => {
         imageBuffer: source,
         width: 20,
         height: 10,
-        palette: MONO_PALETTE,
+        palette: MONOCHROME_PALETTE,
         algorithm: "floyd-steinberg",
         adjustments,
       })
@@ -390,7 +394,7 @@ describe("ditherToPanel", () => {
       return countMatchingPixels({
         rgbaBuffer: data,
         channels: info.channels,
-        colour: [255, 255, 255],
+        color: [255, 255, 255],
       })
     }
 
@@ -403,11 +407,11 @@ describe("ditherToPanel", () => {
     )
   })
 
-  describe('full-colour "off" encoding', () => {
+  describe('full-color "off" encoding', () => {
     /**
      * A photographic-ish source: a smooth multi-hue gradient that a lossless
      * RGB PNG can't compress but a lossy codec can — so the size assertions
-     * below are meaningful, not artefacts of a flat solid colour.
+     * below are meaningful, not artefacts of a flat solid color.
      */
     const buildGradientPng = ({
       width,
@@ -440,7 +444,7 @@ describe("ditherToPanel", () => {
         .toBuffer()
     }
 
-    test("off defaults to a full-colour PNG at panel size", async () => {
+    test("off defaults to a full-color PNG at panel size", async () => {
       const source = await buildGradientPng({
         width: 160,
         height: 96,
@@ -450,7 +454,7 @@ describe("ditherToPanel", () => {
         imageBuffer: source,
         width: 80,
         height: 48,
-        palette: E6_DEFAULT_PALETTE,
+        palette: SPECTRA6_DEFAULT_PALETTE,
         algorithm: "off",
       })
 
@@ -472,14 +476,14 @@ describe("ditherToPanel", () => {
         imageBuffer: source,
         width: 160,
         height: 96,
-        palette: E6_DEFAULT_PALETTE,
+        palette: SPECTRA6_DEFAULT_PALETTE,
         algorithm: "off",
       } as const
 
       const pngOutput = await ditherToPanel(common)
       const lossyOutput = await ditherToPanel({
         ...common,
-        fullColourEncoding: { format, quality: 80 },
+        fullColorEncoding: { format, quality: 80 },
       })
 
       const metadata = await sharp(lossyOutput).metadata()
@@ -491,7 +495,7 @@ describe("ditherToPanel", () => {
       )
     })
 
-    test("dithered (non-off) output ignores fullColourEncoding and stays PNG", async () => {
+    test("dithered (non-off) output ignores fullColorEncoding and stays PNG", async () => {
       const source = await buildGradientPng({
         width: 160,
         height: 96,
@@ -501,9 +505,9 @@ describe("ditherToPanel", () => {
         imageBuffer: source,
         width: 80,
         height: 48,
-        palette: E6_DEFAULT_PALETTE,
+        palette: SPECTRA6_DEFAULT_PALETTE,
         algorithm: "floyd-steinberg",
-        fullColourEncoding: { format: "webp", quality: 80 },
+        fullColorEncoding: { format: "webp", quality: 80 },
       })
 
       const metadata = await sharp(output).metadata()

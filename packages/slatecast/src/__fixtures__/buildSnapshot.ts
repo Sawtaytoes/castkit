@@ -15,7 +15,7 @@ import type {
 /** One hour in milliseconds — agenda fixtures are offsets from now. */
 const HOUR_MILLIS = 60 * 60 * 1_000
 
-/** A touch-capable colour device — the Media Controls case. */
+/** A touch-capable color device — the Media Controls case. */
 export const buildDeviceProfile = (
   overrides: Partial<BrowserDeviceProfile> = {},
 ) => ({
@@ -25,7 +25,7 @@ export const buildDeviceProfile = (
   height: 720,
   shape: "square" as const,
   hasTouch: true,
-  colour: "full" as const,
+  color: "full" as const,
   externalViews: [],
   ...overrides,
 })

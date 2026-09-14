@@ -1,22 +1,22 @@
 import type { Palette } from "../panels/palette.ts"
 import {
-  E6_DEFAULT_PALETTE,
-  MONO_PALETTE,
+  MONOCHROME_PALETTE,
+  SPECTRA6_DEFAULT_PALETTE,
 } from "../panels/palette.ts"
 
 /**
- * The colour capability of a panel. Drives which palette the dither pipeline
+ * The color capability of a panel. Drives which palette the dither pipeline
  * quantizes to and, downstream, which dithering algorithm reads best.
  */
-export type ColourMode = "mono" | "e6"
+export type ColorMode = "monochrome" | "spectra6"
 
 /**
  * The dithering kernels the pipeline can apply. Error-diffusion kernels
  * (floyd-steinberg … sierra) come from `image-q`; `ordered` and `threshold`
  * are implemented in-house. `off` skips our quantization entirely and sends
- * the full-colour downscaled image so the panel's own controller does the
+ * the full-color downscaled image so the panel's own controller does the
  * dithering (brightness/saturation still apply). The best choice differs by
- * panel — mono vs E6 — so it is a per-device knob, not one global setting.
+ * panel — mono vs E Ink Spectra 6 — so it is a per-device knob, not one global setting.
  * (`off`, not `none`: Home Assistant reserves the `select` payload `none` as
  * its "reset to unknown" sentinel, so a literal `none` option can't round-trip.)
  */
@@ -34,8 +34,8 @@ export type DitherAlgorithm =
   (typeof DITHER_ALGORITHMS)[number]
 
 /**
- * How a device's full-colour render is reduced to its panel's inks. Kept per
- * device so a mono pHAT and a 6-colour Impression can each use the algorithm +
+ * How a device's full-color render is reduced to its panel's inks. Kept per
+ * device so a mono pHAT and a 6-color Impression can each use the algorithm +
  * supersample factor that looks best on that hardware (the Decision-2 bake-off
  * picks these).
  */
@@ -68,7 +68,7 @@ export type DeviceMetadata = {
    */
   width: number
   height: number
-  colourMode: ColourMode
+  colorMode: ColorMode
   palette: Palette
   /**
    * Clockwise degrees applied to the FINISHED bitmap, to cancel out how the
@@ -120,8 +120,8 @@ export const PHAT_DEVICE: DeviceMetadata = {
   mac: "02:00:00:00:00:01",
   width: 250,
   height: 122,
-  colourMode: "mono",
-  palette: MONO_PALETTE,
+  colorMode: "monochrome",
+  palette: MONOCHROME_PALETTE,
   rotation: 180,
   ditherProfile: {
     algorithm: "atkinson",
@@ -130,7 +130,7 @@ export const PHAT_DEVICE: DeviceMetadata = {
 }
 
 /**
- * Example Inky Impression 7.3" Spectra: 800×480 6-colour E6. Palette is the 0.5
+ * Example Inky Impression 7.3" Spectra: 800×480 6-color E Ink Spectra 6. Palette is the 0.5
  * vivid/device blend the on-device Spectra path uses.
  */
 export const IMPRESSION_DEVICE: DeviceMetadata = {
@@ -139,8 +139,8 @@ export const IMPRESSION_DEVICE: DeviceMetadata = {
   mac: "02:00:00:00:00:02",
   width: 800,
   height: 480,
-  colourMode: "e6",
-  palette: E6_DEFAULT_PALETTE,
+  colorMode: "spectra6",
+  palette: SPECTRA6_DEFAULT_PALETTE,
   rotation: 0,
   ditherProfile: {
     algorithm: "floyd-steinberg",
@@ -165,8 +165,8 @@ export const M5PAPER_DEVICE: DeviceMetadata = {
   mac: "02:00:00:00:00:05",
   width: 960,
   height: 540,
-  colourMode: "mono",
-  palette: MONO_PALETTE,
+  colorMode: "monochrome",
+  palette: MONOCHROME_PALETTE,
   rotation: 0,
   imageDelivery: "http-pull",
   ditherProfile: {

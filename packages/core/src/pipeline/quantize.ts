@@ -2,7 +2,7 @@ import { applyPaletteSync, utils } from "image-q"
 import type { DitherAlgorithm } from "../devices/device.ts"
 import type {
   Palette,
-  RgbColour,
+  RgbColor,
 } from "../panels/palette.ts"
 
 /**
@@ -16,8 +16,8 @@ import type {
  * encoding are the caller's business; nothing here knows what an image file is.
  *
  * Error-diffusion kernels (floyd-steinberg, atkinson, stucki, sierra) are
- * delegated to `image-q`; `threshold` (nearest palette colour) and `ordered`
- * (nearest colour with an 8×8 Bayer bias) are implemented here because
+ * delegated to `image-q`; `threshold` (nearest palette color) and `ordered`
+ * (nearest color with an 8×8 Bayer bias) are implemented here because
  * `image-q` has no ordered kernel.
  */
 
@@ -45,17 +45,17 @@ const getIsDiffusionAlgorithm = (
 /**
  * Chroma (max channel − min channel) at or below which a pixel counts as
  * neutral (gray). Anti-aliased text edges sit well under this; genuine panel
- * colours sit well above it.
+ * colors sit well above it.
  */
 const NEUTRAL_CHROMA_THRESHOLD = 26
 
-/** Rec. 601 luminance of a palette colour. */
-const getLuminance = (colour: RgbColour) =>
-  colour[0] * 0.299 + colour[1] * 0.587 + colour[2] * 0.114
+/** Rec. 601 luminance of a palette color. */
+const getLuminance = (color: RgbColor) =>
+  color[0] * 0.299 + color[1] * 0.587 + color[2] * 0.114
 
 /**
- * Normalised 8×8 Bayer threshold matrix (values in −0.5…+0.5). Added to each
- * channel before the nearest-colour lookup so `ordered` dithering spreads
+ * Normalized 8×8 Bayer threshold matrix (values in −0.5…+0.5). Added to each
+ * channel before the nearest-color lookup so `ordered` dithering spreads
  * quantization error spatially instead of diffusing it.
  */
 const BAYER_8X8 = [
@@ -71,21 +71,21 @@ const BAYER_8X8 = [
   matrixRow.map((cellValue) => cellValue / 64 - 0.5),
 )
 
-/** Squared Euclidean distance between an RGB sample and a palette colour. */
-const getColourDistanceSquared = ({
+/** Squared Euclidean distance between an RGB sample and a palette color. */
+const getColorDistanceSquared = ({
   red,
   green,
   blue,
-  colour,
+  color,
 }: {
   red: number
   green: number
   blue: number
-  colour: RgbColour
+  color: RgbColor
 }) => {
-  const redDelta = red - colour[0]
-  const greenDelta = green - colour[1]
-  const blueDelta = blue - colour[2]
+  const redDelta = red - color[0]
+  const greenDelta = green - color[1]
+  const blueDelta = blue - color[2]
 
   return (
     redDelta * redDelta +
@@ -95,7 +95,7 @@ const getColourDistanceSquared = ({
 }
 
 /** Index of the palette entry nearest to the given RGB sample. */
-const findNearestColourIndex = ({
+const findNearestColorIndex = ({
   red,
   green,
   blue,
@@ -107,25 +107,25 @@ const findNearestColourIndex = ({
   palette: Palette
 }) =>
   palette.reduce(
-    (nearest, colour, colourIndex) => {
-      const distance = getColourDistanceSquared({
+    (nearest, color, colorIndex) => {
+      const distance = getColorDistanceSquared({
         red,
         green,
         blue,
-        colour,
+        color,
       })
 
       return distance < nearest.distance
-        ? { colourIndex, distance }
+        ? { colorIndex, distance }
         : nearest
     },
-    { colourIndex: 0, distance: Number.POSITIVE_INFINITY },
-  ).colourIndex
+    { colorIndex: 0, distance: Number.POSITIVE_INFINITY },
+  ).colorIndex
 
 /**
- * Nearest-colour quantization with an optional per-pixel bias. With no bias
+ * Nearest-color quantization with an optional per-pixel bias. With no bias
  * this is plain `threshold`; with the Bayer bias it is `ordered` dithering.
- * Operates on a flat RGBA buffer and writes the chosen palette colour back.
+ * Operates on a flat RGBA buffer and writes the chosen palette color back.
  */
 const quantizeWithBias = ({
   rgbaPixels,
@@ -158,17 +158,17 @@ const quantizeWithBias = ({
       const clamp = (channelValue: number) =>
         Math.max(0, Math.min(255, channelValue + bias))
 
-      const colourIndex = findNearestColourIndex({
+      const colorIndex = findNearestColorIndex({
         red: clamp(rgbaPixels[byteOffset]),
         green: clamp(rgbaPixels[byteOffset + 1]),
         blue: clamp(rgbaPixels[byteOffset + 2]),
         palette,
       })
 
-      const colour = palette[colourIndex]
-      outputPixels[byteOffset] = colour[0]
-      outputPixels[byteOffset + 1] = colour[1]
-      outputPixels[byteOffset + 2] = colour[2]
+      const color = palette[colorIndex]
+      outputPixels[byteOffset] = color[0]
+      outputPixels[byteOffset + 1] = color[1]
+      outputPixels[byteOffset + 2] = color[2]
       outputPixels[byteOffset + 3] = 255
     },
   )
@@ -204,12 +204,12 @@ const quantizeWithDiffusion = ({
     )
 
   const fixedPalette = new utils.Palette()
-  palette.forEach((colour) => {
+  palette.forEach((color) => {
     fixedPalette.add(
       utils.Point.createByRGBA(
-        colour[0],
-        colour[1],
-        colour[2],
+        color[0],
+        color[1],
+        color[2],
         255,
       ),
     )
@@ -267,15 +267,15 @@ const quantizeToPalette = ({
 const getMonochromeSubPalette = (
   palette: Palette,
 ): Palette => [
-  palette.reduce((darkestColour, colour) =>
-    getLuminance(colour) < getLuminance(darkestColour)
-      ? colour
-      : darkestColour,
+  palette.reduce((darkestColor, color) =>
+    getLuminance(color) < getLuminance(darkestColor)
+      ? color
+      : darkestColor,
   ),
-  palette.reduce((lightestColour, colour) =>
-    getLuminance(colour) > getLuminance(lightestColour)
-      ? colour
-      : lightestColour,
+  palette.reduce((lightestColor, color) =>
+    getLuminance(color) > getLuminance(lightestColor)
+      ? color
+      : lightestColor,
   ),
 ]
 
@@ -283,9 +283,9 @@ const getMonochromeSubPalette = (
  * Quantize with neutral protection: near-neutral (gray) pixels are dithered
  * against only the palette's black/white ends; everything else against the
  * full palette. Without this, error diffusion sprays the gray anti-aliased
- * edges of text across the colour palette — red/green speckle lines along
+ * edges of text across the color palette — red/green speckle lines along
  * letter edges on the physical panel. Keeping neutrals on the monochrome axis
- * eliminates that fringing without desaturating genuine colour.
+ * eliminates that fringing without desaturating genuine color.
  */
 const quantizeWithNeutralProtection = ({
   rgbaPixels,
@@ -349,7 +349,7 @@ const quantizeWithNeutralProtection = ({
 /**
  * Quantize a raw RGBA pixel buffer to a fixed palette. The one entry point, so
  * the server and the browser preview cannot disagree about what dithering
- * means: colour panels get neutral protection, and a 2-colour mono palette
+ * means: color panels get neutral protection, and a 2-color mono palette
  * skips the double quantize it would gain nothing from.
  */
 export const quantizeRgbaToPalette = ({

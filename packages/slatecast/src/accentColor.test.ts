@@ -63,7 +63,7 @@ const hueOf = (color: string) => {
 
 /**
  * Album art votes on hue and knows nothing about the panel's scheme. With the
- * panels defaulting to Dark, a cover whose dominant colour is a deep navy would
+ * panels defaulting to Dark, a cover whose dominant color is a deep navy would
  * paint the artist line and the progress fill nearly invisible.
  */
 describe("clamping a derived accent to the scheme", () => {
@@ -100,7 +100,7 @@ describe("clamping a derived accent to the scheme", () => {
     ).toBeGreaterThanOrEqual(4.5)
   })
 
-  test("a colour that already clears the floor is returned untouched", () => {
+  test("a color that already clears the floor is returned untouched", () => {
     const clamped = clampAccentToScheme({
       color: "rgb(174 182 247)",
       isDarkScheme: true,
@@ -119,12 +119,12 @@ describe("clamping a derived accent to the scheme", () => {
     expect(hueOf(after)).toBeCloseTo(hueOf(before) ?? 0, 0)
   })
 
-  test("an unparseable colour is passed through rather than guessed at", () => {
+  test("an unparseable color is passed through rather than guessed at", () => {
     expect(
       clampAccentToScheme({
-        color: "not-a-colour",
+        color: "not-a-color",
         isDarkScheme: true,
       }),
-    ).toBe("not-a-colour")
+    ).toBe("not-a-color")
   })
 })

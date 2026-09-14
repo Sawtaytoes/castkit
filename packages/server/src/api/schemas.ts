@@ -17,7 +17,7 @@ export const DeviceSummarySchema = z.object({
   label: z.string(),
   width: z.number(),
   height: z.number(),
-  colourMode: z.enum(["mono", "e6"]),
+  colorMode: z.enum(["monochrome", "spectra6"]),
   rotation: z.number(),
   activeView: z.string(),
 })

@@ -43,4 +43,4 @@ client-routed SPA:
 > and the others need browser routing. I want them all the same" (owner, 2026-08-16)
 
 Verified 2026-08-16: `yarn typecheck`, `yarn lint:biome`, `yarn lint:eslint` and 221
-tests all pass. No behaviour changes — the dev preview renders exactly as before.
+tests all pass. No behavior changes — the dev preview renders exactly as before.

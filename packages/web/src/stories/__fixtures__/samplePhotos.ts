@@ -1,6 +1,6 @@
 /**
  * The committed CC0 sample photos, served by Storybook from `staticDirs` at
- * `sample-photos/`. Provenance and licences are in
+ * `sample-photos/`. Provenance and licenses are in
  * `assets/sample-photos/CREDITS.md`.
  *
  * The paths are RELATIVE (no leading slash) on purpose. `storybook.octen.dev`
@@ -45,9 +45,9 @@ export const SAMPLE_PHOTOS = {
     label: "Smooth sky gradient",
     orientation: "landscape",
   },
-  colour: {
-    url: "sample-photos/landscape-colour.jpg",
-    label: "Saturated colour, dense detail",
+  color: {
+    url: "sample-photos/landscape-color.jpg",
+    label: "Saturated color, dense detail",
     orientation: "landscape",
   },
   neutralText: {
@@ -76,4 +76,4 @@ export const pickPhotoForPanel = ({
 }) =>
   height > width
     ? SAMPLE_PHOTOS.portraitFace
-    : SAMPLE_PHOTOS.colour
+    : SAMPLE_PHOTOS.color

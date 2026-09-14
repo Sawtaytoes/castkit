@@ -16,7 +16,7 @@ every lever**, in this order:
 2. **Slightly too wide** → keep the base font size and *condense* the
    letter-spacing just enough to fit, capped at `MAXIMUM_CONDENSE_EM` (6%).
 3. **Too wide even fully condensed** → shrink the font (holding max condense),
-   but **never below `READABLE_FONT_FLOOR_PX`** (`mono` 15px, `e6` 24px). At
+   but **never below `READABLE_FONT_FLOOR_PX`** (`monochrome` 15px, `spectra6` 24px). At
    the floor the line stops shrinking; the caller either wraps to a second line
    (the lonely-title case) or ellipsis-truncates.
 

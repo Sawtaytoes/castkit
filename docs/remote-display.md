@@ -96,7 +96,7 @@ receiver whose backlight **does** listen on the CastKit MQTT light topics
 a per-device **Display: Backlight level** (0–100 %), applies it through
 `backlight/brightness/set`, and sends it again each time the receiver's
 `backlight/available` returns to `online`. Leave it at the default 100 % to
-keep today's behaviour; see
+keep today's behavior; see
 [the decision](decisions/2026-09-11-castkit-owns-the-backlight-level-and-restores-it-on-reconnect.md).
 
 Source run and tests:

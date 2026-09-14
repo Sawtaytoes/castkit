@@ -47,8 +47,8 @@ export const getIsPhotoView = (viewName: ViewName) =>
   PHOTO_VIEW_NAMES.has(viewName)
 
 /**
- * Photo views ship a lossy full-colour frame when the device asks for one;
- * every other view stays lossless PNG so text and exact palette colours are
+ * Photo views ship a lossy full-color frame when the device asks for one;
+ * every other view stays lossless PNG so text and exact palette colors are
  * never degraded. (There is no "bleed" view any more — every view, photo
  * included, is laid out inside the box the mat leaves visible. See
  * docs/decisions/2026-09-08-photo-views-fit-the-visible-window.md.)

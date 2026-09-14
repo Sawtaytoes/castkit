@@ -147,7 +147,7 @@ describe("renderViewElement — clock config", () => {
     expect(date).toBe("Friday, July 3")
   })
 
-  test("24-hour + numeric date honour the resolved config", () => {
+  test("24-hour + numeric date honor the resolved config", () => {
     const { time, date } = getClockText(
       renderViewElement({
         viewName: "Clock",

@@ -2,7 +2,7 @@
 
 Guidelines for AI agents working on **CastKit** — a self-hostable home display
 platform. **One app, one view vocabulary.** A display's output depends on that
-display's **properties**: colour depth, dithering pattern, size, orientation,
+display's **properties**: color depth, dithering pattern, size, orientation,
 touch, and whether it renders live (`browser` — a kiosk browser loads `/d/<id>`
 and a tiny Preact SPA renders over one WebSocket) or is sent finished images
 (`image` — the server renders per-device PNGs, React → Chromium/Satori →
@@ -21,7 +21,7 @@ CastKit↔house contract is MQTT and nothing else.
 > [plan](docs/2026-09-12-unify-one-view-vocabulary-plan.md)).
 >
 > **A display is a PANEL MODEL plus an INSTALLATION.** Panel facts, fixed by the
-> hardware: `nativeSize`, `pixelGrid`, `colour`, `dithersItself`, `repaint`,
+> hardware: `nativeSize`, `pixelGrid`, `color`, `hasPanelDithering`, `repaint`,
 > `input`, `shape`, `delivery`, `hasBattery`. Installation settings, chosen per
 > unit: `orientation`, `power`, `margins`, `crop`, `mask`. **Telemetry is a
 > third kind and is not a property** — `batteryVolts`, `batteryPercent`,
@@ -29,7 +29,7 @@ CastKit↔house contract is MQTT and nothing else.
 > ([battery](docs/decisions/2026-09-13-a-battery-is-a-panel-fact-a-power-source-is-an-installation-and-charge-is-telemetry.md)). Two M5Papers are one model and two
 > installations — one may hang portrait and one landscape, and nothing about the
 > glass changed. None of the panel facts implies another: the M5Paper is ePaper
-> with touch and a fast repaint, the WT32-SC01 is a colour LCD fed finished
+> with touch and a fast repaint, the WT32-SC01 is a color LCD fed finished
 > frames because an ESP32 runs no browser. A view declares the properties it
 > needs and never a device id
 > ([rule](docs/decisions/2026-09-13-a-display-is-a-panel-model-plus-an-installation.md)).
@@ -55,9 +55,9 @@ CastKit↔house contract is MQTT and nothing else.
 > paints one "battery empty" notice and stops.
 >
 > **Dithering is three questions.** CastKit dithers only when the content
-> carries colour or tone, AND `colour` is not `full`, AND `dithersItself` is
+> carries color or tone, AND `color` is not `full`, AND `hasPanelDithering` is
 > `false`. Pure black-and-white content needs no dithering on any panel, ever,
-> and a panel whose own controller dithers (every Inky) gets the full-colour
+> and a panel whose own controller dithers (every Inky) gets the full-color
 > downscale untouched.
 >
 > ⛔ **CastKit stamps those properties onto `:root`, and CSS keys on the stamp.**
@@ -118,7 +118,7 @@ non-trivial task. Highlights:
 - **Views use inline style objects** (Satori-safe flexbox), not Emotion/Tailwind.
 - **⛔ A repeating list in a view draws only the rows that FINISH on the panel.**
   A panel has no scrollbar: a row the layout starts and the glass cuts in half
-  stays cut until the next repaint, and on a centred column the overflow throws
+  stays cut until the next repaint, and on a centered column the overflow throws
   the anchor off the TOP edge too. The view — never the server — adds up its own
   header, divides the height left by one row (`countRowsThatFit` in
   `viewStyles.ts`), and drops the rest. Do not answer an overflow by capping the
@@ -156,7 +156,7 @@ discovery. Architecture + phase plan are in the README and
   Chromium AND Satori at both panels → `render-output/render/`.
 - `yarn bakeoff:dither` — Decision 2: dithers card/gradient/photo with every
   algorithm × supersample factor, one contact sheet per (panel, image), mono and
-  E6 separate → `render-output/dither/`.
+  E Ink Spectra 6 separate → `render-output/dither/`.
 
 ePaper can't be screenshotted; the sheets are the review artifact. `render-output/`
 is gitignored (regenerated artifacts).
@@ -297,7 +297,7 @@ There are **two**, composed side by side on `storybook.octen.dev`:
 CI builds both and asserts each index clears a floor (a dropped `stories:` glob
 otherwise "succeeds" with an empty sidebar). The CC0 sample photos both use live
 at repo-root `assets/sample-photos/` (served at `/sample-photos/`); verify a
-licence at source before adding one — see `assets/sample-photos/CREDITS.md`.
+license at source before adding one — see `assets/sample-photos/CREDITS.md`.
 
 Testing conventions (inherited from the mux-magic family, enforced here):
 `test()` never `it()`; **no snapshot or screenshot/VRT tests** — spell expected

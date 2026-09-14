@@ -72,7 +72,7 @@ const run = async () => {
           element: createElement(view.component, {
             width: panel.device.width,
             height: panel.device.height,
-            colourMode: panel.device.colourMode,
+            colorMode: panel.device.colorMode,
             ...SAMPLE,
             title:
               artState.key === "art"

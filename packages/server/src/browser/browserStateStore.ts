@@ -36,7 +36,7 @@ export const createBrowserStateStore = ({
     deviceId: string,
   ): BrowserDeviceSettings => ({
     orientation: deviceById.get(deviceId)?.rotation ?? 0,
-    // Dark, not Auto. "Auto" reads the display's own OS colour preference,
+    // Dark, not Auto. "Auto" reads the display's own OS color preference,
     // and a kiosk Pi has no one to set that, so Auto is a permanent Light in
     // practice. A wall panel painting a white rectangle at night is the wrong
     // default for the one thing every one of these devices is. "Auto" stays a

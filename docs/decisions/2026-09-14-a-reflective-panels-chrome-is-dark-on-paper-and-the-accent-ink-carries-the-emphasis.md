@@ -15,7 +15,7 @@ only the one that prompted it.
 
 **The accent ink is not decoration. It is what makes a dense text column
 scannable**, and a view that drops it loses real legibility rather than only
-some colour. Where a column repeats a label and a value — an event's time and
+some color. Where a column repeats a label and a value — an event's time and
 its summary — the label takes the accent and the value takes
 `content.primary`.
 
@@ -29,7 +29,7 @@ Two consequences worth stating, because both were found the expensive way:
    resolves to `intent.accent.solid`. On a filled ink surface there is no
    accent that is both legible and distinct, so the natural fallback is
    `surface.base` — the same value the body text takes. The label and the value
-   collapse to one colour and the column stops being scannable. Do not "fix"
+   collapse to one color and the column stops being scannable. Do not "fix"
    this by picking another ink; the surface is the thing that is wrong.
 
 **This does NOT contradict
@@ -39,10 +39,10 @@ Dark is correct there. The two rules disagree only if the axis is read as taste.
 It is not taste; it is whether the display emits or reflects.
 
 ⚠️ **The property this keys on is not one of the nine.** `size`, `rotation`,
-`shape`, `pixelGrid`, `colour`, `ditheredBy`, `repaint`, `input` and `delivery`
+`shape`, `pixelGrid`, `color`, `ditheredBy`, `repaint`, `input` and `delivery`
 ([property table](2026-09-13-a-display-is-a-set-of-properties-and-panel-technology-is-not-one-of-them.md))
 do not express emitted against reflected light. `delivery` is the near miss and
-is wrong: an ESP32 colour LCD is fed finished frames and still emits its own
+is wrong: an ESP32 color LCD is fed finished frames and still emits its own
 light. Naming the real property is left open deliberately rather than
 overloading an existing one, and this record should be revisited when it is
 named. Until then the rule is stated in terms of what the display does with
@@ -65,13 +65,13 @@ none.
 ## Why
 
 The owner's own words, and he generalised it himself rather than being asked to:
-the panels are optimised for black on white. That matches how a reflective
+the panels are optimized for black on white. That matches how a reflective
 display works, so the rule is recorded at the level he stated it, not narrowed
 to the one view that produced it.
 
 The accent half of the rule comes from the same comparison. He called the blue
 out unprompted as the thing that helped, which is a stronger signal than a
-preference between two backgrounds: it says the colour is carrying information,
+preference between two backgrounds: it says the color is carrying information,
 not style.
 
 ## Evidence

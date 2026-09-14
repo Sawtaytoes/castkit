@@ -13,7 +13,7 @@ export type PanelFrameProps = {
   label: string
   width: number
   height: number
-  colourMode: "mono" | "e6"
+  colorMode: "monochrome" | "spectra6"
   zoom: number
   children: ReactNode
 }
@@ -22,7 +22,7 @@ export const PanelFrame = ({
   label,
   width,
   height,
-  colourMode,
+  colorMode,
   zoom,
   children,
 }: PanelFrameProps) => {
@@ -50,7 +50,7 @@ export const PanelFrame = ({
           color: "#333",
         }}
       >
-        {label} — {width}×{height} {colourMode} · {zoom}×
+        {label} — {width}×{height} {colorMode} · {zoom}×
       </figcaption>
 
       <div style={scaledStyle}>

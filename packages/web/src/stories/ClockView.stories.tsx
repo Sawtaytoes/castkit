@@ -35,7 +35,7 @@ export const PhatMono: Story = {
 }
 
 export const ImpressionE6: Story = {
-  name: "Impression E6 (800x480)",
+  name: "Impression E Ink Spectra 6 (800x480)",
   args: {
     ...DEFAULT_PANEL_ARGS,
     deviceId: "inky-impression",

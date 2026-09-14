@@ -3,7 +3,7 @@ import {
   DITHER_ALGORITHMS,
   type DitherAlgorithm,
 } from "@castkit/core/devices/device"
-import type { FullColourEncoding } from "@castkit/core/pipeline/dither"
+import type { FullColorEncoding } from "@castkit/core/pipeline/dither"
 import type { ConfigKnob } from "@castkit/shared/framework/configKnob"
 import {
   getIsPhotoView,
@@ -99,7 +99,7 @@ const getIsDitherAlgorithm = (
 // state. Formerly the INKCAST_PHOTO_MINUTES / _RECENCY_HALF_LIFE_DAYS env vars.
 const DEFAULT_PHOTO_INTERVAL_MINUTES = 10
 const DEFAULT_PHOTO_RECENCY_HALF_LIFE_DAYS = 365
-// The full-colour photo format shipped until an HA config entity overrides it.
+// The full-color photo format shipped until an HA config entity overrides it.
 // JPEG (not WebP) because the only current photo panel is an ARMv6 Pi that
 // SIGILLs on WebP decode — see the JPEG-not-WebP decision record.
 const DEFAULT_PHOTO_FORMAT: PhotoFormat = "jpeg"
@@ -374,7 +374,7 @@ const main = async () => {
   // if neither is set the ARMv6-safe fallback (JPEG q80) applies.
   const resolvePhotoEncoding = (
     deviceId: string,
-  ): FullColourEncoding => {
+  ): FullColorEncoding => {
     const perDeviceFormat =
       deviceConfigStore.getPhotoFormat(deviceId)
     const format: PhotoFormat =
@@ -963,7 +963,7 @@ const main = async () => {
           },
         ],
         [
-          "colourMode",
+          "colorMode",
           {
             applyPayload: ({ deviceId, payload }) => {
               if (
@@ -972,15 +972,15 @@ const main = async () => {
               ) {
                 return null
               }
-              deviceConfigStore.setColourModeOverride({
+              deviceConfigStore.setColorModeOverride({
                 deviceId,
-                colourMode:
+                colorMode:
                   payload === "Color" ? "color" : "bw",
               })
               return payload
             },
             getHasValue: (deviceId) =>
-              deviceConfigStore.getColourModeOverride(
+              deviceConfigStore.getColorModeOverride(
                 deviceId,
               ) !== undefined,
             onApplied: async (deviceId) => {
@@ -1200,9 +1200,9 @@ const main = async () => {
           command: topics.rotationCommand,
           state: topics.rotationState,
         },
-        colourMode: {
-          command: topics.colourModeCommand,
-          state: topics.colourModeState,
+        colorMode: {
+          command: topics.colorModeCommand,
+          state: topics.colorModeState,
         },
         brightness: {
           command: topics.brightnessCommand,
@@ -1817,12 +1817,12 @@ const main = async () => {
               ) !== undefined,
             payload: String(device.rotation),
           },
-          ...(device.colourMode === "e6"
+          ...(device.colorMode === "spectra6"
             ? [
                 {
-                  kind: "colourMode",
+                  kind: "colorMode",
                   hasValue:
-                    deviceConfigStore.getColourModeOverride(
+                    deviceConfigStore.getColorModeOverride(
                       device.id,
                     ) !== undefined,
                   payload: "Color",
@@ -2059,10 +2059,10 @@ const main = async () => {
           deviceConfigStore.getRotationOverride(deviceId) ??
             device.rotation,
         ),
-        ...(device.colourMode === "e6"
+        ...(device.colorMode === "spectra6"
           ? {
-              colourMode:
-                deviceConfigStore.getColourModeOverride(
+              colorMode:
+                deviceConfigStore.getColorModeOverride(
                   deviceId,
                 ) === "bw"
                   ? "Black & White"
@@ -2167,7 +2167,7 @@ const main = async () => {
         clockDateStyle: "clockDateStyleCommand",
         dither: "ditherCommand",
         rotation: "rotationCommand",
-        colourMode: "colourModeCommand",
+        colorMode: "colorModeCommand",
         brightness: "brightnessCommand",
         saturation: "saturationCommand",
         margin_top: "marginTopCommand",

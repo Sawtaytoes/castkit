@@ -65,7 +65,7 @@ export const createSlatecastServer = () => {
       connections.client?.send(JSON.stringify(message))
     },
 
-    /** Drop the socket, so reconnect behaviour can be asserted. */
+    /** Drop the socket, so reconnect behavior can be asserted. */
     closeConnection: () => {
       connections.client?.close()
       connections.client = null

@@ -44,12 +44,12 @@ plus flags. Concretely:
 ## Context
 
 CastKit already models devices by **who renders** plus static capabilities —
-`renderer` (`image` vs `browser`), `touch`, `colour`, `shape` — precisely so a
+`renderer` (`image` vs `browser`), `touch`, `color`, `shape` — precisely so a
 device can mix traits without a new class
 ([2026-07-07-castkit-platform-one-server-two-client-modes.md](2026-07-07-castkit-platform-one-server-two-client-modes.md),
 which explicitly cited the incoming M5Paper as the proof that the axis is "who
 renders, with touch as a capability on either side"). Today that capability
-vocabulary is wired on the **browser** device schema (`hasTouch`, `colour`,
+vocabulary is wired on the **browser** device schema (`hasTouch`, `color`,
 `shape`); the **image** schema still carries only render metadata. The M5Paper is
 the first image device that is also touch-capable and fast-update-capable, so it
 is the concrete case that says whether those flags belong on the image schema too.

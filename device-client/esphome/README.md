@@ -13,7 +13,7 @@ Why it's different from the Pi receivers, and what "blurs the lines":
 | Who renders | server | server | the device |
 | Transport | MQTT image push | **HTTP pull (token URL)** | WebSocket |
 | Touch | no | **yes (GT911)** | yes |
-| Colour | mono / e6 | **mono (1-bit; panel is 16-gray)** | full |
+| Color | monochrome / spectra6 | **monochrome (1-bit; panel is 16-gray)** | full |
 | Fast partial update | no | **yes (progress bar)** | n/a |
 
 See the decision records:
@@ -192,7 +192,7 @@ apart. `update_interval: 300s` is how often the ADC is *sampled*; the median
 filter then emits every fifth sample, so 5 x 300 s = 1500 s between published
 values. The percentage is published every 5 minutes but reads the held voltage,
 so it steps in 25-minute jumps and looks stuck in between. That is correct
-behaviour, not a fault.
+behavior, not a fault.
 
 ⚠️ **4.29 V is above the 4.20 V the percentage map calls full**, so the
 percentage pins at 100 and tells you nothing yet. Two explanations fit, and this

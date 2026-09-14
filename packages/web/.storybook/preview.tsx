@@ -5,13 +5,13 @@ import { installPanelFonts } from "../src/storybook/panelFontFaceCss.ts"
   Install the panel faces before anything renders. Without this every story
   falls back to the browser's system sans-serif while the device renders in
   Atkinson Hyperlegible — so the preview mismeasures text, and any overflow
-  judgement made against it is made against the wrong metrics.
+  judgment made against it is made against the wrong metrics.
 */
 void installPanelFonts()
 
 /**
  * Views draw a white card at an exact pixel size, so a plain white Storybook
- * canvas would hide the panel edge. Wrap every story in a grey mat + thin border
+ * canvas would hide the panel edge. Wrap every story in a gray mat + thin border
  * so the panel boundary is visible at its true dimensions. That border is the
  * mat — it is not a crop; crop insets are a separate, explicit control.
  */

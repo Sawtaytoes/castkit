@@ -86,8 +86,17 @@ export const buildDeviceTopics = ({
     ditherState: `${base}/dither`,
     rotationCommand: `${base}/rotation/set`,
     rotationState: `${base}/rotation`,
-    colourModeCommand: `${base}/colour_mode/set`,
-    colourModeState: `${base}/colour_mode`,
+    // ⚠️ The TOPIC keeps the British spelling on purpose. The identifier is
+    // American, the wire is not, and the two are allowed to differ.
+    //
+    // Home Assistant has a retained `select` entity bound to this topic, and
+    // every automation and dashboard card that names it. Renaming the topic
+    // silently stops matching, and the retained value on the old topic lives
+    // on the broker until somebody deletes it. Renaming is a coordinated
+    // migration with the Home Assistant side, not a spelling sweep
+    // (see the workspace decision 2026-09-14-we-write-american-english…).
+    colorModeCommand: `${base}/colour_mode/set`,
+    colorModeState: `${base}/colour_mode`,
     brightnessCommand: `${base}/brightness/set`,
     brightnessState: `${base}/brightness`,
     saturationCommand: `${base}/saturation/set`,
@@ -145,8 +154,8 @@ export const buildGlobalTopics = (
   photoQualityState: `${baseTopic}/photo_quality`,
 })
 
-/** The HA-facing colour-mode option strings (double as MQTT payloads). */
-export const COLOUR_MODE_OPTIONS = [
+/** The HA-facing color-mode option strings (double as MQTT payloads). */
+export const COLOR_MODE_OPTIONS = [
   "Color",
   "Black & White",
 ] as const
@@ -213,7 +222,7 @@ const buildDeviceBlock = (device: DeviceMetadata) => ({
   connections: [["mac", device.mac]],
   name: device.label,
   manufacturer: "CastKit",
-  model: `${device.colourMode} ${device.width}×${device.height}`,
+  model: `${device.colorMode} ${device.width}×${device.height}`,
 })
 
 /**
@@ -346,19 +355,27 @@ export const buildDiscoveryMessages = ({
         device: deviceBlock,
       },
     },
-    // B&W-on-a-colour-panel only makes sense on colour hardware.
-    ...(device.colourMode === "e6"
+    // B&W-on-a-color-panel only makes sense on color hardware.
+    ...(device.colorMode === "spectra6"
       ? [
           {
-            topic: discoveryTopic("select", "colour_mode"),
+            topic: discoveryTopic(
+              "select",
+              // Legacy on purpose — see colorModeCommand above.
+              "colour_mode",
+            ),
             isRetained: true as const,
             payload: {
               ...availability,
               name: "Display: Color mode",
+              // ⚠️ NEVER change this string. Home Assistant keys the entity
+              // off `unique_id`; a new value creates a SECOND entity and
+              // orphans `select.<device>_colour_mode`, taking every dashboard
+              // card and automation that names it with it.
               unique_id: `inkcast_${device.id}_colour_mode`,
-              options: Array.from(COLOUR_MODE_OPTIONS),
-              command_topic: topics.colourModeCommand,
-              state_topic: topics.colourModeState,
+              options: Array.from(COLOR_MODE_OPTIONS),
+              command_topic: topics.colorModeCommand,
+              state_topic: topics.colorModeState,
               entity_category: "config",
               device: deviceBlock,
             },

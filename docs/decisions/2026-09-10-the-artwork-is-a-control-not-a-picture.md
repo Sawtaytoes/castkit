@@ -19,7 +19,7 @@ On a touch device the Now Playing artwork is a button, not a picture.
   Bringing it back towards the middle and releasing there cancels.
 - While the finger is down and has passed an 8-pixel slop band, a pill at the
   top of the panel names the direction: **Next Song** or **Previous Song**. It
-  changes colour once the release would act, so the panel can say "let go now"
+  changes color once the release would act, so the panel can say "let go now"
   without any other affordance.
 - The **next** side names the track. The **previous** side does not.
 - A touchless device is unchanged: a plain `<img class="artwork">`, no button,
@@ -73,7 +73,7 @@ no keyboard and no room for a queue list.
 The pill is the whole reason this is safe on a kiosk: a drag with no feedback is
 indistinguishable from a slipped tap, and a tap that silently skipped a track
 would be worse than no gesture at all. It names the direction, it names the next
-track when that is knowable, and it changes colour at the commit point.
+track when that is knowable, and it changes color at the commit point.
 
 Only the next side carries a name because the alternative was inventing one. The
 client could remember the track that played before the current one, but Music

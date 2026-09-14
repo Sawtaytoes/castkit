@@ -17,13 +17,13 @@ technology.** Three rules:
    vocabulary and these are two renderers of it.
 2. **A story's variants are the registered profiles**, named for what a person
    sees — `Workbench (480x320 landscape, touch)`, `Porthole (round)`,
-   `Impression E6 (800x480)`. The property that makes the variant interesting
+   `Impression E Ink Spectra 6 (800x480)`. The property that makes the variant interesting
    belongs in the name; the technology does not.
 3. **The two composed refs are named for who renders, which is the `delivery`
    property.** `CastKit — ePaper views` becomes `CastKit — server-rendered
    frames`, and `CastKit — browser views` becomes `CastKit — panel-rendered
    views`. The split is real and it is not ePaper against LCD: the M5Paper is
-   ePaper and the WT32-SC01 is a colour LCD, and both are in the first ref,
+   ePaper and the WT32-SC01 is a color LCD, and both are in the first ref,
    because neither runs a browser.
 
 **Coverage is the product of view and profile, and a missing cell is a gap, not

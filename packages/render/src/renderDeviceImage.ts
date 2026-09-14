@@ -3,7 +3,7 @@ import type { PanelMargin } from "@castkit/core/panels/safeArea"
 import { resolveSafeArea } from "@castkit/core/panels/safeArea"
 import type {
   DitherAdjustments,
-  FullColourEncoding,
+  FullColorEncoding,
 } from "@castkit/core/pipeline/dither"
 import { ditherToPanel } from "@castkit/core/pipeline/dither"
 import type { ReactElement } from "react"
@@ -31,14 +31,14 @@ export const renderDeviceImage = async ({
   device,
   adjustments,
   margin,
-  fullColourEncoding,
+  fullColorEncoding,
 }: {
   engine: RenderEngine
   element: ReactElement
   device: DeviceMetadata
   adjustments?: DitherAdjustments
   margin?: PanelMargin
-  fullColourEncoding?: FullColourEncoding
+  fullColorEncoding?: FullColorEncoding
 }): Promise<Buffer> => {
   const supersampleFactor =
     device.ditherProfile.supersampleFactor
@@ -86,6 +86,6 @@ export const renderDeviceImage = async ({
     algorithm: device.ditherProfile.algorithm,
     rotation: device.rotation,
     adjustments,
-    ...(fullColourEncoding ? { fullColourEncoding } : {}),
+    ...(fullColorEncoding ? { fullColorEncoding } : {}),
   })
 }

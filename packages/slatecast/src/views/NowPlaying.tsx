@@ -103,13 +103,13 @@ const ArtworkSlot = ({
  *
  * A tap toggles play and pause — the owner reaches for the picture, not the
  * small transport button under it. A drag slides the rail towards the
- * neighbouring track and names it at the top of the panel; releasing past
+ * neighboring track and names it at the top of the panel; releasing past
  * {@link TRACK_CHANGE_RATIO} changes track, and bringing it back to the middle
  * cancels.
  *
  * Only the next track can carry a name. Home Assistant's Music Assistant
  * integration reports the current queue item and the one after it, and nothing
- * before it, so the previous side is a labelled glyph rather than a wrong
+ * before it, so the previous side is a labeled glyph rather than a wrong
  * title. See `nextQueueItem`.
  */
 const Artwork = () => {
@@ -449,13 +449,14 @@ export const NowPlaying = () => {
   const data = nowPlaying.value
   const profile = device.value
   const isInteractive = profile?.hasTouch ?? false
-  const isColourCapable =
-    profile?.colour === "full" || profile?.colour === "e6"
+  const isColorCapable =
+    profile?.color === "full" ||
+    profile?.color === "spectra6"
   const [accent, setAccent] = useState<string | null>(null)
 
   const artworkUrl = data?.artworkPath
   useEffect(() => {
-    if (!artworkUrl || !isColourCapable) {
+    if (!artworkUrl || !isColorCapable) {
       setAccent(null)
       return
     }
@@ -468,7 +469,7 @@ export const NowPlaying = () => {
     return () => {
       isStale = true
     }
-  }, [artworkUrl, isColourCapable])
+  }, [artworkUrl, isColorCapable])
 
   if (!data || (!data.title && !data.artist)) {
     return (

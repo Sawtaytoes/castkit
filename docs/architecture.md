@@ -6,7 +6,7 @@ another. Three roles:
 - **Home Assistant** — the brain. Pushes each display's view data, drives the View
   select / Refresh / config knobs, and auto-creates the entities it's told about.
 - **Inkcast server (container)** — renders pixels and **owns the device list**
-  (each device's geometry + colour mode). At boot it publishes the retained HA
+  (each device's geometry + color mode). At boot it publishes the retained HA
   MQTT-discovery configs; that publish is what makes the entities appear in HA.
 - **Device (Pi receiver)** — a dumb sink: subscribes to one image topic, decodes the
   PNG, draws it.
@@ -24,7 +24,7 @@ flowchart TB
 
   subgraph SRV["Inkcast server — container (renders pixels)"]
     direction TB
-    S1["Owns device list: id, width, height, colourMode"]
+    S1["Owns device list: id, width, height, colorMode"]
     S2["render → dither → size → PNG"]
     S3["Publishes retained HA discovery:<br/>homeassistant/&lt;component&gt;/inkcast/&lt;id&gt;_&lt;entity&gt;/config"]
   end
@@ -60,7 +60,7 @@ subscribing with a wildcard:
 ```mermaid
 flowchart TB
   BROKER{{"MQTT broker"}}
-  DEV["Device"] -->|"retained birth:<br/>inkcast/&lt;id&gt;/register = {width,height,colourMode,mac}"| BROKER
+  DEV["Device"] -->|"retained birth:<br/>inkcast/&lt;id&gt;/register = {width,height,colorMode,mac}"| BROKER
   BROKER -->|"replays all retained births<br/>(even ones sent while server was down)"| SRV["Inkcast server<br/>subscribes inkcast/+/register"]
   SRV -->|"build render-registry + publish HA discovery"| BROKER
 ```

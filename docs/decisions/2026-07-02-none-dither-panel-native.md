@@ -1,4 +1,4 @@
-# A "none" dither option hands the panel a full-colour image
+# A "none" dither option hands the panel a full-color image
 
 - **Status:** Superseded
 - **Date:** 2026-07-02
@@ -11,13 +11,13 @@
 `none` is a selectable dither algorithm (first in `DITHER_ALGORITHMS`, so it
 heads the "Display: Dither" select). With `none`, `ditherToPanel` **skips our
 palette quantization entirely** and returns the downscaled, tone-adjusted image
-as a full-colour RGB PNG, letting the panel's own controller do the dithering.
+as a full-color RGB PNG, letting the panel's own controller do the dithering.
 Brightness and saturation still apply (they run in the downscale chain, before
 the skip).
 
 ## Context
 
-On the E6 Impression the maintainer felt our error-diffusion dither made photos
+On the E Ink Spectra 6 Impression the maintainer felt our error-diffusion dither made photos
 look worse than sending a plainer image and letting the panel's onboard chip
 handle it.
 
@@ -37,4 +37,4 @@ knobs intact.
 > way."
 
 — maintainer, 2026-07-02 (verified via preview: `none` emits smooth
-anti-aliased full-colour, not palette-dithered)
+anti-aliased full-color, not palette-dithered)
