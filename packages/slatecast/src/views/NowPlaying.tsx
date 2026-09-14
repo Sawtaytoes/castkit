@@ -315,6 +315,10 @@ const SeekBar = ({
       style={{ width: `${fraction * 100}%` }}
     />
   )
+  // The interactive track's own box IS its touch area, so the painted bar is a
+  // child of it rather than the element's background. See the `.seek-track`
+  // block in styles.css.
+  const trackBar = <div class="seek-bar">{trackFill}</div>
 
   return (
     <div class="seek">
@@ -349,7 +353,7 @@ const SeekBar = ({
             seekTo(target)
           }}
         >
-          {trackFill}
+          {trackBar}
           <div
             class="seek-knob"
             style={{ left: `${fraction * 100}%` }}
@@ -403,27 +407,40 @@ const VolumeRow = () => {
           }
         />
       </button>
-      <input
-        type="range"
-        min="0"
-        max="100"
-        value={percent}
-        // The stylesheet paints the filled part of the hand-drawn track from
-        // this; `accent-color` cannot size the thumb for a finger.
-        style={{ "--volume-fill": `${percent}%` }}
-        aria-label="Volume"
-        data-castkit-target="now-playing-volume"
-        // onInput, not onChange: onChange only fires on release, so the slider
-        // sat still under a moving finger. setVolume throttles the publishes.
-        onInput={(event) =>
-          setVolume(
-            Number(
-              (event.currentTarget as HTMLInputElement)
-                .value,
-            ) / 100,
-          )
-        }
-      />
+      {/*
+        The input is transparent and fills the whole 5.5vmin box, which is the
+        thumb's size. The bar is painted by the sibling behind it. The touch
+        target must BE the element's box: CastKit's remote-display renderer
+        replays `getBoundingClientRect()` to bind a touch, and a 2vmin box
+        under a 5.5vmin thumb threw 62 % of the landings away.
+      */}
+      <div class="volume-slider">
+        <div
+          class="volume-bar"
+          // The stylesheet paints the filled part of the hand-drawn track from
+          // this; `accent-color` cannot size the thumb for a finger.
+          style={{ "--volume-fill": `${percent}%` }}
+        />
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={percent}
+          aria-label="Volume"
+          data-castkit-target="now-playing-volume"
+          // onInput, not onChange: onChange only fires on release, so the
+          // slider sat still under a moving finger. setVolume throttles the
+          // publishes.
+          onInput={(event) =>
+            setVolume(
+              Number(
+                (event.currentTarget as HTMLInputElement)
+                  .value,
+              ) / 100,
+            )
+          }
+        />
+      </div>
     </div>
   )
 }

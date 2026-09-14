@@ -337,15 +337,39 @@ body {
   position: relative;
 }
 
-/* A fat touch target without a fat bar. */
+/*
+ * A fat touch target without a fat bar — and the fat part is the element's own
+ * BOX, not a `::before` pad.
+ *
+ * ⚠️ Do not put the pad back on a pseudo-element. CastKit's remote-display
+ * renderer binds a touch by replaying the target's `getBoundingClientRect()`
+ * from the frame the panel is looking at, and a bounding rect cannot see a
+ * pseudo-element. Measured on the deployed page at 480x320 on 2026-09-13:
+ * 28 px of this control's 39 px touch area, and 16 px of the volume slider's
+ * 27 px, were rejected with no feedback — 74 % and 62 % of every landing the
+ * browser said hit the control. `slidersAreTheirOwnTouchArea.test.tsx` asserts
+ * the invariant.
+ *
+ * The padding is cancelled by an equal negative margin, so the row's layout
+ * height is still the bar's — the pad overlaps its neighbours exactly as the
+ * `::before` did.
+ */
 .seek-track.interactive {
   touch-action: none;
+  box-sizing: border-box;
+  height: 10vmin;
+  padding-block: 4vmin;
+  margin-block: -4vmin;
+  background: none;
+  border-radius: 0;
 }
 
-.seek-track.interactive::before {
-  content: "";
-  position: absolute;
-  inset: -4vmin 0;
+/* The painted bar, now a child inside the padded touch box. Sized in the same
+   unit the track used to be, so the bar lands on exactly the pixels it did. */
+.seek-bar {
+  height: 2vmin;
+  border-radius: 1vmin;
+  background: var(--surface);
 }
 
 .seek-fill {
@@ -416,16 +440,39 @@ body {
  * panel's browser otherwise claims a horizontal drag as a pan, the slider
  * gets the first touch and none of the moves, and a drag reads as a tap.
  */
-.volume input[type="range"] {
+/*
+ * ⚠️ The input's own box is the thumb's size, not the bar's. The renderer
+ * replays `getBoundingClientRect()` to bind a touch, so a 5.5vmin thumb over a
+ * 2vmin box threw away the 1.75vmin of it above and below the painted line.
+ * The bar is a sibling behind a transparent, full-height input.
+ */
+.volume-slider {
   flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 5.5vmin;
+}
+
+.volume-bar {
+  width: 100%;
   height: 2vmin;
   border-radius: 1vmin;
-  appearance: none;
   background: linear-gradient(
     to right,
     var(--accent) 0 var(--volume-fill, 0%),
     var(--surface) var(--volume-fill, 0%) 100%
   );
+}
+
+.volume input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  background: none;
   outline: none;
   cursor: none;
   touch-action: none;
@@ -584,8 +631,15 @@ body {
     border-radius: 5px;
   }
 
-  .seek-track.interactive::before {
-    inset: -14px 0;
+  .seek-track.interactive {
+    height: 38px;
+    padding-block: 14px;
+    margin-block: -14px;
+  }
+
+  .seek-bar {
+    height: 10px;
+    border-radius: 5px;
   }
 
   .seek-knob {
@@ -605,7 +659,11 @@ body {
     padding: 4px;
   }
 
-  .volume input[type="range"] {
+  .volume-slider {
+    height: 26px;
+  }
+
+  .volume-bar {
     height: 10px;
     border-radius: 5px;
   }
