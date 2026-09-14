@@ -71,8 +71,6 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   background: var(--bg);
-  /* An appliance never shows a pointer (kiosk blank-cursor theme backs this up). */
-  cursor: none;
 }
 
 /*
@@ -92,6 +90,18 @@ body {
    * asks for its own pan below.
    */
   touch-action: none;
+  /*
+   * An appliance never shows a pointer (the kiosk blank-cursor theme backs this
+   * up), and the stage covers the whole panel, so hiding it here hides it
+   * everywhere a panel can be touched.
+   *
+   * It sits on the stage and NOT on `html, body`, because this stylesheet is
+   * also loaded by the Storybook preview, and a rule on the document root hid
+   * the pointer over the harness too — the sidebar kept its cursor and the
+   * whole canvas, matrix page included, did not. The property belongs to the
+   * appliance, not to every document that imports the appliance's stylesheet.
+   */
+  cursor: none;
   display: flex;
   flex-direction: column;
   align-items: center;

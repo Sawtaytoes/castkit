@@ -6,7 +6,7 @@ import {
 } from "./slatecastStory.tsx"
 
 const meta = {
-  title: "Browser views/Queue",
+  title: "Views/Queue",
   render: renderApp,
   decorators: [seedDecorator("queue")],
 }

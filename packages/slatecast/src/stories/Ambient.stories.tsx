@@ -6,7 +6,7 @@ import {
 } from "./slatecastStory.tsx"
 
 const meta = {
-  title: "Browser views/Ambient",
+  title: "Views/Ambient",
   render: renderApp,
   decorators: [seedDecorator("ambient")],
 }
