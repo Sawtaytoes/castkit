@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CastKit — photo beside the agenda (layout options)</title>
+    <style>
+      @font-face {
+        font-family: "Atkinson Hyperlegible";
+        font-weight: 400;
+        src: url("fonts/AtkinsonHyperlegible-Regular.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: "Atkinson Hyperlegible";
+        font-weight: 700;
+        src: url("fonts/AtkinsonHyperlegible-Bold.ttf") format("truetype");
+      }
+
+      :root {
+        color-scheme: dark;
+        --page: #14161a;
+        --card: #1d2026;
+        --line: #2f343d;
+        --text: #e7eaf0;
+        --dim: #9aa3b2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px 28px 80px;
+        background: var(--page);
+        color: var(--text);
+        font-family:
+          "Atkinson Hyperlegible",
+          system-ui,
+          sans-serif;
+      }
+
+      h1 {
+        font-size: 22px;
+        margin: 0 0 6px;
+      }
+
+      p.blurb {
+        margin: 0 0 18px;
+        color: var(--dim);
+        font-size: 14px;
+        max-width: 86ch;
+        line-height: 1.5;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        padding: 12px 14px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin-bottom: 22px;
+        font-size: 14px;
+      }
+
+      .controls .group {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .controls .label {
+        color: var(--dim);
+        margin-right: 4px;
+      }
+
+      button.pill {
+        font: inherit;
+        color: var(--text);
+        background: #262a32;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 6px 14px;
+        cursor: pointer;
+      }
+
+      button.pill[aria-pressed="true"] {
+        background: #e7eaf0;
+        color: #14161a;
+        border-color: #e7eaf0;
+        font-weight: 700;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 18px 20px;
+        margin-bottom: 22px;
+      }
+
+      .card h2 {
+        font-size: 16px;
+        margin: 0 0 4px;
+      }
+
+      .card .note {
+        font-size: 13px;
+        color: var(--dim);
+        margin: 0 0 14px;
+        line-height: 1.5;
+        max-width: 92ch;
+      }
+
+      .card .note b {
+        color: var(--text);
+      }
+
+      .panel-wrap {
+        background: repeating-conic-gradient(#23262d 0% 25%, #1a1d23 0% 50%) 0 /
+          16px 16px;
+        border-radius: 6px;
+        padding: 10px;
+        display: inline-block;
+      }
+
+      .panel-scale {
+        transform-origin: top left;
+      }
+
+      .panel {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .mat {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-style: solid;
+        border-color: rgba(120, 84, 48, 0.86);
+      }
+
+      .mat::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.45);
+      }
+
+      .zoomnote {
+        font-size: 12px;
+        color: var(--dim);
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CastKit — an image on one side, the time and agenda on the other</h1>
+    <p class="blurb">
+      Five layouts, drawn at each panel's real framebuffer size, in the real
+      panel inks (Spectra 6 resolves white to <code>#D0D2D2</code> and the
+      accent to <code>#1F1EAF</code>) and the real panel typeface (Atkinson
+      Hyperlegible). Photos are the repo's committed CC0 fixtures. The split
+      point is measured on the <b>visible window</b>, and the photo still
+      bleeds to the panel edge under the mat — the rule
+      <code>Photo Frame (Duo)</code> already follows. Nothing is dithered here;
+      this is about layout, not ink simulation.
+    </p>
+    <p class="blurb">
+      <b>Status: an exploration. No decision record backs this yet, and no view
+      is built.</b> Two things the drawing measured rather than assumed: the
+      13.3" panel holds four agenda rows beside a photo, with the time in its
+      own column, at both 62 / 38 and 50 / 50; the Kitchen Counter panel —
+      800 x 480 behind a mat that leaves 678 x 416 — holds two, stacked,
+      because its rail is about 240 px wide and the Spectra 6 readable floor
+      is 24 px.
+    </p>
+
+    <div class="controls">
+      <div class="group">
+        <span class="label">Panel</span>
+        <span id="panelButtons"></span>
+      </div>
+      <div class="group">
+        <span class="label">Mat</span>
+        <button type="button" class="pill" id="matToggle" aria-pressed="true">
+          Show the mat
+        </button>
+      </div>
+      <div class="group">
+        <span class="label">Day</span>
+        <button type="button" class="pill" id="dayToggle" aria-pressed="false">
+          Free day (no events)
+        </button>
+      </div>
+    </div>
+
+    <main id="stage"></main>
+
+    <script>
+      const INKS = {
+        e6: {
+          paper: "#D0D2D2",
+          ink: "#000000",
+          accent: "#1F1EAF",
+          floor: 24,
+        },
+        mono: {
+          paper: "#FFFFFF",
+          ink: "#000000",
+          accent: "#000000",
+          floor: 15,
+        },
+      }
+
+      const PANELS = [
+        {
+          id: "impression13",
+          short: '13.3"',
+          label: 'Inky Impression 13.3" — 1600 x 1200, Spectra 6',
+          width: 1600,
+          height: 1200,
+          mode: "e6",
+          inset: { top: 0, right: 0, bottom: 0, left: 0 },
+          zoom: 0.52,
+        },
+        {
+          id: "kitchen",
+          short: "Kitchen",
+          label:
+            "Kitchen Counter — 800 x 480, Spectra 6, mat 36 / 63 / 28 / 59",
+          width: 800,
+          height: 480,
+          mode: "e6",
+          inset: { top: 36, right: 63, bottom: 28, left: 59 },
+          zoom: 1,
+        },
+        {
+          id: "m5paper",
+          short: "M5Paper",
+          label: "M5Paper — 960 x 540, 1-bit mono",
+          width: 960,
+          height: 540,
+          mode: "mono",
+          inset: { top: 0, right: 0, bottom: 0, left: 0 },
+          zoom: 1,
+        },
+      ]
+
+      const DATA = {
+        time: "9:41",
+        meridiem: "AM",
+        weekday: "Saturday",
+        monthDay: "September 13",
+        dateOneLine: "Saturday, September 13",
+        temperature: "72°",
+        condition: "Partly cloudy",
+        events: [
+          { timeText: "10:00a", summary: "Farmers market" },
+          { timeText: "1:30p", summary: "Piano lesson" },
+          { timeText: "4:00p", summary: "Soccer practice" },
+          { timeText: "7:00p", summary: "Trash out for the morning" },
+        ],
+      }
+
+      const PHOTOS = {
+        portrait: "photos/portrait-face.jpg",
+        portraitSecond: "photos/portrait-face.jpg",
+        landscape: "photos/landscape-colour.jpg",
+        landscapeAlt: "photos/landscape-colour.jpg",
+      }
+
+      const state = {
+        panelId: PANELS[0].id,
+        showMat: true,
+        freeDay: false,
+      }
+
+      /* ---------- small builders ---------- */
+
+      const el = (tag, style, text) => {
+        const node = document.createElement(tag)
+        if (style) Object.assign(node.style, style)
+        if (text !== undefined) node.textContent = text
+        return node
+      }
+
+      const _pickPhoto = ({ width, height }) =>
+        width / height < 1.15 ? PHOTOS.portrait : PHOTOS.landscape
+
+      const photoBox = ({ width, height, src }) => {
+        const img = el("img", {
+          width: `${width}px`,
+          height: `${height}px`,
+          objectFit: "cover",
+          display: "block",
+        })
+        img.src = src
+        img.alt = ""
+        return img
+      }
+
+      /**
+       * Atkinson Hyperlegible's average glyph advance, as a fraction of the
+       * font size — the same constant `viewStyles.fitText` uses to size a line
+       * without measuring it.
+       */
+      const GLYPH_ADVANCE = 0.52
+
+      /** Largest font size at which `charEquivalents` fit in `available`. */
+      const fitSize = ({ base, charEquivalents, available, floor }) =>
+        Math.max(
+          Math.min(
+            base,
+            Math.floor(available / (GLYPH_ADVANCE * charEquivalents)),
+          ),
+          floor,
+        )
+
+      /**
+       * The agenda column, at whatever width it is given. Every size is a
+       * fraction of the VISIBLE height, the way the views already size
+       * themselves off `height`.
+       */
+      const agendaColumn = ({
+        railWidth,
+        visibleHeight,
+        inks,
+        onInk,
+        events,
+        density,
+      }) => {
+        const _paperColour = onInk ? inks.ink : inks.paper
+        const textColour = onInk ? inks.paper : inks.ink
+        const accentColour = onInk ? inks.paper : inks.accent
+
+        // Every line is fitted to the RAIL, not just scaled off the panel
+        // height: at 34% of a 1600 px panel "9:41 AM" overran the band and
+        // "Partly cloudy" truncated to "Partly clo...".
+        const timeSize = fitSize({
+          base: Math.round(
+            visibleHeight * (density === "quiet" ? 0.19 : 0.175),
+          ),
+          charEquivalents:
+            DATA.time.length + DATA.meridiem.length * 0.34 + 0.4,
+          available: railWidth,
+          floor: inks.floor,
+        })
+        const meridiemSize = Math.round(timeSize * 0.34)
+        const dateSize = fitSize({
+          base: Math.round(visibleHeight * 0.062),
+          // 1.12 safety factor: "September 13" carries more wide glyphs than
+          // the average advance assumes, and it wrapped to a third line.
+          charEquivalents:
+            Math.max(DATA.weekday.length, DATA.monthDay.length) * 1.12,
+          available: railWidth,
+          floor: inks.floor,
+        })
+        const tempSize = fitSize({
+          base: Math.round(visibleHeight * 0.085),
+          charEquivalents:
+            DATA.temperature.length +
+            DATA.condition.length * 0.6 +
+            0.6,
+          available: railWidth,
+          floor: inks.floor,
+        })
+        const conditionSize = Math.max(
+          Math.round(tempSize * 0.6),
+          inks.floor,
+        )
+        const headingSize = Math.max(
+          Math.round(visibleHeight * 0.042),
+          inks.floor - 2,
+        )
+        // An agenda row is limited by the RAIL's width, not the panel's
+        // height: a 1600 px panel gives a 38% rail about 560 px, and a row
+        // sized off the height alone ran the summary into the time column.
+        const rowSize = Math.max(
+          Math.round(
+            density === "quiet"
+              ? Math.min(visibleHeight * 0.07, railWidth * 0.115)
+              : Math.min(visibleHeight * 0.055, railWidth * 0.075),
+          ),
+          inks.floor,
+        )
+        // Below about 14 characters of room the time cannot sit beside the
+        // summary at all, so the row stacks instead of truncating to nothing.
+        // The quiet rail carries one event, so it always stacks: a 25% rail
+        // on a 960 px panel leaves 186 px, which puts a beside-row at the
+        // mono readable floor of 15 px and wastes the room it does have.
+        const isStackedRow =
+          density === "quiet" || railWidth < rowSize * 11
+
+        const column = el("div", {
+          display: "flex",
+          flexDirection: "column",
+          width: `${railWidth}px`,
+          height: "100%",
+          justifyContent: "center",
+        })
+        column.className = "agenda-column"
+
+        const clockRow = el("div", {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "baseline",
+        })
+        clockRow.append(
+          el(
+            "div",
+            {
+              fontSize: `${timeSize}px`,
+              fontWeight: 700,
+              lineHeight: 1,
+              color: accentColour,
+              letterSpacing: "-0.02em",
+            },
+            DATA.time,
+          ),
+          el(
+            "div",
+            {
+              fontSize: `${meridiemSize}px`,
+              fontWeight: 700,
+              lineHeight: 1,
+              color: textColour,
+              marginLeft: `${Math.round(timeSize * 0.1)}px`,
+            },
+            DATA.meridiem,
+          ),
+        )
+        column.append(clockRow)
+
+        const dateBlock = el("div", {
+          display: "flex",
+          flexDirection: "column",
+          marginTop: `${Math.round(visibleHeight * 0.022)}px`,
+        })
+        dateBlock.append(
+          el(
+            "div",
+            {
+              fontSize: `${dateSize}px`,
+              fontWeight: 700,
+              lineHeight: 1.15,
+              color: textColour,
+              whiteSpace: "nowrap",
+            },
+            DATA.weekday,
+          ),
+          el(
+            "div",
+            {
+              fontSize: `${dateSize}px`,
+              fontWeight: 700,
+              lineHeight: 1.15,
+              color: textColour,
+              whiteSpace: "nowrap",
+            },
+            DATA.monthDay,
+          ),
+        )
+        column.append(dateBlock)
+
+        const weatherRow = el("div", {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "baseline",
+          marginTop: `${Math.round(visibleHeight * 0.03)}px`,
+        })
+        weatherRow.append(
+          el(
+            "div",
+            {
+              fontSize: `${tempSize}px`,
+              fontWeight: 700,
+              lineHeight: 1,
+              color: accentColour,
+            },
+            DATA.temperature,
+          ),
+          el(
+            "div",
+            {
+              fontSize: `${conditionSize}px`,
+              fontWeight: 700,
+              lineHeight: 1,
+              color: textColour,
+              marginLeft: `${Math.round(visibleHeight * 0.018)}px`,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            },
+            DATA.condition,
+          ),
+        )
+        column.append(weatherRow)
+
+        if (events.length === 0) return column
+
+        const rule = el("div", {
+          height: `${Math.max(2, Math.round(visibleHeight * 0.005))}px`,
+          width: "100%",
+          backgroundColor: accentColour,
+          marginTop: `${Math.round(visibleHeight * 0.045)}px`,
+          marginBottom: `${Math.round(visibleHeight * 0.03)}px`,
+        })
+        column.append(rule)
+
+        column.append(
+          el(
+            "div",
+            {
+              fontSize: `${headingSize}px`,
+              fontWeight: 700,
+              lineHeight: 1,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              color: accentColour,
+              marginBottom: `${Math.round(visibleHeight * 0.022)}px`,
+            },
+            density === "quiet" ? "Next" : "Today",
+          ),
+        )
+
+        const timeColumnWidth = Math.round(rowSize * 3.4)
+        events.forEach((event) => {
+          const row = el("div", {
+            display: "flex",
+            flexDirection: isStackedRow ? "column" : "row",
+            alignItems: isStackedRow ? "flex-start" : "baseline",
+            marginTop:
+              `${Math.round(
+                visibleHeight * (isStackedRow ? 0.026 : 0.016),
+              )}px`,
+          })
+          row.className = "event-row"
+          row.append(
+            el(
+              "div",
+              {
+                fontSize: `${rowSize}px`,
+                fontWeight: 700,
+                lineHeight: 1.15,
+                color: accentColour,
+                width: isStackedRow ? "auto" : `${timeColumnWidth}px`,
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              },
+              event.timeText,
+            ),
+            el(
+              "div",
+              {
+                fontSize: `${rowSize}px`,
+                fontWeight: 700,
+                lineHeight: 1.15,
+                color: textColour,
+                whiteSpace: isStackedRow ? "normal" : "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                minWidth: 0,
+                marginLeft: isStackedRow
+                  ? "0px"
+                  : `${Math.round(rowSize * 0.35)}px`,
+                maxWidth: `${railWidth}px`,
+              },
+              event.summary,
+            ),
+          )
+          column.append(row)
+        })
+
+        return column
+      }
+
+      /* ---------- the layouts ---------- */
+
+      /**
+       * Every layout returns the panel-sized node. `panel` carries the
+       * framebuffer size, the inks and the mat inset.
+       */
+      const LAYOUTS = [
+        {
+          id: "baseline-photo",
+          title: "Baseline A — Photo Frame, as it is today",
+          note: "The whole panel is the photo. Nothing tells you the time. This is what a side-by-side would replace when the display is parked on a photo view.",
+          build: (panel, events) => {
+            const root = panelRoot(panel)
+            root.append(
+              photoBox({
+                width: panel.width,
+                height: panel.height,
+                src:
+                  panel.width / panel.height < 1.15
+                    ? PHOTOS.portrait
+                    : PHOTOS.landscape,
+              }),
+            )
+            return root
+          },
+        },
+        {
+          id: "baseline-agenda",
+          title: "Baseline B — Clock (Agenda), as it is today",
+          note: "One centred column. It is readable from across the room and it uses about a third of a 13.3\" panel.",
+          build: (panel, events) => {
+            const root = panelRoot(panel)
+            const inks = INKS[panel.mode]
+            const v = visible(panel)
+            const stack = el("div", {
+              position: "absolute",
+              left: `${v.left}px`,
+              top: `${v.top}px`,
+              width: `${v.width}px`,
+              height: `${v.height}px`,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              color: inks.ink,
+            })
+            stack.append(
+              el(
+                "div",
+                {
+                  fontSize: `${Math.round(v.height * 0.3)}px`,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  color: inks.accent,
+                },
+                `${DATA.time} ${DATA.meridiem}`,
+              ),
+              el(
+                "div",
+                {
+                  fontSize: `${Math.round(v.height * 0.1)}px`,
+                  fontWeight: 700,
+                  marginTop: `${Math.round(v.height * 0.045)}px`,
+                },
+                DATA.dateOneLine,
+              ),
+            )
+            const weather = el("div", {
+              display: "flex",
+              alignItems: "baseline",
+              marginTop: `${Math.round(v.height * 0.04)}px`,
+            })
+            weather.append(
+              el(
+                "div",
+                {
+                  fontSize: `${Math.round(v.height * 0.11)}px`,
+                  fontWeight: 700,
+                  color: inks.accent,
+                },
+                DATA.temperature,
+              ),
+              el(
+                "div",
+                {
+                  fontSize: `${Math.round(v.height * 0.06)}px`,
+                  fontWeight: 700,
+                  marginLeft: `${Math.round(v.height * 0.02)}px`,
+                },
+                DATA.condition,
+              ),
+            )
+            stack.append(weather)
+            if (events.length > 0) {
+              stack.append(
+                el(
+                  "div",
+                  {
+                    fontSize: `${Math.round(v.height * 0.045)}px`,
+                    fontWeight: 700,
+                    letterSpacing: "1px",
+                    textTransform: "uppercase",
+                    color: inks.accent,
+                    marginTop: `${Math.round(v.height * 0.05)}px`,
+                    marginBottom: `${Math.round(v.height * 0.015)}px`,
+                  },
+                  "Today",
+                ),
+              )
+              events.forEach((event) => {
+                const row = el("div", {
+                  display: "flex",
+                  alignItems: "baseline",
+                  marginTop: `${Math.round(v.height * 0.012)}px`,
+                })
+                row.append(
+                  el(
+                    "div",
+                    {
+                      fontSize: `${Math.round(v.height * 0.06)}px`,
+                      fontWeight: 700,
+                      color: inks.accent,
+                      width: `${Math.round(v.width * 0.16)}px`,
+                    },
+                    event.timeText,
+                  ),
+                  el(
+                    "div",
+                    {
+                      fontSize: `${Math.round(v.height * 0.06)}px`,
+                      fontWeight: 700,
+                    },
+                    event.summary,
+                  ),
+                )
+                stack.append(row)
+              })
+            }
+            root.append(stack)
+            return root
+          },
+        },
+        {
+          id: "split-right",
+          title: "Option 1 — Photo left, agenda rail right (62 / 38)",
+          note: "A hard split. The photo column is roughly portrait on every landscape panel, which is the same shape Photo Frame (Duo) wants — so a portrait photo fills it whole instead of being cropped to a band. The rail is paper, so it costs no extra ink.",
+          build: (panel, events) =>
+            buildSplit(panel, events, {
+              photoShare: 0.62,
+              railSide: "right",
+              onInk: false,
+              density: "full",
+            }),
+        },
+        {
+          id: "split-left",
+          title: "Option 2 — Agenda rail left, photo right (38 / 62)",
+          note: "The same split, mirrored. Worth seeing both: the eye reads the rail first here, and on the Kitchen panel the mat is wider on the left (59 px) than the right (63 px) by only 4 px, so neither side is favoured by the frame.",
+          build: (panel, events) =>
+            buildSplit(panel, events, {
+              photoShare: 0.62,
+              railSide: "left",
+              onInk: false,
+              density: "full",
+            }),
+        },
+        {
+          id: "band-right",
+          title: "Option 3 — Inked band over a full-bleed photo",
+          note: "The photo keeps the whole panel and the agenda sits on a solid black band. It reads as one picture rather than two boxes, and the reversed text is the highest contrast a 1-bit dither can give you. Costs the band's worth of photo.",
+          build: (panel, events) =>
+            buildSplit(panel, events, {
+              photoShare: 0.66,
+              railSide: "right",
+              onInk: true,
+              density: "full",
+              fullBleedPhoto: true,
+            }),
+        },
+        {
+          id: "quiet-rail",
+          title: "Option 4 — Quiet rail: the time and the next thing only",
+          note: "Three quarters photo. The rail carries the time, the date, the weather and ONE event. This is the version that still looks like a photo frame from the doorway.",
+          build: (panel, events) =>
+            buildSplit(panel, events.slice(0, 1), {
+              photoShare: 0.72,
+              railSide: "right",
+              onInk: false,
+              density: "quiet",
+            }),
+        },
+        {
+          id: "duo-plus",
+          title: "Option 5 — Duo, with the agenda taking the second photo's slot",
+          note: "Photo Frame (Duo) pairs two portraits on a landscape panel. This swaps the right-hand photo for the agenda, so the layout the big frames already run keeps its gutter and its column geometry.",
+          build: (panel, events) => {
+            const root = panelRoot(panel)
+            const inks = INKS[panel.mode]
+            const v = visible(panel)
+            const gutter = Math.max(6, Math.round(panel.width * 0.006))
+            const columnWidth = Math.round((v.width - gutter) / 2)
+
+            const photo = photoBox({
+              width: v.left + columnWidth,
+              height: panel.height,
+              src: PHOTOS.portrait,
+            })
+            Object.assign(photo.style, {
+              position: "absolute",
+              left: "0px",
+              top: "0px",
+            })
+            root.append(photo)
+
+            const railLeft = v.left + columnWidth + gutter
+            const rail = el("div", {
+              position: "absolute",
+              left: `${railLeft}px`,
+              top: `${v.top}px`,
+              width: `${v.width + v.left - railLeft - panel.inset.right}px`,
+              height: `${v.height}px`,
+              display: "flex",
+              alignItems: "center",
+            })
+            rail.append(
+              agendaColumn({
+                railWidth: columnWidth,
+                visibleHeight: v.height,
+                inks,
+                onInk: false,
+                events,
+                density: "full",
+              }),
+            )
+            root.append(rail)
+            return root
+          },
+        },
+      ]
+
+      /* ---------- shared geometry ---------- */
+
+      const visible = (panel) => ({
+        left: panel.inset.left,
+        top: panel.inset.top,
+        width: panel.width - panel.inset.left - panel.inset.right,
+        height: panel.height - panel.inset.top - panel.inset.bottom,
+      })
+
+      const panelRoot = (panel) => {
+        const inks = INKS[panel.mode]
+        const root = el("div", {
+          width: `${panel.width}px`,
+          height: `${panel.height}px`,
+          backgroundColor: inks.paper,
+          color: inks.ink,
+          position: "relative",
+          overflow: "hidden",
+          fontFamily: '"Atkinson Hyperlegible", sans-serif',
+        })
+        root.className = "panel"
+        return root
+      }
+
+      const buildSplit = (
+        panel,
+        events,
+        { photoShare, railSide, onInk, density, fullBleedPhoto },
+      ) => {
+        const root = panelRoot(panel)
+        const inks = INKS[panel.mode]
+        const v = visible(panel)
+
+        const visiblePhotoWidth = Math.round(v.width * photoShare)
+        const _visibleRailWidth = v.width - visiblePhotoWidth
+        const railPadding = Math.round(v.width * 0.028)
+
+        // The photo bleeds to the panel edge on its own side; the split point
+        // is measured on the visible window.
+        const photoWidth = fullBleedPhoto
+          ? panel.width
+          : railSide === "right"
+            ? panel.inset.left + visiblePhotoWidth
+            : panel.inset.right + visiblePhotoWidth
+        const photoLeft = fullBleedPhoto
+          ? 0
+          : railSide === "right"
+            ? 0
+            : panel.width - photoWidth
+
+        const photoColumnAspect =
+          (fullBleedPhoto ? panel.width : visiblePhotoWidth) / v.height
+        const photo = photoBox({
+          width: photoWidth,
+          height: panel.height,
+          src:
+            photoColumnAspect < 1.15 ? PHOTOS.portrait : PHOTOS.landscape,
+        })
+        Object.assign(photo.style, {
+          position: "absolute",
+          top: "0px",
+          left: `${photoLeft}px`,
+        })
+        root.append(photo)
+
+        // The rail. On ink it is a solid black band that also bleeds; on paper
+        // the panel background already is the paper, so only the rule shows.
+        const railPanelWidth =
+          railSide === "right"
+            ? panel.width -
+              (panel.inset.left + visiblePhotoWidth)
+            : panel.width - (panel.inset.right + visiblePhotoWidth)
+        const railPanelLeft =
+          railSide === "right" ? panel.width - railPanelWidth : 0
+
+        const rail = el("div", {
+          position: "absolute",
+          top: "0px",
+          left: `${railPanelLeft}px`,
+          width: `${railPanelWidth}px`,
+          height: `${panel.height}px`,
+          backgroundColor: onInk ? inks.ink : inks.paper,
+          display: "flex",
+          alignItems: "center",
+          paddingTop: `${panel.inset.top}px`,
+          paddingBottom: `${panel.inset.bottom}px`,
+          paddingLeft:
+            `${railSide === "right"
+              ? railPadding
+              : Math.max(panel.inset.left, railPadding)}px`,
+          paddingRight:
+            `${railSide === "right"
+              ? Math.max(panel.inset.right, railPadding)
+              : railPadding}px`,
+          boxSizing: "border-box",
+        })
+
+        const railContentWidth =
+          railPanelWidth -
+          railPadding -
+          Math.max(
+            railSide === "right" ? panel.inset.right : panel.inset.left,
+            railPadding,
+          )
+
+        rail.append(
+          agendaColumn({
+            railWidth: railContentWidth,
+            visibleHeight: v.height,
+            inks,
+            onInk,
+            events,
+            density,
+          }),
+        )
+        root.append(rail)
+
+        // A flat ink rule between the two, thick enough to survive a dither.
+        if (!onInk) {
+          const ruleWidth = Math.max(3, Math.round(panel.width * 0.004))
+          root.append(
+            el("div", {
+              position: "absolute",
+              top: `${panel.inset.top}px`,
+              height: `${v.height}px`,
+              width: `${ruleWidth}px`,
+              backgroundColor: inks.ink,
+              left:
+                `${railSide === "right"
+                  ? railPanelLeft - ruleWidth
+                  : railPanelWidth}px`,
+            }),
+          )
+        }
+
+        return root
+      }
+
+      /* ---------- page ---------- */
+
+      const renderPanelButtons = () => {
+        const host = document.getElementById("panelButtons")
+        host.innerHTML = ""
+        PANELS.forEach((panel) => {
+          const button = document.createElement("button")
+          button.type = "button"
+          button.className = "pill"
+          button.textContent = panel.short
+          button.setAttribute(
+            "aria-pressed",
+            String(panel.id === state.panelId),
+          )
+          button.addEventListener("click", () => {
+            state.panelId = panel.id
+            render()
+          })
+          host.append(button)
+        })
+      }
+
+      const render = () => {
+        renderPanelButtons()
+        document
+          .getElementById("matToggle")
+          .setAttribute("aria-pressed", String(state.showMat))
+        document
+          .getElementById("dayToggle")
+          .setAttribute("aria-pressed", String(state.freeDay))
+
+        const panel = PANELS.find((entry) => entry.id === state.panelId)
+        const events = state.freeDay ? [] : DATA.events
+        const stage = document.getElementById("stage")
+        stage.innerHTML = ""
+        const overflowingRows = []
+
+        const heading = el("h2", { fontSize: "17px", margin: "0 0 16px" })
+        heading.textContent = panel.label
+        stage.append(heading)
+
+        LAYOUTS.forEach((layout) => {
+          const card = document.createElement("div")
+          card.className = "card"
+
+          const title = el("h2", null, layout.title)
+          const note = el("p", null, layout.note)
+          note.className = "note"
+          card.append(title, note)
+
+          const wrap = document.createElement("div")
+          wrap.className = "panel-wrap"
+          const scale = document.createElement("div")
+          scale.className = "panel-scale"
+          scale.style.width = `${panel.width * panel.zoom}px`
+          scale.style.height = `${panel.height * panel.zoom}px`
+          scale.style.overflow = "hidden"
+
+          const built = layout.build(panel, events)
+          built.style.transform = `scale(${panel.zoom})`
+          built.style.transformOrigin = "top left"
+          built.style.flexShrink = "0" 
+
+          if (
+            state.showMat &&
+            (panel.inset.top ||
+              panel.inset.right ||
+              panel.inset.bottom ||
+              panel.inset.left)
+          ) {
+            const mat = document.createElement("div")
+            mat.className = "mat"
+            mat.style.borderWidth =
+              panel.inset.top +
+              "px " +
+              panel.inset.right +
+              "px " +
+              panel.inset.bottom +
+              "px " +
+              panel.inset.left +
+              "px"
+            built.append(mat)
+          }
+
+          scale.append(built)
+          wrap.append(scale)
+          card.append(wrap)
+          overflowingRows.push(built)
+
+          if (panel.zoom !== 1) {
+            const zoomNote = el(
+              "div",
+              null,
+              "Drawn at " +
+                panel.width +
+                " x " +
+                panel.height +
+                ", shown at " +
+                Math.round(panel.zoom * 100) +
+                "%.",
+            )
+            zoomNote.className = "zoomnote"
+            card.append(zoomNote)
+          }
+
+          stage.append(card)
+        })
+
+        // A panel has a fixed height, so an agenda that does not fit loses its
+        // least-imminent events rather than overflowing the glass. This is the
+        // honest version: it shows how many events each panel can really hold.
+        overflowingRows.forEach((panelNode) => {
+          const column = panelNode.querySelector(".agenda-column")
+          if (!column) return
+          let guard = 0
+          while (
+            column.scrollHeight > column.clientHeight + 1 &&
+            column.querySelectorAll(".event-row").length > 0 &&
+            guard < 20
+          ) {
+            const rows = column.querySelectorAll(".event-row")
+            rows[rows.length - 1].remove()
+            guard += 1
+          }
+        })
+      }
+
+      document.getElementById("matToggle").addEventListener("click", () => {
+        state.showMat = !state.showMat
+        render()
+      })
+      document.getElementById("dayToggle").addEventListener("click", () => {
+        state.freeDay = !state.freeDay
+        render()
+      })
+
+      document.fonts.ready.then(render)
+      render()
+    </script>
+  </body>
+</html>
