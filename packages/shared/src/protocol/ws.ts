@@ -1,3 +1,6 @@
+import type { Delivery } from "../panels/delivery.ts"
+import type { PixelGrid } from "../panels/pixelGrid.ts"
+import type { RepaintGrade } from "../panels/repaint.ts"
 import type {
   AgendaData,
   NowPlayingData,
@@ -56,6 +59,29 @@ export type BrowserDeviceProfile = {
   shape: "square" | "round" | "rectangle"
   hasTouch: boolean
   color: "monochrome" | "grayscale" | "spectra6" | "full"
+  /**
+   * How long this glass takes to show a new frame. A live-browser panel is
+   * `instant` unless its config says otherwise, and only `instant` may animate
+   * — below that an animation is a stutter, and below `fast` it is a flicker.
+   */
+  repaint: RepaintGrade
+  /**
+   * Whether the panel's own controller dithers. `false` means what CastKit
+   * emits is exactly what the glass shows.
+   */
+  hasPanelDithering: boolean
+  /**
+   * The subpixel stripe. `none` means subpixel antialiasing would be colored
+   * noise and text must be antialiased in gray.
+   */
+  pixelGrid: PixelGrid
+  /**
+   * Who draws the pixels. Always `live-browser` from this server — a panel
+   * that is fed frames never opens this socket. It is on the profile anyway so
+   * a Storybook story can stamp a frame-fed panel from the same record, which
+   * is the only way a story cannot disagree with the panel.
+   */
+  delivery: Delivery
   /**
    * @deprecated Legacy aliases of `shape` and `color`, kept so a kiosk still
    * running the pre-2026-09-14 bundle keeps working across a deploy.

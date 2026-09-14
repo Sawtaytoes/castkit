@@ -143,6 +143,84 @@ describe("device settings", () => {
       )
     })
   })
+
+  /*
+   * The page shell already wrote these. The client writes them again because
+   * the profile arrives on every reconnect and a kiosk panel holds its page
+   * for weeks — without it, editing a display's `pixelGrid` would need
+   * somebody to walk to the glass and reload it.
+   */
+  test("stamps the panel facts on the root element", async () => {
+    await mountSlatecast({
+      snapshot: buildSnapshot({
+        device: buildDeviceProfile({
+          hasPanelDithering: true,
+          pixelGrid: "none",
+          repaint: "slow",
+        }),
+      }),
+    })
+
+    const { dataset } = document.documentElement
+    expect(dataset.repaint).toBe("slow")
+    expect(dataset.panelDithering).toBe("true")
+    expect(dataset.pixelGrid).toBe("none")
+    expect(dataset.grayscaleText).toBe("true")
+    expect(dataset.delivery).toBe("live-browser")
+    expect(dataset.input).toBe("touch")
+  })
+
+  test("carries the layout box as custom properties", async () => {
+    await mountSlatecast({
+      snapshot: buildSnapshot({
+        device: buildDeviceProfile({
+          width: 1280,
+          height: 720,
+        }),
+      }),
+    })
+
+    const { style } = document.documentElement
+    expect(style.getPropertyValue("--panel-width")).toBe(
+      "1280px",
+    )
+    expect(style.getPropertyValue("--panel-height")).toBe(
+      "720px",
+    )
+    expect(style.getPropertyValue("--panel-min")).toBe(
+      "720px",
+    )
+  })
+
+  /*
+   * `orientation` is a live setting an HA automation can flip under a
+   * motorized mount, and it is half of whether subpixel text is safe. A stamp
+   * that only ran on the first snapshot would leave a turned panel fringing.
+   */
+  test("a live rotation re-derives whether text may use subpixels", async () => {
+    const { server } = await mountSlatecast({
+      snapshot: buildSnapshot({
+        device: buildDeviceProfile({
+          pixelGrid: "rgb-stripe",
+        }),
+        settings: buildSettings({ orientation: 0 }),
+      }),
+    })
+    expect(
+      document.documentElement.dataset.grayscaleText,
+    ).toBe("false")
+
+    server.push({
+      type: "settings",
+      settings: buildSettings({ orientation: 90 }),
+    })
+
+    await waitFor(() => {
+      expect(
+        document.documentElement.dataset.grayscaleText,
+      ).toBe("true")
+    })
+  })
 })
 
 describe("connection lifecycle", () => {

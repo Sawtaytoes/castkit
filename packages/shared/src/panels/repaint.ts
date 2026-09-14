@@ -3,6 +3,11 @@
  *
  * This is the property that decides which views a display is offered and which
  * values those views may print. See `docs/display-properties.md`.
+ *
+ * It lives in `shared` rather than `core` because the grade is now a WIRE
+ * value: `BrowserDeviceProfile` carries it, so the Slatecast bundle needs the
+ * type. `core` pulls in `sharp`, which cannot go near a browser bundle, and
+ * `slatecast` depends on `shared` alone.
  */
 
 export const REPAINT_GRADES = [
