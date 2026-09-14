@@ -313,7 +313,16 @@ CastKit republishes them.
 | --- | --- | --- |
 | `batteryVolts` | number | The raw reading. Honest, and the only value that survives a wrong calibration. |
 | `batteryPercent` | number | Derived from the voltage. Needs a calibrated curve before anyone should trust it. |
-| `isOnBattery` | boolean | Mains present or not. On a `wired` install with a cell, this going true is the alert. |
+| `isOnBattery` | boolean | Mains present or not. On a `wired` install with a cell, this going true is the alert. ⚠️ A device with no VBUS sense line reports a **proxy** — see below. |
+
+⚠️ **`isOnBattery` is only as good as the device's sense line, and the M5Paper
+has none.** The panel exposes no VBUS input, so its firmware infers the field
+from the cell voltage. Measured on 2026-09-14, a plugged-in full panel rests at
+**4.13-4.14 V**, so any threshold near the charge ceiling reads true on a panel
+that has never been unplugged. Its test fires below 3.95 V and clears above
+4.05 V, which means "the cell has carried this panel for a while", not "the
+power just went out". CastKit must treat the field as **lagging by hours** on
+such a device, and must not build a mains-failure alert on it.
 
 They reach Home Assistant over MQTT on the **CastKit** device: the panel
 publishes to `castkit/<id>/battery`, and CastKit's discovery publishes a
@@ -374,7 +383,8 @@ This file is the rule. The code does not follow all of it.
 4. **The panel reports its battery, and CastKit ignores it.** Half of this is
    now done. Since 2026-09-14 the M5Paper firmware reads the cell and publishes
    a retained `castkit/m5paper/battery` message with `volts`, `percent` and
-   `isOnBattery` — measured that day at 4.29 V, 100 %, `isOnBattery: false`.
+   `isOnBattery` — measured that day at 4.29 V settling to 4.13 V, and
+   `isOnBattery: false`.
    CastKit does not read it. There is no `hasBattery` field, no `power` setting,
    no discovery payload, no one-grade-slower repaint, and no low-battery mark on
    the glass. The firmware also still holds the power rail on, so an unplugged

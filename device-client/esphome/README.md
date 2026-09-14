@@ -159,9 +159,9 @@ The node publishes three things as of 2026-09-13:
 
 | Entity | Source | Note |
 | --- | --- | --- |
-| `Battery voltage` | `adc` on GPIO35, `multiply: 2.0` for the on-board divider | The honest reading. Sampled every 5 minutes. |
-| `Battery` | template, linear 3.20 V–4.20 V | Crude on purpose. A real LiPo curve is not linear. |
-| `On battery` | template, voltage below 4.10 V | ⚠️ **Inferred, not measured** — no VBUS sense line is exposed, so this is a proxy and it lags. |
+| `Battery voltage` | `adc` on GPIO35, `multiply: 2.0` for the on-board divider | The honest reading. Sampled every 5 minutes, **published every 25**. |
+| `Battery` | template, linear 3.20 V–4.20 V | Crude on purpose. A real LiPo curve is not linear. Published every 5 minutes, but it can only move when the voltage does. |
+| `On battery` | template, below 3.95 V, clearing above 4.05 V | ⚠️ **Inferred, not measured** — no VBUS sense line is exposed. It means "the cell has carried the panel for a while", not "the power just went out". |
 
 They also go out as one retained JSON payload on `castkit/m5paper/battery`, so
 CastKit can republish them as Home Assistant entities on the display it already
@@ -186,6 +186,14 @@ The panel was flashed over the air and reported:
 The voltage arrived **10 minutes** after the boot, not immediately. The median
 filter waits for its third sample and a sample is 300 s apart.
 
+**The publish cadence is 25 minutes, not 5.** Measured over 90 minutes: the
+voltage was published at 01:25:47, 01:50:47 and 02:15:47, exactly 25 minutes
+apart. `update_interval: 300s` is how often the ADC is *sampled*; the median
+filter then emits every fifth sample, so 5 x 300 s = 1500 s between published
+values. The percentage is published every 5 minutes but reads the held voltage,
+so it steps in 25-minute jumps and looks stuck in between. That is correct
+behaviour, not a fault.
+
 ⚠️ **4.29 V is above the 4.20 V the percentage map calls full**, so the
 percentage pins at 100 and tells you nothing yet. Two explanations fit, and this
 reading cannot separate them:
@@ -193,9 +201,42 @@ reading cannot separate them:
 1. The divider ratio is off, so every voltage reads about 0.09 V high.
 2. GPIO35 sees the charge rail while the panel is plugged in, not the cell.
 
-Unplug the panel and watch the reading fall to settle it. Until then, treat
-`isOnBattery: false` as the only trustworthy field — it is correct, and it is
-what the one-grade-slower repaint rule keys on.
+It was the first of the two. Watched for another 90 minutes, the voltage fell
+and then **flattened**, which is a cell relaxing after a charge, not a panel
+draining:
+
+| Time | Voltage | Percent |
+| --- | --- | --- |
+| 00:56 | 4.29 V | 100 % |
+| 01:10 | 4.19 V | 99 % |
+| 01:25 | 4.17 V | 97 % |
+| 01:50 | 4.13 V | 93 % |
+| 02:15 | 4.14 V | 94 % |
+
+**The resting voltage of this panel, plugged in and full, is 4.13-4.14 V.**
+
+### Why the `On battery` threshold moved
+
+That measurement broke the first version of `is_on_battery`, which fired below
+**4.10 V** on the assumption that a charger holds the cell at its ceiling. It
+does not. The charger stops at full and lets the cell rest 0.03 V above that
+threshold — and a resting voltage falls as a cell ages, so the test was going to
+read "on battery" on a panel that has never been unplugged.
+
+A false `true` is expensive. CastKit drops a display one repaint grade on it and
+eventually marks the glass.
+
+The test now fires below **3.95 V** and clears above **4.05 V**, so it cannot
+chatter at the boundary and sits far below any resting voltage. ⚠️ **It no
+longer pretends to detect a power cut.** The firmware never sleeps, so an
+unplugged panel takes a few hours to reach 3.95 V. What the field now means is
+"the cell has been carrying this panel for a while", which is the question the
+repaint rule actually needs answered.
+
+There is no better signal available. The vendored `m5paper` component drives two
+output latch pins and exposes no VBUS input, so no threshold and no lambda can
+tell a full-but-unplugged panel from a plugged-in one. Replace this the day a
+real sense line is wired.
 
 ⚠️ **This firmware never sleeps.** The `m5paper:` power latch holds the main
 rail on so the panel stays awake on battery. That is the worst case for battery

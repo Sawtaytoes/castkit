@@ -406,12 +406,26 @@ binary_sensor:
     device_class: plug
     # ⚠️ INFERRED, NOT MEASURED. The M5Paper exposes no VBUS sense line through
     # the vendored component, so there is no honest way to ask "is mains
-    # present". A charger holds the cell at its ceiling, so a reading below the
-    # ceiling means the cell is discharging. It is a proxy, it lags, and it
-    # cannot tell a full-but-unplugged panel from a charging one for the first
-    # few minutes. Treat a `true` as "probably unplugged", and replace this the
-    # day a real sense line is wired.
+    # present". This is a proxy on the cell voltage and nothing more.
+    #
+    # ⚠️ It cannot detect a power cut quickly, and it is not supposed to try.
+    # The first version of this test used 4.10 V, on the assumption that a
+    # charger holds the cell at its ceiling. Measured on 2026-09-14, that is
+    # wrong: the charger stops at full and lets the cell rest at 4.13-4.14 V,
+    # which is 0.03 V above that threshold. A resting voltage falls as a cell
+    # ages, so the old test was going to read "on battery" on a panel that has
+    # never been unplugged. A false `true` is expensive — CastKit drops a
+    # display one repaint grade on it and eventually marks the glass.
+    #
+    # So the test now fires well below any resting voltage, with hysteresis so
+    # it cannot chatter at the boundary. What it really means is "the cell has
+    # been carrying this panel for a while". The firmware never sleeps, so an
+    # unplugged panel reaches 3.95 V in a few hours and still has a few hours
+    # left. Replace the whole thing the day a real sense line is wired.
     lambda: |-
+      const float on_battery_volts = 3.95f;
+      const float back_on_mains_volts = 4.05f;
       float volts = id(battery_voltage).state;
       if (isnan(volts)) { return {}; }
-      return volts < 4.10f;
+      if (id(is_on_battery).state) { return volts < back_on_mains_volts; }
+      return volts < on_battery_volts;
