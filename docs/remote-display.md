@@ -10,7 +10,7 @@ weather, agenda, and Home Assistant automation policy. Deployment-configured
 `externalViews` appear in the same View select and fill the panel through the
 Slatecast client.
 
-This is a renderer worker under `device-client/remote-display`, packaged separately to isolate Python/Chromium dependencies from the CastKit server. It exposes no additional server or public HTTP API. It can load either an application's manifest directly or the manifest of a browser device in CastKit's central registry. Existing Inkcast and direct-browser Slatecast clients retain their current paths.
+This is a renderer worker under `device-client/remote-display`, packaged separately to isolate Python/Chromium dependencies from the CastKit server. It exposes no public HTTP API and no command surface. Its one optional listener is the read-only Home Assistant preview below, which is off unless `preview_port` is set. It can load either an application's manifest directly or the manifest of a browser device in CastKit's central registry. Existing Inkcast and direct-browser Slatecast clients retain their current paths.
 
 ## Application manifest, version 1
 
@@ -40,6 +40,41 @@ URLs resolve relative to the manifest and must remain on its origin. `ready_sele
 Version 1 requires the WT32's 480×320 viewport and supports **zero or one** full-frame optimistic cache entry. Extra entries and incompatible versions fail explicitly. The array leaves room for receivers with more cache slots later; this receiver does not silently discard requested entries. Cache pages may contain any application-owned image or HTML UI. They load once at worker startup, after fonts and initial network activity settle. Restart the worker after changing the manifest or cache page. Actual application pages remain live; identical frames are skipped except after touches and for the heartbeat.
 
 `max_fps` bounds capture at 1–20; it is not a promised network frame rate. `heartbeat_ms` must be 500–3000. Frame age must be 500–7000ms. The receiver disables touches after seven seconds without a displayed frame and adds a red border. Recovery replaces the stale image and restores input. The contact circle is drawn on the panel immediately. The skeleton only acknowledges navigation, never successful execution of an application command.
+
+## Home Assistant preview
+
+Home Assistant shows the picture for image-mode ePaper panels because CastKit
+publishes PNG bytes to `<base>/image`. A browser-mode display has no such entity
+and must not get one: this receiver runs at `max_fps: 10` with a 2000 ms
+heartbeat, so an MQTT `image` entity would write between 43,200 and 864,000
+recorder rows a day, against a measured 98 for an ePaper panel.
+
+Set `preview_port` in the infrastructure configuration and the worker serves the
+frame it already captured:
+
+| Route | Returns |
+| --- | --- |
+| `GET /screen.jpg` | The newest frame, as JPEG. |
+| `GET /screen.mjpeg` | `multipart/x-mixed-replace; boundary=castkitframe`, one part per changed frame, with a five-second keepalive resend. |
+| `GET /healthz` | `build`, `viewers`, `frames`, `frameAgeSeconds`, `captureAgeSeconds`. |
+
+The preview takes no screenshot of its own and encodes no JPEG until a client
+asks, so a worker nobody is watching does no extra work. Identical frames do not
+wake a viewer.
+
+Add it to Home Assistant as an **MJPEG IP Camera** (Settings → Devices &
+services → Add integration → MJPEG IP Camera), with `/screen.mjpeg` as the MJPEG
+URL and `/screen.jpg` as the still image URL. A camera entity's state is `idle`
+and never changes per frame, so the recorder writes nothing at any frame rate,
+and Home Assistant opens the stream when a viewer watches and closes it when the
+last viewer leaves.
+
+⚠️ **The routes are unauthenticated.** Keep the port on a trusted network. Home
+Assistant's MJPEG integration accepts basic authentication if you put a
+reverse proxy in front of it.
+
+⚠️ **Do not use the MQTT camera platform instead.** It pushes every frame onto a
+topic and has the same traffic cost as the image entity.
 
 ## Install
 
