@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks"
+import { buildPhotoUrl } from "../photoSource.ts"
 import { device, settings } from "../state.ts"
 
 /**
@@ -44,7 +45,10 @@ export const PhotoFrame = () => {
             ? "photo-frame-img hidden"
             : "photo-frame-img"
         }
-        src={`/d/${profile.id}/photo?n=${rotationCounter}`}
+        src={buildPhotoUrl({
+          deviceId: profile.id,
+          rotationCounter,
+        })}
         alt=""
         onLoad={() => {
           setHasError(false)

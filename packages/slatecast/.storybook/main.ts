@@ -2,14 +2,14 @@ import type { StorybookConfig } from "@storybook/preact-vite"
 
 const config: StorybookConfig = {
   stories: ["../src/**/*.stories.@(ts|tsx)"],
-  addons: ["@storybook/addon-docs", "msw-storybook-addon"],
+  addons: ["@storybook/addon-docs"],
   framework: {
     name: "@storybook/preact-vite",
     options: {},
   },
-  // `public/` carries MSW's service worker; the sample photos are shared from
-  // the repo root, served at the same `/sample-photos/` path the ePaper
-  // Storybook uses. See assets/sample-photos/CREDITS.md.
+  // The sample photos are shared from the repo root, served at the same
+  // `/sample-photos/` path the ePaper Storybook uses, and are what every image
+  // view's story shows. See assets/sample-photos/CREDITS.md.
   staticDirs: [
     "../public",
     {

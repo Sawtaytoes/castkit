@@ -15,10 +15,13 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const deviceStories = buildDeviceStories({
-  photoHandlerPath: "sample-photos/landscape-colour.jpg",
-})
+const deviceStories = buildDeviceStories()
 
 export const MediaControls: Story =
   deviceStories.MediaControls
 export const Porthole: Story = deviceStories.Porthole
+export const Workbench: Story = deviceStories.Workbench
+export const PiTouchLandscape: Story =
+  deviceStories.PiTouchLandscape
+export const PiTouchPortrait: Story =
+  deviceStories.PiTouchPortrait
