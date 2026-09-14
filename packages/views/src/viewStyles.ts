@@ -203,3 +203,34 @@ export const fitText = ({
     ),
   }
 }
+
+/**
+ * How many equal-height rows finish inside `availableHeight`.
+ *
+ * A panel has no scrollbar and an ePaper panel has no second chance: a row the
+ * layout starts but cannot finish is simply cut in half by the glass edge, and
+ * on a centred column it pushes the anchor off the *top* edge as well. So a
+ * view asks this how many rows it may draw and renders only those — the rows
+ * it drops are the least imminent ones, which arrive on a later repaint as the
+ * earlier ones fall off the front of the list.
+ *
+ * `rowHeight` is the full cost of one row: its own leading gap plus its ink
+ * height (`fontSize × lineHeight`, rounded up — a fractional line box still
+ * occupies a whole pixel row).
+ */
+export const countRowsThatFit = ({
+  availableHeight,
+  rowHeight,
+}: {
+  availableHeight: number
+  /** Leading gap + ink height of one row, in px. */
+  rowHeight: number
+}) => {
+  if (rowHeight <= 0) {
+    return 0
+  }
+  return Math.max(
+    0,
+    Math.floor(availableHeight / rowHeight),
+  )
+}

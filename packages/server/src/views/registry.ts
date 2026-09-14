@@ -158,9 +158,14 @@ const formatEventTime = ({
     : formatTime(eventDate, clock)
 }
 
-/** How many events each panel can legibly show. */
-const MAX_AGENDA_EVENTS_COMPACT = 3
-const MAX_AGENDA_EVENTS_LARGE = 4
+/**
+ * The most events either agenda view is ever handed. This is a payload bound,
+ * NOT a layout one: each view measures its own panel and draws only the rows
+ * that finish on the glass, so a tall panel shows more of this list and a short
+ * one shows fewer. Keep it above what the largest panel can draw, or this
+ * number — rather than the panel — starts deciding the count again.
+ */
+const MAX_AGENDA_EVENTS = 8
 
 /** Small panels get the compact date/time formats. */
 const COMPACT_PANEL_MAX_HEIGHT = 200
@@ -216,20 +221,22 @@ export const renderViewElement = ({
   }
   // Drop timed events that have already started (matches "revert when it
   // starts"), but keep all-day events for their whole day — their start is
-  // midnight, so a start-time filter would wrongly hide them all day. Then
-  // slice to what the panel can legibly hold. Times are formatted per panel
-  // size here so the views stay pure functions of their props. Shared by both
-  // agenda views so they never disagree about what "upcoming" means.
+  // midnight, so a start-time filter would wrongly hide them all day. Times are
+  // formatted per panel size here so the views stay pure functions of their
+  // props. Shared by both agenda views so they never disagree about what
+  // "upcoming" means.
+  //
+  // How MANY of these reach the glass is the view's call, not this function's:
+  // it knows its own font sizes and gaps, so it is the only place that can say
+  // where the panel runs out of room. A view that is handed more than it can
+  // draw drops the least imminent rows, and they reappear on a later repaint.
   const buildAgendaEvents = () => {
     const upcomingEvents = (agenda?.events ?? []).filter(
       (event) =>
         event.isAllDay || event.startMs >= now.getTime(),
     )
-    const maxEvents = isCompactClock
-      ? MAX_AGENDA_EVENTS_COMPACT
-      : MAX_AGENDA_EVENTS_LARGE
     return upcomingEvents
-      .slice(0, maxEvents)
+      .slice(0, MAX_AGENDA_EVENTS)
       .map((event) => ({
         timeText: formatEventTime({
           startMs: event.startMs,

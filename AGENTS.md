@@ -116,6 +116,15 @@ non-trivial task. Highlights:
   can't host the Yarn-workspace symlinks (both `node-modules` and PnP fail over
   SMB) — keep the working tree on a local drive.
 - **Views use inline style objects** (Satori-safe flexbox), not Emotion/Tailwind.
+- **⛔ A repeating list in a view draws only the rows that FINISH on the panel.**
+  A panel has no scrollbar: a row the layout starts and the glass cuts in half
+  stays cut until the next repaint, and on a centred column the overflow throws
+  the anchor off the TOP edge too. The view — never the server — adds up its own
+  header, divides the height left by one row (`countRowsThatFit` in
+  `viewStyles.ts`), and drops the rest. Do not answer an overflow by capping the
+  count server-side; that cap drifts the first time a font size or a gap moves,
+  which is how a cap of four landed on a panel that held two
+  ([decision](docs/decisions/2026-09-14-an-agenda-view-draws-only-the-rows-that-finish-on-the-panel.md)).
 - **Latest dependencies**, never scaffold with old ones.
 - **Prod = esbuild bundle + `node`**, never `tsx` (RAM). `yarn build` → `node
   dist/index.js`.
