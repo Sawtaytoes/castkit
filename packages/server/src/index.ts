@@ -59,7 +59,10 @@ import {
   getIsClockBearingView,
   getIsNowPlayingView,
 } from "./views/registry.ts"
-import { getViewsForDevice } from "./views/viewsForDevice.ts"
+import {
+  getRepaintFactsForDevice,
+  getViewsForDevice,
+} from "./views/viewsForDevice.ts"
 
 /**
  * Inkcast server entrypoint. Boots the render engine + MQTT bridge, advertises
@@ -602,10 +605,9 @@ const main = async () => {
         // — from a retained state written before the view filter existed —
         // would otherwise flash continuously and never show the right time.
         getIsDeviceIncluded: (device) =>
-          getViewsForDevice({
-            colorMode: device.colorMode,
-            imageDelivery: device.imageDelivery,
-          }).includes(deviceStore.getActiveView(device.id)),
+          getViewsForDevice(
+            getRepaintFactsForDevice(device),
+          ).includes(deviceStore.getActiveView(device.id)),
       })
     },
   })
@@ -676,10 +678,9 @@ const main = async () => {
             // rule in docs/display-properties.md. Passing VIEW_NAMES here is
             // what put `Clock` in a 28-second Impression's Home Assistant
             // select.
-            viewNames: getViewsForDevice({
-              colorMode: device.colorMode,
-              imageDelivery: device.imageDelivery,
-            }),
+            viewNames: getViewsForDevice(
+              getRepaintFactsForDevice(device),
+            ),
             config: discoveryConfig,
           }),
         )

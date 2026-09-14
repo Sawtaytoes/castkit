@@ -302,7 +302,8 @@ in; the M5Paper is, today.
 | `battery` | Every repaint costs charge. The budget becomes **repaints per day**, not seconds per repaint. |
 
 **A display installed on battery is offered the view list of the next slower
-repaint grade.**
+repaint grade.** Enforced since 2026-09-14: `power` is a device field and
+`getViewsForDevice` runs `getEffectiveRepaint` over it.
 
 | Panel | `repaint` | On `wired` | On `battery` |
 | --- | --- | --- | --- |
@@ -435,26 +436,38 @@ This file is the rule. The code does not follow all of it.
    item 6. A live-browser panel derives honestly: it is the browser that draws
    the frame, nothing sits between that frame and the glass, and a full-color
    panel is an LCD with a stripe.
-4. **The panel reports its battery, and CastKit ignores it.** Half of this is
-   now done. Since 2026-09-14 the M5Paper firmware reads the cell and publishes
-   a retained `castkit/m5paper/battery` message with `volts`, `percent` and
+4. **The battery reaches Home Assistant. It does not reach the glass.**
+   Since 2026-09-14 the M5Paper firmware reads the cell and publishes a
+   retained `castkit/m5paper/battery` message with `volts`, `percent` and
    `isOnBattery` — measured that day at 4.29 V settling to 4.13 V, and
    `isOnBattery: false`.
-   CastKit does not read it. There is no `hasBattery` field, no `power` setting,
-   no discovery payload, no one-grade-slower repaint, and no low-battery mark on
-   the glass. The firmware also still holds the power rail on, so an unplugged
-   panel drains continuously; the difference is that the drain is now visible on
-   the broker instead of invisible everywhere.
+   **Done the same day:** `hasBattery` and `power` are real device fields, a
+   `hasBattery` panel publishes three diagnostic entities on the display Home
+   Assistant already has for it (`Battery`, `Battery voltage`, `On battery`),
+   and a `power: battery` install is graded one repaint step slower.
+   ⚠️ The three entities point at the PANEL's retained topic. CastKit
+   deliberately does not republish a copy — that would be a second writer, a
+   staleness window, and no way to tell which of the two was right.
+   **Still missing:** the low-battery mark on the glass, the threshold that
+   turns it on, and the final "battery empty" frame. The firmware also still
+   holds the power rail on, so an unplugged panel drains continuously; the
+   difference is that the drain is now visible on the broker instead of
+   invisible everywhere.
 5. **The freshness rule gates the view LIST, not the fields inside a view.**
    `getViewsForDevice` decides which views a panel is offered. It does not stop
    a view printing a value that is too short-lived for that panel. The ePaper
    Now Playing views print no position and the live one prints a seek bar; both
    are correct, and nothing would catch it if one changed.
-6. **`repaint` is inferred, not declared.** No devices file carries a `repaint`
-   value, so `getDefaultRepaint` reads the grade off `imageDelivery` and
-   `colorMode`. It gets every panel in the current fleet right, and an explicit
-   `repaint` always wins — but it is a default, and a new panel kind that
-   breaks the pattern will be graded wrongly until somebody sets one.
+6. **`repaint` is inferred when a device does not declare one.** It is now
+   declarable: an image device may carry `repaint`, a browser device may carry
+   `repaint`, `hasPanelDithering` and `pixelGrid`, and an explicit value always
+   wins. Before 2026-09-14 the schema REJECTED the key, so there was no way to
+   correct a wrong inference short of editing the inference.
+   ⚠️ No deployment declares one yet, so every panel in the fleet is still
+   running on `getDefaultRepaint`, which reads the grade off `imageDelivery`
+   and `colorMode`. It gets every panel in the current fleet right. A new panel
+   kind that breaks the pattern is graded wrongly until somebody sets one —
+   the difference is that now somebody can.
 
 The order of work is in
 [the unification plan](2026-09-12-unify-one-view-vocabulary-plan.md).

@@ -380,6 +380,14 @@ sensor:
 # so the battery reaches the house as ONE retained CastKit topic rather than as
 # three ESPHome entities on a second device. CastKit republishes it as a
 # `device_class: battery` sensor on the display it already owns.
+#
+# ⚠️ THIS TOPIC IS HARDCODED AND CASTKIT BUILDS THE SAME STRING FROM ITS OWN
+# CONFIG: `${MQTT_BASE_TOPIC}/${device.id}/battery`. The two agree today because
+# the base topic is `castkit` and this panel's device id is `m5paper`. Rename
+# either one and the battery stops arriving, silently — Home Assistant keeps the
+# entity and shows it as unknown forever, because nothing errors when a topic
+# has no publisher. A rename is a coordinated change here AND in the devices
+# file, or it is a broken sensor nobody notices for a month.
 interval:
   - interval: 300s
     then:
