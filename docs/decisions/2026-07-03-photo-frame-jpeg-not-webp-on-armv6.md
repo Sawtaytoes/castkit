@@ -1,4 +1,4 @@
-# The full-colour photo frame ships JPEG, not WebP, because the panel Pi is ARMv6
+# The full-color photo frame ships JPEG, not WebP, because the panel Pi is ARMv6
 
 - **Status:** Accepted
 - **Date:** 2026-07-03
@@ -10,7 +10,7 @@
 
 When a device's dither algorithm is **`off`** (the panel does its own
 dithering — see [2026-07-02-dither-off-token-not-none-ha-reserved.md](2026-07-02-dither-off-token-not-none-ha-reserved.md)),
-`ditherToPanel` no longer always emits a full-colour **RGB PNG**. The photo
+`ditherToPanel` no longer always emits a full-color **RGB PNG**. The photo
 (bleed) view now emits a **lossy JPEG** by default. The format (`JPEG` \| `WebP`
 \| `PNG`) and lossy quality (1–100) are **Home Assistant / MQTT config entities**
 — a global default on the Inkcast Server device plus a per-display override
@@ -21,19 +21,19 @@ Every other view — and every dithered (non-`off`) render — stays lossless PN
 so text edges and the exact panel palette are never degraded.
 
 **WebP is a supported option but is NOT the default**, because the only
-full-colour panel today (the Inky Impression 7.3") is driven by a **Pi Zero W
+full-color panel today (the Inky Impression 7.3") is driven by a **Pi Zero W
 (ARMv6)** that cannot decode it.
 
 ## Context
 
 Turning Dithering off made the Impression slow to receive each photo. The
-cause was payload size, not resolution: with `off`, the frame is a full-colour
+cause was payload size, not resolution: with `off`, the frame is a full-color
 image at native panel size (800×480), and a photographic **RGB PNG is ~500 KB**
 because PNG is lossless and photo content barely compresses. Dithered frames,
-by contrast, contain only the ~6 palette colours and compress to ~15–20 KB.
+by contrast, contain only the ~6 palette colors and compress to ~15–20 KB.
 The heavy PNG is what the Pi spent a long time pulling off the retained MQTT
 topic. A lossy codec is the right fix here: the panel re-quantizes the image to
-its 6-colour palette anyway, so lossy source detail is discarded regardless.
+its 6-color palette anyway, so lossy source detail is discarded regardless.
 
 The request was "let the panel dither, but send WebP or JPEG." WebP was the
 first choice (smaller than JPEG at equal quality). Verification against the

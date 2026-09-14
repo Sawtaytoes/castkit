@@ -10,7 +10,7 @@
 
 All devices — image mode and browser mode — address as **`castkit/<id>/…`**,
 flat. NOT `castkit/inkcast/<id>` or per-mode base topics: device class is a
-capability matrix (who renders, touch, colour depth), not an identity, and a
+capability matrix (who renders, touch, color depth), not an identity, and a
 device that blurs the line (M5Paper: image + touch) or changes mode must not
 require a topic migration. Mode shows up naturally in which topics exist
 (`image` vs `url`/`connected`) and in discovery metadata.

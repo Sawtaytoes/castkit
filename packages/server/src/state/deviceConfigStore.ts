@@ -3,14 +3,14 @@ import type { PhotoCrop } from "@castkit/core/panels/photoCrop"
 import type { PanelMargin } from "@castkit/core/panels/safeArea"
 
 /**
- * A colour-rendering override for a colour panel: "bw" renders the view in
- * monochrome and dithers to black/white only (ePaper B&W mode on a colour
- * display). Absent = the panel's native colour mode.
+ * A color-rendering override for a color panel: "bw" renders the view in
+ * monochrome and dithers to black/white only (ePaper B&W mode on a color
+ * display). Absent = the panel's native color mode.
  */
-export type ColourModeOverride = "color" | "bw"
+export type ColorModeOverride = "color" | "bw"
 
 /**
- * Wire format for the full-colour (dithering-"off") photo frame. `jpeg`/`webp`
+ * Wire format for the full-color (dithering-"off") photo frame. `jpeg`/`webp`
  * are lossy and ~30× smaller than a lossless RGB `png`; the panel re-dithers
  * anyway so lossy is fine. Global default + per-device override, both HA config
  * entities (never env vars). WebP is offered but crashes ARMv6 Pis on decode —
@@ -228,12 +228,12 @@ export type DeviceConfigStore = {
     deviceId: string
     rotation: PanelRotation
   }) => void
-  getColourModeOverride: (
+  getColorModeOverride: (
     deviceId: string,
-  ) => ColourModeOverride | undefined
-  setColourModeOverride: (params: {
+  ) => ColorModeOverride | undefined
+  setColorModeOverride: (params: {
     deviceId: string
-    colourMode: ColourModeOverride
+    colorMode: ColorModeOverride
   }) => void
   /** Pre-dither brightness boost, percent (100 = neutral). */
   getBrightnessPercent: (
@@ -365,9 +365,9 @@ export const createDeviceConfigStore =
       string,
       PanelRotation
     >()
-    const colourModeByDeviceId = new Map<
+    const colorModeByDeviceId = new Map<
       string,
-      ColourModeOverride
+      ColorModeOverride
     >()
     const brightnessByDeviceId = new Map<string, number>()
     const saturationByDeviceId = new Map<string, number>()
@@ -484,10 +484,10 @@ export const createDeviceConfigStore =
       setRotationOverride: ({ deviceId, rotation }) => {
         rotationByDeviceId.set(deviceId, rotation)
       },
-      getColourModeOverride: (deviceId) =>
-        colourModeByDeviceId.get(deviceId),
-      setColourModeOverride: ({ deviceId, colourMode }) => {
-        colourModeByDeviceId.set(deviceId, colourMode)
+      getColorModeOverride: (deviceId) =>
+        colorModeByDeviceId.get(deviceId),
+      setColorModeOverride: ({ deviceId, colorMode }) => {
+        colorModeByDeviceId.set(deviceId, colorMode)
       },
       getBrightnessPercent: (deviceId) =>
         brightnessByDeviceId.get(deviceId),

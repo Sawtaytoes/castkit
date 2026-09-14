@@ -83,7 +83,7 @@ export const startTestServer = async ({
         height: 720,
         shape: "square",
         hasTouch: true,
-        colour: "full",
+        color: "full",
         externalViews: [
           {
             name: "Disc App",

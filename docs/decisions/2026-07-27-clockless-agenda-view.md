@@ -1,4 +1,4 @@
-# A clockless "Agenda" view, so slow colour panels can show a calendar
+# A clockless "Agenda" view, so slow color panels can show a calendar
 
 - **Status:** Accepted
 - **Date:** 2026-07-27
@@ -23,7 +23,7 @@ shared helper** used by both agenda views.
 ## Context
 
 `Clock (Agenda)` shows a clock, so it must be re-pushed every minute to stay
-honest. On the 800×480 E6 Impression a **full refresh takes ~28 seconds**, so a
+honest. On the 800×480 E Ink Spectra 6 Impression a **full refresh takes ~28 seconds**, so a
 per-minute repaint is a panel that is essentially always flashing — the exact
 finding that produced the home-displays decision barring clock views from the
 kitchen panel entirely.

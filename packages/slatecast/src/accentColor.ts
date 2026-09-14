@@ -32,7 +32,7 @@ const getRelativeLuminance = ([
  * clears the 4.5:1 floor against the surface it is painted on.
  *
  * Album art votes on HUE, and nothing in that vote is aware of the panel's
- * scheme. A cover whose dominant colour is a deep navy used to be fine, because
+ * scheme. A cover whose dominant color is a deep navy used to be fine, because
  * the panel was light; with the panels defaulting to Dark that same navy is the
  * artist line and the progress fill rendered nearly invisible on a dark field.
  *
@@ -83,9 +83,9 @@ export const clampAccentToScheme = ({
 }
 
 /**
- * Derive an accent colour from album art, client-side: downscale to 16×16 on
+ * Derive an accent color from album art, client-side: downscale to 16×16 on
  * a canvas, bucket pixels by hue, and pick the most saturated-populous
- * bucket. ~1 KB instead of a colour-extraction dependency.
+ * bucket. ~1 KB instead of a color-extraction dependency.
  *
  * Artwork often comes from another origin without CORS headers — reading a
  * tainted canvas throws, so this resolves to null and the UI keeps the

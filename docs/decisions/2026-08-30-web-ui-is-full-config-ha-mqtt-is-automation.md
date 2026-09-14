@@ -9,7 +9,7 @@
 ## Decision
 
 CastKit's Web UI is the complete configuration surface for a display. It owns
-the hardware definition, including dimensions, renderer, colour capability,
+the hardware definition, including dimensions, renderer, color capability,
 shape, touch capability, and image-panel rotation. It also exposes every
 per-display setting that Home Assistant can change through MQTT.
 
@@ -21,7 +21,7 @@ Assistant. There is no second settings store.
 ## Context
 
 The first device-management UI only edited the persistent hardware definition.
-That made settings such as dithering, photo tuning, clock formatting, colour
+That made settings such as dithering, photo tuning, clock formatting, color
 processing, crop, and update pause available only from Home Assistant, while
 hardware values were available only in the Web UI.
 

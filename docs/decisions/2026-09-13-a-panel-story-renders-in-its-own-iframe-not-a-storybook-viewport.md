@@ -45,7 +45,7 @@ its own manager.
 
 The owner reported it as a layout regression: the Now Playing view had "a lot
 of padding and less room for text", and both the artist and the album wrapped
-to two lines. Nothing had regressed. The story labelled "Workbench (480×320
+to two lines. Nothing had regressed. The story labeled "Workbench (480×320
 landscape, touch)" was rendering in a 1200×610 document, where `vmin` is 6.1px
 instead of 3.2px and `@media (max-height: 400px)` does not match at all — so
 the short-landscape layout, which is the entire reason that story exists, had

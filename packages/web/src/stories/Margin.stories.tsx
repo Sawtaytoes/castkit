@@ -20,7 +20,7 @@ import {
  * onto a full-size white panel. Clipping instead would show the full-size
  * layout with its edges chopped, which is not what happens.
  *
- * **Every** view honours the margin, photos included. The knob that does cut is
+ * **Every** view honors the margin, photos included. The knob that does cut is
  * `Photo Frame: Crop`, a separate control on a separate axis. See
  * docs/decisions/2026-09-08-margin-pushes-in-and-crop-cuts-away.md.
  */
@@ -54,7 +54,7 @@ const MarginCell = ({
         viewName={viewName}
         width={IMPRESSION_DEVICE.width}
         height={IMPRESSION_DEVICE.height}
-        colourMode="e6"
+        colorMode="spectra6"
         panelMargin={panelMargin}
       />
     </div>
@@ -101,7 +101,7 @@ const ComparisonRow = ({
 )
 
 const meta = {
-  title: "Margin/Behaviour",
+  title: "Margin/Behavior",
   parameters: {
     layout: "fullscreen",
     controls: { disable: true },
@@ -112,17 +112,17 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-export const TextViewHonoursMargin: Story = {
+export const TextViewHonorsMargin: Story = {
   name: "A text view reflows into the margin",
   render: () => <ComparisonRow viewName="Clock (Agenda)" />,
 }
 
-export const AgendaHonoursMargin: Story = {
+export const AgendaHonorsMargin: Story = {
   name: "Agenda — same margin, different layout budget",
   render: () => <ComparisonRow viewName="Agenda" />,
 }
 
-export const PhotoViewHonoursMargin: Story = {
+export const PhotoViewHonorsMargin: Story = {
   name: "A photo view fits the margin too",
   render: () => <ComparisonRow viewName="Photo Frame" />,
 }

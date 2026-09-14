@@ -16,14 +16,14 @@ export type PhotoFrameViewProps = PanelViewProps & {
 export const PhotoFrameView = ({
   width,
   height,
-  colourMode,
+  colorMode,
   photoDataUri,
 }: PhotoFrameViewProps) => {
   const rootStyle: CSSProperties = {
     ...buildPanelRootStyle({
       width,
       height,
-      colourMode,
+      colorMode,
     }),
     alignItems: "center",
     justifyContent: "center",

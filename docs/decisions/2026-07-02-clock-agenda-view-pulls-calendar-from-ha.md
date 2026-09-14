@@ -59,7 +59,7 @@ events itself, or an HA automation formats the agenda and pushes it over MQTT.
 > screen as well … show the time, date, temp/weather, and also the upcoming
 > event(s) that day for a specific person."
 
-— user request (2026-07-02). Behaviour split confirmed in the same thread: the
+— user request (2026-07-02). Behavior split confirmed in the same thread: the
 pHAT surfaces the next event **1 hour** before and reverts to `Clock (Weather)`
 when it starts; the kitchen Impression shows today's schedule only while the
 All-Kitchen occupancy area is occupied inside the pre-event window, then returns

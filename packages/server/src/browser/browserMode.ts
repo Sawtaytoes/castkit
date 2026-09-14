@@ -96,6 +96,25 @@ export type BrowserMode = ReturnType<
   typeof createBrowserMode
 >
 
+/**
+ * Map a current color mode back to the value a pre-2026-09-14 Slatecast bundle
+ * expects. Only used to fill the deprecated `colour` alias in the snapshot.
+ */
+const toLegacyColor = (
+  color: "monochrome" | "grayscale" | "spectra6" | "full",
+): "mono" | "greyscale" | "e6" | "full" => {
+  switch (color) {
+    case "monochrome":
+      return "mono"
+    case "grayscale":
+      return "greyscale"
+    case "spectra6":
+      return "e6"
+    default:
+      return "full"
+  }
+}
+
 export const createBrowserMode = ({
   config,
   publisher,
@@ -209,7 +228,14 @@ export const createBrowserMode = ({
         height: device.height,
         shape: device.shape,
         hasTouch: device.hasTouch,
-        colour: device.colour,
+        color: device.color,
+        // Legacy aliases for a kiosk still on the pre-rename bundle. See
+        // BrowserDeviceProfile. Drop once every panel has reloaded.
+        colour: toLegacyColor(device.color),
+        legacyShape:
+          device.shape === "rectangle"
+            ? "rect"
+            : device.shape,
         externalViews: device.externalViews,
       },
       settings: settingsWithClock(deviceId),

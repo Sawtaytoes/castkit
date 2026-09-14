@@ -9,7 +9,7 @@
 ## Decision
 
 The escape-hatch dither option that skips our palette quantization and hands the
-panel a full-colour image (so its own controller dithers) is named **`off`**,
+panel a full-color image (so its own controller dithers) is named **`off`**,
 not `none`. It is still the first entry in `DITHER_ALGORITHMS` and behaves
 exactly as the superseded decision described — `ditherToPanel` returns the
 downscaled, tone-adjusted RGB PNG (brightness/saturation still apply, rotated to

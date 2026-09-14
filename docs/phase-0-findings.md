@@ -9,7 +9,7 @@ evidence. Regenerate the sheets any time with `yarn bakeoff` (output under
 
 ## What's built
 
-- **`@inkcast/core`** — panels, palettes (mono + the exact Spectra-6 E6 palette,
+- **`@inkcast/core`** — panels, palettes (mono + the exact E Ink Spectra 6 palette,
   blended 0.5 vivid/device to match the on-device look), device registry, and the
   supersample→Lanczos-downscale→dither pipeline (threshold, ordered/Bayer,
   Floyd–Steinberg, Atkinson, Stucki, Sierra).
@@ -27,9 +27,9 @@ See `render-output/render/engine-comparison.png`.
 
 - **Chromium — recommended default.** Layout is faithful on both panels: the
   `space-between`/`flex-grow` column lays out correctly, "Twilight Force" fits on
-  one line on the E6, banner spacing is clean. Because the dev-preview is a real
+  one line on the E Ink Spectra 6, banner spacing is clean. Because the dev-preview is a real
   browser, **what you see in the preview is what the device gets** (pre-dither).
-- **Satori — diverges, use only for the simplest cards.** On the E6 the
+- **Satori — diverges, use only for the simplest cards.** On the E Ink Spectra 6 the
   `NOW PLAYING` banner overlapped the (oversized) artist text and the title
   wrapped to two lines; font metrics + flex handling differ from the browser. On
   the tiny mono panel it's passable but heavier. It's faster/lighter, but the
@@ -42,7 +42,7 @@ isn't trustworthy for arbitrary layouts.
 ## Decision 2 — dithering (per panel, the maintainer wanted to SEE this)
 
 Sheets: `render-output/dither/<panel>--{card,gradient,photo}.png`. Rows =
-supersample 1×/2×/4×, columns = algorithm. Mono and E6 are separate sheets so the
+supersample 1×/2×/4×, columns = algorithm. Mono and E Ink Spectra 6 are separate sheets so the
 choice can differ per panel (as the maintainer noted it likely should).
 
 ### Mono pHAT (250×122, 1-bit) — text is the job
@@ -56,18 +56,18 @@ choice can differ per panel (as the maintainer noted it likely should).
   text views. If a photo ever goes on the pHAT, switch that display to
   error-diffusion.
 
-### E6 Impression (800×480, 6-colour) — photos, colour fidelity
+### E Ink Spectra 6 Impression (800×480) — photos, color fidelity
 
-This sheet directly addresses the "colour looks awful" concern:
+This sheet directly addresses the "color looks awful" concern:
 
 - **Threshold** is unusable for photos — posterized slabs of pure red/blue/yellow.
-  (This naive quantization is what makes E6 look bad.)
+  (This naive quantization is what makes E Ink Spectra 6 look bad.)
 - **Ordered (Bayer)** is surprisingly good — smooth, film-like halftone.
 - **Floyd–Steinberg / Stucki / Sierra** are the winners — photographic with rich
   tonal gradation.
 - **Atkinson** is cleaner but loses shadow detail / washes highlights.
 - **Supersampling helps** — 4× visibly refines the error-diffusion grain vs 1×.
-- The muted 0.5 device-palette blend keeps colour realistic rather than garish.
+- The muted 0.5 device-palette blend keeps color realistic rather than garish.
 - **Recommendation:** **Floyd–Steinberg** (or Stucki) at **2×–4×** for the
   Impression's photo frame. Worth an A/B of FS vs Stucki on a real kids' photo on
   the actual panel before locking it.
@@ -77,7 +77,7 @@ This sheet directly addresses the "colour looks awful" concern:
 | Device | Algorithm | Supersample |
 | --- | --- | --- |
 | pHAT (mono) | atkinson | 4× |
-| Impression (E6) | floyd-steinberg | 2× |
+| Impression (E Ink Spectra 6) | floyd-steinberg | 2× |
 
 These are starting points; adjust in `@inkcast/core/devices/device` after you
 review the sheets. (The mono default is currently atkinson; the sheets suggest
@@ -88,7 +88,7 @@ review the sheets. (The mono default is currently atkinson; the sheets suggest
 - **Render engine:** confirm Chromium (recommended) so Phase 1 can build the
   server around it.
 - **Dither defaults:** pick per-panel algorithm + supersample from the sheets;
-  ideally verify E6 on a real kids' photo on the physical panel.
+  ideally verify E Ink Spectra 6 on a real kids' photo on the physical panel.
 - **Font:** DejaVu Sans is a placeholder — see
   [research/epaper-fonts.md](research/epaper-fonts.md) (Atkinson Hyperlegible is the
   leading candidate for the mono panel). Swappable in one place

@@ -48,7 +48,7 @@ describe("formatClockTime", () => {
     ).toBe("15:05")
   })
 
-  test("honours a zone on the other side of the date line", () => {
+  test("honors a zone on the other side of the date line", () => {
     expect(
       withPlainSpaces(
         formatClockTime(AFTERNOON_MILLIS, {

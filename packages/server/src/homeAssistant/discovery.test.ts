@@ -25,7 +25,7 @@ describe("buildDeviceTopics", () => {
     )
   })
 
-  test("honours a custom base topic", () => {
+  test("honors a custom base topic", () => {
     const topics = buildDeviceTopics({
       baseTopic: "displays",
       device: PHAT_DEVICE,
@@ -52,7 +52,7 @@ describe("buildDiscoveryMessages", () => {
     viewNames: ["Now Playing (Dashboard)", "Clock"],
   })
 
-  test("emits the full entity set for a mono panel (no colour-mode select)", () => {
+  test("emits the full entity set for a mono panel (no color-mode select)", () => {
     const components = messages.map(
       (message) => message.topic.split("/")[1],
     )
@@ -114,16 +114,21 @@ describe("buildDiscoveryMessages", () => {
     ).toBe("CastKit Server")
   })
 
-  test("adds the colour-mode select on a colour panel only", () => {
-    const colourMessages = buildDiscoveryMessages({
+  // ⚠️ The topic and unique_id keep the BRITISH spelling deliberately. Home
+  // Assistant keys its entity off them, so renaming orphans
+  // `select.<device>_colour_mode` and every card and automation naming it.
+  // These assertions exist to make that contract fail loudly if anybody
+  // "finishes" the American-spelling rename without an HA-side migration.
+  test("adds the color-mode select on a color panel only", () => {
+    const colorMessages = buildDiscoveryMessages({
       device: IMPRESSION_DEVICE,
       viewNames: ["Clock"],
     })
 
-    const colourModeMessage = colourMessages.find(
-      (message) => message.topic.includes("_colour_mode/"),
+    const colorModeMessage = colorMessages.find((message) =>
+      message.topic.includes("_colour_mode/"),
     )
-    expect(colourModeMessage?.payload.options).toEqual([
+    expect(colorModeMessage?.payload.options).toEqual([
       "Color",
       "Black & White",
     ])

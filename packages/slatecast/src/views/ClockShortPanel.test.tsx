@@ -13,7 +13,7 @@ import {
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
-// The sibling test files load no stylesheet: they test behaviour. This one
+// The sibling test files load no stylesheet: they test behavior. This one
 // tests a media query, so it needs the real rules in the page.
 import "../styles.css"
 
@@ -143,7 +143,7 @@ describe("clock on a short landscape panel", () => {
     ).toMatch(/^\d{1,2}:\d{2}$/)
   })
 
-  test("keeps the centred stack on the square", async () => {
+  test("keeps the centered stack on the square", async () => {
     await mountClockOn(SQUARE_PANEL)
 
     expect(document.querySelector(".date-tile")).toBeNull()

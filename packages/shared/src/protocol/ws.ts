@@ -22,7 +22,7 @@ export const DEFAULT_PHOTO_INTERVAL_MINUTES = 10
 
 /**
  * Resolved global clock settings the browser views format against, so browser
- * displays honour the same Home Assistant Clock:* knobs as the ePaper devices
+ * displays honor the same Home Assistant Clock:* knobs as the ePaper devices
  * (timezone via `Intl`, 12/24-hour, long/numeric date). The server stamps this
  * onto every settings payload; `timeZone` absent = the device's local zone.
  */
@@ -53,9 +53,23 @@ export type BrowserDeviceProfile = {
   label: string
   width: number
   height: number
-  shape: "square" | "round" | "rect"
+  shape: "square" | "round" | "rectangle"
   hasTouch: boolean
-  colour: "mono" | "grayscale" | "e6" | "full"
+  color: "monochrome" | "grayscale" | "spectra6" | "full"
+  /**
+   * @deprecated Legacy aliases of `shape` and `color`, kept so a kiosk still
+   * running the pre-2026-09-14 bundle keeps working across a deploy.
+   *
+   * A panel holds its page until something reloads it, so the server can ship a
+   * renamed field hours before the client that reads it does. An old bundle
+   * reads `device.colour` and gets `undefined`, which is not a crash — it is a
+   * panel that silently renders in the wrong color mode.
+   *
+   * Remove both once every panel has reloaded. Nothing in this repo reads them.
+   */
+  colour?: "mono" | "greyscale" | "e6" | "full"
+  /** @deprecated See `colour`. */
+  legacyShape?: "square" | "round" | "rect"
   externalViews: readonly {
     name: string
     url: string

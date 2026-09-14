@@ -19,7 +19,7 @@ export type BakeoffPanel = {
   label: string
   width: number
   height: number
-  colourMode: "mono" | "e6"
+  colorMode: "monochrome" | "spectra6"
   palette: Palette
 }
 
@@ -30,15 +30,15 @@ export const PANELS: readonly BakeoffPanel[] = [
     label: "pHAT 250×122 mono",
     width: PHAT_DEVICE.width,
     height: PHAT_DEVICE.height,
-    colourMode: PHAT_DEVICE.colourMode,
+    colorMode: PHAT_DEVICE.colorMode,
     palette: PHAT_DEVICE.palette,
   },
   {
     key: "impression-e6",
-    label: "Impression 800×480 E6",
+    label: "Impression 800×480 E Ink Spectra 6",
     width: IMPRESSION_DEVICE.width,
     height: IMPRESSION_DEVICE.height,
-    colourMode: IMPRESSION_DEVICE.colourMode,
+    colorMode: IMPRESSION_DEVICE.colorMode,
     palette: IMPRESSION_DEVICE.palette,
   },
 ]
@@ -47,23 +47,23 @@ export const PANELS: readonly BakeoffPanel[] = [
 export const buildNowPlayingElement = ({
   width,
   height,
-  colourMode,
+  colorMode,
 }: {
   width: number
   height: number
-  colourMode: "mono" | "e6"
+  colorMode: "monochrome" | "spectra6"
 }) =>
   createElement(NowPlayingPoster, {
     width,
     height,
-    colourMode,
+    colorMode,
     artist: "Twilight Force",
     title: "Dawn of the Dragonstar",
     isPlaying: true,
   })
 
 /**
- * A full-colour RGB gradient sized to the panel (times supersample). Diagonal
+ * A full-color RGB gradient sized to the panel (times supersample). Diagonal
  * hue sweep + vertical brightness ramp — banding here is what the dither
  * algorithms are judged on.
  */
@@ -108,7 +108,7 @@ export const buildGradient = async ({
 
 /**
  * Fetch a real photo (Lorem Picsum, an Unsplash-backed CC0 source) sized to the
- * panel for the E6 colour-fidelity test. Returns null on any network failure so
+ * panel for the E Ink Spectra 6 color-fidelity test. Returns null on any network failure so
  * the bake-off degrades gracefully to card + gradient only.
  */
 export const tryFetchPhoto = async ({

@@ -5,7 +5,7 @@ import {
   buildPanelRootStyle,
   countRowsThatFit,
   fitText,
-  getAccentColour,
+  getAccentColor,
   READABLE_FONT_FLOOR_PX,
 } from "./viewStyles.ts"
 
@@ -65,15 +65,15 @@ const EVENT_LINE_HEIGHT = 1.1
 export const ClockAgendaView = ({
   width,
   height,
-  colourMode,
+  colorMode,
   time,
   date,
   temperatureText,
   conditionText,
   events,
 }: ClockAgendaViewProps) => {
-  const accentColour = getAccentColour({
-    colourMode,
+  const accentColor = getAccentColor({
+    colorMode,
     intent: "accent",
   })
   const isCompactPanel = height <= COMPACT_PANEL_MAX_HEIGHT
@@ -86,7 +86,7 @@ export const ClockAgendaView = ({
 
   const horizontalPadding = Math.round(width * 0.04)
   const availableWidth = width - horizontalPadding * 2
-  const readableFloor = READABLE_FONT_FLOOR_PX[colourMode]
+  const readableFloor = READABLE_FONT_FLOOR_PX[colorMode]
 
   // With an event present the time cedes height to the agenda; without one the
   // proportions match ClockWeatherView. On the compact pHAT the time shrinks
@@ -127,7 +127,7 @@ export const ClockAgendaView = ({
   // The date is the widest single string this view ever draws — a long one
   // ("Wednesday, September 11") beats "4:59 AM" for character count — so it is
   // fitted to the panel exactly like the time. Left unfitted it wrapped onto a
-  // second line on the 13.3" Impressions, which also broke the centred column.
+  // second line on the 13.3" Impressions, which also broke the centered column.
   const fittedDate = fitText({
     baseFontSize: Math.round(height * 0.13),
     minimumFontSize: readableFloor,
@@ -224,16 +224,16 @@ export const ClockAgendaView = ({
   // Pin the time to the top once a compact panel is carrying events. The row
   // count above already guarantees the column fits, so this is about stability
   // rather than overflow: the pHAT's agenda gains and loses rows through the
-  // day, and a centred column would walk the clock up and down the glass on
+  // day, and a centered column would walk the clock up and down the glass on
   // every repaint. Pinned, the time stays where the reader last saw it. With no
-  // events the view still centres, so it reads identically to ClockWeatherView
+  // events the view still centers, so it reads identically to ClockWeatherView
   // on a free day.
   const isPinnedToTop = isCompactPanel && hasVisibleEvents
   const rootStyle: CSSProperties = {
     ...buildPanelRootStyle({
       width,
       height,
-      colourMode,
+      colorMode,
     }),
     alignItems: "center",
     justifyContent: isPinnedToTop ? "flex-start" : "center",
@@ -244,7 +244,7 @@ export const ClockAgendaView = ({
 
   // Event summaries never wrap (one row each), so a long title would otherwise
   // run off the right edge. Cap each summary to the row's remaining width and
-  // ellipsis-truncate — both render engines honour this with nowrap + hidden.
+  // ellipsis-truncate — both render engines honor this with nowrap + hidden.
   const compactSummaryMaxWidth =
     availableWidth -
     Math.round(width * 0.2) -
@@ -261,7 +261,7 @@ export const ClockAgendaView = ({
     fontWeight: 700,
     lineHeight: 1,
     whiteSpace: "nowrap",
-    color: accentColour,
+    color: accentColor,
   }
 
   const compactInfoRowStyle: CSSProperties = {
@@ -294,7 +294,7 @@ export const ClockAgendaView = ({
     fontSize: compactTemperatureFontSize,
     fontWeight: 700,
     lineHeight: 1,
-    color: accentColour,
+    color: accentColor,
   }
 
   const compactConditionStyle: CSSProperties = {
@@ -329,7 +329,7 @@ export const ClockAgendaView = ({
     fontSize: largeTemperatureFontSize,
     fontWeight: 700,
     lineHeight: 1,
-    color: accentColour,
+    color: accentColor,
   }
 
   const largeConditionStyle: CSSProperties = {
@@ -363,7 +363,7 @@ export const ClockAgendaView = ({
     fontWeight: 700,
     lineHeight: 1.1,
     whiteSpace: "nowrap",
-    color: accentColour,
+    color: accentColor,
     width: Math.round(width * 0.2),
     flexShrink: 0,
   }
@@ -400,7 +400,7 @@ export const ClockAgendaView = ({
     lineHeight: 1,
     letterSpacing: 1,
     textTransform: "uppercase",
-    color: accentColour,
+    color: accentColor,
     marginBottom: headingGap,
   }
 
@@ -417,7 +417,7 @@ export const ClockAgendaView = ({
     fontWeight: 700,
     lineHeight: 1.1,
     whiteSpace: "nowrap",
-    color: accentColour,
+    color: accentColor,
     width: Math.round(width * 0.16),
     flexShrink: 0,
   }

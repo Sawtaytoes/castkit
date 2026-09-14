@@ -1,4 +1,4 @@
-# The artwork is the transport on every touch panel, and the text is centred on it
+# The artwork is the transport on every touch panel, and the text is centered on it
 
 - **Status:** Accepted
 - **Date:** 2026-09-11
@@ -13,10 +13,10 @@
    the three buttons under it are removed from the component, not hidden. The
    art grows into the row they took: `52vmin` on the square (374px at 720),
    the same size the touchless picture already had.
-2. **On the short landscape panel the text block is centred on the art.** The
+2. **On the short landscape panel the text block is centered on the art.** The
    title, artist, album and seek bar form one block whose middle sits at the
    art's middle. The grid is `1fr auto auto 1fr` down the text column; the two
-   equal `1fr` rows do the centring whatever height the block takes.
+   equal `1fr` rows do the centering whatever height the block takes.
 3. **Each text line may wrap, and the row counts are measured, not fixed.**
    On the short panel the title may take up to four rows, the artist three and
    the album two. `fitTrackLines` (`views/trackLineFit.ts`) writes those
@@ -46,14 +46,14 @@ native range input's thumb is 16px whatever the panel, and a horizontal drag on
 a `touch-action: auto` element is a pan gesture to the panel's browser — the
 artwork frame already carries `touch-action: none` for exactly that reason.
 Driven with real CDP touch events in headless Chromium the drag moves the value
-from 24 to 75 across eight moves with the new styling; the pre-change behaviour
+from 24 to 75 across eight moves with the new styling; the pre-change behavior
 on the Pi itself was not reproduced in the sandbox, so the `touch-action` fix is
 the likely cause rather than the proven one, and the thumb size is the certain
 improvement.
 
 ## Why
 
-- **Centred over pinned.** A block whose height varies has to be anchored
+- **Centered over pinned.** A block whose height varies has to be anchored
   somewhere; anchoring it to the art's middle keeps the visual weight on the
   picture, which is what the layout is built around. Equal `1fr` rows above and
   below cost no JavaScript.
@@ -92,7 +92,7 @@ Owner, 2026-09-11 (chat `0adde1d5-e233-4c59-bf0f-4fed81fba6d7`):
 > to touch. Is there drag 'n drop on the volume one? I found that clicking
 > works, but dragging did not.
 
-Tests: `NowPlayingShortPanel.test.tsx` (centring within 4px, two-row artist and
+Tests: `NowPlayingShortPanel.test.tsx` (centering within 4px, two-row artist and
 album, a four-row title beside "Beck", the trim when every line is long, the
 square's 52vmin art with no transport buttons). The volume drag was driven with
 `Input.dispatchTouchEvent` against the built bundle; the values are in the PR.

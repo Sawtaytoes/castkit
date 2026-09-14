@@ -4,8 +4,8 @@ import type { NowPlayingViewProps } from "./viewProps.ts"
 import {
   buildPanelRootStyle,
   fitText,
-  getAccentColour,
-  getPanelColours,
+  getAccentColor,
+  getPanelColors,
   READABLE_FONT_FLOOR_PX,
 } from "./viewStyles.ts"
 
@@ -14,7 +14,7 @@ import {
  * and a clean left-aligned "playbill" on the right — a small accent label with
  * a play-state equalizer, the title as the hero (fit-to-fit so it wraps but
  * never clips), the artist beneath it, and a short accent rule grounding the
- * block. White ground, black type, a single accent ink (E6 red, collapsing to
+ * block. White ground, black type, a single accent ink (E Ink Spectra 6 red, collapsing to
  * black on mono) — calmer than the old Bauhaus slab pile-up, and the fitted
  * type fills the column instead of leaving dead white space. Inline styles +
  * flexbox only (Satori-safe).
@@ -36,22 +36,22 @@ const PAUSED_BARS: readonly EqualizerBar[] = [
 export const NowPlayingPoster = ({
   width,
   height,
-  colourMode,
+  colorMode,
   artist,
   title,
   isPlaying,
   artworkDataUri,
 }: NowPlayingViewProps) => {
   const hasArtwork = typeof artworkDataUri === "string"
-  const colours = getPanelColours({ colourMode })
-  // The spine, the rule and the artless art plate are red on E6 and black on
+  const colors = getPanelColors({ colorMode })
+  // The spine, the rule and the artless art plate are red on E Ink Spectra 6 and black on
   // mono. `danger` is that ink's name in the intent scale, which on a six-ink
   // panel is the ink set — the poster is not warning anyone.
-  const accent = getAccentColour({
-    colourMode,
+  const accent = getAccentColor({
+    colorMode,
     intent: "danger",
   })
-  const fontFloor = READABLE_FONT_FLOOR_PX[colourMode]
+  const fontFloor = READABLE_FONT_FLOOR_PX[colorMode]
 
   // A full-height square art plate on the left, a thin accent spine, and the
   // rest of the width as the playbill. Art is capped so a very wide panel still
@@ -98,7 +98,7 @@ export const NowPlayingPoster = ({
     ...buildPanelRootStyle({
       width,
       height,
-      colourMode,
+      colorMode,
     }),
     flexDirection: "row",
     alignItems: "stretch",
@@ -111,7 +111,7 @@ export const NowPlayingPoster = ({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: hasArtwork
-      ? colours.surface.inverse
+      ? colors.surface.inverse
       : accent,
     overflow: "hidden",
   }
@@ -171,7 +171,7 @@ export const NowPlayingPoster = ({
     letterSpacing: titleFit.letterSpacing,
     fontWeight: 800,
     lineHeight: 1.05,
-    color: colours.content.primary,
+    color: colors.content.primary,
     overflow: "hidden",
     overflowWrap: "break-word",
   }
@@ -182,7 +182,7 @@ export const NowPlayingPoster = ({
     letterSpacing: artistFit.letterSpacing,
     fontWeight: 600,
     lineHeight: 1.1,
-    color: colours.content.primary,
+    color: colors.content.primary,
     marginTop: Math.round(height * 0.035),
     overflow: "hidden",
     overflowWrap: "break-word",
@@ -220,7 +220,7 @@ export const NowPlayingPoster = ({
                   ),
                   // On the plate, not on the paper — the plate is
                   // the accent ink (or black once art lands).
-                  backgroundColor: colours.content.onAccent,
+                  backgroundColor: colors.content.onAccent,
                 }}
               />
             ))}

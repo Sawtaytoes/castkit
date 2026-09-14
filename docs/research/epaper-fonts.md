@@ -10,7 +10,7 @@ this note surveys purpose-built and community-favored alternatives. Because Inkc
 open-source public repo and Satori needs the raw TTF/OTF to embed, we strongly prefer
 **SIL OFL / Apache / BSD / CC-BY** fonts available as TTF or OTF. Two display contexts are
 addressed separately: the tiny **1-bit mono** 250x122 Inky pHAT (legibility at very small
-sizes after 1-bit dithering, no anti-aliasing) and the larger **6-colour E6** 800x480 Inky
+sizes after 1-bit dithering, no anti-aliasing) and the larger **E Ink Spectra 6** (6-color) 800x480 Inky
 Impression (more room; readability plus aesthetics).
 
 ## What matters on ePaper
@@ -30,22 +30,22 @@ sizes ([TypeTogether](https://www.type-together.com/typefaces-small-text),
 
 | Font | Serif/Sans | License | Best for | Why it reads well on ePaper | Source |
 | --- | --- | --- | --- | --- | --- |
-| **Atkinson Hyperlegible** | Sans (grotesque) | SIL OFL 1.1 | mono + E6 | Purpose-built by the Braille Institute so every character is maximally distinguishable; exaggerated, disambiguated letterforms "shine on screens where lower resolution can make similar letters harder to distinguish." Clear x-height and open counters aid caption/footnote sizes. | [Braille Institute](https://www.brailleinstitute.org/freefont/), [Wikipedia](https://en.wikipedia.org/wiki/Atkinson_Hyperlegible), [TypeSmith](https://typographysmith.com/fonts/atkinson-hyperlegible) |
-| **Luciole** | Sans | CC-BY 4.0 | mono + E6 | Designed explicitly for low-vision readers against a dozen legibility criteria (letter structure, word clutter, spacing) by the French typographies.fr foundry with the Regional Technical Centre for Visual Impairment. Disambiguated forms help at low resolution. | [luciole-vision.com](https://www.luciole-vision.com/), [printindustry.news](https://www.printindustry.news/story/32904/) |
-| **Lexend** | Sans | SIL OFL 1.1 | mono + E6 | Tall x-height with open counters, "legible from small sizes up to large ones"; designed to reduce visual stress and improve reading performance. | [Google Fonts](https://fonts.google.com/specimen/Lexend), [lexend OFL](https://github.com/googlefonts/lexend/blob/main/OFL.txt) |
-| **Public Sans** | Sans | SIL OFL 1.1 | mono + E6 | US-government (USWDS) "strict neutral" sans, a modified version of Libre Franklin; sturdy, even, high legibility for UI text. Good for labels/chrome on both panels. | [USWDS Public Sans](https://github.com/uswds/public-sans/blob/develop/LICENSE.md) |
-| **Libre Franklin** | Sans | SIL OFL 1.1 | E6 | Franklin Gothic revival; sturdy grotesque with good weight range for headers on the larger panel. | [search: Libre Franklin OFL](https://github.com/uswds/public-sans/blob/develop/LICENSE.md) |
-| **Go (Go Regular/Smallcaps)** | Sans + mono | BSD-3-Clause | mono + E6 | Commissioned for the Go project; larger x-height aids small sizes on screen, and the sans is well-hinted. Unusually permissive license. | [go.dev/blog/go-fonts](https://go.dev/blog/go-fonts), [Font Squirrel](https://www.fontsquirrel.com/license/go) |
-| **iA Writer Quattro / Duo / Mono** | Sans (Quattro/Duo), mono | SIL OFL 1.1 | E6 | iA's writing faces, tuned for on-screen text clarity; Quattro is proportional-feeling. Clean, even strokes. | [iA-Fonts](https://github.com/iaolo/iA-Fonts), [Fontsource](https://fontsource.org/fonts/ia-writer-quattro) |
-| **Inter** | Sans | SIL OFL 1.1 | E6 | Very high x-height, large apertures, extensive hinting; a modern UI workhorse that stays legible small. Best where anti-aliasing exists (E6), less ideal after 1-bit dithering. | [Google Fonts](https://fonts.google.com/specimen/Inter) |
-| **Bitter** | Slab serif | SIL OFL 1.1 | E6 (and mono at larger sizes) | Designed by Sol Matas specifically to read comfortably on screens: **large x-height** and **thick, even (low-contrast) strokes** — exactly the traits that survive dithering. Cited by r/eink-adjacent readers as a "low contrast" e-reader font. | [Google Fonts](https://fonts.google.com/specimen/Bitter), [MobileRead](https://www.mobileread.com/forums/showthread.php?t=366520) |
-| **Literata** | Serif | SIL OFL 1.1 | E6 | TypeTogether's typeface for Google Play Books, built to read well "on a whole range of devices... running different rendering technologies." Organic texture, comfortable for long-form. | [TypeTogether](https://www.type-together.com/literata-book), [Google Fonts](https://fonts.google.com/specimen/Literata) |
-| **Newsreader** | Serif | SIL OFL 1.1 | E6 | Production Type face made for "continuous on-screen reading in content-rich environments." | [nicoverbruggen/ebook-fonts](https://github.com/nicoverbruggen/ebook-fonts) |
-| **Source Serif 4** | Serif | SIL OFL 1.1 | E6 | Adobe's open serif designed for digital; simplified, highly readable letter shapes. Community "Sourcerer" variant is thickened for e-readers. | [nicoverbruggen/ebook-fonts](https://github.com/nicoverbruggen/ebook-fonts) |
-| **Charter / XCharter** | Serif | Permissive (Bitstream, free) | E6 | Matthew Carter's 1987 body face explicitly built to hold up on **low-resolution** output (fax, 300 dpi lasers); ages into ePaper well. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
-| **Charis SIL** | Serif | SIL OFL 1.1 | E6 | A Charter-family SIL font; e-reader users add weight to it for Kobo readability. Broad glyph coverage. | [MobileRead](https://www.mobileread.com/forums/showthread.php?t=366520) |
-| **Alegreya** | Serif | SIL OFL 1.1 | E6 | Named alongside Bitter/Literata by e-reader users as a "low contrast" face that reads easily. | [MobileRead](https://www.mobileread.com/forums/showthread.php?t=366520) |
-| **PT Serif** | Serif | SIL OFL 1.1 | E6 | Validated across iOS Books / Kindle / Kobo / EPUB readers for legibility and reduced fatigue. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
+| **Atkinson Hyperlegible** | Sans (grotesque) | SIL OFL 1.1 | mono + E Ink Spectra 6 | Purpose-built by the Braille Institute so every character is maximally distinguishable; exaggerated, disambiguated letterforms "shine on screens where lower resolution can make similar letters harder to distinguish." Clear x-height and open counters aid caption/footnote sizes. | [Braille Institute](https://www.brailleinstitute.org/freefont/), [Wikipedia](https://en.wikipedia.org/wiki/Atkinson_Hyperlegible), [TypeSmith](https://typographysmith.com/fonts/atkinson-hyperlegible) |
+| **Luciole** | Sans | CC-BY 4.0 | mono + E Ink Spectra 6 | Designed explicitly for low-vision readers against a dozen legibility criteria (letter structure, word clutter, spacing) by the French typographies.fr foundry with the Regional Technical Centre for Visual Impairment. Disambiguated forms help at low resolution. | [luciole-vision.com](https://www.luciole-vision.com/), [printindustry.news](https://www.printindustry.news/story/32904/) |
+| **Lexend** | Sans | SIL OFL 1.1 | mono + E Ink Spectra 6 | Tall x-height with open counters, "legible from small sizes up to large ones"; designed to reduce visual stress and improve reading performance. | [Google Fonts](https://fonts.google.com/specimen/Lexend), [lexend OFL](https://github.com/googlefonts/lexend/blob/main/OFL.txt) |
+| **Public Sans** | Sans | SIL OFL 1.1 | mono + E Ink Spectra 6 | US-government (USWDS) "strict neutral" sans, a modified version of Libre Franklin; sturdy, even, high legibility for UI text. Good for labels/chrome on both panels. | [USWDS Public Sans](https://github.com/uswds/public-sans/blob/develop/LICENSE.md) |
+| **Libre Franklin** | Sans | SIL OFL 1.1 | E Ink Spectra 6 | Franklin Gothic revival; sturdy grotesque with good weight range for headers on the larger panel. | [search: Libre Franklin OFL](https://github.com/uswds/public-sans/blob/develop/LICENSE.md) |
+| **Go (Go Regular/Smallcaps)** | Sans + mono | BSD-3-Clause | mono + E Ink Spectra 6 | Commissioned for the Go project; larger x-height aids small sizes on screen, and the sans is well-hinted. Unusually permissive license. | [go.dev/blog/go-fonts](https://go.dev/blog/go-fonts), [Font Squirrel](https://www.fontsquirrel.com/license/go) |
+| **iA Writer Quattro / Duo / Mono** | Sans (Quattro/Duo), mono | SIL OFL 1.1 | E Ink Spectra 6 | iA's writing faces, tuned for on-screen text clarity; Quattro is proportional-feeling. Clean, even strokes. | [iA-Fonts](https://github.com/iaolo/iA-Fonts), [Fontsource](https://fontsource.org/fonts/ia-writer-quattro) |
+| **Inter** | Sans | SIL OFL 1.1 | E Ink Spectra 6 | Very high x-height, large apertures, extensive hinting; a modern UI workhorse that stays legible small. Best where anti-aliasing exists (E Ink Spectra 6), less ideal after 1-bit dithering. | [Google Fonts](https://fonts.google.com/specimen/Inter) |
+| **Bitter** | Slab serif | SIL OFL 1.1 | E Ink Spectra 6 (and mono at larger sizes) | Designed by Sol Matas specifically to read comfortably on screens: **large x-height** and **thick, even (low-contrast) strokes** — exactly the traits that survive dithering. Cited by r/eink-adjacent readers as a "low contrast" e-reader font. | [Google Fonts](https://fonts.google.com/specimen/Bitter), [MobileRead](https://www.mobileread.com/forums/showthread.php?t=366520) |
+| **Literata** | Serif | SIL OFL 1.1 | E Ink Spectra 6 | TypeTogether's typeface for Google Play Books, built to read well "on a whole range of devices... running different rendering technologies." Organic texture, comfortable for long-form. | [TypeTogether](https://www.type-together.com/literata-book), [Google Fonts](https://fonts.google.com/specimen/Literata) |
+| **Newsreader** | Serif | SIL OFL 1.1 | E Ink Spectra 6 | Production Type face made for "continuous on-screen reading in content-rich environments." | [nicoverbruggen/ebook-fonts](https://github.com/nicoverbruggen/ebook-fonts) |
+| **Source Serif 4** | Serif | SIL OFL 1.1 | E Ink Spectra 6 | Adobe's open serif designed for digital; simplified, highly readable letter shapes. Community "Sourcerer" variant is thickened for e-readers. | [nicoverbruggen/ebook-fonts](https://github.com/nicoverbruggen/ebook-fonts) |
+| **Charter / XCharter** | Serif | Permissive (Bitstream, free) | E Ink Spectra 6 | Matthew Carter's 1987 body face explicitly built to hold up on **low-resolution** output (fax, 300 dpi lasers); ages into ePaper well. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
+| **Charis SIL** | Serif | SIL OFL 1.1 | E Ink Spectra 6 | A Charter-family SIL font; e-reader users add weight to it for Kobo readability. Broad glyph coverage. | [MobileRead](https://www.mobileread.com/forums/showthread.php?t=366520) |
+| **Alegreya** | Serif | SIL OFL 1.1 | E Ink Spectra 6 | Named alongside Bitter/Literata by e-reader users as a "low contrast" face that reads easily. | [MobileRead](https://www.mobileread.com/forums/showthread.php?t=366520) |
+| **PT Serif** | Serif | SIL OFL 1.1 | E Ink Spectra 6 | Validated across iOS Books / Kindle / Kobo / EPUB readers for legibility and reduced fatigue. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
 | **Georgia** | Serif | Proprietary (Microsoft) | (reference only) | The most consistently praised ePaper serif — large x-height, thickened serifs, drawn pixel-first for sharp low-DPI rendering — but **proprietary**, so not embeddable in an OSS repo. Listed as the quality bar to match. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
 | **Bookerly** | Serif | Proprietary (Amazon/Dalton Maag) | (reference only) | Kindle's default since 2015, tuned for ePaper contrast ratios and hinting-artifact-free at small device sizes — but **proprietary/Kindle-only**, not redistributable. | [EditionGuard](https://www.editionguard.com/learn/best-fonts-e-books/) |
 | **DejaVu Sans** (current) | Sans | MIT / Bitstream Vera (free, embeddable) | mono (placeholder) | Safe, ubiquitous, matches on-device `fonts-dejavu`, freely embeddable. Not ePaper-designed; hinting at very small sizes is a known weak spot in the project. | [DejaVu License](https://dejavu-fonts.github.io/License.html), [Wikipedia](https://en.wikipedia.org/wiki/DejaVu_fonts) |
@@ -79,7 +79,7 @@ If you want to keep DejaVu's zero-risk familiarity but improve small-size crispn
 mono panel, Atkinson Hyperlegible is the low-effort swap (same OSS-friendly embedding story,
 better disambiguation).
 
-### Larger 6-colour E6 Impression (800x480)
+### Larger E Ink Spectra 6 Impression (800x480)
 
 More room and (some) tonal rendering means serifs become attractive for long-form comfort,
 and body vs. header can differ.
@@ -91,7 +91,7 @@ and body vs. header can differ.
    or heavy header.
 3. **Atkinson Hyperlegible or Public Sans (both SIL OFL)** for UI chrome/labels/now-playing
    metadata — keeping a single OFL sans across both panels simplifies embedding and keeps a
-   consistent look, while a serif carries any long text on the E6.
+   consistent look, while a serif carries any long text on the E Ink Spectra 6.
 
 All top picks are OFL/CC-BY/BSD and available as raw TTF/OTF, satisfying Satori's embed
 requirement and Inkcast's OSS-redistribution needs.

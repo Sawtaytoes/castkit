@@ -3,7 +3,7 @@ import type { BrowserClockConfig } from "@castkit/shared/protocol/ws"
 /**
  * Client-side clock formatting shared by every browser view that shows a clock
  * (Ambient, Clock, Weather, Calendar). Formatting is pure `Intl`
- * (`toLocaleTimeString`/`toLocaleDateString`), honouring the server-stamped
+ * (`toLocaleTimeString`/`toLocaleDateString`), honoring the server-stamped
  * global clock config: `timeZone` (IANA), 12/24-hour, and long/numeric date —
  * the same Home Assistant Clock:* knobs the ePaper devices respect. Absent
  * config falls back to the device's own timezone in 12-hour / long form.
