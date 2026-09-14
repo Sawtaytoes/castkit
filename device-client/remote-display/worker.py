@@ -18,6 +18,7 @@ from playwright.async_api import async_playwright
 from codec import encode_frame
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
+from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger('castkit.remote-display')
 ROOT = pathlib.Path(__file__).resolve().parent
@@ -45,12 +46,14 @@ def read_config(path):
     parsed = urlsplit(config['manifest_url'])
     if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
         raise ValueError('Display URL must be HTTP(S), without embedded credentials')
+    validate_preview_port(config.get('preview_port'))
     return config
 
 
 class DisplaySession:
-    def __init__(self, config, page, client, services, stop):
+    def __init__(self, config, page, client, services, stop, preview):
         self.config, self.page, self.client, self.services, self.stop = config, page, client, services, stop
+        self.preview = preview
         self.pending = {}
         self.touches = asyncio.Queue(maxsize=128)
         self.guard = FrameGuard(config.get('max_frame_age', 7))
@@ -181,6 +184,7 @@ class DisplaySession:
                 after = await self.page.evaluate(TARGETS_SCRIPT, self.target_options)
                 if before != after:
                     continue
+                self.preview.set_frame(png)
                 payload = await asyncio.to_thread(encode_frame, png)
                 if payload != previous_payload or touch_id != previous_touch or self.force_frame.is_set() or cycle - last_sent >= self.config['heartbeat_seconds']:
                     self.force_frame.clear()
@@ -238,39 +242,44 @@ async def serve(config):
             loading_frame = await asyncio.to_thread(encode_frame, await loading.screenshot(type='png', animations='disabled'))
             await loading.close()
         LOG.info('%s starting', BUILD_MARKER)
-        while not stop.is_set():
-            client = APIClient(config['host'], 6053, None, noise_psk=api_key)
-            try:
-                if page.is_closed():
-                    page = await context.new_page()
-                    await page.route('**/*', route_request)
-                if page.url == 'about:blank' or (config['ready_selector'] and not await page.locator(config['ready_selector']).count()):
-                    response = await page.goto(config['url'], wait_until='domcontentloaded', timeout=15000)
-                    if response is None or not response.ok:
-                        raise ConnectionError('Kiosk page unavailable')
-                    if config['ready_selector']:
-                        await page.locator(config['ready_selector']).wait_for(timeout=15000)
-                await client.connect(login=True)
-                info = await client.device_info()
-                if info.mac_address.lower().replace(':','') != config['mac'].lower().replace(':',''):
-                    raise ValueError('Device identity mismatch')
-                entities, services = await client.list_entities_services()
-                actions = {service.name: service for service in services}
-                if not {'frame_chunk','configure_touch_regions'} <= actions.keys():
-                    raise ValueError('The display needs CastKit remote-display firmware')
-                event_key = next(entity.key for entity in entities if entity.name == 'Display Events')
-                LOG.info('Display connected; firmware=%s', info.compilation_time)
-                session = DisplaySession(config, page, client, actions, stop)
-                await session.run(event_key, loading_frame)
-            except Exception as error:
-                LOG.warning('Display session ended: %s; reconnecting', type(error).__name__)
-            finally:
-                await client.disconnect()
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=2)
-            except TimeoutError:
-                pass
-        await browser.close()
+        preview = PreviewServer(BUILD_MARKER, config['max_fps'], config.get('preview_port'))
+        await preview.start()
+        try:
+            while not stop.is_set():
+                client = APIClient(config['host'], 6053, None, noise_psk=api_key)
+                try:
+                    if page.is_closed():
+                        page = await context.new_page()
+                        await page.route('**/*', route_request)
+                    if page.url == 'about:blank' or (config['ready_selector'] and not await page.locator(config['ready_selector']).count()):
+                        response = await page.goto(config['url'], wait_until='domcontentloaded', timeout=15000)
+                        if response is None or not response.ok:
+                            raise ConnectionError('Kiosk page unavailable')
+                        if config['ready_selector']:
+                            await page.locator(config['ready_selector']).wait_for(timeout=15000)
+                    await client.connect(login=True)
+                    info = await client.device_info()
+                    if info.mac_address.lower().replace(':','') != config['mac'].lower().replace(':',''):
+                        raise ValueError('Device identity mismatch')
+                    entities, services = await client.list_entities_services()
+                    actions = {service.name: service for service in services}
+                    if not {'frame_chunk','configure_touch_regions'} <= actions.keys():
+                        raise ValueError('The display needs CastKit remote-display firmware')
+                    event_key = next(entity.key for entity in entities if entity.name == 'Display Events')
+                    LOG.info('Display connected; firmware=%s', info.compilation_time)
+                    session = DisplaySession(config, page, client, actions, stop, preview)
+                    await session.run(event_key, loading_frame)
+                except Exception as error:
+                    LOG.warning('Display session ended: %s; reconnecting', type(error).__name__)
+                finally:
+                    await client.disconnect()
+                try:
+                    await asyncio.wait_for(stop.wait(), timeout=2)
+                except TimeoutError:
+                    pass
+        finally:
+            await preview.stop()
+            await browser.close()
 
 
 if __name__ == '__main__':

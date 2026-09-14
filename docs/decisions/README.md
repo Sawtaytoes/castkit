@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-13 | [A browser display's live view reaches Home Assistant as a pull camera, never an MQTT image](2026-09-13-a-browser-displays-live-view-reaches-home-assistant-as-a-pull-camera.md) — the remote-display worker serves an opt-in `/screen.jpg` + `/screen.mjpeg` preview from the frame it already captures, and Home Assistant consumes it as a camera. A camera's state never changes per frame, so the recorder cost is zero at any frame rate; an `image` entity would write 43,200 to 864,000 rows a day against a measured 98 for an ePaper panel | Accepted |
 | 2026-09-13 | [A panel story renders in its own iframe, not a Storybook viewport](2026-09-13-a-panel-story-renders-in-its-own-iframe-not-a-storybook-viewport.md) | Accepted |
 | 2026-09-13 | [A touch target's bounding box is its touch area](2026-09-13-a-touch-targets-bounding-box-is-its-touch-area.md) | Accepted |
 | 2026-09-12 | [The short panel's Now Playing art is 216px, and the album may take a third row](2026-09-12-the-short-panels-now-playing-art-is-216px-and-the-album-may-take-a-third-row.md) | Accepted |

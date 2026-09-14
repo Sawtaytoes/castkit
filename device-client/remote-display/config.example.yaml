@@ -4,3 +4,10 @@ host: display.local
 mac: "02:00:00:00:00:01"
 secrets_path: /run/secrets/esphome.yaml
 api_key_name: api_encryption_key
+# Optional. Serve the panel's live frame for a Home Assistant camera. Absent or
+# unset = off, which is the default. The endpoints are unauthenticated, so bind
+# this only on a trusted network and never publish the port to the internet.
+#   GET /screen.jpg     the newest frame, as JPEG
+#   GET /screen.mjpeg   multipart/x-mixed-replace, one part per changed frame
+#   GET /healthz        build marker, viewer count, frame age
+# preview_port: 8790
