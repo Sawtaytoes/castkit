@@ -49,7 +49,12 @@ export const PANEL_ARG_TYPES = {
   colorMode: {
     name: "Color mode",
     control: { type: "inline-radio" as const },
-    options: ["device default", "monochrome", "spectra6"],
+    options: [
+      "device default",
+      "monochrome",
+      "grayscale",
+      "spectra6",
+    ],
     table: { category: "Panel" },
   },
   zoom: {

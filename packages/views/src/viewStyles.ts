@@ -40,6 +40,9 @@ const EPAPER_PALETTE_BY_COLOR_MODE: Record<
   // `mono` and `epaperColours` are @charcuterie/tokens' own spelling of these
   // two names. Left as the library exports them; only our side is renamed.
   monochrome: "mono",
+  // Sixteen grays is still one ink: no intent may carry a hue, so a view lays
+  // out exactly as it does for mono. Only the dither step downstream differs.
+  grayscale: "mono",
 }
 
 /** Every ink available to a view, for the panel it is being rendered for. */
@@ -118,6 +121,9 @@ const MAXIMUM_CONDENSE_EM = 0.06
  */
 export const READABLE_FONT_FLOOR_PX = {
   monochrome: 15,
+  // Anti-aliased edges survive a 16-level quantize, but the same floor as
+  // mono until a step wedge on the glass says otherwise.
+  grayscale: 15,
   spectra6: 24,
 } as const
 

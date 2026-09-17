@@ -17,7 +17,7 @@ type Device = {
   renderer?: "browser"
   width: number
   height: number
-  colorMode?: "monochrome" | "spectra6"
+  colorMode?: "monochrome" | "grayscale" | "spectra6"
   color?: "monochrome" | "grayscale" | "spectra6" | "full"
   rotation?: 0 | 90 | 180 | 270
   shape?: "square" | "round" | "rectangle"
@@ -30,6 +30,7 @@ type AutomationSettings = Record<string, string>
 
 const IMAGE_COLOR_OPTIONS = [
   { label: "Mono", value: "monochrome" },
+  { label: "Grayscale (16 levels)", value: "grayscale" },
   { label: "Spectra 6", value: "spectra6" },
 ]
 const BROWSER_COLOR_OPTIONS = [

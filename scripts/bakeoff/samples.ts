@@ -1,4 +1,5 @@
 import {
+  type ColorMode,
   IMPRESSION_DEVICE,
   PHAT_DEVICE,
 } from "@castkit/core/devices/device"
@@ -19,7 +20,7 @@ export type BakeoffPanel = {
   label: string
   width: number
   height: number
-  colorMode: "monochrome" | "spectra6"
+  colorMode: ColorMode
   palette: Palette
 }
 
@@ -51,7 +52,7 @@ export const buildNowPlayingElement = ({
 }: {
   width: number
   height: number
-  colorMode: "monochrome" | "spectra6"
+  colorMode: ColorMode
 }) =>
   createElement(NowPlayingPoster, {
     width,

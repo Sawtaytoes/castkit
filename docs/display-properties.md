@@ -106,8 +106,8 @@ it.
 
 | Value | Example panels | What it changes |
 | --- | --- | --- |
-| `monochrome` | Inky pHAT, M5Paper | One ink. **No hue can carry meaning** — every distinction must be shape, weight, size, position or fill. Continuous-tone content needs dithering. Pure black-and-white content does not. |
-| `grayscale` | none today | Hue still carries nothing; tone does. Photos dither to the available levels rather than to two. |
+| `monochrome` | Inky pHAT | One ink. **No hue can carry meaning** — every distinction must be shape, weight, size, position or fill. Continuous-tone content needs dithering. Pure black-and-white content does not. |
+| `grayscale` | M5Paper (16 levels, since 2026-09-17) | Hue still carries nothing; tone does. Photos dither to the available levels rather than to two, and anti-aliased text edges keep their gray instead of speckling. A view lays out exactly as for `monochrome` — the intent scale is still one ink — only the quantize step differs. The M5Paper was sent 1-bit until 2026-09-17 although its IT8951E always painted 4 bits per pixel ([decision](decisions/2026-09-17-the-m5paper-is-sent-sixteen-gray-levels-not-one-bit.md)). |
 | `spectra6` | Inky Impression 7.3" | Six inks. A chosen color is snapped to the nearest ink, so a brand color will not survive the trip — pick from the palette instead of hoping. Photos need dithering. |
 | `galleryPalette7` | none today | ACeP / E Ink Gallery Palette (7 color). As `spectra6`, one more ink. Not in this fleet. |
 | `full` | every LCD | Any color, no dithering, no palette to design around. |
@@ -142,7 +142,7 @@ CastKit dithers when **all three** are true:
 | Panel | `hasPanelDithering` | Result |
 | --- | --- | --- |
 | Inky pHAT, Inky Impression | `true` | The Inky library dithers on the Pi. CastKit sends the full-color downscale and does not quantize. This is what the `off` dither algorithm means. |
-| M5Paper | `false` | Nothing downstream dithers. What CastKit emits is exactly what the glass shows, so the dither choice matters more here than anywhere else in the fleet. |
+| M5Paper | `false` | Nothing downstream dithers. What CastKit emits is exactly what the glass shows, so the dither choice matters more here than anywhere else in the fleet. With 16 levels the diffusion only has to bridge a 17-value step, so the speckle is far finer than on a two-ink target. |
 | Every LCD | not applicable | `color: full`, so there is nothing to reduce. |
 
 A text view on a mono panel therefore takes **no dithering at all**, on any

@@ -42,7 +42,10 @@ describe("panelCatalog", () => {
     expect(device.width).toBe(960)
     expect(device.height).toBe(540)
     expect(device.rotation).toBe(0)
-    expect(device.colorMode).toBe("monochrome")
+    // 16 gray levels: the IT8951E paints 4 bits per pixel, and nothing
+    // downstream dithers, so the preview must quantize to the same 16 steps.
+    expect(device.colorMode).toBe("grayscale")
+    expect(device.palette).toHaveLength(16)
   })
 
   test("an unknown device id falls back to a real panel", () => {

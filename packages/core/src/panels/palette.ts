@@ -23,6 +23,26 @@ export const MONOCHROME_PALETTE: Palette = [
   [255, 255, 255],
 ]
 
+/** How many gray levels a 4-bit-per-pixel ePaper controller can paint. */
+const GRAYSCALE16_LEVEL_COUNT = 16
+
+/**
+ * 16-level grayscale — the M5Paper's IT8951E, which paints 4 bits per pixel
+ * with the GC16 waveform. Sixteen neutral steps 17 apart, 0 through 255, so
+ * level `n` is `n × 17`; the firmware keeps the top nibble (`value >> 4`), and
+ * `(n × 17) >> 4 === n` for every level, so a step lands on its own level
+ * with no rounding. Black first and white last, like `MONOCHROME_PALETTE`.
+ */
+export const GRAYSCALE16_PALETTE: Palette = Array.from(
+  { length: GRAYSCALE16_LEVEL_COUNT },
+  (_, levelIndex): RgbColor => {
+    const value =
+      levelIndex * (255 / (GRAYSCALE16_LEVEL_COUNT - 1))
+
+    return [value, value, value]
+  },
+)
+
 /**
  * Spectra 6 "vivid" reference palette (Pimoroni DESATURATED_PALETTE, indices
  * 0–5). Pure primaries — what the colors are *meant* to be, before the panel's

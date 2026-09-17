@@ -2,7 +2,7 @@
 # ============================================================================
 # A self-contained ESPHome node that joins a CastKit fleet as an IMAGE-mode
 # (Inkcast) device: the CastKit server renders + dithers this panel's view to a
-# 1-bit PNG and Home Assistant hands the panel a single-use token URL, which the
+# 16-level gray PNG and Home Assistant hands the panel a single-use token URL, which the
 # panel PULLS over HTTP and blits. See:
 #   docs/decisions/2026-07-03-esphome-http-image-delivery.md   (pull-over-HTTP)
 #   docs/decisions/2026-07-08-m5paper-image-plus-touch-plus-fast-update.md
@@ -230,8 +230,8 @@ http_request:
   timeout: 10s
   verify_ssl: false
 
-# The pushed render. CastKit dithers to 1-bit black/white, so BINARY is exact
-# for the mono panel. The URL here is a placeholder; it's overwritten live by the
+# The pushed render. CastKit quantizes to the panel's 16 gray levels, and
+# GRAYSCALE carries each level as-is. The URL here is a placeholder; it's overwritten live by the
 # MQTT `image_url` subscription (or the `set_image` API fallback). When the
 # download finishes we do a full (slow) refresh for a clean, ghost-free frame.
 #
@@ -258,7 +258,13 @@ online_image:
   - id: now_playing_image
     url: "http://192.0.2.1/placeholder.png"
     format: png
-    type: BINARY
+    # 16 gray levels — the glass and its IT8951E paint 4 bits per pixel with
+    # GC16, and the SPI path was always 4bpp, so BINARY (until 2026-09-17)
+    # spent that budget on two values. GRAYSCALE decodes 8 bits per pixel:
+    # 518,400 bytes at 960x540 against 64,800 for BINARY, which is why `psram:`
+    # above is required. CastKit quantizes to the same 16 levels server-side
+    # (`GRAYSCALE16_PALETTE`), and the it8951e patch keeps the top nibble.
+    type: GRAYSCALE
     # Landscape: matches `display: rotation: 0` and the registry's 960x540.
     resize: 960x540
     on_download_finished:
@@ -288,18 +294,17 @@ display:
     # only when HA pushes a new render (on_download_finished above).
     update_interval: never
     lambda: |-
-      // Blit the pushed render 1:1. On the mono panel COLOR_ON = black ink,
-      // COLOR_OFF = white paper.
+      // Blit the pushed render 1:1. A GRAYSCALE image carries its own level
+      // per pixel — ESPHome draws Color(gray, gray, gray) and ignores the
+      // color_on / color_off arguments unless the image has transparency — and
+      // the patched it8951e driver maps that level straight onto the panel's
+      // 16 steps, white for 255 and black for 0.
       //
-      // The color args look backwards ON PURPOSE — do not "fix" them.
-      // ESPHome decodes a `type: BINARY` online_image with
-      // `is_color_on(color)` = luminance > 127 (runtime_image.cpp), so a BRIGHT
-      // source pixel sets the bit, and a set bit is painted with the FIRST
-      // color arg (image.cpp). That convention suits a backlit display where
-      // "on" = lit; on ePaper "on" is black INK, so passing COLOR_ON first
-      // paints white pixels black and renders every frame as a negative.
-      // Mapping bright -> COLOR_OFF (white paper) is what makes it a positive.
-      it.image(0, 0, id(now_playing_image), COLOR_OFF, COLOR_ON);
+      // Until 2026-09-17 this line read `COLOR_OFF, COLOR_ON` with the args
+      // deliberately reversed, because the unpatched driver inverted every
+      // level. The driver now inverts once, correctly, so the default argument
+      // order is the right one; the old swap would print a negative.
+      it.image(0, 0, id(now_playing_image));
 
       // --- Fast-update music progress bar (EXPERIMENTAL) --------------------
       // it8951e supports a FAST refresh via id(m5paper_display).update() (vs the

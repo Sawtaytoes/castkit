@@ -3,7 +3,7 @@
 The M5Paper is an ESP32 **touch ePaper** panel (960×540 @ 4.7", 16-level
 grayscale IT8951E controller, GT911 capacitive touch). It joins a CastKit fleet
 as an **image-mode (Inkcast) device** — the server renders + dithers its view to
-a 1-bit PNG — but it is self-contained (no Pi), pulls its render over **HTTP**,
+a 16-level gray PNG — but it is self-contained (no Pi), pulls its render over **HTTP**,
 and additionally reports **touch** and can **fast-update** a region locally.
 
 Why it's different from the Pi receivers, and what "blurs the lines":
@@ -13,7 +13,7 @@ Why it's different from the Pi receivers, and what "blurs the lines":
 | Who renders | server | server | the device |
 | Transport | MQTT image push | **HTTP pull (token URL)** | WebSocket |
 | Touch | no | **yes (GT911)** | yes |
-| Color | monochrome / spectra6 | **monochrome (1-bit; panel is 16-gray)** | full |
+| Color | monochrome / spectra6 | **grayscale (16 levels, 4 bpp; 1-bit until 2026-09-17)** | full |
 | Fast partial update | no | **yes (progress bar)** | n/a |
 
 See the decision records:
@@ -43,7 +43,7 @@ This is the concrete contract the CastKit server ships (`packages/server/src/app
    → 200  { "token": "<hex>", "url": "<CASTKIT_PUBLIC_URL>/render/<token>.png" }
    ```
 
-   The server renders → dithers to the panel's 1-bit palette → keeps the PNG **in
+   The server renders → dithers to the panel's 16-gray palette → keeps the PNG **in
    memory only** under that unguessable single-use token (evicted after the panel
    fetches it, or by a TTL sweeper).
 2. HA passes the returned `url` to this panel's ESPHome action:
