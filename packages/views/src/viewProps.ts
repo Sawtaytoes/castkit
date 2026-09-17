@@ -3,7 +3,10 @@
  * data plus the target panel's size and color mode, so the same component can
  * be rendered for the 250×122 mono pHAT and the 800×480 E Ink Spectra 6 Impression.
  */
-export type ViewColorMode = "monochrome" | "spectra6"
+export type ViewColorMode =
+  | "monochrome"
+  | "grayscale"
+  | "spectra6"
 
 export type PanelViewProps = {
   width: number

@@ -78,3 +78,45 @@ watchdog stops the reboot; it does not make the panel read its busy line. That
 fix needs a component patch, because `setup()` forces `FLAG_INPUT`.
 
 Changed file: `it8951e.cpp`.
+
+### it8951e — map a gray level onto the panel's 16 steps (ours, not upstream)
+
+Upstream's `draw_absolute_pixel_internal` reads
+
+```cpp
+uint32_t internal_color = color.raw_32 & 0x0F;
+```
+
+`raw_32` is little-endian `r | g << 8 | b << 16 | w << 24`, so that is the LOW
+nibble of the red channel. It is exact for `Color::BLACK` (0x00) and
+`Color::WHITE` (0xFF → 0x0F), which is every value a `type: BINARY` image ever
+produces, and it is wrong for everything between: a `GRAYSCALE` image draws
+`Color(gray, gray, gray)`, so 0x80 gave 0x00 (black), 0x8F gave 0x0F (white),
+and the ramp was not monotonic. The panel could not have shown gray through
+this driver no matter what the server sent.
+
+```diff
+-    uint32_t internal_color = color.raw_32 & 0x0F;
++    uint32_t internal_color = 0x0F - (color.r >> 4);
+```
+
+Top nibble, inverted. The inversion is deliberate: `write_buffer_to_display`
+inverts every word again on the way out (`0xFFFF - word` when `reversed_` is
+false), and the panel's own scale is 0x0 = black, 0xF = white. Two inversions
+cancel, so `Color::WHITE` lands on white and gray 0x80 lands on step 8.
+
+⚠️ **This changes the polarity of the BINARY path too.** Before the patch the
+display lambda in `m5paper.yaml` passed `COLOR_OFF, COLOR_ON` — deliberately
+reversed — to cancel the inversion the unpatched driver applied. With the patch
+the default argument order is correct, and `it.image(0, 0, id(...))` is what the
+YAML now calls. Flash the two together. A driver with this patch under the old
+lambda, or the old driver under the new lambda, prints every frame as a
+negative.
+
+CastKit's side of the contract: `GRAYSCALE16_PALETTE` in
+`packages/core/src/panels/palette.ts` is sixteen levels `n × 17`, and
+`(n × 17) >> 4 === n`, so each server-side level lands on its own panel step.
+ESPHome's `runtime_image` converts to gray with Rec. 709 weights that sum to
+1.0, so a neutral pixel keeps its value.
+
+Changed file: `it8951e.cpp`.

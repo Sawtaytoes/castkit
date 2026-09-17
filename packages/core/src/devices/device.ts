@@ -1,6 +1,7 @@
 import type { RepaintGrade } from "@castkit/shared/panels/repaint"
 import type { Palette } from "../panels/palette.ts"
 import {
+  GRAYSCALE16_PALETTE,
   MONOCHROME_PALETTE,
   SPECTRA6_DEFAULT_PALETTE,
 } from "../panels/palette.ts"
@@ -8,8 +9,26 @@ import {
 /**
  * The color capability of a panel. Drives which palette the dither pipeline
  * quantizes to and, downstream, which dithering algorithm reads best.
+ * `grayscale` is the 16-level M5Paper: hue still carries nothing, tone does.
  */
-export type ColorMode = "monochrome" | "spectra6"
+export type ColorMode =
+  | "monochrome"
+  | "grayscale"
+  | "spectra6"
+
+/**
+ * The fleet-default palette for each color mode — what a device gets when its
+ * config names a mode and nothing more. Spectra 6 is the 0.5 vivid/device
+ * blend the on-device Spectra path uses.
+ */
+export const PALETTE_BY_COLOR_MODE: Record<
+  ColorMode,
+  Palette
+> = {
+  monochrome: MONOCHROME_PALETTE,
+  grayscale: GRAYSCALE16_PALETTE,
+  spectra6: SPECTRA6_DEFAULT_PALETTE,
+}
 
 /**
  * The dithering kernels the pipeline can apply. Error-diffusion kernels
@@ -186,10 +205,13 @@ export const IMPRESSION_DEVICE: DeviceMetadata = {
 }
 
 /**
- * Example M5Paper (ESP32): 1-bit mono, pulled over HTTP rather than pushed as
- * an MQTT image. Unlike the Inky panels it has no on-device dithering to fall
- * back on, so what our pipeline emits is exactly what the glass shows — which
- * is why it is the panel the dither comparison matters most for.
+ * Example M5Paper (ESP32): 16-level grayscale, pulled over HTTP rather than
+ * pushed as an MQTT image. Unlike the Inky panels it has no on-device
+ * dithering to fall back on, so what our pipeline emits is exactly what the
+ * glass shows — which is why it is the panel the dither comparison matters
+ * most for. It was 1-bit until 2026-09-17; the IT8951E always painted 4 bits
+ * per pixel with GC16, so the two-color render spent the 16-level budget on
+ * dither noise.
  *
  * 960×540 LANDSCAPE, which is the firmware's canvas, not the glass's 540×960
  * datasheet figure. See `rotation` on DeviceMetadata: this entry read 540×960
@@ -202,8 +224,8 @@ export const M5PAPER_DEVICE: DeviceMetadata = {
   mac: "02:00:00:00:00:05",
   width: 960,
   height: 540,
-  colorMode: "monochrome",
-  palette: MONOCHROME_PALETTE,
+  colorMode: "grayscale",
+  palette: GRAYSCALE16_PALETTE,
   rotation: 0,
   imageDelivery: "http-pull",
   ditherProfile: {

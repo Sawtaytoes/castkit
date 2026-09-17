@@ -4,7 +4,7 @@
 - **Date:** 2026-07-08
 - **Type:** Architecture / Device capabilities
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-09-17-the-m5paper-is-sent-sixteen-gray-levels-not-one-bit.md](2026-09-17-the-m5paper-is-sent-sixteen-gray-levels-not-one-bit.md) (point 1 only — the 1-bit render; touch and fast-update stand)
 
 ## Decision
 

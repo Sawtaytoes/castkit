@@ -450,7 +450,14 @@ void HOT IT8951ESensor::draw_absolute_pixel_internal(int x, int y, Color color) 
         this->min_y = y;
     }
 
-    uint32_t internal_color = color.raw_32 & 0x0F;
+    // Top nibble of the gray value, inverted. ESPHome hands a GRAYSCALE image
+    // Color(gray, gray, gray) and a BINARY one Color::WHITE / Color::BLACK, so
+    // `r` is the level either way. Upstream read `raw_32 & 0x0F`, the LOW
+    // nibble of that same byte: exact for 0x00 and 0xFF, and non-monotonic for
+    // everything between (0x80 painted black). The inversion is because
+    // `write_buffer_to_display` inverts again on the way out when `reversed_`
+    // is false, and the panel's own scale is 0x0 = black, 0xF = white.
+    uint32_t internal_color = 0x0F - (color.r >> 4);
     uint16_t _bytewidth = this->get_width_internal() >> 1;
     int32_t index = y * _bytewidth + (x >> 1);
 

@@ -1,7 +1,12 @@
-import type { DeviceMetadata } from "@castkit/core/devices/device"
-import { EXAMPLE_DEVICES } from "@castkit/core/devices/device"
+import type {
+  ColorMode,
+  DeviceMetadata,
+} from "@castkit/core/devices/device"
 import {
-  MONOCHROME_PALETTE,
+  EXAMPLE_DEVICES,
+  PALETTE_BY_COLOR_MODE,
+} from "@castkit/core/devices/device"
+import {
   type Palette,
   SPECTRA6_DEFAULT_PALETTE,
   SPECTRA6_DEVICE_PALETTE,
@@ -72,9 +77,9 @@ export const resolvePalette = ({
   colorMode,
   paletteVariant,
 }: {
-  colorMode: "monochrome" | "spectra6"
+  colorMode: ColorMode
   paletteVariant: PaletteVariant
 }) =>
-  colorMode === "monochrome"
-    ? MONOCHROME_PALETTE
-    : SPECTRA6_PALETTES_BY_VARIANT[paletteVariant]
+  colorMode === "spectra6"
+    ? SPECTRA6_PALETTES_BY_VARIANT[paletteVariant]
+    : PALETTE_BY_COLOR_MODE[colorMode]

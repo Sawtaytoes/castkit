@@ -347,10 +347,25 @@ const quantizeWithNeutralProtection = ({
 }
 
 /**
+ * Whether any ink in the palette carries hue. Neutral protection exists to
+ * keep gray pixels off the colored inks; a palette of grays has none, and
+ * gating on `palette.length > 2` instead collapsed the 16-level M5Paper to
+ * black and white — every one of its entries is neutral, so every pixel was
+ * "protected" onto the two ends.
+ */
+const getHasChromaticInk = (palette: Palette) =>
+  palette.some(
+    (color) =>
+      Math.max(color[0], color[1], color[2]) -
+        Math.min(color[0], color[1], color[2]) >
+      NEUTRAL_CHROMA_THRESHOLD,
+  )
+
+/**
  * Quantize a raw RGBA pixel buffer to a fixed palette. The one entry point, so
  * the server and the browser preview cannot disagree about what dithering
- * means: color panels get neutral protection, and a 2-color mono palette
- * skips the double quantize it would gain nothing from.
+ * means: a palette with colored inks gets neutral protection; a mono or
+ * grayscale palette skips the double quantize it would gain nothing from.
  */
 export const quantizeRgbaToPalette = ({
   rgbaPixels,
@@ -365,7 +380,7 @@ export const quantizeRgbaToPalette = ({
   palette: Palette
   algorithm: QuantizeAlgorithm
 }) =>
-  palette.length > 2
+  getHasChromaticInk(palette)
     ? quantizeWithNeutralProtection({
         rgbaPixels,
         width,
