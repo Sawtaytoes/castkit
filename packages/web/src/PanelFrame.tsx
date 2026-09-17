@@ -1,3 +1,4 @@
+import type { ColorMode } from "@castkit/core/devices/device"
 import type { CSSProperties, ReactNode } from "react"
 
 /**
@@ -13,7 +14,7 @@ export type PanelFrameProps = {
   label: string
   width: number
   height: number
-  colorMode: "monochrome" | "spectra6"
+  colorMode: ColorMode
   zoom: number
   children: ReactNode
 }
