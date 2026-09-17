@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest"
 import {
+  GRAYSCALE16_PALETTE,
   MONOCHROME_PALETTE,
   type Palette,
   SPECTRA6_DEFAULT_PALETTE,
@@ -259,6 +260,74 @@ describe("quantizeRgbaToPalette", () => {
           palette: MONOCHROME_PALETTE,
         }),
       ).toBe(true)
+    })
+  })
+})
+
+describe("GRAYSCALE16_PALETTE", () => {
+  test("has sixteen neutral levels 17 apart, black first and white last", () => {
+    expect(GRAYSCALE16_PALETTE).toHaveLength(16)
+    GRAYSCALE16_PALETTE.forEach((color, levelIndex) => {
+      expect(color).toEqual([
+        levelIndex * 17,
+        levelIndex * 17,
+        levelIndex * 17,
+      ])
+    })
+    expect(GRAYSCALE16_PALETTE[0]).toEqual([0, 0, 0])
+    expect(GRAYSCALE16_PALETTE[15]).toEqual([255, 255, 255])
+  })
+
+  test("every level survives the firmware's top-nibble read as its own step", () => {
+    // The it8951e patch keeps `value >> 4`; a level that rounded onto a
+    // neighbour would collapse two server-side grays into one panel step.
+    GRAYSCALE16_PALETTE.forEach((color, levelIndex) => {
+      expect(color[0] >> 4).toBe(levelIndex)
+    })
+  })
+
+  test("threshold lands a mid gray on one flat level instead of a two-tone dither", () => {
+    const width = 8
+    const height = 8
+
+    const result = quantizeRgbaToPalette({
+      rgbaPixels: buildSolidPixels({
+        width,
+        height,
+        color: [128, 128, 128],
+      }),
+      width,
+      height,
+      palette: GRAYSCALE16_PALETTE,
+      algorithm: "threshold",
+    })
+
+    // 128 sits between levels 7 (119) and 8 (136); the nearest is 136.
+    expect(collectColors(result)).toEqual(["136,136,136"])
+  })
+
+  test("floyd-steinberg on a mid gray stays within one step of the source", () => {
+    const width = 8
+    const height = 8
+
+    const result = quantizeRgbaToPalette({
+      rgbaPixels: buildSolidPixels({
+        width,
+        height,
+        color: [128, 128, 128],
+      }),
+      width,
+      height,
+      palette: GRAYSCALE16_PALETTE,
+      algorithm: "floyd-steinberg",
+    })
+
+    // Error diffusion may alternate the two neighbouring levels; it must
+    // never reach for black or white the way the mono palette forces it to.
+    collectColors(result).forEach((color) => {
+      expect(["119,119,119", "136,136,136"]).toContain(
+        color,
+      )
     })
   })
 })

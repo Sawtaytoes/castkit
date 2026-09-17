@@ -2,12 +2,9 @@ import { readFileSync } from "node:fs"
 import {
   type DeviceMetadata,
   DITHER_ALGORITHMS,
+  PALETTE_BY_COLOR_MODE,
   SEED_DEVICES,
 } from "@castkit/core/devices/device"
-import {
-  MONOCHROME_PALETTE,
-  SPECTRA6_DEFAULT_PALETTE,
-} from "@castkit/core/panels/palette"
 import type { MqttConnectionConfig } from "@castkit/shared/mqtt/publisher"
 import { PIXEL_GRIDS } from "@castkit/shared/panels/pixelGrid"
 import { REPAINT_GRADES } from "@castkit/shared/panels/repaint"
@@ -123,6 +120,8 @@ export const migrateLegacyDeviceEntry = (
 
   renameValue("colorMode", {
     mono: "monochrome",
+    grey: "grayscale",
+    greyscale: "grayscale",
     e6: "spectra6",
   })
   renameValue("color", {
@@ -142,7 +141,11 @@ const DeviceConfigSchema = z.object({
   mac: z.string(),
   width: z.int().check(z.positive()),
   height: z.int().check(z.positive()),
-  colorMode: z.enum(["monochrome", "spectra6"]),
+  colorMode: z.enum([
+    "monochrome",
+    "grayscale",
+    "spectra6",
+  ]),
   rotation: z._default(
     z.union([
       z.literal(0),
@@ -248,10 +251,7 @@ const expandDevice = (
   deviceConfig: z.infer<typeof DeviceConfigSchema>,
 ) => ({
   ...deviceConfig,
-  palette:
-    deviceConfig.colorMode === "monochrome"
-      ? MONOCHROME_PALETTE
-      : SPECTRA6_DEFAULT_PALETTE,
+  palette: PALETTE_BY_COLOR_MODE[deviceConfig.colorMode],
 })
 
 /**
