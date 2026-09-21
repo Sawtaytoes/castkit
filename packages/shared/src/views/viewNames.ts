@@ -15,6 +15,7 @@ export const VIEW_NAMES = [
   "Photo Frame",
   "Photo Frame (Fill)",
   "Photo Frame (Duo)",
+  "Photo Frame (Agenda)",
   "Clock",
   "Clock (Weather)",
   "Clock (Agenda)",
@@ -29,30 +30,37 @@ export const getIsViewName = (
   (VIEW_NAMES as readonly string[]).includes(value)
 
 /**
- * The photo-frame view family. All paint a server-composed PNG (so they render
- * identically here); they differ only in how the photo adapter builds that PNG
- * for the device — "Photo Frame" letterboxes when faces don't fit, "(Fill)"
- * fills the panel keeping the primary face, "(Duo)" pairs two portraits side by
- * side on a landscape panel. See the photo adapter + docs/decisions/
- * 2026-07-12-dual-portrait-photo-layout.md.
+ * The photo-frame view family. The three full-photo variants differ in how the
+ * adapter builds their server-composed PNG: plain letterboxes when faces do not
+ * fit, Fill keeps the primary face, and Duo pairs two portraits. Photo Frame
+ * (Agenda) composes one portrait-shaped photo for the left half of its split.
+ * See the photo adapter and the view decisions under docs/decisions/.
  */
 export const PHOTO_VIEW_NAMES: ReadonlySet<ViewName> =
   new Set([
     "Photo Frame",
     "Photo Frame (Fill)",
     "Photo Frame (Duo)",
+    "Photo Frame (Agenda)",
   ])
 
 export const getIsPhotoView = (viewName: ViewName) =>
   PHOTO_VIEW_NAMES.has(viewName)
 
 /**
- * Photo views ship a lossy full-color frame when the device asks for one;
- * every other view stays lossless PNG so text and exact palette colors are
- * never degraded. (There is no "bleed" view any more — every view, photo
- * included, is laid out inside the box the mat leaves visible. See
+ * Full-photo views may ship a lossy full-color frame when the device asks for
+ * one. The photo-agenda split stays lossless because it also carries text and
+ * exact palette colors. (There is no "bleed" view any more — every view,
+ * photo included, is laid out inside the box the mat leaves visible. See
  * docs/decisions/2026-09-08-photo-views-fit-the-visible-window.md.)
  */
+const LOSSY_PHOTO_VIEW_NAMES: ReadonlySet<ViewName> =
+  new Set([
+    "Photo Frame",
+    "Photo Frame (Fill)",
+    "Photo Frame (Duo)",
+  ])
+
 export const getIsLossyEncodableView = (
   viewName: ViewName,
-) => getIsPhotoView(viewName)
+) => LOSSY_PHOTO_VIEW_NAMES.has(viewName)

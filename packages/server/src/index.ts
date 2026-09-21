@@ -582,10 +582,10 @@ const main = async () => {
       deviceId,
       data: parseAgendaPayload(parseJsonPayload(payload)),
     })
-    // Both agenda views repaint on new data. For the clock-bearing one this is
-    // belt-and-braces (the minute tick would catch it); for the clockless
-    // "Agenda" view it is the ONLY thing that repaints it, so it must not be
-    // narrowed back to a single view name.
+    // Every agenda view repaints on new data. For the clock-bearing one this
+    // is belt-and-braces (the minute tick would catch it); for the clockless
+    // views it is the ONLY thing that repaints them, so it must not be narrowed
+    // back to a single view name.
     if (
       getIsAgendaView(deviceStore.getActiveView(deviceId))
     ) {

@@ -32,6 +32,7 @@ describe("buildOpenApiDocument", () => {
       "Photo Frame",
       "Photo Frame (Fill)",
       "Photo Frame (Duo)",
+      "Photo Frame (Agenda)",
       "Clock",
       "Clock (Weather)",
       "Clock (Agenda)",

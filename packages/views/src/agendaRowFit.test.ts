@@ -5,6 +5,7 @@ import {
   type ClockAgendaEvent,
   ClockAgendaView,
 } from "./ClockAgendaView.tsx"
+import { PhotoAgendaView } from "./PhotoAgendaView.tsx"
 import { countRowsThatFit } from "./viewStyles.ts"
 
 /**
@@ -221,6 +222,49 @@ describe("AgendaView keeps every drawn row on the panel", () => {
       emptyText: "Nothing else today",
     })
     expect(collectText(busyDay)).not.toContain(
+      "Nothing else today",
+    )
+  })
+})
+
+describe("PhotoAgendaView keeps every drawn row on the panel", () => {
+  test("the Kitchen visible window draws all six events beside the photo", () => {
+    const node = PhotoAgendaView({
+      width: 678,
+      height: 416,
+      colorMode: "spectra6",
+      photoDataUri: "data:image/png;base64,AAAA",
+      date: "Thursday, July 2",
+      temperatureText: "71°",
+      conditionText: "Clear night",
+      events: EVENTS,
+      emptyText: "Nothing else today",
+    })
+
+    expect(
+      getDrawnSummaries({ node, events: EVENTS }),
+    ).toEqual([
+      "First",
+      "Second",
+      "Third",
+      "Fourth",
+      "Fifth",
+      "Sixth",
+    ])
+  })
+
+  test("a free day keeps the photo and says there is nothing left", () => {
+    const node = PhotoAgendaView({
+      width: 678,
+      height: 416,
+      colorMode: "spectra6",
+      photoDataUri: "data:image/png;base64,AAAA",
+      date: "Thursday, July 2",
+      events: [],
+      emptyText: "Nothing else today",
+    })
+
+    expect(collectText(node)).toContain(
       "Nothing else today",
     )
   })
