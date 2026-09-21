@@ -7,6 +7,7 @@ import { ClockView } from "@castkit/views/ClockView"
 import { ClockWeatherView } from "@castkit/views/ClockWeatherView"
 import { NowPlayingDashboard } from "@castkit/views/NowPlayingDashboard"
 import { NowPlayingPoster } from "@castkit/views/NowPlayingPoster"
+import { PhotoAgendaView } from "@castkit/views/PhotoAgendaView"
 import { PhotoFrameView } from "@castkit/views/PhotoFrameView"
 import { createElement, type ReactElement } from "react"
 import { IDLE_NOW_PLAYING } from "../mqtt/viewDataPayloads.ts"
@@ -50,6 +51,7 @@ const CLOCK_BEARING_VIEW_NAMES: ReadonlySet<ViewName> =
 const AGENDA_VIEW_NAMES: ReadonlySet<ViewName> = new Set([
   "Clock (Agenda)",
   "Agenda",
+  "Photo Frame (Agenda)",
 ])
 
 export const getIsAgendaView = (viewName: ViewName) =>
@@ -223,7 +225,7 @@ export const renderViewElement = ({
   // starts"), but keep all-day events for their whole day — their start is
   // midnight, so a start-time filter would wrongly hide them all day. Times are
   // formatted per panel size here so the views stay pure functions of their
-  // props. Shared by both agenda views so they never disagree about what
+  // props. Shared by every agenda view so they never disagree about what
   // "upcoming" means.
   //
   // How MANY of these reach the glass is the view's call, not this function's:
@@ -273,9 +275,20 @@ export const renderViewElement = ({
       events,
     })
   }
+  if (viewName === "Photo Frame (Agenda)") {
+    return createElement(PhotoAgendaView, {
+      ...panel,
+      photoDataUri: photoFrame?.photoDataUri,
+      date: formatDate(now, clock),
+      temperatureText: weather?.temperatureText,
+      conditionText: weather?.conditionText,
+      events: buildAgendaEvents(),
+      emptyText: "Nothing else today",
+    })
+  }
   if (getIsPhotoView(viewName)) {
-    // Every photo view paints the same server-composed PNG; the adapter builds
-    // it differently per view (letterbox / fill / dual portrait).
+    // The remaining full-photo views paint the same server-composed PNG; the
+    // adapter builds it differently per view (letterbox / fill / dual portrait).
     return createElement(PhotoFrameView, {
       ...panel,
       photoDataUri: photoFrame?.photoDataUri,

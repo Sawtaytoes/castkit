@@ -4,6 +4,7 @@ import { createDeviceConfigStore } from "../state/deviceConfigStore.ts"
 import { createViewDataStore } from "../state/viewDataStore.ts"
 import {
   createPhotoFrameAdapter,
+  getPhotoTargetWidth,
   getShouldRefetchOnRecompose,
 } from "./photoFrameAdapter.ts"
 
@@ -132,5 +133,25 @@ describe("getShouldRefetchOnRecompose", () => {
         historyLength: 0,
       }),
     ).toBe(true)
+  })
+})
+
+describe("getPhotoTargetWidth", () => {
+  test("the photo-agenda image is composed for its final half-width column", () => {
+    expect(
+      getPhotoTargetWidth({
+        viewName: "Photo Frame (Agenda)",
+        contentWidth: 678,
+      }),
+    ).toBe(339)
+  })
+
+  test("a full-photo view keeps the whole visible width", () => {
+    expect(
+      getPhotoTargetWidth({
+        viewName: "Photo Frame (Fill)",
+        contentWidth: 678,
+      }),
+    ).toBe(678)
   })
 })

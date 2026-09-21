@@ -22,6 +22,8 @@ export const VIEW_VALUE_LIFETIME_MILLISECONDS: Record<
   "Photo Frame": 3_600_000,
   "Photo Frame (Fill)": 3_600_000,
   "Photo Frame (Duo)": 3_600_000,
+  // No wall clock. The photo and agenda both remain true for hours.
+  "Photo Frame (Agenda)": 3_600_000,
   Clock: 60_000,
   "Clock (Weather)": 60_000,
   "Clock (Agenda)": 60_000,

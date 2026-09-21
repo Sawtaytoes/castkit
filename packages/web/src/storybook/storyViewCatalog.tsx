@@ -6,6 +6,7 @@ import { ClockView } from "@castkit/views/ClockView"
 import { ClockWeatherView } from "@castkit/views/ClockWeatherView"
 import { NowPlayingDashboard } from "@castkit/views/NowPlayingDashboard"
 import { NowPlayingPoster } from "@castkit/views/NowPlayingPoster"
+import { PhotoAgendaView } from "@castkit/views/PhotoAgendaView"
 import { PhotoFrameView } from "@castkit/views/PhotoFrameView"
 import type { PanelViewProps } from "@castkit/views/viewProps"
 import type { ReactElement } from "react"
@@ -113,6 +114,33 @@ const STORY_VIEW_BUILDERS: Record<
     />
   ),
 
+  "Photo Frame (Agenda)": ({
+    width,
+    height,
+    colorMode,
+    isEmpty,
+    photoUrl,
+  }) => (
+    <PhotoAgendaView
+      {...buildPanel({ width, height, colorMode })}
+      photoDataUri={
+        photoUrl ??
+        pickPhotoForPanel({
+          width: Math.floor(width / 2),
+          height,
+        }).url
+      }
+      date={buildClockStringsFixture(height).date}
+      {...buildWeatherFixture()}
+      events={
+        isEmpty
+          ? NO_AGENDA_EVENTS
+          : buildAgendaEventsFixture(height)
+      }
+      emptyText="Nothing else today"
+    />
+  ),
+
   "Now Playing (Poster)": ({
     width,
     height,
@@ -136,7 +164,7 @@ const STORY_VIEW_BUILDERS: Record<
     />
   ),
 
-  // The three photo views paint the same component; only the server-side
+  // The three full-photo views paint the same component; only the server-side
   // adapter differs (letterbox / fill / dual portrait), so the preview shows
   // the same render with a photo suited to the panel's orientation.
   "Photo Frame": buildPhotoView,
@@ -157,6 +185,6 @@ export const STORY_VIEW_NAMES: readonly ViewName[] =
 
 /** Views with a meaningful empty state worth its own story. */
 export const EMPTY_CAPABLE_VIEW_NAMES: readonly ViewName[] =
-  ["Clock (Agenda)", "Agenda"]
+  ["Clock (Agenda)", "Agenda", "Photo Frame (Agenda)"]
 
 export { getIsCompactPanel }
