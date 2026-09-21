@@ -66,6 +66,7 @@ describe("getViewsForDevice", () => {
       "Photo Frame",
       "Photo Frame (Fill)",
       "Photo Frame (Duo)",
+      "Photo Frame (Agenda)",
       "Agenda",
     ])
   })
@@ -87,6 +88,7 @@ describe("getViewsForDevice", () => {
       "Photo Frame",
       "Photo Frame (Fill)",
       "Photo Frame (Duo)",
+      "Photo Frame (Agenda)",
       "Clock",
       "Clock (Weather)",
       "Clock (Agenda)",

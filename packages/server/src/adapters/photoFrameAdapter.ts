@@ -25,6 +25,21 @@ import type { ViewDataStore } from "../state/viewDataStore.ts"
 /** The dual-portrait (two-up) photo view. */
 const DUAL_PHOTO_VIEW: ViewName = "Photo Frame (Duo)"
 
+/** One photo fills the left half of the visible window beside an agenda. */
+const PHOTO_AGENDA_VIEW: ViewName = "Photo Frame (Agenda)"
+
+/** The final photo width inside a view's already-resolved visible window. */
+export const getPhotoTargetWidth = ({
+  viewName,
+  contentWidth,
+}: {
+  viewName: ViewName
+  contentWidth: number
+}) =>
+  viewName === PHOTO_AGENDA_VIEW
+    ? Math.floor(contentWidth / 2)
+    : contentWidth
+
 /**
  * Whether a recompose must refetch rather than replay the photo history.
  *
@@ -132,8 +147,12 @@ export const createPhotoFrameAdapter = ({
         margin: deviceConfigStore.getMargin(device.id),
       },
     )
+    const targetWidth = getPhotoTargetWidth({
+      viewName: getActiveView(device.id),
+      contentWidth,
+    })
     return {
-      targetWidth: contentWidth,
+      targetWidth,
       targetHeight: contentHeight,
     }
   }

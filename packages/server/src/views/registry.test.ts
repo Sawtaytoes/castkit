@@ -109,6 +109,35 @@ describe("renderViewElement — Clock (Agenda)", () => {
     expect(props.events).toEqual([])
     expect(props.emptyText).toBe("Nothing else today")
   })
+
+  test("the photo-agenda view is clockless and keeps the photo", () => {
+    const props = renderViewElement({
+      viewName: "Photo Frame (Agenda)",
+      device: IMPRESSION_DEVICE,
+      now,
+      clock: CHICAGO_CLOCK,
+      agenda,
+      photoFrame: {
+        photoDataUri: "data:image/png;base64,AAAA",
+        assetId: "asset-1",
+        fetchedAtMs: 1_000,
+      },
+    }).props as {
+      date: string
+      time?: string
+      photoDataUri?: string
+      events: readonly { summary: string }[]
+    }
+
+    expect(props.time).toBeUndefined()
+    expect(props.date).toBe("Friday, July 3")
+    expect(props.photoDataUri).toBe(
+      "data:image/png;base64,AAAA",
+    )
+    expect(
+      props.events.map((event) => event.summary),
+    ).toEqual(["All-day thing", "Later tonight"])
+  })
 })
 
 describe("agenda + clock-bearing view classification", () => {
@@ -122,6 +151,15 @@ describe("agenda + clock-bearing view classification", () => {
     expect(getIsClockBearingView("Clock (Agenda)")).toBe(
       true,
     )
+  })
+
+  test("Photo Frame (Agenda) is an agenda view without joining the minute tick", () => {
+    expect(getIsAgendaView("Photo Frame (Agenda)")).toBe(
+      true,
+    )
+    expect(
+      getIsClockBearingView("Photo Frame (Agenda)"),
+    ).toBe(false)
   })
 
   test("a photo view is neither", () => {
