@@ -14,14 +14,14 @@
   },
   "dependencies": {
     "@castkit/shared": "workspace:*",
-    "@charcuterie/logic": "^2.3.0",
-    "@charcuterie/tokens": "^1.6.0",
+    "@charcuterie/logic": "^2.4.0",
+    "@charcuterie/tokens": "^1.10.1",
     "@preact/signals": "^2.5.1",
     "@preact/signals-core": "^1.13.1",
     "preact": "^10.29.1"
   },
   "devDependencies": {
-    "@charcuterie/server": "^0.4.0",
+    "@charcuterie/server": "^0.5.1",
     "@preact/preset-vite": "^2.10.2",
     "@storybook/addon-docs": "^10",
     "@storybook/preact-vite": "^10",
