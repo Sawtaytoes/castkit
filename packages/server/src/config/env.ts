@@ -200,6 +200,9 @@ const BrowserDeviceConfigSchema = z.object({
     "rectangle",
   ),
   hasTouch: z._default(z.boolean(), false),
+  // The edge drawer is an installation choice. Touch capability alone must
+  // not place navigation controls over every view on every panel.
+  hasViewDrawer: z._default(z.boolean(), false),
   color: z._default(
     z.enum(["monochrome", "grayscale", "spectra6", "full"]),
     "full",
@@ -234,6 +237,9 @@ const BrowserDeviceConfigSchema = z.object({
     ),
     [],
   ),
+  // Absent preserves the historical behavior: every compatible view is
+  // offered. A configured list is an ordered allow-list by display name.
+  views: z.optional(z.array(z.string())),
 })
 
 export type BrowserDeviceConfig = z.infer<

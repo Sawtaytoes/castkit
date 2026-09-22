@@ -14,6 +14,7 @@ const TEST_DEVICE: BrowserDeviceConfig = {
   height: 720,
   shape: "square",
   hasTouch: true,
+  hasViewDrawer: false,
   color: "full",
   hasMqttBacklight: true,
   rotation: 0,
@@ -152,6 +153,22 @@ describe("buildBrowserDiscoveryMessages", () => {
       "Photo Frame",
       "Touch Test",
       "Disc App",
+    ])
+  })
+
+  test("the View select follows a display's configured view order", () => {
+    const configuredMessages =
+      buildBrowserDiscoveryMessages({
+        device: {
+          ...TEST_DEVICE,
+          views: ["Calendar", "Disc App", "Now Playing"],
+        },
+      })
+
+    expect(configuredMessages[0]?.payload.options).toEqual([
+      "Calendar",
+      "Disc App",
+      "Now Playing",
     ])
   })
 

@@ -24,6 +24,7 @@ const buildSnapshot = ({
       height: 720,
       shape: "square",
       hasTouch: true,
+      hasViewDrawer: false,
       color: "full",
       delivery: "live-browser",
       repaint,

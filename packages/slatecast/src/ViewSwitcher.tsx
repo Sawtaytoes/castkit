@@ -26,7 +26,11 @@ export const ViewSwitcher = () => {
   )
   const pull = useRef<EdgePull | null>(null)
 
-  if (!profile?.hasTouch || profile.views.length < 2) {
+  if (
+    !profile?.hasTouch ||
+    !profile.hasViewDrawer ||
+    profile.views.length < 2
+  ) {
     return null
   }
 

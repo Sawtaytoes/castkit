@@ -45,6 +45,13 @@ select. Each entry has a display name and an absolute HTTP(S) URL. The Slatecast
 client presents the application in a full-panel frame, while the remote-display
 receiver keeps its frame-bound touch guard around the whole application view.
 
+An optional `views` array is the ordered allow-list for that display's View
+selector and local drawer. When it is absent, CastKit offers every compatible
+native and external view, which preserves existing installations. Set
+`hasViewDrawer: true` only on an installation that needs panel-local navigation.
+It defaults to `false`, so touch capability does not place edge handles over
+every touch display. Both settings are editable in CastKit's device editor.
+
 Browser devices normally publish a CastKit backlight entity for the kiosk-side
 MQTT agent. Set `hasMqttBacklight: false` when the receiver already exposes its
 backlight through another Home Assistant integration, such as ESPHome. This

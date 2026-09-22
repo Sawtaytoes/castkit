@@ -43,6 +43,7 @@ export const MEDIA_CONTROLS_PROFILE: BrowserDeviceProfile =
     height: 720,
     shape: "square",
     hasTouch: true,
+    hasViewDrawer: true,
     color: "full",
     ...LIVE_LCD_PANEL,
     externalViews: [],
@@ -57,6 +58,7 @@ export const PORTHOLE_PROFILE: BrowserDeviceProfile = {
   height: 480,
   shape: "round",
   hasTouch: false,
+  hasViewDrawer: false,
   color: "full",
   ...LIVE_LCD_PANEL,
   externalViews: [],
@@ -75,6 +77,7 @@ export const WORKBENCH_PROFILE: BrowserDeviceProfile = {
   height: 320,
   shape: "rectangle",
   hasTouch: true,
+  hasViewDrawer: false,
   color: "full",
   /*
    * The one profile here that is NOT a directly-driven kiosk. The WT32-SC01 is
@@ -109,6 +112,7 @@ export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
     height: 720,
     shape: "rectangle",
     hasTouch: true,
+    hasViewDrawer: true,
     color: "full",
     ...LIVE_LCD_PANEL,
     externalViews: [
@@ -131,6 +135,7 @@ export const PI_TOUCH_PORTRAIT_PROFILE: BrowserDeviceProfile =
     height: 1280,
     shape: "rectangle",
     hasTouch: true,
+    hasViewDrawer: true,
     color: "full",
     ...LIVE_LCD_PANEL,
     externalViews: [],

@@ -4,7 +4,7 @@
 - **Date:** 2026-09-21
 - **Type:** Interaction / view navigation
 - **Supersedes:** [A vertical swipe asks the house for a view](2026-09-11-a-vertical-swipe-asks-the-house-for-a-view.md), for the claim that an external view has no on-screen exit and for direct view navigation
-- **Superseded by:** —
+- **Superseded by:** [A view drawer and its views are configured per display](2026-09-21-a-view-drawer-and-its-views-are-configured-per-display.md)
 
 ## Decision
 
