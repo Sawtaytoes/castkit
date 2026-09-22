@@ -2,6 +2,10 @@ import { createVitestConfig } from "@charcuterie/vitest-config"
 
 export default createVitestConfig({
   test: {
+    // The root config only aggregates the projects below; each one declares
+    // its own environment. `slatecast` is the single browser project and
+    // brings its own provider, so the shared browser default is off here.
+    browser: { enabled: false },
     exclude: [
       "**/render-output/**",
       // Playwright specs have their own runner (`yarn e2e`); @playwright/test's
