@@ -150,6 +150,7 @@ describe("buildBrowserDiscoveryMessages", () => {
       "Weather",
       "Calendar",
       "Photo Frame",
+      "Touch Test",
       "Disc App",
     ])
   })

@@ -171,6 +171,227 @@ html[data-grayscale-text="true"] {
   background: var(--bg);
 }
 
+/* ————— On-screen view switcher ————— */
+
+.view-switcher {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.view-edge-handle,
+.view-drawer,
+.view-drawer-scrim {
+  pointer-events: auto;
+}
+
+.view-edge-handle {
+  position: absolute;
+  top: 35%;
+  width: 34px;
+  height: 30%;
+  min-height: 112px;
+  padding: 0;
+  border: 1px solid
+    color-mix(in srgb, var(--fg) 28%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--surface) 88%,
+    transparent
+  );
+  color: var(--fg);
+  font: 800 30px / 1 var(--font-sans);
+  touch-action: none;
+}
+
+.view-edge-handle.is-left {
+  left: 0;
+  border-left: 0;
+  border-radius: 0 14px 14px 0;
+}
+
+.view-edge-handle.is-right {
+  right: 0;
+  border-right: 0;
+  border-radius: 14px 0 0 14px;
+}
+
+.view-drawer-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgb(0 0 0 / 55%);
+}
+
+.view-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: min(440px, 72%);
+  padding: 28px;
+  overflow-y: auto;
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: 0 0 40px rgb(0 0 0 / 45%);
+  touch-action: pan-y;
+}
+
+.view-drawer.is-left {
+  left: 0;
+}
+
+.view-drawer.is-right {
+  right: 0;
+}
+
+.view-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.view-drawer-header h1 {
+  margin: 0;
+  font-size: clamp(28px, 5vmin, 44px);
+}
+
+.view-drawer-close {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 42px / 1 var(--font-sans);
+}
+
+.view-drawer-options {
+  display: grid;
+  gap: 12px;
+}
+
+.view-drawer-option {
+  min-height: 68px;
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    700 clamp(20px, 3.5vmin, 30px) / 1.2 var(--font-sans);
+  text-align: left;
+}
+
+.view-drawer-option[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(
+    in srgb,
+    var(--accent) 24%,
+    var(--bg)
+  );
+}
+
+/* ————— Touch test ————— */
+
+.touch-test {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(
+      90deg,
+      var(--border) 1px,
+      transparent 1px
+    ),
+    var(--bg);
+  background-size: 10% 10%;
+  touch-action: none;
+}
+
+.touch-test-copy {
+  position: absolute;
+  top: 5%;
+  left: 50%;
+  z-index: 2;
+  width: min(70%, 760px);
+  padding: 16px 24px;
+  transform: translateX(-50%);
+  border-radius: 16px;
+  background: color-mix(
+    in srgb,
+    var(--surface) 92%,
+    transparent
+  );
+  text-align: center;
+}
+
+.touch-test-copy h1,
+.touch-test-copy p {
+  margin: 0;
+}
+
+.touch-test-copy h1 {
+  font-size: clamp(28px, 5vmin, 46px);
+}
+
+.touch-test-copy p,
+.touch-test-copy output {
+  display: block;
+  margin-top: 8px;
+  font-size: clamp(17px, 2.8vmin, 26px);
+  font-weight: 600;
+}
+
+.touch-test-target,
+.touch-test-point {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.touch-test-target {
+  border: 5px solid var(--fg);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+.touch-test-target::before,
+.touch-test-target::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: var(--fg);
+  transform: translate(-50%, -50%);
+}
+
+.touch-test-target::before {
+  width: 70px;
+  height: 2px;
+}
+
+.touch-test-target::after {
+  width: 2px;
+  height: 70px;
+}
+
+.touch-test-point {
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  border: 4px solid white;
+  background: #1677ff;
+  box-shadow: 0 2px 14px rgb(0 0 0 / 65%);
+}
+
 /* ————— Now Playing ————— */
 
 .now-playing {

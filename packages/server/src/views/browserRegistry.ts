@@ -62,6 +62,11 @@ export const BROWSER_VIEWS: readonly BrowserViewDefinition[] =
       clientId: "photo-frame",
       isTouchRequired: false,
     },
+    {
+      name: "Touch Test",
+      clientId: "touch-test",
+      isTouchRequired: true,
+    },
   ]
 
 export const DEFAULT_BROWSER_VIEW = BROWSER_VIEWS[0]!
