@@ -35,13 +35,15 @@
     "height": 720,
     "shape": "square",
     "hasTouch": true,
+    "hasViewDrawer": true,
     "color": "full",
     "externalViews": [
       {
         "name": "Disc App",
         "url": "https://discs.example.test/kiosk"
       }
-    ]
+    ],
+    "views": ["Now Playing", "Calendar", "Disc App"]
   },
   {
     "renderer": "browser",

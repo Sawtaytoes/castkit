@@ -58,6 +58,8 @@ export type BrowserDeviceProfile = {
   height: number
   shape: "square" | "round" | "rectangle"
   hasTouch: boolean
+  /** Whether this installation exposes the panel-local edge view drawer. */
+  hasViewDrawer: boolean
   color: "monochrome" | "grayscale" | "spectra6" | "full"
   /**
    * How long this glass takes to show a new frame. A live-browser panel is
@@ -100,7 +102,7 @@ export type BrowserDeviceProfile = {
     name: string
     url: string
   }[]
-  /** Every view this panel may request from its on-screen view switcher. */
+  /** Every view this panel is configured to offer. */
   views: readonly {
     name: string
     clientId: string
