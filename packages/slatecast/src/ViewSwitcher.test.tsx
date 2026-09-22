@@ -11,6 +11,7 @@ import { EDGE_PULL_COMMIT_PIXELS } from "./ViewSwitcher.tsx"
 
 const deviceWithSpoolBuddy = () =>
   buildDeviceProfile({
+    hasViewDrawer: true,
     externalViews: [
       {
         name: "SpoolBuddy",
@@ -84,6 +85,22 @@ describe("the on-screen view switcher", () => {
     await mountSlatecast({
       snapshot: buildSnapshot({
         device: buildDeviceProfile({ hasTouch: false }),
+      }),
+    })
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Open views from left edge",
+      }),
+    ).toBeNull()
+  })
+
+  test("a touch panel without an enabled drawer has no edge controls", async () => {
+    await mountSlatecast({
+      snapshot: buildSnapshot({
+        device: buildDeviceProfile({
+          hasViewDrawer: false,
+        }),
       }),
     })
 

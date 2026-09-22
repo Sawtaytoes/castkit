@@ -14,6 +14,7 @@ const buildDevice = (
     height: 720,
     shape: "square",
     hasTouch: true,
+    hasViewDrawer: false,
     color: "full",
     hasMqttBacklight: true,
     externalViews: [],

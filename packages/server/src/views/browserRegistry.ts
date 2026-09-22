@@ -74,12 +74,39 @@ export const DEFAULT_BROWSER_VIEW = BROWSER_VIEWS[0]!
 /** The views this device's capabilities allow. */
 export const getBrowserViewsForDevice = (
   device: BrowserDeviceConfig,
-): readonly BrowserViewDefinition[] =>
-  BROWSER_VIEWS.concat(
+): readonly BrowserViewDefinition[] => {
+  const compatibleViews = BROWSER_VIEWS.concat(
     getExternalViewsForDevice(device),
   ).filter(
     (view) => !view.isTouchRequired || device.hasTouch,
   )
+
+  if (!device.views) {
+    return compatibleViews
+  }
+
+  const duplicateNames = device.views.filter(
+    (name, index, names) => names.indexOf(name) !== index,
+  )
+  if (duplicateNames.length > 0) {
+    throw new Error(
+      `Browser device ${device.id} repeats configured view: ${duplicateNames[0]}`,
+    )
+  }
+
+  const compatibleByName = new Map(
+    compatibleViews.map((view) => [view.name, view]),
+  )
+  return device.views.map((name) => {
+    const view = compatibleByName.get(name)
+    if (!view) {
+      throw new Error(
+        `Browser device ${device.id} has unknown or incompatible configured view: ${name}`,
+      )
+    }
+    return view
+  })
+}
 
 export const getBrowserViewByName = ({
   device,

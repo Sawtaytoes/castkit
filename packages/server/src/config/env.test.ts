@@ -84,3 +84,46 @@ test("reads deployment-configured external browser views", () => {
     },
   ])
 })
+
+test("reads a browser display's ordered view list and local drawer choice", () => {
+  const config = loadConfig({
+    INKCAST_DEVICES_FILE: writeDevicesFile([
+      {
+        renderer: "browser",
+        id: "workbench",
+        label: "Workbench Display",
+        mac: "02:00:00:00:00:10",
+        width: 1280,
+        height: 720,
+        hasTouch: true,
+        hasViewDrawer: true,
+        views: ["Now Playing", "Calendar", "Touch Test"],
+      },
+    ]),
+  })
+
+  expect(config.browserDevices[0]).toMatchObject({
+    hasViewDrawer: true,
+    views: ["Now Playing", "Calendar", "Touch Test"],
+  })
+})
+
+test("keeps the local view drawer off by default", () => {
+  const config = loadConfig({
+    INKCAST_DEVICES_FILE: writeDevicesFile([
+      {
+        renderer: "browser",
+        id: "workbench",
+        label: "Workbench Display",
+        mac: "02:00:00:00:00:10",
+        width: 1280,
+        height: 720,
+      },
+    ]),
+  })
+
+  expect(config.browserDevices[0]?.hasViewDrawer).toBe(
+    false,
+  )
+  expect(config.browserDevices[0]?.views).toBeUndefined()
+})

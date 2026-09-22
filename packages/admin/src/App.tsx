@@ -22,8 +22,12 @@ type Device = {
   rotation?: 0 | 90 | 180 | 270
   shape?: "square" | "round" | "rectangle"
   hasTouch?: boolean
+  hasViewDrawer?: boolean
   /** A backlight agent listens on the device's MQTT light topics. */
   hasMqttBacklight?: boolean
+  /** Ordered allow-list. Absent means every compatible view. */
+  views?: string[]
+  externalViews?: { name: string; url: string }[]
 }
 
 type AutomationSettings = Record<string, string>
@@ -440,12 +444,15 @@ export const App = () => {
                               renderer: "browser",
                               color: "full",
                               shape: "rectangle",
+                              hasViewDrawer: false,
                             }
                           : {
                               renderer: undefined,
                               color: undefined,
                               shape: undefined,
                               hasTouch: undefined,
+                              hasViewDrawer: undefined,
+                              views: undefined,
                               colorMode: "spectra6",
                               rotation: 0,
                             },
@@ -499,6 +506,50 @@ export const App = () => {
                         updateSelectedDevice({ hasTouch })
                       }
                     />
+                    <Checkbox
+                      isChecked={
+                        selectedDevice.hasViewDrawer ??
+                        false
+                      }
+                      key={`${selectedDevice.id}-view-drawer`}
+                      label="Show edge view drawer"
+                      onChange={(hasViewDrawer) =>
+                        updateSelectedDevice({
+                          hasViewDrawer,
+                        })
+                      }
+                    />
+                    <Field label="Views">
+                      <div>
+                        <input
+                          className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
+                          onChange={(event) => {
+                            const views = event.target.value
+                              .split(",")
+                              .map((name) => name.trim())
+                              .filter(Boolean)
+                            updateSelectedDevice({
+                              views:
+                                views.length > 0
+                                  ? views
+                                  : undefined,
+                            })
+                          }}
+                          placeholder="All compatible views"
+                          type="text"
+                          value={
+                            selectedDevice.views?.join(
+                              ", ",
+                            ) ?? ""
+                          }
+                        />
+                        <p className="mt-2 text-content-secondary text-sm">
+                          Comma-separated names in drawer
+                          and selector order. Leave blank to
+                          offer every compatible view.
+                        </p>
+                      </div>
+                    </Field>
                     <Field label="Display rotation">
                       <Picker
                         label="Display rotation"
