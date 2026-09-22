@@ -216,6 +216,7 @@ export const createBrowserMode = ({
     if (!device) {
       return null
     }
+    const browserViews = getBrowserViewsForDevice(device)
     const activeView = getBrowserViewByName({
       device,
       name: stateStore.getActiveView(deviceId),
@@ -239,11 +240,15 @@ export const createBrowserMode = ({
             ? "rect"
             : device.shape,
         externalViews: device.externalViews,
+        views: browserViews.map(({ name, clientId }) => ({
+          name,
+          clientId,
+        })),
       },
       settings: settingsWithClock(deviceId),
       view:
         activeView?.clientId ??
-        getBrowserViewsForDevice(device)[0]?.clientId ??
+        browserViews[0]?.clientId ??
         "now-playing",
       data: buildViewDataState(deviceId),
     }
@@ -1017,6 +1022,38 @@ export const createBrowserMode = ({
             const topics = topicsByDeviceId.get(deviceId)
             if (!command || !topics) {
               return
+            }
+            /*
+             * A view request from the panel is already inside CastKit's
+             * authenticated device socket. Apply it here so the screen can
+             * navigate even when Home Assistant has no per-panel automation.
+             * The command still publishes below: HA remains informed and can
+             * apply its longer-lived display policy after the direct choice.
+             */
+            if (
+              command.action === "view" &&
+              typeof command.value === "string"
+            ) {
+              const device =
+                stateStore.deviceById.get(deviceId)
+              const requestedView = device
+                ? getBrowserViewsForDevice(device).find(
+                    (view) =>
+                      view.clientId === command.value,
+                  )
+                : undefined
+              if (requestedView) {
+                applyView({
+                  deviceId,
+                  payload: requestedView.name,
+                  isRestore: false,
+                }).catch((error) => {
+                  console.error(
+                    `[castkit] direct view request failed for ${deviceId}`,
+                    error,
+                  )
+                })
+              }
             }
             publisher
               .publish({

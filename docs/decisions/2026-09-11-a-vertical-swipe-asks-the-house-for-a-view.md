@@ -4,7 +4,7 @@
 - **Date:** 2026-09-11
 - **Type:** Interaction
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [A touch panel opens its view drawer from either screen edge](2026-09-21-a-touch-panel-opens-its-view-drawer-from-either-screen-edge.md), for direct view navigation and the external-view exit
 
 ## Decision
 

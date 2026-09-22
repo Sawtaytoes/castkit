@@ -2,6 +2,7 @@ import { getIsGrayscaleTextRequired } from "@castkit/shared/panels/pixelGrid"
 import type { ComponentType } from "preact"
 import { useEffect } from "preact/hooks"
 import { activeView, device, settings } from "./state.ts"
+import { ViewSwitcher } from "./ViewSwitcher.tsx"
 import {
   beginViewSwipe,
   cancelViewSwipe,
@@ -15,6 +16,7 @@ import { ExternalView } from "./views/ExternalView.tsx"
 import { NowPlaying } from "./views/NowPlaying.tsx"
 import { PhotoFrame } from "./views/PhotoFrame.tsx"
 import { Queue } from "./views/Queue.tsx"
+import { TouchTest } from "./views/TouchTest.tsx"
 import { Weather } from "./views/Weather.tsx"
 
 /**
@@ -31,6 +33,7 @@ export const viewByClientId: Record<string, ComponentType> =
     weather: Weather,
     calendar: Calendar,
     "photo-frame": PhotoFrame,
+    "touch-test": TouchTest,
   }
 
 /**
@@ -170,6 +173,7 @@ export const App = () => {
       }}
     >
       <ActiveView />
+      <ViewSwitcher />
     </div>
   )
 }

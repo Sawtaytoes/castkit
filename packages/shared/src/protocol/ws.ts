@@ -100,6 +100,11 @@ export type BrowserDeviceProfile = {
     name: string
     url: string
   }[]
+  /** Every view this panel may request from its on-screen view switcher. */
+  views: readonly {
+    name: string
+    clientId: string
+  }[]
 }
 
 export type ViewDataState = {

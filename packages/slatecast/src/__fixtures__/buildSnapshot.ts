@@ -33,6 +33,11 @@ export const buildDeviceProfile = (
   hasPanelDithering: false,
   pixelGrid: "rgb-stripe" as const,
   externalViews: [],
+  views: [
+    { name: "Now Playing", clientId: "now-playing" },
+    { name: "Clock", clientId: "clock" },
+    { name: "Touch Test", clientId: "touch-test" },
+  ],
   ...overrides,
 })
 
