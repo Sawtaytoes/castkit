@@ -24,6 +24,17 @@ const LIVE_LCD_PANEL = {
   pixelGrid: "rgb-stripe",
 } as const
 
+const TOUCH_VIEWS = [
+  { name: "Now Playing", clientId: "now-playing" },
+  { name: "Clock", clientId: "clock" },
+  { name: "Touch Test", clientId: "touch-test" },
+] as const
+
+const TOUCHLESS_VIEWS = [
+  { name: "Now Playing", clientId: "now-playing" },
+  { name: "Clock", clientId: "clock" },
+] as const
+
 export const MEDIA_CONTROLS_PROFILE: BrowserDeviceProfile =
   {
     id: "media-controls",
@@ -35,6 +46,7 @@ export const MEDIA_CONTROLS_PROFILE: BrowserDeviceProfile =
     color: "full",
     ...LIVE_LCD_PANEL,
     externalViews: [],
+    views: TOUCH_VIEWS,
   }
 
 /** HyperPixel 2.1 Round. Not yet located; no case. */
@@ -48,6 +60,7 @@ export const PORTHOLE_PROFILE: BrowserDeviceProfile = {
   color: "full",
   ...LIVE_LCD_PANEL,
   externalViews: [],
+  views: TOUCHLESS_VIEWS,
 }
 
 /**
@@ -79,6 +92,7 @@ export const WORKBENCH_PROFILE: BrowserDeviceProfile = {
   hasPanelDithering: false,
   pixelGrid: "none",
   externalViews: [],
+  views: TOUCH_VIEWS,
 }
 
 /**
@@ -97,7 +111,16 @@ export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
     hasTouch: true,
     color: "full",
     ...LIVE_LCD_PANEL,
-    externalViews: [],
+    externalViews: [
+      {
+        name: "SpoolBuddy",
+        url: "https://example.com/spoolbuddy",
+      },
+    ],
+    views: [
+      ...TOUCH_VIEWS,
+      { name: "SpoolBuddy", clientId: "external-view:0" },
+    ],
   }
 
 export const PI_TOUCH_PORTRAIT_PROFILE: BrowserDeviceProfile =
@@ -111,6 +134,7 @@ export const PI_TOUCH_PORTRAIT_PROFILE: BrowserDeviceProfile =
     color: "full",
     ...LIVE_LCD_PANEL,
     externalViews: [],
+    views: TOUCH_VIEWS,
   }
 
 export const BROWSER_DEVICE_PROFILES: readonly BrowserDeviceProfile[] =

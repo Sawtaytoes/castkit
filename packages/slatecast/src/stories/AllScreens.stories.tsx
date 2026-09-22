@@ -20,10 +20,11 @@ import { STORY_EXPORT_BY_DEVICE_ID } from "./slatecastStory.tsx"
  * what makes the page usable.** A cell is a whole Storybook preview boot: the
  * Storybook runtime, the Preact app, the fonts, the sample photos, and a 1 Hz
  * clock tick that runs for as long as the document lives. Seven views times
- * five panels is 35 of them. Measured eagerly on 2026-09-13 against
+ * five panels was already 35 of them. Measured eagerly on 2026-09-13 against
  * storybook.octen.dev: 400 requests, 42 MiB, 35 live documents, and roughly 25
  * seconds before the grid settled, with the owner's machine pinned the whole
- * time. Lazy cells boot only the ones scrolled into view.
+ * time. The grid now has eight views, so lazy cells boot only the ones scrolled
+ * into view.
  */
 
 const VIEW_STORIES = [
@@ -39,6 +40,10 @@ const VIEW_STORIES = [
   {
     label: "Photo Frame",
     storyId: "views-photo-frame",
+  },
+  {
+    label: "Touch Test",
+    storyId: "views-touch-test",
   },
 ] as const
 

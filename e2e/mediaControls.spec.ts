@@ -216,4 +216,38 @@ test.describe("Media Controls end to end", () => {
       }),
     ).toBeVisible()
   })
+
+  test("the on-screen drawer exits an external view without an HA response", async ({
+    page,
+  }) => {
+    await publishFromHomeAssistant({
+      page,
+      topic: e2eTopics.view,
+      payload: "Disc App",
+    })
+    await expect(
+      page
+        .frameLocator('iframe[title="Disc App"]')
+        .getByRole("button", { name: "External control" }),
+    ).toBeVisible()
+    const before = await readCommands(page)
+
+    await page
+      .getByRole("button", {
+        name: "Open views from right edge",
+      })
+      .click()
+    await page
+      .getByRole("button", { name: "Touch Test" })
+      .click()
+
+    await expect(
+      page.getByRole("heading", { name: "Touch test" }),
+    ).toBeVisible()
+    await expect
+      .poll(async () =>
+        (await readCommands(page)).slice(before.length),
+      )
+      .toEqual([{ action: "view", value: "touch-test" }])
+  })
 })

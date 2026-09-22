@@ -30,6 +30,9 @@ const buildSnapshot = ({
       hasPanelDithering: false,
       pixelGrid,
       externalViews: [],
+      views: [
+        { name: "Now Playing", clientId: "now-playing" },
+      ],
     },
     settings: {
       orientation,
