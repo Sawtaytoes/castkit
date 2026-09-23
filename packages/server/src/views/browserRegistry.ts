@@ -63,6 +63,14 @@ export const BROWSER_VIEWS: readonly BrowserViewDefinition[] =
       isTouchRequired: false,
     },
     {
+      name: "Printer Status",
+      clientId: "printer-status",
+      // The card's Pause and Stop are the reason the view exists on the
+      // workbench panel. A display-only screen would show controls nobody can
+      // press, so the view is offered to touch panels only.
+      isTouchRequired: true,
+    },
+    {
       name: "Touch Test",
       clientId: "touch-test",
       isTouchRequired: true,

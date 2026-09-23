@@ -23,7 +23,7 @@ import { STORY_EXPORT_BY_DEVICE_ID } from "./slatecastStory.tsx"
  * five panels was already 35 of them. Measured eagerly on 2026-09-13 against
  * storybook.octen.dev: 400 requests, 42 MiB, 35 live documents, and roughly 25
  * seconds before the grid settled, with the owner's machine pinned the whole
- * time. The grid now has eight views, so lazy cells boot only the ones scrolled
+ * time. The grid now has nine views, so lazy cells boot only the ones scrolled
  * into view.
  */
 
@@ -40,6 +40,10 @@ const VIEW_STORIES = [
   {
     label: "Photo Frame",
     storyId: "views-photo-frame",
+  },
+  {
+    label: "Printer Status",
+    storyId: "views-printer-status",
   },
   {
     label: "Touch Test",

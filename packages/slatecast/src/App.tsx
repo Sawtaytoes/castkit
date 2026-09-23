@@ -1,6 +1,7 @@
 import { getIsGrayscaleTextRequired } from "@castkit/shared/panels/pixelGrid"
 import type { ComponentType } from "preact"
 import { useEffect } from "preact/hooks"
+import { HandBackEdge } from "./HandBackEdge.tsx"
 import { activeView, device, settings } from "./state.ts"
 import { ViewSwitcher } from "./ViewSwitcher.tsx"
 import {
@@ -15,6 +16,7 @@ import { Clock } from "./views/Clock.tsx"
 import { ExternalView } from "./views/ExternalView.tsx"
 import { NowPlaying } from "./views/NowPlaying.tsx"
 import { PhotoFrame } from "./views/PhotoFrame.tsx"
+import { PrinterStatus } from "./views/PrinterStatus.tsx"
 import { Queue } from "./views/Queue.tsx"
 import { TouchTest } from "./views/TouchTest.tsx"
 import { Weather } from "./views/Weather.tsx"
@@ -33,6 +35,7 @@ export const viewByClientId: Record<string, ComponentType> =
     weather: Weather,
     calendar: Calendar,
     "photo-frame": PhotoFrame,
+    "printer-status": PrinterStatus,
     "touch-test": TouchTest,
   }
 
@@ -174,6 +177,7 @@ export const App = () => {
     >
       <ActiveView />
       <ViewSwitcher />
+      <HandBackEdge />
     </div>
   )
 }

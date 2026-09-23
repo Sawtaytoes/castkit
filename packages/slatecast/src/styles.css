@@ -1667,3 +1667,519 @@ html[data-grayscale-text="true"] {
     padding-top: 40px;
   }
 }
+
+/*
+ * ————— The hand-back edge —————
+ *
+ * It draws NOTHING. Both regions are transparent, have no border and carry no
+ * glyph. That is the whole point of the decision behind them: the gesture is
+ * implied, and the panel is an appliance rather than an application.
+ *
+ * `touch-action: none` so the pull is not read as a scroll, and a z-index
+ * above the view drawer because a panel that offers both has exactly one hold
+ * to end and ending it is what this edge is for.
+ */
+.hand-back {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.hand-back-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  padding: 0;
+  border: 0;
+  background: none;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.hand-back-edge.is-left {
+  left: 0;
+}
+
+.hand-back-edge.is-right {
+  right: 0;
+}
+
+/*
+ * The one short confirmation. A touch that produces no visible answer leaves a
+ * person unsure the panel heard them, and this edge has nothing else to show.
+ */
+.hand-back-confirmation {
+  position: absolute;
+  bottom: 34px;
+  left: 50%;
+  translate: -50% 0;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--surface) 92%,
+    transparent
+  );
+  box-shadow: 0 0 0 1px var(--color-border-subtle);
+  color: var(--fg);
+  font: 600 20px / 1.2 var(--font-sans);
+}
+
+/*
+ * ————— Printer Status —————
+ *
+ * One column per printer that is printing right now. The shape is the shared
+ * progress card's, REPRODUCED from tokens: slatecast has no Tailwind and does
+ * not install the component library. The band carries the percentage set large
+ * and vertically centered, with the state on its baseline at the left — the
+ * owner asked for that alignment here and on Rip Deck both.
+ */
+.printer-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 26px;
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+
+.printer-cards {
+  display: grid;
+  flex: 1;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 12px;
+  min-height: 0;
+}
+
+.printer-card {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.printer-card[data-intent="warning"] {
+  border-color: var(--color-intent-warning-border);
+  background: var(--color-intent-warning-surface);
+}
+
+.printer-card[data-intent="danger"] {
+  border-color: var(--color-intent-danger-border);
+  background: var(--color-intent-danger-surface);
+}
+
+/*
+ * The plate picture takes the slack and is never cropped. It carries its own
+ * dark background, so it gets NO box: a box letterboxes the square render
+ * inside a differently-colored rectangle, which reads as a clipped picture.
+ */
+.printer-plate {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.printer-plate img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.printer-body {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.printer-head {
+  display: flex;
+  flex: none;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.printer-index {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.printer-names {
+  flex: 1;
+  min-width: 0;
+}
+
+.printer-name {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.printer-meta {
+  margin-top: 1px;
+  color: var(--color-content-muted);
+  font-size: 12px;
+}
+
+.printer-actions {
+  display: flex;
+  flex: none;
+  gap: 7px;
+}
+
+.printer-action {
+  padding: 6px 13px;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.printer-action[disabled] {
+  opacity: 0.55;
+}
+
+.printer-action.is-pause {
+  border: 1px solid var(--color-intent-warning-border);
+  color: var(--color-intent-warning-content);
+}
+
+.printer-action.is-stop {
+  border: 1px solid var(--color-intent-danger-border);
+  color: var(--color-intent-danger-content);
+}
+
+/*
+ * The job name is a CONTROL: the printer reports a slicer file name, the card
+ * shows a shortened one, and a tap opens the whole thing. The element's title
+ * carries the untouched file name for a pointer and for assistive tech.
+ */
+.printer-job {
+  display: block;
+  overflow: hidden;
+  flex: none;
+  width: 100%;
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.printer-card[data-expanded="true"] .printer-job {
+  overflow: visible;
+  white-space: normal;
+}
+
+.printer-problem {
+  flex: none;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-intent-danger-border);
+  border-radius: 10px;
+  color: var(--color-intent-danger-content);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.printer-band {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  height: 78px;
+  margin-top: 10px;
+  border-radius: 11px;
+  background: var(--color-surface-sunken);
+}
+
+.printer-band-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+.printer-card[data-intent="warning"] .printer-band-fill {
+  background: var(--color-intent-warning-solid);
+  opacity: 0.5;
+}
+
+.printer-card[data-intent="danger"] .printer-band-fill {
+  background: var(--color-intent-danger-solid);
+  opacity: 0.5;
+}
+
+/* Centered in the band; the row below puts the state on the number's baseline. */
+.printer-band-text {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 14px;
+}
+
+.printer-band-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.printer-state {
+  color: var(--fg-dim);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.printer-percent {
+  font-size: 48px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 0.86;
+}
+
+.printer-metrics {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.printer-metric {
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 9px;
+  background: color-mix(
+    in oklab,
+    var(--color-surface-sunken) 70%,
+    transparent
+  );
+}
+
+.printer-metric dt {
+  color: var(--color-content-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.printer-metric dd {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  margin-top: 1px;
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.printer-metric dd span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.printer-metric.is-filament {
+  grid-column: 1 / -1;
+  margin-top: 7px;
+}
+
+.printer-swatch {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 4px;
+}
+
+/*
+ * ONE printer has room to spare, so the picture goes BESIDE the facts rather
+ * than above them and the type grows. The facts stay a column either way; a
+ * single wide row would put a short title next to a screen of empty surface.
+ */
+.printer-status[data-count="1"] .printer-card {
+  flex-direction: row;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.printer-status[data-count="1"] .printer-plate {
+  flex: 0 0 46%;
+}
+
+.printer-status[data-count="1"] .printer-body {
+  flex: 1;
+  justify-content: center;
+}
+
+.printer-status[data-count="1"] .printer-name {
+  font-size: 28px;
+}
+
+.printer-status[data-count="1"] .printer-meta {
+  font-size: 14px;
+}
+
+.printer-status[data-count="1"] .printer-job {
+  margin-top: 12px;
+  font-size: 20px;
+}
+
+.printer-status[data-count="1"] .printer-band {
+  height: 116px;
+  margin-top: 14px;
+}
+
+.printer-status[data-count="1"] .printer-percent {
+  font-size: 72px;
+}
+
+.printer-status[data-count="1"] .printer-state {
+  font-size: 18px;
+}
+
+.printer-status[data-count="1"] .printer-metric {
+  padding: 10px 13px;
+}
+
+.printer-status[data-count="1"] .printer-metric dt {
+  font-size: 12px;
+}
+
+.printer-status[data-count="1"] .printer-metric dd {
+  font-size: 22px;
+}
+
+.printer-status[data-count="1"] .printer-action {
+  padding: 9px 18px;
+  font-size: 15px;
+}
+
+.printer-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.printer-empty h1 {
+  font-size: 34px;
+  font-weight: 600;
+}
+
+.printer-empty p {
+  color: var(--color-content-muted);
+  font-size: 17px;
+}
+
+/*
+ * Pause and Stop both ask first. The question covers the panel rather than the
+ * card: a three-column panel gives one card no room for a legible question,
+ * and stopping a print is not a decision to make against 13 px of type.
+ */
+.printer-confirm {
+  position: absolute;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  inset: 0;
+  background: rgb(0 0 0 / 62%);
+}
+
+.printer-confirm-box {
+  width: min(560px, 78%);
+  padding: 28px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 18px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.printer-confirm-question {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.printer-confirm-detail {
+  margin-top: 8px;
+  overflow: hidden;
+  color: var(--color-content-muted);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.printer-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+.printer-confirm-actions button {
+  padding: 14px 26px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.printer-confirm-cancel {
+  border: 1px solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--fg);
+}
+
+.printer-confirm-commit {
+  border: 1px solid transparent;
+  background: var(--color-intent-warning-solid);
+  color: var(--color-intent-warning-on-solid);
+}
+
+.printer-confirm-commit[data-action="stop"] {
+  background: var(--color-intent-danger-solid);
+  color: var(--color-intent-danger-on-solid);
+}

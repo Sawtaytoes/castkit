@@ -1,6 +1,7 @@
 import type {
   AgendaData,
   NowPlayingData,
+  PrintersData,
   QueueData,
   WeatherData,
 } from "@castkit/shared/viewData/types"
@@ -16,6 +17,8 @@ export type {
   AgendaData,
   AgendaEvent,
   NowPlayingData,
+  PrinterJob,
+  PrintersData,
   QueueData,
   WeatherData,
 } from "@castkit/shared/viewData/types"
@@ -59,6 +62,13 @@ export type ViewDataStore = {
     deviceId: string
     data: AgendaData
   }) => void
+  getPrinters: (
+    deviceId: string,
+  ) => PrintersData | undefined
+  setPrinters: (params: {
+    deviceId: string
+    data: PrintersData
+  }) => void
   getQueue: (deviceId: string) => QueueData | undefined
   setQueue: (params: {
     deviceId: string
@@ -77,6 +87,7 @@ export const createViewDataStore = (): ViewDataStore => {
   >()
   const weatherByDeviceId = new Map<string, WeatherData>()
   const agendaByDeviceId = new Map<string, AgendaData>()
+  const printersByDeviceId = new Map<string, PrintersData>()
   const queueByDeviceId = new Map<string, QueueData>()
 
   return {
@@ -102,6 +113,11 @@ export const createViewDataStore = (): ViewDataStore => {
     getAgenda: (deviceId) => agendaByDeviceId.get(deviceId),
     setAgenda: ({ deviceId, data }) => {
       agendaByDeviceId.set(deviceId, data)
+    },
+    getPrinters: (deviceId) =>
+      printersByDeviceId.get(deviceId),
+    setPrinters: ({ deviceId, data }) => {
+      printersByDeviceId.set(deviceId, data)
     },
     getQueue: (deviceId) => queueByDeviceId.get(deviceId),
     setQueue: ({ deviceId, data }) => {
