@@ -4,7 +4,7 @@
 - **Date:** 2026-09-21
 - **Type:** Interaction / installation configuration
 - **Supersedes:** [A touch panel opens its view drawer from either screen edge](2026-09-21-a-touch-panel-opens-its-view-drawer-from-either-screen-edge.md), for making the drawer universal and listing every compatible view
-- **Superseded by:** —
+- **Superseded by:** [An edge hands the panel back, and draws nothing](2026-09-23-an-edge-hands-the-panel-back-and-draws-nothing.md), for the workbench panel's navigation only. The `hasViewDrawer` switch and the ordered `views` allow-list both stand.
 
 ## Decision
 
