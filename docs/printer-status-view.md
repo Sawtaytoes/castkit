@@ -167,7 +167,13 @@ is a fact about the printer, not about the progress, so it belongs with the
 printer's name and the controls that change it.
 
 The chip takes its color from the card's intent rather than naming a state, so a
-fourth state needs no new rule. The neutral case is the accent rather than a
+fourth state needs no new rule.
+
+The chip and the buttons are one group in the markup, and **the head wraps.** At
+one and two printers they share a line with the printer's name. At three the
+card is about 380 px wide and they cannot, so the group drops to its own line
+and the name keeps its width. They wrap together on purpose: separately, the
+chip would strand itself beside a name squeezed to nothing. The neutral case is the accent rather than a
 gray: printing is the normal case and should read as calm, and a paused or
 faulted card is already tinted around it.
 

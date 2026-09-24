@@ -154,39 +154,47 @@ const PrinterCard = ({
               that changes it are one group. The dot carries the same fact for
               a glance from a step back, and is hidden from the accessibility
               tree because the word beside it already says it. */}
-          <div class="printer-state">
-            <span
-              class="printer-state-dot"
-              aria-hidden="true"
-            />
-            {STATE_LABELS[job.state]}
-          </div>
-          <div class="printer-actions">
-            <button
-              type="button"
-              class="printer-action is-pause"
-              disabled={pendingAction !== null}
-              onClick={() =>
-                onRequest(isPaused ? "resume" : "pause")
-              }
-            >
-              {pendingAction === "pause" ||
-              pendingAction === "resume"
-                ? PENDING_LABELS[pendingAction]
-                : isPaused
-                  ? "Resume"
-                  : "Pause"}
-            </button>
-            <button
-              type="button"
-              class="printer-action is-stop"
-              disabled={pendingAction !== null}
-              onClick={() => onRequest("stop")}
-            >
-              {pendingAction === "stop"
-                ? PENDING_LABELS.stop
-                : "Stop"}
-            </button>
+          {/* The chip and the buttons are ONE group, so they wrap
+              TOGETHER. At three columns the card is about 380 px wide and
+              the head cannot hold a name, a chip and two buttons on one
+              line: the group drops to its own line and the name gets the
+              width back. Wrapping them separately would strand the chip
+              beside a name squeezed to nothing. */}
+          <div class="printer-head-controls">
+            <div class="printer-state">
+              <span
+                class="printer-state-dot"
+                aria-hidden="true"
+              />
+              {STATE_LABELS[job.state]}
+            </div>
+            <div class="printer-actions">
+              <button
+                type="button"
+                class="printer-action is-pause"
+                disabled={pendingAction !== null}
+                onClick={() =>
+                  onRequest(isPaused ? "resume" : "pause")
+                }
+              >
+                {pendingAction === "pause" ||
+                pendingAction === "resume"
+                  ? PENDING_LABELS[pendingAction]
+                  : isPaused
+                    ? "Resume"
+                    : "Pause"}
+              </button>
+              <button
+                type="button"
+                class="printer-action is-stop"
+                disabled={pendingAction !== null}
+                onClick={() => onRequest("stop")}
+              >
+                {pendingAction === "stop"
+                  ? PENDING_LABELS.stop
+                  : "Stop"}
+              </button>
+            </div>
           </div>
         </div>
         <button
