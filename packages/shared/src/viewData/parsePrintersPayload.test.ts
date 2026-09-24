@@ -97,6 +97,39 @@ describe("parsePrintersPayload", () => {
     expect(printer).not.toHaveProperty("problemText")
   })
 
+  test("an absent-entity string is absent whatever its case", () => {
+    // The same absent tray arrives in two spellings from one integration: an
+    // attribute renders Python's None as "None", the sensor's own state is
+    // "none". The lowercase form reached the glass and printed the word `none`
+    // under FILAMENT on a printer paused with no tray loaded.
+    const printer = parsePrintersPayload(
+      buildPayload({
+        filamentText: "none",
+        nozzleText: "UNKNOWN",
+        problemText: "Unavailable",
+      }),
+    ).printers[0]
+
+    expect(printer).not.toHaveProperty("filamentText")
+    expect(printer).not.toHaveProperty("nozzleText")
+    expect(printer).not.toHaveProperty("problemText")
+  })
+
+  test("a value that merely contains an absent word is kept", () => {
+    // The guard is an exact match on the whole trimmed value, never a
+    // substring: a real print can be called "Nonestick Jig" and a real filament
+    // "Unknown Brand PLA", and neither is an absent field.
+    const printer = parsePrintersPayload(
+      buildPayload({
+        filamentText: "Unknown Brand PLA",
+        jobName: "Nonestick Jig",
+      }),
+    ).printers[0]
+
+    expect(printer?.filamentText).toBe("Unknown Brand PLA")
+    expect(printer?.jobName).toBe("Nonestick Jig")
+  })
+
   test("a filament color that is not hex is dropped rather than painted", () => {
     expect(
       parsePrintersPayload(
