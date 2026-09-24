@@ -1945,9 +1945,11 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * The band carries the percentage and nothing else. It is centered in the band
- * and set against the right edge, so the filled part of the bar is free to run
- * under it without a second thing to read.
+ * The band carries the percentage at its right and the time left at its left.
+ *
+ * ⚠️ `flex-end` plus an auto margin on the time, never `space-between`. A
+ * paused printer renders no time at all, and `space-between` with a single
+ * child shoves the percentage to the left edge and into the coloured fill.
  */
 .printer-band-text {
   position: relative;
@@ -1955,7 +1957,20 @@ html[data-grayscale-text="true"] {
   height: 100%;
   align-items: center;
   justify-content: flex-end;
+  gap: 12px;
   padding: 0 18px;
+}
+
+.printer-band-remaining {
+  margin-right: auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-dim);
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /*
@@ -2019,10 +2034,11 @@ html[data-grayscale-text="true"] {
   line-height: 0.86;
 }
 
+/* Two blocks, not three: `Remaining` moved into the band. */
 .printer-metrics {
   display: grid;
   flex: none;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 7px;
   margin-top: 8px;
 }
@@ -2117,6 +2133,10 @@ html[data-grayscale-text="true"] {
 
 .printer-status[data-count="1"] .printer-percent {
   font-size: 72px;
+}
+
+.printer-status[data-count="1"] .printer-band-remaining {
+  font-size: 21px;
 }
 
 .printer-status[data-count="1"] .printer-state {
