@@ -355,6 +355,18 @@ job: `midclt call app.pull_images castkit` and `app.redeploy castkit` on
 `root@storeman.octen`, and verify a **marker from the new build** — a 200 is also true
 of the old image.
 
+⚠️ **A browser panel is verified ON THE PANEL, never by loading its `/d/<id>` page
+somewhere else.** That page is the server rendering the current bundle on demand; the
+panel is a Chromium that has held one page for as long as it has been up, and a deploy
+does not reload it — the socket reconnects and the panel answers every push while still
+running the old bundle. On 2026-09-23 the `/d/slate-617e01` page rendered two printer
+cards in a fresh browser and the glass beside the machines read `Nothing playing`. A
+current build reloads a stale panel by itself
+([decision](docs/decisions/2026-09-23-a-new-build-reloads-a-live-browser-panel.md)), so
+this is now a check rather than a step — but it is still the check. The Pi panels run
+Wayland, so `grim` reads the real framebuffer:
+`ssh pi@<panel-host> 'XDG_RUNTIME_DIR=/run/user/$(id -u) WAYLAND_DISPLAY=wayland-0 grim /tmp/panel.png'`.
+
 ## Package manager
 
 Always `yarn`, never `npm`/`npx`. One-off executables use `yarn dlx <pkg>`.

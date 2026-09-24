@@ -1,6 +1,12 @@
 import { screen, waitFor } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, test } from "vitest"
+import {
+  describe,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from "vitest"
 import {
   buildNowPlaying,
   buildSnapshot,
@@ -8,6 +14,7 @@ import {
 import { swipeToNextTrack } from "./__tests__/setup/dragArtwork.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
+import { __setPageReloaderForTests } from "./reloadPage.ts"
 import { connectionStatus, nowPlaying } from "./state.ts"
 
 // The artwork is the play/pause button; its name carries the title too.
@@ -279,5 +286,82 @@ describe("reconnect resilience", () => {
         timeoutMs: 8_000,
       },
     )
+  })
+})
+
+/**
+ * A deploy replaces the bundle the server serves, but a kiosk that is already
+ * up never asks for it again — it reconnects its socket and keeps running the
+ * bundle it loaded, for as long as the page lives.
+ */
+describe("a deploy under a live panel", () => {
+  const stubReload = () => {
+    const reload = vi.fn()
+    // These run in a real Chromium, where `location` is unforgeable, so the
+    // reload goes through the module seam rather than a stubbed global.
+    __setPageReloaderForTests(reload)
+    onTestFinished(() => {
+      __setPageReloaderForTests(null)
+    })
+    return reload
+  }
+
+  test("reloads when the server reports a different bundle", async () => {
+    const reload = stubReload()
+    const { server } = await mountSlatecast({
+      snapshot: buildSnapshot({ buildId: "build-one" }),
+    })
+
+    server.push(buildSnapshot({ buildId: "build-two" }))
+
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  test("reloads once, however many snapshots follow", async () => {
+    const reload = stubReload()
+    const { server } = await mountSlatecast({
+      snapshot: buildSnapshot({ buildId: "build-one" }),
+    })
+
+    server.push(buildSnapshot({ buildId: "build-two" }))
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1)
+    })
+    server.push(buildSnapshot({ buildId: "build-two" }))
+    server.push(buildSnapshot({ buildId: "build-three" }))
+
+    // A wall panel that reload-loops cannot be fixed from a phone.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  test("stays put on a reconnect to the same bundle", async () => {
+    const reload = stubReload()
+    const { server } = await mountSlatecast({
+      snapshot: buildSnapshot({ buildId: "build-one" }),
+    })
+
+    // A restart of the same image must not reload every panel in the house.
+    server.push(buildSnapshot({ buildId: "build-one" }))
+
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(reload).not.toHaveBeenCalled()
+  })
+
+  test("stays put when either side cannot name its bundle", async () => {
+    const reload = stubReload()
+    const { server } = await mountSlatecast({
+      // A page shell served before this field existed carries no id at all.
+      snapshot: { ...buildSnapshot(), buildId: undefined },
+    })
+
+    // "Cannot tell" has to read as "do not reload": a page served before this
+    // field existed, or a server with no build to hash.
+    server.push(buildSnapshot({ buildId: "build-two" }))
+
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(reload).not.toHaveBeenCalled()
   })
 })

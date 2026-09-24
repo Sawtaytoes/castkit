@@ -23,8 +23,7 @@ import { Weather } from "./views/Weather.tsx"
 
 /**
  * Maps a view's `clientId` (from the server's browser view registry, delivered
- * over the WebSocket `view` message) to its component. An unknown id falls back
- * to Now Playing.
+ * over the WebSocket `view` message) to its component.
  */
 export const viewByClientId: Record<string, ComponentType> =
   {
@@ -53,6 +52,29 @@ export const viewByClientId: Record<string, ComponentType> =
  * Lives here rather than in `main.tsx` so tests can mount the real root
  * without triggering that module's render/connect side effects.
  */
+/**
+ * What a panel shows when it is asked for a view its bundle does not have.
+ *
+ * This used to fall back to Now Playing, which is why the 2026-09-23 fault read
+ * as an idle panel: a workbench display running a two-day-old bundle was told
+ * to show `printer-status`, had no such view, and put "Nothing playing" on the
+ * glass over two running prints. The panel was stale, not idle, and nothing on
+ * the glass said so.
+ *
+ * A current bundle should never reach this: a build change reloads the panel
+ * (see `state.ts`). It is here so the next mismatch names itself.
+ */
+const UnknownView = () => (
+  <div class="idle">
+    <div class="idle-title">
+      This display is out of date
+    </div>
+    <div class="idle-label">
+      Reload it to get the current views
+    </div>
+  </div>
+)
+
 export const App = () => {
   const profile = device.value
   const { orientation, theme } = settings.value
@@ -147,7 +169,7 @@ export const App = () => {
     "external-view:",
   )
     ? ExternalView
-    : (viewByClientId[activeView.value] ?? NowPlaying)
+    : (viewByClientId[activeView.value] ?? UnknownView)
 
   return (
     <div

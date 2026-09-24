@@ -1,4 +1,5 @@
-import { existsSync } from "node:fs"
+import { createHash } from "node:crypto"
+import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { getIsGrayscaleTextRequired } from "@castkit/shared/panels/pixelGrid"
 import type {
@@ -28,6 +29,72 @@ export const resolveSlatecastDistDir = ():
   ].filter((path): path is string => Boolean(path))
 
   return candidates.find((path) => existsSync(path)) ?? null
+}
+
+/**
+ * The files whose bytes decide whether a loaded page is the build this server
+ * is serving. Both are pinned names (see slatecast's `vite.config.ts`), so the
+ * URL cannot tell a panel that the bytes behind it changed.
+ */
+const BUILD_ID_FILE_NAMES = [
+  "assets/slatecast.js",
+  "assets/slatecast.css",
+]
+
+/** No build on disk: one constant id, so nothing is ever asked to reload. */
+const UNKNOWN_BUILD_ID = "unknown"
+
+const buildIdCache: { value: string | null } = {
+  value: null,
+}
+
+/**
+ * A short content hash of the Slatecast bundle this server serves.
+ *
+ * It exists because a live-browser panel holds its page for weeks — the one at
+ * the 3D printer workbench had been up since a deploy two days earlier — while
+ * the server behind it restarts on every deploy. The socket reconnects, so the
+ * panel looks healthy and answers every push, but it is running the PREVIOUS
+ * bundle. On 2026-09-23 that panel was told to show `printer-status`, a view
+ * its bundle did not have, and it silently fell back to Now Playing: two prints
+ * running and "Nothing playing" on the glass.
+ *
+ * The hash is read once and cached. The dist directory is baked into the image,
+ * so it cannot change while this process lives, and re-reading the bundle on
+ * every page load and every reconnect would be pure cost.
+ *
+ * A content hash rather than a start timestamp on purpose: restarting the same
+ * build must NOT reload the panels. A container that restart-loops would
+ * otherwise reload every display in the house on each attempt.
+ */
+export const resolveSlatecastBuildId = (): string => {
+  if (buildIdCache.value !== null) {
+    return buildIdCache.value
+  }
+  const distDir = resolveSlatecastDistDir()
+  if (!distDir) {
+    buildIdCache.value = UNKNOWN_BUILD_ID
+    return buildIdCache.value
+  }
+  const hash = createHash("sha256")
+  let hasReadAnyFile = false
+  for (const fileName of BUILD_ID_FILE_NAMES) {
+    const filePath = resolve(distDir, fileName)
+    if (!existsSync(filePath)) {
+      continue
+    }
+    hash.update(readFileSync(filePath))
+    hasReadAnyFile = true
+  }
+  buildIdCache.value = hasReadAnyFile
+    ? hash.digest("hex").slice(0, 12)
+    : UNKNOWN_BUILD_ID
+  return buildIdCache.value
+}
+
+/** Exported for tests: drops the memoized hash so a fixture build is re-read. */
+export const __resetSlatecastBuildIdForTests = () => {
+  buildIdCache.value = null
 }
 
 const escapeJsonForHtml = (json: string) =>

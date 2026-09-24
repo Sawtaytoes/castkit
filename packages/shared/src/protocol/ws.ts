@@ -107,6 +107,9 @@ export type BrowserDeviceProfile = {
    * panel that silently renders in the wrong color mode.
    *
    * Remove both once every panel has reloaded. Nothing in this repo reads them.
+   * A panel now reloads itself when `buildId` changes, so "once every panel has
+   * reloaded" is one deploy after 2026-09-23 rather than an open wait on a
+   * person — see the new-build-reloads-a-live-browser-panel record.
    */
   colour?: "mono" | "greyscale" | "e6" | "full"
   /** @deprecated See `colour`. */
@@ -138,6 +141,18 @@ export type ServerToClientMessage =
       /** The active view's client id (see the view registry). */
       view: string
       data: ViewDataState
+      /**
+       * A content hash of the SPA bundle the server is serving right now.
+       *
+       * A panel compares this against the id baked into the page it loaded.
+       * They differ only when the server has been deployed since — the panel
+       * is running an older bundle — and the panel reloads itself.
+       *
+       * Optional because a panel still on a pre-2026-09-23 bundle receives
+       * snapshots that never carried it, and a missing id must mean "cannot
+       * tell", never "reload".
+       */
+      buildId?: string
     }
   | { type: "view"; view: string }
   | { type: "now_playing"; data: NowPlayingData }

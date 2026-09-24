@@ -48,6 +48,7 @@ import { createBrowserStateStore } from "./browserStateStore.ts"
 import { createBrowserHub, type HubSocket } from "./hub.ts"
 import {
   buildDevicePageHtml,
+  resolveSlatecastBuildId,
   resolveSlatecastDistDir,
 } from "./pages.ts"
 
@@ -255,6 +256,9 @@ export const createBrowserMode = ({
         browserViews[0]?.clientId ??
         "now-playing",
       data: buildViewDataState(deviceId),
+      // What the panel compares against the bundle it is running. A reconnect
+      // after a deploy carries a different id and the panel reloads itself.
+      buildId: resolveSlatecastBuildId(),
     }
   }
 
