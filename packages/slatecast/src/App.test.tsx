@@ -274,3 +274,31 @@ describe("unknown device", () => {
     expect(screen.getByText("Unknown device")).toBeVisible()
   })
 })
+
+/**
+ * A panel holds one page for weeks while the server is deployed under it, so
+ * "the bundle does not have that view" is a real state and not a theoretical
+ * one. On 2026-09-23 it put "Nothing playing" on a workbench panel over two
+ * running prints, because the fallback was Now Playing.
+ */
+describe("a view this bundle does not have", () => {
+  test("says the display is out of date rather than falling back to Now Playing", async () => {
+    const { server } = await mountSlatecast()
+
+    // A clientId from a build this bundle predates — which is exactly what
+    // `printer-status` was to the panel on the day this was found.
+    server.push({
+      type: "view",
+      view: "a-view-from-a-later-build",
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("This display is out of date"),
+      ).toBeVisible()
+    })
+    expect(
+      screen.queryByRole("button", { name: /^Pause/ }),
+    ).toBeNull()
+  })
+})

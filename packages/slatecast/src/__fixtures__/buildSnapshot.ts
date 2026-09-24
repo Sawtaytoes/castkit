@@ -167,15 +167,22 @@ export const buildSnapshot = ({
   settings = buildSettings(),
   view = "now-playing",
   data = { nowPlaying: buildNowPlaying() },
+  buildId = "build-one",
 }: {
   device?: BrowserDeviceProfile
   settings?: BrowserDeviceSettings
   view?: string
   data?: ViewDataState
-} = {}): ServerToClientMessage => ({
+  /** The SPA bundle the server is serving; a change reloads the panel. */
+  buildId?: string | undefined
+} = {}): Extract<
+  ServerToClientMessage,
+  { type: "snapshot" }
+> => ({
   type: "snapshot",
   device,
   settings,
   view,
   data,
+  buildId,
 })

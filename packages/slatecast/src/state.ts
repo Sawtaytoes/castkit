@@ -20,6 +20,7 @@ import {
 } from "@charcuterie/logic/core"
 import { createStoreFromSignals } from "@charcuterie/logic/signals"
 import { computed, signal } from "@preact/signals"
+import { reloadPage } from "./reloadPage.ts"
 
 /**
  * All client state as signals, fed by the inlined page snapshot and then the
@@ -70,6 +71,52 @@ const DEFAULT_SETTINGS: BrowserDeviceSettings = {
 }
 
 const inlineSnapshot = readInlineSnapshot()
+
+/**
+ * The bundle id this page was served with, and whether we have already acted
+ * on a mismatch.
+ *
+ * A kiosk holds one page for weeks while the server behind it is deployed
+ * repeatedly. The socket reconnects each time, so the panel looks healthy and
+ * keeps answering pushes — while running the bundle from whenever it last
+ * loaded. On 2026-09-23 a panel was told to show `printer-status`, a view its
+ * bundle did not have, and showed "Nothing playing" over two running prints.
+ *
+ * `hasReloaded` bounds it to one reload per page load. After a reload the new
+ * page carries the server's current id, so the ids agree and nothing repeats;
+ * the flag is what stops a wall display reload-looping if they ever cannot.
+ */
+const bundleBuild: {
+  bootstrapBuildId: string | undefined
+  hasReloaded: boolean
+} = {
+  bootstrapBuildId: inlineSnapshot?.buildId,
+  hasReloaded: false,
+}
+
+/**
+ * Reload when the server is serving a different bundle than this page loaded.
+ *
+ * Both sides absent-safe: a server that cannot hash its own build sends no id,
+ * and a page served before this field existed has none either. "Cannot tell"
+ * must never mean "reload" — an unnecessary reload of every panel in the house
+ * is worse than the stale bundle it would be guessing at.
+ */
+const reloadWhenBuildChanged = (
+  serverBuildId: string | undefined,
+) => {
+  const { bootstrapBuildId, hasReloaded } = bundleBuild
+  if (
+    hasReloaded ||
+    !serverBuildId ||
+    !bootstrapBuildId ||
+    serverBuildId === bootstrapBuildId
+  ) {
+    return
+  }
+  bundleBuild.hasReloaded = true
+  reloadPage()
+}
 
 export const device = signal<BrowserDeviceProfile | null>(
   inlineSnapshot?.device ?? null,
@@ -290,6 +337,7 @@ const isPredictionConfirmed = ({
 
 const applyMessage = (message: ServerToClientMessage) => {
   if (message.type === "snapshot") {
+    reloadWhenBuildChanged(message.buildId)
     device.value = message.device
     settings.value = message.settings
     activeView.value = message.view
@@ -343,7 +391,7 @@ const applyMessage = (message: ServerToClientMessage) => {
     return
   }
   if (message.type === "reload") {
-    window.location.reload()
+    reloadPage()
   }
 }
 
@@ -627,6 +675,8 @@ export const __resetStateForTests = () => {
   connectionStatus.reset()
 
   const snapshot = readInlineSnapshot()
+  bundleBuild.bootstrapBuildId = snapshot?.buildId
+  bundleBuild.hasReloaded = false
   device.value = snapshot?.device ?? null
   settings.value = snapshot?.settings ?? DEFAULT_SETTINGS
   activeView.value = snapshot?.view ?? "now-playing"
