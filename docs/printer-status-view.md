@@ -145,10 +145,21 @@ The plate picture has no box around it. The cover is square and carries its own
 dark background, so a surrounding panel letterboxes the square inside a
 differently colored rectangle, and that reads as a cropped picture.
 
-The progress band is the shared progress-card shape, with one departure: **it
-carries the percentage and nothing else.** The number is centered in the band
-and set against the right edge, so the filled part of the bar runs under it with
-no second thing to read.
+The progress band is the shared progress-card shape, with one departure: **the
+percentage sits at its right and the TIME LEFT at its left.**
+
+The time left is the fact a person walking up to a running printer wants, and it
+is the one the metric row used to carry in the smallest type on the card. It is
+not repeated — **`Remaining` is gone from the metric row**, which is why that row
+is two blocks wide and not three.
+
+A paused printer renders **nothing** at the band's left. There is no honest
+estimate, the chip above already says why, and an em dash would be a placeholder
+holding open a space for a number that does not exist.
+
+⚠️ The band's row is `justify-content: flex-end` with an auto margin on the time,
+never `space-between`. With `space-between` a paused card has a single child, and
+the percentage is shoved to the left edge and into the colored fill.
 
 The state word — `Printing`, `Paused`, `Preparing` — is a **chip in the card's
 head, immediately left of the Pause and Stop buttons**, with a dot before it. It

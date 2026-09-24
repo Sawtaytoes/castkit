@@ -4,7 +4,7 @@
 - **Date:** 2026-09-24
 - **Type:** View / layout
 - **Supersedes:** [Printer Status gives each active printer a column](2026-09-23-printer-status-gives-each-active-printer-a-column.md), for the contents of the progress band only. The column rule, the count-driven arrangement, the unboxed plate picture and the job-name control all stand.
-- **Superseded by:** —
+- **Superseded by:** [The band carries the time left](2026-09-24-the-band-carries-the-time-left.md), for the band's left side only. The chip, its placement beside the controls, and its intent-driven colour all stand.
 
 ## Decision
 
