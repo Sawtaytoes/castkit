@@ -1810,11 +1810,35 @@ html[data-grayscale-text="true"] {
   min-width: 0;
 }
 
+/*
+ * The head wraps as two groups: the badge and the name, then the state chip
+ * and the buttons. At one and two printers they share a line. At three the
+ * card is about 380 px wide and they cannot, so the controls drop below and
+ * the name keeps its width instead of colliding with the chip.
+ */
 .printer-head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.printer-head-controls {
   display: flex;
   flex: none;
   gap: 10px;
   align-items: center;
+  margin-left: auto;
+}
+
+/*
+ * The name group asks for more room than three columns can give, which is what
+ * makes the controls wrap there and not at two. Below this width the flex line
+ * cannot hold both groups.
+ */
+.printer-names {
+  flex: 1 1 190px;
 }
 
 .printer-index {
@@ -1831,14 +1855,16 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-names {
-  flex: 1;
   min-width: 0;
 }
 
 .printer-name {
+  overflow: hidden;
   font-size: 20px;
   font-weight: 700;
   line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .printer-meta {
