@@ -123,6 +123,37 @@ describe("the printer cards", () => {
     expect(screen.getAllByText("—")).toHaveLength(2)
   })
 
+  test("the state reads beside the controls, and the band carries only the percentage", async () => {
+    await mountPrinterStatus([
+      buildPrinterJob({ percent: 41, state: "printing" }),
+    ])
+
+    const card = cards()[0]
+    const state = card?.querySelector(".printer-state")
+    const band = card?.querySelector(".printer-band")
+
+    expect(state?.textContent).toBe("Printing")
+
+    // It is a sibling of the buttons, in the head — not inside the band. This is
+    // the whole point of the shape, so it is asserted structurally rather than
+    // by reading the text back out of the document.
+    expect(
+      state?.parentElement?.classList.contains(
+        "printer-head",
+      ),
+    ).toBe(true)
+    expect(
+      state?.nextElementSibling?.classList.contains(
+        "printer-actions",
+      ),
+    ).toBe(true)
+    expect(band?.contains(state ?? null)).toBe(false)
+    expect(
+      band?.querySelector(".printer-band-text")
+        ?.textContent,
+    ).toBe("41%")
+  })
+
   test("a problem is named on the card", async () => {
     await mountPrinterStatus([
       buildPrinterJob({
