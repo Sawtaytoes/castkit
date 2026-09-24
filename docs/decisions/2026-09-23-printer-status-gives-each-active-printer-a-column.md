@@ -4,7 +4,7 @@
 - **Date:** 2026-09-23
 - **Type:** View / layout
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [The print state is a chip beside the controls](2026-09-24-the-print-state-is-a-chip-beside-the-controls.md), for the contents of the progress band only. The column rule, the count-driven arrangement, the unboxed plate picture and the job-name control all stand.
 
 ## Decision
 

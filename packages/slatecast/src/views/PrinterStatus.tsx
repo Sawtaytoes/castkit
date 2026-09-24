@@ -24,8 +24,13 @@ import {
  * means and pushes only those printers; the view renders what it is handed.
  *
  * The shape is the shared progress card's: a wide band with the percentage set
- * large and vertically centered, the state on its baseline at the left, then
- * the labeled facts. It is REPRODUCED from design tokens rather than imported.
+ * large, then the labeled facts. It is REPRODUCED from design tokens rather
+ * than imported.
+ *
+ * The state word sits in the HEAD, beside the controls, not inside the band.
+ * It is a fact about the printer rather than about the progress, so it belongs
+ * with the printer's name and the buttons that change it, and putting it there
+ * leaves the band carrying one number a person can read from across the room.
  * Slatecast has no Tailwind, does not install the component library, and lives
  * inside a 60 KB budget. See
  * docs/decisions/2026-09-23-printer-status-is-a-castkit-view-fed-by-home-assistant.md.
@@ -136,6 +141,17 @@ const PrinterCard = ({
               </div>
             ) : null}
           </div>
+          {/* The state reads left of the buttons, so the word and the control
+              that changes it are one group. The dot carries the same fact for
+              a glance from a step back, and is hidden from the accessibility
+              tree because the word beside it already says it. */}
+          <div class="printer-state">
+            <span
+              class="printer-state-dot"
+              aria-hidden="true"
+            />
+            {STATE_LABELS[job.state]}
+          </div>
           <div class="printer-actions">
             <button
               type="button"
@@ -183,14 +199,9 @@ const PrinterCard = ({
             style={{ width: `${job.percent}%` }}
           />
           <div class="printer-band-text">
-            <div class="printer-band-row">
-              <span class="printer-state">
-                {STATE_LABELS[job.state]}
-              </span>
-              <span class="printer-percent">
-                {job.percent}%
-              </span>
-            </div>
+            <span class="printer-percent">
+              {job.percent}%
+            </span>
           </div>
         </div>
         <dl class="printer-metrics">

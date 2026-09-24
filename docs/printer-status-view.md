@@ -145,8 +145,20 @@ The plate picture has no box around it. The cover is square and carries its own
 dark background, so a surrounding panel letterboxes the square inside a
 differently colored rectangle, and that reads as a cropped picture.
 
-The progress band is the shared progress-card shape: the percentage is centered
-in a filled band and the state word sits on its baseline.
+The progress band is the shared progress-card shape, with one departure: **it
+carries the percentage and nothing else.** The number is centered in the band
+and set against the right edge, so the filled part of the bar runs under it with
+no second thing to read.
+
+The state word — `Printing`, `Paused`, `Preparing` — is a **chip in the card's
+head, immediately left of the Pause and Stop buttons**, with a dot before it. It
+is a fact about the printer, not about the progress, so it belongs with the
+printer's name and the controls that change it.
+
+The chip takes its color from the card's intent rather than naming a state, so a
+fourth state needs no new rule. The neutral case is the accent rather than a
+gray: printing is the normal case and should read as calm, and a paused or
+faulted card is already tinted around it.
 
 ### The job name is a control
 
@@ -178,8 +190,10 @@ Notes for whoever takes this on:
    and the same view must answer for one printer and for nine. Read the count and
    pick the arrangement; do not reach for a media query.
 4. **Keep the state readable at the smallest size.** The percentage and the
-   state word are the two things a person reads from across the room. Whatever
-   folds away, those two stay.
+   state chip are the two things a person reads from across the room. Whatever
+   folds away, those two stay. The chip rides with the buttons, so an
+   arrangement that drops the buttons must find the chip another home rather
+   than dropping it with them.
 5. **A count above three is untested here.** The installation this was built for
    has three printers. Build the arrangement behind fixture data first, and shoot
    it at the panel's true size before it reaches glass.
