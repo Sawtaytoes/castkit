@@ -52,6 +52,11 @@ deprecated aliases kept "so a kiosk still running the pre-2026-09-14 bundle
 keeps working across a deploy", to be dropped "once every panel has reloaded".
 Both put a person in the loop. Nobody is in that loop.
 
+A browser panel is therefore verified **on the panel**, not by loading its `/d/<id>`
+page somewhere else. That page is the server rendering the current bundle on demand and
+says nothing about what the glass is running. The Pi panels run Wayland, so `grim` over
+SSH reads the real framebuffer.
+
 ## Why
 
 - **A deploy is not finished at the container.** The panel is the product. A
@@ -60,6 +65,9 @@ Both put a person in the loop. Nobody is in that loop.
   panel looks like no job. Two prints were running.
 - **The manual step does not scale to the fleet.** Four browser panels, and the
   person who has to remember is the one who never opens these repos.
+- **The page and the panel had drifted apart with no way to notice.** The Printer
+  Status work was verified by loading `/d/slate-617e01` in a browser, which showed both
+  cards and was an honest check of everything except the one thing that was wrong.
 - **It retires the compat aliases.** `colour` and `legacyShape` exist because an
   old bundle could outlive a rename. A bundle that reloads itself cannot.
 
