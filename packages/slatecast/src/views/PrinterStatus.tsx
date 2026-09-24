@@ -29,8 +29,13 @@ import {
  *
  * The state word sits in the HEAD, beside the controls, not inside the band.
  * It is a fact about the printer rather than about the progress, so it belongs
- * with the printer's name and the buttons that change it, and putting it there
- * leaves the band carrying one number a person can read from across the room.
+ * with the printer's name and the buttons that change it.
+ *
+ * The band then carries the percentage at its right and THE TIME LEFT at its
+ * left. The time left is the fact a person walking up to a running printer
+ * wants, and it is the one the metric row used to show in the smallest type on
+ * the card. It is not repeated: `Remaining` is gone from the metric row, which
+ * is why that row is two blocks wide and not three.
  * Slatecast has no Tailwind, does not install the component library, and lives
  * inside a 60 KB budget. See
  * docs/decisions/2026-09-23-printer-status-is-a-castkit-view-fed-by-home-assistant.md.
@@ -107,6 +112,10 @@ const PrinterCard = ({
     nowMillis: nowMs.value,
   })
   const jobTitle = getPrinterJobTitle(job)
+  const remainingText =
+    isPaused || job.remainingMinutes === undefined
+      ? null
+      : formatRemaining(job.remainingMinutes)
 
   return (
     <article
@@ -199,6 +208,14 @@ const PrinterCard = ({
             style={{ width: `${job.percent}%` }}
           />
           <div class="printer-band-text">
+            {/* Absent rather than an em dash: a paused printer has no honest
+                estimate, and the chip above already says why. An em dash here
+                would be a placeholder holding open a space for nothing. */}
+            {remainingText === null ? null : (
+              <span class="printer-band-remaining">
+                {remainingText} left
+              </span>
+            )}
             <span class="printer-percent">
               {job.percent}%
             </span>
@@ -214,17 +231,6 @@ const PrinterCard = ({
                   : job.totalLayers === undefined
                     ? String(job.currentLayer)
                     : `${job.currentLayer} / ${job.totalLayers}`}
-              </span>
-            </dd>
-          </div>
-          <div class="printer-metric">
-            <dt>Remaining</dt>
-            <dd>
-              <span>
-                {isPaused ||
-                job.remainingMinutes === undefined
-                  ? "—"
-                  : formatRemaining(job.remainingMinutes)}
               </span>
             </dd>
           </div>

@@ -82,7 +82,7 @@ describe("the printer cards", () => {
 
     expect(screen.getByText("41%")).toBeVisible()
     expect(screen.getByText("32 / 334")).toBeVisible()
-    expect(screen.getByText("2h 08m")).toBeVisible()
+    expect(screen.getByText("2h 08m left")).toBeVisible()
     expect(
       screen.getByText(
         "Touch Display 2 · Front Frame and Stand · Matte Black",
@@ -120,10 +120,16 @@ describe("the printer cards", () => {
     expect(
       screen.getByRole("button", { name: "Resume" }),
     ).toBeVisible()
-    expect(screen.getAllByText("—")).toHaveLength(2)
+    // One em dash, not two: `Finishes`. The time left is not a metric any
+    // more, and a paused card renders nothing in its place rather than a
+    // placeholder holding open a space for a number that does not exist.
+    expect(screen.getAllByText("—")).toHaveLength(1)
+    expect(
+      cards()[0]?.querySelector(".printer-band-remaining"),
+    ).toBeNull()
   })
 
-  test("the state reads beside the controls, and the band carries only the percentage", async () => {
+  test("the state reads beside the controls, and the band carries the time left and the percentage", async () => {
     await mountPrinterStatus([
       buildPrinterJob({ percent: 41, state: "printing" }),
     ])
@@ -151,7 +157,16 @@ describe("the printer cards", () => {
     expect(
       band?.querySelector(".printer-band-text")
         ?.textContent,
-    ).toBe("41%")
+    ).toBe("2h 08m left41%")
+
+    // The time left is not also a metric. The row is Layer and Finishes, plus
+    // Filament when the printer reported one.
+    expect(
+      [
+        ...(card?.querySelectorAll(".printer-metric dt") ??
+          []),
+      ].map((term) => term.textContent),
+    ).toEqual(["Layer", "Finishes", "Filament"])
   })
 
   test("a problem is named on the card", async () => {
