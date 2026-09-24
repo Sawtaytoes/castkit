@@ -140,11 +140,17 @@ describe("the printer cards", () => {
 
     expect(state?.textContent).toBe("Printing")
 
-    // It is a sibling of the buttons, in the head — not inside the band. This is
-    // the whole point of the shape, so it is asserted structurally rather than
-    // by reading the text back out of the document.
+    // It is a sibling of the buttons, inside the head's control group and not
+    // inside the band. This is the whole point of the shape, so it is asserted
+    // structurally rather than by reading the text back out of the document.
+    // The group exists so the chip and the buttons wrap together at three
+    // columns; the chip must never be separated from them.
+    const controls = state?.parentElement
     expect(
-      state?.parentElement?.classList.contains(
+      controls?.classList.contains("printer-head-controls"),
+    ).toBe(true)
+    expect(
+      controls?.parentElement?.classList.contains(
         "printer-head",
       ),
     ).toBe(true)
