@@ -83,6 +83,26 @@ export const DEFAULT_BROWSER_VIEW = BROWSER_VIEWS[0]!
 export const getBrowserViewsForDevice = (
   device: BrowserDeviceConfig,
 ): readonly BrowserViewDefinition[] => {
+  /*
+   * An external view that borrows a built-in view's name would silently WIN
+   * here, because the externals are concatenated last. That is not theoretical:
+   * the workbench panel carried an external view called "Printer Status"
+   * pointing at a camera wall, and the day a built-in view took that name the
+   * configured entry would have kept resolving to the iframe with nothing to
+   * say so. Refuse instead, and make the installation pick a name.
+   */
+  const builtInNames = new Set(
+    BROWSER_VIEWS.map((view) => view.name),
+  )
+  const borrowedName = device.externalViews.find((view) =>
+    builtInNames.has(view.name),
+  )?.name
+  if (borrowedName) {
+    throw new Error(
+      `Browser device ${device.id} has an external view named after a built-in view: ${borrowedName}`,
+    )
+  }
+
   const compatibleViews = BROWSER_VIEWS.concat(
     getExternalViewsForDevice(device),
   ).filter(
