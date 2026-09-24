@@ -1814,7 +1814,7 @@ html[data-grayscale-text="true"] {
   display: flex;
   flex: none;
   gap: 10px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .printer-index {
@@ -1944,27 +1944,71 @@ html[data-grayscale-text="true"] {
   opacity: 0.5;
 }
 
-/* Centered in the band; the row below puts the state on the number's baseline. */
+/*
+ * The band carries the percentage and nothing else. It is centered in the band
+ * and set against the right edge, so the filled part of the bar is free to run
+ * under it without a second thing to read.
+ */
 .printer-band-text {
   position: relative;
   display: flex;
-  align-items: center;
   height: 100%;
-  padding: 0 14px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 18px;
 }
 
-.printer-band-row {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-  justify-content: space-between;
-  width: 100%;
-}
-
+/*
+ * The state chip: the word sits beside the controls that change it, not inside
+ * the progress band.
+ *
+ * It takes its colour from the card's intent rather than naming a state, so a
+ * fourth state would need no rule here. The neutral case is deliberately the
+ * accent rather than a grey: "Printing" is the normal case and reads as calm,
+ * while a paused or faulted card is already tinted around it.
+ */
 .printer-state {
-  color: var(--fg-dim);
-  font-size: 15px;
-  font-weight: 600;
+  display: inline-flex;
+  flex: none;
+  gap: 7px;
+  align-items: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: color-mix(
+    in oklab,
+    var(--accent) 26%,
+    transparent
+  );
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.printer-card[data-intent="warning"] .printer-state {
+  background: color-mix(
+    in oklab,
+    var(--color-intent-warning-solid) 30%,
+    transparent
+  );
+  color: var(--color-intent-warning-content);
+}
+
+.printer-card[data-intent="danger"] .printer-state {
+  background: color-mix(
+    in oklab,
+    var(--color-intent-danger-solid) 30%,
+    transparent
+  );
+  color: var(--color-intent-danger-content);
+}
+
+.printer-state-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: currentcolor;
 }
 
 .printer-percent {
@@ -2076,7 +2120,13 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-status[data-count="1"] .printer-state {
-  font-size: 18px;
+  padding: 6px 14px;
+  font-size: 15px;
+}
+
+.printer-status[data-count="1"] .printer-state-dot {
+  width: 8px;
+  height: 8px;
 }
 
 .printer-status[data-count="1"] .printer-metric {
