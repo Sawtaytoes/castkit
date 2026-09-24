@@ -368,6 +368,14 @@ const toPositiveInteger = (
     : Math.round(parsed)
 }
 
+/** Lowercase, because the caller lowercases before it looks. */
+const ABSENT_VALUES = new Set([
+  "",
+  "none",
+  "unavailable",
+  "unknown",
+])
+
 const toTrimmedText = (
   value: unknown,
 ): string | undefined => {
@@ -377,10 +385,14 @@ const toTrimmedText = (
   const trimmed = value.trim()
   // HA templates render an absent entity as one of these rather than omitting
   // the key, so they are "no value", not text to put on the glass.
-  return trimmed === "" ||
-    trimmed === "unknown" ||
-    trimmed === "unavailable" ||
-    trimmed === "None"
+  //
+  // ⚠️ The comparison is CASE-INSENSITIVE, and that is not tidiness. The same
+  // absent tray reaches us in two spellings from the same integration: an
+  // ATTRIBUTE renders Python's None as "None", while the sensor's own STATE is
+  // the lowercase string "none". Matching only the capitalised form put the
+  // word `none` on the workbench panel under FILAMENT, on a printer paused
+  // with no tray loaded.
+  return ABSENT_VALUES.has(trimmed.toLowerCase())
     ? undefined
     : trimmed
 }
