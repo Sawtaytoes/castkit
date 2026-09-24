@@ -4,6 +4,7 @@ import type { RepaintGrade } from "../panels/repaint.ts"
 import type {
   AgendaData,
   NowPlayingData,
+  PrintersData,
   QueueData,
   WeatherData,
 } from "../viewData/types.ts"
@@ -48,6 +49,18 @@ export type BrowserDeviceSettings = {
    * payload stays valid; the client falls back to a device-local default.
    */
   clock?: BrowserClockConfig
+  /**
+   * Whether something has taken this panel over: a view a person asked for, or
+   * an app holding the glass (SpoolBuddy while a spool is on the load cell).
+   *
+   * RUNTIME, not configuration. Home Assistant publishes it NON-retained and
+   * the server keeps it in memory only, so a restart clears it. A retained
+   * `true` would leave a live edge region on a panel with nothing to hand back.
+   *
+   * The panel's hand-back edge exists only while this is true. See
+   * docs/decisions/2026-09-23-an-edge-hands-the-panel-back-and-draws-nothing.md.
+   */
+  isViewHeld?: boolean
 }
 
 /** Static capabilities inlined into the page shell and the snapshot. */
@@ -114,6 +127,7 @@ export type ViewDataState = {
   queue?: QueueData
   weather?: WeatherData
   agenda?: AgendaData
+  printers?: PrintersData
 }
 
 export type ServerToClientMessage =
@@ -130,6 +144,7 @@ export type ServerToClientMessage =
   | { type: "queue"; data: QueueData }
   | { type: "weather"; data: WeatherData }
   | { type: "agenda"; data: AgendaData }
+  | { type: "printers"; data: PrintersData }
   | { type: "settings"; settings: BrowserDeviceSettings }
   | { type: "reload" }
 

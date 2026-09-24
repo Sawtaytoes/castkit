@@ -103,6 +103,12 @@ export const WORKBENCH_PROFILE: BrowserDeviceProfile = {
  * Its native panel is 720×1280 portrait and the kiosk can run it either way,
  * so both orientations are separate profiles — the layouts differ completely
  * and a landscape-only story would hide half of what ships.
+ *
+ * The landscape one is the Basement 3D Printers Workbench Display, and its
+ * view drawer is OFF: that panel navigates by the undrawn hand-back edge now.
+ * A story that still drew the drawer handles would show two edge affordances
+ * the wall panel does not have. See
+ * docs/decisions/2026-09-23-an-edge-hands-the-panel-back-and-draws-nothing.md.
  */
 export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
   {
@@ -112,7 +118,7 @@ export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
     height: 720,
     shape: "rectangle",
     hasTouch: true,
-    hasViewDrawer: true,
+    hasViewDrawer: false,
     color: "full",
     ...LIVE_LCD_PANEL,
     externalViews: [
@@ -122,6 +128,10 @@ export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
       },
     ],
     views: [
+      {
+        name: "Printer Status",
+        clientId: "printer-status",
+      },
       ...TOUCH_VIEWS,
       { name: "SpoolBuddy", clientId: "external-view:0" },
     ],

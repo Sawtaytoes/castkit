@@ -37,6 +37,48 @@ Per printer, the payload carries:
 A printer is **active**, and therefore on the glass, while its print status is
 `prepare`, `running` or `pause`.
 
+### The topic and the payload
+
+Home Assistant publishes every active printer, together, retained, to
+`castkit/<device-id>/printers/set`:
+
+```json
+{
+  "printers": [
+    {
+      "id": "magi",
+      "name": "Magi",
+      "jobName": "Touch_Display_2_-_Front_Frame_and_Stand_-_Matte_Black_-_Magi",
+      "percent": 41,
+      "state": "printing",
+      "currentLayer": 32,
+      "totalLayers": 334,
+      "remainingMinutes": 128,
+      "finishAt": "2026-09-23T21:05:00-05:00",
+      "thumbnailPath": "/api/image_proxy/image.magi_cover_image?token=...",
+      "filamentText": "PLA Matte · AMS 3 slot 3",
+      "filamentColor": "1C1C1CFF",
+      "nozzleText": "0.4 mm hardened steel",
+      "problemText": "HMS_0300_0100_0001_0007 — filament ran out"
+    }
+  ]
+}
+```
+
+`id`, `name` and `state` are required; a row missing any of the three is
+dropped, because `id` is what a Pause is addressed to. `state` is `preparing`,
+`printing` or `paused` — the three CastKit draws. Everything else degrades: a
+job with no layer count still shows its percentage.
+
+⚠️ **`{ "printers": [] }` is a real answer and the one that clears the glass.**
+Publishing nothing leaves the last job on the panel forever.
+
+Two conveniences for an HA template. `finishAt` takes epoch milliseconds or an
+ISO timestamp, and is optional — CastKit computes the finish from
+`remainingMinutes` when it is absent. Every text field treats `""`, `unknown`,
+`unavailable` and `None` as absent, so a template does not have to guard each
+one.
+
 ⚠️ **No flow-rate field is available.** A printer reports the nozzle's diameter
 and its material, and nothing about high flow. Measured on three X1C units,
 2026-09-23: `nozzle_type` is `hardened_steel`, `nozzle_diameter` is `0.4`, and
@@ -51,7 +93,40 @@ existing split ([CastKit owns every control](decisions/2026-09-12-castkit-owns-e
 
 The confirmation is in the page, never a browser dialog. A remote-display
 receiver can return a touch to a named page target and cannot answer Chromium's
-own confirmation box.
+own confirmation box. It covers the panel rather than the card: at three columns
+a card has no room for a legible question, and stopping a print is not a
+decision to make against 13 px of type. A question nobody answers withdraws
+itself after twelve seconds — the next person to walk up to a wall panel did not
+ask it.
+
+Each confirmed control publishes one command on `castkit/<device-id>/command`,
+with the printer's own id as the value:
+
+```json
+{ "action": "printer_stop", "value": "magi" }
+```
+
+The actions are `printer_pause`, `printer_resume` and `printer_stop`. Home
+Assistant maps the id onto that printer's button entity. CastKit does NOT
+predict the result the way the media controls do: a pause takes seconds to take
+effect on the machine in the room, so the button shows its own pending label and
+the card waits for the printer's own state.
+
+## Leaving the view
+
+The panel's view drawer is off. An undrawn region at either edge hands the panel
+back to the automation — a 48 px inward pull or a tap, answered by one short
+confirmation ([decision](decisions/2026-09-23-an-edge-hands-the-panel-back-and-draws-nothing.md)).
+
+The region exists only while something has taken the panel over. Home Assistant
+says so through the `View hold` switch, which publishes `on` or `off` to
+`castkit/<device-id>/view_hold/set`. The automation that starts a hold turns it
+on; the one that lets the hold lapse turns it off. It is runtime state, never
+retained and never persisted, so a restart leaves no live edge with nothing to
+undo.
+
+The edge publishes `{ "action": "view_release" }`. It is a separate action from
+`view` on purpose: `view` starts a hold, and this ends one.
 
 ## Layout
 
@@ -118,4 +193,7 @@ them carried a person's name in the model itself. A PNG is opaque to every
 search, so nobody finds that later.
 
 The canonical preview is this view's Storybook story, rendered from fixture
-data at the panel profile, like every other view here.
+data at the panel profile, like every other view here. `Views/Printer Status`
+carries one story per panel plus the states that change the layout: one, two and
+three printers, a paused card, a card reporting a problem, a preparing card, and
+the idle panel.

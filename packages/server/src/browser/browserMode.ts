@@ -9,6 +9,7 @@ import type {
 import {
   parseAgendaPayload,
   parseNowPlayingPayload,
+  parsePrintersPayload,
   parseQueuePayload,
   parseWeatherPayload,
 } from "@castkit/shared/viewData/parsers"
@@ -190,11 +191,13 @@ export const createBrowserMode = ({
     const queue = viewDataStore.getQueue(deviceId)
     const weather = viewDataStore.getWeather(deviceId)
     const agenda = viewDataStore.getAgenda(deviceId)
+    const printers = viewDataStore.getPrinters(deviceId)
     return {
       ...(nowPlaying ? { nowPlaying } : {}),
       ...(queue ? { queue } : {}),
       ...(weather ? { weather } : {}),
       ...(agenda ? { agenda } : {}),
+      ...(printers ? { printers } : {}),
     }
   }
 
@@ -329,6 +332,8 @@ export const createBrowserMode = ({
     | "queueData"
     | "weatherData"
     | "agendaData"
+    | "printersData"
+    | "viewHold"
 
   const routes = new Map<
     string,
@@ -357,6 +362,8 @@ export const createBrowserMode = ({
       [topics.queueDataCommand, "queueData"],
       [topics.weatherDataCommand, "weatherData"],
       [topics.agendaDataCommand, "agendaData"],
+      [topics.printersDataCommand, "printersData"],
+      [topics.viewHoldCommand, "viewHold"],
     ]
     // The backlight level only means something when a backlight agent listens
     // on the device's MQTT light topics.
@@ -459,6 +466,20 @@ export const createBrowserMode = ({
         payload,
         isRestore: kind === "viewRestore",
       })
+      return
+    }
+    if (kind === "viewHold") {
+      // Runtime, not a knob: no restore, no retained state topic, no entry in
+      // `knobSetByDeviceId`. A server that restarts has nothing to hand back.
+      const isViewHeld = payload === "on"
+      if (!isViewHeld && payload !== "off") {
+        return
+      }
+      stateStore.setSettings({
+        deviceId,
+        settings: { isViewHeld },
+      })
+      broadcastSettings(deviceId)
       return
     }
     if (kind === "reload") {
@@ -710,6 +731,17 @@ export const createBrowserMode = ({
       hub.broadcast({
         deviceId,
         message: { type: "agenda", data },
+      })
+      return
+    }
+    if (kind === "printersData") {
+      const data = parsePrintersPayload(
+        parseJsonPayload(payload),
+      )
+      viewDataStore.setPrinters({ deviceId, data })
+      hub.broadcast({
+        deviceId,
+        message: { type: "printers", data },
       })
     }
   }

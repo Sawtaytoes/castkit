@@ -106,3 +106,64 @@ export type AgendaEvent = {
 export type AgendaData = {
   events: readonly AgendaEvent[]
 }
+
+/**
+ * How far along a print is. `preparing` covers every pre-print stage the
+ * printer reports (heating, bed levelling, purging); `printing` and `paused`
+ * are the two states a person acts on. A printer in any other state is not
+ * active and Home Assistant leaves it out of the payload entirely — the view
+ * shows only what is running right now.
+ */
+export const PRINTER_JOB_STATES = [
+  "preparing",
+  "printing",
+  "paused",
+] as const
+
+export type PrinterJobState =
+  (typeof PRINTER_JOB_STATES)[number]
+
+/** One active printer, as pushed by Home Assistant. */
+export type PrinterJob = {
+  /**
+   * Stable id for this printer. It is echoed back on a pause/resume/stop
+   * command, so the automation knows which machine the tap meant. HA picks it
+   * (the device slug); CastKit only carries it.
+   */
+  id: string
+  /** The printer's own name, e.g. "Magi". */
+  name: string
+  /** The sliced file's name, unmodified. The view shortens it for display. */
+  jobName: string
+  /** Print progress, 0–100. */
+  percent: number
+  state: PrinterJobState
+  currentLayer?: number
+  totalLayers?: number
+  /** Minutes of print left, as the printer reports them. */
+  remainingMinutes?: number
+  /** Epoch ms the print is expected to finish, so the view formats the time. */
+  finishAtMs?: number
+  /** Plate preview URL HA pushed (an HA `image` entity's proxy path). */
+  thumbnailPath?: string
+  /** The loaded filament, e.g. "Matte Black PLA". */
+  filamentText?: string
+  /** That filament's color as `#rrggbb`, for the swatch beside the text. */
+  filamentColor?: string
+  /** The nozzle in use, e.g. "0.4 mm hardened steel". */
+  nozzleText?: string
+  /**
+   * A fault the printer is reporting. Present means the card shows its problem
+   * banner; the text is HA's, because only HA can read the HMS code table.
+   */
+  problemText?: string
+}
+
+/**
+ * Every printer that is printing right now, in the order Home Assistant sent
+ * them. An empty list is meaningful: it is how the view knows to say that
+ * nothing is printing, rather than holding the last job on the glass forever.
+ */
+export type PrintersData = {
+  printers: readonly PrinterJob[]
+}

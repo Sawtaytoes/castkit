@@ -8,6 +8,8 @@ import type {
   AgendaData,
   AgendaEvent,
   NowPlayingData,
+  PrinterJob,
+  PrintersData,
   QueueData,
   WeatherData,
 } from "@castkit/shared/viewData/types"
@@ -125,6 +127,38 @@ export const buildAgenda = (
       startMs: Date.now() + 3 * HOUR_MILLIS,
     }),
   ],
+  ...overrides,
+})
+
+/**
+ * One active printer, exactly as Home Assistant pushes it. The file name keeps
+ * the slicer's `_-_` separators and its trailing printer name, because that is
+ * what the card's shortener has to survive.
+ */
+export const buildPrinterJob = (
+  overrides: Partial<PrinterJob> = {},
+): PrinterJob => ({
+  id: "magi",
+  name: "Magi",
+  jobName:
+    "Touch_Display_2_-_Front_Frame_and_Stand_-_Matte_Black_-_Magi",
+  percent: 41,
+  state: "printing",
+  currentLayer: 32,
+  totalLayers: 334,
+  remainingMinutes: 128,
+  thumbnailPath: "/plate-magi.png",
+  filamentText: "PLA Matte · AMS 3 slot 3",
+  filamentColor: "#1c1c1c",
+  nozzleText: "0.4 mm hardened steel",
+  ...overrides,
+})
+
+/** Every printer that is printing right now. */
+export const buildPrinters = (
+  overrides: Partial<PrintersData> = {},
+): PrintersData => ({
+  printers: [buildPrinterJob()],
   ...overrides,
 })
 

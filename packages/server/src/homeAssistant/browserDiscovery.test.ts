@@ -65,6 +65,7 @@ describe("buildBrowserDiscoveryMessages", () => {
       "homeassistant/sensor/castkit/dev-square_url/config",
       "homeassistant/binary_sensor/castkit/dev-square_connected/config",
       "homeassistant/select/castkit/dev-square_theme/config",
+      "homeassistant/switch/castkit/dev-square_view_hold/config",
       "homeassistant/light/castkit/dev-square_backlight/config",
       "homeassistant/number/castkit/dev-square_backlight_level/config",
       "homeassistant/select/castkit/dev-square_rotation/config",
@@ -151,6 +152,7 @@ describe("buildBrowserDiscoveryMessages", () => {
       "Weather",
       "Calendar",
       "Photo Frame",
+      "Printer Status",
       "Touch Test",
       "Disc App",
     ])

@@ -77,6 +77,13 @@ export const buildBrowserDeviceTopics = ({
     queueDataCommand: `${base}/queue/set`,
     weatherDataCommand: `${base}/weather/set`,
     agendaDataCommand: `${base}/agenda/set`,
+    // Every printer that is printing right now. Browser mode only: the ePaper
+    // panels have no Printer Status view, and a job's percentage changes far
+    // too often for a panel that repaints in seconds.
+    printersDataCommand: `${base}/printers/set`,
+    // Whether a person or an app is holding this panel on a view. NOT retained
+    // and NOT persisted — see `BrowserDeviceSettings.isViewHeld`.
+    viewHoldCommand: `${base}/view_hold/set`,
     // Device → house: taps become one JSON command topic HA automations act
     // on. NOT retained. See the pure-MQTT command-path decision record.
     command: `${base}/command`,
@@ -191,6 +198,35 @@ export const buildBrowserDiscoveryMessages = ({
         device: deviceBlock,
       },
     },
+    ...(device.hasTouch
+      ? [
+          {
+            // Whether a person or an app is holding this panel on a view. The
+            // panel's hand-back edge exists only while this is on, so the
+            // automation that starts a hold must turn it on and the one that
+            // lets the hold lapse must turn it off.
+            //
+            // OPTIMISTIC on purpose: no state topic, so nothing is retained
+            // and a restart leaves no stale hold. Home Assistant is the only
+            // writer, so HA already knows the value it last sent.
+            topic: discoveryTopic("switch", "view_hold"),
+            isRetained: true as const,
+            payload: {
+              ...availability,
+              name: "View hold",
+              unique_id: `castkit_${device.id}_view_hold`,
+              command_topic: topics.viewHoldCommand,
+              payload_on: "on",
+              payload_off: "off",
+              optimistic: true,
+              retain: false,
+              icon: "mdi:gesture-tap-hold",
+              entity_category: "config",
+              device: deviceBlock,
+            },
+          },
+        ]
+      : []),
     ...(device.hasMqttBacklight
       ? [
           {

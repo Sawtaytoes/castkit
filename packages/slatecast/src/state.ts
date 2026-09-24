@@ -9,6 +9,7 @@ import {
 import type {
   AgendaData,
   NowPlayingData,
+  PrintersData,
   QueueData,
   WeatherData,
 } from "@castkit/shared/viewData/types"
@@ -168,6 +169,18 @@ export const agenda = signal<AgendaData | null>(
   inlineSnapshot?.data.agenda ?? null,
 )
 /**
+ * Every printer Home Assistant says is printing right now.
+ *
+ * Deliberately NOT predicted the way now-playing is. A pause on a Bambu takes
+ * seconds to take effect and the printer reports its own state throughout, so
+ * painting "Paused" the instant a finger lifts would be a claim about a machine
+ * in the room that the machine has not made yet. The button shows its own
+ * pending state instead and the card waits for the printer.
+ */
+export const printers = signal<PrintersData | null>(
+  inlineSnapshot?.data.printers ?? null,
+)
+/**
  * The socket's lifecycle, as `@charcuterie/logic`'s shared connection machine.
  *
  * It was `signal(false)`, which is the collapse that machine's ADR predicted:
@@ -287,6 +300,7 @@ const applyMessage = (message: ServerToClientMessage) => {
     queue.value = message.data.queue ?? null
     weather.value = message.data.weather ?? null
     agenda.value = message.data.agenda ?? null
+    printers.value = message.data.printers ?? null
     return
   }
   if (message.type === "view") {
@@ -322,6 +336,10 @@ const applyMessage = (message: ServerToClientMessage) => {
   }
   if (message.type === "agenda") {
     agenda.value = message.data
+    return
+  }
+  if (message.type === "printers") {
+    printers.value = message.data
     return
   }
   if (message.type === "reload") {
@@ -434,6 +452,38 @@ export const setVolume = (volume: number) => {
       VOLUME_SEND_INTERVAL_MS - sinceLastSendMs,
     )
   }
+}
+
+/**
+ * Pause, resume or stop one printer. The id is the one Home Assistant pushed
+ * with the card, so the automation never has to guess which machine a tap on a
+ * three-column panel meant.
+ */
+export const pausePrinter = (printerId: string) => {
+  sendCommand({ action: "printer_pause", value: printerId })
+}
+
+export const resumePrinter = (printerId: string) => {
+  sendCommand({
+    action: "printer_resume",
+    value: printerId,
+  })
+}
+
+export const stopPrinter = (printerId: string) => {
+  sendCommand({ action: "printer_stop", value: printerId })
+}
+
+/**
+ * Hand the panel back to the house: end whatever manual view hold is running
+ * and let the automation choose again, from now.
+ *
+ * It is a separate action rather than `view` with some "auto" id because the
+ * two mean opposite things. `view` starts a hold; this ends one. Sending a
+ * view id would only start another hold on whatever the house picked.
+ */
+export const releaseView = () => {
+  sendCommand({ action: "view_release" })
 }
 
 /** First reconnect delay; doubles per consecutive failure. */
@@ -585,5 +635,6 @@ export const __resetStateForTests = () => {
   queue.value = snapshot?.data.queue ?? null
   weather.value = snapshot?.data.weather ?? null
   agenda.value = snapshot?.data.agenda ?? null
+  printers.value = snapshot?.data.printers ?? null
   scrubPositionSeconds.value = null
 }

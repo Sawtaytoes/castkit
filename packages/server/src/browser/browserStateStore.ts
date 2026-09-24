@@ -43,6 +43,8 @@ export const createBrowserStateStore = ({
     // selectable option for anyone whose panel really does track an OS scheme.
     theme: "Dark",
     photoIntervalMinutes: DEFAULT_PHOTO_INTERVAL_MINUTES,
+    // Nothing holds a panel that has just booted.
+    isViewHeld: false,
   })
 
   const getDefaultView = (deviceId: string) => {
