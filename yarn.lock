@@ -349,6 +349,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@castkit/admin@workspace:packages/admin"
   dependencies:
+    "@castkit/sdk": "workspace:*"
     "@charcuterie/logic": "npm:^2.4.0"
     "@charcuterie/server": "npm:^0.5.1"
     "@charcuterie/tokens": "npm:^1.10.1"
@@ -400,12 +401,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@castkit/sdk@workspace:*, @castkit/sdk@workspace:packages/sdk":
+  version: 0.0.0-use.local
+  resolution: "@castkit/sdk@workspace:packages/sdk"
+  dependencies:
+    typescript: "npm:^6.0.3"
+    zod: "npm:^4.4.3"
+  languageName: unknown
+  linkType: soft
+
 "@castkit/server@workspace:packages/server":
   version: 0.0.0-use.local
   resolution: "@castkit/server@workspace:packages/server"
   dependencies:
     "@castkit/core": "workspace:*"
     "@castkit/render": "workspace:*"
+    "@castkit/sdk": "workspace:*"
     "@castkit/shared": "workspace:*"
     "@castkit/views": "workspace:*"
     "@charcuterie/server": "npm:^0.5.1"
@@ -441,6 +452,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@castkit/slatecast@workspace:packages/slatecast"
   dependencies:
+    "@castkit/sdk": "workspace:*"
     "@castkit/shared": "workspace:*"
     "@charcuterie/logic": "npm:^2.4.0"
     "@charcuterie/server": "npm:^0.5.1"

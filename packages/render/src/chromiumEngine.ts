@@ -125,6 +125,66 @@ export const createChromiumEngine = async (): Promise<
   return {
     name: "chromium",
     render,
+    renderUrl: async ({
+      url,
+      width,
+      height,
+      supersampleFactor,
+      headers,
+    }) => {
+      const origin = new URL(url).origin
+      const context = await browser.newContext({
+        viewport: { width, height },
+        deviceScaleFactor: supersampleFactor,
+      })
+      try {
+        await context.route("**/*", (route) =>
+          new URL(route.request().url()).origin === origin
+            ? route.continue({
+                headers: {
+                  ...route.request().headers(),
+                  ...headers,
+                },
+              })
+            : route.abort(),
+        )
+        await context.routeWebSocket("**/*", (socket) => {
+          socket.close()
+        })
+        const page = await context.newPage()
+        await page.goto(url, {
+          waitUntil: "domcontentloaded",
+          timeout: 15000,
+        })
+        await page
+          .locator('[data-castkit-ready="true"]')
+          .waitFor({ timeout: 10000 })
+        await page.evaluate(() => document.fonts.ready)
+        await page.evaluate(async () => {
+          await Promise.all(
+            Array.from(document.images).map((image) =>
+              image.complete
+                ? Promise.resolve()
+                : Promise.race([
+                    new Promise<void>((resolve) => {
+                      image.onload = () => resolve()
+                      image.onerror = () => resolve()
+                    }),
+                    new Promise<void>((resolve) =>
+                      setTimeout(resolve, 2000),
+                    ),
+                  ]),
+            ),
+          )
+        })
+        return await page.screenshot({
+          type: "png",
+          clip: { x: 0, y: 0, width, height },
+        })
+      } finally {
+        await context.close()
+      }
+    },
     close: () => browser.close(),
   }
 }

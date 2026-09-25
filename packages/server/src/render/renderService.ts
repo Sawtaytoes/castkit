@@ -10,6 +10,7 @@ import type { RenderEngine } from "@castkit/render/engine"
 import { renderDeviceImage } from "@castkit/render/renderDeviceImage"
 import { createSatoriEngine } from "@castkit/render/satoriEngine"
 import type { ViewName } from "@castkit/shared/views/viewNames"
+import { createElement } from "react"
 import type {
   AgendaData,
   NowPlayingData,
@@ -38,6 +39,13 @@ export type RenderService = {
     adjustments?: DitherAdjustments
     margin?: PanelMargin
     fullColorEncoding?: FullColorEncoding
+  }) => Promise<Buffer>
+  renderPage: (params: {
+    device: DeviceMetadata
+    url: string
+    headers?: Record<string, string>
+    margin?: PanelMargin
+    adjustments?: DitherAdjustments
   }) => Promise<Buffer>
   close: () => Promise<void>
 }
@@ -99,6 +107,37 @@ export const createRenderService = async ({
         adjustments,
         margin,
         fullColorEncoding,
+      })
+    },
+    renderPage: async ({
+      device,
+      url,
+      headers,
+      margin,
+      adjustments,
+    }) => {
+      if (!engine.renderUrl)
+        throw new Error(
+          "Composed views on image displays require the Chromium render engine",
+        )
+      const renderUrl = engine.renderUrl
+      return renderDeviceImage({
+        device,
+        margin,
+        adjustments,
+        element: createElement("div"),
+        engine: {
+          name: "chromium",
+          render: ({ width, height, supersampleFactor }) =>
+            renderUrl({
+              url,
+              headers,
+              width,
+              height,
+              supersampleFactor,
+            }),
+        },
+        fullColorEncoding: { format: "png" },
       })
     },
     close: async () => {

@@ -20,6 +20,7 @@ RUN npm install -g corepack@latest && corepack enable yarn
 # --- Dependency layer (only manifests, so source edits don't bust the install) ---
 COPY .yarnrc.yml package.json yarn.lock ./
 COPY .yarn .yarn
+COPY packages/sdk/package.json packages/sdk/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/slatecast/package.json packages/slatecast/package.json
 COPY packages/core/package.json packages/core/package.json

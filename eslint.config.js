@@ -30,6 +30,8 @@ export default defineConfig(
       "**/scripts/**",
       "**/storybook-static/**",
       "docs/**",
+      "test-results/**",
+      "playwright-report/**",
     ],
   },
   createTypedRules({

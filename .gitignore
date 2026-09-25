@@ -56,3 +56,7 @@ test-results/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Private display platform state, credentials, sessions, and local history
+data/platform.json*
+*.platform.json*

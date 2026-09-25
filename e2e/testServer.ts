@@ -6,9 +6,15 @@ import type {
   MqttPublisher,
 } from "@castkit/shared/mqtt/publisher"
 import { serve } from "@hono/node-server"
-import { Hono } from "hono"
+import { createApp } from "../packages/server/src/app.ts"
 import { createBrowserMode } from "../packages/server/src/browser/browserMode.ts"
 import { loadConfig } from "../packages/server/src/config/env.ts"
+import { createPlatform } from "../packages/server/src/platform/platform.ts"
+import { attachPlatformSockets } from "../packages/server/src/platform/platformSockets.ts"
+import { hashPin } from "../packages/server/src/platform/platformStore.ts"
+import { createDeviceDefinitionStore } from "../packages/server/src/state/deviceDefinitionStore.ts"
+import { createDeviceStore } from "../packages/server/src/state/deviceStore.ts"
+import { createRenderTokenStore } from "../packages/server/src/state/renderTokenStore.ts"
 
 /**
  * Boots the REAL CastKit server — real page shell, real `/d/<id>/ws` hub, real
@@ -83,6 +89,7 @@ export const startTestServer = async ({
         height: 720,
         shape: "square",
         hasTouch: true,
+        hasViewDrawer: true,
         color: "full",
         externalViews: [
           {
@@ -113,7 +120,103 @@ export const startTestServer = async ({
   })
   await browserMode.start()
 
-  const app = new Hono()
+  const platform = await createPlatform({
+    publisher,
+    browserDevices: config.browserDevices,
+  })
+  platform.store.update((previous) => ({
+    ...previous,
+    adminHash: hashPin("2468"),
+    sources: [
+      {
+        id: "events",
+        name: "Events",
+        adapter: "mqtt",
+        settings: {},
+        isEnabled: true,
+      },
+    ],
+    channels: [
+      {
+        id: "printers/lab",
+        name: "Lab printers",
+        sourceId: "events",
+        type: "printers.v1",
+        settings: {},
+      },
+    ],
+    views: [
+      {
+        id: "lab",
+        name: "Lab",
+        layout: "split",
+        theme: "dark",
+        access: "public",
+        isControlEnabled: false,
+        panels: [
+          {
+            id: "printers",
+            specId: "printer-status",
+            bindings: { data: "printers/lab" },
+            settings: {},
+          },
+          {
+            id: "time",
+            specId: "clock",
+            bindings: {} as Record<string, string>,
+            settings: {},
+          },
+        ],
+      },
+      {
+        id: "private-lab",
+        name: "Private lab",
+        layout: "single",
+        theme: "dark",
+        access: "pin",
+        isControlEnabled: false,
+        panels: [
+          {
+            id: "printers",
+            specId: "printer-status",
+            bindings: { data: "printers/lab" },
+            settings: {},
+          },
+        ],
+      },
+    ],
+    screens: [
+      {
+        id: "desktop",
+        name: "Desktop",
+        access: "public",
+        defaultViewId: "lab",
+        viewIds: ["lab"],
+      },
+    ],
+    pinHashes: { "view:private-lab": hashPin("1357") },
+  }))
+  await platform.refresh()
+  const app = createApp({
+    config,
+    platform,
+    deviceStore: createDeviceStore({ deviceIds: [] }),
+    deviceDefinitionStore: createDeviceDefinitionStore({
+      devices: config.devices,
+      browserDevices: config.browserDevices,
+      devicesFile,
+    }),
+    getDeviceSettings: browserMode.getDeviceSettings,
+    onDeviceDefinitionsChanged: () => {},
+    setDeviceSetting: browserMode.setDeviceSetting,
+    pushController: {
+      deviceById: new Map(),
+      renderDevice: async () => null,
+      pushDevice: async () => false,
+      setView: async () => false,
+    },
+    renderTokenStore: createRenderTokenStore(),
+  })
 
   // Stand in for Home Assistant publishing to a topic the server subscribed to.
   app.post("/__test__/mqtt", async (context) => {
@@ -146,12 +249,18 @@ export const startTestServer = async ({
     ),
   )
 
-  const { injectWebSocket } = browserMode.attach(app)
+  const { injectWebSocket, upgradeWebSocket } =
+    browserMode.attach(app, {
+      getPlatformScreenId: (deviceId) =>
+        platform.store.get().deviceScreens[deviceId],
+    })
+  attachPlatformSockets({ app, platform, upgradeWebSocket })
   const server = serve({ fetch: app.fetch, port })
   injectWebSocket(server)
 
   return {
     close: async () => {
+      platform.dispose()
       await new Promise<void>((resolve) => {
         server.close(() => {
           resolve()

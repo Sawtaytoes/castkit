@@ -4,7 +4,7 @@
 - **Date:** 2026-07-07
 - **Type:** Architecture
 - **Supersedes:** the MA-WebSocket-primary + token-proxy recommendation in `home-displays/docs/custom-ma-controller-build-handoff.md` (external doc, marked superseded there)
-- **Superseded by:** —
+- **Superseded by:** — [Named channels and extensions](2026-09-25-named-channels-and-extensions-drive-reusable-views.md) partially supersedes the exclusive producer/transport restriction; existing paths remain supported.
 
 ## Decision
 

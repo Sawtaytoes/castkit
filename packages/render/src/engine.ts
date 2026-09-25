@@ -21,4 +21,12 @@ export type RenderRequest = {
 export type RenderEngine = {
   name: "chromium" | "satori"
   render: (request: RenderRequest) => Promise<Buffer>
+  /** Capture a trusted application page through the same reusable browser. */
+  renderUrl?: (request: {
+    url: string
+    width: number
+    height: number
+    supersampleFactor: number
+    headers?: Record<string, string>
+  }) => Promise<Buffer>
 }

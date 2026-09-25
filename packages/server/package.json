@@ -16,6 +16,7 @@
   "dependencies": {
     "@castkit/core": "workspace:*",
     "@castkit/render": "workspace:*",
+    "@castkit/sdk": "workspace:*",
     "@castkit/shared": "workspace:*",
     "@castkit/views": "workspace:*",
     "@charcuterie/server": "^0.5.1",

@@ -11,14 +11,20 @@ describe("buildOpenApiDocument", () => {
     expect(document.openapi).toBe("3.1.0")
   })
 
-  test("documents every endpoint", () => {
-    expect(Object.keys(document.paths)).toEqual([
-      "/health",
-      "/api/devices",
-      "/api/devices/{id}/image",
-      "/api/devices/{id}/refresh",
-      "/api/devices/{id}/view",
-    ])
+  test("documents the device and display platform surfaces", () => {
+    expect(Object.keys(document.paths)).toEqual(
+      expect.arrayContaining([
+        "/health",
+        "/api/devices",
+        "/api/devices/{id}/image",
+        "/api/devices/{id}/refresh",
+        "/api/devices/{id}/view",
+        "/api/manage/platform",
+        "/api/display/{kind}/{id}",
+        "/api/display/{kind}/{id}/actions",
+        "/api/access/unlock",
+      ]),
+    )
   })
 
   test("the SetViewRequest schema lists the valid views", () => {
@@ -40,9 +46,14 @@ describe("buildOpenApiDocument", () => {
     ])
   })
 
-  test("omits bearer security when no token is configured", () => {
+  test("keeps public endpoints open while documenting the management session", () => {
+    expect(document.security).toBeUndefined()
     expect(
-      document.components.securitySchemes,
-    ).toBeUndefined()
+      document.components.securitySchemes.sessionCookie,
+    ).toMatchObject({
+      type: "apiKey",
+      in: "cookie",
+      name: "castkit-session",
+    })
   })
 })

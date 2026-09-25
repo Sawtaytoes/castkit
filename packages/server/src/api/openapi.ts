@@ -1,5 +1,6 @@
 import * as z from "zod/mini"
 import type { InkcastConfig } from "../config/env.ts"
+import { buildPlatformOpenApi } from "../platform/platformOpenApi.ts"
 import {
   DevicesResponseSchema,
   ErrorResponseSchema,
@@ -50,13 +51,13 @@ export const buildOpenApiDocument = ({
 }) => {
   const hasAuth = Boolean(config.apiToken)
 
-  return {
+  const document = {
     openapi: "3.1.0",
     info: {
       title: "CastKit API",
       version: "0.1.0",
       description:
-        "Render and push ePaper displays. List devices, fetch the current rendered image, force a refresh, or switch a device's active view. The same actions are available over MQTT.",
+        "Compose views from named data channels. Manage sources, plugins, browser screens and physical displays. Unlock private targets with scoped kiosk sessions. Screen selection is also available over MQTT.",
     },
     servers: [{ url: `http://localhost:${config.port}` }],
     ...(hasAuth
@@ -183,5 +184,21 @@ export const buildOpenApiDocument = ({
         },
       },
     },
+  }
+  return {
+    ...document,
+    components: {
+      ...document.components,
+      securitySchemes: {
+        ...document.components.securitySchemes,
+        sessionCookie: {
+          type: "apiKey",
+          in: "cookie",
+          name: "castkit-session",
+        },
+        bearerAuth: { type: "http", scheme: "bearer" },
+      },
+    },
+    paths: { ...document.paths, ...buildPlatformOpenApi() },
   }
 }
