@@ -27,7 +27,7 @@ export const normalizeMqttPayload = ({
     type === "now-playing.v1" &&
     typeof raw.title === "string"
   ) {
-    return parseNowPlayingPayload({
+    const parsed = parseNowPlayingPayload({
       ...raw,
       artwork: raw.artwork ?? raw.artworkPath,
       position: raw.position ?? raw.positionSeconds,
@@ -35,6 +35,9 @@ export const normalizeMqttPayload = ({
         raw.positionUpdatedAt ?? raw.positionUpdatedAtMs,
       duration: raw.duration ?? raw.durationSeconds,
     })
+    const entityId =
+      textValue(raw.entityId) || textValue(raw.entity_id)
+    return { ...parsed, ...(entityId ? { entityId } : {}) }
   }
   const schema =
     builtinContractSchemas[
