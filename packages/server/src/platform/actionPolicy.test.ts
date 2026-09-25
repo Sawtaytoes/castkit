@@ -38,3 +38,35 @@ test.each([
     }),
   ).toThrow(/invalid/)
 })
+
+test("now-playing controls are restricted to the player shown by the channel", () => {
+  const request = {
+    panel: {
+      id: "media",
+      specId: "now-playing",
+      bindings: { data: "room" },
+      settings: {},
+    },
+    channels: {
+      room: {
+        id: "room",
+        type: "now-playing.v1",
+        status: "ready" as const,
+        data: { entityId: "media_player.room" },
+      },
+    },
+    channelId: "room",
+    action: "media_pause",
+    payload: { entityId: "media_player.room" },
+  }
+  expect(() => assertActionAllowed(request)).not.toThrow()
+  expect(() =>
+    assertActionAllowed({
+      ...request,
+      payload: { entityId: "media_player.other" },
+    }),
+  ).toThrow(/current player/)
+  expect(() =>
+    assertActionAllowed({ ...request, payload: {} }),
+  ).toThrow(/current player/)
+})

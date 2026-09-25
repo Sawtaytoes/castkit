@@ -90,6 +90,15 @@ export const assertActionAllowed = ({
     )
   const channel = channels[channelId]
   const data = object(channel?.data)
+  if (
+    channel?.type === "now-playing.v1" &&
+    (typeof data.entityId !== "string" ||
+      !data.entityId ||
+      payload.entityId !== data.entityId)
+  )
+    throw new Error(
+      "The media player is not the current player in this channel",
+    )
   if (channel?.type === "entities.v1") {
     const entities = Array.isArray(data.entities)
       ? (data.entities as {
