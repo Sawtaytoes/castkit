@@ -299,10 +299,16 @@ export const createBambuddySource: SourceFactory = (
           "This media is not part of the selected printers.",
         )
       }
+      // Bambuddy guards the plate cover with the same stream token as the
+      // camera snapshot; without it the cover answers 401 and every card
+      // that hides its camera shows a broken picture.
+      const token = encodeURIComponent(
+        await getCameraToken(),
+      )
       return sourceRequest({
         context,
         headers,
-        path: `/api/v1/printers/${encodeURIComponent(assetId)}/${kind === "camera" ? `camera/snapshot?token=${encodeURIComponent(await getCameraToken())}` : "cover"}`,
+        path: `/api/v1/printers/${encodeURIComponent(assetId)}/${kind === "camera" ? "camera/snapshot" : "cover"}?token=${token}`,
         timeoutMilliseconds:
           kind === "camera" ? 20000 : 10000,
       })
