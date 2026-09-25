@@ -91,3 +91,59 @@ test("invalid history files report the error and state histories preserve unavai
   await history.flush()
   await rm(directory, { recursive: true, force: true })
 })
+
+test("a 30-day window survives restart and still removes expired samples", async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "castkit-history-month-"),
+  )
+  const file = join(directory, "history.json")
+  const clock = { now: Date.parse("2026-03-01T00:00:00Z") }
+  const atDaysAgo = (days: number) =>
+    new Date(clock.now - days * 86400000).toISOString()
+  const retainedTime = atDaysAgo(29)
+  await writeFile(
+    file,
+    JSON.stringify({
+      version: 1,
+      channels: [
+        {
+          id: "chart",
+          entities: [
+            {
+              id: entity.id,
+              samples: [
+                { time: atDaysAgo(31), value: 1 },
+                { time: retainedTime, value: 2 },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  )
+  const history = createChannelHistory({
+    file,
+    now: () => clock.now,
+  })
+  expect(
+    history.append({
+      channelId: "chart",
+      entities: [{ ...entity, state: "3" }],
+      hours: 720,
+    })[0]?.attributes.history,
+  ).toEqual([
+    { time: retainedTime, value: 2 },
+    { time: new Date(clock.now).toISOString(), value: 3 },
+  ])
+  clock.now += 2 * 86400000
+  expect(
+    history.append({
+      channelId: "chart",
+      entities: [{ ...entity, state: "4" }],
+      hours: 720,
+    })[0]?.attributes.history,
+  ).toHaveLength(2)
+  history.dispose()
+  await history.flush()
+  await rm(directory, { recursive: true, force: true })
+})

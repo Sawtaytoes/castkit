@@ -242,6 +242,14 @@ export const buildPlatformOpenApi = () => {
         },
       },
     },
+    "/api/display/screen/{id}/select": {
+      parameters: [pathId],
+      post: post(
+        "Choose an allowed view using this screen's access grant",
+        { viewId: { type: "string" } },
+        ["viewId"],
+      ),
+    },
     "/api/display/{kind}/{id}/actions": {
       parameters: targetParameters,
       post: post(

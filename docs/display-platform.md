@@ -9,6 +9,8 @@
 5. Set presentation, theme, control, and access options. Save and open `/view/<id>`.
 6. For remote switching, create a screen with a default view and an allowed list. Open `/screen/<id>`.
 
+Use the View menu on a browser screen to choose one of its allowed views. Links to another allowed view stay within that screen, so its address and PIN grant remain valid. Physical displays show navigation only when their view drawer is enabled.
+
 Two browser windows with the same screen URL mirror its selected view. Different screen IDs are independent. The layout follows the browser window size.
 
 ## Physical displays
@@ -27,7 +29,7 @@ With MQTT enabled, each screen publishes a Home Assistant select entity. Its com
 {"viewId":"activity","durationSeconds":120,"priority":100}
 ```
 
-The highest priority wins. A more recent request wins a tie. When an override expires, the next active override or saved selection returns. A persistent selection clears temporary overrides. Numeric and state histories can also accumulate from selected MQTT channels. Set a channel's history window to retain its changes across restarts. Existing Home Assistant history is not fetched automatically by the MQTT adapter.
+The highest priority wins. A more recent request wins a tie. When an override expires, the next active override or saved selection returns. A persistent selection clears temporary overrides. Numeric and state histories can also accumulate from selected MQTT channels. Set a channel's history window to retain its changes across restarts, up to 720 hours (30 days). Each entity retains at most 2,000 samples, so frequent changes can shorten the available period. File and total sample limits still apply. Existing Home Assistant history is not fetched automatically by the MQTT adapter.
 
 The equivalent HTTP endpoint is `POST /api/manage/platform/screens/<id>/select`.
 

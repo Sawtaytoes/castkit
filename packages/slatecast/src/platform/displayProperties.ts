@@ -14,6 +14,7 @@ export type DisplayProperties = {
   width?: number
   height?: number
   hasTouch?: boolean
+  hasViewDrawer?: boolean
   colorMode?: string
 }
 /** Browser links have instant repaint and interactive controls unless assigned a physical display. */

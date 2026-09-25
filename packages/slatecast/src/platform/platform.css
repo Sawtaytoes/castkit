@@ -551,7 +551,8 @@
   .platform-printer-image {
     max-block-size: 25vh;
   }
-  .platform[data-device="true"] > .platform-header {
+  .platform[data-device="true"][data-screen-navigation="false"]
+    > .platform-header {
     display: none;
   }
 }
@@ -771,4 +772,15 @@
   width: 0.75rem;
   height: 0.75rem;
   border-radius: 0.15rem;
+}
+
+.platform-view-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 14px;
+}
+.platform-view-picker select {
+  max-inline-size: min(32vw, 360px);
+  min-inline-size: 100px;
 }

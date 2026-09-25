@@ -226,6 +226,10 @@ export const createPlatform = async ({
         "hasTouch" in device
           ? Boolean(device.hasTouch)
           : false,
+      hasViewDrawer:
+        "hasViewDrawer" in device
+          ? Boolean(device.hasViewDrawer)
+          : false,
       colorMode:
         "colorMode" in device
           ? device.colorMode

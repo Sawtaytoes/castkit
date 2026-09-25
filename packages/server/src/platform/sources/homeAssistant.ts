@@ -209,7 +209,7 @@ export const createHomeAssistantSource: SourceFactory = (
     )
   const getHistory = async (channel: ChannelDefinition) => {
     const hours = Math.min(
-      168,
+      720,
       Math.max(
         0,
         finiteNumber(channel.settings.historyHours) ?? 0,
