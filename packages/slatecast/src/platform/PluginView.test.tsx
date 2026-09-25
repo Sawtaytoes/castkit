@@ -7,6 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/preact"
+import userEvent from "@testing-library/user-event"
 import { expect, test, vi } from "vitest"
 import { Panel } from "./Panel.tsx"
 import { PluginView } from "./PluginView.tsx"
@@ -28,7 +29,7 @@ const channels = {
   },
 }
 
-test("an extension receives only bound channels and updates before it is destroyed", async () => {
+test("a legacy dotted plugin receives bound channels and updates before it is destroyed", async () => {
   const update = vi.fn()
   const destroy = vi.fn()
   const received: { host?: ViewHost } = {}
@@ -45,7 +46,7 @@ test("an extension receives only bound channels and updates before it is destroy
   const onAction = vi.fn(async () => undefined)
   const view = render(
     <PluginView
-      entry="/assets/plugins/sample/view.js"
+      entry="/assets/plugins/example.clock/view.js"
       panel={panel}
       channels={channels}
       isControlEnabled
@@ -76,7 +77,7 @@ test("an extension receives only bound channels and updates before it is destroy
   })
   view.rerender(
     <PluginView
-      entry="/assets/plugins/sample/view.js"
+      entry="/assets/plugins/example.clock/view.js"
       panel={panel}
       channels={channels}
       isControlEnabled={false}
@@ -94,11 +95,18 @@ test("an extension receives only bound channels and updates before it is destroy
   expect(destroy).toHaveBeenCalledTimes(1)
 })
 
-test("a plugin cannot load a remote script or traverse the static asset path", async () => {
+test.each([
+  "/assets/plugins/../secret.js",
+  "/api/plugins/assets/version/../secret.js",
+  "/api/plugins/assets/version/%2e%2e/secret.js",
+  "/api/plugins/assets/version/browser.js?redirect=remote",
+  "https://example.invalid/plugin.js",
+  "//example.invalid/plugin.js",
+])("a plugin rejects an unauthorized asset path: %s", async (entry) => {
   const loadRenderer = vi.fn()
   render(
     <PluginView
-      entry="/assets/plugins/../secret.js"
+      entry={entry}
       panel={panel}
       channels={channels}
       isControlEnabled={false}
@@ -250,4 +258,137 @@ test("image capture readiness waits for a deferred plugin mount", async () => {
     ),
   )
   expect(screen.getByText("Ready plugin")).toBeVisible()
+})
+
+test("runtime package versions mount without rebuilding and release the previous renderer", async () => {
+  const notify = vi.fn()
+  const destroy = vi.fn(() => {
+    throw new Error("The plugin cleanup failed")
+  })
+  const loadRenderer = vi.fn(async (entry: string) => ({
+    mount: (element: HTMLElement, host: ViewHost) => {
+      const label = document.createElement("p")
+      label.textContent = entry.includes("version-two")
+        ? "Updated package"
+        : "Installed package"
+      element.append(label)
+      host.subscribe(notify)
+      return { update: () => {}, destroy }
+    },
+  }))
+  const properties = {
+    panel,
+    channels,
+    isControlEnabled: false,
+    onAction: async () => undefined,
+    loadRenderer,
+  }
+  const view = render(
+    <PluginView
+      {...properties}
+      entry="/api/plugins/assets/version-one/browser/view.mjs"
+    />,
+  )
+  await waitFor(() =>
+    expect(
+      screen.getByText("Installed package"),
+    ).toBeVisible(),
+  )
+  view.rerender(
+    <PluginView
+      {...properties}
+      entry="/api/plugins/assets/version-two/browser/view.mjs"
+    />,
+  )
+  await waitFor(() =>
+    expect(
+      screen.getByText("Updated package"),
+    ).toBeVisible(),
+  )
+  expect(screen.queryByText("Installed package")).toBeNull()
+  expect(destroy).toHaveBeenCalledTimes(1)
+  expect(loadRenderer).toHaveBeenCalledTimes(2)
+  view.rerender(
+    <PluginView
+      {...properties}
+      channels={{ ...channels }}
+      entry="/api/plugins/assets/version-two/browser/view.mjs"
+    />,
+  )
+  await waitFor(() =>
+    expect(notify).toHaveBeenCalledTimes(1),
+  )
+  view.unmount()
+  expect(destroy).toHaveBeenCalledTimes(2)
+})
+
+test("a failed runtime import becomes capture-ready and retries with a fresh module URL", async () => {
+  const mount = (element: HTMLElement) => {
+    element.textContent = "Recovered package"
+    return { update: () => {}, destroy: () => {} }
+  }
+  const loadRenderer = vi
+    .fn<() => Promise<BrowserRenderer>>()
+    .mockRejectedValueOnce(new Error("Asset unavailable"))
+    .mockResolvedValue({ mount })
+  render(
+    <PluginView
+      entry="/api/plugins/assets/runtime-version/browser/view.js"
+      panel={panel}
+      channels={channels}
+      isControlEnabled={false}
+      onAction={async () => undefined}
+      loadRenderer={loadRenderer}
+    />,
+  )
+  await waitFor(() =>
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Asset unavailable",
+    ),
+  )
+  expect(
+    document.querySelector("[data-castkit-plugin-ready]"),
+  ).toHaveAttribute("data-castkit-plugin-ready", "true")
+  await userEvent
+    .setup()
+    .click(
+      screen.getByRole("button", { name: "Retry view" }),
+    )
+  await waitFor(() =>
+    expect(
+      screen.getByText("Recovered package"),
+    ).toBeVisible(),
+  )
+  expect(loadRenderer).toHaveBeenLastCalledWith(
+    expect.stringMatching(
+      /^\/api\/plugins\/assets\/runtime-version\/browser\/view\.js\?retry=\d+$/,
+    ),
+  )
+  expect(screen.queryByRole("alert")).toBeNull()
+})
+
+test("removing a plugin before its import finishes prevents a late mount", async () => {
+  const pending: {
+    resolve?: (module: BrowserRenderer) => void
+  } = {}
+  const loadRenderer = () =>
+    new Promise<BrowserRenderer>((resolve) => {
+      pending.resolve = resolve
+    })
+  const mount = vi.fn()
+  const view = render(
+    <PluginView
+      entry="/api/plugins/assets/pending-version/browser/view.js"
+      panel={panel}
+      channels={channels}
+      isControlEnabled={false}
+      onAction={async () => undefined}
+      loadRenderer={loadRenderer}
+    />,
+  )
+  await waitFor(() => expect(pending.resolve).toBeDefined())
+  view.unmount()
+  pending.resolve?.({ mount })
+  await Promise.resolve()
+  expect(mount).not.toHaveBeenCalled()
 })

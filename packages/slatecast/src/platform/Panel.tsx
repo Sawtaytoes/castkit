@@ -148,6 +148,7 @@ export const Panel = ({
         })}
       {browserEntry ? (
         <PluginView
+          key={browserEntry}
           entry={browserEntry}
           panel={panel}
           channels={channels}

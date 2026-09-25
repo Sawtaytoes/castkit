@@ -184,6 +184,60 @@ export const buildPlatformOpenApi = () => {
         management,
       ),
     },
+    "/api/manage/platform/plugin-packages/inspect": {
+      post: post(
+        "Review an npm plugin package",
+        {
+          name: { type: "string" },
+          version: { type: "string" },
+        },
+        ["name"],
+        management,
+      ),
+    },
+    "/api/manage/platform/plugin-packages/inspect-file": {
+      post: {
+        summary: "Review an uploaded CastKit package",
+        security: management,
+        requestBody: {
+          required: true,
+          content: {
+            "application/gzip": {
+              schema: { type: "string", format: "binary" },
+            },
+          },
+        },
+        responses: {
+          "200": response,
+          "400": { description: "Invalid package" },
+          "401": { description: "Management PIN required" },
+          "413": { description: "Package too large" },
+        },
+      },
+    },
+    "/api/manage/platform/plugin-packages/install": {
+      post: post(
+        "Install or update a reviewed plugin without redeployment",
+        { inspectionId: { type: "string" } },
+        ["inspectionId"],
+        management,
+      ),
+    },
+    "/api/manage/platform/plugin-packages/{id}": {
+      delete: {
+        summary: "Remove an unused downloaded plugin",
+        security: management,
+        parameters: [pathId],
+        responses: {
+          "200": response,
+          "401": { description: "Management PIN required" },
+          "409": {
+            description:
+              "Plugin is used by saved configuration",
+          },
+        },
+      },
+    },
     "/api/manage/platform/plugins/{id}": {
       parameters: [pathId],
       put: post(
