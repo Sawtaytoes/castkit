@@ -100,11 +100,7 @@ export const PrintersView = ({
               <img
                 class="platform-printer-image"
                 src={imageUrl}
-                alt={
-                  camera || printer.cameraPath
-                    ? `${printer.name} camera`
-                    : ""
-                }
+                alt=""
               />
             ) : null}
             <div class="printer-body">
