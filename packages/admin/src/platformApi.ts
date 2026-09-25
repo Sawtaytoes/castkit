@@ -23,6 +23,14 @@ export type Screen = ScreenDefinition
 export type Panel = ViewPanel
 export type Adapter = AdapterDefinition
 export type Platform = {
+  isPluginInstallationAvailable?: boolean
+  pluginErrors?: { name: string; error: string }[]
+  pluginPackages?: {
+    name: string
+    version: string
+    pluginId: string
+    installationId: string
+  }[]
   presets: CompositionPreset[]
   deviceScreens: Record<string, string>
   sources: Source[]

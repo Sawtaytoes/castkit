@@ -169,7 +169,7 @@ export const createChannelHistory = ({
     }
     state.timer = setTimeout(() => {
       state.timer = undefined
-      void flush()
+      return flush()
     }, 5000)
     state.timer.unref()
   }
@@ -293,11 +293,14 @@ export const createChannelHistory = ({
     append,
     flush,
     dispose: () => {
+      if (state.isDisposed) {
+        return state.pending
+      }
       state.isDisposed = true
       if (state.timer) {
         clearTimeout(state.timer)
       }
-      void flush()
+      return flush()
     },
   }
 }

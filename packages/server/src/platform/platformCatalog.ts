@@ -400,7 +400,7 @@ const viewSpecs: ViewSpec[] = [
   {
     ...view({
       id: "points",
-      name: "Points result",
+      name: "Points",
       type: "points.v1",
     }),
     minimumRepaint: "fast",
@@ -643,7 +643,7 @@ const viewGroups = [
   { id: "rip-deck", name: "Rip Deck", specs: ["rip-deck"] },
   {
     id: "points",
-    name: "Points feedback",
+    name: "Points",
     specs: ["points"],
   },
   {
@@ -776,7 +776,7 @@ export const validatePluginManifest = (
     }
     if (
       spec.browserEntry &&
-      !/^\/assets\/plugins\/[a-zA-Z0-9_./-]+\.js$/.test(
+      !/^\/(?:assets\/plugins|api\/plugins\/assets)\/[a-zA-Z0-9_./-]+\.m?js$/.test(
         spec.browserEntry,
       )
     ) {
@@ -791,12 +791,34 @@ export const validatePluginManifest = (
   return manifest
 }
 /** Create an installation catalog from built-ins and explicitly trusted packages. */
-export const createPlatformCatalog = ({
+const createCatalogSnapshot = ({
   plugins = [],
 }: {
   plugins?: CastKitPlugin[]
 } = {}) => {
   const registered = [...builtinPlugins, ...plugins]
+  registered.forEach((plugin) => {
+    if (
+      Object.entries(plugin.adapters ?? {}).some(
+        ([id, factory]) =>
+          typeof factory !== "function" ||
+          !plugin.manifest.adapters.some(
+            (adapter) => adapter.id === id,
+          ),
+      )
+    )
+      throw new Error(
+        "Plugin factories must match their declared adapters.",
+      )
+    if (
+      Object.values(plugin.contracts ?? {}).some(
+        (contract) => typeof contract?.parse !== "function",
+      )
+    )
+      throw new Error(
+        "Plugin contracts must supply a parser.",
+      )
+  })
   const manifests = registered.map((plugin) =>
     validatePluginManifest(plugin.manifest),
   )
@@ -947,6 +969,52 @@ export const createPlatformCatalog = ({
           }
         })
       })
+    },
+  }
+}
+/** Keep consumer references stable while atomically replacing validated extension metadata. */
+export const createPlatformCatalog = (
+  options: { plugins?: CastKitPlugin[] } = {},
+) => {
+  const state = { current: createCatalogSnapshot(options) }
+  const contracts = new Map(state.current.contracts)
+  const adapterFactories = new Map(
+    state.current.adapterFactories,
+  )
+  return {
+    get plugins() {
+      return state.current.plugins
+    },
+    get presets() {
+      return state.current.presets
+    },
+    get adapters() {
+      return state.current.adapters
+    },
+    get viewSpecs() {
+      return state.current.viewSpecs
+    },
+    contracts,
+    adapterFactories,
+    getViewSpec: (id: string) =>
+      state.current.getViewSpec(id),
+    getAdapter: (id: string) =>
+      state.current.getAdapter(id),
+    validateView: (
+      definition: ViewDefinition,
+      channels: ChannelDefinition[],
+    ) => state.current.validateView(definition, channels),
+    replacePlugins: (plugins: CastKitPlugin[]) => {
+      const next = createCatalogSnapshot({ plugins })
+      contracts.clear()
+      next.contracts.forEach((value, key) => {
+        contracts.set(key, value)
+      })
+      adapterFactories.clear()
+      next.adapterFactories.forEach((value, key) => {
+        adapterFactories.set(key, value)
+      })
+      state.current = next
     },
   }
 }

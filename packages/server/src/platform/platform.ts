@@ -10,10 +10,11 @@ import type {
 } from "../config/env.ts"
 import { getRepaintForDevice } from "../views/viewsForDevice.ts"
 import { createChannelHub } from "./channelHub.ts"
-import { installedPlugins } from "./installedPlugins.generated.ts"
+import { getDisplayCompatibility } from "./displayCompatibility.ts"
 import { createPlatformAccess } from "./platformAccess.ts"
-import { createPlatformCatalog } from "./platformCatalog.ts"
 import { createPlatformStore } from "./platformStore.ts"
+import { createPluginRuntime } from "./pluginRuntime.ts"
+import type { createPluginPackageManager } from "./plugins/pluginPackages.ts"
 import { createScreenController } from "./screenController.ts"
 import { createSourceRuntime } from "./sourceRuntime.ts"
 
@@ -27,8 +28,12 @@ export const createPlatform = async ({
   discoveryPrefix = "homeassistant",
   devices = [],
   browserDevices = [],
+  pluginManager,
 }: {
   file?: string
+  pluginManager?: ReturnType<
+    typeof createPluginPackageManager
+  >
   apiToken?: string
   publisher: MqttPublisher
   publicUrl?: string
@@ -38,9 +43,43 @@ export const createPlatform = async ({
   browserDevices?: readonly BrowserDeviceConfig[]
 }) => {
   const store = createPlatformStore({ file })
-  const catalog = createPlatformCatalog({
-    plugins: installedPlugins,
+  const pluginRuntime = await createPluginRuntime({
+    file,
+    store,
+    manager: pluginManager,
+    onChanged: async () => {
+      await runtime.configure({
+        sources: store.get().sources,
+        channels: store.get().channels,
+      })
+      notify()
+    },
+    validateCatalog: (candidateCatalog) => {
+      Object.entries(store.get().deviceScreens).forEach(
+        ([deviceId, screenId]) => {
+          const display = getDeviceProperties(deviceId)
+          const screen = store
+            .get()
+            .screens.find((item) => item.id === screenId)
+          if (!display || !screen) return
+          screen.viewIds.forEach((viewId) => {
+            const view = store
+              .get()
+              .views.find((item) => item.id === viewId)
+            if (!view) return
+            const result = getDisplayCompatibility({
+              view,
+              catalog: candidateCatalog,
+              display,
+            })
+            if (!result.isCompatible)
+              throw new Error(result.reasons.join(" "))
+          })
+        },
+      )
+    },
   })
+  const catalog = pluginRuntime.catalog
   const hub = createChannelHub({
     contracts: catalog.contracts,
   })
@@ -280,6 +319,7 @@ export const createPlatform = async ({
   await refresh()
   return {
     getDeviceProperties,
+    pluginRuntime,
     renderKey,
     store,
     catalog,
@@ -299,10 +339,11 @@ export const createPlatform = async ({
       }
     },
     dispose: () => {
-      runtime.dispose()
+      const saved = runtime.dispose()
       screens.dispose()
       hub.dispose()
       listeners.clear()
+      return saved
     },
   }
 }

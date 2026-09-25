@@ -195,3 +195,37 @@ test("text panels optionally bind entity states for visibility conditions", () =
     ]),
   ).toThrow("entities.v1")
 })
+
+test("live catalog replacement preserves consumer maps and rejects invalid replacements atomically", () => {
+  const catalog = createPlatformCatalog()
+  const contracts = catalog.contracts
+  const factories = catalog.adapterFactories
+  catalog.replacePlugins([plugin])
+  expect(catalog.getViewSpec("example-photo")?.name).toBe(
+    "Example",
+  )
+  expect(catalog.contracts).toBe(contracts)
+  expect(catalog.adapterFactories).toBe(factories)
+  expect(() =>
+    catalog.replacePlugins([plugin, plugin]),
+  ).toThrow("Duplicate plugin")
+  expect(catalog.getViewSpec("example-photo")).toBeDefined()
+  catalog.replacePlugins([])
+  expect(
+    catalog.getViewSpec("example-photo"),
+  ).toBeUndefined()
+  expect(catalog.contracts.has("images.v1")).toBe(true)
+})
+
+test("an extension cannot replace a built-in factory through an undeclared export", () => {
+  expect(() =>
+    createPlatformCatalog({
+      plugins: [
+        {
+          ...plugin,
+          adapters: { mqtt: () => ({ dispose: () => {} }) },
+        },
+      ],
+    }),
+  ).toThrow("declared adapters")
+})

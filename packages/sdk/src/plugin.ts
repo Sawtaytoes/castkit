@@ -45,7 +45,7 @@ export type AdapterDefinition = {
   channelSettings: SettingField[]
   actions: ActionDefinition[]
 }
-/** Renderer entry points are supplied by trusted installed packages during the build. */
+/** Renderer entry points are supplied by trusted packages installed at build time or through management. */
 export type ViewSpec = {
   id: string
   name: string

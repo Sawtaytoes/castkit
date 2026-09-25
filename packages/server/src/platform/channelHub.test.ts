@@ -101,3 +101,23 @@ test("points can report a daily result without inventing an account total", () =
   expect(hub.get("points")?.status).toBe("error")
   hub.dispose()
 })
+
+test("an unavailable custom contract reports an error without stopping built-in channels", () => {
+  const hub = createChannelHub()
+  hub.configure([
+    channel,
+    { ...channel, id: "missing", type: "unavailable.v1" },
+  ])
+  expect(hub.get("missing")).toMatchObject({
+    status: "error",
+    data: null,
+  })
+  hub.publish({
+    channelId: "points",
+    data: { name: "Player", total: 5 },
+  })
+  expect(hub.get("points")?.status).toBe("ready")
+  hub.publish({ channelId: "missing", data: {} })
+  expect(hub.get("missing")?.status).toBe("error")
+  hub.dispose()
+})

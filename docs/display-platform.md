@@ -35,7 +35,7 @@ The equivalent HTTP endpoint is `POST /api/manage/platform/screens/<id>/select`.
 
 View data uses separate topics. The MQTT source defaults to `castkit/channels/<channel-id>/set`, and a channel can select another exact topic. Screen commands do not carry view data.
 
-## Points feedback
+## Points
 
 A `points.v1` channel carries the person name, awarded points, message, and optional expiration. A source can supply `total` for an account total or `pointsToday` for a daily total. The view labels each value explicitly. Pair the result with a short screen override to show an NFC outcome without changing the screen URL. The display does not award points.
 
