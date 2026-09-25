@@ -55,6 +55,13 @@ server during development.
 - [One view vocabulary — the unification plan](docs/2026-09-12-unify-one-view-vocabulary-plan.md) —
   what is built, what is not, and the order of the remaining work
 
+**The views**
+
+- [AI Usage](docs/ai-usage-view.md) — remaining subscription quota per AI
+  provider, on an `ai-usage.v1` channel
+- [Printer Status](docs/printer-status-view.md) — the 3D prints running right
+  now, with Pause, Resume and Stop
+
 **Reference**
 
 - [Decision records](docs/decisions/README.md) — why things are the way they

@@ -1,5 +1,8 @@
 import type { StoryObj } from "@storybook/preact-vite"
-import { compositionFixture } from "./fixtures.ts"
+import {
+  aiUsageFixture,
+  compositionFixture,
+} from "./fixtures.ts"
 import { PinKeypad } from "./PinKeypad.tsx"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import "../styles.css"
@@ -42,6 +45,18 @@ export const Disconnected: Story = {
       <DisplayComposition
         snapshot={compositionFixture}
         isConnected={false}
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+/** Every AI subscription's remaining quota on one panel. */
+export const AiUsage: Story = {
+  render: () => (
+    <main class="platform" data-scheme="dark">
+      <DisplayComposition
+        snapshot={aiUsageFixture}
+        isConnected
         onAction={async () => undefined}
       />
     </main>
