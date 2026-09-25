@@ -4,11 +4,19 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import {
+  DEFAULT_ALERT_PERCENT,
+  selectProviderRows,
+} from "./aiUsageRows.ts"
 import { useDisplayProperties } from "./displayProperties.ts"
 
 type AiUsageData = ContractData["ai-usage.v1"]
 type UsageProvider = AiUsageData["providers"][number]
 type UsageWindow = UsageProvider["windows"][number]
+type ProviderRows = ReturnType<
+  typeof selectProviderRows
+>[number]
+type UsageRowEntry = ProviderRows["rows"][number]
 
 /**
  * A usage percentage is only as new as AI Usage's own poll, which is five
@@ -38,6 +46,25 @@ const VIEW_HEADING_HEIGHT = 58
 /** A computed length that is absent reads as zero, never as `NaN`. */
 const readPixels = (value: string) =>
   Number.parseFloat(value) || 0
+
+/**
+ * The escalation threshold this panel was configured with.
+ *
+ * Settings arrive from stored JSON, so the value may be a number, the string
+ * a form field produced, or nothing at all. Anything outside 0-100 falls back
+ * to the default rather than silently turning every limit into an alert, or
+ * none of them.
+ */
+const readAlertPercent = (
+  settings: Record<string, unknown> | undefined,
+) => {
+  const value = Number(settings?.alertPercent)
+  return Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 100
+    ? value
+    : DEFAULT_ALERT_PERCENT
+}
 
 const DAY_MILLISECONDS = 86_400_000
 const WEEK_MILLISECONDS = 7 * DAY_MILLISECONDS
@@ -112,11 +139,13 @@ const getWindowIntent = (
 
 const UsageRow = ({
   usageWindow,
+  isEscalated,
   now,
   hasRelativeTimes,
   hasUsageDetail,
 }: {
   usageWindow: UsageWindow
+  isEscalated: boolean
   now: number
   hasRelativeTimes: boolean
   hasUsageDetail: boolean
@@ -132,6 +161,7 @@ const UsageRow = ({
   return (
     <div
       class="ai-usage-window"
+      data-escalated={isEscalated ? "true" : "false"}
       data-intent={getWindowIntent(usageWindow.percentUsed)}
     >
       <div class="ai-usage-window-head">
@@ -178,42 +208,41 @@ const UsageRow = ({
  * list only when its heading and at least one of its windows both fit.
  */
 const getVisibleProviders = ({
-  providers,
+  providerRows,
   availableHeight,
 }: {
-  providers: readonly UsageProvider[]
+  providerRows: readonly ProviderRows[]
   availableHeight: number
 }) =>
-  providers.reduce<{
+  providerRows.reduce<{
     heightLeft: number
     visible: {
       provider: UsageProvider
-      windows: readonly UsageWindow[]
+      rows: readonly UsageRowEntry[]
     }[]
   }>(
-    (accumulated, provider) => {
+    (accumulated, entry) => {
       const heightAfterHeading =
         accumulated.heightLeft - PROVIDER_HEADING_HEIGHT
-      const windowCount = Math.max(
+      const rowCount = Math.max(
         0,
         Math.min(
-          provider.windows.length,
+          entry.rows.length,
           Math.floor(
             heightAfterHeading / WINDOW_ROW_HEIGHT,
           ),
         ),
       )
-      if (windowCount === 0) {
+      if (rowCount === 0) {
         return accumulated
       }
       return {
         heightLeft:
-          heightAfterHeading -
-          windowCount * WINDOW_ROW_HEIGHT,
+          heightAfterHeading - rowCount * WINDOW_ROW_HEIGHT,
         visible: accumulated.visible.concat([
           {
-            provider,
-            windows: provider.windows.slice(0, windowCount),
+            provider: entry.provider,
+            rows: entry.rows.slice(0, rowCount),
           },
         ]),
       }
@@ -221,13 +250,22 @@ const getVisibleProviders = ({
     { heightLeft: availableHeight, visible: [] },
   ).visible
 
-/** Subscription usage per provider, from any source that speaks `ai-usage.v1`. */
+/**
+ * Subscription usage per provider, from any source that speaks `ai-usage.v1`.
+ *
+ * Each provider gets one headline row — its weekly budget — and a second row
+ * only when another of its limits is already at or past `alertPercent`. That
+ * is a reading surface, not a table: the panel answers "is anything about to
+ * stop me" at a glance and stays quiet otherwise.
+ */
 export const AiUsageView = ({
   data,
   now,
+  settings,
 }: {
   data: AiUsageData
   now: number
+  settings?: Record<string, unknown>
 }) => {
   const properties = useDisplayProperties()
   const element = useRef<HTMLDivElement>(null)
@@ -259,19 +297,23 @@ export const AiUsageView = ({
       </div>
     )
   }
-  const visible = getVisibleProviders({
+  const providerRows = selectProviderRows({
     providers: data.providers,
+    alertPercent: readAlertPercent(settings),
+  })
+  const visible = getVisibleProviders({
+    providerRows,
     availableHeight,
   })
   const shownRowCount = visible.reduce(
-    (total, entry) => total + entry.windows.length,
+    (total, entry) => total + entry.rows.length,
     0,
   )
-  const mostSpentWindow = data.providers
-    .flatMap((provider) =>
-      provider.windows.map((usageWindow) => ({
-        provider,
-        usageWindow,
+  const mostSpentWindow = providerRows
+    .flatMap((entry) =>
+      entry.rows.map((row) => ({
+        provider: entry.provider,
+        usageWindow: row.usageWindow,
       })),
     )
     .reduce<
@@ -288,15 +330,27 @@ export const AiUsageView = ({
           : highest,
       undefined,
     )
+  /*
+   * Only the rows the rule already chose are counted. A limit the rule
+   * withheld is not missing from the panel, and reporting it as "1 more
+   * limit" would send the reader looking for something the view decided was
+   * not worth their attention.
+   */
   const hiddenRowCount =
-    data.providers.reduce(
-      (total, provider) => total + provider.windows.length,
+    providerRows.reduce(
+      (total, entry) => total + entry.rows.length,
       0,
     ) - shownRowCount
   return (
-    <div class="ai-usage" ref={element}>
+    <div
+      class="ai-usage"
+      data-color-mode={
+        properties.properties?.colorMode ?? "full"
+      }
+      ref={element}
+    >
       <h2>AI Usage</h2>
-      {visible.map(({ provider, windows }) => (
+      {visible.map(({ provider, rows }) => (
         <section key={provider.id}>
           <div class="ai-usage-provider-head">
             <h3>{provider.name}</h3>
@@ -314,10 +368,11 @@ export const AiUsageView = ({
               <span class="ai-usage-plan">Last known</span>
             ) : null}
           </div>
-          {windows.map((usageWindow) => (
+          {rows.map(({ usageWindow, isEscalated }) => (
             <UsageRow
               key={usageWindow.id}
               usageWindow={usageWindow}
+              isEscalated={isEscalated}
               now={now}
               hasRelativeTimes={properties.hasRelativeTimes}
               hasUsageDetail={properties.isValueFresh(
