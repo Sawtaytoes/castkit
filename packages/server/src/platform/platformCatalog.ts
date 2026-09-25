@@ -432,11 +432,21 @@ const viewSpecs: ViewSpec[] = [
     }),
     minimumRepaint: "fast",
   },
-  view({
-    id: "ai-usage",
-    name: "AI Usage",
-    type: "ai-usage.v1",
-  }),
+  {
+    ...view({
+      id: "ai-usage",
+      name: "AI Usage",
+      type: "ai-usage.v1",
+    }),
+    settings: [
+      {
+        key: "alertPercent",
+        label: "Show a second limit at (percent used)",
+        type: "number",
+        defaultValue: 80,
+      },
+    ],
+  },
   view({
     id: "entities",
     name: "Entity controls",

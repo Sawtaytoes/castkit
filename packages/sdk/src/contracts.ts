@@ -155,6 +155,18 @@ const usageWindow = z.object({
   percentUsed: finiteNumber.min(0).max(100).optional(),
   resetsAtMs: finiteNumber.optional(),
   usedText: z.string().optional(),
+  /**
+   * How long the window itself is, which is NOT derivable from `resetsAtMs`.
+   * A reset time says when the counter next clears; it says nothing about the
+   * span being counted. A five-hour session window one minute old resets
+   * further out than a weekly window on its last day, so ordering by reset
+   * time puts the session limit above the weekly one roughly half the time.
+   *
+   * The view reads this to decide which window is the provider's headline.
+   * Optional because a provider may describe a window we cannot classify, and
+   * an unclassified window is better than a guessed one.
+   */
+  periodHours: finiteNumber.positive().optional(),
 })
 const usageProvider = z.object({
   id: z.string(),

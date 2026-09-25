@@ -116,16 +116,31 @@ export const aiUsageFixture: DisplaySnapshot = {
             isOk: true,
             planText: "Max",
             windows: [
+              /*
+               * Past the default threshold on purpose: this is the one row
+               * in the fixture that exists to show the escalation, and a
+               * fixture where nothing escalates would make the exception
+               * invisible in every story and every screenshot.
+               */
               {
                 id: "session_5h",
                 label: "5-hour limit",
-                percentUsed: 7,
+                periodHours: 5,
+                percentUsed: 88,
                 resetsAtMs: Date.now() + 10_800_000,
               },
               {
                 id: "weekly_all",
                 label: "7-day limit",
+                periodHours: 168,
                 percentUsed: 54,
+                resetsAtMs: Date.now() + 338_400_000,
+              },
+              {
+                id: "weekly_scoped",
+                label: "Weekly Fable",
+                periodHours: 168,
+                percentUsed: 31,
                 resetsAtMs: Date.now() + 338_400_000,
               },
             ],
@@ -139,6 +154,7 @@ export const aiUsageFixture: DisplaySnapshot = {
               {
                 id: "weekly",
                 label: "7-day limit",
+                periodHours: 168,
                 percentUsed: 78,
                 resetsAtMs: Date.now() + 432_000_000,
               },
@@ -152,6 +168,7 @@ export const aiUsageFixture: DisplaySnapshot = {
               {
                 id: "monthly",
                 label: "Monthly limit",
+                periodHours: 720,
                 percentUsed: 93,
                 resetsAtMs: Date.now() + 864_000_000,
                 usedText: "$18.60 / $20",
@@ -167,6 +184,7 @@ export const aiUsageFixture: DisplaySnapshot = {
               {
                 id: "primary",
                 label: "Monthly limit",
+                periodHours: 720,
               },
             ],
           },

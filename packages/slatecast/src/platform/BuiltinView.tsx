@@ -273,6 +273,7 @@ export const BuiltinView = ({
         <AiUsageView
           data={data as ContractData["ai-usage.v1"]}
           now={now}
+          settings={panel.settings}
         />
       )
     case "points": {

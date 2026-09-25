@@ -49,6 +49,51 @@ const parseTimestamp = (value: unknown) => {
   return Number.isNaN(parsed) ? undefined : parsed
 }
 
+const WEEK_HOURS = 168
+const MONTH_HOURS = 720
+
+/**
+ * How long a quota window spans, read off the producer's own id and label.
+ *
+ * The producer does not publish a period, and it cannot be recovered from
+ * `resets_at`: that is the next clearing time, not the span. So the span is
+ * inferred from the words the producer already uses, in the order most
+ * specific first — an explicit count of hours or days beats the named period,
+ * because "7-day limit" and "Weekly Fable" must both land on 168 while
+ * "5-hour session" must not be dragged there by the word "session".
+ *
+ * A window that matches nothing keeps no period at all. "Included usage" is
+ * real and is deliberately left unclassified: it resets on the billing date,
+ * which is neither a week nor reliably a month, and a wrong number here would
+ * silently promote it over a weekly limit.
+ */
+const getPeriodHours = ({
+  id,
+  label,
+}: {
+  id: string
+  label: string
+}) => {
+  const text = `${id} ${label}`
+  const hourMatch = text.match(
+    /(\d+)\s*-?\s*h(?:ours?|r)?\b/i,
+  )
+  if (hourMatch) {
+    return Number(hourMatch[1])
+  }
+  const dayMatch = text.match(/(\d+)\s*-?\s*d(?:ays?)?\b/i)
+  if (dayMatch) {
+    return Number(dayMatch[1]) * 24
+  }
+  if (/\bweek(?:ly|s)?\b/i.test(text)) {
+    return WEEK_HOURS
+  }
+  if (/\bmonth(?:ly|s)?\b/i.test(text)) {
+    return MONTH_HOURS
+  }
+  return /\bdaily\b/i.test(text) ? 24 : undefined
+}
+
 const formatAmount = (value: number) =>
   Number.isInteger(value)
     ? value.toLocaleString("en-US")
@@ -138,9 +183,17 @@ export const normalizeAiUsage = (
             const usedText = getUsedText(
               record(window.extras),
             )
+            const id = textValue(window.id)
+            const label = textValue(window.label)
+            const periodHours =
+              finiteNumber(window.period_hours) ??
+              getPeriodHours({ id, label })
             return {
-              id: textValue(window.id),
-              label: textValue(window.label),
+              id,
+              label,
+              ...(periodHours === undefined
+                ? {}
+                : { periodHours }),
               ...(percentUsed === undefined
                 ? {}
                 : {
