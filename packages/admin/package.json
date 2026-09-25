@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@castkit/sdk": "workspace:*",
     "@charcuterie/logic": "^2.4.0",
     "@charcuterie/tokens": "^1.10.1",
     "@charcuterie/ui": "^4.8.0",

@@ -24,7 +24,7 @@ export default createPlaywrightConfig({
   webServer: {
     // The server serves the built SPA from SLATECAST_DIST_DIR, so build first.
     command:
-      "yarn workspace @castkit/slatecast build && yarn tsx e2e/serve.ts",
+      "yarn workspace @castkit/slatecast build && yarn workspace @castkit/admin build && yarn tsx e2e/serve.ts",
     url: `http://localhost:${port}/d/e2e-square`,
     reuseExistingServer: !process.env.CI,
     stdout: "pipe",

@@ -7,6 +7,8 @@ import { build } from "esbuild"
 // build:server-bundle: native/heavy deps stay external and are installed as
 // production deps in the runtime image.
 
+await import("./build-plugins.mjs")
+
 await build({
   entryPoints: ["packages/server/src/index.ts"],
   outfile: "packages/server/dist/index.js",

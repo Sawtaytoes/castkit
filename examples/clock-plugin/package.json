@@ -1,0 +1,11 @@
+{
+  "name": "@castkit/example-clock-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./browser": "./browser.js"
+  },
+  "peerDependencies": { "@castkit/sdk": "^0.1.0" }
+}

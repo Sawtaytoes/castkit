@@ -28,6 +28,7 @@ const EnvSchema = z.object({
     "chromium",
   ),
   INKCAST_DEVICES_FILE: z.optional(z.string()),
+  CASTKIT_PLATFORM_FILE: z.optional(z.string()),
   // Public base URL browser-mode devices are told to load (the HA "URL"
   // diagnostic sensor), e.g. https://castkit.octen.dev — empty in dev.
   CASTKIT_PUBLIC_URL: z._default(z.string(), ""),
@@ -314,6 +315,7 @@ export type InkcastConfig = {
   browserDevices: readonly BrowserDeviceConfig[]
   /** Persistent JSON file owned by the device-management UI. */
   devicesFile: string | undefined
+  platformFile?: string
   /** Public base URL browser devices load, e.g. https://castkit.octen.dev. */
   publicUrl: string
   mqtt: MqttConfig
@@ -336,6 +338,11 @@ export const loadConfig = (
     devices: imageDevices,
     browserDevices,
     devicesFile: parsed.INKCAST_DEVICES_FILE,
+    platformFile:
+      parsed.CASTKIT_PLATFORM_FILE ??
+      (parsed.INKCAST_DEVICES_FILE
+        ? `${parsed.INKCAST_DEVICES_FILE}.platform.json`
+        : "./data/platform.json"),
     publicUrl: parsed.CASTKIT_PUBLIC_URL,
     mqtt: {
       url: parsed.MQTT_URL,
