@@ -5,6 +5,7 @@ import type {
 import type {
   MqttTransport,
   SourceAction,
+  SourceFactory,
   SourceInstance,
 } from "@castkit/sdk/plugin"
 import type { ChannelHub } from "./channelHub.ts"
@@ -38,6 +39,7 @@ export const createSourceRuntime = ({
       instance: SourceInstance
       controller: AbortController
       fingerprint: string
+      factory: SourceFactory
     }
   >()
   const channelSources = new Map<string, string>()
@@ -94,16 +96,17 @@ export const createSourceRuntime = ({
             channels: sourceChannels,
             secrets,
           })
+          const factory = catalog.adapterFactories.get(
+            source.adapter,
+          )
           if (
             running.get(source.id)?.fingerprint ===
-            fingerprint
+              fingerprint &&
+            running.get(source.id)?.factory === factory
           ) {
             return
           }
           stop(source.id)
-          const factory = catalog.adapterFactories.get(
-            source.adapter,
-          )
           if (!factory) {
             sourceChannels.forEach((channel) => {
               hub.setStatus({
@@ -143,6 +146,7 @@ export const createSourceRuntime = ({
               instance,
               controller,
               fingerprint,
+              factory,
             })
             await instance.start?.()
           } catch {
@@ -229,10 +233,10 @@ export const createSourceRuntime = ({
     },
     dispose: () => {
       queue.isDisposed = true
-      history.dispose()
       Array.from(running.keys()).forEach(stop)
       channelSources.clear()
       definitions.clear()
+      return history.dispose()
     },
   }
 }

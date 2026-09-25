@@ -37,21 +37,9 @@ export const createChannelHub = ({
     ) {
       throw new Error("Duplicate channel ID.")
     }
-    channels.forEach((channel) => {
-      if (!contracts.has(channel.type)) {
-        throw new Error(
-          `Unknown channel contract: ${channel.type}`,
-        )
-      }
-    })
     const previous = new Map(definitions)
     definitions.clear()
     channels.forEach((channel) => {
-      if (!contracts.has(channel.type)) {
-        throw new Error(
-          `Unknown channel contract: ${channel.type}`,
-        )
-      }
       definitions.set(channel.id, structuredClone(channel))
       if (
         JSON.stringify(previous.get(channel.id)) !==
@@ -61,7 +49,15 @@ export const createChannelHub = ({
           id: channel.id,
           type: channel.type,
           data: null,
-          status: "waiting",
+          status: contracts.has(channel.type)
+            ? "waiting"
+            : "error",
+          ...(!contracts.has(channel.type)
+            ? {
+                error:
+                  "This channel's plugin is unavailable.",
+              }
+            : {}),
         })
       }
     })
@@ -98,9 +94,10 @@ export const createChannelHub = ({
       return
     }
     try {
-      const parsed = contracts
-        .get(channel.type)
-        ?.parse(data)
+      const contract = contracts.get(channel.type)
+      if (!contract)
+        throw new Error("Channel plugin is unavailable")
+      const parsed = contract.parse(data)
       emit({
         id: channelId,
         type: channel.type,

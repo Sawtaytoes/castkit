@@ -7,5 +7,25 @@
     ".": "./index.js",
     "./browser": "./browser.js"
   },
-  "peerDependencies": { "@castkit/sdk": "^0.1.0" }
+  "peerDependencies": {
+    "@castkit/sdk": "^0.1.0"
+  },
+  "castkit": {
+    "apiVersion": 1,
+    "manifest": "castkit.manifest.json",
+    "server": "dist/server.js",
+    "publicDirectory": "dist/browser"
+  },
+  "files": [
+    "dist",
+    "castkit.manifest.json",
+    "index.js",
+    "browser.js",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "license": "MIT",
+  "packageManager": "yarn@4.14.1"
 }

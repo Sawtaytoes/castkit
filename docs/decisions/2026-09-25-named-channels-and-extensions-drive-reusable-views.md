@@ -4,7 +4,7 @@
 - **Date:** 2026-09-25
 - **Type:** Architecture / Product
 - **Supersedes:** the mandatory MQTT-only boundary in [2026-07-04](2026-07-04-inkcast-renders-ha-pushed-data-not-reads-ha.md) and [2026-07-07](2026-07-07-slatecast-pure-mqtt-command-path.md); the Home Assistant-only producer requirement in [2026-09-23](2026-09-23-printer-status-is-a-castkit-view-fed-by-home-assistant.md). Existing MQTT producers remain supported.
-- **Superseded by:** —
+- **Superseded by:** [Plugins install from management without redeployment](2026-09-25-plugins-install-from-management-without-redeployment.md), for the build-only installation mechanism.
 
 ## Decision
 
