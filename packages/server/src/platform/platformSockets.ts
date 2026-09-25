@@ -39,6 +39,7 @@ export const attachPlatformSockets = ({
         const lifecycle: {
           unsubscribe?: () => void
           timer?: ReturnType<typeof setInterval>
+          keepalive?: ReturnType<typeof setInterval>
           socket?: WSContext
           previous?: string
           isClosed: boolean
@@ -47,6 +48,7 @@ export const attachPlatformSockets = ({
           lifecycle.isClosed = true
           lifecycle.unsubscribe?.()
           clearInterval(lifecycle.timer)
+          clearInterval(lifecycle.keepalive)
         }
         const send = () => {
           if (lifecycle.isClosed || !lifecycle.socket)
@@ -87,6 +89,18 @@ export const attachPlatformSockets = ({
             lifecycle.unsubscribe = platform.subscribe(send)
             lifecycle.timer = setInterval(send, 1000)
             lifecycle.timer.unref()
+            // Unchanged snapshots send no traffic. Keep quiet pages below the proxy's idle timeout.
+            lifecycle.keepalive = setInterval(() => {
+              try {
+                const raw = socket.raw as
+                  | { ping?: () => void }
+                  | undefined
+                raw?.ping?.()
+              } catch {
+                dispose()
+              }
+            }, 30_000)
+            lifecycle.keepalive.unref()
             send()
           },
           onClose: dispose,

@@ -681,8 +681,6 @@ export const CollectionPage = ({
                     key={`${url}:${previewRevision}`}
                     src={`${url}?preview=1`}
                     title={`${draft.name} preview`}
-                    inert
-                    tabIndex={-1}
                     className="collection-preview-frame"
                   />
                   <a

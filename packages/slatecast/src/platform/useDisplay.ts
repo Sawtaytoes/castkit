@@ -7,6 +7,10 @@ import type {
 
 /** Own one subscription per page, with bounded reconnect and server-issued unlock sessions. */
 export const useDisplay = (target: DisplayTarget) => {
+  const isPreview =
+    new URLSearchParams(window.location.search).get(
+      "preview",
+    ) === "1"
   const [snapshot, setSnapshot] =
     useState<DisplaySnapshot | null>(null)
   const [isLocked, setIsLocked] = useState(false)
@@ -51,7 +55,9 @@ export const useDisplay = (target: DisplayTarget) => {
         return
       }
       lifecycle.buildId = value.buildId
-      setSnapshot(value)
+      setSnapshot(
+        isPreview ? { ...value, canControl: false } : value,
+      )
       setIsLocked(false)
       setError("")
       setName(value.view.name)
@@ -175,6 +181,7 @@ export const useDisplay = (target: DisplayTarget) => {
     target.id,
     target.deviceId,
     revision,
+    isPreview,
   ])
   const unlock = async (pin: string) => {
     setIsPending(true)
@@ -205,6 +212,7 @@ export const useDisplay = (target: DisplayTarget) => {
     }
   }
   const lock = async () => {
+    if (isPreview) return
     try {
       const response = await fetch("/api/access/lock", {
         method: "POST",
@@ -228,6 +236,7 @@ export const useDisplay = (target: DisplayTarget) => {
   const selectView = async (viewId: string) => {
     if (
       target.kind !== "screen" ||
+      isPreview ||
       !isConnected ||
       actionPending.current ||
       !snapshot?.availableViews?.some(
@@ -275,6 +284,7 @@ export const useDisplay = (target: DisplayTarget) => {
   const requestAction = async (action: PanelAction) => {
     if (
       !snapshot?.canControl ||
+      isPreview ||
       !isConnected ||
       actionPending.current
     ) {
@@ -313,6 +323,7 @@ export const useDisplay = (target: DisplayTarget) => {
     }
   }
   return {
+    isPreview,
     snapshot,
     isLocked,
     isConnected,

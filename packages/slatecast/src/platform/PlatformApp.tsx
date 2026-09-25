@@ -135,6 +135,7 @@ export const PlatformApp = ({
   const availableViews =
     display.snapshot.availableViews ?? []
   const hasScreenNavigation =
+    !display.isPreview &&
     target.kind === "screen" &&
     availableViews.length > 0 &&
     (!target.deviceId ||
@@ -143,6 +144,15 @@ export const PlatformApp = ({
   const navigate = (
     event: JSX.TargetedMouseEvent<HTMLElement>,
   ) => {
+    if (display.isPreview) {
+      if (
+        event.target instanceof Element &&
+        event.target.closest("a[href]")
+      ) {
+        event.preventDefault()
+      }
+      return
+    }
     if (
       target.kind !== "screen" ||
       event.defaultPrevented ||
@@ -221,8 +231,9 @@ export const PlatformApp = ({
               Connection lost · Retrying
             </span>
           ) : null}
-          {display.snapshot.view.access === "pin" ||
-          display.snapshot.screen?.access === "pin" ? (
+          {!display.isPreview &&
+          (display.snapshot.view.access === "pin" ||
+            display.snapshot.screen?.access === "pin") ? (
             <button
               type="button"
               onClick={() => void display.lock()}

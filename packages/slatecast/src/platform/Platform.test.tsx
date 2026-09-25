@@ -656,3 +656,64 @@ test("a physical screen shows view navigation only when its drawer is enabled", 
     ).toBeVisible(),
   )
 })
+
+test("a preview receives live updates without exposing device actions or screen selection", async () => {
+  const originalUrl = window.location.href
+  window.history.replaceState(null, "", "?preview=1")
+  onTestFinished(() =>
+    window.history.replaceState(null, "", originalUrl),
+  )
+  const connection: { send?: (message: string) => void } =
+    {}
+  const worker = setupWorker(
+    ws
+      .link("*/screen/desk/ws")
+      .addEventListener("connection", ({ client }) => {
+        connection.send = (message) => client.send(message)
+      }),
+  )
+  await worker.start({
+    quiet: true,
+    onUnhandledRequest: "bypass",
+  })
+  onTestFinished(() => worker.stop())
+  const snapshot: DisplaySnapshot = {
+    ...compositionFixture,
+    view: { ...compositionFixture.view, access: "pin" },
+    availableViews: [{ id: "activity", name: "Activity" }],
+    canControl: true,
+  }
+  vi.spyOn(window, "fetch").mockImplementation(
+    async () => new Response(JSON.stringify(snapshot)),
+  )
+  const view = render(
+    <PlatformApp target={{ kind: "screen", id: "desk" }} />,
+  )
+  onTestFinished(() => {
+    view.unmount()
+  })
+  await screen.findByText("Printer One")
+  await waitFor(() => expect(connection.send).toBeDefined())
+  connection.send?.(
+    JSON.stringify({
+      type: "snapshot",
+      ...snapshot,
+      view: { ...snapshot.view, name: "Updated preview" },
+    }),
+  )
+  await screen.findByRole("heading", {
+    name: "Updated preview",
+  })
+  expect(
+    screen.queryByRole("button", { name: "Pause" }),
+  ).toBeNull()
+  expect(
+    screen.queryByRole("button", { name: "Lock" }),
+  ).toBeNull()
+  expect(
+    screen.queryByRole("combobox", { name: "View" }),
+  ).toBeNull()
+  expect(
+    screen.queryByText("Connection lost · Retrying"),
+  ).toBeNull()
+})
