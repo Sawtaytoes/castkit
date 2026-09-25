@@ -1033,6 +1033,8 @@ export const createBrowserMode = ({
       "/d/:id/ws",
       upgradeWebSocket((context) => {
         const deviceId = context.req.param("id") ?? ""
+        const isObserver =
+          context.req.query("preview") === "1"
         return {
           onOpen: (_event, ws) => {
             const socket = ws as unknown as HubSocket
@@ -1041,10 +1043,14 @@ export const createBrowserMode = ({
               ws.close(4004, "unknown device")
               return
             }
-            hub.addSocket({ deviceId, socket })
+            hub.addSocket({ deviceId, socket, isObserver })
             hub.sendTo({ socket, message: snapshot })
           },
           onMessage: (event) => {
+            // Management viewers receive updates but never issue commands.
+            if (isObserver) {
+              return
+            }
             const parsed = parseJsonPayload(
               String(event.data),
             ) as

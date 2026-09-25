@@ -1,10 +1,11 @@
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import type {
   CommandHandler,
   MqttPublisher,
 } from "@castkit/shared/mqtt/publisher"
+import { createStaticHandler } from "@charcuterie/server"
 import { serve } from "@hono/node-server"
 import { Hono } from "hono"
 import { createBrowserMode } from "../packages/server/src/browser/browserMode.ts"
@@ -77,6 +78,7 @@ export const startTestServer = async ({
       {
         renderer: "browser",
         id: E2E_DEVICE_ID,
+        hasViewDrawer: true,
         label: "E2E Square",
         mac: "aa:bb:cc:dd:ee:ff",
         width: 720,
@@ -90,6 +92,17 @@ export const startTestServer = async ({
             url: `http://localhost:${port}/__test__/external`,
           },
         ],
+      },
+      {
+        renderer: "browser",
+        id: "e2e-preview",
+        label: "Preview test display",
+        mac: "02:00:00:00:00:03",
+        width: 720,
+        height: 720,
+        shape: "square",
+        hasTouch: true,
+        color: "full",
       },
     ]),
   )
@@ -114,6 +127,14 @@ export const startTestServer = async ({
   await browserMode.start()
 
   const app = new Hono()
+  app.use(
+    "/manage/*",
+    createStaticHandler({
+      rootDir: resolve("packages/admin/dist"),
+      rewriteRequestPath: (path) =>
+        path.replace(/^\/manage/, ""),
+    }),
+  )
 
   // Stand in for Home Assistant publishing to a topic the server subscribed to.
   app.post("/__test__/mqtt", async (context) => {
