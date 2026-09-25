@@ -1,3 +1,4 @@
+import type { JSX } from "preact"
 import { useEffect } from "preact/hooks"
 import { viewAppearance } from "./appearance.ts"
 import { DisplayContext } from "./DisplayContext.ts"
@@ -113,11 +114,56 @@ export const PlatformApp = ({
       </main>
     )
   }
+  const availableViews =
+    display.snapshot.availableViews ?? []
+  const hasScreenNavigation =
+    target.kind === "screen" &&
+    availableViews.length > 0 &&
+    (!target.deviceId ||
+      display.snapshot.displayProperties?.hasViewDrawer ===
+        true)
+  const navigate = (
+    event: JSX.TargetedMouseEvent<HTMLElement>,
+  ) => {
+    if (
+      target.kind !== "screen" ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return
+    const anchor =
+      event.target instanceof Element
+        ? event.target.closest("a[href]")
+        : null
+    if (
+      !(anchor instanceof HTMLAnchorElement) ||
+      anchor.target === "_blank" ||
+      anchor.hasAttribute("download")
+    )
+      return
+    const url = new URL(anchor.href, window.location.href)
+    if (url.origin !== window.location.origin) return
+    const match = /^\/view\/([^/]+)\/?$/.exec(url.pathname)
+    if (!match) return
+    const selected = availableViews.find(
+      (view) => encodeURIComponent(view.id) === match[1],
+    )
+    if (!selected) return
+    event.preventDefault()
+    void display.selectView(selected.id)
+  }
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: This delegates native anchor clicks, including Enter activation; another keyboard handler would select twice.
     <main
       class="platform"
       style={viewAppearance(display.snapshot.view)}
       data-device={String(Boolean(target.deviceId))}
+      data-screen-navigation={String(hasScreenNavigation)}
+      onClick={navigate}
       data-scheme={
         display.snapshot.view.theme === "auto"
           ? undefined
@@ -128,6 +174,30 @@ export const PlatformApp = ({
       <header class="platform-header">
         <h1>{display.snapshot.view.name}</h1>
         <div>
+          {hasScreenNavigation ? (
+            <label class="platform-view-picker">
+              View
+              <select
+                aria-label="View"
+                data-castkit-target="screen:select-view"
+                value={display.snapshot.view.id}
+                disabled={
+                  display.isPending || !display.isConnected
+                }
+                onChange={(event) =>
+                  void display.selectView(
+                    event.currentTarget.value,
+                  )
+                }
+              >
+                {availableViews.map((view) => (
+                  <option key={view.id} value={view.id}>
+                    {view.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {!display.isConnected ? (
             <span role="status">
               Connection lost · Retrying

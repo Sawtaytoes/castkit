@@ -18,6 +18,7 @@ export type DisplaySnapshot = {
   target: DisplayTarget
   view: ViewDefinition
   channels: Record<string, ChannelSnapshot>
+  availableViews?: { id: string; name: string }[]
   screen?: ScreenDefinition
   // Wire field shared with the display API.
   // eslint-disable-next-line @typescript-eslint/naming-convention

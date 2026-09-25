@@ -106,7 +106,7 @@ export const createChannelHistory = ({
                 .filter(
                   (sample) =>
                     Date.parse(sample.time) >
-                    now() - 168 * 3600000,
+                    now() - 720 * 3600000,
                 )
                 .slice(-MAX_SAMPLES_PER_ENTITY)
               entities.set(value.id, samples)
@@ -198,7 +198,7 @@ export const createChannelHistory = ({
     entities: Entity[]
     hours: number
   }) => {
-    const boundedHours = Math.max(0, Math.min(168, hours))
+    const boundedHours = Math.max(0, Math.min(720, hours))
     if (!boundedHours || state.isDisposed) {
       return entities
     }

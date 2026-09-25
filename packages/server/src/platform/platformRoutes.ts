@@ -113,6 +113,16 @@ export const getDisplay = ({
         ...screen,
         activeViewId: view.id,
       },
+      availableViews: screen
+        ? screen.viewIds.flatMap((viewId) => {
+            const candidate = platform.store
+              .get()
+              .views.find((item) => item.id === viewId)
+            return candidate
+              ? [{ id: candidate.id, name: candidate.name }]
+              : []
+          })
+        : undefined,
       channels: rewriteMedia(channels),
       viewSpecs: platform.catalog.viewSpecs.filter((spec) =>
         view.panels.some(
@@ -994,6 +1004,55 @@ export const attachPlatformRoutes = ({
       ? context.json(result.snapshot)
       : context.json(result, result.status)
   })
+  app.post(
+    "/api/display/screen/:id/select",
+    async (context) => {
+      const id = context.req.param("id")
+      const result = getDisplay({
+        platform,
+        context,
+        kind: "screen",
+        id,
+      })
+      if (!("snapshot" in result))
+        return context.json(result, result.status)
+      const parsed = z
+        .object({ viewId: z.string() })
+        .safeParse(
+          await context.req.json().catch(() => null),
+        )
+      if (!parsed.success)
+        return context.json(
+          { error: "Select an allowed view" },
+          400,
+        )
+      if (
+        !result.snapshot?.screen?.viewIds.includes(
+          parsed.data.viewId,
+        )
+      )
+        return context.json(
+          {
+            error:
+              "This view is not available on this screen",
+          },
+          403,
+        )
+      platform.screens.select({
+        screenId: id,
+        viewId: parsed.data.viewId,
+      })
+      const selected = getDisplay({
+        platform,
+        context,
+        kind: "screen",
+        id,
+      })
+      return "snapshot" in selected
+        ? context.json(selected.snapshot)
+        : context.json(selected, selected.status)
+    },
+  )
   app.post(
     "/api/display/:kind/:id/actions",
     async (context) => {

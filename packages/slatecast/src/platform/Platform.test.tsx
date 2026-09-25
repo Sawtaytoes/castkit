@@ -21,6 +21,7 @@ import {
   PlatformApp,
 } from "./PlatformApp.tsx"
 import {
+  type DisplaySnapshot,
   readDisplayTarget,
   safeMediaUrl,
 } from "./protocol.ts"
@@ -425,4 +426,233 @@ test("a replacement rip with the same title cannot reuse the earlier job's confi
   expect(confirm).toBeDisabled()
   await user.click(confirm)
   expect(onAction).not.toHaveBeenCalled()
+})
+
+test("one screen PIN grants dropdown and internal-link navigation without changing the URL", async () => {
+  const link = ws.link("*/screen/desk/ws")
+  const worker = setupWorker(
+    link.addEventListener("connection", () => {}),
+  )
+  await worker.start({
+    quiet: true,
+    onUnhandledRequest: "bypass",
+  })
+  onTestFinished(() => worker.stop())
+  const activity: DisplaySnapshot = {
+    ...compositionFixture,
+    target: { kind: "screen", id: "desk" },
+    view: { ...compositionFixture.view, access: "pin" },
+    screen: {
+      id: "desk",
+      name: "Protected screen",
+      access: "pin",
+      defaultViewId: "activity",
+      viewIds: ["activity", "clock"],
+    },
+    availableViews: [
+      { id: "activity", name: "Activity" },
+      { id: "clock", name: "Clock view" },
+    ],
+  }
+  const clock: DisplaySnapshot = {
+    ...activity,
+    view: {
+      ...activity.view,
+      id: "clock",
+      name: "Clock view",
+      layout: "single",
+      panels: [
+        {
+          id: "links",
+          specId: "entities",
+          bindings: { data: "links" },
+          settings: {
+            links: [
+              {
+                name: "Back to activity",
+                url: "/view/activity",
+              },
+              { name: "Other view", url: "/view/unlisted" },
+              {
+                name: "External",
+                url: "https://example.com/view/activity",
+              },
+            ],
+          },
+        },
+      ],
+    },
+    channels: {
+      links: {
+        id: "links",
+        type: "entities.v1",
+        status: "ready",
+        data: { entities: [] },
+      },
+    },
+  }
+  let isUnlocked = false
+  const fetch = vi
+    .spyOn(window, "fetch")
+    .mockImplementation(async (path, options) => {
+      if (path === "/api/access/unlock") {
+        isUnlocked = true
+        return new Response("{}")
+      }
+      if (!isUnlocked)
+        return new Response(
+          JSON.stringify({
+            error: "locked",
+            name: "Protected screen",
+          }),
+          { status: 401 },
+        )
+      if (path === "/api/display/screen/desk/select") {
+        const { viewId } = JSON.parse(String(options?.body))
+        return new Response(
+          JSON.stringify(
+            viewId === "clock" ? clock : activity,
+          ),
+        )
+      }
+      return new Response(JSON.stringify(activity))
+    })
+  const originalUrl = window.location.href
+  const view = render(
+    <PlatformApp target={{ kind: "screen", id: "desk" }} />,
+  )
+  onTestFinished(() => {
+    view.unmount()
+  })
+  await screen.findByText("Protected screen")
+  const user = userEvent.setup()
+  for (const digit of ["1", "3", "5", "7"])
+    await user.click(
+      screen.getByRole("button", {
+        name: digit,
+        exact: true,
+      }),
+    )
+  await user.click(
+    screen.getByRole("button", {
+      name: "Unlock",
+      exact: true,
+    }),
+  )
+  await waitFor(() =>
+    expect(
+      screen.getByRole("combobox", { name: "View" }),
+    ).toBeEnabled(),
+  )
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "View" }),
+    "clock",
+  )
+  await screen.findByRole("heading", {
+    name: "Clock view",
+    exact: true,
+  })
+  for (const name of ["Other view", "External"]) {
+    let isPrevented = true
+    document.addEventListener(
+      "click",
+      (event) => {
+        isPrevented = event.defaultPrevented
+        event.preventDefault()
+      },
+      { once: true },
+    )
+    screen.getByRole("link", { name }).dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+      }),
+    )
+    expect(isPrevented).toBe(false)
+  }
+  screen
+    .getByRole("link", { name: "Back to activity" })
+    .focus()
+  await user.keyboard("{Enter}")
+  await screen.findByText("Printer One")
+  expect(window.location.href).toBe(originalUrl)
+  expect(
+    fetch.mock.calls.filter(
+      ([path]) => path === "/api/access/unlock",
+    ),
+  ).toHaveLength(1)
+  expect(
+    fetch.mock.calls.filter(
+      ([path]) =>
+        path === "/api/display/screen/desk/select",
+    ),
+  ).toHaveLength(2)
+  expect(
+    fetch.mock.calls.some(([path]) =>
+      String(path).startsWith("/api/display/view/"),
+    ),
+  ).toBe(false)
+  expect(screen.queryByLabelText("PIN")).toBeNull()
+})
+
+test("a physical screen shows view navigation only when its drawer is enabled", async () => {
+  const link = ws.link(/\/screen\/desk\/ws/)
+  const connections: { send?: (message: string) => void } =
+    {}
+  const worker = setupWorker(
+    link.addEventListener("connection", ({ client }) => {
+      connections.send = (message) => client.send(message)
+    }),
+  )
+  await worker.start({
+    quiet: true,
+    onUnhandledRequest: "bypass",
+  })
+  onTestFinished(() => worker.stop())
+  const snapshot: DisplaySnapshot = {
+    ...compositionFixture,
+    availableViews: [{ id: "activity", name: "Activity" }],
+    displayProperties: {
+      repaint: "instant",
+      hasViewDrawer: false,
+    },
+  }
+  vi.spyOn(window, "fetch").mockImplementation(
+    async () => new Response(JSON.stringify(snapshot)),
+  )
+  const view = render(
+    <PlatformApp
+      target={{
+        kind: "screen",
+        id: "desk",
+        deviceId: "panel",
+      }}
+    />,
+  )
+  onTestFinished(() => {
+    view.unmount()
+  })
+  await screen.findByText("Printer One")
+  expect(
+    screen.queryByRole("combobox", { name: "View" }),
+  ).toBeNull()
+  await waitFor(() =>
+    expect(connections.send).toBeDefined(),
+  )
+  connections.send?.(
+    JSON.stringify({
+      type: "snapshot",
+      ...snapshot,
+      displayProperties: {
+        repaint: "instant",
+        hasViewDrawer: true,
+      },
+    }),
+  )
+  await waitFor(() =>
+    expect(
+      screen.getByRole("combobox", { name: "View" }),
+    ).toBeVisible(),
+  )
 })
