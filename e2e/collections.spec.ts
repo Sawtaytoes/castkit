@@ -379,3 +379,39 @@ test("duplicate mapping names block save and reveal the affected settings tab", 
     "fan.second": "Second fan",
   })
 })
+
+test("a screen preview scrolls without scrolling the settings page", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await page.route(/\/screen\/[^/]+\?preview=1$/, (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: '<main style="height:2400px"><h1>Scrollable screen</h1><p style="margin-top:2000px">Last panel</p></main>',
+    }),
+  )
+  await page.goto(
+    "/manage/screens/general?item=browser-screen",
+  )
+  const preview = page.frameLocator(
+    ".collection-preview-frame",
+  )
+  await expect(
+    preview.getByRole("heading", {
+      name: "Scrollable screen",
+    }),
+  ).toBeVisible()
+  await preview
+    .getByRole("heading", { name: "Scrollable screen" })
+    .hover()
+  const outerScroll = await page.evaluate(() => scrollY)
+  await page.mouse.wheel(0, 450)
+  await expect
+    .poll(() =>
+      preview.locator("body").evaluate(() => scrollY),
+    )
+    .toBeGreaterThan(0)
+  expect(await page.evaluate(() => scrollY)).toBe(
+    outerScroll,
+  )
+})
