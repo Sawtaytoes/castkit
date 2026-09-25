@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { VIEW_NAMES } from "@castkit/shared/views/viewNames"
 import { createStaticHandler } from "@charcuterie/server"
@@ -8,6 +8,9 @@ import { bearerAuth } from "hono/bearer-auth"
 import { buildOpenApiDocument } from "./api/openapi.ts"
 import { SetViewRequestSchema } from "./api/schemas.ts"
 import type { InkcastConfig } from "./config/env.ts"
+import type { Platform } from "./platform/platform.ts"
+import { buildLandingPage } from "./platform/platformPages.ts"
+import { attachPlatformRoutes } from "./platform/platformRoutes.ts"
 import type { PushController } from "./pushController.ts"
 import type {
   DeviceDefinition,
@@ -34,7 +37,9 @@ export const createApp = ({
   setDeviceSetting,
   pushController,
   renderTokenStore,
+  platform,
 }: {
+  platform?: Platform
   config: InkcastConfig
   deviceStore: DeviceStore
   deviceDefinitionStore: DeviceDefinitionStore
@@ -55,13 +60,32 @@ export const createApp = ({
   const managementDistDirectory = [
     process.env.CASTKIT_MANAGEMENT_DIST_DIR,
     resolve(import.meta.dirname, "./admin"),
-    resolve(import.meta.dirname, "../../../admin/dist"),
+    resolve(import.meta.dirname, "../../admin/dist"),
   ].find((directory): directory is string =>
     Boolean(directory && existsSync(directory)),
   )
 
-  // Bare domain → the interactive API docs (otherwise "/" is a bare 404).
-  app.get("/", (context) => context.redirect("/docs"))
+  // The entry page offers saved displays, management, and API documentation.
+  app.get("/", (context) =>
+    context.html(
+      managementDistDirectory
+        ? readFileSync(
+            resolve(managementDistDirectory, "index.html"),
+            "utf8",
+          )
+        : buildLandingPage(),
+    ),
+  )
+  app.get("/views", (context) =>
+    managementDistDirectory
+      ? context.html(
+          readFileSync(
+            resolve(managementDistDirectory, "index.html"),
+            "utf8",
+          ),
+        )
+      : context.redirect("/manage"),
+  )
 
   app.get("/health", (context) =>
     context.json({ status: "ok", views: VIEW_NAMES }),
@@ -71,10 +95,17 @@ export const createApp = ({
   app.get("/openapi.json", (context) =>
     context.json(buildOpenApiDocument({ config })),
   )
-  app.get("/docs", apiReference({ url: "/openapi.json" }))
+  app.get("/api", apiReference({ url: "/openapi.json" }))
+  app.get("/docs", (context) => context.redirect("/api"))
+  if (platform)
+    attachPlatformRoutes({
+      app,
+      platform,
+      apiToken: config.apiToken,
+    })
 
   // Token-gate the API surface. With no token set (LAN/dev), the API is open.
-  if (config.apiToken) {
+  if (config.apiToken && !platform) {
     app.use(
       "/api/*",
       bearerAuth({ token: config.apiToken }),

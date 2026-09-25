@@ -6,7 +6,7 @@
 - **Supersedes:**
   [2026-07-01 Now-playing data comes from HA `media_player`, not Music Assistant](2026-07-01-now-playing-reads-ha-media-player.md),
   [2026-07-02 The Clock (Agenda) view pulls calendar events from HA](2026-07-02-clock-agenda-view-pulls-calendar-from-ha.md)
-- **Superseded by:** —
+- **Superseded by:** — [Named channels and extensions](2026-09-25-named-channels-and-extensions-drive-reusable-views.md) partially supersedes the exclusive producer/transport restriction; existing paths remain supported.
 
 ## Decision
 

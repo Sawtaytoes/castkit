@@ -1,0 +1,774 @@
+/* The Preact display uses the fleet tokens without its React component runtime. */
+.platform,
+.platform-lock {
+  font-family: var(--font-sans);
+  color: var(--fg);
+  background: var(--bg);
+  inline-size: 100%;
+  block-size: 100dvh;
+}
+.platform {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(8px, 1.4vw, 24px);
+  gap: 12px;
+}
+.platform-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.platform-header h1 {
+  font-size: clamp(16px, 2vw, 24px);
+  font-weight: 600;
+}
+.platform-header > div {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.platform-header span,
+.platform-source-status,
+.platform-notice {
+  font-size: 14px;
+  color: var(--color-intent-warning-content);
+}
+.platform button,
+.platform-lock button {
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  font: 600 16px var(--font-sans);
+  padding: 12px 18px;
+  min-block-size: 44px;
+  cursor: pointer;
+}
+.platform button:disabled,
+.platform-lock button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.platform button:focus-visible,
+.platform-lock button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.platform input,
+.platform-lock input {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  padding: 12px;
+  max-inline-size: 100%;
+  user-select: text;
+}
+.platform-layout {
+  min-block-size: 0;
+  flex: 1;
+  display: grid;
+  gap: clamp(10px, 1.5vw, 24px);
+  grid-template-columns: minmax(0, 1fr);
+}
+.platform-layout[data-layout="split"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.platform-layout[data-layout="grid"] {
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 360px), 1fr)
+    );
+  grid-auto-rows: minmax(0, 1fr);
+}
+.platform-panel {
+  position: relative;
+  overflow: auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  container-type: inline-size;
+  background: var(--surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 16px;
+  padding: clamp(12px, 2vw, 28px);
+  display: flex;
+  flex-direction: column;
+}
+.platform-source-status {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--color-intent-warning-border);
+  margin-block-end: 12px;
+}
+.platform-source-status span {
+  display: block;
+}
+.platform-empty,
+.platform-clock {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+.platform-empty p {
+  color: var(--fg-dim);
+}
+.platform-clock time,
+.platform-clock > h2 {
+  font-size: clamp(40px, 14cqi, 140px);
+  line-height: 1.1;
+}
+.platform-clock p {
+  font-size: clamp(18px, 4cqi, 32px);
+}
+.platform-points-award {
+  font-size: clamp(32px, 10cqi, 100px);
+  color: var(--accent-content);
+}
+.platform-printers {
+  display: grid;
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 260px), 1fr)
+    );
+  gap: 20px;
+  flex: 1;
+}
+.platform-printers .printer-card {
+  min-block-size: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.platform-printer-image {
+  inline-size: 100%;
+  max-block-size: 38cqi;
+  object-fit: contain;
+  border-radius: 10px;
+}
+.platform-printers .printer-body {
+  flex: 1;
+  gap: 6px;
+}
+.platform-printers .printer-band {
+  block-size: 80px;
+}
+.platform-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-block-start: 14px;
+}
+.platform-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 72%);
+}
+.platform-dialog > div {
+  max-inline-size: 560px;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 18px;
+}
+.platform-dialog h2 {
+  margin-block-end: 12px;
+}
+.platform-rips {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-block-size: 0;
+}
+.platform-rip-rows {
+  display: grid;
+  grid-auto-rows: minmax(72px, 1fr);
+  gap: 10px;
+  flex: 1;
+}
+.platform button.platform-rip-row {
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  align-items: center;
+  gap: 16px;
+  background: color-mix(
+    in srgb,
+    var(--accent) 12%,
+    var(--bg)
+  );
+  text-align: start;
+}
+.platform-rip-row[data-warning="true"] {
+  --accent: var(--color-intent-warning-solid);
+}
+.platform-rip-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  opacity: 0.3;
+  pointer-events: none;
+}
+.platform-rip-row > :not(.platform-rip-fill) {
+  position: relative;
+  z-index: 1;
+}
+.platform-rip-number {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--color-intent-accent-on-solid);
+}
+.platform-rip-title {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  flex: 1;
+  gap: 8px;
+}
+.platform-rip-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.platform-rip-title span {
+  color: var(--fg-dim);
+  font-size: 0.75em;
+}
+.platform-rip-rows[data-density="focus"] {
+  font-size: clamp(20px, 4cqi, 38px);
+}
+.platform-rip-rows[data-density="roomy"] {
+  font-size: clamp(17px, 3cqi, 28px);
+}
+.platform-rip-rows button {
+  font-size: inherit;
+}
+.platform-rip-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+.platform-rip-disc {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  min-block-size: 0;
+}
+.platform-rip-disc img {
+  inline-size: 35%;
+  max-block-size: 50cqi;
+  object-fit: contain;
+}
+.platform-rip-disc > div {
+  flex: 1;
+  display: grid;
+  gap: 12px;
+}
+.platform progress {
+  accent-color: var(--accent);
+  inline-size: 100%;
+  block-size: 18px;
+  margin-block-start: 12px;
+}
+.platform-photo {
+  position: relative;
+  flex: 1;
+  min-block-size: 0;
+  display: flex;
+  flex-direction: column;
+}
+.platform-photo img {
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  flex: 1;
+}
+.platform-photo figcaption {
+  padding-block-start: 12px;
+  text-align: center;
+}
+.platform-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.platform-agenda article {
+  display: flex;
+  gap: 24px;
+  padding-block: 12px;
+  border-block-end: 1px solid var(--color-border-subtle);
+  align-items: center;
+}
+.platform-agenda time {
+  color: var(--accent-content);
+  flex: 0 0 100px;
+  font-size: 20px;
+}
+.platform-agenda h3 {
+  font-size: clamp(18px, 4cqi, 32px);
+}
+.platform-media {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  flex: 1;
+  text-align: center;
+}
+.platform-media img {
+  inline-size: min(80%, 420px);
+  max-block-size: 52cqi;
+  object-fit: contain;
+  border-radius: 14px;
+}
+.platform-media h2 {
+  font-size: clamp(24px, 6cqi, 54px);
+}
+.platform-media p {
+  color: var(--fg-dim);
+  font-size: clamp(18px, 3cqi, 28px);
+}
+.platform-camera-grid,
+.platform-entities {
+  display: grid;
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 280px), 1fr)
+    );
+  gap: 20px;
+}
+.platform-camera-grid img {
+  inline-size: 100%;
+  object-fit: contain;
+}
+.platform-camera-grid figcaption {
+  margin-block-start: 10px;
+}
+.platform-entity {
+  padding: 20px;
+  background: var(--bg);
+  border-radius: 12px;
+}
+.platform-entity-value {
+  font-size: 32px;
+  margin-block: 10px;
+}
+.platform-chart {
+  color: var(--accent-content);
+}
+.platform-chart svg {
+  inline-size: 100%;
+}
+.platform-chart figcaption {
+  color: var(--fg-dim);
+  font-size: 13px;
+}
+.platform-lock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 20px;
+}
+.platform-lock form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  inline-size: min(360px, 100%);
+}
+.platform-lock input {
+  letter-spacing: 12px;
+  font-size: 28px;
+  text-align: center;
+}
+.platform-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.platform-keypad button {
+  min-block-size: 64px;
+  font-size: 24px;
+}
+@media (max-width: 650px) {
+  .platform-layout[data-layout="split"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  .platform-header {
+    gap: 8px;
+  }
+  .platform-panel {
+    padding: 12px;
+  }
+}
+.platform-plugin,
+.platform-plugin > div {
+  flex: 1;
+  min-block-size: 0;
+}
+.platform-location-map {
+  grid-column: 1 / -1;
+}
+.platform-location-map svg {
+  inline-size: 100%;
+  max-block-size: 60vh;
+}
+.platform-location-map figcaption {
+  color: var(--fg-dim);
+  font-size: 13px;
+}
+.platform-camera img {
+  inline-size: 100%;
+  object-fit: contain;
+}
+.platform-camera p {
+  color: var(--color-intent-warning-content);
+  font-size: 14px;
+}
+.platform-map-controls {
+  display: flex;
+  gap: 8px;
+  margin-block-end: 8px;
+}
+.platform-location-map figcaption a {
+  color: var(--accent-content);
+}
+.platform-timers {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.platform-timer-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+.platform-timer-form h2 {
+  flex-basis: 100%;
+}
+.platform-timer-form label,
+.platform-actions label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+@media (max-width: 650px) and (min-aspect-ratio: 1 / 1) {
+  .platform-layout[data-layout="split"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+@media (max-height: 420px) {
+  .platform {
+    gap: 6px;
+    padding: 6px;
+  }
+  .platform-header h1 {
+    font-size: 14px;
+  }
+  .platform-panel {
+    padding: 10px;
+    border-radius: 10px;
+  }
+  .platform-printers .printer-card {
+    gap: 0;
+  }
+  .platform-printers .printer-name {
+    font-size: 16px;
+  }
+  .platform-printers .printer-state {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+  .platform-printers .printer-head {
+    gap: 5px;
+  }
+  .platform-printers .printer-job {
+    font-size: 13px;
+    padding: 0;
+    min-block-size: 24px;
+    margin-block-start: 4px;
+    border: 0;
+    background: transparent;
+  }
+  .platform-printers .printer-band {
+    block-size: 48px;
+    margin-block-start: 4px;
+  }
+  .platform-printers .printer-band-text {
+    padding: 0 10px;
+    gap: 4px;
+  }
+  .platform-printers .printer-percent {
+    font-size: 30px;
+  }
+  .platform-printers .printer-band-remaining {
+    font-size: 12px;
+  }
+  .platform-printers .printer-metrics {
+    margin-block-start: 4px;
+  }
+  .platform-printers .printer-metric {
+    padding: 4px 6px;
+  }
+  .platform-printers .printer-metric dd {
+    font-size: 14px;
+  }
+  .platform-printers .printer-body > p {
+    font-size: 12px;
+  }
+  .platform-printers .platform-actions {
+    gap: 5px;
+    margin-block-start: 4px;
+  }
+  .platform-printers .platform-actions button {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+  .platform button.platform-rip-row {
+    gap: 8px;
+    padding: 10px;
+  }
+  .platform-rip-number {
+    padding: 6px 8px;
+  }
+  .platform-printer-image {
+    max-block-size: 25vh;
+  }
+  .platform[data-device="true"] > .platform-header {
+    display: none;
+  }
+}
+.platform select {
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  padding: 10px;
+}
+@media (max-width: 650px) and (max-height: 420px) {
+  .platform-rip-details {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    padding: 12px;
+    background: var(--bg);
+    gap: 8px;
+  }
+  .platform-rip-details h2 {
+    font-size: 22px;
+  }
+  .platform-rip-details .platform-rip-disc {
+    flex: 1;
+    max-block-size: 160px;
+  }
+  .platform-rip-details .platform-rip-disc img {
+    max-block-size: 140px;
+  }
+  .platform-rip-details .platform-actions {
+    margin-block-start: 0;
+    gap: 6px;
+  }
+  .platform-rip-details .platform-actions button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .platform-rip-details > p {
+    font-size: 12px;
+  }
+  .platform-dialog > div {
+    padding: 16px;
+    max-block-size: 95vh;
+    overflow: auto;
+  }
+  .platform-dialog h2 {
+    font-size: 20px;
+  }
+  .platform-lock form {
+    display: grid;
+    inline-size: min(560px, 100%);
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 18px;
+  }
+  .platform-lock form > :not(.platform-keypad) {
+    grid-column: 1;
+  }
+  .platform-lock h1 {
+    font-size: 22px;
+  }
+  .platform-lock p {
+    font-size: 14px;
+  }
+  .platform-lock input {
+    inline-size: 100%;
+    block-size: 44px;
+    font-size: 22px;
+    padding: 8px;
+  }
+  .platform-keypad {
+    grid-column: 2;
+    grid-row: 1 / span 5;
+    gap: 6px;
+  }
+  .platform-keypad button {
+    min-block-size: 44px;
+    font-size: 20px;
+    padding: 6px;
+  }
+}
+.platform-agenda-fitted {
+  gap: 12px;
+  overflow: hidden;
+}
+.platform-agenda-fitted h2 {
+  block-size: 32px;
+  flex: none;
+}
+.platform-agenda-fitted article {
+  block-size: 72px;
+  padding-block: 8px;
+  flex: none;
+}
+.platform-agenda-fitted article h3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: clamp(16px, 4cqi, 24px);
+}
+.platform-agenda-more {
+  block-size: 16px;
+  font-size: 13px;
+  color: var(--fg-dim);
+}
+.platform-panel-title {
+  font-size: 20px;
+  margin-block-end: 14px;
+}
+.platform-report {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.platform-report h1,
+.platform-report h2,
+.platform-report h3,
+.platform-report p {
+  margin-block-end: 12px;
+}
+.platform-report table {
+  border-collapse: collapse;
+  inline-size: 100%;
+  white-space: normal;
+}
+.platform-report th,
+.platform-report td {
+  text-align: start;
+  padding: 8px;
+  border-block-end: 1px solid var(--color-border-subtle);
+}
+.platform-report ul,
+.platform-report ol {
+  padding-inline-start: 24px;
+}
+.platform-report a {
+  color: var(--accent-content);
+}
+.platform-attribute {
+  grid-column: 1 / -1;
+}
+.platform-attribute h3 {
+  margin-block-end: 8px;
+}
+.platform-weather {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.platform-weather header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.platform-weather header strong {
+  font-size: clamp(36px, 12cqi, 80px);
+}
+.platform-weather header p {
+  font-size: clamp(18px, 4cqi, 28px);
+}
+.platform-forecast {
+  display: grid;
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(96px, 1fr)
+    );
+  gap: 12px;
+}
+.platform-forecast article {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: 10px;
+  background: var(--bg);
+  text-align: center;
+}
+.platform-forecast time,
+.platform-forecast span {
+  font-size: 13px;
+  color: var(--fg-dim);
+}
+.platform-weather-mark {
+  inline-size: 36px;
+  block-size: 36px;
+  color: var(--accent-content);
+}
+.platform-layout[data-layout="grid"] {
+  overflow-y: auto;
+  grid-auto-rows: minmax(280px, 1fr);
+}
+.platform-actions > a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+  padding: 12px 18px;
+  color: var(--accent-content);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+.platform-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.platform-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.platform-chart-legend i {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 0.15rem;
+}

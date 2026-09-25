@@ -48,7 +48,17 @@ export const createPushController = ({
   resolveClockConfig,
   renderTokenStore,
   publicUrl,
+  renderPlatform,
+  getPlatformSelection,
 }: {
+  getPlatformSelection?: (
+    deviceId: string,
+  ) => string | undefined
+  renderPlatform?: (request: {
+    device: ConfiguredDevice
+    margin?: import("@castkit/core/panels/safeArea").PanelMargin
+    adjustments?: import("@castkit/core/pipeline/dither").DitherAdjustments
+  }) => Promise<Buffer | null>
   devices: readonly ConfiguredDevice[]
   deviceStore: DeviceStore
   deviceConfigStore: DeviceConfigStore
@@ -163,6 +173,17 @@ export const createPushController = ({
         : { format: "png" }
     const margin = deviceConfigStore.getMargin(deviceId)
 
+    const platformImage = await renderPlatform?.({
+      device: effectiveDevice,
+      margin,
+      adjustments: hasAdjustments
+        ? {
+            brightness: (brightnessPercent ?? 100) / 100,
+            saturation: (saturationPercent ?? 100) / 100,
+          }
+        : undefined,
+    })
+    if (platformImage) return platformImage
     return renderService.renderDevice({
       device: effectiveDevice,
       viewName: activeView,
@@ -206,6 +227,8 @@ export const createPushController = ({
     // select can land inside that window.
     const viewAtRenderStart =
       deviceStore.getActiveView(deviceId)
+    const platformAtRenderStart =
+      getPlatformSelection?.(deviceId)
     const image = await renderDevice(
       deviceId,
       viewAtRenderStart,
@@ -226,6 +249,11 @@ export const createPushController = ({
       )
       return false
     }
+    if (
+      platformAtRenderStart !==
+      getPlatformSelection?.(deviceId)
+    )
+      return false
     const viewNow = deviceStore.getActiveView(deviceId)
     if (viewNow !== viewAtRenderStart) {
       // Whatever changed the view has already queued its own push, so this
