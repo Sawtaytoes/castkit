@@ -234,6 +234,39 @@ export const M5PAPER_DEVICE: DeviceMetadata = {
   },
 }
 
+/**
+ * Example Waveshare 10.85" e-Paper HAT+: 1360×480 1-bit mono over SPI.
+ *
+ * A letterbox panel — nearly three times as wide as it is tall — which is the
+ * whole reason it is in the registry. Every other example is roughly 2:1 or
+ * squarer, so a view that has only ever been laid out against those can look
+ * correct and still strand its content in the middle third of this glass.
+ *
+ * ⚠️ Two products share the "10.85inch e-Paper" name and only one of them is
+ * this entry. The HAT+ is black and white with 2 gray levels; the HAT+ (G) is
+ * the same 1360×480 glass in red/yellow/black/white and would need its own
+ * palette and color mode. Registering the wrong one gives a panel that renders
+ * without error and throws away every color the hardware can paint.
+ *
+ * `slow` comes from the datasheet's 3.5 s full refresh. Partial refresh is
+ * 0.6 s, which we do not use: CastKit sends whole frames.
+ */
+export const WAVESHARE_1085_DEVICE: DeviceMetadata = {
+  id: "waveshare-1085",
+  label: 'Waveshare 10.85" e-Paper',
+  mac: "02:00:00:00:00:06",
+  width: 1360,
+  height: 480,
+  colorMode: "monochrome",
+  palette: MONOCHROME_PALETTE,
+  rotation: 0,
+  repaint: "slow",
+  ditherProfile: {
+    algorithm: "atkinson",
+    supersampleFactor: 2,
+  },
+}
+
 /** Example devices — the two panel types Inkcast targets. Override via config. */
 export const SEED_DEVICES: readonly DeviceMetadata[] = [
   PHAT_DEVICE,
@@ -250,4 +283,5 @@ export const EXAMPLE_DEVICES: readonly DeviceMetadata[] = [
   PHAT_DEVICE,
   IMPRESSION_DEVICE,
   M5PAPER_DEVICE,
+  WAVESHARE_1085_DEVICE,
 ]

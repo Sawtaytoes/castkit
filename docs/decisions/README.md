@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-25 | [The AI Usage view shows one weekly limit per provider and escalates the rest](2026-09-25-the-ai-usage-view-shows-one-weekly-limit-per-provider.md) — one row per provider, its weekly budget; every other window is withheld until it reaches `alertPercent`, default 80. The span comes from a new `periodHours`, never from `resetsAtMs`, which is the next clearing time and not the length of the window | Accepted |
 | 2026-09-25 | [Collections use search, tags, and structured editors](2026-09-25-collections-use-search-tags-and-structured-editors.md) | Accepted |
 | 2026-09-25 | [Overview previews are upright](2026-09-25-overview-previews-are-upright.md) | Accepted |
 | 2026-09-25 | [A finish time names its day when it is not today](2026-09-25-a-finish-time-names-its-day-when-it-is-not-today.md) — `Finishes` prints `Tomorrow 3:47 PM`, `Sun 3:47 PM`, or a date a week out, because a bare clock time states today and a print that runs past midnight was read as three hours away when the printer meant twenty-seven. The test is the calendar day in the panel's timezone, never a twenty-four hour window — a finish at 01:00 is eight hours out and still not today | Accepted |

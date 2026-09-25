@@ -759,6 +759,40 @@
 .ai-usage-window[data-intent="danger"] .ai-usage-bar-fill {
   background: var(--color-intent-danger-solid);
 }
+/*
+ * A 1-bit panel has no accent, no warning and no danger — it has ink. An
+ * accent-blue fill quantizes to a half-tone hatch while a danger-red one
+ * quantizes to solid black, so the same bar at 72 percent and at 100 percent
+ * come out looking like two different kinds of measurement. Every fill
+ * becomes the body ink instead, and the intents carry no meaning the reader
+ * could have taken from them anyway.
+ */
+.ai-usage[data-color-mode="monochrome"] .ai-usage-bar-fill,
+.ai-usage[data-color-mode="monochrome"]
+  .ai-usage-window[data-intent="warning"]
+  .ai-usage-bar-fill,
+.ai-usage[data-color-mode="monochrome"]
+  .ai-usage-window[data-intent="danger"]
+  .ai-usage-bar-fill {
+  background: var(--fg);
+}
+/*
+ * An escalated row is the exception on the panel, and on a 1-bit glass it
+ * cannot say so in color. It says so in structure: a rule down its leading
+ * edge and a label at the headline's weight. Both survive a two-color
+ * quantize exactly, where a tint would have become dither noise.
+ *
+ * Inline padding only — the row budget is arithmetic over `block-size`, so a
+ * marker that changed the row's height would have to be taught to the view.
+ */
+.ai-usage-window[data-escalated="true"] {
+  padding-inline-start: 10px;
+  border-inline-start: 3px solid var(--fg);
+}
+.ai-usage-window[data-escalated="true"]
+  .ai-usage-window-label {
+  font-weight: 700;
+}
 .ai-usage-window-foot {
   display: flex;
   justify-content: space-between;

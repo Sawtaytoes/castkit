@@ -66,6 +66,7 @@ test("AI Usage normalizes provider titles, percentages and reset times", () => {
   expect(snapshot.providers[0]?.windows[0]).toEqual({
     id: "session_5h",
     label: "5-hour limit",
+    periodHours: 5,
     percentUsed: 7,
     resetsAtMs: Date.parse("2026-01-01T15:00:00Z"),
   })
@@ -91,8 +92,75 @@ test("AI Usage keeps a failed provider and its unmeasured window", () => {
   expect(snapshot.providers[1]?.windows[0]).toEqual({
     id: "primary",
     label: "Monthly limit",
+    periodHours: 720,
     usedText: "$18.6 / $20",
   })
+})
+
+test("AI Usage reads each window's span off the words the producer already uses", () => {
+  /*
+   * The span cannot be recovered from `resets_at`, which is the next clearing
+   * time and not the length of the window. It has to come from the naming,
+   * and the producer names the same span several different ways across
+   * providers.
+   */
+  const snapshot = normalizeAiUsage({
+    providers: [
+      {
+        provider: "mixed",
+        windows: [
+          { id: "session_5h", label: "5-hour session" },
+          {
+            id: "weekly_all",
+            label: "Weekly (all models)",
+          },
+          { id: "primary", label: "Weekly" },
+          { id: "rolling", label: "7-day limit" },
+          { id: "cap", label: "Monthly allowance" },
+          { id: "today", label: "Daily cap" },
+          { id: "plan", label: "Included usage" },
+        ],
+      },
+    ],
+  })
+  expect(
+    snapshot.providers[0]?.windows.map(
+      (usageWindow) => usageWindow.periodHours,
+    ),
+  ).toStrictEqual([
+    5,
+    168,
+    168,
+    168,
+    720,
+    24,
+    /*
+     * "Included usage" resets on a billing date, which is neither a week nor
+     * reliably a month. An unclassified window is better than a guessed one:
+     * a wrong number here silently promotes it over a real weekly limit.
+     */
+    undefined,
+  ])
+})
+
+test("AI Usage prefers a span the producer states outright", () => {
+  const snapshot = normalizeAiUsage({
+    providers: [
+      {
+        provider: "explicit",
+        windows: [
+          {
+            id: "odd",
+            label: "Billing period",
+            period_hours: 336,
+          },
+        ],
+      },
+    ],
+  })
+  expect(
+    snapshot.providers[0]?.windows[0]?.periodHours,
+  ).toBe(336)
 })
 
 test("AI Usage refuses a payload that carries no providers", () => {
