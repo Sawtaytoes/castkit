@@ -4,7 +4,7 @@
 - **Date:** 2026-09-23
 - **Type:** View / data source
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** — [Named channels and extensions](2026-09-25-named-channels-and-extensions-drive-reusable-views.md) partially supersedes the exclusive producer/transport restriction; existing paths remain supported.
 
 ## Decision
 

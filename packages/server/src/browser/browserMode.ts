@@ -30,6 +30,7 @@ import {
   resolvePersonIds,
 } from "../immich/immichClient.ts"
 import { preparePhotoFrameImage } from "../immich/photoFrameImage.ts"
+import { buildPlatformPage } from "../platform/platformPages.ts"
 import { createViewDataStore } from "../state/viewDataStore.ts"
 import {
   getBrowserViewByName,
@@ -870,7 +871,14 @@ export const createBrowserMode = ({
   }
 
   /** Attach `/d/:id`, its WebSocket, and the SPA assets to the HTTP app. */
-  const attach = (app: Hono) => {
+  const attach = (
+    app: Hono,
+    options?: {
+      getPlatformScreenId?: (
+        deviceId: string,
+      ) => string | undefined
+    },
+  ) => {
     const { injectWebSocket, upgradeWebSocket } =
       createNodeWebSocket({ app })
 
@@ -924,6 +932,16 @@ export const createBrowserMode = ({
           404,
         )
       }
+      const screenId = options?.getPlatformScreenId?.(
+        context.req.param("id") ?? "",
+      )
+      if (screenId)
+        return context.html(
+          buildPlatformPage().replace(
+            "</body>",
+            `<script id="castkit-platform-target" type="application/json">${JSON.stringify({ kind: "screen", id: screenId, deviceId: context.req.param("id") }).replaceAll("<", "\\u003c")}</script></body>`,
+          ),
+        )
       return context.html(buildDevicePageHtml({ snapshot }))
     })
 
@@ -1123,7 +1141,7 @@ export const createBrowserMode = ({
       }),
     )
 
-    return { injectWebSocket }
+    return { injectWebSocket, upgradeWebSocket }
   }
 
   /**
@@ -1179,6 +1197,11 @@ export const createBrowserMode = ({
   }
 
   return {
+    reloadDevice: (deviceId: string) =>
+      hub.broadcast({
+        deviceId,
+        message: { type: "reload" },
+      }),
     deviceCount: devices.length,
     start,
     attach,

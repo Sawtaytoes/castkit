@@ -8,7 +8,9 @@ and a tiny Preact SPA renders over one WebSocket) or is sent finished images
 (`image` — the server renders per-device PNGs, React → Chromium/Satori →
 per-panel dither, pushed over MQTT). All displays surface in Home Assistant via
 MQTT discovery; HA switches views and executes device commands — the
-CastKit↔house contract is MQTT and nothing else.
+CastKit source adapters normalize MQTT or direct API data into named channels;
+see the [display platform decision](docs/decisions/2026-09-25-named-channels-and-extensions-drive-reusable-views.md).
+Existing device MQTT contracts remain supported.
 
 > ⛔ **"Inkcast" and "Slatecast" are RETIRED product names, and panel type is
 > never the axis.** Do not divide a view, a layout, a test or a Storybook by
@@ -142,6 +144,7 @@ discovery. Architecture + phase plan are in the README and
 
 | Package | Scope |
 | --- | --- |
+| `@castkit/sdk` | Framework-independent channel contracts, source adapters, view specifications, and plugin interfaces. |
 | `@castkit/core` | Panel/palette definitions, device registry, the supersample→downscale→dither pipeline. No HTTP/engine deps. |
 | `@castkit/views` | Static React view components rendered by BOTH engines (inline styles, flexbox subset). One component per file. |
 | `@castkit/render` | Render engines: headless Chromium (Playwright) and Satori (SVG→resvg). Same view in, supersampled PNG out. |

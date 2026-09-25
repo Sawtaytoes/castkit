@@ -81,6 +81,24 @@ export const App = () => {
   const isSideways =
     orientation === 90 || orientation === 270
 
+  useEffect(() => {
+    if (
+      new URLSearchParams(window.location.search).get(
+        "preview",
+      ) === "1" &&
+      window.parent !== window
+    ) {
+      window.parent.postMessage(
+        {
+          type: "castkit-preview-orientation",
+          deviceId: profile?.id,
+          orientation,
+        },
+        window.location.origin,
+      )
+    }
+  }, [profile?.id, orientation])
+
   // The token palette hangs off `data-scheme` on <html>. Explicit settings
   // win; Auto follows the device system scheme, including later OS changes.
   useEffect(() => {

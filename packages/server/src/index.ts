@@ -32,6 +32,9 @@ import {
   parseNowPlayingPayload,
   parseWeatherPayload,
 } from "./mqtt/viewDataPayloads.ts"
+import { createPlatformImageScheduler } from "./platform/imageScheduler.ts"
+import { createPlatform } from "./platform/platform.ts"
+import { attachPlatformSockets } from "./platform/platformSockets.ts"
 import { createPushController } from "./pushController.ts"
 import { fetchArtworkDataUri } from "./render/artworkFetch.ts"
 import { createRenderService } from "./render/renderService.ts"
@@ -307,6 +310,16 @@ const main = async () => {
     config: config.mqtt,
     availabilityTopic: buildAvailabilityTopic(baseTopic),
   })
+  const platform = await createPlatform({
+    file: config.platformFile,
+    devices: config.devices,
+    browserDevices: config.browserDevices,
+    apiToken: config.apiToken,
+    publisher,
+    publicUrl: config.publicUrl,
+    discoveryPrefix: config.mqtt.discoveryPrefix,
+    topicPrefix: config.mqtt.baseTopic,
+  })
   const renderService = await createRenderService({
     engineName: config.renderEngine,
   })
@@ -454,6 +467,36 @@ const main = async () => {
   renderTokenStore.startSweeper()
 
   const pushController = createPushController({
+    getPlatformSelection: (deviceId) => {
+      const screenId =
+        platform.store.get().deviceScreens[deviceId]
+      return screenId
+        ? JSON.stringify(
+            platform.getTarget({
+              kind: "screen",
+              id: screenId,
+            })?.view,
+          )
+        : undefined
+    },
+    renderPlatform: async ({
+      device,
+      margin,
+      adjustments,
+    }) => {
+      const screenId =
+        platform.store.get().deviceScreens[device.id]
+      if (!screenId) return null
+      return renderService.renderPage({
+        device,
+        margin,
+        adjustments,
+        url: `http://127.0.0.1:${config.port}/screen/${encodeURIComponent(screenId)}?device=${encodeURIComponent(device.id)}&capture=1`,
+        headers: {
+          "x-castkit-render-key": platform.renderKey,
+        },
+      })
+    },
     devices: config.devices,
     deviceStore,
     deviceConfigStore,
@@ -2030,6 +2073,7 @@ const main = async () => {
   await browserMode.start()
 
   const app = createApp({
+    platform,
     config,
     deviceStore,
     deviceDefinitionStore,
@@ -2222,12 +2266,45 @@ const main = async () => {
       return true
     },
   })
-  const { injectWebSocket } = browserMode.attach(app)
+  const { injectWebSocket, upgradeWebSocket } =
+    browserMode.attach(app, {
+      getPlatformScreenId: (deviceId) =>
+        platform.store.get().deviceScreens[deviceId],
+    })
+  attachPlatformSockets({ app, platform, upgradeWebSocket })
+  const assignments = {
+    value: JSON.stringify(
+      platform.store.get().deviceScreens,
+    ),
+  }
+  platform.subscribe(() => {
+    const current = JSON.stringify(
+      platform.store.get().deviceScreens,
+    )
+    if (current !== assignments.value) {
+      const previous = JSON.parse(
+        assignments.value,
+      ) as Record<string, string>
+      new Set([
+        ...Object.keys(previous),
+        ...Object.keys(platform.store.get().deviceScreens),
+      ]).forEach((deviceId) => {
+        browserMode.reloadDevice(deviceId)
+      })
+      assignments.value = current
+    }
+  })
   const server = serve({
     fetch: app.fetch,
     port: config.port,
   })
   injectWebSocket(server)
+  const platformImageScheduler =
+    createPlatformImageScheduler({
+      platform,
+      deviceIds: config.devices.map((device) => device.id),
+      push: pushController.pushDevice,
+    })
   console.log(
     `[castkit] serving on :${config.port} (engine=${config.renderEngine}, mqtt=${publisher.isEnabled ? "on" : "off"}, imageDevices=${config.devices.length}, browserDevices=${browserMode.deviceCount})`,
   )
@@ -2235,6 +2312,8 @@ const main = async () => {
   const shutdown = async () => {
     console.log("[inkcast] shutting down")
     server.close()
+    platformImageScheduler.dispose()
+    platform.dispose()
     clockTicker.close()
     photoFrameAdapter?.close()
     renderTokenStore.stopSweeper()

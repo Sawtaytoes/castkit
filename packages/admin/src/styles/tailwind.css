@@ -159,25 +159,29 @@
   padding-block: 0.75rem;
   overflow: hidden;
 }
-.browser-preview {
+.preview-output {
   position: relative;
   margin-inline: auto;
   overflow: hidden;
 }
-.preview-iframe {
+.preview-iframe,
+.image-preview {
   position: absolute;
-  inset-block-start: 0;
-  inset-inline-start: 0;
+  top: 50%;
+  left: 50%;
   border: 0;
   max-inline-size: none;
-  transform-origin: top left;
+  transform-origin: center;
   pointer-events: none;
 }
-.image-preview {
-  display: block;
-  max-inline-size: 100%;
-  block-size: auto;
-  margin-inline: auto;
+.screens-grid .device-preview {
+  position: static;
+  max-inline-size: none;
+}
+.screens-grid .preview-container {
+  block-size: 240px;
+  display: grid;
+  align-items: center;
 }
 .preview-message {
   min-block-size: 8rem;
@@ -280,4 +284,42 @@
   .management-rail[data-is-expanded="false"] {
     display: none;
   }
+}
+
+.device-manager {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  gap: 1.5rem;
+}
+.device-manager[data-overview="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.device-toolbar {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.management-rail {
+  display: flex;
+  flex-direction: column;
+}
+.management-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+.assigned-screen {
+  margin-block-start: 1rem;
+}
+@media (max-width: 767px) {
+  .device-manager {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.assigned-screen .setting-field {
+  max-inline-size: 30rem;
 }

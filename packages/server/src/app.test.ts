@@ -10,6 +10,7 @@ const PNG = Buffer.from([
 
 const makeApp = ({
   render = async () => PNG as Buffer | null,
+  rotation = "0",
 } = {}) =>
   createApp({
     config: loadConfig({}),
@@ -19,7 +20,7 @@ const makeApp = ({
       browserDevices: [],
       devicesFile: undefined,
     }),
-    getDeviceSettings: () => null,
+    getDeviceSettings: () => ({ rotation }),
     onDeviceDefinitionsChanged: () => {},
     pushController: { renderDevice: render } as never,
     renderTokenStore: createRenderTokenStore(),
@@ -124,4 +125,18 @@ describe("device automation settings", () => {
       { kind: "brightness", payload: "80" },
     ])
   })
+})
+
+test("image previews identify the runtime rotation used by the renderer", async () => {
+  const app = makeApp({ rotation: "90" })
+  const response = await app.request(
+    "/api/devices/inky-phat/image",
+  )
+  expect(response.status).toBe(200)
+  expect(response.headers.get("X-CastKit-Rotation")).toBe(
+    "90",
+  )
+  expect(Buffer.from(await response.arrayBuffer())).toEqual(
+    PNG,
+  )
 })

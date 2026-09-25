@@ -49,6 +49,30 @@ const SETTINGS = {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route("**/api/access/session", (route) =>
+    route.fulfill({
+      json: {
+        isAuthenticated: true,
+        isSetupRequired: false,
+      },
+    }),
+  )
+  await page.route("**/api/manage/platform", (route) =>
+    route.fulfill({
+      json: {
+        deviceScreens: {},
+        screens: [],
+        sources: [],
+        channels: [],
+        views: [],
+        plugins: [],
+        adapters: [],
+        viewSpecs: [],
+        presets: [],
+        channelStates: {},
+      },
+    }),
+  )
   await page.route("**/api/manage/devices", (route) =>
     route.fulfill({
       json: { devices: [IMAGE_DEVICE, BROWSER_DEVICE] },
@@ -79,7 +103,9 @@ test.beforeEach(async ({ page }) => {
 test("tabs preserve edits, browser Back restores the category, and only changed settings are saved", async ({
   page,
 }) => {
-  await page.goto("/manage/photos?device=sample-image")
+  await page.goto(
+    "/manage/devices/photos?device=sample-image",
+  )
   await page
     .getByRole("textbox", {
       name: "Photo query",
@@ -137,7 +163,9 @@ test("tabs preserve edits, browser Back restores the category, and only changed 
 test("failed saves leave edits and restore the save control", async ({
   page,
 }) => {
-  await page.goto("/manage/photos?device=sample-image")
+  await page.goto(
+    "/manage/devices/photos?device=sample-image",
+  )
   await page
     .getByRole("textbox", {
       name: "Photo query",
@@ -175,7 +203,9 @@ test("wide screens split the active category without exposing unrelated controls
   page,
 }) => {
   await page.setViewportSize({ width: 2048, height: 1000 })
-  await page.goto("/manage/device?device=sample-image")
+  await page.goto(
+    "/manage/devices/device?device=sample-image",
+  )
   await expect(
     page.getByRole("heading", {
       name: "Identity",
@@ -225,7 +255,9 @@ test("search and phone layouts keep every setting reachable without page overflo
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto("/manage/image?device=sample-image")
+  await page.goto(
+    "/manage/devices/image?device=sample-image",
+  )
   await page
     .getByRole("button", { name: "Devices", exact: true })
     .click()
@@ -325,7 +357,7 @@ test("Reload devices recovers from a failed initial request", async ({
     (route) => route.abort(),
     { times: 1 },
   )
-  await page.goto("/manage/device")
+  await page.goto("/manage/devices/device")
   await expect(
     page.getByRole("heading", {
       name: "No device selected",
@@ -345,7 +377,9 @@ test("Reload devices recovers from a failed initial request", async ({
 test("a renderer change still lets pending image settings save before the restart", async ({
   page,
 }) => {
-  await page.goto("/manage/photos?device=sample-image")
+  await page.goto(
+    "/manage/devices/photos?device=sample-image",
+  )
   await page
     .getByRole("textbox", {
       name: "Photo query",
@@ -386,4 +420,156 @@ test("a renderer change still lets pending image settings save before the restar
       name: "Save device & restart",
     }),
   ).toBeEnabled()
+})
+
+test("overview keeps image output upright and preserves editor drafts", async ({
+  page,
+}) => {
+  await page.goto(
+    "/manage/devices/device?device=sample-image",
+  )
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Draft name")
+  const preview = page.getByRole("img", {
+    name: "Desk display rendered output",
+  })
+  await expect(preview).toHaveCSS(
+    "transform",
+    /matrix\(-1, 0, 0, -1,/,
+  )
+  await page
+    .getByRole("button", {
+      name: "Preview orientation: Upright",
+    })
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Device output",
+      exact: true,
+    })
+    .click()
+  await expect(preview).toHaveCSS(
+    "transform",
+    /matrix\(1, 0, 0, 1,/,
+  )
+  await page
+    .getByRole("button", {
+      name: "All screens",
+      exact: true,
+    })
+    .click()
+  await expect(page).toHaveURL(/all-screens/)
+  await expect(
+    page.getByRole("heading", {
+      name: "Desk display",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("img", {
+      name: "Desk display rendered output",
+    }),
+  ).toHaveCSS("transform", /matrix\(-1, 0, 0, -1,/)
+  await page
+    .getByRole("button", {
+      name: "Device settings",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByRole("textbox", {
+      name: "Name",
+      exact: true,
+    }),
+  ).toHaveValue("Draft name")
+})
+
+test("a runtime quarter-turn is undone without cropping or changing the device", async ({
+  page,
+}) => {
+  await page.route("**/api/devices/*/image?*", (route) =>
+    route.fulfill({
+      contentType: "image/svg+xml",
+      headers: { "X-CastKit-Rotation": "90" },
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="122" height="250"><rect width="122" height="250" fill="white"/></svg>',
+    }),
+  )
+  await page.goto(
+    "/manage/devices/device?device=sample-image",
+  )
+  const preview = page.getByRole("img", {
+    name: "Desk display rendered output",
+  })
+  await expect(preview).toHaveCSS(
+    "transform",
+    /matrix\(0, -1, 1, 0,/,
+  )
+  const bounds = await page
+    .locator(".preview-output")
+    .boundingBox()
+  expect(bounds?.width).toBe(250)
+  expect(bounds?.height).toBe(122)
+  await expect(
+    page.getByText("No unsaved changes", { exact: true }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", {
+      name: "Preview orientation: Upright",
+    })
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Device output",
+      exact: true,
+    })
+    .click()
+  await expect(preview).toHaveCSS(
+    "transform",
+    /matrix\(1, 0, 0, 1,/,
+  )
+  expect(
+    (await page.locator(".preview-output").boundingBox())
+      ?.height,
+  ).toBe(250)
+})
+
+test("the overview includes independent screens without duplicating assigned screens", async ({
+  page,
+}) => {
+  await page.route("**/api/manage/platform", (route) =>
+    route.fulfill({
+      json: {
+        deviceScreens: { "sample-image": "assigned" },
+        screens: [
+          { id: "assigned", name: "Assigned screen" },
+          { id: "lab", name: "Independent screen" },
+        ],
+        sources: [],
+        channels: [],
+        views: [],
+        plugins: [],
+        adapters: [],
+        viewSpecs: [],
+        presets: [],
+        channelStates: {},
+      },
+    }),
+  )
+  await page.goto("/manage/all-screens")
+  await expect(
+    page.getByRole("heading", {
+      name: "Independent screen",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "Assigned screen",
+      exact: true,
+    }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByTitle("Independent screen browser preview"),
+  ).toHaveAttribute("src", "/screen/lab?preview=1")
 })
