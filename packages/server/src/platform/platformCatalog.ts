@@ -112,7 +112,7 @@ const adapters: AdapterDefinition[] = [
         type: "number",
         defaultValue: 0,
         description:
-          "Records numeric state changes from now; at most 168 hours. Existing Home Assistant history is not imported.",
+          "Records numeric and text state changes from now; at most 720 hours (30 days) and 2,000 samples per entity. Existing Home Assistant history is not imported.",
       },
       {
         key: "commandTopic",

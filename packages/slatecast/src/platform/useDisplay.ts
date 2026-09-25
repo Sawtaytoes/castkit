@@ -225,6 +225,53 @@ export const useDisplay = (target: DisplayTarget) => {
       )
     }
   }
+  const selectView = async (viewId: string) => {
+    if (
+      target.kind !== "screen" ||
+      !isConnected ||
+      actionPending.current ||
+      !snapshot?.availableViews?.some(
+        (view) => view.id === viewId,
+      )
+    )
+      return
+    actionPending.current = true
+    setIsPending(true)
+    setError("")
+    try {
+      const response = await fetch(
+        `${path}/select${deviceQuery}`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ viewId }),
+        },
+      )
+      if (response.status === 409 && target.deviceId) {
+        window.location.reload()
+        return
+      }
+      if (response.status === 401) lockState()
+      if (!response.ok)
+        throw new Error(
+          "Could not change this screen's view.",
+        )
+      const body = await response.json()
+      const next: DisplaySnapshot = body.snapshot ?? body
+      setSnapshot(next)
+      setName(next.view.name)
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Could not change this screen's view.",
+      )
+    } finally {
+      actionPending.current = false
+      setIsPending(false)
+    }
+  }
   const requestAction = async (action: PanelAction) => {
     if (
       !snapshot?.canControl ||
@@ -275,5 +322,6 @@ export const useDisplay = (target: DisplayTarget) => {
     unlock,
     lock,
     requestAction,
+    selectView,
   }
 }

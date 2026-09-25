@@ -347,3 +347,59 @@ test("printer controls reject missing targets, other printers, and stale data be
   ).toBe(409)
   expect(fixture.publisher.publish).not.toHaveBeenCalled()
 })
+
+test("a screen grant can navigate its allowlist without unlocking standalone private URLs", async () => {
+  const fixture = await createFixture()
+  const path = "/api/display/screen/screen/select"
+  expect(
+    (
+      await fixture.request({
+        path,
+        method: "POST",
+        data: { viewId: "other" },
+      })
+    ).status,
+  ).toBe(401)
+  const cookie = await fixture.unlock(
+    "screen",
+    "screen",
+    "1234",
+  )
+  const selected = await fixture.request({
+    path,
+    method: "POST",
+    cookie,
+    data: { viewId: "other" },
+  })
+  expect(selected.status).toBe(200)
+  expect(await selected.json()).toMatchObject({
+    view: { id: "other" },
+    availableViews: [{ id: "private" }, { id: "other" }],
+  })
+  expect(
+    (
+      await fixture.request({
+        path,
+        method: "POST",
+        cookie,
+        data: { viewId: "outside" },
+      })
+    ).status,
+  ).toBe(403)
+  expect(
+    (
+      await fixture.request({
+        path: "/api/display/view/other",
+        cookie,
+      })
+    ).status,
+  ).toBe(401)
+  expect(
+    (
+      await fixture.request({
+        path: "/api/manage/platform",
+        cookie,
+      })
+    ).status,
+  ).toBe(401)
+})
