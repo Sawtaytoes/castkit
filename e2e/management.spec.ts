@@ -227,6 +227,9 @@ test("search and phone layouts keep every setting reachable without page overflo
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/manage/image?device=sample-image")
   await page
+    .getByRole("button", { name: "Devices", exact: true })
+    .click()
+  await page
     .getByRole("searchbox", { name: "Find a device" })
     .fill("Wall")
   await expect(
@@ -337,4 +340,50 @@ test("Reload devices recovers from a failed initial request", async ({
       exact: true,
     }),
   ).toBeVisible()
+})
+
+test("a renderer change still lets pending image settings save before the restart", async ({
+  page,
+}) => {
+  await page.goto("/manage/photos?device=sample-image")
+  await page
+    .getByRole("textbox", {
+      name: "Photo query",
+      exact: true,
+    })
+    .fill("trees")
+  await page
+    .getByRole("link", { name: "Device", exact: true })
+    .click()
+  await page
+    .getByRole("button", {
+      name: "Renderer: Image",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("option", { name: "Browser", exact: true })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: "Save settings",
+      exact: true,
+    }),
+  ).toBeEnabled()
+  await expect(
+    page.getByRole("button", {
+      name: "Save device & restart",
+    }),
+  ).toBeDisabled()
+  await page
+    .getByRole("button", {
+      name: "Save settings",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: "Save device & restart",
+    }),
+  ).toBeEnabled()
 })

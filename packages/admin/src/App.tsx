@@ -73,6 +73,8 @@ export const App = () => {
     useState<AutomationSettings>({})
   const [message, setMessage] = useState("")
   const [search, setSearch] = useState("")
+  const [isDeviceListOpen, setIsDeviceListOpen] =
+    useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingSettings, setIsLoadingSettings] =
     useState(false)
@@ -261,6 +263,7 @@ export const App = () => {
       return
     }
     setMessage("")
+    setIsDeviceListOpen(false)
     navigate(
       device
         ? `/${section}?device=${encodeURIComponent(device.id)}`
@@ -426,17 +429,35 @@ export const App = () => {
     <Shell contentWidth="full">
       <Header
         actions={
-          <Button
-            appearance="outline"
-            isDisabled={isBusy}
-            onClick={() => selectDevice(null)}
-          >
-            Add device
-          </Button>
+          <>
+            <Button
+              aria-controls="management-devices"
+              aria-expanded={isDeviceListOpen}
+              className="device-list-toggle"
+              appearance="outline"
+              onClick={() =>
+                setIsDeviceListOpen((isOpen) => !isOpen)
+              }
+            >
+              Devices
+            </Button>
+            <Button
+              appearance="outline"
+              isDisabled={isBusy}
+              onClick={() => selectDevice(null)}
+            >
+              Add device
+            </Button>
+          </>
         }
         heading="CastKit device management"
       />
-      <Rail className="management-rail" label="Devices">
+      <Rail
+        className="management-rail"
+        data-is-expanded={isDeviceListOpen}
+        id="management-devices"
+        label="Devices"
+      >
         <div className="rail-heading">
           <h2>Devices</h2>
           <span>{devices.length}</span>
@@ -620,7 +641,8 @@ export const App = () => {
                   </div>
                   <div className="save-buttons">
                     {(!isBrowser ||
-                      selectedDevice.hasMqttBacklight) &&
+                      selectedDevice.hasMqttBacklight ||
+                      pendingSettings.length > 0) &&
                     !isNewDevice ? (
                       <Button
                         appearance="outline"

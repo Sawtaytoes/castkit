@@ -269,3 +269,15 @@
 .management-status:empty {
   display: none;
 }
+
+.device-list-toggle {
+  display: none;
+}
+@media (max-width: 767px) {
+  .device-list-toggle {
+    display: inline-flex;
+  }
+  .management-rail[data-is-expanded="false"] {
+    display: none;
+  }
+}
