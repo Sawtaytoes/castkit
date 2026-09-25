@@ -5,6 +5,7 @@ import {
   Field,
 } from "@charcuterie/ui"
 import { useState } from "react"
+import { AccessIndicator } from "./AccessIndicator.tsx"
 import {
   api,
   type Channel,
@@ -258,15 +259,20 @@ export const CollectionPage = ({
       </div>
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(14rem,1fr)_minmax(0,2fr)]">
         <Card
+          className="min-w-0"
           heading={
             collection[0]?.toUpperCase() +
             collection.slice(1)
           }
         >
-          <div className="grid gap-2">
+          <div className="grid min-w-0 gap-2">
             {records.map((record) => (
               <Button
                 key={record.id}
+                isFullWidth
+                className="min-w-0"
+                title={record.name}
+                aria-pressed={editingId === record.id}
                 appearance={
                   editingId === record.id
                     ? "solid"
@@ -274,12 +280,13 @@ export const CollectionPage = ({
                 }
                 onClick={() => begin(record)}
               >
-                {record.name}
+                <span className="min-w-0 truncate">
+                  {record.name}
+                </span>
                 {"access" in record &&
-                record.access === "pin" &&
-                !record.hasPin
-                  ? " · Set PIN"
-                  : null}
+                record.access === "pin" ? (
+                  <AccessIndicator hasPin={record.hasPin} />
+                ) : null}
               </Button>
             ))}
             {!records.length ? (
