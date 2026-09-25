@@ -72,6 +72,24 @@ export const PlatformApp = ({
   const display = useDisplay(target)
   const isReady = useRenderReadiness(display.snapshot)
   useEffect(() => {
+    if (
+      new URLSearchParams(window.location.search).get(
+        "preview",
+      ) === "1" &&
+      window.parent !== window
+    ) {
+      // Composed browser pages currently render upright; installation rotation is applied only to image delivery.
+      window.parent.postMessage(
+        {
+          type: "castkit-preview-orientation",
+          deviceId: target.deviceId,
+          orientation: 0,
+        },
+        window.location.origin,
+      )
+    }
+  }, [target.deviceId])
+  useEffect(() => {
     const preference = window.matchMedia(
       "(prefers-color-scheme: dark)",
     )

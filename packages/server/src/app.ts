@@ -328,9 +328,16 @@ export const createApp = ({
   }
 
   app.get("/api/devices/:id/image", async (context) => {
-    const image = await pushController.renderDevice(
-      context.req.param("id"),
-    )
+    const deviceId = context.req.param("id")
+    // Capture before rendering: renderDevice reads the same effective settings synchronously.
+    const rotation =
+      getDeviceSettings(deviceId)?.rotation ??
+      config.devices.find(
+        (device) => device.id === deviceId,
+      )?.rotation ??
+      0
+    const image =
+      await pushController.renderDevice(deviceId)
     if (!image) {
       return context.json({ error: "unknown device" }, 404)
     }
@@ -338,6 +345,7 @@ export const createApp = ({
     return context.body(new Uint8Array(image), 200, {
       "Content-Type": "image/png",
       "Cache-Control": "no-store",
+      "X-CastKit-Rotation": String(rotation),
     })
   })
 

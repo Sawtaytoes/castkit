@@ -91,3 +91,35 @@ describe("keepalive", () => {
     expect(socket.raw.ping).not.toHaveBeenCalled()
   })
 })
+
+test("a preview receives broadcasts without changing physical connection counts", () => {
+  const onConnectionCountChange = vi.fn()
+  const hub = createBrowserHub({ onConnectionCountChange })
+  const preview = buildSocket()
+  const panel = buildSocket()
+  hub.addSocket({
+    deviceId: "square",
+    socket: preview,
+    isObserver: true,
+  })
+  expect(hub.getConnectionCount("square")).toBe(0)
+  expect(onConnectionCountChange).not.toHaveBeenCalled()
+  hub.addSocket({ deviceId: "square", socket: panel })
+  expect(hub.getConnectionCount("square")).toBe(1)
+  hub.broadcast({
+    deviceId: "square",
+    message: { type: "reload" },
+  })
+  expect(preview.send).toHaveBeenCalledWith(
+    JSON.stringify({ type: "reload" }),
+  )
+  hub.removeSocket({ deviceId: "square", socket: panel })
+  expect(hub.getConnectionCount("square")).toBe(0)
+  expect(onConnectionCountChange).toHaveBeenLastCalledWith({
+    deviceId: "square",
+    connectionCount: 0,
+  })
+  hub.removeSocket({ deviceId: "square", socket: preview })
+  expect(onConnectionCountChange).toHaveBeenCalledTimes(2)
+  hub.stop()
+})

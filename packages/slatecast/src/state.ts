@@ -564,7 +564,13 @@ export const connect = () => {
   }
   const protocol =
     window.location.protocol === "https:" ? "wss" : "ws"
-  const url = `${protocol}://${window.location.host}/d/${deviceId}/ws`
+  const previewQuery =
+    new URLSearchParams(window.location.search).get(
+      "preview",
+    ) === "1"
+      ? "?preview=1"
+      : ""
+  const url = `${protocol}://${window.location.host}/d/${deviceId}/ws${previewQuery}`
   connection.isStopped = false
   connection.retryDelayMs = INITIAL_RETRY_DELAY_MS
   enterConnectionStatus("connecting")

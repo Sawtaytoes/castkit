@@ -1,175 +1,30 @@
 import {
+  AdaptiveGrid,
   Button,
   Card,
-  Checkbox,
   Field,
-  Header,
   Picker,
+  Tabs,
 } from "@charcuterie/ui"
 import { useCallback, useEffect, useState } from "react"
-
-import { mutate, type Platform } from "./platformApi.ts"
-
-type Device = {
-  id: string
-  label: string
-  mac: string
-  renderer?: "browser"
-  width: number
-  height: number
-  colorMode?: "monochrome" | "grayscale" | "spectra6"
-  color?: "monochrome" | "grayscale" | "spectra6" | "full"
-  rotation?: 0 | 90 | 180 | 270
-  shape?: "square" | "round" | "rectangle"
-  hasTouch?: boolean
-  hasViewDrawer?: boolean
-  /** A backlight agent listens on the device's MQTT light topics. */
-  hasMqttBacklight?: boolean
-  /** Ordered allow-list. Absent means every compatible view. */
-  views?: string[]
-  externalViews?: { name: string; url: string }[]
-}
-
-type AutomationSettings = Record<string, string>
-
-const IMAGE_COLOR_OPTIONS = [
-  { label: "Mono", value: "monochrome" },
-  { label: "Grayscale (16 levels)", value: "grayscale" },
-  { label: "Spectra 6", value: "spectra6" },
-]
-const BROWSER_COLOR_OPTIONS = [
-  { label: "Full color", value: "full" },
-  { label: "Grayscale", value: "grayscale" },
-  { label: "Mono", value: "monochrome" },
-  { label: "Spectra 6", value: "spectra6" },
-]
-const ROTATION_OPTIONS = [0, 90, 180, 270].map((value) => ({
-  label: `${value}°`,
-  value: String(value),
-}))
-const SHAPE_OPTIONS = ["rectangle", "square", "round"].map(
-  (value) => ({
-    label: value[0]?.toUpperCase() + value.slice(1),
-    value,
-  }),
-)
-const DITHER_OPTIONS = [
-  "floyd-steinberg",
-  "atkinson",
-  "ordered",
-  "off",
-  "threshold",
-  "stucki",
-  "sierra",
-].map((value) => ({ label: value, value }))
-const PHOTO_FORMAT_OPTIONS = [
-  "Auto",
-  "JPEG",
-  "WebP",
-  "PNG",
-].map((value) => ({ label: value, value }))
-const TIME_FORMAT_OPTIONS = [
-  "Auto",
-  "12-hour",
-  "24-hour",
-].map((value) => ({ label: value, value }))
-const DATE_STYLE_OPTIONS = ["Auto", "Long", "Numeric"].map(
-  (value) => ({ label: value, value }),
-)
-const COLOR_MODE_OPTIONS = ["Color", "Black & White"].map(
-  (value) => ({ label: value, value }),
-)
-const AUTOMATION_PICKERS: readonly {
-  label: string
-  kind: string
-  options: readonly { label: string; value: string }[]
-}[] = [
-  {
-    label: "Dither",
-    kind: "dither",
-    options: DITHER_OPTIONS,
-  },
-  {
-    label: "Photo format",
-    kind: "photoFormat",
-    options: PHOTO_FORMAT_OPTIONS,
-  },
-  {
-    label: "Time format",
-    kind: "clockTimeFormat",
-    options: TIME_FORMAT_OPTIONS,
-  },
-  {
-    label: "Date style",
-    kind: "clockDateStyle",
-    options: DATE_STYLE_OPTIONS,
-  },
-  {
-    label: "Display rotation",
-    kind: "rotation",
-    options: ROTATION_OPTIONS,
-  },
-]
-
-const DEVICE_SETTING_GROUPS: {
-  name: string
-  fields: [string, string, string][]
-  pickers: string[]
-}[] = [
-  {
-    name: "Photo selection",
-    fields: [
-      ["Photo people", "photoPeople", "text"],
-      ["Photo query", "photoQuery", "text"],
-      ["Photo recency (days)", "photoRecency", "number"],
-      ["People minimum", "photoPeopleMinimum", "number"],
-    ],
-    pickers: [],
-  },
-  {
-    name: "View appearance",
-    fields: [
-      [
-        "Photo interval (minutes)",
-        "photoInterval",
-        "number",
-      ],
-      ["Clock timezone", "clockTimezone", "text"],
-      ["Photo crop top (px)", "photo_crop_top", "number"],
-      [
-        "Photo crop right (px)",
-        "photo_crop_right",
-        "number",
-      ],
-      [
-        "Photo crop bottom (px)",
-        "photo_crop_bottom",
-        "number",
-      ],
-      ["Photo crop left (px)", "photo_crop_left", "number"],
-    ],
-    pickers: ["clockTimeFormat", "clockDateStyle"],
-  },
-  {
-    name: "Output profile",
-    fields: [
-      ["Photo quality", "photoQuality", "number"],
-      ["Brightness (%)", "brightness", "number"],
-      ["Saturation (%)", "saturation", "number"],
-    ],
-    pickers: ["dither", "photoFormat"],
-  },
-  {
-    name: "Installation",
-    fields: [
-      ["Margin top (px)", "margin_top", "number"],
-      ["Margin right (px)", "margin_right", "number"],
-      ["Margin bottom (px)", "margin_bottom", "number"],
-      ["Margin left (px)", "margin_left", "number"],
-    ],
-    pickers: [],
-  },
-]
+import {
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router"
+import { DeviceFields } from "./DeviceFields.tsx"
+import { DevicePreview } from "./DevicePreview.tsx"
+import { DeviceSettingsFields } from "./DeviceSettingsFields.tsx"
+import type {
+  AutomationSettings,
+  Device,
+} from "./device.ts"
+import {
+  inputClass,
+  mutate,
+  type Platform,
+} from "./platformApi.ts"
+import { SettingField } from "./SettingField.tsx"
 
 const getBlankDevice = (): Device => ({
   id: "",
@@ -180,11 +35,26 @@ const getBlankDevice = (): Device => ({
   colorMode: "spectra6",
   rotation: 0,
 })
-
-const getRequestHeaders = () => ({
+const getRequestHeaders = (apiToken: string) => ({
   "Content-Type": "application/json",
+  ...(apiToken
+    ? { Authorization: `Bearer ${apiToken}` }
+    : {}),
 })
+const getChangedSettings = ({
+  settings,
+  savedSettings,
+}: {
+  settings: AutomationSettings
+  savedSettings: AutomationSettings
+}) =>
+  Object.entries(settings)
+    .filter(
+      ([kind, value]) => savedSettings[kind] !== value,
+    )
+    .map(([kind, payload]) => ({ kind, payload }))
 
+/** The device list stays visible; route-backed tabs preserve focus and draft state. */
 export const Devices = ({
   platform,
   onRefresh,
@@ -192,42 +62,96 @@ export const Devices = ({
   platform: Platform
   onRefresh: () => Promise<void>
 }) => {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const pathname = location.pathname.replace(
+    /^\/devices/,
+    "",
+  )
+  const [searchParams] = useSearchParams()
+  const isOverview = pathname === "/all-screens"
+  const selectedId = searchParams.get("device")
+  const isNewDevice = searchParams.get("new") === "1"
   const [screenId, setScreenId] = useState("")
   const [isSavingScreen, setIsSavingScreen] =
     useState(false)
+  const [apiToken, setApiToken] = useState(
+    () => sessionStorage.getItem("castkit-api-token") ?? "",
+  )
+  const [tokenInput, setTokenInput] = useState(apiToken)
   const [devices, setDevices] = useState<readonly Device[]>(
     [],
   )
   const [selectedDevice, setSelectedDevice] =
     useState<Device | null>(null)
-  const [message, setMessage] = useState(
-    "Select a device to edit its installation.",
-  )
-  const [isSaving, setIsSaving] = useState(false)
   const [automationSettings, setAutomationSettings] =
     useState<AutomationSettings>({})
+  const [savedSettings, setSavedSettings] =
+    useState<AutomationSettings>({})
+  const [message, setMessage] = useState("")
+  const [search, setSearch] = useState("")
+  const [overviewSearch, setOverviewSearch] = useState("")
+  const [outputFilter, setOutputFilter] = useState("")
+  const matchesOverview = (text: string) =>
+    text
+      .toLowerCase()
+      .includes(overviewSearch.trim().toLowerCase())
+  const visibleDevices = devices.filter(
+    (device) =>
+      (!outputFilter ||
+        (device.renderer === "browser"
+          ? "browser"
+          : "image") === outputFilter) &&
+      matchesOverview(
+        `${device.label} ${device.id} ${platform.screens.find((screen) => screen.id === platform.deviceScreens[device.id])?.tags?.join(" ") ?? ""}`,
+      ),
+  )
+  const visibleScreens = platform.screens.filter(
+    (screen) =>
+      outputFilter !== "image" &&
+      !Object.values(platform.deviceScreens).includes(
+        screen.id,
+      ) &&
+      matchesOverview(
+        `${screen.name} ${screen.id} ${(screen.tags ?? []).join(" ")}`,
+      ),
+  )
+  const [isDeviceListOpen, setIsDeviceListOpen] =
+    useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingSettings, setIsLoadingSettings] =
+    useState(false)
+  const [hasSettingsError, setHasSettingsError] =
+    useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [isSavingAutomation, setIsSavingAutomation] =
     useState(false)
-
-  useEffect(() => {
-    setScreenId(
-      platform.deviceScreens?.[selectedDevice?.id ?? ""] ??
-        "",
-    )
-  }, [platform.deviceScreens, selectedDevice?.id])
+  const [reload, setReload] = useState(0)
+  const [previewRevision, setPreviewRevision] = useState(0)
+  const [hasRestartPending, setHasRestartPending] =
+    useState(false)
+  const savedDevice =
+    devices.find((device) => device.id === selectedId) ??
+    (isNewDevice ? undefined : devices[0])
+  const savedId = savedDevice?.id
+  const assignedScreenId =
+    platform.deviceScreens?.[savedId ?? ""] ?? ""
+  useEffect(
+    () => setScreenId(assignedScreenId),
+    [assignedScreenId],
+  )
   const saveScreen = async () => {
-    if (!selectedDevice) return
+    if (!savedId) return
     setIsSavingScreen(true)
     try {
       await mutate(
-        `/api/manage/platform/device-screens/${encodeURIComponent(selectedDevice.id)}`,
+        `/api/manage/platform/device-screens/${encodeURIComponent(savedId)}`,
         { screenId: screenId || null },
         "PUT",
       )
-      setMessage(
-        "Display screen saved. The device keeps its existing URL.",
-      )
       await onRefresh()
+      setPreviewRevision((current) => current + 1)
+      setMessage("Display screen saved.")
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -239,194 +163,423 @@ export const Devices = ({
     }
   }
 
-  const loadDevices = useCallback(async () => {
-    const response = await fetch("/api/manage/devices", {
-      headers: getRequestHeaders(),
-    })
-    if (!response.ok) {
-      setMessage(
-        response.status === 401
-          ? "Your session expired. Open Access to sign in."
-          : "Could not load devices.",
-      )
-      return
+  const hasDeviceChanges =
+    selectedDevice !== null &&
+    (isNewDevice ||
+      JSON.stringify(selectedDevice) !==
+        JSON.stringify(savedDevice))
+  const pendingSettings = getChangedSettings({
+    settings: automationSettings,
+    savedSettings,
+  })
+  const hasChanges =
+    hasDeviceChanges || pendingSettings.length > 0
+  const isBusy =
+    isSaving || isSavingAutomation || isSavingScreen
+  const isBrowser = selectedDevice?.renderer === "browser"
+  const sections = isBrowser
+    ? [
+        "device",
+        "views",
+        ...(selectedDevice.hasMqttBacklight
+          ? ["updates"]
+          : []),
+      ]
+    : ["device", "photos", "clock", "image", "updates"]
+  const requestedSection =
+    pathname.split("/")[1] || "device"
+  const section = sections.includes(requestedSection)
+    ? requestedSection
+    : "device"
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setIsLoading(true)
+    const load = async () => {
+      try {
+        const response = await fetch(
+          "/api/manage/devices",
+          {
+            headers: getRequestHeaders(apiToken),
+            cache: reload > 0 ? "reload" : "default",
+            signal: controller.signal,
+          },
+        )
+        if (!response.ok) {
+          throw new Error(
+            response.status === 401
+              ? "Enter the CastKit API token below to connect."
+              : "Could not load devices. Try Reload devices.",
+          )
+        }
+        const body = (await response.json()) as {
+          devices: Device[]
+        }
+        if (!controller.signal.aborted) {
+          setDevices(body.devices)
+          setHasRestartPending(false)
+          setMessage("")
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Could not load devices.",
+          )
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false)
+        }
+      }
     }
-    const body = (await response.json()) as {
-      devices: Device[]
-    }
-    setDevices(body.devices)
+    void load()
+    return () => controller.abort()
+  }, [apiToken, reload])
+
+  useEffect(() => {
     setSelectedDevice(
-      (currentDevice) =>
-        body.devices.find(
-          (device) => device.id === currentDevice?.id,
-        ) ??
-        body.devices[0] ??
-        null,
-    )
-    setMessage(
-      body.devices.length === 0
-        ? "No devices are configured yet."
-        : "Select a device to edit it.",
-    )
-  }, [])
-
-  useEffect(() => {
-    void loadDevices()
-  }, [loadDevices])
-
-  useEffect(() => {
-    if (!selectedDevice) {
-      setAutomationSettings({})
-      return
-    }
-    const loadAutomationSettings = async () => {
-      const response = await fetch(
-        `/api/manage/devices/${selectedDevice.id}/settings`,
-        { headers: getRequestHeaders() },
-      )
-      if (!response.ok) {
-        return
-      }
-      const body = (await response.json()) as {
-        settings: AutomationSettings
-      }
-      setAutomationSettings(body.settings)
-    }
-    void loadAutomationSettings()
-  }, [selectedDevice?.id, selectedDevice])
-
-  const updateSelectedDevice = (
-    updates: Partial<Device>,
-  ) => {
-    setSelectedDevice((currentDevice) =>
-      currentDevice
-        ? { ...currentDevice, ...updates }
-        : currentDevice,
-    )
-  }
-
-  const saveDevice = async () => {
-    if (!selectedDevice) {
-      return
-    }
-    setIsSaving(true)
-    const isNewDevice = !devices.some(
-      (device) => device.id === selectedDevice.id,
-    )
-    const response = await fetch(
       isNewDevice
-        ? "/api/manage/devices"
-        : `/api/manage/devices/${selectedDevice.id}`,
-      {
-        body: JSON.stringify(selectedDevice),
-        headers: getRequestHeaders(),
-        method: isNewDevice ? "POST" : "PUT",
-      },
+        ? getBlankDevice()
+        : (savedDevice ?? null),
     )
-    const body = (await response
-      .json()
-      .catch(() => ({}))) as { error?: string }
-    setMessage(
-      response.ok
-        ? "Saved. CastKit is restarting to publish Home Assistant discovery."
-        : (body.error ?? "Could not save device."),
-    )
-    setIsSaving(false)
-  }
+  }, [isNewDevice, savedDevice])
 
-  const deleteDevice = async () => {
+  useEffect(() => {
+    const controller = new AbortController()
+    setAutomationSettings({})
+    setSavedSettings({})
+    setHasSettingsError(false)
+    if (!savedId || isNewDevice) {
+      setIsLoadingSettings(false)
+      return
+    }
+    setIsLoadingSettings(true)
+    const load = async () => {
+      try {
+        const response = await fetch(
+          `/api/manage/devices/${encodeURIComponent(savedId)}/settings`,
+          {
+            headers: getRequestHeaders(apiToken),
+            cache: reload > 0 ? "reload" : "default",
+            signal: controller.signal,
+          },
+        )
+        if (!response.ok) {
+          throw new Error(
+            "Could not load this device’s settings. Try Reload devices.",
+          )
+        }
+        const body = (await response.json()) as {
+          settings: AutomationSettings
+        }
+        if (!controller.signal.aborted) {
+          setAutomationSettings(body.settings)
+          setSavedSettings(body.settings)
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setHasSettingsError(true)
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Could not load settings.",
+          )
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingSettings(false)
+        }
+      }
+    }
+    void load()
+    return () => controller.abort()
+  }, [apiToken, isNewDevice, savedId, reload])
+
+  useEffect(() => {
+    if (!hasChanges) {
+      return
+    }
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+    }
+    window.addEventListener("beforeunload", warn)
+    return () =>
+      window.removeEventListener("beforeunload", warn)
+  }, [hasChanges])
+
+  const updateDevice = useCallback(
+    (updates: Partial<Device>) => {
+      setSelectedDevice((current) =>
+        current ? { ...current, ...updates } : null,
+      )
+    },
+    [],
+  )
+  const updateSettings = useCallback(
+    (updates: AutomationSettings) => {
+      setAutomationSettings((current) => ({
+        ...current,
+        ...updates,
+      }))
+    },
+    [],
+  )
+  const selectDevice = (device: Device | null) => {
     if (
-      !selectedDevice ||
-      !confirm(`Delete ${selectedDevice.label}?`)
+      hasChanges &&
+      !confirm(
+        "Discard the unsaved changes for this device?",
+      )
     ) {
       return
     }
-    const response = await fetch(
-      `/api/manage/devices/${selectedDevice.id}`,
-      {
-        headers: getRequestHeaders(),
-        method: "DELETE",
-      },
-    )
-    setMessage(
-      response.ok
-        ? "Deleted. CastKit is restarting to remove its Home Assistant discovery."
-        : "Could not delete device.",
+    setMessage("")
+    setIsDeviceListOpen(false)
+    navigate(
+      device
+        ? `/devices/${section}?device=${encodeURIComponent(device.id)}`
+        : "/devices/device?new=1",
     )
   }
-
-  const saveAutomationSettings = async () => {
-    if (!selectedDevice) {
+  const saveSettings = async () => {
+    if (
+      !savedDevice ||
+      isNewDevice ||
+      isBusy ||
+      pendingSettings.length === 0 ||
+      hasRestartPending ||
+      hasSettingsError
+    ) {
       return
     }
     setIsSavingAutomation(true)
-    const settings = Object.entries(automationSettings).map(
-      ([kind, payload]) => ({ kind, payload }),
-    )
-    const response = await fetch(
-      `/api/manage/devices/${selectedDevice.id}/settings`,
-      {
-        body: JSON.stringify({ settings }),
-        headers: getRequestHeaders(),
-        method: "PUT",
-      },
-    )
-    setMessage(
-      response.ok
-        ? "Saved display settings."
-        : "Could not save display settings.",
-    )
-    setIsSavingAutomation(false)
+    try {
+      const response = await fetch(
+        `/api/manage/devices/${encodeURIComponent(savedDevice.id)}/settings`,
+        {
+          body: JSON.stringify({
+            settings: pendingSettings,
+          }),
+          headers: getRequestHeaders(apiToken),
+          method: "PUT",
+        },
+      )
+      if (!response.ok) {
+        throw new Error(
+          "Could not save settings. Your edits are still here.",
+        )
+      }
+      setSavedSettings(automationSettings)
+      setPreviewRevision((current) => current + 1)
+      setMessage("Settings saved.")
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not save settings.",
+      )
+    } finally {
+      setIsSavingAutomation(false)
+    }
   }
-
-  const updateAutomationSetting = ({
-    kind,
-    value,
-  }: {
-    kind: string
-    value: string
-  }) => {
-    setAutomationSettings((currentSettings) => ({
-      ...currentSettings,
-      [kind]: value,
-    }))
+  const saveDevice = async () => {
+    if (
+      !selectedDevice ||
+      isBusy ||
+      pendingSettings.length > 0 ||
+      !hasDeviceChanges ||
+      hasRestartPending
+    ) {
+      return
+    }
+    if (
+      !/^[a-z0-9][a-z0-9-]*$/.test(selectedDevice.id) ||
+      !selectedDevice.label.trim() ||
+      !Number.isInteger(selectedDevice.width) ||
+      selectedDevice.width < 1 ||
+      !Number.isInteger(selectedDevice.height) ||
+      selectedDevice.height < 1
+    ) {
+      setMessage(
+        "Enter a name, a valid device ID, and positive whole-number dimensions.",
+      )
+      return
+    }
+    setIsSaving(true)
+    try {
+      const response = await fetch(
+        isNewDevice
+          ? "/api/manage/devices"
+          : `/api/manage/devices/${encodeURIComponent(selectedDevice.id)}`,
+        {
+          body: JSON.stringify(selectedDevice),
+          headers: getRequestHeaders(apiToken),
+          method: isNewDevice ? "POST" : "PUT",
+        },
+      )
+      const body = (await response
+        .json()
+        .catch(() => ({}))) as { error?: string }
+      if (!response.ok) {
+        throw new Error(
+          body.error ??
+            "Could not save the device. Your edits are still here.",
+        )
+      }
+      setHasRestartPending(true)
+      setMessage(
+        "Device saved. CastKit is restarting. Reload devices when it is ready.",
+      )
+      setDevices((current) =>
+        isNewDevice
+          ? current.concat(selectedDevice)
+          : current.map((device) =>
+              device.id === selectedDevice.id
+                ? selectedDevice
+                : device,
+            ),
+      )
+      navigate(
+        `/devices/${section}?device=${encodeURIComponent(selectedDevice.id)}`,
+        { replace: true },
+      )
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not save the device.",
+      )
+    } finally {
+      setIsSaving(false)
+    }
   }
-
-  const isBrowserDevice =
-    selectedDevice?.renderer === "browser"
+  const deleteDevice = async () => {
+    if (
+      !savedDevice ||
+      !confirm(`Delete ${savedDevice.label}?`)
+    ) {
+      return
+    }
+    setIsSaving(true)
+    try {
+      const response = await fetch(
+        `/api/manage/devices/${encodeURIComponent(savedDevice.id)}`,
+        {
+          headers: getRequestHeaders(apiToken),
+          method: "DELETE",
+        },
+      )
+      if (!response.ok) {
+        throw new Error("Could not delete the device.")
+      }
+      setDevices((current) =>
+        current.filter(
+          (device) => device.id !== savedDevice.id,
+        ),
+      )
+      navigate("/devices/device", { replace: true })
+      setHasRestartPending(true)
+      setMessage("Device deleted. CastKit is restarting.")
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not delete the device.",
+      )
+    } finally {
+      setIsSaving(false)
+    }
+  }
+  const query = isNewDevice
+    ? "?new=1"
+    : savedId
+      ? `?device=${encodeURIComponent(savedId)}`
+      : ""
 
   return (
-    <div className="grid gap-4">
-      <Header
-        actions={
+    <div
+      className="device-manager"
+      data-overview={isOverview}
+    >
+      {!isOverview ? (
+        <div className="device-toolbar">
           <Button
             appearance="outline"
             onClick={() =>
-              setSelectedDevice(getBlankDevice())
+              navigate(
+                `${isOverview ? "/devices/device" : "/all-screens"}${query}`,
+              )
             }
+          >
+            {isOverview ? "Device settings" : "All screens"}
+          </Button>
+          <Button
+            aria-controls="management-devices"
+            aria-expanded={isDeviceListOpen}
+            className="device-list-toggle"
+            isDisabled={isOverview}
+            appearance="outline"
+            onClick={() =>
+              setIsDeviceListOpen((isOpen) => !isOpen)
+            }
+          >
+            Devices
+          </Button>
+          <Button
+            appearance="outline"
+            isDisabled={isBusy}
+            onClick={() => selectDevice(null)}
           >
             Add device
           </Button>
-        }
-        heading="Devices"
-        isSticky
-      />
-      <div>
-        <div className="grid gap-4 xl:grid-cols-[minmax(18rem,.8fr)_minmax(0,1.2fr)]">
-          <Card padding="none">
-            <h2 className="border-b border-border-subtle px-4 py-4 font-semibold text-lg">
-              Devices
-            </h2>
-            <div className="divide-y divide-border-subtle">
-              {devices.map((device) => (
+        </div>
+      ) : null}
+      {!isOverview ? (
+        <aside
+          className="management-rail"
+          data-is-expanded={isDeviceListOpen}
+          id="management-devices"
+          aria-label="Devices"
+        >
+          <div className="rail-heading">
+            <h2>Devices</h2>
+            <span>{devices.length}</span>
+          </div>
+          <Field label="Find a device">
+            <input
+              className="setting-input"
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              type="search"
+              value={search}
+            />
+          </Field>
+          <div className="device-list">
+            {devices
+              .filter((device) =>
+                device.label
+                  .toLowerCase()
+                  .includes(search.toLowerCase()),
+              )
+              .map((device) => (
                 <button
-                  className={`w-full px-4 py-3 text-start hover:bg-surface-sunken ${selectedDevice?.id === device.id ? "border-s-4 border-intent-accent-border bg-intent-accent-surface" : ""}`}
+                  aria-pressed={
+                    !isNewDevice && savedId === device.id
+                  }
+                  className="device-list-item"
+                  disabled={
+                    isBusy ||
+                    (!isNewDevice && savedId === device.id)
+                  }
                   key={device.id}
-                  onClick={() => setSelectedDevice(device)}
+                  onClick={() => selectDevice(device)}
                   type="button"
                 >
                   <strong>{device.label}</strong>
-                  <span className="mt-1 block text-content-secondary text-sm">
+                  <span>
                     {device.renderer === "browser"
                       ? "Browser"
                       : "Image"}{" "}
@@ -434,507 +587,401 @@ export const Devices = ({
                   </span>
                 </button>
               ))}
-            </div>
-          </Card>
-          <Card
-            heading={
-              selectedDevice
-                ? devices.some(
-                    (device) =>
-                      device.id === selectedDevice.id,
-                  )
-                  ? selectedDevice.label
-                  : "New device"
-                : "Select a device"
-            }
+            {!isLoading &&
+            devices.length > 0 &&
+            !devices.some((device) =>
+              device.label
+                .toLowerCase()
+                .includes(search.toLowerCase()),
+            ) ? (
+              <p>No devices match this search.</p>
+            ) : null}
+          </div>
+          <Button
+            appearance="ghost"
+            isDisabled={isBusy || isLoading}
+            onClick={() => {
+              if (
+                !hasChanges ||
+                confirm(
+                  "Discard unsaved changes and reload devices?",
+                )
+              ) {
+                setReload((current) => current + 1)
+              }
+            }}
           >
-            {selectedDevice ? (
-              <form
-                className="grid gap-4"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  void saveDevice()
-                }}
-              >
-                {devices.some(
-                  (device) =>
-                    device.id === selectedDevice.id,
-                ) ? (
-                  <Card heading="Assigned screen">
-                    <div className="grid gap-4">
-                      <Field
-                        label="Screen"
-                        description="A screen selects from saved views. The physical display keeps its current device URL."
-                      >
-                        <Picker
-                          label="Screen"
-                          value={screenId}
-                          options={[
-                            {
-                              label:
-                                "Use existing device views",
-                              value: "",
-                            },
-                            ...platform.screens.map(
-                              (screen) => ({
-                                label: screen.name,
-                                value: screen.id,
-                              }),
-                            ),
-                          ]}
-                          onChange={setScreenId}
-                        />
-                      </Field>
-                      <Button
-                        type="button"
-                        appearance="outline"
-                        isLoading={isSavingScreen}
-                        onClick={() => void saveScreen()}
-                      >
-                        Assign screen
-                      </Button>
-                    </div>
-                  </Card>
-                ) : null}
-                <Field label="Name">
-                  <input
-                    className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
-                    onChange={(event) =>
-                      updateSelectedDevice({
-                        label: event.target.value,
-                      })
-                    }
-                    value={selectedDevice.label}
-                  />
-                </Field>
-                <Field
-                  description="This identifier is permanent after creation. Use lowercase letters, numbers, and hyphens."
-                  label="Device id"
+            Reload devices
+          </Button>
+        </aside>
+      ) : null}
+      <div className="management-main">
+        {isOverview ? (
+          <>
+            <div className="device-heading">
+              <div>
+                <h1>All screens</h1>
+                <p className="text-content-secondary text-sm">
+                  Previews in normal orientation. Browser
+                  views update automatically; refresh to
+                  load new images.
+                </p>
+              </div>
+              <div className="save-buttons">
+                <Button
+                  appearance="outline"
+                  onClick={() =>
+                    navigate(`/devices/device${query}`)
+                  }
                 >
-                  <input
-                    className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
-                    disabled={devices.some(
-                      (device) =>
-                        device.id === selectedDevice.id,
-                    )}
-                    onChange={(event) =>
-                      updateSelectedDevice({
-                        id: event.target.value,
-                      })
-                    }
-                    value={selectedDevice.id}
+                  Device settings
+                </Button>
+                <Button
+                  appearance="outline"
+                  onClick={() =>
+                    setPreviewRevision(
+                      (current) => current + 1,
+                    )
+                  }
+                >
+                  Refresh all
+                </Button>
+              </div>
+            </div>
+            <p className="text-content-secondary text-xs">
+              These previews show CastKit output, not the
+              physical screens.
+            </p>
+            <div className="collection-picker">
+              <Field label="Find a screen">
+                <input
+                  className={inputClass}
+                  type="search"
+                  placeholder="Search names, IDs, or tags"
+                  value={overviewSearch}
+                  onChange={(event) =>
+                    setOverviewSearch(event.target.value)
+                  }
+                />
+              </Field>
+              <Field label="Output">
+                <Picker
+                  label="Output"
+                  value={outputFilter}
+                  onChange={setOutputFilter}
+                  options={[
+                    { label: "All output", value: "" },
+                    { label: "Image", value: "image" },
+                    { label: "Browser", value: "browser" },
+                  ]}
+                />
+              </Field>
+            </div>
+            {!isLoading &&
+            visibleDevices.length +
+              visibleScreens.length ===
+              0 &&
+            devices.length + platform.screens.length > 0 ? (
+              <p>No screens match these filters.</p>
+            ) : null}
+            {isLoading ? (
+              <p>Load in progress…</p>
+            ) : devices.length === 0 &&
+              platform.screens.length === 0 ? (
+              <Card heading="No displays">
+                <p>Add a device, or connect below.</p>
+              </Card>
+            ) : (
+              <AdaptiveGrid
+                className="screens-grid"
+                itemBlockSize={420}
+                chromeBlockSize={230}
+                minColumnInlineSize={320}
+                maxColumns={4}
+              >
+                {visibleDevices.map((device) => (
+                  <DevicePreview
+                    key={device.id}
+                    apiToken={apiToken}
+                    device={device}
+                    revision={previewRevision}
+                    isOverview
+                    onEdit={() => selectDevice(device)}
                   />
-                </Field>
-                <Field label="MAC address">
-                  <input
-                    className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
-                    onChange={(event) =>
-                      updateSelectedDevice({
-                        mac: event.target.value,
-                      })
-                    }
-                    value={selectedDevice.mac}
-                  />
-                </Field>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Width">
-                    <input
-                      className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
-                      min="1"
-                      onChange={(event) =>
-                        updateSelectedDevice({
-                          width: Number(event.target.value),
-                        })
-                      }
-                      type="number"
-                      value={selectedDevice.width}
-                    />
-                  </Field>
-                  <Field label="Height">
-                    <input
-                      className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
-                      min="1"
-                      onChange={(event) =>
-                        updateSelectedDevice({
-                          height: Number(
-                            event.target.value,
-                          ),
-                        })
-                      }
-                      type="number"
-                      value={selectedDevice.height}
-                    />
-                  </Field>
-                </div>
-                <Field label="Renderer">
-                  <Picker
-                    label="Renderer"
-                    onChange={(value) =>
-                      updateSelectedDevice(
-                        value === "browser"
-                          ? {
-                              renderer: "browser",
-                              color: "full",
-                              shape: "rectangle",
-                              hasViewDrawer: false,
-                            }
-                          : {
-                              renderer: undefined,
-                              color: undefined,
-                              shape: undefined,
-                              hasTouch: undefined,
-                              hasViewDrawer: undefined,
-                              views: undefined,
-                              colorMode: "spectra6",
-                              rotation: 0,
-                            },
+                ))}
+                {visibleScreens.map((screen) => (
+                  <DevicePreview
+                    key={`screen:${screen.id}`}
+                    apiToken={apiToken}
+                    device={{
+                      id: `screen:${screen.id}`,
+                      label: screen.name,
+                      mac: "",
+                      width: 1280,
+                      height: 720,
+                      renderer: "browser",
+                      rotation: 0,
+                    }}
+                    revision={previewRevision}
+                    isOverview
+                    previewUrl={`/screen/${encodeURIComponent(screen.id)}?preview=1`}
+                    onEdit={() =>
+                      navigate(
+                        `/screens/general?item=${encodeURIComponent(screen.id)}`,
                       )
                     }
-                    options={[
-                      { label: "Image", value: "image" },
-                      {
-                        label: "Browser",
-                        value: "browser",
-                      },
-                    ]}
-                    value={
-                      isBrowserDevice ? "browser" : "image"
-                    }
                   />
-                </Field>
-                {isBrowserDevice ? (
-                  <>
-                    <Field label="Color">
-                      <Picker
-                        label="Color"
-                        onChange={(value) =>
-                          updateSelectedDevice({
-                            color: value as Device["color"],
-                          })
-                        }
-                        options={BROWSER_COLOR_OPTIONS}
-                        value={selectedDevice.color}
-                      />
-                    </Field>
-                    <Field label="Shape">
-                      <Picker
-                        label="Shape"
-                        onChange={(value) =>
-                          updateSelectedDevice({
-                            shape: value as Device["shape"],
-                          })
-                        }
-                        options={SHAPE_OPTIONS}
-                        value={selectedDevice.shape}
-                      />
-                    </Field>
-                    <Checkbox
-                      isChecked={
-                        selectedDevice.hasTouch ?? false
-                      }
-                      key={selectedDevice.id}
-                      label="Touch enabled"
-                      onChange={(hasTouch) =>
-                        updateSelectedDevice({ hasTouch })
-                      }
-                    />
-                    <Checkbox
-                      isChecked={
-                        selectedDevice.hasViewDrawer ??
-                        false
-                      }
-                      key={`${selectedDevice.id}-view-drawer`}
-                      label="Show edge view drawer"
-                      onChange={(hasViewDrawer) =>
-                        updateSelectedDevice({
-                          hasViewDrawer,
-                        })
-                      }
-                    />
-                    <Field label="Views">
-                      <div>
-                        <input
-                          className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
-                          onChange={(event) => {
-                            const views = event.target.value
-                              .split(",")
-                              .map((name) => name.trim())
-                              .filter(Boolean)
-                            updateSelectedDevice({
-                              views:
-                                views.length > 0
-                                  ? views
-                                  : undefined,
-                            })
-                          }}
-                          placeholder="All compatible views"
-                          type="text"
-                          value={
-                            selectedDevice.views?.join(
-                              ", ",
-                            ) ?? ""
-                          }
-                        />
-                        <p className="mt-2 text-content-secondary text-sm">
-                          Comma-separated names in drawer
-                          and selector order. Leave blank to
-                          offer every compatible view.
-                        </p>
-                      </div>
-                    </Field>
-                    <Field label="Display rotation">
-                      <Picker
-                        label="Display rotation"
-                        onChange={(value) =>
-                          updateSelectedDevice({
-                            rotation: Number(
-                              value,
-                            ) as Device["rotation"],
-                          })
-                        }
-                        options={ROTATION_OPTIONS}
-                        value={String(
-                          selectedDevice.rotation ?? 0,
-                        )}
-                      />
-                    </Field>
-                    {selectedDevice.hasMqttBacklight ? (
-                      <Card heading="Display operations">
-                        <p className="mb-4 text-content-secondary text-sm">
-                          The backlight level CastKit keeps
-                          for this display and sends again
-                          when its backlight agent
-                          reconnects. Home Assistant exposes
-                          the same control as Display:
-                          Backlight level.
-                        </p>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <Field label="Backlight (%)">
-                            <input
-                              className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
-                              max={100}
-                              min={0}
-                              onChange={(event) =>
-                                updateAutomationSetting({
-                                  kind: "backlightLevel",
-                                  value: event.target.value,
-                                })
-                              }
-                              step={1}
-                              type="number"
-                              value={
-                                automationSettings.backlightLevel ??
-                                ""
-                              }
-                            />
-                          </Field>
-                        </div>
-                        <div className="mt-4">
-                          <Button
-                            isLoading={isSavingAutomation}
-                            onClick={() =>
-                              void saveAutomationSettings()
-                            }
-                            type="button"
-                          >
-                            Save display settings
-                          </Button>
-                        </div>
-                      </Card>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <Field label="Color mode">
-                      <Picker
-                        label="Color mode"
-                        onChange={(value) =>
-                          updateSelectedDevice({
-                            colorMode:
-                              value as Device["colorMode"],
-                          })
-                        }
-                        options={IMAGE_COLOR_OPTIONS}
-                        value={selectedDevice.colorMode}
-                      />
-                    </Field>
-                    <Field label="Rotation">
-                      <Picker
-                        label="Rotation"
-                        onChange={(value) =>
-                          updateSelectedDevice({
-                            rotation: Number(
-                              value,
-                            ) as Device["rotation"],
-                          })
-                        }
-                        options={ROTATION_OPTIONS}
-                        value={String(
-                          selectedDevice.rotation ?? 0,
-                        )}
-                      />
-                    </Field>
-                    <Card heading="Display settings">
-                      <p className="mb-4 text-content-secondary text-sm">
-                        These settings apply to this
-                        device's existing views. Named
-                        channels and saved views have their
-                        own settings in Channels and Views.
-                      </p>
-                      {DEVICE_SETTING_GROUPS.map(
-                        (group) => (
-                          <fieldset
-                            className="mb-6 grid gap-4 sm:grid-cols-2"
-                            key={group.name}
-                          >
-                            <legend className="mb-3 font-semibold">
-                              {group.name}
-                            </legend>
-                            {group.fields.map(
-                              ([label, kind, type]) => (
-                                <Field
-                                  key={kind}
-                                  label={label}
-                                >
-                                  <input
-                                    className="w-full rounded-md border border-border-default bg-surface-base px-3 py-2"
-                                    onChange={(event) =>
-                                      updateAutomationSetting(
-                                        {
-                                          kind,
-                                          value:
-                                            event.target
-                                              .value,
-                                        },
-                                      )
-                                    }
-                                    type={type}
-                                    value={
-                                      automationSettings[
-                                        kind
-                                      ] ?? ""
-                                    }
-                                  />
-                                </Field>
-                              ),
-                            )}
-                            {AUTOMATION_PICKERS.filter(
-                              ({ kind }) =>
-                                group.pickers.includes(
-                                  kind,
-                                ),
-                            ).map(
-                              ({
-                                label,
-                                kind,
-                                options,
-                              }) => (
-                                <Field
-                                  key={kind}
-                                  label={label}
-                                >
-                                  <Picker
-                                    label={label}
-                                    options={options}
-                                    value={
-                                      automationSettings[
-                                        kind
-                                      ] ?? ""
-                                    }
-                                    onChange={(value) =>
-                                      updateAutomationSetting(
-                                        { kind, value },
-                                      )
-                                    }
-                                  />
-                                </Field>
-                              ),
-                            )}
-                            {group.name ===
-                              "Output profile" &&
-                            selectedDevice.colorMode ===
-                              "spectra6" ? (
-                              <Field label="Color mode">
-                                <Picker
-                                  label="Color mode"
-                                  options={
-                                    COLOR_MODE_OPTIONS
-                                  }
-                                  value={
-                                    automationSettings.colorMode ??
-                                    "Color"
-                                  }
-                                  onChange={(value) =>
-                                    updateAutomationSetting(
-                                      {
-                                        kind: "colorMode",
-                                        value,
-                                      },
-                                    )
-                                  }
-                                />
-                              </Field>
-                            ) : null}
-                          </fieldset>
-                        ),
-                      )}
-                      <Checkbox
-                        isChecked={
-                          automationSettings.updates !==
-                          "OFF"
-                        }
-                        label="Accept updates"
-                        onChange={(isEnabled) =>
-                          updateAutomationSetting({
-                            kind: "updates",
-                            value: isEnabled ? "ON" : "OFF",
-                          })
-                        }
-                      />
-                      <div className="mt-4">
-                        <Button
-                          isLoading={isSavingAutomation}
-                          onClick={() =>
-                            void saveAutomationSettings()
-                          }
-                          type="button"
-                        >
-                          Save display settings
-                        </Button>
-                      </div>
-                    </Card>
-                  </>
-                )}
-                <p
-                  className="text-content-secondary text-sm"
-                  role="status"
-                >
-                  {message}
+                ))}
+              </AdaptiveGrid>
+            )}
+          </>
+        ) : selectedDevice ? (
+          <>
+            <div className="device-heading">
+              <div>
+                <p className="text-content-secondary text-sm">
+                  Device settings
                 </p>
-                <div className="flex flex-wrap justify-between gap-2">
-                  <Button
-                    appearance="outline"
-                    intent="danger"
-                    onClick={() => void deleteDevice()}
-                  >
-                    Delete device
-                  </Button>
-                  <Button
-                    isLoading={isSaving}
-                    type="submit"
-                  >
-                    Save and restart
-                  </Button>
+                <h1>
+                  {isNewDevice
+                    ? "New device"
+                    : selectedDevice.label}
+                </h1>
+                <p className="text-content-secondary text-sm">
+                  {isBrowser ? "Browser" : "Image"} ·{" "}
+                  {selectedDevice.width} ×{" "}
+                  {selectedDevice.height}
+                  {savedId ? ` · ${savedId}` : ""}
+                </p>
+              </div>
+              {!isNewDevice ? (
+                <Button
+                  appearance="outline"
+                  intent="danger"
+                  isDisabled={isBusy}
+                  onClick={() => void deleteDevice()}
+                >
+                  Delete device
+                </Button>
+              ) : null}
+            </div>
+            <Tabs
+              activeHref={`/devices/${section}`}
+              className="settings-tabs"
+              label="Device settings"
+              tabs={sections
+                .filter(
+                  (name) =>
+                    !isNewDevice ||
+                    name === "device" ||
+                    name === "views",
+                )
+                .map((name) => ({
+                  href: `/devices/${name}${query}`,
+                  label:
+                    name[0]?.toUpperCase() + name.slice(1),
+                }))}
+            />
+            <div className="settings-layout">
+              <form
+                className="settings-form"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (
+                    section === "device" ||
+                    section === "views"
+                  ) {
+                    void saveDevice()
+                  } else {
+                    void saveSettings()
+                  }
+                }}
+              >
+                <fieldset
+                  disabled={
+                    isBusy || isLoading || hasRestartPending
+                  }
+                >
+                  {section === "device" ? (
+                    <>
+                      <DeviceFields
+                        device={selectedDevice}
+                        isNewDevice={isNewDevice}
+                        onChange={updateDevice}
+                      />
+                      {!isNewDevice ? (
+                        <Card
+                          className="assigned-screen"
+                          heading="Assigned screen"
+                        >
+                          <div className="setting-fields">
+                            <SettingField
+                              label="Screen"
+                              value={screenId}
+                              onChange={setScreenId}
+                              width="wide"
+                              options={[
+                                {
+                                  label:
+                                    "Use existing device views",
+                                  value: "",
+                                },
+                                ...platform.screens.map(
+                                  (screen) => ({
+                                    label: screen.name,
+                                    value: screen.id,
+                                  }),
+                                ),
+                              ]}
+                            />
+                            <Button
+                              appearance="outline"
+                              isDisabled={
+                                isBusy ||
+                                screenId ===
+                                  assignedScreenId
+                              }
+                              onClick={() =>
+                                void saveScreen()
+                              }
+                            >
+                              Assign screen
+                            </Button>
+                          </div>
+                        </Card>
+                      ) : null}
+                    </>
+                  ) : isLoadingSettings ? (
+                    <p>Load in progress…</p>
+                  ) : hasSettingsError ? (
+                    <Card heading="Settings unavailable">
+                      <p>
+                        Reload devices to try again. Your
+                        device definition is still
+                        available.
+                      </p>
+                    </Card>
+                  ) : (
+                    <DeviceSettingsFields
+                      device={selectedDevice}
+                      onChange={updateSettings}
+                      onDeviceChange={updateDevice}
+                      section={section}
+                      settings={automationSettings}
+                    />
+                  )}
+                </fieldset>
+                <div className="settings-savebar">
+                  <div>
+                    <strong>
+                      {hasChanges
+                        ? "Unsaved changes"
+                        : "No unsaved changes"}
+                    </strong>
+                    <p>
+                      {pendingSettings.length > 0 &&
+                      hasDeviceChanges
+                        ? "Save the settings before the device restart."
+                        : hasDeviceChanges
+                          ? "Device changes restart CastKit."
+                          : "Setting changes apply without a restart."}
+                    </p>
+                  </div>
+                  <div className="save-buttons">
+                    {(!isBrowser ||
+                      selectedDevice.hasMqttBacklight ||
+                      pendingSettings.length > 0) &&
+                    !isNewDevice ? (
+                      <Button
+                        appearance="outline"
+                        isDisabled={
+                          isBusy ||
+                          isLoadingSettings ||
+                          hasSettingsError ||
+                          pendingSettings.length === 0 ||
+                          hasRestartPending
+                        }
+                        isLoading={isSavingAutomation}
+                        onClick={() => void saveSettings()}
+                        type="button"
+                      >
+                        Save settings
+                      </Button>
+                    ) : null}
+                    <Button
+                      isDisabled={
+                        isBusy ||
+                        !hasDeviceChanges ||
+                        pendingSettings.length > 0 ||
+                        hasRestartPending
+                      }
+                      isLoading={isSaving}
+                      onClick={() => void saveDevice()}
+                      type="button"
+                    >
+                      {isNewDevice
+                        ? "Create device"
+                        : "Save device & restart"}
+                    </Button>
+                  </div>
                 </div>
               </form>
-            ) : (
-              <p className="text-content-secondary">
-                Choose a device from the list, or add a new
-                one.
-              </p>
-            )}
+              <DevicePreview
+                apiToken={apiToken}
+                device={
+                  isNewDevice ? null : (savedDevice ?? null)
+                }
+                revision={previewRevision}
+              />
+            </div>
+          </>
+        ) : (
+          <Card
+            heading={
+              isLoading
+                ? "Load in progress…"
+                : "No device selected"
+            }
+          >
+            <p>Select a device, or add a new one.</p>
           </Card>
-        </div>
+        )}
+        <p
+          aria-label="Management status"
+          className="management-status"
+          role="status"
+        >
+          {message}
+        </p>
+        <details
+          className="management-auth"
+          open={devices.length === 0 || undefined}
+        >
+          <summary>Connection & authentication</summary>
+          <div className="setting-fields">
+            <SettingField
+              description="Stored only in this browser session. Leave blank when the API is open on your local network."
+              label="API token"
+              onChange={setTokenInput}
+              type="password"
+              value={tokenInput}
+              width="wide"
+            />
+            <Button
+              isDisabled={isBusy}
+              onClick={() => {
+                sessionStorage.setItem(
+                  "castkit-api-token",
+                  tokenInput,
+                )
+                setApiToken(tokenInput)
+                setReload((current) => current + 1)
+              }}
+            >
+              Connect
+            </Button>
+          </div>
+        </details>
       </div>
     </div>
   )
