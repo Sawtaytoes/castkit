@@ -131,6 +131,7 @@ export const CollectionPage = ({
   const [tagFilter, setTagFilter] = useState("")
   const [previewRevision, setPreviewRevision] = useState(0)
   const nameRef = useRef<HTMLInputElement>(null)
+  const shouldFocusName = useRef(false)
   const invalidRef = useRef<HTMLInputElement | null>(null)
   const handledSelection = useRef<string | null>(null)
   const location = useLocation()
@@ -147,6 +148,16 @@ export const CollectionPage = ({
     ? requestedTab
     : "general"
   useEffect(() => {
+    const name = nameRef.current
+    if (
+      shouldFocusName.current &&
+      name &&
+      !name.closest("[hidden]")
+    ) {
+      name.focus()
+      name.scrollIntoView({ block: "nearest" })
+      shouldFocusName.current = false
+    }
     const invalid = invalidRef.current
     if (invalid && !invalid.closest("[hidden]")) {
       invalid.focus()
@@ -192,14 +203,11 @@ export const CollectionPage = ({
     setPreviewRevision((value) => value + 1)
     setEditorKey((value) => value + 1)
     handledSelection.current = record?.id ?? "__new"
+    shouldFocusName.current = true
     navigate(
       `/${collection}/general?${new URLSearchParams(record ? { item: record.id } : { new: "1" })}`,
     )
     setIsPickerOpen(false)
-    requestAnimationFrame(() => {
-      nameRef.current?.focus()
-      nameRef.current?.scrollIntoView({ block: "nearest" })
-    })
   }
   useEffect(() => {
     if (

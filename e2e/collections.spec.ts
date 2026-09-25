@@ -72,6 +72,9 @@ test("compact selection searches names and tags, filters groups, and Add view fo
     page.getByText("20 of 61 views"),
   ).toBeVisible()
   await page
+    .getByRole("link", { name: "Panels", exact: true })
+    .click()
+  await page
     .getByRole("button", { name: "Add view", exact: true })
     .click()
   await expect(
