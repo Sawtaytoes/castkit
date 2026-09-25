@@ -323,3 +323,107 @@
 .assigned-screen .setting-field {
   max-inline-size: 30rem;
 }
+
+.collection-page {
+  container-type: inline-size;
+}
+/* Collections share one compact selector and keep the active editor beside its output. */
+[hidden] {
+  display: none;
+}
+.collection-picker {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.collection-picker > :first-child {
+  width: min(30rem, 100%);
+}
+.collection-picker > :nth-child(2) {
+  width: 13rem;
+}
+.record-option {
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+}
+.record-option > span {
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+.collection-workspace {
+  display: grid;
+  align-items: start;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.collection-editor {
+  min-width: 0;
+}
+.collection-editor form {
+  padding-top: 1rem;
+}
+.collection-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--color-surface-raised);
+}
+.collection-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 0.8rem 0;
+  background: var(--color-surface-raised);
+}
+.collection-preview {
+  min-width: 0;
+}
+.collection-preview-frame {
+  width: 100%;
+  height: clamp(22rem, 62vh, 48rem);
+  margin: 1rem 0;
+  border: 1px solid var(--color-border-default);
+  border-radius: 0.5rem;
+  background: var(--color-surface-base);
+}
+.structured-rows {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.structured-row {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: 0.5rem;
+  min-width: 0;
+}
+.structured-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+@container (min-width: 68rem) {
+  .collection-workspace[data-has-preview="true"] {
+    grid-template-columns: minmax(30rem, 1fr) minmax(
+        25rem,
+        1fr
+      );
+  }
+  .collection-preview {
+    position: sticky;
+    top: 1rem;
+  }
+}
+@container (min-width: 103rem) {
+  .collection-workspace[data-has-preview="true"] {
+    grid-template-columns: minmax(35rem, 48rem) minmax(
+        30rem,
+        1fr
+      );
+  }
+}

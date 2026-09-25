@@ -1,5 +1,6 @@
 import { Button, Card } from "@charcuterie/ui"
 import { useState } from "react"
+import { PluginInstaller } from "./PluginInstaller.tsx"
 import { mutate, type Platform } from "./platformApi.ts"
 export const Plugins = ({
   platform,
@@ -41,14 +42,67 @@ export const Plugins = ({
       setBusyId(null)
     }
   }
+  const removePlugin = async (id: string) => {
+    setBusyId(id)
+    setMessage("")
+    setIsError(false)
+    try {
+      await mutate(
+        `/api/manage/platform/plugin-packages/${encodeURIComponent(id)}`,
+        {},
+        "DELETE",
+      )
+      await onRefresh()
+      setMessage("Plugin removed.")
+    } catch (error) {
+      setIsError(true)
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not remove the plugin.",
+      )
+    } finally {
+      setBusyId(null)
+    }
+  }
   return (
-    <div className="grid gap-4">
-      <p className="text-content-secondary">
-        Installed plugins provide source adapters, view
-        components, and data contracts. Configure their
-        connections in Sources and use their components in
-        Views.
-      </p>
+    <div className="grid min-w-0 gap-4">
+      <PluginInstaller
+        isAvailable={
+          platform.isPluginInstallationAvailable !== false
+        }
+        onRefresh={onRefresh}
+      />
+      {platform.pluginErrors?.map((error) => (
+        <p role="alert" key={error.name}>
+          {error.name}: {error.error}
+        </p>
+      ))}
+      {platform.pluginPackages
+        ?.filter(
+          (item) =>
+            !platform.plugins.some(
+              (plugin) => plugin.id === item.pluginId,
+            ),
+        )
+        .map((item) => (
+          <Card key={item.pluginId} heading={item.name}>
+            <p>
+              The package could not load. Install a
+              compatible version or remove its saved
+              configuration before removing it.
+            </p>
+            <Button
+              appearance="outline"
+              isDisabled={busyId !== null}
+              onClick={() =>
+                void removePlugin(item.pluginId)
+              }
+            >
+              Remove {item.name}
+            </Button>
+          </Card>
+        ))}
       {message ? (
         <p
           role={isError ? "alert" : "status"}
@@ -72,7 +126,7 @@ export const Plugins = ({
                 ? "Disabled"
                 : "Enabled"}
             </p>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-3">
               <Button
                 appearance="outline"
                 isLoading={busyId === plugin.id}
@@ -90,49 +144,31 @@ export const Plugins = ({
                   ? `Enable ${plugin.name}`
                   : `Disable ${plugin.name}`}
               </Button>
+              {platform.pluginPackages?.some(
+                (item) => item.pluginId === plugin.id,
+              ) ? (
+                <Button
+                  appearance="outline"
+                  isDisabled={busyId !== null}
+                  onClick={() =>
+                    void removePlugin(plugin.id)
+                  }
+                >
+                  Remove {plugin.name}
+                </Button>
+              ) : null}
             </div>
           </Card>
         ))}
       </div>
-      <Card heading="Add a plugin">
-        <div className="grid gap-3">
-          <p>
-            Install a trusted npm package at a pinned
-            version in your CastKit deployment. Register its
-            server module and renderer entries, then rebuild
-            and restart CastKit. Installed components appear
-            here and in the view editor.
-          </p>
-          <p>
-            Local packages use the same extension interface.
-            The CastKit SDK supplies data subscriptions and
-            actions without requiring a specific UI library.
-          </p>
-          <a
-            className="underline"
-            href="https://github.com/Sawtaytoes/castkit/blob/master/docs/plugins.md"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Plugin installation and authoring guide
-          </a>
-        </div>
-      </Card>
-      <Card heading="Available components">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {platform.viewSpecs.map((spec) => (
-            <div key={spec.id}>
-              <h2 className="font-semibold">{spec.name}</h2>
-              <p className="text-content-secondary text-sm">
-                {spec.description}
-              </p>
-              <p className="mt-1 text-sm">
-                {spec.renderers.join(" · ")}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <a
+        className="underline"
+        href="https://github.com/Sawtaytoes/castkit/blob/master/docs/plugins.md"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Plugin authoring guide
+      </a>
     </div>
   )
 }

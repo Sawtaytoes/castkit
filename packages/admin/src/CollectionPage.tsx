@@ -1,10 +1,18 @@
 import {
   Button,
   Card,
+  Combobox,
   EmptyState,
   Field,
+  Picker,
+  Tabs,
 } from "@charcuterie/ui"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import {
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router"
 import {
   api,
   type Channel,
@@ -24,6 +32,7 @@ import {
   ChannelEditor,
   SourceEditor,
 } from "./SourceEditor.tsx"
+import { TagField } from "./TagField.tsx"
 import { ViewEditor } from "./ViewEditor.tsx"
 
 const titles = {
@@ -40,7 +49,7 @@ const descriptions = {
   views:
     "Combine view components and bind their inputs to compatible data channels.",
   screens:
-    "Keep one browser URL while CastKit or an automation changes the view.",
+    "Configure a named screen for a browser, kiosk, or assigned display.",
 }
 const blank = (
   collection: Collection,
@@ -117,8 +126,55 @@ export const CollectionPage = ({
   const [isError, setIsError] = useState(false)
   const [isBusy, setIsBusy] = useState(false)
   const [editorKey, setEditorKey] = useState(0)
-  const [isPreviewVisible, setIsPreviewVisible] =
-    useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
+  const [tagFilter, setTagFilter] = useState("")
+  const [previewRevision, setPreviewRevision] = useState(0)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const invalidRef = useRef<HTMLInputElement | null>(null)
+  const handledSelection = useRef<string | null>(null)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const requestedTab =
+    location.pathname.split("/")[2] ?? "general"
+  const sections =
+    collection === "views"
+      ? ["general", "panels", "appearance", "access"]
+      : collection === "screens"
+        ? ["general", "views", "switching", "access"]
+        : ["general", "settings"]
+  const section = sections.includes(requestedTab)
+    ? requestedTab
+    : "general"
+  useEffect(() => {
+    const invalid = invalidRef.current
+    if (invalid && !invalid.closest("[hidden]")) {
+      invalid.focus()
+      invalidRef.current = null
+    }
+  })
+  const selectedId = searchParams.get("item")
+  const tags = [
+    ...new Set(
+      platform[collection].flatMap(
+        (record) => record.tags ?? [],
+      ),
+    ),
+  ].sort()
+  const filteredRecords = platform[collection]
+    .filter(
+      (record) =>
+        !tagFilter ||
+        (tagFilter === "__untagged"
+          ? !record.tags?.length
+          : record.tags?.includes(tagFilter)),
+    )
+    .toSorted(
+      (first, second) =>
+        (first.tags?.[0] ?? "").localeCompare(
+          second.tags?.[0] ?? "",
+        ) || first.name.localeCompare(second.name),
+    )
   const records = platform[collection]
   const title = titles[collection]
   const isSaved = editingId !== null
@@ -133,15 +189,46 @@ export const CollectionPage = ({
     setPin("")
     setMessage("")
     setIsError(false)
-    setIsPreviewVisible(false)
+    setPreviewRevision((value) => value + 1)
     setEditorKey((value) => value + 1)
+    handledSelection.current = record?.id ?? "__new"
+    navigate(
+      `/${collection}/general?${new URLSearchParams(record ? { item: record.id } : { new: "1" })}`,
+    )
+    setIsPickerOpen(false)
+    requestAnimationFrame(() => {
+      nameRef.current?.focus()
+      nameRef.current?.scrollIntoView({ block: "nearest" })
+    })
   }
+  useEffect(() => {
+    if (
+      !selectedId ||
+      handledSelection.current === selectedId
+    )
+      return
+    const record = records.find(
+      (item) => item.id === selectedId,
+    )
+    if (!record) return
+    handledSelection.current = selectedId
+    setDraft(structuredClone(record))
+    setEditingId(record.id)
+    setPin("")
+    setSecrets({})
+    setMessage("")
+    setEditorKey((current) => current + 1)
+  }, [selectedId, records])
   const save = async () => {
     if (!draft) return
     setIsBusy(true)
     setMessage("")
     setIsError(false)
     try {
+      if (!draft.name.trim() || !draft.id.trim())
+        throw new Error(
+          `Enter a name and ID for this ${title.toLowerCase()}.`,
+        )
       if (collection === "views") {
         for (const panel of (draft as View).panels) {
           for (const [key, value] of Object.entries(
@@ -201,6 +288,9 @@ export const CollectionPage = ({
       )
         setDraft({ ...draft, hasPin: true })
       setEditingId(draft.id)
+      handledSelection.current = draft.id
+      setSearchParams({ item: draft.id }, { replace: true })
+      setPreviewRevision((value) => value + 1)
       setMessage(`${title} saved.`)
       await onRefresh()
     } catch (error) {
@@ -247,7 +337,7 @@ export const CollectionPage = ({
       ? `/${collection === "views" ? "view" : "screen"}/${encodeURIComponent(draft.id)}`
       : null
   return (
-    <div className="grid gap-5">
+    <div className="collection-page grid min-w-0 gap-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <p className="max-w-3xl text-content-secondary">
           {descriptions[collection]}
@@ -256,128 +346,244 @@ export const CollectionPage = ({
           Add {title.toLowerCase()}
         </Button>
       </div>
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(14rem,1fr)_minmax(0,2fr)]">
-        <Card
-          heading={
-            collection[0]?.toUpperCase() +
-            collection.slice(1)
-          }
-        >
-          <div className="grid gap-2">
-            {records.map((record) => (
+      <div className="collection-picker">
+        <Field label={`Find a ${title.toLowerCase()}`}>
+          <Combobox
+            key={editingId ?? "new"}
+            isVisible={isPickerOpen}
+            onDismiss={() => setIsPickerOpen(false)}
+            onSelect={(id) => {
+              const record = records.find(
+                (item) => item.id === id,
+              )
+              if (record) begin(record)
+            }}
+            selectedValue={editingId ?? undefined}
+            placeholder={`Search ${collection} by name, ID, or tag`}
+            options={filteredRecords.map((record) => ({
+              value: record.id,
+              textValue: `${record.name} ${record.id} ${(record.tags ?? []).join(" ")}`,
+              label: (
+                <span className="record-option">
+                  <strong>{record.name}</strong>
+                  <span>
+                    {record.tags?.join(" · ") || "Untagged"}
+                  </span>
+                </span>
+              ),
+            }))}
+            trigger={
               <Button
-                key={record.id}
-                appearance={
-                  editingId === record.id
-                    ? "solid"
-                    : "outline"
-                }
-                onClick={() => begin(record)}
+                appearance="outline"
+                className="w-full min-w-0"
+                onClick={() => setIsPickerOpen(true)}
               >
-                {record.name}
-                {"access" in record &&
-                record.access === "pin" &&
-                !record.hasPin
-                  ? " · Set PIN"
-                  : null}
+                <span className="truncate">
+                  {isSaved
+                    ? draft?.name
+                    : `Choose from ${filteredRecords.length} ${collection}`}
+                </span>
               </Button>
-            ))}
-            {!records.length ? (
-              <EmptyState
-                heading={`No ${collection} yet`}
-                description={`Add a ${title.toLowerCase()} to get started.`}
-                size="sm"
-              />
-            ) : null}
-          </div>
-        </Card>
+            }
+          />
+        </Field>
+        <Field label="Filter by tag">
+          <Picker
+            label="Filter by tag"
+            value={tagFilter}
+            onChange={setTagFilter}
+            options={[
+              { label: "All tags", value: "" },
+              { label: "Untagged", value: "__untagged" },
+              ...tags.map((tag) => ({
+                label: tag,
+                value: tag,
+              })),
+            ]}
+          />
+        </Field>
+        <p className="text-content-secondary text-sm">
+          {filteredRecords.length} of {records.length}{" "}
+          {collection}
+        </p>
+      </div>
+      <div
+        className="collection-workspace"
+        data-has-preview={Boolean(url)}
+      >
         {draft ? (
           <Card
+            className="collection-editor"
             heading={
               isSaved
                 ? `Edit ${title.toLowerCase()}`
                 : `New ${title.toLowerCase()}`
             }
           >
+            <Tabs
+              label={`${title} settings`}
+              className="collection-tabs"
+              activeHref={`/${collection}/${section}`}
+              tabs={sections.map((name) => ({
+                label:
+                  name[0]?.toUpperCase() + name.slice(1),
+                href: `/${collection}/${name}?${searchParams}`,
+              }))}
+            />
             <form
+              noValidate
               className="grid gap-5"
               onSubmit={(event) => {
                 event.preventDefault()
+                if (!event.currentTarget.checkValidity()) {
+                  setIsError(true)
+                  setMessage(
+                    "Complete the required fields and correct invalid entries before saving.",
+                  )
+                  const invalid =
+                    event.currentTarget.querySelector(
+                      "input:invalid, select:invalid, textarea:invalid",
+                    ) as HTMLInputElement | null
+                  invalidRef.current = invalid
+                  const targetSection = invalid
+                    ?.closest("[data-editor-section]")
+                    ?.getAttribute("data-editor-section")
+                  if (
+                    targetSection &&
+                    targetSection !== section
+                  )
+                    navigate(
+                      `/${collection}/${targetSection}?${searchParams}`,
+                    )
+                  // Reveal collapsed setting groups before focusing the invalid control.
+                  const ancestors = (
+                    element: Element | null,
+                  ): Element[] =>
+                    element
+                      ? [
+                          element,
+                          ...ancestors(
+                            element.parentElement,
+                          ),
+                        ]
+                      : []
+                  ancestors(invalid)
+                    .filter(
+                      (element) =>
+                        element.hasAttribute("hidden") &&
+                        element.id,
+                    )
+                    .forEach((element) => {
+                      const trigger =
+                        event.currentTarget.querySelector(
+                          `[aria-controls="${CSS.escape(element.id)}"]`,
+                        ) as HTMLButtonElement | null
+                      trigger?.click()
+                    })
+                  requestAnimationFrame(() => {
+                    if (!invalid?.closest("[hidden]"))
+                      invalid?.focus()
+                  })
+                  return
+                }
                 void save()
               }}
             >
-              <Field label={`${title} name`} isRequired>
-                <input
-                  className={inputClass}
-                  value={draft.name}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      name: event.target.value,
-                      ...(!isSaved &&
-                      (!draft.id ||
-                        draft.id ===
-                          draft.name
-                            .toLowerCase()
-                            .replace(/[^a-z0-9]+/g, "-")
-                            .replace(/^-|-$/g, ""))
-                        ? {
-                            id: event.target.value
+              <div
+                className="grid gap-4"
+                hidden={section !== "general"}
+                data-editor-section="general"
+              >
+                <Field label={`${title} name`} isRequired>
+                  <input
+                    ref={nameRef}
+                    className={inputClass}
+                    value={draft.name}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        name: event.target.value,
+                        ...(!isSaved &&
+                        (!draft.id ||
+                          draft.id ===
+                            draft.name
                               .toLowerCase()
                               .replace(/[^a-z0-9]+/g, "-")
-                              .replace(/^-|-$/g, ""),
-                          }
-                        : {}),
-                    })
-                  }
-                />
-              </Field>
-              <Field
-                label={`${title} ID`}
-                description={
-                  collection === "channels"
-                    ? "Use lowercase letters, numbers, dots, underscores, and hyphens. Separate channel groups with a slash. The ID is permanent after creation."
-                    : "Use lowercase letters, numbers, and hyphens. The ID is permanent after creation."
-                }
-                isRequired
-              >
-                <input
-                  className={inputClass}
-                  disabled={isSaved}
-                  pattern={
+                              .replace(/^-|-$/g, ""))
+                          ? {
+                              id: event.target.value
+                                .toLowerCase()
+                                .replace(/[^a-z0-9]+/g, "-")
+                                .replace(/^-|-$/g, ""),
+                            }
+                          : {}),
+                      })
+                    }
+                  />
+                </Field>
+                <Field
+                  label={`${title} ID`}
+                  description={
                     collection === "channels"
-                      ? "[a-z0-9][a-z0-9._\\-]*(\\/[a-z0-9][a-z0-9._\\-]*)*"
-                      : "[a-z0-9][a-z0-9\\-]*"
+                      ? "Use lowercase letters, numbers, dots, underscores, and hyphens. Separate channel groups with a slash. The ID is permanent after creation."
+                      : "Use lowercase letters, numbers, and hyphens. The ID is permanent after creation."
                   }
-                  value={draft.id}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      id: event.target.value,
-                    })
+                  isRequired
+                >
+                  <input
+                    className={inputClass}
+                    disabled={isSaved}
+                    pattern={
+                      collection === "channels"
+                        ? "[a-z0-9][a-z0-9._\\-]*(\\/[a-z0-9][a-z0-9._\\-]*)*"
+                        : "[a-z0-9][a-z0-9\\-]*"
+                    }
+                    value={draft.id}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        id: event.target.value,
+                      })
+                    }
+                  />
+                </Field>
+                <TagField
+                  key={editingId ?? "new"}
+                  label="Tags"
+                  value={draft.tags ?? []}
+                  options={tags}
+                  onChange={(tags) =>
+                    setDraft({ ...draft, tags })
                   }
                 />
-              </Field>
-              {collection === "sources" ? (
-                <SourceEditor
-                  key={editorKey}
-                  value={draft as Source}
-                  onChange={setDraft}
-                  platform={platform}
-                  onSecretsChange={setSecrets}
-                />
-              ) : null}
-              {collection === "channels" ? (
-                <ChannelEditor
-                  key={editorKey}
-                  value={draft as Channel}
-                  onChange={setDraft}
-                  platform={platform}
-                />
-              ) : null}
+              </div>
+              <div
+                hidden={section !== "settings"}
+                data-editor-section="settings"
+                className="grid gap-4"
+              >
+                {collection === "sources" ? (
+                  <SourceEditor
+                    key={editorKey}
+                    value={draft as Source}
+                    onChange={setDraft}
+                    platform={platform}
+                    onSecretsChange={setSecrets}
+                  />
+                ) : null}
+                {collection === "channels" ? (
+                  <ChannelEditor
+                    key={editorKey}
+                    value={draft as Channel}
+                    onChange={setDraft}
+                    platform={platform}
+                  />
+                ) : null}
+              </div>
               {collection === "views" ? (
                 <ViewEditor
                   key={editorKey}
+                  section={section}
                   value={draft as View}
                   onChange={setDraft}
                   platform={platform}
@@ -388,6 +594,7 @@ export const CollectionPage = ({
               {collection === "screens" ? (
                 <ScreenEditor
                   key={editorKey}
+                  section={section}
                   value={draft as Screen}
                   onChange={setDraft}
                   platform={platform}
@@ -408,7 +615,7 @@ export const CollectionPage = ({
                   {message}
                 </p>
               ) : null}
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="collection-savebar flex flex-wrap items-center justify-between gap-3">
                 {isSaved ? (
                   <Button
                     type="button"
@@ -426,38 +633,6 @@ export const CollectionPage = ({
                   Save {title.toLowerCase()}
                 </Button>
               </div>
-              {url && isSaved ? (
-                <div className="grid gap-3 border-t border-border-subtle pt-4">
-                  <a
-                    className="break-all underline"
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open {url}
-                  </a>
-                  <Button
-                    appearance="outline"
-                    type="button"
-                    onClick={() =>
-                      setIsPreviewVisible(
-                        (isVisible) => !isVisible,
-                      )
-                    }
-                  >
-                    {isPreviewVisible
-                      ? "Hide preview"
-                      : "Preview saved version"}
-                  </Button>
-                  {isPreviewVisible ? (
-                    <iframe
-                      className="h-96 w-full rounded-md border border-border-default"
-                      src={url}
-                      title={`${draft.name} preview`}
-                    />
-                  ) : null}
-                </div>
-              ) : null}
             </form>
           </Card>
         ) : (
@@ -468,6 +643,58 @@ export const CollectionPage = ({
             />
           </Card>
         )}
+        {url && draft ? (
+          <aside className="collection-preview">
+            <Card
+              heading="Preview"
+              actions={
+                isSaved ? (
+                  <Button
+                    size="sm"
+                    appearance="outline"
+                    onClick={() =>
+                      setPreviewRevision(
+                        (current) => current + 1,
+                      )
+                    }
+                  >
+                    Refresh
+                  </Button>
+                ) : null
+              }
+            >
+              {isSaved ? (
+                <>
+                  <p className="text-content-secondary text-sm">
+                    Saved version. Save your changes to
+                    update the preview.
+                  </p>
+                  <iframe
+                    key={`${url}:${previewRevision}`}
+                    src={`${url}?preview=1`}
+                    title={`${draft.name} preview`}
+                    inert
+                    tabIndex={-1}
+                    className="collection-preview-frame"
+                  />
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    Open in a new tab
+                  </a>
+                </>
+              ) : (
+                <p>
+                  Save this {title.toLowerCase()} to preview
+                  it here.
+                </p>
+              )}
+            </Card>
+          </aside>
+        ) : null}
       </div>
     </div>
   )

@@ -20,6 +20,7 @@ import {
   platformSchemas,
   verifyPin,
 } from "./platformStore.ts"
+import { attachPluginRoutes } from "./pluginRoutes.ts"
 
 const targetKind = z.enum(["view", "screen"])
 const pinSchema = z.string().min(4).max(128)
@@ -177,7 +178,24 @@ export const attachPlatformRoutes = ({
         { error: "Management PIN required" },
         401,
       )
+    if (
+      platform.pluginRuntime.isChanging &&
+      !["GET", "HEAD", "OPTIONS"].includes(
+        context.req.method,
+      )
+    )
+      return context.json(
+        {
+          error:
+            "A plugin change is in progress. Try again when it finishes.",
+        },
+        409,
+      )
     await next()
+  })
+  attachPluginRoutes({
+    app,
+    plugins: platform.pluginRuntime,
   })
   app.get("/api/access/session", (context) =>
     context.json({
@@ -387,6 +405,10 @@ export const attachPlatformRoutes = ({
         activeViewId:
           platform.screens.getActiveViewId(screen),
       })),
+      pluginPackages: platform.pluginRuntime.list(),
+      pluginErrors: platform.pluginRuntime.getErrors(),
+      isPluginInstallationAvailable:
+        platform.pluginRuntime.isAvailable,
       plugins: catalog.plugins.map((plugin) => ({
         ...plugin,
         isEnabled: !store

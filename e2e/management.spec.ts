@@ -440,7 +440,7 @@ test("overview keeps image output upright and preserves editor drafts", async ({
   )
   await page
     .getByRole("button", {
-      name: "Preview orientation: Upright",
+      name: "Preview orientation: Normal orientation",
     })
     .click()
   await page
@@ -515,7 +515,7 @@ test("a runtime quarter-turn is undone without cropping or changing the device",
   ).toBeVisible()
   await page
     .getByRole("button", {
-      name: "Preview orientation: Upright",
+      name: "Preview orientation: Normal orientation",
     })
     .click()
   await page

@@ -35,6 +35,10 @@ export const platformSchemas = {
   sources: z.object({
     id: targetIdentifier,
     name: z.string().min(1).max(120),
+    tags: z
+      .array(z.string().trim().min(1).max(40))
+      .max(30)
+      .optional(),
     adapter: z.string().min(1),
     settings,
     isEnabled: z.boolean(),
@@ -42,6 +46,10 @@ export const platformSchemas = {
   channels: z.object({
     id: identifier,
     name: z.string().min(1).max(120),
+    tags: z
+      .array(z.string().trim().min(1).max(40))
+      .max(30)
+      .optional(),
     sourceId: targetIdentifier,
     type: z.string().min(1),
     settings,
@@ -49,6 +57,10 @@ export const platformSchemas = {
   views: z.object({
     id: targetIdentifier,
     name: z.string().min(1).max(120),
+    tags: z
+      .array(z.string().trim().min(1).max(40))
+      .max(30)
+      .optional(),
     layout: z.enum(["single", "split", "grid"]),
     panels: z
       .array(
@@ -81,6 +93,10 @@ export const platformSchemas = {
   screens: z.object({
     id: targetIdentifier,
     name: z.string().min(1).max(120),
+    tags: z
+      .array(z.string().trim().min(1).max(40))
+      .max(30)
+      .optional(),
     defaultViewId: targetIdentifier,
     viewIds: z.array(targetIdentifier).min(1).max(100),
     access: z.enum(["public", "pin"]),

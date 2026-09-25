@@ -116,9 +116,13 @@ export const App = () => {
       clearInterval(timer)
     }
   }, [session, refreshPlatform])
-  const title =
-    destinations.find((item) => item.href === `/${section}`)
-      ?.label ?? "Views"
+  const title = session?.isSetupRequired
+    ? "Set up CastKit"
+    : session?.isAuthenticated
+      ? (destinations.find(
+          (item) => item.href === `/${section}`,
+        )?.label ?? "Views")
+      : "Sign in"
   const collection = (
     section === "sources" ||
     section === "channels" ||
@@ -127,7 +131,19 @@ export const App = () => {
       : "views"
   ) as Collection
   return (
-    <Shell contentWidth="full">
+    <Shell
+      contentWidth={
+        session?.isAuthenticated &&
+        [
+          "devices",
+          "all-screens",
+          "views",
+          "screens",
+        ].includes(section)
+          ? "full"
+          : "xl"
+      }
+    >
       <Header
         heading="CastKit"
         isSticky
@@ -137,21 +153,23 @@ export const App = () => {
           </a>
         }
       />
-      <Main className="p-4 md:p-6">
-        <div
-          className={`mx-auto grid gap-6 ${section === "devices" || section === "all-screens" ? "w-full" : "max-w-7xl"}`}
-        >
-          <Nav
-            activeHref={`/${section}`}
-            items={destinations}
-            label="CastKit management"
-          />
-          {section !== "devices" &&
-          section !== "all-screens" ? (
+      <Main>
+        <div className="grid min-w-0 gap-6">
+          {session?.isAuthenticated ? (
+            <Nav
+              activeHref={`/${section}`}
+              items={destinations}
+              label="CastKit management"
+            />
+          ) : null}
+          {!session?.isAuthenticated ||
+          (section !== "devices" &&
+            section !== "all-screens") ? (
             <h1 className="font-semibold text-2xl">
               {title}
             </h1>
           ) : null}
+
           {error ? (
             <Card>
               <div className="flex flex-wrap items-center justify-between gap-3">

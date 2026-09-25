@@ -210,7 +210,10 @@ export const DevicePreview = ({
           value={orientation}
           onChange={setOrientation}
           options={[
-            { label: "Upright", value: "upright" },
+            {
+              label: "Normal orientation",
+              value: "upright",
+            },
             { label: "Device output", value: "output" },
           ]}
         />

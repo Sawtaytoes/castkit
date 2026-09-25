@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   Field,
+  Picker,
   Tabs,
 } from "@charcuterie/ui"
 import { useCallback, useEffect, useState } from "react"
@@ -18,7 +19,11 @@ import type {
   AutomationSettings,
   Device,
 } from "./device.ts"
-import { mutate, type Platform } from "./platformApi.ts"
+import {
+  inputClass,
+  mutate,
+  type Platform,
+} from "./platformApi.ts"
 import { SettingField } from "./SettingField.tsx"
 
 const getBlankDevice = (): Device => ({
@@ -85,6 +90,32 @@ export const Devices = ({
     useState<AutomationSettings>({})
   const [message, setMessage] = useState("")
   const [search, setSearch] = useState("")
+  const [overviewSearch, setOverviewSearch] = useState("")
+  const [outputFilter, setOutputFilter] = useState("")
+  const matchesOverview = (text: string) =>
+    text
+      .toLowerCase()
+      .includes(overviewSearch.trim().toLowerCase())
+  const visibleDevices = devices.filter(
+    (device) =>
+      (!outputFilter ||
+        (device.renderer === "browser"
+          ? "browser"
+          : "image") === outputFilter) &&
+      matchesOverview(
+        `${device.label} ${device.id} ${platform.screens.find((screen) => screen.id === platform.deviceScreens[device.id])?.tags?.join(" ") ?? ""}`,
+      ),
+  )
+  const visibleScreens = platform.screens.filter(
+    (screen) =>
+      outputFilter !== "image" &&
+      !Object.values(platform.deviceScreens).includes(
+        screen.id,
+      ) &&
+      matchesOverview(
+        `${screen.name} ${screen.id} ${(screen.tags ?? []).join(" ")}`,
+      ),
+  )
   const [isDeviceListOpen, setIsDeviceListOpen] =
     useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -591,7 +622,7 @@ export const Devices = ({
               <div>
                 <h1>All screens</h1>
                 <p className="text-content-secondary text-sm">
-                  Upright previews of every display. Browser
+                  Previews in normal orientation. Browser
                   views update automatically; refresh to
                   load new images.
                 </p>
@@ -621,6 +652,38 @@ export const Devices = ({
               These previews show CastKit output, not the
               physical screens.
             </p>
+            <div className="collection-picker">
+              <Field label="Find a screen">
+                <input
+                  className={inputClass}
+                  type="search"
+                  placeholder="Search names, IDs, or tags"
+                  value={overviewSearch}
+                  onChange={(event) =>
+                    setOverviewSearch(event.target.value)
+                  }
+                />
+              </Field>
+              <Field label="Output">
+                <Picker
+                  label="Output"
+                  value={outputFilter}
+                  onChange={setOutputFilter}
+                  options={[
+                    { label: "All output", value: "" },
+                    { label: "Image", value: "image" },
+                    { label: "Browser", value: "browser" },
+                  ]}
+                />
+              </Field>
+            </div>
+            {!isLoading &&
+            visibleDevices.length +
+              visibleScreens.length ===
+              0 &&
+            devices.length + platform.screens.length > 0 ? (
+              <p>No screens match these filters.</p>
+            ) : null}
             {isLoading ? (
               <p>Load in progress…</p>
             ) : devices.length === 0 &&
@@ -636,7 +699,7 @@ export const Devices = ({
                 minColumnInlineSize={320}
                 maxColumns={4}
               >
-                {devices.map((device) => (
+                {visibleDevices.map((device) => (
                   <DevicePreview
                     key={device.id}
                     apiToken={apiToken}
@@ -646,32 +709,29 @@ export const Devices = ({
                     onEdit={() => selectDevice(device)}
                   />
                 ))}
-                {platform.screens
-                  .filter(
-                    (screen) =>
-                      !Object.values(
-                        platform.deviceScreens,
-                      ).includes(screen.id),
-                  )
-                  .map((screen) => (
-                    <DevicePreview
-                      key={`screen:${screen.id}`}
-                      apiToken={apiToken}
-                      device={{
-                        id: `screen:${screen.id}`,
-                        label: screen.name,
-                        mac: "",
-                        width: 1280,
-                        height: 720,
-                        renderer: "browser",
-                        rotation: 0,
-                      }}
-                      revision={previewRevision}
-                      isOverview
-                      previewUrl={`/screen/${encodeURIComponent(screen.id)}?preview=1`}
-                      onEdit={() => navigate("/screens")}
-                    />
-                  ))}
+                {visibleScreens.map((screen) => (
+                  <DevicePreview
+                    key={`screen:${screen.id}`}
+                    apiToken={apiToken}
+                    device={{
+                      id: `screen:${screen.id}`,
+                      label: screen.name,
+                      mac: "",
+                      width: 1280,
+                      height: 720,
+                      renderer: "browser",
+                      rotation: 0,
+                    }}
+                    revision={previewRevision}
+                    isOverview
+                    previewUrl={`/screen/${encodeURIComponent(screen.id)}?preview=1`}
+                    onEdit={() =>
+                      navigate(
+                        `/screens/general?item=${encodeURIComponent(screen.id)}`,
+                      )
+                    }
+                  />
+                ))}
               </AdaptiveGrid>
             )}
           </>

@@ -15,7 +15,7 @@ import {
 import { DisplayContext } from "./DisplayContext.ts"
 import type { PanelAction } from "./protocol.ts"
 
-/** Mount trusted, built extension assets through the framework-independent SDK host. */
+/** Mount trusted extension assets through the framework-independent SDK host. */
 export const PluginView = ({
   entry,
   panel,
@@ -42,6 +42,7 @@ export const PluginView = ({
   const listeners = useRef(new Set<() => void>())
   const [error, setError] = useState("")
   const [isMounted, setIsMounted] = useState(false)
+  const [retryToken, setRetryToken] = useState("")
   const current = useRef({
     channels,
     panel,
@@ -119,10 +120,11 @@ export const PluginView = ({
   latestHost.current = host
   useEffect(() => {
     const lifecycle = { isDisposed: false }
+    const container = element.current
     setError("")
     setIsMounted(false)
     if (
-      !/^\/assets\/plugins\/[a-zA-Z0-9_./-]+\.m?js$/.test(
+      !/^\/(?:assets\/plugins|api\/plugins\/assets)\/[a-zA-Z0-9_][a-zA-Z0-9_.-]*\/(?:[a-zA-Z0-9_][a-zA-Z0-9_.-]*\/)*[a-zA-Z0-9_][a-zA-Z0-9_.-]*\.m?js$/.test(
         entry,
       ) ||
       entry.includes("..")
@@ -130,7 +132,11 @@ export const PluginView = ({
       setError("The plugin has no valid browser asset.")
       return
     }
-    void loadRenderer(entry)
+    // Native imports cache failed loads too. A deliberate retry needs a fresh URL;
+    // successful versions retain their immutable installation URL across snapshots.
+    void loadRenderer(
+      retryToken ? `${entry}?retry=${retryToken}` : entry,
+    )
       .then((module: BrowserRenderer) => {
         if (lifecycle.isDisposed || !element.current) {
           return
@@ -164,8 +170,9 @@ export const PluginView = ({
       }
       renderer.current = null
       listeners.current.clear()
+      container?.replaceChildren()
     }
-  }, [entry, panel.id])
+  }, [entry, panel.id, retryToken])
   useEffect(() => {
     try {
       renderer.current?.update(host)
@@ -179,7 +186,12 @@ export const PluginView = ({
           : "This view plugin could not update.",
       )
     }
-  }, [channels, panel.settings, isControlEnabled])
+  }, [
+    channels,
+    panel.bindings,
+    panel.settings,
+    isControlEnabled,
+  ])
   return (
     <div
       class="platform-plugin"
@@ -187,7 +199,19 @@ export const PluginView = ({
         isMounted || Boolean(error),
       )}
     >
-      {error ? <p role="alert">{error}</p> : null}
+      {error ? (
+        <div>
+          <p role="alert">{error}</p>
+          <button
+            type="button"
+            onClick={() =>
+              setRetryToken(String(Date.now()))
+            }
+          >
+            Retry view
+          </button>
+        </div>
+      ) : null}
       <div ref={element} />
     </div>
   )

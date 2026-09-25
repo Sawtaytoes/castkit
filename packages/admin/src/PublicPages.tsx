@@ -7,6 +7,7 @@ import {
   Shell,
 } from "@charcuterie/ui"
 import { useEffect, useState } from "react"
+import { AccessIndicator } from "./AccessIndicator.tsx"
 import { api, inputClass } from "./platformApi.ts"
 
 type PublicItem = {
@@ -39,7 +40,7 @@ export const PublicPages = () => {
       .finally(() => setIsLoading(false))
   }, [isLibrary])
   return (
-    <Shell contentWidth="full">
+    <Shell contentWidth="xl">
       <Header
         heading="CastKit"
         actions={
@@ -48,8 +49,8 @@ export const PublicPages = () => {
           </a>
         }
       />
-      <Main className="p-4 md:p-8">
-        <div className="mx-auto grid max-w-6xl gap-6">
+      <Main>
+        <div className="grid min-w-0 gap-6">
           {isLibrary ? (
             <>
               <div>
@@ -59,11 +60,6 @@ export const PublicPages = () => {
                 <h1 className="mt-4 font-semibold text-3xl">
                   Views and screens
                 </h1>
-                <p className="mt-2 text-content-secondary">
-                  Open a view in any browser. A screen can
-                  change its view while its URL stays the
-                  same.
-                </p>
               </div>
               <Field label="Find a view or screen">
                 <input
@@ -88,8 +84,8 @@ export const PublicPages = () => {
                     >
                       <h2 className="font-semibold text-xl">
                         {collection === "views"
-                          ? "Fixed views"
-                          : "Browser screens"}
+                          ? "Views"
+                          : "Screens"}
                       </h2>
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {library[collection]
@@ -104,12 +100,12 @@ export const PublicPages = () => {
                             <Card
                               key={item.id}
                               heading={item.name}
+                              actions={
+                                item.access === "pin" ? (
+                                  <AccessIndicator />
+                                ) : undefined
+                              }
                             >
-                              <p className="mb-4 text-content-secondary">
-                                {item.access === "pin"
-                                  ? "PIN protected"
-                                  : "Public"}
-                              </p>
                               <a
                                 className="underline"
                                 href={`/${collection === "views" ? "view" : "screen"}/${encodeURIComponent(item.id)}`}
@@ -128,7 +124,7 @@ export const PublicPages = () => {
                             heading={
                               collection === "views"
                                 ? "No saved views"
-                                : "No browser screens"
+                                : "No screens"
                             }
                             description={
                               collection === "views"

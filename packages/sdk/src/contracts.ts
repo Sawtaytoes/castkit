@@ -16,6 +16,7 @@ export const CONTRACT_TYPES = [
 ] as const
 /** An independently configured provider; secrets never belong in this DTO. */
 export type SourceDefinition = {
+  tags?: string[]
   id: string
   name: string
   adapter: string
@@ -24,6 +25,7 @@ export type SourceDefinition = {
 }
 /** A named, source-independent selection of typed data. */
 export type ChannelDefinition = {
+  tags?: string[]
   id: string
   name: string
   sourceId: string
@@ -48,6 +50,7 @@ export type ViewPanel = {
 }
 /** A reusable composition that can be assigned to any compatible display. */
 export type ViewDefinition = {
+  tags?: string[]
   id: string
   name: string
   layout: "single" | "split" | "grid"
@@ -66,6 +69,7 @@ export type ViewDefinition = {
 }
 /** A stable URL whose current view can change through automation. */
 export type ScreenDefinition = {
+  tags?: string[]
   id: string
   name: string
   defaultViewId: string
