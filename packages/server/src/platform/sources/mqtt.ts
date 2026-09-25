@@ -10,6 +10,7 @@ import {
   parseQueuePayload,
   parseWeatherPayload,
 } from "@castkit/shared/viewData/parsers"
+import { normalizeAiUsage } from "./aiUsage.ts"
 import { finiteNumber, record, textValue } from "./http.ts"
 import { createSourceMedia } from "./mediaAssets.ts"
 import { normalizeRipDeck } from "./ripDeck.ts"
@@ -67,6 +68,12 @@ export const normalizeMqttPayload = ({
   }
   if (type === "rip-deck.v1" && raw.ripDeck) {
     return normalizeRipDeck(data)
+  }
+  if (
+    type === "ai-usage.v1" &&
+    Array.isArray(raw.providers)
+  ) {
+    return normalizeAiUsage(data)
   }
   return data
 }
