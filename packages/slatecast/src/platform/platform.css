@@ -145,14 +145,28 @@
   background: transparent;
   border: 0;
 }
+/*
+ * The picture takes the slack and the facts sit at the bottom, as on the
+ * workbench panel's plate: every card in the row is the row's height, so the
+ * heads, bands and metric rows line up whatever each picture's aspect ratio.
+ * Sizing the picture by its own ratio put Foopie's square plate cover 70 px
+ * taller than Magi's camera frame and its head 70 px lower.
+ */
+.platform-printers .platform-camera {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-block-size: 0;
+}
 .platform-printer-image {
+  flex: 1 1 0;
   inline-size: 100%;
-  max-block-size: 38cqi;
+  min-block-size: 0;
   object-fit: contain;
   border-radius: 10px;
 }
 .platform-printers .printer-body {
-  flex: 1;
+  flex: none;
   gap: 6px;
 }
 .platform-printers .printer-band {
