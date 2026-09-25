@@ -4,6 +4,7 @@ import type {
 } from "@castkit/sdk/contracts"
 import { useEffect, useState } from "preact/hooks"
 import { AgendaView } from "./AgendaView.tsx"
+import { AiUsageView } from "./AiUsageView.tsx"
 import { CameraImage } from "./CameraImage.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { EntitiesView } from "./EntitiesView.tsx"
@@ -267,6 +268,13 @@ export const BuiltinView = ({
         </div>
       )
     }
+    case "ai-usage":
+      return (
+        <AiUsageView
+          data={data as ContractData["ai-usage.v1"]}
+          now={now}
+        />
+      )
     case "points": {
       const points = data as ContractData["points.v1"]
       const isExpired =

@@ -78,3 +78,100 @@ export const compositionFixture: DisplaySnapshot = {
     },
   },
 }
+
+/**
+ * Four subscriptions with a spread of consumption, so the neutral, warning and
+ * danger bars all appear. The reset times are relative to the fixture's own
+ * clock, because an absolute one would read as long expired.
+ */
+export const aiUsageFixture: DisplaySnapshot = {
+  target: { kind: "view", id: "ai-usage" },
+  canControl: false,
+  view: {
+    id: "ai-usage",
+    name: "AI Usage",
+    layout: "single",
+    theme: "dark",
+    access: "public",
+    isControlEnabled: false,
+    panels: [
+      {
+        id: "usage",
+        specId: "ai-usage",
+        bindings: { data: "usage" },
+        settings: {},
+      },
+    ],
+  },
+  channels: {
+    usage: {
+      id: "usage",
+      type: "ai-usage.v1",
+      status: "ready",
+      data: {
+        providers: [
+          {
+            id: "claude",
+            name: "Claude",
+            isOk: true,
+            planText: "Max",
+            windows: [
+              {
+                id: "session_5h",
+                label: "5-hour limit",
+                percentUsed: 7,
+                resetsAtMs: Date.now() + 10_800_000,
+              },
+              {
+                id: "weekly_all",
+                label: "7-day limit",
+                percentUsed: 54,
+                resetsAtMs: Date.now() + 338_400_000,
+              },
+            ],
+          },
+          {
+            id: "codex",
+            name: "Codex",
+            isOk: true,
+            planText: "Plus",
+            windows: [
+              {
+                id: "weekly",
+                label: "7-day limit",
+                percentUsed: 78,
+                resetsAtMs: Date.now() + 432_000_000,
+              },
+            ],
+          },
+          {
+            id: "grok",
+            name: "Grok",
+            isOk: true,
+            windows: [
+              {
+                id: "monthly",
+                label: "Monthly limit",
+                percentUsed: 93,
+                resetsAtMs: Date.now() + 864_000_000,
+                usedText: "$18.60 / $20",
+              },
+            ],
+          },
+          {
+            id: "cursor",
+            name: "Cursor",
+            isOk: false,
+            problemText: "Sign-in expired",
+            windows: [
+              {
+                id: "primary",
+                label: "Monthly limit",
+              },
+            ],
+          },
+        ],
+      },
+    },
+  },
+}

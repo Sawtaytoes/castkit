@@ -12,6 +12,7 @@ import {
   type SettingField,
   type ViewSpec,
 } from "@castkit/sdk/plugin"
+import { createAiUsageSource } from "./sources/aiUsage.ts"
 import { createBambuddySource } from "./sources/bambuddy.ts"
 import { createHomeAssistantSource } from "./sources/homeAssistant.ts"
 import { createImmichSource } from "./sources/immich.ts"
@@ -275,6 +276,32 @@ const adapters: AdapterDefinition[] = [
     })),
   },
   {
+    id: "ai-usage",
+    name: "AI Usage",
+    description:
+      "Remaining subscription usage for each AI provider. Credentials stay in AI Usage.",
+    channelTypes: ["ai-usage.v1"],
+    settings: [
+      urlField,
+      {
+        ...pollingField,
+        defaultValue: 300,
+        description:
+          "AI Usage refreshes its providers every five minutes, so a faster poll reads the same answer back.",
+      },
+    ],
+    channelSettings: [
+      {
+        key: "providerIds",
+        label: "Providers",
+        type: "string-list",
+        description:
+          "Leave empty to include every provider.",
+      },
+    ],
+    actions: [],
+  },
+  {
     id: "clock",
     name: "Clock",
     description:
@@ -405,6 +432,11 @@ const viewSpecs: ViewSpec[] = [
     }),
     minimumRepaint: "fast",
   },
+  view({
+    id: "ai-usage",
+    name: "AI Usage",
+    type: "ai-usage.v1",
+  }),
   view({
     id: "entities",
     name: "Entity controls",
@@ -606,6 +638,7 @@ const sourceFactories: NonNullable<
   "home-assistant": createHomeAssistantSource,
   immich: createImmichSource,
   "rip-deck": createRipDeckSource,
+  "ai-usage": createAiUsageSource,
   clock: (context) => {
     const publish = () =>
       context.channels.forEach((channel) => {
@@ -645,6 +678,11 @@ const viewGroups = [
     id: "points",
     name: "Points",
     specs: ["points"],
+  },
+  {
+    id: "ai-usage",
+    name: "AI usage",
+    specs: ["ai-usage"],
   },
   {
     id: "home-controls",

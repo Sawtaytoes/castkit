@@ -12,6 +12,7 @@ export const CONTRACT_TYPES = [
   "entities.v1",
   "cameras.v1",
   "points.v1",
+  "ai-usage.v1",
   "time.v1",
 ] as const
 /** An independently configured provider; secrets never belong in this DTO. */
@@ -135,6 +136,32 @@ const ripBay = z.object({
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
 })
+/**
+ * One quota window of one AI subscription — a five-hour session limit, a weekly
+ * limit, a monthly allowance.
+ *
+ * `percentUsed` is optional because a provider can report that a window exists
+ * and still not say how much of it is gone. A window with no percentage is
+ * drawn as a labelled row without a bar, which is more honest than a bar at
+ * zero.
+ */
+const usageWindow = z.object({
+  id: z.string(),
+  label: z.string(),
+  percentUsed: finiteNumber.min(0).max(100).optional(),
+  resetsAtMs: finiteNumber.optional(),
+  usedText: z.string().optional(),
+})
+const usageProvider = z.object({
+  id: z.string(),
+  name: z.string(),
+  windows: z.array(usageWindow),
+  isOk: z.boolean(),
+  planText: z.string().optional(),
+  problemText: z.string().optional(),
+  /** The producer served its last good answer while the provider was unreachable. */
+  isCached: z.boolean().optional(),
+})
 const entity = z.object({
   id: z.string(),
   name: z.string(),
@@ -246,6 +273,11 @@ export const builtinContractSchemas = {
         value.pointsToday !== undefined,
       "A points result requires the account total or today's points.",
     ),
+  "ai-usage.v1": z.object({
+    providers: z.array(usageProvider),
+    fetchedAtMs: finiteNumber.optional(),
+    isMock: z.boolean().optional(),
+  }),
   "time.v1": z.object({ now: z.string() }),
 } satisfies Record<string, z.ZodType>
 /** Inferred consumer data for each built-in channel type. */

@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-25 | [AI Usage is a native view on an `ai-usage.v1` channel](2026-09-25-ai-usage-is-a-native-view-on-an-ai-usage-v1-channel.md) — remaining Claude, Codex, Grok and Cursor quota becomes a native view, fed either by the producer's retained MQTT snapshot or by a dedicated adapter polling its `/api/state`. No provider credential reaches CastKit. A reset time is absolute on a slow panel, because a countdown is already wrong when the glass settles; the view budgets whole rows out of its own panel; an unreachable provider keeps its row and says why | Accepted |
 | 2026-09-25 | [Access settings show controls without explanatory cards](2026-09-25-access-settings-show-controls-without-explanatory-cards.md) | Accepted |
 | 2026-09-25 | [Plugins install from management without redeployment](2026-09-25-plugins-install-from-management-without-redeployment.md) | Accepted |
 | 2026-09-25 | [Named channels and extensions drive reusable views](2026-09-25-named-channels-and-extensions-drive-reusable-views.md) | Accepted |

@@ -659,6 +659,113 @@
   font-size: 13px;
   color: var(--fg-dim);
 }
+/*
+ * AI Usage budgets whole rows out of its own panel, so every row here carries
+ * an exact `block-size` and the column carries NO gap. A gap would leave the
+ * view's arithmetic and the glass disagreeing by one gap per row, which is how
+ * a row ends up half-drawn on a panel that cannot scroll.
+ */
+.ai-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+.ai-usage > h2 {
+  block-size: 40px;
+  flex: none;
+  font-size: 22px;
+}
+.ai-usage section {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+}
+.ai-usage-provider-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  block-size: 34px;
+  flex: none;
+}
+.ai-usage-provider-head h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.ai-usage-plan {
+  font-size: 13px;
+  color: var(--fg-dim);
+}
+.ai-usage-problem {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-intent-danger-content);
+}
+.ai-usage-window {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  block-size: 70px;
+  flex: none;
+  padding-block-end: 16px;
+}
+.ai-usage-window-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ai-usage-window-label {
+  font-size: 15px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ai-usage-window-percent {
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ai-usage-bar {
+  position: relative;
+  overflow: hidden;
+  block-size: 10px;
+  border-radius: 5px;
+  background: var(--color-surface-sunken);
+}
+.ai-usage-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+}
+.ai-usage-window[data-intent="warning"] .ai-usage-bar-fill {
+  background: var(--color-intent-warning-solid);
+}
+.ai-usage-window[data-intent="danger"] .ai-usage-bar-fill {
+  background: var(--color-intent-danger-solid);
+}
+.ai-usage-window-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+}
+.ai-usage-window-reset {
+  margin-inline-start: auto;
+}
+.ai-usage-compact {
+  font-size: clamp(20px, 9cqi, 56px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.ai-usage-more {
+  block-size: 16px;
+  font-size: 13px;
+  color: var(--fg-dim);
+}
 .platform-panel-title {
   font-size: 20px;
   margin-block-end: 14px;
