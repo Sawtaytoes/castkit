@@ -1,10 +1,19 @@
-import { Checkbox, Field, Picker } from "@charcuterie/ui"
+import {
+  Accordion,
+  Checkbox,
+  Field,
+  Picker,
+} from "@charcuterie/ui"
 import { useState } from "react"
 import {
   inputClass,
   type SettingField,
   type Settings,
 } from "./platformApi.ts"
+import {
+  StringListField,
+  StructuredField,
+} from "./StructuredField.tsx"
 
 /** Renders the configuration declared by a CastKit extension. */
 export const SettingsFields = ({
@@ -24,10 +33,16 @@ export const SettingsFields = ({
   return (
     <>
       {fields.map((field) => {
+        const plainKey = field.key.replace(/Json$/, "")
+        const storageKey =
+          field.key.endsWith("Json") &&
+          Object.hasOwn(values, plainKey)
+            ? plainKey
+            : field.key
         const value =
-          values[field.key] ?? field.defaultValue ?? ""
+          values[storageKey] ?? field.defaultValue ?? ""
         const update = (next: unknown) =>
-          onChange({ ...values, [field.key]: next })
+          onChange({ ...values, [storageKey]: next })
         if (field.type === "boolean")
           return (
             <Checkbox
@@ -118,6 +133,27 @@ export const SettingsFields = ({
             </div>
           )
         }
+        if (field.key.endsWith("Json"))
+          return (
+            <Accordion
+              key={field.key}
+              isMultiple
+              items={[
+                {
+                  key: field.key,
+                  label: field.label,
+                  content: (
+                    <StructuredField
+                      fieldKey={storageKey}
+                      label={field.label}
+                      value={value}
+                      onChange={update}
+                    />
+                  ),
+                },
+              ]}
+            />
+          )
         return (
           <Field
             key={field.key}
@@ -129,20 +165,7 @@ export const SettingsFields = ({
             }
             isRequired={!isSecret && field.isRequired}
           >
-            {field.key.endsWith("Json") ? (
-              <textarea
-                className={inputClass}
-                rows={6}
-                value={
-                  typeof value === "string"
-                    ? value
-                    : JSON.stringify(value, null, 2)
-                }
-                onChange={(event) =>
-                  update(event.target.value)
-                }
-              />
-            ) : field.type === "select" ? (
+            {field.type === "select" ? (
               <Picker
                 label={field.label}
                 value={String(value)}
@@ -150,27 +173,9 @@ export const SettingsFields = ({
                 onChange={update}
               />
             ) : field.type === "string-list" ? (
-              <textarea
-                className={inputClass}
-                rows={5}
-                onBlur={(event) =>
-                  update(
-                    event.target.value
-                      .split("\n")
-                      .map((value) => value.trim())
-                      .filter(Boolean),
-                  )
-                }
-                value={
-                  typeof value === "string"
-                    ? value
-                    : Array.isArray(value)
-                      ? value.join("\n")
-                      : ""
-                }
-                onChange={(event) =>
-                  update(event.target.value.split("\n"))
-                }
+              <StringListField
+                value={value}
+                onChange={update}
               />
             ) : (
               <input

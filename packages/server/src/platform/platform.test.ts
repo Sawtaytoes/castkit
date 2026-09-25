@@ -510,3 +510,66 @@ describe("platform access and saved compositions", () => {
     ).toBe("workbench")
   })
 })
+
+test("tags survive management saves and a store reload for every collection", async () => {
+  const fixture = await createFixture()
+  const definitions = {
+    sources: {
+      id: "tagged-source",
+      name: "Tagged source",
+      adapter: "mqtt",
+      settings: {},
+      isEnabled: true,
+      tags: ["Controls", "Shared"],
+    },
+    channels: {
+      id: "tagged-channel",
+      name: "Tagged channel",
+      sourceId: "tagged-source",
+      type: "entities.v1",
+      settings: {},
+      tags: ["Controls"],
+    },
+    views: {
+      ...fixture.view,
+      id: "tagged-view",
+      tags: ["Information"],
+    },
+    screens: {
+      id: "tagged-screen",
+      name: "Tagged screen",
+      defaultViewId: "tagged-view",
+      viewIds: ["tagged-view"],
+      access: "public",
+      tags: ["Browser"],
+    },
+  }
+  for (const [collection, definition] of Object.entries(
+    definitions,
+  )) {
+    expect(
+      (await fixture.save(collection, definition)).status,
+    ).toBe(201)
+  }
+  const reloaded = createPlatformStore({
+    file: fixture.file,
+  }).get()
+  for (const [collection, definition] of Object.entries(
+    definitions,
+  )) {
+    expect(
+      reloaded[collection as keyof typeof definitions].find(
+        (item) => item.id === definition.id,
+      )?.tags,
+    ).toEqual(definition.tags)
+  }
+  expect(
+    (
+      await fixture.save("views", {
+        ...fixture.view,
+        id: "invalid-tags",
+        tags: [""],
+      })
+    ).status,
+  ).toBe(400)
+})

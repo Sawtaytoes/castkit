@@ -47,6 +47,12 @@ export const createBrowserHub = ({
     Set<HubSocket>
   >()
 
+  const observers = new WeakSet<HubSocket>()
+  const getConnectionCount = (deviceId: string) =>
+    Array.from(
+      socketsByDeviceId.get(deviceId) ?? [],
+    ).filter((socket) => !observers.has(socket)).length
+
   /**
    * Keep every live socket warm. A ping that throws means the socket is
    * already gone; its close handler does the bookkeeping, so swallow it
@@ -79,18 +85,25 @@ export const createBrowserHub = ({
     addSocket: ({
       deviceId,
       socket,
+      isObserver = false,
     }: {
       deviceId: string
       socket: HubSocket
+      isObserver?: boolean
     }) => {
+      if (isObserver) {
+        observers.add(socket)
+      }
       const sockets =
         socketsByDeviceId.get(deviceId) ?? new Set()
       sockets.add(socket)
       socketsByDeviceId.set(deviceId, sockets)
-      onConnectionCountChange({
-        deviceId,
-        connectionCount: sockets.size,
-      })
+      if (!observers.has(socket)) {
+        onConnectionCountChange({
+          deviceId,
+          connectionCount: getConnectionCount(deviceId),
+        })
+      }
     },
     removeSocket: ({
       deviceId,
@@ -103,10 +116,12 @@ export const createBrowserHub = ({
       if (!sockets?.delete(socket)) {
         return
       }
-      onConnectionCountChange({
-        deviceId,
-        connectionCount: sockets.size,
-      })
+      if (!observers.has(socket)) {
+        onConnectionCountChange({
+          deviceId,
+          connectionCount: getConnectionCount(deviceId),
+        })
+      }
     },
     sendTo: ({
       socket,
@@ -128,8 +143,7 @@ export const createBrowserHub = ({
         send(socket, message)
       })
     },
-    getConnectionCount: (deviceId: string) =>
-      socketsByDeviceId.get(deviceId)?.size ?? 0,
+    getConnectionCount,
     /** Stops the keepalive so a test (or shutdown) can settle. */
     stop: () => {
       clearInterval(keepaliveInterval)

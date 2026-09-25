@@ -1,10 +1,4 @@
-import {
-  Button,
-  Card,
-  Checkbox,
-  Field,
-  Picker,
-} from "@charcuterie/ui"
+import { Button, Card, Field } from "@charcuterie/ui"
 import { useState } from "react"
 import {
   inputClass,
@@ -12,9 +6,11 @@ import {
   type Platform,
   type Screen,
 } from "./platformApi.ts"
+import { SearchSelect } from "./SearchSelect.tsx"
 import { AccessFields } from "./ViewEditor.tsx"
 
 export const ScreenEditor = ({
+  section = "general",
   value,
   onChange,
   platform,
@@ -22,6 +18,7 @@ export const ScreenEditor = ({
   onPinChange,
   onRefresh,
 }: {
+  section?: string
   value: Screen
   onChange: (value: Screen) => void
   platform: Platform
@@ -70,141 +67,161 @@ export const ScreenEditor = ({
   }
   return (
     <>
-      <Field
-        label="Default view"
-        description="Used when this screen has no active selection."
+      <div
+        hidden={section !== "views"}
+        data-editor-section="views"
+        className="grid gap-4"
       >
-        <Picker
+        <Field
           label="Default view"
-          value={value.defaultViewId}
-          options={platform.views.map((view) => ({
-            label: view.name,
-            value: view.id,
-          }))}
-          onChange={(defaultViewId) =>
-            onChange({
-              ...value,
-              defaultViewId,
-              viewIds: [
-                ...new Set([
-                  ...value.viewIds,
-                  defaultViewId,
-                ]),
-              ],
-            })
-          }
-        />
-      </Field>
-      <Card heading="Allowed views">
-        <div className="grid gap-3">
-          {platform.views.map((view) => (
-            <Checkbox
-              key={`${view.id}:${value.defaultViewId}`}
-              label={view.name}
-              isReadOnly={view.id === value.defaultViewId}
-              isChecked={value.viewIds.includes(view.id)}
-              onChange={(isChecked) => {
-                if (
-                  !isChecked &&
-                  view.id === value.defaultViewId
-                ) {
-                  setMessage(
-                    "Choose another default view before removing this one.",
-                  )
-                  return
-                }
+          description="Used when this screen has no active selection."
+        >
+          <SearchSelect
+            label="Default view"
+            value={value.defaultViewId}
+            options={platform.views.map((view) => ({
+              label: view.name,
+              value: view.id,
+            }))}
+            onChange={(defaultViewId) =>
+              onChange({
+                ...value,
+                defaultViewId,
+                viewIds: [
+                  ...new Set([
+                    ...value.viewIds,
+                    defaultViewId,
+                  ]),
+                ],
+              })
+            }
+          />
+        </Field>
+        <Field
+          label="Allowed views"
+          description="The default view is always included."
+        >
+          <SearchSelect
+            key={value.defaultViewId}
+            label="Allowed views"
+            isMultiple
+            value={value.viewIds}
+            options={platform.views.map((view) => ({
+              label: view.name,
+              value: view.id,
+              textValue: `${view.name} ${(view.tags ?? []).join(" ")}`,
+              isDisabled: view.id === value.defaultViewId,
+            }))}
+            onChange={(id) => {
+              if (id !== value.defaultViewId)
                 onChange({
                   ...value,
-                  viewIds: isChecked
-                    ? [...value.viewIds, view.id]
-                    : value.viewIds.filter(
-                        (id) => id !== view.id,
-                      ),
+                  viewIds: value.viewIds.includes(id)
+                    ? value.viewIds.filter(
+                        (item) => item !== id,
+                      )
+                    : [...value.viewIds, id],
                 })
-              }}
-            />
-          ))}
-          {!platform.views.length ? (
-            <p>Create a saved view first.</p>
-          ) : null}
-        </div>
-      </Card>
-      <AccessFields
-        value={value}
-        onChange={(next) => onChange({ ...value, ...next })}
-        pin={pin}
-        onPinChange={onPinChange}
-      />
-      {saved ? (
-        <Card heading="Change the active view">
-          <div className="grid gap-4">
-            <p className="text-content-secondary">
-              Current:{" "}
-              {platform.views.find(
-                (view) =>
-                  view.id ===
-                  (saved.activeViewId ??
-                    saved.defaultViewId),
-              )?.name ?? "None"}
-              . Save allowed view changes before selecting a
-              view.
-            </p>
-            <Field label="Show view">
-              <Picker
-                label="Show view"
-                value={selected}
-                options={platform.views
-                  .filter((view) =>
-                    saved.viewIds.includes(view.id),
-                  )
-                  .map((view) => ({
-                    label: view.name,
-                    value: view.id,
-                  }))}
-                onChange={setSelected}
-              />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Duration (seconds)"
-                description="Leave blank for a lasting selection."
-              >
-                <input
-                  className={inputClass}
-                  type="number"
-                  min={1}
-                  value={duration}
-                  onChange={(event) =>
-                    setDuration(event.target.value)
-                  }
+            }}
+          />
+        </Field>
+      </div>
+      <div
+        hidden={section !== "access"}
+        data-editor-section="access"
+      >
+        <AccessFields
+          value={value}
+          onChange={(next) =>
+            onChange({ ...value, ...next })
+          }
+          pin={pin}
+          onPinChange={onPinChange}
+        />
+      </div>
+      <div
+        hidden={section !== "switching"}
+        data-editor-section="switching"
+      >
+        {!saved ? (
+          <p>
+            Save this screen before switching its active
+            view.
+          </p>
+        ) : null}
+        {saved ? (
+          <Card heading="Change the active view">
+            <div className="grid gap-4">
+              <p className="text-content-secondary">
+                Current:{" "}
+                {platform.views.find(
+                  (view) =>
+                    view.id ===
+                    (saved.activeViewId ??
+                      saved.defaultViewId),
+                )?.name ?? "None"}
+                . Save allowed view changes before selecting
+                a view.
+              </p>
+              <Field label="Show view">
+                <SearchSelect
+                  label="Show view"
+                  value={selected}
+                  options={platform.views
+                    .filter((view) =>
+                      saved.viewIds.includes(view.id),
+                    )
+                    .map((view) => ({
+                      label: view.name,
+                      value: view.id,
+                    }))}
+                  onChange={setSelected}
                 />
               </Field>
-              <Field
-                label="Priority"
-                description="Higher priorities take precedence over lower ones."
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field
+                  label="Duration (seconds)"
+                  description="Leave blank for a lasting selection."
+                >
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min={1}
+                    value={duration}
+                    onChange={(event) =>
+                      setDuration(event.target.value)
+                    }
+                  />
+                </Field>
+                <Field
+                  label="Priority"
+                  description="Higher priorities take precedence over lower ones."
+                >
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min={0}
+                    value={priority}
+                    onChange={(event) =>
+                      setPriority(
+                        Number(event.target.value),
+                      )
+                    }
+                  />
+                </Field>
+              </div>
+              <Button
+                type="button"
+                isLoading={isBusy}
+                onClick={() => void select()}
               >
-                <input
-                  className={inputClass}
-                  type="number"
-                  min={0}
-                  value={priority}
-                  onChange={(event) =>
-                    setPriority(Number(event.target.value))
-                  }
-                />
-              </Field>
+                Show on screen
+              </Button>
             </div>
-            <Button
-              type="button"
-              isLoading={isBusy}
-              onClick={() => void select()}
-            >
-              Show on screen
-            </Button>
-          </div>
-        </Card>
-      ) : null}
-      {message ? <p role="status">{message}</p> : null}
+          </Card>
+        ) : null}
+        {message ? <p role="status">{message}</p> : null}
+      </div>
     </>
   )
 }

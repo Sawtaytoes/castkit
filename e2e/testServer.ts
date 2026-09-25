@@ -98,6 +98,17 @@ export const startTestServer = async ({
           },
         ],
       },
+      {
+        renderer: "browser",
+        id: "e2e-preview",
+        label: "Preview test display",
+        mac: "02:00:00:00:00:03",
+        width: 720,
+        height: 720,
+        shape: "square",
+        hasTouch: true,
+        color: "full",
+      },
     ]),
   )
 

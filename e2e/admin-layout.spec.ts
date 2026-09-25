@@ -118,52 +118,23 @@ sizes.forEach(({ width, zoom }) => {
     await page.evaluate((scale) => {
       document.documentElement.style.zoom = String(scale)
     }, zoom)
-    const collection = page.getByRole("region", {
-      name: "Views",
+    const selection = page.getByRole("button", {
+      name: "Choose from 3 views",
       exact: true,
-    })
-    await expect(
-      collection.getByRole("button"),
-    ).toHaveCount(3)
-    const geometry = await collection.evaluate(
-      (element) => {
-        const bounds = element.getBoundingClientRect()
-        return Array.from(
-          element.querySelectorAll("button"),
-        ).map((button) => {
-          const row = button.getBoundingClientRect()
-          return {
-            isInside:
-              row.left >= bounds.left &&
-              row.right <= bounds.right,
-            isContentInside:
-              button.scrollWidth <= button.clientWidth + 1,
-          }
-        })
-      },
-    )
-    expect(geometry).toEqual([
-      { isInside: true, isContentInside: true },
-      { isInside: true, isContentInside: true },
-      { isInside: true, isContentInside: true },
-    ])
-    await expect(
-      collection.getByRole("img", {
-        name: "PIN protected; PIN not set",
-      }),
-    ).toHaveCount(3)
-    await expect(
-      collection.getByText("Set PIN", { exact: false }),
-    ).toHaveCount(0)
-    const selection = collection.getByRole("button", {
-      name: /Workshop activity and printer cameras/,
     })
     await selection.focus()
     await page.keyboard.press("Enter")
-    await expect(selection).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    )
+    await page
+      .getByPlaceholder("Search views by name, ID, or tag")
+      .fill("Workshop")
+    await page
+      .getByPlaceholder("Search views by name, ID, or tag")
+      .press("Enter")
+    await expect(
+      page.getByRole("img", {
+        name: "PIN protected; PIN not set",
+      }),
+    ).toHaveCount(0)
     await expect(page.getByLabel(/^View name/)).toHaveValue(
       views[1]?.name,
     )

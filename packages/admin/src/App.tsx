@@ -21,6 +21,7 @@ import {
 } from "./platformApi.ts"
 
 const destinations = [
+  "All screens",
   "Sources",
   "Channels",
   "Views",
@@ -30,12 +31,22 @@ const destinations = [
   "Access",
 ].map((label) => ({
   label,
-  href: `/${label.toLowerCase()}`,
+  href: `/${label.toLowerCase().replaceAll(" ", "-")}`,
 }))
 
 export const App = () => {
   const location = useLocation()
-  const section = location.pathname.split("/")[1] || "views"
+  const routeSection =
+    location.pathname.split("/")[1] || "views"
+  const section = [
+    "device",
+    "photos",
+    "clock",
+    "image",
+    "updates",
+  ].includes(routeSection)
+    ? "devices"
+    : routeSection
   const [session, setSession] =
     useState<AccessSession | null>(null)
   const [platform, setPlatform] = useState<Platform | null>(
@@ -120,7 +131,19 @@ export const App = () => {
       : "views"
   ) as Collection
   return (
-    <Shell contentWidth="xl">
+    <Shell
+      contentWidth={
+        session?.isAuthenticated &&
+        [
+          "devices",
+          "all-screens",
+          "views",
+          "screens",
+        ].includes(section)
+          ? "full"
+          : "xl"
+      }
+    >
       <Header
         heading="CastKit"
         isSticky
@@ -139,9 +162,14 @@ export const App = () => {
               label="CastKit management"
             />
           ) : null}
-          <h1 className="font-semibold text-2xl">
-            {title}
-          </h1>
+          {!session?.isAuthenticated ||
+          (section !== "devices" &&
+            section !== "all-screens") ? (
+            <h1 className="font-semibold text-2xl">
+              {title}
+            </h1>
+          ) : null}
+
           {error ? (
             <Card>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -180,7 +208,9 @@ export const App = () => {
               session={session}
               onChange={refreshSession}
             />
-          ) : section === "devices" && platform ? (
+          ) : (section === "devices" ||
+              section === "all-screens") &&
+            platform ? (
             <Devices
               platform={platform}
               onRefresh={refreshPlatform}
