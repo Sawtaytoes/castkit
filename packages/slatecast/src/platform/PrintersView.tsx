@@ -1,6 +1,7 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { useEffect, useState } from "preact/hooks"
 import {
+  formatFinishTime,
   formatRemaining,
   getPrinterJobTitle,
 } from "../views/printerJob.ts"
@@ -100,11 +101,7 @@ export const PrintersView = ({
               <img
                 class="platform-printer-image"
                 src={imageUrl}
-                alt={
-                  camera || printer.cameraPath
-                    ? `${printer.name} camera`
-                    : ""
-                }
+                alt=""
               />
             ) : null}
             <div class="printer-body">
@@ -179,11 +176,9 @@ export const PrintersView = ({
                   <dd>
                     {printer.state !== "paused" &&
                     printer.finishAtMs
-                      ? new Date(
-                          printer.finishAtMs,
-                        ).toLocaleTimeString([], {
-                          hour: "numeric",
-                          minute: "2-digit",
+                      ? formatFinishTime({
+                          finishAtMs: printer.finishAtMs,
+                          nowMillis: Date.now(),
                         })
                       : "—"}
                   </dd>

@@ -153,6 +153,15 @@ is the one the metric row used to carry in the smallest type on the card. It is
 not repeated — **`Remaining` is gone from the metric row**, which is why that row
 is two blocks wide and not three.
 
+⚠️ **`Finishes` names its day whenever the finish is not today** — `3:47 PM`
+later today, `Tomorrow 3:47 PM`, `Sun 3:47 PM`, and a date such as `Aug 1
+3:47 PM` a week or more out. A bare clock time reads as today, and on a printer
+that runs for more than a day it was read as three hours away when the printer
+meant twenty-seven. The test is the **calendar day**, not a twenty-four hour
+window: a print that ends at 01:00 is eight hours away and is still not today.
+The words are BambuBuddy's, which is where the same finish is read everywhere
+else ([decision](decisions/2026-09-25-a-finish-time-names-its-day-when-it-is-not-today.md)).
+
 A paused printer renders **nothing** at the band's left. There is no honest
 estimate, the chip above already says why, and an em dash would be a placeholder
 holding open a space for a number that does not exist.

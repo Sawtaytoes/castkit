@@ -175,6 +175,78 @@ describe("the printer cards", () => {
     ).toEqual(["Layer", "Finishes", "Filament"])
   })
 
+  /**
+   * The finish the card prints, read out of the second metric block. It is
+   * found by its term rather than by index, so adding a metric cannot make
+   * this assert the wrong number.
+   */
+  const finishText = () =>
+    Array.from(
+      cards()[0]?.querySelectorAll(".printer-metric") ?? [],
+    )
+      .find(
+        (metric) =>
+          metric.querySelector("dt")?.textContent ===
+          "Finishes",
+      )
+      ?.querySelector("dd")?.textContent
+
+  /**
+   * A UTC wall-clock time on a day relative to the day the test runs. The
+   * fixture clock is UTC, so a day offset here is the day offset the card
+   * computes, whatever hour the suite happens to run at.
+   */
+  const utcMillisOnDay = ({
+    dayOffset,
+    hour,
+    minute,
+  }: {
+    dayOffset: number
+    hour: number
+    minute: number
+  }) => {
+    const now = new Date()
+    return Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + dayOffset,
+      hour,
+      minute,
+    )
+  }
+
+  test("a finish on the same day is the bare clock time", async () => {
+    await mountPrinterStatus([
+      buildPrinterJob({
+        finishAtMs: utcMillisOnDay({
+          dayOffset: 0,
+          hour: 23,
+          minute: 59,
+        }),
+      }),
+    ])
+
+    expect(finishText()).toBe("23:59")
+  })
+
+  /**
+   * The defect this view shipped with: a print that ran past midnight showed a
+   * bare "15:47" beside its percentage, and it read as the same afternoon.
+   */
+  test("a finish on the next day names tomorrow", async () => {
+    await mountPrinterStatus([
+      buildPrinterJob({
+        finishAtMs: utcMillisOnDay({
+          dayOffset: 1,
+          hour: 15,
+          minute: 47,
+        }),
+      }),
+    ])
+
+    expect(finishText()).toBe("Tomorrow 15:47")
+  })
+
   test("a problem is named on the card", async () => {
     await mountPrinterStatus([
       buildPrinterJob({

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest"
 import {
+  formatFinishTime,
   formatRemaining,
   getFinishAtMs,
   getPrinterJobTitle,
@@ -110,5 +111,95 @@ describe("getFinishAtMs", () => {
         nowMillis,
       }),
     ).toBeNull()
+  })
+})
+
+describe("formatFinishTime", () => {
+  /** 2026-07-24 20:05 UTC — Friday 3:05 PM in Chicago. */
+  const nowMillis = Date.UTC(2026, 6, 24, 20, 5)
+
+  const clock = {
+    timeZone: "America/Chicago",
+    isTwelveHour: true,
+    isNumericDate: false,
+  }
+
+  /**
+   * Some ICU builds separate the day period with a narrow no-break space
+   * (U+202F); folding it keeps the expectations readable.
+   */
+  const withPlainSpaces = (text: string) =>
+    text.replace(/\u202f/g, " ")
+
+  test("a finish later today is the bare clock time", () => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          finishAtMs: Date.UTC(2026, 6, 24, 22, 47),
+          nowMillis,
+        }),
+      ),
+    ).toBe("5:47 PM")
+  })
+
+  test("a finish the next day names tomorrow", () => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          finishAtMs: Date.UTC(2026, 6, 25, 20, 47),
+          nowMillis,
+        }),
+      ),
+    ).toBe("Tomorrow 3:47 PM")
+  })
+
+  test("an overnight finish names tomorrow after eight hours", () => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          finishAtMs: Date.UTC(2026, 6, 25, 6, 0),
+          nowMillis,
+        }),
+      ),
+    ).toBe("Tomorrow 1:00 AM")
+  })
+
+  test("a finish further out names its weekday", () => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          finishAtMs: Date.UTC(2026, 6, 26, 19, 30),
+          nowMillis,
+        }),
+      ),
+    ).toBe("Sun 2:30 PM")
+  })
+
+  test("a week or more out names the date instead", () => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          finishAtMs: Date.UTC(2026, 7, 1, 19, 30),
+          nowMillis,
+        }),
+      ),
+    ).toBe("Aug 1 2:30 PM")
+  })
+
+  test("a finish already past keeps the bare time", () => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          finishAtMs: Date.UTC(2026, 6, 23, 20, 5),
+          nowMillis,
+        }),
+      ),
+    ).toBe("3:05 PM")
   })
 })
