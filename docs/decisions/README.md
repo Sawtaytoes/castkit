@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-25 | [Access settings show controls without explanatory cards](2026-09-25-access-settings-show-controls-without-explanatory-cards.md) | Accepted |
 | 2026-09-25 | [Plugins install from management without redeployment](2026-09-25-plugins-install-from-management-without-redeployment.md) | Accepted |
 | 2026-09-25 | [Named channels and extensions drive reusable views](2026-09-25-named-channels-and-extensions-drive-reusable-views.md) | Accepted |
 | 2026-09-24 | [The band carries the time left](2026-09-24-the-band-carries-the-time-left.md) — the progress band holds the percentage at its right and `2h 08m left` at its left, and **`Remaining` leaves the metric row** so nothing is said twice. A paused printer renders nothing there, not an em dash: the band is not a grid and has no cell to hold open, and the chip already says `Paused`. ⚠️ The row is `flex-end` plus an auto margin, never `space-between` — one child and the percentage is shoved into the coloured fill | Accepted |
