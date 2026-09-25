@@ -110,7 +110,7 @@ export const Access = ({
     }
   }
   return (
-    <div className="grid gap-4 max-w-2xl">
+    <div className="grid w-full max-w-2xl gap-4">
       <Card
         heading={
           session.isSetupRequired
@@ -276,29 +276,34 @@ export const Access = ({
           </p>
         ) : null}
       </Card>
-      <Card heading="View and screen access">
-        <p>
-          Set each view or screen to Public or PIN protected
-          in its editor. A kiosk can unlock with its
-          on-screen keypad and lock again after its session
-          expires. View controls require their own
-          permission.
-        </p>
-      </Card>
-      <Card heading="Machine API access">
-        <p>
-          Automation clients use the server's configured
-          bearer token. This credential is independent of
-          kiosk PINs and management sessions. Integration
-          credentials belong on their source connections.
-        </p>
-        <a
-          className="mt-3 inline-block underline"
-          href="/api"
-        >
-          Open API reference
-        </a>
-      </Card>
+      {session.isAuthenticated ? (
+        <>
+          <Card heading="View and screen access">
+            <p>
+              Set each view or screen to Public or PIN
+              protected in its editor. A kiosk can unlock
+              with its on-screen keypad and lock again after
+              its session expires. View controls require
+              their own permission.
+            </p>
+          </Card>
+          <Card heading="Machine API access">
+            <p>
+              Automation clients use the server's configured
+              bearer token. This credential is independent
+              of kiosk PINs and management sessions.
+              Integration credentials belong on their source
+              connections.
+            </p>
+            <a
+              className="mt-3 inline-block underline"
+              href="/api"
+            >
+              Open API reference
+            </a>
+          </Card>
+        </>
+      ) : null}
     </div>
   )
 }
