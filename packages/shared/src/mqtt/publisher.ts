@@ -102,6 +102,27 @@ export const createMqttPublisher = async ({
     publishOnline().catch(() => {})
   })
 
+  /*
+   * ONE `message` listener on the client, fanning out to the handlers.
+   *
+   * `subscribe` used to add a listener of its own per call. Every subscriber
+   * already received every message and filtered by topic itself, so the extra
+   * listeners bought nothing — and mqtt.js inherits Node's default limit of
+   * ten, so the sixth source made the server log a
+   * `MaxListenersExceededWarning` on every boot. Raising the limit would have
+   * moved the number without removing the growth.
+   *
+   * A Set, not an array: registering the same handler twice is a mistake, not
+   * a request to run it twice.
+   */
+  const messageHandlers = new Set<CommandHandler>()
+  client.on("message", (topic, payloadBuffer) => {
+    const payload = payloadBuffer.toString()
+    messageHandlers.forEach((handler) => {
+      void handler({ topic, payload })
+    })
+  })
+
   return {
     isEnabled: true,
     publish: async ({
@@ -115,12 +136,7 @@ export const createMqttPublisher = async ({
       })
     },
     subscribe: async ({ topics, handler }) => {
-      client.on("message", (topic, payloadBuffer) => {
-        void handler({
-          topic,
-          payload: payloadBuffer.toString(),
-        })
-      })
+      messageHandlers.add(handler)
       await client.subscribeAsync(topics, { qos: 1 })
     },
     close: async () => {
