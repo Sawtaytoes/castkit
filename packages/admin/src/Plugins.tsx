@@ -43,12 +43,6 @@ export const Plugins = ({
   }
   return (
     <div className="grid gap-4">
-      <p className="text-content-secondary">
-        Installed plugins provide source adapters, view
-        components, and data contracts. Configure their
-        connections in Sources and use their components in
-        Views.
-      </p>
       {message ? (
         <p
           role={isError ? "alert" : "status"}
@@ -116,21 +110,6 @@ export const Plugins = ({
           >
             Plugin installation and authoring guide
           </a>
-        </div>
-      </Card>
-      <Card heading="Available components">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {platform.viewSpecs.map((spec) => (
-            <div key={spec.id}>
-              <h2 className="font-semibold">{spec.name}</h2>
-              <p className="text-content-secondary text-sm">
-                {spec.description}
-              </p>
-              <p className="mt-1 text-sm">
-                {spec.renderers.join(" · ")}
-              </p>
-            </div>
-          ))}
         </div>
       </Card>
     </div>

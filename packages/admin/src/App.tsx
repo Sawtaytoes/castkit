@@ -105,9 +105,13 @@ export const App = () => {
       clearInterval(timer)
     }
   }, [session, refreshPlatform])
-  const title =
-    destinations.find((item) => item.href === `/${section}`)
-      ?.label ?? "Views"
+  const title = session?.isSetupRequired
+    ? "Set up CastKit"
+    : session?.isAuthenticated
+      ? (destinations.find(
+          (item) => item.href === `/${section}`,
+        )?.label ?? "Views")
+      : "Sign in"
   const collection = (
     section === "sources" ||
     section === "channels" ||
@@ -116,7 +120,7 @@ export const App = () => {
       : "views"
   ) as Collection
   return (
-    <Shell contentWidth="full">
+    <Shell contentWidth="xl">
       <Header
         heading="CastKit"
         isSticky
@@ -126,13 +130,15 @@ export const App = () => {
           </a>
         }
       />
-      <Main className="p-4 md:p-6">
-        <div className="mx-auto grid max-w-7xl gap-6">
-          <Nav
-            activeHref={`/${section}`}
-            items={destinations}
-            label="CastKit management"
-          />
+      <Main>
+        <div className="grid min-w-0 gap-6">
+          {session?.isAuthenticated ? (
+            <Nav
+              activeHref={`/${section}`}
+              items={destinations}
+              label="CastKit management"
+            />
+          ) : null}
           <h1 className="font-semibold text-2xl">
             {title}
           </h1>
