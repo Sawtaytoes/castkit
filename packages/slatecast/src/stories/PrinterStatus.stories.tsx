@@ -142,3 +142,26 @@ export const NothingPrinting: Story = {
   ...workbenchVariant([]),
   name: "Nothing printing",
 }
+
+/**
+ * The case the bare clock time got wrong. A print of more than a day showed
+ * "3:47 PM" beside its percentage, and that reads as this afternoon. A finish
+ * on any other calendar day now names the day.
+ *
+ * Three cards, because three is where the metric block is narrowest and the
+ * longer string has the least room.
+ */
+export const FinishesTomorrow: Story = {
+  ...workbenchVariant([
+    buildPrinterJob({
+      currentLayer: 44,
+      percent: 12,
+      remainingMinutes: 1_604,
+      thumbnailPath: PLATE_PHOTO,
+      totalLayers: 1_180,
+    }),
+    THREE_PRINTERS[1] as PrinterJob,
+    THREE_PRINTERS[2] as PrinterJob,
+  ]),
+  name: "A print that finishes tomorrow",
+}

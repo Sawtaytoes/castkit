@@ -8,8 +8,8 @@ import {
   resumePrinter,
   stopPrinter,
 } from "../state.ts"
-import { formatClockTime } from "../time.ts"
 import {
+  formatFinishTime,
   formatRemaining,
   getFinishAtMs,
   getPrinterJobTitle,
@@ -248,7 +248,11 @@ const PrinterCard = ({
               <span>
                 {isPaused || finishAtMs === null
                   ? "—"
-                  : formatClockTime(finishAtMs, clock)}
+                  : formatFinishTime({
+                      clock,
+                      finishAtMs,
+                      nowMillis: nowMs.value,
+                    })}
               </span>
             </dd>
           </div>

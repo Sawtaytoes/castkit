@@ -1,4 +1,11 @@
+import type { BrowserClockConfig } from "@castkit/shared/protocol/ws"
 import type { PrinterJob } from "@castkit/shared/viewData/types"
+import {
+  formatClockMonthDay,
+  formatClockTime,
+  formatClockWeekdayShort,
+  getClockDayOffset,
+} from "../time.ts"
 
 /**
  * The printer reports a SLICER FILE NAME, not a title. Underscores stand in for
@@ -67,4 +74,53 @@ export const getFinishAtMs = ({
   return job.remainingMinutes === undefined
     ? null
     : nowMillis + job.remainingMinutes * 60_000
+}
+
+/**
+ * The finish as a person reads it off the glass: "3:47 PM" later today,
+ * "Tomorrow 3:47 PM", "Fri 3:47 PM" further out.
+ *
+ * A bare clock time reads as TODAY. A print that ended the next afternoon
+ * showed "3:47 PM" on the workbench panel, and the owner read three hours where
+ * the printer meant twenty-seven.
+ *
+ * The day is named whenever the finish falls on a DIFFERENT CALENDAR DAY, not
+ * when it is more than twenty-four hours out. Midnight is the boundary a person
+ * means: an overnight print ending at 01:00 is eight hours away and is still
+ * not today, and the bare time would misread there in the same way.
+ *
+ * The words match BambuBuddy's own ETA, which is where the same finish is read
+ * everywhere else in the house.
+ *
+ * A weekday stops naming a day once the name comes round again, so a week or
+ * more out gets the date. No print runs that long; a bad end time pushed by an
+ * integration can still say it does, and the card must not answer "Fri" to a
+ * date eight days away.
+ */
+export const formatFinishTime = ({
+  clock,
+  finishAtMs,
+  nowMillis,
+}: {
+  clock?: BrowserClockConfig
+  finishAtMs: number
+  nowMillis: number
+}): string => {
+  const time = formatClockTime(finishAtMs, clock)
+  const dayOffset = getClockDayOffset({
+    clock,
+    fromMillis: nowMillis,
+    toMillis: finishAtMs,
+  })
+
+  if (dayOffset <= 0) {
+    return time
+  }
+  if (dayOffset === 1) {
+    return `Tomorrow ${time}`
+  }
+  if (dayOffset < 7) {
+    return `${formatClockWeekdayShort(finishAtMs, clock)} ${time}`
+  }
+  return `${formatClockMonthDay(finishAtMs, clock)} ${time}`
 }

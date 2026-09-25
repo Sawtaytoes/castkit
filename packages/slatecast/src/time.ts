@@ -167,6 +167,76 @@ export const formatClockDateLines = (
   return [weekday, monthDay]
 }
 
+/**
+ * The instant's calendar day in the panel's timezone, counted in whole days
+ * since the epoch.
+ *
+ * `Date`'s own getters read the CONTAINER's zone, and the panel's zone is the
+ * one on the wall, so the day is read back out of `Intl` instead.
+ */
+const getClockDayNumber = (
+  millis: number,
+  clock: BrowserClockConfig = DEFAULT_CLOCK,
+) => {
+  const parts = formatPartsSafely({
+    millis,
+    timeZone: clock.timeZone,
+    options: {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    },
+  })
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value)
+  return Math.round(
+    Date.UTC(pick("year"), pick("month") - 1, pick("day")) /
+      86_400_000,
+  )
+}
+
+/**
+ * Whole calendar days from one instant to another: 0 for later the same day, 1
+ * for tomorrow, 2 for the day after.
+ *
+ * Elapsed milliseconds cannot answer this question. A time twenty-three hours
+ * away can be today and a time eight hours away can be tomorrow, because the
+ * boundary a person means is midnight and not a duration.
+ */
+export const getClockDayOffset = ({
+  fromMillis,
+  toMillis,
+  clock = DEFAULT_CLOCK,
+}: {
+  fromMillis: number
+  toMillis: number
+  clock?: BrowserClockConfig
+}) =>
+  getClockDayNumber(toMillis, clock) -
+  getClockDayNumber(fromMillis, clock)
+
+/** The short weekday — "Fri" — for a time that has to name its own day. */
+export const formatClockWeekdayShort = (
+  millis: number,
+  clock: BrowserClockConfig = DEFAULT_CLOCK,
+) =>
+  formatSafely({
+    millis,
+    timeZone: clock.timeZone,
+    options: { weekday: "short" },
+  })
+
+/** The short date — "Oct 3" — for a day too far out for a weekday to name. */
+export const formatClockMonthDay = (
+  millis: number,
+  clock: BrowserClockConfig = DEFAULT_CLOCK,
+) =>
+  formatSafely({
+    millis,
+    timeZone: clock.timeZone,
+    options: { month: "short", day: "numeric" },
+  })
+
 export const formatClockTime = (
   millis: number,
   clock: BrowserClockConfig = DEFAULT_CLOCK,

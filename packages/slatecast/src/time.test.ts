@@ -2,10 +2,13 @@ import { describe, expect, test } from "vitest"
 import {
   formatClockDate,
   formatClockDateLines,
+  formatClockMonthDay,
   formatClockTime,
   formatClockTimeParts,
+  formatClockWeekdayShort,
   formatDateTile,
   formatEventTime,
+  getClockDayOffset,
 } from "./time.ts"
 
 /**
@@ -282,5 +285,104 @@ describe("formatClockDateLines", () => {
         isNumericDate: true,
       }),
     ).toEqual(["7/24/2026"])
+  })
+})
+
+describe("getClockDayOffset", () => {
+  const CHICAGO_CLOCK = {
+    timeZone: CHICAGO,
+    isTwelveHour: true,
+    isNumericDate: false,
+  }
+
+  test("later the same day is offset zero", () => {
+    expect(
+      getClockDayOffset({
+        fromMillis: AFTERNOON_MILLIS,
+        toMillis: Date.UTC(2026, 6, 25, 3, 30),
+        clock: CHICAGO_CLOCK,
+      }),
+    ).toBe(0)
+  })
+
+  test("an overnight finish is tomorrow after eight hours", () => {
+    // 01:00 on the 25th in Chicago: eight hours out, and a different day.
+    expect(
+      getClockDayOffset({
+        fromMillis: AFTERNOON_MILLIS,
+        toMillis: Date.UTC(2026, 6, 25, 6, 0),
+        clock: CHICAGO_CLOCK,
+      }),
+    ).toBe(1)
+  })
+
+  test("a twenty-three hour print can still finish today", () => {
+    // 02:00 to 23:00 on the 24th in Chicago — nearly a day, one calendar day.
+    expect(
+      getClockDayOffset({
+        fromMillis: Date.UTC(2026, 6, 24, 7, 0),
+        toMillis: Date.UTC(2026, 6, 25, 4, 0),
+        clock: CHICAGO_CLOCK,
+      }),
+    ).toBe(0)
+  })
+
+  test("counts whole days further out", () => {
+    expect(
+      getClockDayOffset({
+        fromMillis: AFTERNOON_MILLIS,
+        toMillis: Date.UTC(2026, 6, 27, 20, 5),
+        clock: CHICAGO_CLOCK,
+      }),
+    ).toBe(3)
+  })
+
+  test("reads the day in the configured zone, not the device's", () => {
+    // 20:05 UTC is the 24th in Chicago and already the 25th in Tokyo.
+    expect(
+      getClockDayOffset({
+        fromMillis: AFTERNOON_MILLIS,
+        toMillis: Date.UTC(2026, 6, 24, 21, 0),
+        clock: {
+          timeZone: "Asia/Tokyo",
+          isTwelveHour: true,
+          isNumericDate: false,
+        },
+      }),
+    ).toBe(0)
+  })
+
+  test("a past instant counts backwards", () => {
+    expect(
+      getClockDayOffset({
+        fromMillis: AFTERNOON_MILLIS,
+        toMillis: Date.UTC(2026, 6, 23, 20, 5),
+        clock: CHICAGO_CLOCK,
+      }),
+    ).toBe(-1)
+  })
+})
+
+describe("formatClockWeekdayShort", () => {
+  test("names the weekday in the configured zone", () => {
+    expect(
+      formatClockWeekdayShort(AFTERNOON_MILLIS, {
+        timeZone: CHICAGO,
+        isTwelveHour: true,
+        isNumericDate: false,
+      }),
+    ).toBe("Fri")
+  })
+})
+
+describe("formatClockMonthDay", () => {
+  test("renders a short month and day", () => {
+    expect(
+      formatClockMonthDay(AFTERNOON_MILLIS, {
+        timeZone: CHICAGO,
+        isTwelveHour: true,
+        isNumericDate: false,
+      }),
+    ).toBe("Jul 24")
   })
 })
