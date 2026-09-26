@@ -44,6 +44,10 @@ adds deployment-owned applications to that device's Home Assistant **View**
 select. Each entry has a display name and an absolute HTTP(S) URL. The Slatecast
 client presents the application in a full-panel frame, while the remote-display
 receiver keeps its frame-bound touch guard around the whole application view.
+An optional `zoom` (0.5 to 4) scales that application: `1.5` on a 1280x720
+panel gives it an 853x480 viewport at a device pixel ratio of 1.5, so an app
+laid out for a lower-density screen reads at a comfortable size and stays
+sharp.
 
 An optional `views` array is the ordered allow-list for that display's View
 selector and local drawer. When it is absent, CastKit offers every compatible
