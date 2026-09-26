@@ -195,6 +195,12 @@ export const Panel = ({
           <BuiltinView
             panel={panel}
             data={source?.data}
+            weather={
+              channels[panel.bindings.weather ?? ""]
+                ?.data as
+                | ContractData["weather.v1"]
+                | undefined
+            }
             isControlEnabled={
               isControlEnabled &&
               properties.isInteractive &&

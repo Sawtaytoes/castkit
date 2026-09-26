@@ -1,3 +1,8 @@
+import type { BrowserClockConfig } from "@castkit/shared/protocol/ws"
+import type {
+  AgendaData,
+  WeatherData,
+} from "@castkit/shared/viewData/types"
 import {
   agenda,
   clockConfig,
@@ -47,12 +52,29 @@ const IN_PROGRESS_GRACE_MILLIS = 60 * 60 * 1_000
  * places the two header blocks side by side; the markup only adds the mark
  * and the split meridiem.
  */
-export const Calendar = () => {
+export const Calendar = () => (
+  <CalendarFace
+    currentMillis={nowMs.value}
+    clock={clockConfig.value}
+    weather={weather.value}
+    agenda={agenda.value}
+  />
+)
+
+/** The Calendar view's drawing, fed by its caller; see `ClockFace`. */
+export const CalendarFace = ({
+  currentMillis,
+  clock,
+  weather: weatherData,
+  agenda: agendaData,
+}: {
+  currentMillis: number
+  clock: BrowserClockConfig | undefined
+  weather: WeatherData | null | undefined
+  agenda: AgendaData | null | undefined
+}) => {
   const isShortPanel = useIsShortPanel()
-  const currentMillis = nowMs.value
-  const clock = clockConfig.value
-  const weatherData = weather.value
-  const upcomingEvents = (agenda.value?.events ?? [])
+  const upcomingEvents = (agendaData?.events ?? [])
     .filter(
       (event) =>
         event.isAllDay ||
