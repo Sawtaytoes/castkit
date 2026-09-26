@@ -1098,6 +1098,16 @@ html[data-grayscale-text="true"] {
   margin-top: 3vmin;
 }
 
+/* The condition's mark leads the weather row, centered on it rather than on
+   the text baseline, a step taller than the temperature. */
+.ambient-weather .weather-mark {
+  align-self: center;
+  flex: none;
+  width: 10vmin;
+  height: 10vmin;
+  color: var(--accent-content);
+}
+
 .ambient-temp {
   font-size: 8vmin;
   font-weight: 600;
@@ -1494,6 +1504,11 @@ html[data-grayscale-text="true"] {
   .ambient-short .ambient-weather {
     gap: 15px;
     margin-top: 18px;
+  }
+
+  .ambient-short .ambient-weather .weather-mark {
+    width: 60px;
+    height: 60px;
   }
 
   .ambient-short .ambient-temp {

@@ -114,10 +114,24 @@ describe("ambient on a short landscape panel", () => {
     expect(
       document.querySelectorAll(".ambient-date"),
     ).toHaveLength(1)
-    // No mark: the column carries the words alone.
+    // The condition's mark leads the weather row, before the temperature,
+    // in the accent color.
+    const mark = document.querySelector(
+      ".ambient-weather .weather-mark",
+    ) as SVGElement
+    expect(mark.getAttribute("data-condition")).toBe(
+      "partlycloudy",
+    )
     expect(
-      document.querySelector(".weather-mark"),
-    ).toBeNull()
+      mark.getBoundingClientRect().right,
+    ).toBeLessThanOrEqual(rectOf(".ambient-temp").left)
+    expect(mark.getBoundingClientRect().width).toBe(60)
+    // The accent color, not the text color the temperature is drawn in.
+    expect(getComputedStyle(mark).color).not.toBe(
+      getComputedStyle(
+        document.querySelector(".ambient-temp") as Element,
+      ).color,
+    )
 
     expect(fontSizeOf(".ambient-time")).toBe(104)
     expect(fontSizeOf(".ambient-date")).toBe(30)
@@ -165,6 +179,26 @@ describe("ambient on a short landscape panel", () => {
         SHORT_PANEL.width,
       )
     })
+  })
+
+  test("draws no mark when the condition code is unknown", async () => {
+    await mountAmbientOn({
+      ...SHORT_PANEL,
+      // The parser leaves `condition` unset for a code it does not know.
+      weather: buildWeather({
+        temperatureText: "60°",
+        conditionText: "Haboob",
+        condition: undefined,
+      }),
+    })
+
+    expect(
+      document.querySelector(".weather-mark"),
+    ).toBeNull()
+    expect(
+      document.querySelector(".ambient-condition")
+        ?.textContent,
+    ).toBe("Haboob")
   })
 
   test("keeps the clock on the glass before weather arrives", async () => {

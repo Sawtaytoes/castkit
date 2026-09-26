@@ -4,7 +4,7 @@
 - **Date:** 2026-09-25
 - **Type:** View layout
 - **Supersedes:** the two-column Ambient layout for the short landscape panel added in [#40](https://github.com/Sawtaytoes/castkit/pull/40) on 2026-09-12. That change had no decision record of its own; it extended [the 2026-09-11 short-panel layouts](2026-09-11-a-short-landscape-panel-lays-the-clock-weather-and-calendar-out-beside-in-px.md) to Ambient by analogy, without a preview for the owner. The 2026-09-11 decision itself (Clock, Weather, Calendar) is unchanged.
-- **Superseded by:** —
+- **Superseded by:** [Ambient's weather row carries the condition mark](2026-09-25-ambient-weather-row-carries-the-condition-mark.md), for the "No condition mark" line only.
 
 ## Decision
 
