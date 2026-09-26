@@ -100,6 +100,121 @@ describe("view switching", () => {
   })
 })
 
+describe("an external view with a health probe", () => {
+  const spoolApp = {
+    name: "Spool App",
+    url: "https://example.com/spools",
+  }
+
+  const mountExternalView = (isAvailable?: boolean) =>
+    mountSlatecast({
+      snapshot: buildSnapshot({
+        view: "external-view:0",
+        device: buildDeviceProfile({
+          externalViews: [
+            isAvailable === undefined
+              ? spoolApp
+              : { ...spoolApp, isAvailable },
+          ],
+        }),
+      }),
+    })
+
+  test("shows a placeholder instead of the frame while the application is not available", async () => {
+    await mountExternalView(false)
+
+    expect(
+      screen.getByText("Spool App is not available"),
+    ).toBeVisible()
+    expect(
+      screen.getByText(
+        "This view opens by itself when Spool App answers.",
+      ),
+    ).toBeVisible()
+    expect(screen.queryByTitle("Spool App")).toBeNull()
+  })
+
+  test("frames the application while it is available", async () => {
+    await mountExternalView(true)
+
+    expect(screen.getByTitle("Spool App")).toHaveAttribute(
+      "src",
+      "https://example.com/spools",
+    )
+  })
+
+  test("frames the application when no probe answer is present", async () => {
+    await mountExternalView()
+
+    expect(screen.getByTitle("Spool App")).toHaveAttribute(
+      "src",
+      "https://example.com/spools",
+    )
+  })
+
+  test("swaps the placeholder and a fresh frame as the availability changes", async () => {
+    const { server } = await mountExternalView(false)
+
+    server.push({
+      type: "external_views",
+      externalViews: [{ ...spoolApp, isAvailable: true }],
+    })
+    await waitFor(() => {
+      expect(screen.getByTitle("Spool App")).toBeVisible()
+    })
+    const firstFrame = screen.getByTitle("Spool App")
+
+    server.push({
+      type: "external_views",
+      externalViews: [{ ...spoolApp, isAvailable: false }],
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByText("Spool App is not available"),
+      ).toBeVisible()
+    })
+    expect(screen.queryByTitle("Spool App")).toBeNull()
+
+    server.push({
+      type: "external_views",
+      externalViews: [{ ...spoolApp, isAvailable: true }],
+    })
+    await waitFor(() => {
+      expect(screen.getByTitle("Spool App")).toBeVisible()
+    })
+    expect(screen.getByTitle("Spool App")).not.toBe(
+      firstFrame,
+    )
+  })
+
+  test("keeps the zoom on a frame that returns", async () => {
+    const { server } = await mountSlatecast({
+      snapshot: buildSnapshot({
+        view: "external-view:0",
+        device: buildDeviceProfile({
+          externalViews: [
+            { ...spoolApp, zoom: 1.5, isAvailable: false },
+          ],
+        }),
+      }),
+    })
+
+    server.push({
+      type: "external_views",
+      externalViews: [
+        { ...spoolApp, zoom: 1.5, isAvailable: true },
+      ],
+    })
+
+    await waitFor(() => {
+      expect(
+        getComputedStyle(screen.getByTitle("Spool App"))
+          .zoom,
+      ).toBe("1.5")
+    })
+  })
+})
+
 describe("device settings", () => {
   test("rotates the stage and swaps the axis when sideways", async () => {
     await mountSlatecast({

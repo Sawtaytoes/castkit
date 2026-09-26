@@ -19,6 +19,21 @@ export const ExternalView = () => {
     )
   }
 
+  // Only an explicit `false` hides the frame: a view with no health URL
+  // carries no answer and is always framed, as it was before probes existed.
+  // Swapping the frame out, rather than hiding it, means the frame that comes
+  // back loads the working page instead of keeping the proxy's error page.
+  if (view.isAvailable === false) {
+    return (
+      <div class="idle">
+        <div class="idle-title">{`${view.name} is not available`}</div>
+        <div class="idle-label">
+          {`This view opens by itself when ${view.name} answers.`}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <iframe
       class="external-view"
