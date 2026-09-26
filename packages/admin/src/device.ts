@@ -19,6 +19,7 @@ export type Device = {
     name: string
     url: string
     zoom?: number
+    healthUrl?: string
   }[]
 }
 

@@ -390,6 +390,17 @@ const applyMessage = (message: ServerToClientMessage) => {
     printers.value = message.data
     return
   }
+  if (message.type === "external_views") {
+    // A health probe changed its answer. Only the list moves; the rest of the
+    // profile is the snapshot's.
+    if (device.value) {
+      device.value = {
+        ...device.value,
+        externalViews: message.externalViews,
+      }
+    }
+    return
+  }
   if (message.type === "reload") {
     reloadPage()
   }

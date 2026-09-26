@@ -119,6 +119,49 @@ test("rejects an external view zoom outside 0.5 to 4", () => {
   ).toThrow()
 })
 
+const writeExternalViewDevice = (externalView: unknown) =>
+  writeDevicesFile([
+    {
+      renderer: "browser",
+      id: "workbench",
+      label: "Workbench Display",
+      mac: "02:00:00:00:00:10",
+      width: 480,
+      height: 320,
+      externalViews: [externalView],
+    },
+  ])
+
+test("reads an external view's health URL", () => {
+  const config = loadConfig({
+    INKCAST_DEVICES_FILE: writeExternalViewDevice({
+      name: "Spool App",
+      url: "https://example.com/spools",
+      healthUrl: "https://example.com/spools/health",
+    }),
+  })
+
+  expect(config.browserDevices[0]?.externalViews).toEqual([
+    {
+      name: "Spool App",
+      url: "https://example.com/spools",
+      healthUrl: "https://example.com/spools/health",
+    },
+  ])
+})
+
+test("rejects an external view health URL that is not absolute", () => {
+  expect(() =>
+    loadConfig({
+      INKCAST_DEVICES_FILE: writeExternalViewDevice({
+        name: "Spool App",
+        url: "https://example.com/spools",
+        healthUrl: "/health",
+      }),
+    }),
+  ).toThrow()
+})
+
 test("reads a browser display's ordered view list and local drawer choice", () => {
   const config = loadConfig({
     INKCAST_DEVICES_FILE: writeDevicesFile([
