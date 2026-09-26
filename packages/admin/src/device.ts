@@ -15,7 +15,11 @@ export type Device = {
   hasMqttBacklight?: boolean
   /** Ordered allow-list. Absent means every compatible view. */
   views?: string[]
-  externalViews?: { name: string; url: string }[]
+  externalViews?: {
+    name: string
+    url: string
+    zoom?: number
+  }[]
 }
 
 export type AutomationSettings = Record<string, string>

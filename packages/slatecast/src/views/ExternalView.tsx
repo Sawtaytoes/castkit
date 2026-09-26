@@ -25,6 +25,10 @@ export const ExternalView = () => {
       src={view.url}
       title={view.name}
       data-castkit-target={`external-view:${view.name}`}
+      // CSS zoom on a frame reaches the framed document as its device
+      // pixel ratio, so the application lays out at the larger size and
+      // stays sharp — a transform would scale a finished bitmap instead.
+      style={view.zoom ? { zoom: view.zoom } : undefined}
     />
   )
 }

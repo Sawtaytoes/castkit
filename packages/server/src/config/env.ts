@@ -234,6 +234,12 @@ const BrowserDeviceConfigSchema = z.object({
       z.object({
         name: z.string(),
         url: z.url(),
+        // Page zoom for the framed application. An app laid out for a
+        // lower-density screen reads too small on a dense panel; the frame
+        // then gives it a smaller CSS viewport at a higher pixel ratio.
+        zoom: z.optional(
+          z.number().check(z.gte(0.5), z.lte(4)),
+        ),
       }),
     ),
     [],
