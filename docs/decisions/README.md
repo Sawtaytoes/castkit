@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-25 | [Ambient is one centered column on every panel](2026-09-25-ambient-is-one-centered-column-on-every-panel.md) — time, date and weather stacked and centered; the short panel sizes the column in px (104 / 30 / 49 / 30) instead of splitting it into two columns, and a physical display draws a single clock view edge to edge | Accepted |
 | 2026-09-25 | [The AI Usage view shows one weekly limit per provider and escalates the rest](2026-09-25-the-ai-usage-view-shows-one-weekly-limit-per-provider.md) — one row per provider, its weekly budget; every other window is withheld until it reaches `alertPercent`, default 80. The span comes from a new `periodHours`, never from `resetsAtMs`, which is the next clearing time and not the length of the window | Accepted |
 | 2026-09-25 | [Collections use search, tags, and structured editors](2026-09-25-collections-use-search-tags-and-structured-editors.md) | Accepted |
 | 2026-09-25 | [Overview previews are upright](2026-09-25-overview-previews-are-upright.md) | Accepted |

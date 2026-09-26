@@ -105,6 +105,41 @@
 .platform-panel .date-tile {
   background: var(--bg);
 }
+/*
+ * A physical display showing one clock-family view draws it edge to edge on
+ * the page color, the way the device page drew it before the display moved
+ * onto a screen. The card frame is for compositions; on a single 480x320 view
+ * it spent 26 px of width and read as a different app. The raised blocks go
+ * back to the raised color, since the panel is no longer one.
+ */
+.platform[data-device="true"]:has(
+  > .platform-layout[data-layout="single"]
+    > .platform-panel:is(
+      [data-spec="ambient"],
+      [data-spec="clock"],
+      [data-spec="calendar"]
+    )
+) {
+  padding: 0;
+}
+.platform[data-device="true"]
+  > .platform-layout[data-layout="single"]
+  > .platform-panel:is(
+    [data-spec="ambient"],
+    [data-spec="clock"],
+    [data-spec="calendar"]
+  ) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+}
+.platform[data-device="true"]
+  > .platform-layout[data-layout="single"]
+  > .platform-panel
+  :is(.calendar-event, .date-tile) {
+  background: var(--surface);
+}
 .platform-source-status {
   padding: 8px;
   border-radius: 8px;

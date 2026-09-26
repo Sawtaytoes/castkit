@@ -1472,86 +1472,36 @@ html[data-grayscale-text="true"] {
     margin-top: 8px;
   }
 
-  /* Ambient: the time with its meridiem beside it and the date beneath at the
-     left, the condition's mark over the temperature and condition at the
-     right. The two treatments are Clock's left half and Weather's right half,
-     both already chosen on 2026-09-11; this view was missed by that change and
-     kept its `vmin` column, which gave this glass a 16px date. */
+  /* Ambient: the same centered column as every other panel, in px. The
+     sizes keep the column's 17 : 5 : 8 : 5 proportions (time, date,
+     temperature, condition) and are the largest that fit the widest strings
+     — "12:45 PM", "Wednesday, September 30", "-12° Thunderstorms" — inside
+     a platform panel's 438 px content box, measured in Outfit. */
   .ambient-short {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 22px;
+    gap: 12px;
     width: 100%;
     height: 100%;
-    padding: 0 18px;
-    text-align: left;
-  }
-
-  .ambient-short .ambient-clock {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    min-width: 0;
-  }
-
-  .ambient-short .ambient-clock-row {
-    display: flex;
-    flex-direction: row;
-    align-items: baseline;
-    gap: 10px;
   }
 
   .ambient-short .ambient-time {
-    font-size: 110px;
-    line-height: 1;
-    letter-spacing: -0.03em;
+    font-size: 104px;
   }
 
-  .ambient-short .ambient-meridiem {
-    font-size: 40px;
-    font-weight: 600;
-    line-height: 1;
-    color: var(--fg-dim);
-  }
-
-  /* The weekday over the month and day, as on the Weather view. The weekday
-     leads at the larger size; the numeric-date setting collapses both to one
-     line, and that line takes the weekday size. */
   .ambient-short .ambient-date {
     font-size: 30px;
-    line-height: 1.15;
-  }
-
-  .ambient-short .ambient-date-weekday {
-    font-size: 34px;
-    margin-top: 12px;
   }
 
   .ambient-short .ambient-weather {
-    flex-direction: column;
-    align-items: flex-end;
-    flex: none;
-    gap: 2px;
-    margin-top: 0;
-    text-align: right;
-  }
-
-  .ambient-short .ambient-weather .weather-mark {
-    width: 110px;
-    height: 110px;
-    margin-bottom: 6px;
-    color: var(--accent-content);
+    gap: 15px;
+    margin-top: 18px;
   }
 
   .ambient-short .ambient-temp {
-    font-size: 56px;
-    line-height: 1;
+    font-size: 49px;
   }
 
   .ambient-short .ambient-condition {
     font-size: 30px;
-    line-height: 1.1;
   }
 
   /* Calendar: one header row — time over date at the left, the mark with the
