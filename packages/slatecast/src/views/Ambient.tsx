@@ -1,3 +1,5 @@
+import type { BrowserClockConfig } from "@castkit/shared/protocol/ws"
+import type { WeatherData } from "@castkit/shared/viewData/types"
 import { clockConfig, nowMs, weather } from "../state.ts"
 import {
   formatClockDate,
@@ -29,11 +31,25 @@ import { WeatherMark } from "../WeatherMark.tsx"
  * date setting `formatClockDateLines` returns one line, so the break is a
  * property of the format rather than a hard-coded split.
  */
-export const Ambient = () => {
+export const Ambient = () => (
+  <AmbientFace
+    currentMillis={nowMs.value}
+    clock={clockConfig.value}
+    weather={weather.value}
+  />
+)
+
+/** The Ambient view's drawing, fed by its caller; see `ClockFace`. */
+export const AmbientFace = ({
+  currentMillis,
+  clock,
+  weather: data,
+}: {
+  currentMillis: number
+  clock: BrowserClockConfig | undefined
+  weather: WeatherData | null | undefined
+}) => {
   const isShortPanel = useIsShortPanel()
-  const data = weather.value
-  const currentMillis = nowMs.value
-  const clock = clockConfig.value
 
   if (!isShortPanel) {
     return (

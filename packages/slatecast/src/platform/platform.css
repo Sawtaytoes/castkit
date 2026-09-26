@@ -96,6 +96,15 @@
   display: flex;
   flex-direction: column;
 }
+/*
+ * A device-page face drawn inside a panel: the panel is already the raised
+ * surface, so a block the face raises steps back to the page color to stay
+ * distinct.
+ */
+.platform-panel .calendar-event,
+.platform-panel .date-tile {
+  background: var(--bg);
+}
 .platform-source-status {
   padding: 8px;
   border-radius: 8px;

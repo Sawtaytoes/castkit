@@ -1,3 +1,4 @@
+import type { BrowserClockConfig } from "@castkit/shared/protocol/ws"
 import { clockConfig, nowMs } from "../state.ts"
 import {
   formatClockDate,
@@ -19,10 +20,27 @@ import { useIsShortPanel } from "../useIsShortPanel.ts"
  * three strings are never wider than three characters, so nothing on that
  * panel needs fitting.
  */
-export const Clock = () => {
+export const Clock = () => (
+  <ClockFace
+    currentMillis={nowMs.value}
+    clock={clockConfig.value}
+  />
+)
+
+/**
+ * The Clock view's drawing, fed by its caller: the device page passes the
+ * device's signals, a platform panel passes its own tick and settings. Both
+ * draw the same face, so a display moved onto a platform screen keeps the
+ * short-panel layout it was designed with.
+ */
+export const ClockFace = ({
+  currentMillis,
+  clock,
+}: {
+  currentMillis: number
+  clock: BrowserClockConfig | undefined
+}) => {
   const isShortPanel = useIsShortPanel()
-  const currentMillis = nowMs.value
-  const clock = clockConfig.value
 
   if (!isShortPanel) {
     return (

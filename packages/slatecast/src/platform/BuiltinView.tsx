@@ -2,7 +2,17 @@ import type {
   ContractData,
   ViewPanel,
 } from "@castkit/sdk/contracts"
+import type { BrowserClockConfig } from "@castkit/shared/protocol/ws"
+import {
+  WEATHER_CONDITION_CODES,
+  type WeatherConditionCode,
+  type WeatherData,
+} from "@castkit/shared/viewData/types"
 import { useEffect, useState } from "preact/hooks"
+import { useIsShortPanel } from "../useIsShortPanel.ts"
+import { AmbientFace } from "../views/Ambient.tsx"
+import { CalendarFace } from "../views/Calendar.tsx"
+import { ClockFace } from "../views/Clock.tsx"
 import { AgendaView } from "./AgendaView.tsx"
 import { AiUsageView } from "./AiUsageView.tsx"
 import { CameraImage } from "./CameraImage.tsx"
@@ -24,6 +34,30 @@ const useClock = () => {
   }, [])
   return now
 }
+
+/** A panel's own clock settings, in the shape the device-page faces format with. */
+const readClockConfig = (
+  settings: Record<string, unknown>,
+): BrowserClockConfig => ({
+  isTwelveHour: settings.hour12 !== false,
+  isNumericDate: false,
+})
+
+/** The faces draw a mark only for a condition code CastKit knows. */
+const readWeather = (
+  weather: ContractData["weather.v1"] | undefined,
+): WeatherData | undefined =>
+  weather && {
+    temperatureText: weather.temperatureText,
+    conditionText: weather.conditionText,
+    condition:
+      weather.condition &&
+      (
+        WEATHER_CONDITION_CODES as readonly string[]
+      ).includes(weather.condition)
+        ? (weather.condition as WeatherConditionCode)
+        : undefined,
+  }
 
 /** Photo presentation belongs to the view, while the selected assets belong to the channel. */
 const PhotosView = ({
@@ -79,11 +113,14 @@ const PhotosView = ({
 export const BuiltinView = ({
   panel,
   data,
+  weather,
   isControlEnabled,
   onAction,
 }: {
   panel: ViewPanel
   data: unknown
+  /** The optional `weather` binding the clock and agenda faces carry. */
+  weather?: ContractData["weather.v1"]
   isControlEnabled: boolean
   onAction: (
     action: string,
@@ -92,6 +129,7 @@ export const BuiltinView = ({
 }) => {
   const now = useClock()
   const properties = useDisplayProperties()
+  const isShortPanel = useIsShortPanel()
   switch (panel.specId) {
     case "text":
       return (
@@ -105,6 +143,20 @@ export const BuiltinView = ({
       )
     case "ambient":
     case "clock":
+      if (properties.hasClockMinutes) {
+        return panel.specId === "ambient" ? (
+          <AmbientFace
+            currentMillis={now}
+            clock={readClockConfig(panel.settings)}
+            weather={readWeather(weather)}
+          />
+        ) : (
+          <ClockFace
+            currentMillis={now}
+            clock={readClockConfig(panel.settings)}
+          />
+        )
+      }
       return (
         <div class="platform-clock">
           {properties.hasClockMinutes ? (
@@ -138,7 +190,16 @@ export const BuiltinView = ({
       )
     case "calendar":
     case "agenda":
-      return (
+      // The short landscape panel keeps the one-row header and five rows
+      // chosen for it on 2026-09-11; a split pane keeps the fitted list.
+      return isShortPanel && properties.hasClockMinutes ? (
+        <CalendarFace
+          currentMillis={now}
+          clock={readClockConfig(panel.settings)}
+          weather={readWeather(weather)}
+          agenda={data as ContractData["agenda.v1"]}
+        />
+      ) : (
         <AgendaView
           data={data as ContractData["agenda.v1"]}
           now={now}
