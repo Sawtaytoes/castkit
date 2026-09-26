@@ -240,6 +240,10 @@ const BrowserDeviceConfigSchema = z.object({
         zoom: z.optional(
           z.number().check(z.gte(0.5), z.lte(4)),
         ),
+        // Probed server-side. While it does not answer 2xx the panel shows a
+        // placeholder instead of the frame, so a proxy's 502 page never
+        // reaches the glass. Absent = the frame is always shown.
+        healthUrl: z.optional(z.url()),
       }),
     ),
     [],

@@ -63,6 +63,25 @@ export type BrowserDeviceSettings = {
   isViewHeld?: boolean
 }
 
+/**
+ * A deployment-configured application the panel frames as a view.
+ *
+ * The server probes the view's configured health URL and sends only the
+ * answer: the URL itself stays on the server.
+ */
+export type BrowserExternalView = {
+  name: string
+  url: string
+  /** Page zoom applied to the frame; absent means 1. */
+  zoom?: number
+  /**
+   * Whether the application's health URL last answered 2xx. Present only for
+   * a view that has a health URL; absent means "always show the frame", which
+   * is also what a pre-2026-09-26 bundle does with a snapshot that carries it.
+   */
+  isAvailable?: boolean
+}
+
 /** Static capabilities inlined into the page shell and the snapshot. */
 export type BrowserDeviceProfile = {
   id: string
@@ -114,12 +133,7 @@ export type BrowserDeviceProfile = {
   colour?: "mono" | "greyscale" | "e6" | "full"
   /** @deprecated See `colour`. */
   legacyShape?: "square" | "round" | "rect"
-  externalViews: readonly {
-    name: string
-    url: string
-    /** Page zoom applied to the frame; absent means 1. */
-    zoom?: number
-  }[]
+  externalViews: readonly BrowserExternalView[]
   /** Every view this panel is configured to offer. */
   views: readonly {
     name: string
@@ -163,6 +177,15 @@ export type ServerToClientMessage =
   | { type: "agenda"; data: AgendaData }
   | { type: "printers"; data: PrintersData }
   | { type: "settings"; settings: BrowserDeviceSettings }
+  /**
+   * The device's external views again, sent when one's availability changes.
+   * The whole list replaces the profile's, so the client keeps the index each
+   * `external-view:<n>` view id points at. An older bundle ignores the type.
+   */
+  | {
+      type: "external_views"
+      externalViews: readonly BrowserExternalView[]
+    }
   | { type: "reload" }
 
 export type ClientToServerMessage = {

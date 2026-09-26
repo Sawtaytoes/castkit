@@ -49,6 +49,16 @@ panel gives it an 853x480 viewport at a device pixel ratio of 1.5, so an app
 laid out for a lower-density screen reads at a comfortable size and stays
 sharp.
 
+An optional `healthUrl` (an absolute URL) keeps a proxy's error page off the
+panel. The server requests it about every 10 seconds, with a 5-second timeout,
+and treats only a 2xx answer as available. The first request runs at startup,
+and the view counts as not available until one succeeds. While it is not
+available the panel shows `<name> is not available` in place of the frame. When
+the application answers again the panel loads a fresh frame by itself, so a
+502 from the reverse proxy never stays on the glass. The request comes from
+the server, so the application needs no CORS headers, and the URL is never sent
+to the panel. Without `healthUrl` the frame is always shown.
+
 An optional `views` array is the ordered allow-list for that display's View
 selector and local drawer. When it is absent, CastKit offers every compatible
 native and external view, which preserves existing installations. Set

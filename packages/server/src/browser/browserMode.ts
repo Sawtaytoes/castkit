@@ -3,6 +3,7 @@ import { parseDeviceCommand } from "@castkit/shared/protocol/commands"
 import type {
   BrowserClockConfig,
   BrowserDeviceSettings,
+  BrowserExternalView,
   ServerToClientMessage,
   ViewDataState,
 } from "@castkit/shared/protocol/ws"
@@ -16,7 +17,10 @@ import {
 import { createStaticHandler } from "@charcuterie/server"
 import { createNodeWebSocket } from "@hono/node-ws"
 import type { Hono } from "hono"
-import type { InkcastConfig } from "../config/env.ts"
+import type {
+  BrowserDeviceConfig,
+  InkcastConfig,
+} from "../config/env.ts"
 import {
   buildBrowserDeviceTopics,
   buildBrowserDiscoveryMessages,
@@ -46,6 +50,7 @@ import {
 import { resolveBrowserPanelProperties } from "./browserPanelProperties.ts"
 import { createBrowserPhotoConfigStore } from "./browserPhotoConfigStore.ts"
 import { createBrowserStateStore } from "./browserStateStore.ts"
+import { createExternalViewHealth } from "./externalViewHealth.ts"
 import { createBrowserHub, type HubSocket } from "./hub.ts"
 import {
   buildDevicePageHtml,
@@ -123,6 +128,7 @@ export const createBrowserMode = ({
   config,
   publisher,
   getGlobalClockConfig,
+  externalViewProbe,
 }: {
   config: InkcastConfig
   publisher: MqttPublisher
@@ -131,6 +137,12 @@ export const createBrowserMode = ({
    * onto every settings payload so browser clocks match the ePaper devices.
    */
   getGlobalClockConfig: () => BrowserClockConfig
+  /** Overrides the external-view health probe's cadence, for tests. */
+  externalViewProbe?: {
+    intervalMs?: number
+    timeoutMs?: number
+    fetchHealth?: typeof fetch
+  }
 }) => {
   const devices = config.browserDevices
   const { baseTopic } = config.mqtt
@@ -183,6 +195,49 @@ export const createBrowserMode = ({
           isRetained: true,
         })
         .catch(() => {})
+    },
+  })
+
+  /**
+   * The external views as the panel receives them: each health URL replaced by
+   * its last answer, so the URL itself never leaves the server.
+   */
+  const toClientExternalViews = (
+    device: BrowserDeviceConfig,
+  ): readonly BrowserExternalView[] =>
+    device.externalViews.map(({ healthUrl, ...view }) =>
+      healthUrl
+        ? {
+            ...view,
+            isAvailable:
+              externalViewHealth.getIsAvailable(healthUrl),
+          }
+        : view,
+    )
+
+  const externalViewHealth = createExternalViewHealth({
+    ...externalViewProbe,
+    healthUrls: devices.flatMap((device) =>
+      device.externalViews.flatMap((view) =>
+        view.healthUrl ? [view.healthUrl] : [],
+      ),
+    ),
+    onAvailabilityChange: ({ healthUrl }) => {
+      devices
+        .filter((device) =>
+          device.externalViews.some(
+            (view) => view.healthUrl === healthUrl,
+          ),
+        )
+        .forEach((device) => {
+          hub.broadcast({
+            deviceId: device.id,
+            message: {
+              type: "external_views",
+              externalViews: toClientExternalViews(device),
+            },
+          })
+        })
     },
   })
 
@@ -245,7 +300,7 @@ export const createBrowserMode = ({
           device.shape === "rectangle"
             ? "rect"
             : device.shape,
-        externalViews: device.externalViews,
+        externalViews: toClientExternalViews(device),
         views: browserViews.map(({ name, clientId }) => ({
           name,
           clientId,
@@ -752,6 +807,10 @@ export const createBrowserMode = ({
   }
 
   const start = async () => {
+    // Before the broker check: a framed application's health matters on an
+    // install with no broker at all. Not awaited, so a slow application never
+    // holds up discovery.
+    void externalViewHealth.start()
     if (!publisher.isEnabled || devices.length === 0) {
       return
     }
@@ -1204,6 +1263,11 @@ export const createBrowserMode = ({
       }),
     deviceCount: devices.length,
     start,
+    /** Stops the timers this mode owns, so a test (or shutdown) can settle. */
+    stop: () => {
+      externalViewHealth.stop()
+      hub.stop()
+    },
     attach,
     getDeviceSettings,
     setDeviceSetting,
