@@ -191,6 +191,51 @@ jobs:
           assert_floor "ePaper (web)" "./packages/web/storybook-static/index.json" 20
           assert_floor "browser (slatecast)" "./packages/slatecast/storybook-static/index.json" 8
 
+  # Visual regression. CastKit's whole product is what a panel shows, and on
+  # 2026-09-25 a rebuilt renderer changed the Rip Deck panel's clock, date and
+  # weather text while every unit test still passed — they pin the DOM, not the
+  # picture. The shared workflow compares the shots against the baseline in
+  # this repo's own bucket and posts a `vrt` status plus one PR comment.
+  #
+  # Three sources, one directory:
+  #   web/        every story of the ePaper Storybook (static React views at
+  #               every example panel, dithered)
+  #   slatecast/  every story of the browser Storybook — each view at each
+  #               real panel profile, one story per cell. Its clock is frozen
+  #               under automation (`freezeClockUnderAutomation.ts`).
+  #   platform/   `yarn vrt:capture`: the platform faces at the real 480x320
+  #               short panel, which no story stages
+  #               (`packages/slatecast/src/platform/ShortPanel.vrt.tsx`).
+  #
+  # The browser Storybook's `Overview/All screens` grid is removed after the
+  # capture: its cells are `loading="lazy"` iframes, so a shot shows the first
+  # rows and blank frames below, and every cell is already its own story. The
+  # ePaper grid of the same id renders in one document and is kept, which is
+  # why this is a delete and not `storybookExclude` (that matches the id in
+  # both Storybooks).
+  #
+  # The capture's own Playwright pin wants a different Chromium from this
+  # repo's, so the repo's is installed for the Vitest capture. The shared job
+  # points PLAYWRIGHT_BROWSERS_PATH at a directory it can write.
+  #
+  # Not in `docker-deploy`'s `needs`: a red `vrt` is diagnosed in its pull
+  # request, and it is deliberately not a required check.
+  vrt:
+    needs: [changes]
+    if: ${{ needs.changes.outputs.isDocsOnly != 'true' }}
+    permissions: { contents: read, statuses: write, pull-requests: write }
+    uses: Sawtaytoes/charcuterie/.github/workflows/shared-vrt.yml@workflows-v1
+    with:
+      buildCommand: yarn build:storybook && yarn build:storybook:slatecast
+      storybookStaticDirs: |
+        web=packages/web/storybook-static
+        slatecast=packages/slatecast/storybook-static
+      captureCommand: |
+        yarn playwright install chromium
+        yarn vrt:capture
+        rm -f "$VRT_ACTUAL_DIR/slatecast/overview-all-screens--every-view-every-panel.png"
+    secrets: inherit
+
   docker-deploy:
     # Build + push the runtime image to GHCR; TrueNAS pulls it from there.
     needs: [typecheck, unit-tests]

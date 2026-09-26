@@ -42,6 +42,12 @@ playwright-report/
 test-results/
 .playwright-mcp/
 
+# Visual regression: the shots, reg-suit's scratch and the config the shared
+# `vrt` workflow writes on the runner. None of them is ever committed.
+.vrt-actual/
+.reg/
+.regconfig.json
+
 # Vitest browser-mode failure screenshots
 **/__screenshots__/
 **/.vitest-attachments/
