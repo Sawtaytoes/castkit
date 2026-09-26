@@ -6,6 +6,7 @@ import {
   formatClockTime,
 } from "../time.ts"
 import { useIsShortPanel } from "../useIsShortPanel.ts"
+import { WeatherMark } from "../WeatherMark.tsx"
 
 /**
  * Ambient view: a big clock with today's date, plus the current weather
@@ -16,11 +17,14 @@ import { useIsShortPanel } from "../useIsShortPanel.ts"
  *
  * Every panel draws the same centered column: the time with its meridiem on
  * one line, the date beneath, the temperature and condition on one row below
- * that. The owner chose this composition on 2026-09-25 over the two-column
+ * that, led by the condition's mark in the accent color when Home Assistant
+ * sent a code CastKit knows. The owner chose this composition on 2026-09-25
+ * over the two-column
  * layout an agent gave the short landscape panel on 2026-09-12. The short
  * panel keeps the column and only swaps `vmin` for px, because `vmin` is
  * 3.2 px on that glass and gave the date 16 px. See
- * `docs/decisions/2026-09-25-ambient-is-one-centered-column-on-every-panel.md`.
+ * `docs/decisions/2026-09-25-ambient-is-one-centered-column-on-every-panel.md`
+ * and `docs/decisions/2026-09-25-ambient-weather-row-carries-the-condition-mark.md`.
  */
 export const Ambient = () => (
   <AmbientFace
@@ -54,6 +58,9 @@ export const AmbientFace = ({
       </div>
       {data ? (
         <div class="ambient-weather">
+          {data.condition ? (
+            <WeatherMark condition={data.condition} />
+          ) : null}
           <span class="ambient-temp">
             {data.temperatureText}
           </span>
