@@ -10,6 +10,7 @@ import {
   type PluginManifest,
   SDK_API_VERSION,
   type SettingField,
+  type ViewInput,
   type ViewSpec,
 } from "@castkit/sdk/plugin"
 import { createAiUsageSource } from "./sources/aiUsage.ts"
@@ -339,6 +340,13 @@ const view = ({
   settings: [],
   renderers: ["browser", "image"],
 })
+/** The current conditions a clock-bearing view shows beside the time. */
+const optionalWeatherInput: ViewInput = {
+  key: "weather",
+  label: "Weather",
+  type: "weather.v1",
+  isRequired: false,
+}
 const imageSettings: SettingField[] = [
   {
     key: "fit",
@@ -395,17 +403,27 @@ const viewSpecs: ViewSpec[] = [
   }),
   view({ id: "queue", name: "Queue", type: "queue.v1" }),
   view({ id: "clock", name: "Clock" }),
-  view({ id: "ambient", name: "Ambient clock" }),
+  {
+    ...view({ id: "ambient", name: "Ambient clock" }),
+    inputs: [optionalWeatherInput],
+  },
   view({
     id: "weather",
     name: "Weather",
     type: "weather.v1",
   }),
-  view({
-    id: "calendar",
-    name: "Agenda",
-    type: "agenda.v1",
-  }),
+  {
+    ...view({ id: "calendar", name: "Agenda" }),
+    inputs: [
+      {
+        key: "data",
+        label: "Data",
+        type: "agenda.v1",
+        isRequired: true,
+      },
+      optionalWeatherInput,
+    ],
+  },
   {
     ...view({
       id: "photo-frame",
