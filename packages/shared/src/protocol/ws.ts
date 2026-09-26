@@ -117,6 +117,8 @@ export type BrowserDeviceProfile = {
   externalViews: readonly {
     name: string
     url: string
+    /** Page zoom applied to the frame; absent means 1. */
+    zoom?: number
   }[]
   /** Every view this panel is configured to offer. */
   views: readonly {

@@ -72,6 +72,11 @@ test("reads deployment-configured external browser views", () => {
             name: "Disc App",
             url: "https://example.com/kiosk",
           },
+          {
+            name: "Spool App",
+            url: "https://example.com/spools",
+            zoom: 1.5,
+          },
         ],
       },
     ]),
@@ -82,7 +87,36 @@ test("reads deployment-configured external browser views", () => {
       name: "Disc App",
       url: "https://example.com/kiosk",
     },
+    {
+      name: "Spool App",
+      url: "https://example.com/spools",
+      zoom: 1.5,
+    },
   ])
+})
+
+test("rejects an external view zoom outside 0.5 to 4", () => {
+  expect(() =>
+    loadConfig({
+      INKCAST_DEVICES_FILE: writeDevicesFile([
+        {
+          renderer: "browser",
+          id: "workbench",
+          label: "Workbench Display",
+          mac: "02:00:00:00:00:10",
+          width: 480,
+          height: 320,
+          externalViews: [
+            {
+              name: "Spool App",
+              url: "https://example.com/spools",
+              zoom: 10,
+            },
+          ],
+        },
+      ]),
+    }),
+  ).toThrow()
 })
 
 test("reads a browser display's ordered view list and local drawer choice", () => {

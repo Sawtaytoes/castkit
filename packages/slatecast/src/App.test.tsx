@@ -77,6 +77,27 @@ describe("view switching", () => {
       "true",
     )
   })
+
+  test("zooms a configured external application", async () => {
+    await mountSlatecast({
+      snapshot: buildSnapshot({
+        view: "external-view:0",
+        device: buildDeviceProfile({
+          externalViews: [
+            {
+              name: "Disc App",
+              url: "https://example.com/kiosk",
+              zoom: 1.5,
+            },
+          ],
+        }),
+      }),
+    })
+
+    expect(
+      getComputedStyle(screen.getByTitle("Disc App")).zoom,
+    ).toBe("1.5")
+  })
 })
 
 describe("device settings", () => {
