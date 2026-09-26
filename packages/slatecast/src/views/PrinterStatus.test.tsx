@@ -111,6 +111,27 @@ describe("the printer cards", () => {
     )
   })
 
+  test("keeps the Filament row before the printer has chosen a tray", async () => {
+    await mountPrinterStatus([
+      buildPrinterJob({
+        state: "preparing",
+        filamentText: undefined,
+        filamentColor: undefined,
+      }),
+    ])
+
+    const filament = cards()[0]?.querySelector(
+      ".printer-metric.is-filament",
+    )
+
+    expect(filament?.classList.contains("is-pending")).toBe(
+      true,
+    )
+    expect(
+      screen.getByText("Chosen when the print starts"),
+    ).toBeVisible()
+  })
+
   test("a paused printer offers Resume and stops quoting a finish time", async () => {
     await mountPrinterStatus([
       buildPrinterJob({ state: "paused" }),
@@ -165,8 +186,8 @@ describe("the printer cards", () => {
         ?.textContent,
     ).toBe("2h 08m left41%")
 
-    // The time left is not also a metric. The row is Layer and Finishes, plus
-    // Filament when the printer reported one.
+    // The time left is not also a metric. The row is Layer, Finishes and
+    // Filament.
     expect(
       [
         ...(card?.querySelectorAll(".printer-metric dt") ??

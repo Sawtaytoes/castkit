@@ -165,3 +165,23 @@ export const FinishesTomorrow: Story = {
   ]),
   name: "A print that finishes tomorrow",
 }
+
+/**
+ * A job that has not started names no tray yet. Its Filament row still draws,
+ * as a placeholder, so the card stays as tall as the running ones beside it.
+ */
+export const PreparingBesideRunning: Story = {
+  ...workbenchVariant([
+    buildPrinterJob({
+      state: "preparing",
+      percent: 0,
+      currentLayer: 0,
+      filamentText: undefined,
+      filamentColor: undefined,
+      thumbnailPath: PLATE_PHOTO,
+    }),
+    THREE_PRINTERS[1] as PrinterJob,
+    THREE_PRINTERS[2] as PrinterJob,
+  ]),
+  name: "Preparing beside running printers",
+}

@@ -73,6 +73,11 @@ job with no layer count still shows its percentage.
 ⚠️ **`{ "printers": [] }` is a real answer and the one that clears the glass.**
 Publishing nothing leaves the last job on the panel forever.
 
+The **Filament** row is always drawn. A print always runs from a tray, but
+Home Assistant reports `active_tray` only once the print starts, so a preparing
+job has none. Dropping the row made that card shorter than its neighbors; it
+shows a dashed empty swatch and `Chosen when the print starts` instead.
+
 Two conveniences for an HA template. `finishAt` takes epoch milliseconds or an
 ISO timestamp, and is optional — CastKit computes the finish from
 `remainingMinutes` when it is absent. Every text field treats `""`, `unknown`,
