@@ -335,12 +335,24 @@ at repo-root `assets/sample-photos/` (served at `/sample-photos/`); verify a
 license at source before adding one — see `assets/sample-photos/CREDITS.md`.
 
 Testing conventions (inherited from the mux-magic family, enforced here):
-`test()` never `it()`; **no snapshot or screenshot/VRT tests** — spell expected
-values inline; prefer `.toBeVisible()` over `.toBeInTheDocument()`; drive
+`test()` never `it()`; **no snapshot or screenshot ASSERTIONS in a unit test** —
+spell expected values inline; prefer `.toBeVisible()` over `.toBeInTheDocument()`; drive
 interactions with `@testing-library/user-event`. Tests are colocated
 (`foo.ts` → `foo.test.ts`); fixtures in `__fixtures__/`, harness in
 `__tests__/setup/`. `.spec.ts` is Playwright-only. Don't add jsdom — see
 [the decision](docs/decisions/2026-07-24-slatecast-tests-real-chromium-msw-websocket.md).
+
+**Pictures are the `vrt` check's job, not a test's.** CI's `vrt` job
+(Charcuterie's `shared-vrt.yml`) shoots every story of both Storybooks plus the
+`*.vrt.tsx` files, which run only under `yarn vrt:capture`
+(`packages/slatecast/vitest.vrt.config.ts`) and write PNGs into
+`VRT_ACTUAL_DIR`; reg-suit compares them against the baseline. A change to what a
+panel shows turns `vrt` red on purpose — diagnose it in that pull request and
+embed the before/after, never re-run it into green. A new story is a new shot, so
+it must pin its clock and data like the rest. The Storybook clock is frozen only
+under automation (`src/stories/freezeClockUnderAutomation.ts`) and the capture
+reads the runner's `TZ=America/Chicago`
+([decision](docs/decisions/2026-09-25-castkit-runs-vrt-from-both-storybooks-and-the-short-panel-faces.md)).
 
 Commit small and often; conventional commits; one logical change per commit.
 

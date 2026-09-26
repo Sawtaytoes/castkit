@@ -1,6 +1,11 @@
 import type { Preview } from "@storybook/preact-vite"
 import { BROWSER_DEVICE_PROFILES } from "../src/stories/deviceProfiles.ts"
+import { freezeClockUnderAutomation } from "../src/stories/freezeClockUnderAutomation.ts"
 import "../src/styles.css"
+
+// Before any story module loads: the fixtures read the clock at import time.
+// A no-op for a person; see the function for why the capture needs it.
+freezeClockUnderAutomation()
 
 /**
  * Every panel CastKit drives, offered in the toolbar's viewport list.

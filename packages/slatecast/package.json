@@ -10,6 +10,7 @@
     "storybook": "storybook dev -p 6007 --no-open",
     "build-storybook": "storybook build",
     "test": "vitest",
+    "vrt:capture": "vitest run --config vitest.vrt.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -16,6 +16,7 @@
     "src/**/*",
     "vite.config.ts",
     "vitest.config.ts",
+    "vitest.vrt.config.ts",
     "vitest.setup.ts",
     ".storybook/**/*"
   ]
