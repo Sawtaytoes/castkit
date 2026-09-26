@@ -256,22 +256,40 @@ const PrinterCard = ({
               </span>
             </dd>
           </div>
-          {job.filamentText ? (
-            <div class="printer-metric is-filament">
-              <dt>Filament</dt>
-              <dd>
-                {job.filamentColor ? (
-                  <span
-                    class="printer-swatch"
-                    style={{
-                      background: job.filamentColor,
-                    }}
-                  />
-                ) : null}
-                <span>{job.filamentText}</span>
-              </dd>
-            </div>
-          ) : null}
+          {/*
+           * Always drawn. An active job always prints from a tray, but the
+           * printer names it only once the print starts; dropping the row
+           * until then made a preparing card shorter than its neighbors.
+           */}
+          <div
+            class={
+              job.filamentText
+                ? "printer-metric is-filament"
+                : "printer-metric is-filament is-pending"
+            }
+          >
+            <dt>Filament</dt>
+            <dd>
+              {job.filamentText ? (
+                <>
+                  {job.filamentColor ? (
+                    <span
+                      class="printer-swatch"
+                      style={{
+                        background: job.filamentColor,
+                      }}
+                    />
+                  ) : null}
+                  <span>{job.filamentText}</span>
+                </>
+              ) : (
+                <>
+                  <span class="printer-swatch is-pending" />
+                  <span>Chosen when the print starts</span>
+                </>
+              )}
+            </dd>
+          </div>
         </dl>
       </div>
     </article>

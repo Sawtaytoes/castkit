@@ -2084,6 +2084,16 @@ html[data-grayscale-text="true"] {
   border-radius: 4px;
 }
 
+/* No tray chosen yet: an empty outlined swatch and muted words. */
+.printer-metric.is-pending dd {
+  color: var(--color-content-muted);
+}
+
+.printer-swatch.is-pending {
+  border-style: dashed;
+  background: transparent;
+}
+
 /*
  * ONE printer has room to spare, so the picture goes BESIDE the facts rather
  * than above them and the type grows. The facts stay a column either way; a
