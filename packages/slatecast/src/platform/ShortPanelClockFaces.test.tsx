@@ -127,3 +127,27 @@ test("the calendar panel draws the one-row header with weather over the agenda",
   expect(screen.getByText("Swimming lessons")).toBeVisible()
   expect(screen.getByText("63°")).toBeVisible()
 })
+
+test("a physical display draws a single clock view edge to edge", async () => {
+  await page.viewport(SHORT_PANEL.width, SHORT_PANEL.height)
+  render(
+    <main class="platform" data-device="true">
+      <DisplayComposition
+        snapshot={snapshotFor({
+          specId: "ambient",
+          bindings: { weather: weatherChannel.id },
+        })}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  const panel = document.querySelector(
+    ".platform-panel",
+  ) as HTMLElement
+  const bounds = panel.getBoundingClientRect()
+  expect(bounds.left).toBe(0)
+  expect(bounds.top).toBe(0)
+  expect(bounds.width).toBe(SHORT_PANEL.width)
+  expect(getComputedStyle(panel).borderTopWidth).toBe("0px")
+})
