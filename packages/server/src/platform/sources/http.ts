@@ -40,6 +40,7 @@ export const sourceRequest = async ({
   body,
   headers = {},
   timeoutMilliseconds = 10000,
+  isStream = false,
 }: {
   context: SourceContext
   path: string
@@ -47,36 +48,53 @@ export const sourceRequest = async ({
   body?: unknown
   headers?: Record<string, string>
   timeoutMilliseconds?: number
+  isStream?: boolean
 }) => {
-  const response = await context.fetch(
-    sourceUrl({
-      baseUrl: context.source.settings.url,
-      path,
-    }),
-    {
-      method,
-      headers: {
-        ...headers,
+  // A stream needs a deadline for its first response, but the deadline must
+  // stop once headers arrive or it cuts off a healthy camera mid-view.
+  const connectController = isStream
+    ? new AbortController()
+    : undefined
+  const connectTimer = connectController
+    ? setTimeout(
+        () => connectController.abort(),
+        timeoutMilliseconds,
+      )
+    : undefined
+  try {
+    const response = await context.fetch(
+      sourceUrl({
+        baseUrl: context.source.settings.url,
+        path,
+      }),
+      {
+        method,
+        headers: {
+          ...headers,
+          ...(body === undefined
+            ? {}
+            : { "Content-Type": "application/json" }),
+        },
         ...(body === undefined
           ? {}
-          : { "Content-Type": "application/json" }),
+          : { body: JSON.stringify(body) }),
+        signal: AbortSignal.any([
+          context.signal,
+          connectController?.signal ??
+            AbortSignal.timeout(timeoutMilliseconds),
+        ]),
+        redirect: "error",
       },
-      ...(body === undefined
-        ? {}
-        : { body: JSON.stringify(body) }),
-      signal: AbortSignal.any([
-        context.signal,
-        AbortSignal.timeout(timeoutMilliseconds),
-      ]),
-      redirect: "error",
-    },
-  )
-  if (!response.ok) {
-    throw new Error(
-      `The source returned HTTP ${response.status}.`,
     )
+    if (!response.ok) {
+      throw new Error(
+        `The source returned HTTP ${response.status}.`,
+      )
+    }
+    return response
+  } finally {
+    if (connectTimer) clearTimeout(connectTimer)
   }
-  return response
 }
 /** Non-overlapping source polling with bounded intervals and disposal. */
 export const pollingSource = ({

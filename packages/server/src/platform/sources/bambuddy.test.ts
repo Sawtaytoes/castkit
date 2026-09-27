@@ -28,6 +28,9 @@ test("Bambuddy printer normalization matches the printer contract and ignores id
     remainingMinutes: 5,
     thumbnailPath:
       "/api/platform/channels/printers/media/2?kind=cover",
+    cameraPath:
+      "/api/platform/channels/printers/media/2?kind=stream",
+    cameraIsLive: true,
   })
   expect(
     normalizeBambuddyPrinter({
@@ -88,6 +91,14 @@ test("Bambuddy controls and media only address configured printer IDs", async ()
   })
   expect(fetchRequest.mock.calls.at(-1)?.[0]).toBe(
     "https://service.example/api/v1/printers/2/print/pause",
+  )
+  await adapter.getMedia?.({
+    channelId: "printers",
+    assetId: "2",
+    kind: "stream",
+  })
+  expect(fetchRequest.mock.calls.at(-1)?.[0]).toBe(
+    "https://service.example/api/v1/printers/2/camera/stream?token=fixture-token",
   )
   await adapter.getMedia?.({
     channelId: "printers",

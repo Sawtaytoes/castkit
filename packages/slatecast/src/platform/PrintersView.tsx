@@ -94,7 +94,9 @@ export const PrintersView = ({
               <CameraImage
                 url={imageUrl}
                 name={printer.name}
-                isLive={camera?.isLive}
+                isLive={
+                  camera?.isLive ?? printer.cameraIsLive
+                }
                 className="platform-printer-image"
               />
             ) : imageUrl ? (

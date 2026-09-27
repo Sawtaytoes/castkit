@@ -1278,6 +1278,9 @@ const sendMedia = async ({
         "content-type": contentType,
         "cache-control": "private, no-store",
         "x-content-type-options": "nosniff",
+        ...(/^multipart\/x-mixed-replace/i.test(contentType)
+          ? { "x-accel-buffering": "no" }
+          : {}),
       },
     })
   } catch {

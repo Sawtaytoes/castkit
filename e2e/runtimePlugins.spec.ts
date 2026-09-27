@@ -165,7 +165,7 @@ test("installs and replaces browser packages on a live display without a build o
     expect(created.ok(), await created.text()).toBe(true)
     await page.goto(`${origin}/view/runtime-display`)
     await expect(
-      page.locator(".platform-clock"),
+      page.getByRole("region", { name: "clock" }),
     ).toBeVisible()
     const loadedAt = await page.evaluate(
       () => performance.timeOrigin,
