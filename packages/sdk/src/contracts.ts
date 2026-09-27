@@ -115,6 +115,7 @@ const printer = z.object({
   finishAtMs: finiteNumber.optional(),
   thumbnailPath: safeUrl.optional(),
   cameraPath: safeUrl.optional(),
+  cameraIsLive: z.boolean().optional(),
   filamentText: z.string().optional(),
   filamentColor: z.string().optional(),
   nozzleText: z.string().optional(),

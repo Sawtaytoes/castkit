@@ -25,6 +25,14 @@ export const CameraImage = ({
     )
     return () => clearInterval(timer)
   }, [url, isLive])
+  useEffect(() => {
+    if (!isLive || !hasFailed) return
+    const timer = setTimeout(() => {
+      setFrame((current) => current + 1)
+      setHasFailed(false)
+    }, 5_000)
+    return () => clearTimeout(timer)
+  }, [url, isLive, hasFailed])
   const source = safeMediaUrl(url)
   const refreshed =
     source && frame > 0

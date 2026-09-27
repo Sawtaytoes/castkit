@@ -89,8 +89,9 @@ export const normalizeBambuddyPrinter = ({
     cameraPath: mediaUrl({
       channelId,
       printerId: id,
-      kind: "camera",
+      kind: "stream",
     }),
+    cameraIsLive: true,
     ...(problems.length
       ? {
           problemText: `Printer reports: ${problems.join(", ")}`,
@@ -226,9 +227,9 @@ export const createBambuddySource: SourceFactory = (
                 url: mediaUrl({
                   channelId: channel.id,
                   printerId: String(printer.id),
-                  kind: "camera",
+                  kind: "stream",
                 }),
-                isLive: false,
+                isLive: true,
               })),
           },
         })
@@ -293,7 +294,7 @@ export const createBambuddySource: SourceFactory = (
     getMedia: async ({ channelId, assetId, kind }) => {
       if (
         !selectedIds(channelId).includes(assetId) ||
-        !["camera", "cover"].includes(kind ?? "")
+        !["camera", "stream", "cover"].includes(kind ?? "")
       ) {
         throw new Error(
           "This media is not part of the selected printers.",
@@ -308,9 +309,12 @@ export const createBambuddySource: SourceFactory = (
       return sourceRequest({
         context,
         headers,
-        path: `/api/v1/printers/${encodeURIComponent(assetId)}/${kind === "camera" ? "camera/snapshot" : "cover"}?token=${token}`,
+        path: `/api/v1/printers/${encodeURIComponent(assetId)}/${kind === "stream" ? "camera/stream" : kind === "camera" ? "camera/snapshot" : "cover"}?token=${token}`,
         timeoutMilliseconds:
-          kind === "camera" ? 20000 : 10000,
+          kind === "camera" || kind === "stream"
+            ? 20000
+            : 10000,
+        isStream: kind === "stream",
       })
     },
   }

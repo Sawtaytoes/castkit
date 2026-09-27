@@ -238,6 +238,37 @@ test("private view grants cover only their snapshot, media, and controls", async
     ).status,
   ).toBe(401)
 })
+test("camera media preserves the MJPEG stream for the browser", async () => {
+  const fixture = await createFixture()
+  vi.spyOn(
+    fixture.platform.runtime,
+    "getMedia",
+  ).mockResolvedValue(
+    new Response("--frame\r\n", {
+      headers: {
+        "content-type":
+          "multipart/x-mixed-replace; boundary=frame",
+      },
+    }),
+  )
+  const cookie = await fixture.unlock(
+    "view",
+    "private",
+    "1357",
+  )
+  const response = await fixture.request({
+    path: "/api/display/view/private/media/images/asset?kind=stream",
+    cookie,
+  })
+  expect(response.status).toBe(200)
+  expect(response.headers.get("content-type")).toBe(
+    "multipart/x-mixed-replace; boundary=frame",
+  )
+  expect(response.headers.get("x-accel-buffering")).toBe(
+    "no",
+  )
+  expect(await response.text()).toBe("--frame\r\n")
+})
 
 test("expiring a grant closes data, media, and actions together", async () => {
   const fixture = await createFixture()

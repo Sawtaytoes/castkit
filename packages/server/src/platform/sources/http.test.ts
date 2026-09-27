@@ -40,3 +40,33 @@ test("an origin escape never sends source credentials", async () => {
   ).rejects.toThrow("configured origin")
   expect(fetchRequest).not.toHaveBeenCalled()
 })
+test("a source stream stays open after its connection deadline", async () => {
+  vi.useFakeTimers()
+  try {
+    let requestSignal: AbortSignal | undefined
+    const context = sourceContext({
+      fetch: vi
+        .fn<typeof fetch>()
+        .mockImplementation(async (_url, init) => {
+          requestSignal = init?.signal ?? undefined
+          return new Response("frame", {
+            headers: {
+              "content-type":
+                "multipart/x-mixed-replace; boundary=frame",
+            },
+          })
+        }),
+    })
+    const response = await sourceRequest({
+      context,
+      path: "/camera/stream",
+      timeoutMilliseconds: 20000,
+      isStream: true,
+    })
+    await vi.advanceTimersByTimeAsync(25000)
+    expect(requestSignal?.aborted).toBe(false)
+    expect(await response.text()).toBe("frame")
+  } finally {
+    vi.useRealTimers()
+  }
+})
