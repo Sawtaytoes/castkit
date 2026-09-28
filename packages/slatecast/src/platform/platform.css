@@ -259,7 +259,13 @@
 .platform-printers .printer-card {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* `min-content`, not 0, as the picture row's floor: the picture's own min
+     is 0 (below), so a card still shrinks it to nothing, but a camera box
+     that carries its "camera unavailable" notice keeps the notice's height
+     and the text does not land on the head. `minmax(auto, 1fr)` does not do
+     this in Chromium; the track stayed 0 (vrt screen-tabs-1280x480,
+     2026-09-28). */
+  grid-template-rows: minmax(min-content, 1fr) auto;
   gap: 12px;
   container: platform-printer-card / inline-size;
 }
