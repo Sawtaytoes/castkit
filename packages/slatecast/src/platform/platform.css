@@ -183,6 +183,10 @@
   gap: 20px;
   flex: 1;
 }
+.platform-printers[data-count="4"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
 .platform-printers .printer-card {
   min-block-size: 0;
   padding: 0;
@@ -195,8 +199,6 @@
   flex: 1 1 0;
   flex-direction: column;
   min-block-size: 0;
-  overflow: hidden;
-  border-radius: 10px;
 }
 .platform-printers .platform-camera {
   display: flex;
@@ -241,7 +243,6 @@
 .platform-printer-image {
   flex: 1 1 0;
   inline-size: 100%;
-  block-size: 100%;
   min-block-size: 0;
   object-fit: contain;
   border-radius: 10px;
@@ -253,6 +254,18 @@
   grid-template-columns: minmax(0, 1fr);
   gap: clamp(8px, 1vw, 16px);
   align-items: stretch;
+}
+.platform-printers[data-count="4"] .platform-printer-image {
+  block-size: 100%;
+  max-block-size: none;
+}
+.platform-printers[data-count="1"]
+  .platform-printer-details,
+.platform-printers[data-count="2"]
+  .platform-printer-details,
+.platform-printers[data-count="3"]
+  .platform-printer-details {
+  display: contents;
 }
 .platform-printer-details[data-has-preview="true"] {
   grid-template-columns: minmax(112px, 18%) minmax(0, 1fr);
@@ -683,9 +696,10 @@
   .platform-printer-image {
     max-block-size: 25vh;
   }
-  .platform-printers .platform-printer-camera {
-    flex: 0 0 25vh;
-    max-block-size: 25vh;
+  .platform-printers[data-count="4"]
+    .platform-printer-camera {
+    flex: 1 1 0;
+    max-block-size: none;
   }
   .platform-printer-details[data-has-preview="true"] {
     grid-template-columns: minmax(80px, 20%) minmax(0, 1fr);

@@ -29,6 +29,8 @@ export const PrintersView = ({
   settings: Record<string, unknown>
 }) => {
   const properties = useDisplayProperties()
+  const printerCount = data.printers.length
+  const hasMediaCards = printerCount >= 4
   const [confirmation, setConfirmation] = useState<{
     id: string
     state: string
@@ -60,7 +62,10 @@ export const PrintersView = ({
     )
   }
   return (
-    <div class="platform-printers">
+    <div
+      class="platform-printers"
+      data-count={String(printerCount)}
+    >
       {data.printers.map((printer) => {
         const camera = cameras?.cameras.find(
           (candidate) => candidate.id === printer.id,
@@ -70,8 +75,12 @@ export const PrintersView = ({
         )
         const isCameraLive =
           camera?.isLive ?? printer.cameraIsLive ?? false
+        const isCameraMode =
+          settings.isCameraVisible !== false &&
+          properties.hasLiveCamera
         const hasCameraUrl = cameraUrl !== undefined
         const isCameraAvailable =
+          isCameraMode &&
           hasCameraUrl &&
           (properties.hasLiveCamera || !isCameraLive)
         const printPreviewUrl = safeMediaUrl(
@@ -94,7 +103,7 @@ export const PrintersView = ({
               expandedId === printer.id,
             )}
           >
-            {settings.isCameraVisible !== false ? (
+            {isCameraMode ? (
               <div class="platform-printer-camera">
                 {isCameraAvailable && cameraUrl ? (
                   properties.hasLiveCamera ? (
@@ -134,11 +143,26 @@ export const PrintersView = ({
                 ) : null}
               </div>
             ) : null}
+            {!isCameraMode &&
+            !hasMediaCards &&
+            printPreviewUrl ? (
+              <img
+                class="platform-printer-image"
+                src={printPreviewUrl}
+                alt={`${printer.name} print preview`}
+              />
+            ) : null}
             <div
               class="platform-printer-details"
-              data-has-preview={String(hasPrintPreview)}
+              data-has-preview={String(
+                hasMediaCards &&
+                  !isCameraMode &&
+                  hasPrintPreview,
+              )}
             >
-              {printPreviewUrl ? (
+              {hasMediaCards &&
+              !isCameraMode &&
+              printPreviewUrl ? (
                 <div class="platform-printer-preview">
                   <span>Print preview</span>
                   <img
