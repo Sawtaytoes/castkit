@@ -34,7 +34,7 @@ import {
  * A FINISHED or FAILED job stays on the glass until somebody clears the plate.
  * The whole card takes the state's color, the band reads the end rather than
  * the time left, the metrics and the Pause/Stop pair go, and a full-width
- * `Clear plate` button takes their place with the andon reminder under it.
+ * `Clear plate` button takes their place, with nothing under it.
  * The card leaves when the next `printers` push no longer carries the job —
  * the same way a stopped print leaves today. See
  * docs/decisions/2026-09-28-a-finished-print-stays-on-the-glass-until-the-plate-is-cleared.md.
@@ -299,9 +299,11 @@ const PrinterCard = ({
         </div>
         {isSettled ? (
           <>
-            {/* One tap, no question. Clearing a plate is what the printer's
-                own andon button does with one press, and a print that has
-                already stopped cannot be lost by it. The pending label is
+            {/* One tap, no question: a print that has already stopped cannot
+                be lost by it. Nothing under the button either — a sentence
+                pointing at other hardware is noise to someone already reading
+                the button (the owner's words, 2026-09-28), and that hardware
+                is one household's, not every panel's. The pending label is
                 the only feedback until the job leaves the payload. */}
             <button
               type="button"
@@ -314,9 +316,6 @@ const PrinterCard = ({
                 ? PENDING_LABELS.clear
                 : "Clear plate"}
             </button>
-            <p class="printer-clear-hint">
-              Or press the andon button on the printer.
-            </p>
           </>
         ) : (
           <>
