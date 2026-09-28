@@ -331,12 +331,19 @@ export const attachPlatformRoutes = ({
         },
         429,
       )
-    if (
-      !verifyPin({
+    /*
+     * The management PIN opens every locked display. A screen or view can
+     * carry no PIN of its own (a record edited outside the admin form, or a
+     * rename that dropped its hash) and would otherwise be locked for good,
+     * and the person who knows the management PIN is the one who set the
+     * display's PIN in the first place.
+     */
+    const isAccepted =
+      verifyPin({
         pin,
         hash: store.get().pinHashes[`${kind}:${id}`],
-      })
-    )
+      }) || verifyPin({ pin, hash: store.get().adminHash })
+    if (!isAccepted)
       return context.json({ error: "Incorrect PIN" }, 401)
     access.issue({
       context,
