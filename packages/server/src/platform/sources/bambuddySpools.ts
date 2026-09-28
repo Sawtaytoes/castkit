@@ -20,6 +20,10 @@ const getIsReadableTag = (value: unknown) =>
   typeof value === "string" &&
   value.length > 0 &&
   !/^0+$/.test(value)
+/** Remove a numeric prefix that exists only to order Bambuddy's printer list. */
+export const normalizeBambuddyPrinterName = (
+  value: unknown,
+) => textValue(value).replace(/^\s*\d+\s*[-–·:]\s*/, "")
 const hexColor = (value: unknown) => {
   const text = textValue(value).replace(/^#/, "")
   return hexColorPattern.test(text) ? text : undefined
@@ -178,17 +182,17 @@ export const normalizeBambuddySpool = ({
   }
 }
 /**
- * One AMS tray from Bambuddy's printer status. A readable tag is `read`; a
- * spool the AMS senses but cannot read is `untagged` — Bambuddy signals that
- * three ways (a `tray_type`, the firmware's `exists` bit, or tray state 10/11
- * "spool present") — and anything else is `empty`.
+ * One AMS tray from Bambuddy's printer status. A readable tag or an exact
+ * inventory assignment is `read`; a spool Bambuddy senses but cannot identify
+ * is `untagged` — it signals presence through a `tray_type`, the firmware's
+ * `exists` bit, or tray state 10/11 — and anything else is `empty`.
  */
 export const normalizeBambuddyTray = ({
   data,
-  spoolId,
+  spool,
 }: {
   data: unknown
-  spoolId?: string
+  spool?: Spool
 }): AmsTray | undefined => {
   const tray = record(data)
   const id = finiteNumber(tray.id)
@@ -202,26 +206,42 @@ export const normalizeBambuddyTray = ({
     tray.exists === true ||
     trayState === 10 ||
     trayState === 11
-  const state = getIsReadableTag(tray.tag_uid)
-    ? "read"
-    : hasSpool
-      ? "untagged"
-      : "empty"
-  const remainPercent = finiteNumber(tray.remain)
+  const hasReadableTag = getIsReadableTag(tray.tag_uid)
+  const assignedSpool = hasSpool ? spool : undefined
+  const state = !hasSpool
+    ? "empty"
+    : hasReadableTag || assignedSpool
+      ? "read"
+      : "untagged"
+  const reportedRemainPercent = finiteNumber(tray.remain)
+  const inventoryRemainPercent =
+    assignedSpool && assignedSpool.labelWeightGrams > 0
+      ? (assignedSpool.remainingGrams /
+          assignedSpool.labelWeightGrams) *
+        100
+      : undefined
+  const remainPercent = hasReadableTag
+    ? reportedRemainPercent
+    : (inventoryRemainPercent ?? reportedRemainPercent)
+  const spoolMaterial = assignedSpool?.material ?? material
+  const spoolSubtype =
+    assignedSpool?.subtype ??
+    optionalText(tray.tray_sub_brands)
+  const spoolRgba =
+    assignedSpool?.rgba ?? hexColor(tray.tray_color)
   return {
     id,
     state,
-    ...(material ? { material } : {}),
-    ...(optionalText(tray.tray_sub_brands)
-      ? { subtype: optionalText(tray.tray_sub_brands) }
+    ...(spoolMaterial ? { material: spoolMaterial } : {}),
+    ...(spoolSubtype ? { subtype: spoolSubtype } : {}),
+    ...(assignedSpool?.colorName
+      ? { colorName: assignedSpool.colorName }
       : {}),
-    ...(hexColor(tray.tray_color)
-      ? { rgba: hexColor(tray.tray_color) }
-      : {}),
+    ...(spoolRgba ? { rgba: spoolRgba } : {}),
     ...(remainPercent !== undefined && remainPercent >= 0
       ? { remainPercent: Math.min(100, remainPercent) }
       : {}),
-    ...(spoolId ? { spoolId } : {}),
+    ...(assignedSpool ? { spoolId: assignedSpool.id } : {}),
   }
 }
 /**
@@ -233,21 +253,26 @@ export const normalizeBambuddyTray = ({
 export const normalizeBambuddySpoolsPrinter = ({
   data,
   assignments = [],
+  spools = [],
 }: {
   data: unknown
   assignments?: BambuddyAssignment[]
+  spools?: readonly Spool[]
 }): SpoolsPrinter | undefined => {
   const status = record(data)
   if (status.id === undefined) {
     return undefined
   }
   const id = String(status.id)
-  const spoolIdByTray = new Map(
+  const spoolById = new Map(
+    spools.map((spool) => [spool.id, spool]),
+  )
+  const spoolByTray = new Map(
     assignments
       .filter((assignment) => assignment.printerId === id)
       .map((assignment) => [
         trayKey(assignment),
-        assignment.spoolId,
+        spoolById.get(assignment.spoolId),
       ]),
   )
   const ams = (Array.isArray(status.ams) ? status.ams : [])
@@ -278,7 +303,7 @@ export const normalizeBambuddySpoolsPrinter = ({
               data: tray,
               ...(trayId !== undefined
                 ? {
-                    spoolId: spoolIdByTray.get(
+                    spool: spoolByTray.get(
                       trayKey({
                         printerId: id,
                         amsId,
@@ -295,7 +320,7 @@ export const normalizeBambuddySpoolsPrinter = ({
     })
   return {
     id,
-    name: textValue(status.name),
+    name: normalizeBambuddyPrinterName(status.name),
     isOnline: status.connected === true,
     ams,
   }

@@ -30,10 +30,21 @@ const assignments = normalizeBambuddyAssignments([
 ])
 
 test("a Bambuddy status becomes AMS trays in all three states with assignments joined on", () => {
+  const assignedSpool = normalizeBambuddySpool({
+    data: {
+      id: 7,
+      material: "PLA",
+      subtype: "Matte",
+      color_name: "Ash Gray",
+      rgba: "858585FF",
+      label_weight: 1000,
+      weight_used: 320,
+    },
+  })
   const printer = normalizeBambuddySpoolsPrinter({
     data: {
       id: 2,
-      name: "Printer",
+      name: "2 - Printer",
       connected: true,
       ams: [
         {
@@ -76,6 +87,7 @@ test("a Bambuddy status becomes AMS trays in all three states with assignments j
       ],
     },
     assignments,
+    spools: assignedSpool ? [assignedSpool] : [],
   })
   expect(printer).toEqual({
     id: "2",
@@ -98,9 +110,12 @@ test("a Bambuddy status becomes AMS trays in all three states with assignments j
           },
           {
             id: 1,
-            state: "untagged",
-            material: "PETG",
-            rgba: "00FF00FF",
+            state: "read",
+            material: "PLA",
+            subtype: "Matte",
+            colorName: "Ash Gray",
+            rgba: "858585FF",
+            remainPercent: 68,
             spoolId: "7",
           },
           { id: 2, state: "empty" },

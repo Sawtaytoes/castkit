@@ -252,9 +252,10 @@ const spool = z.object({
     .optional(),
 })
 /**
- * One AMS tray. `read` is a spool whose tag the AMS decoded; `untagged` is a
- * spool the AMS can see but cannot read (a third-party spool with no Bambu
- * tag), which is not the same thing as `empty`, a slot with nothing in it.
+ * One AMS tray. `read` is a spool the source identified from either the AMS
+ * tag or its inventory assignment; `untagged` is a spool the AMS can see but
+ * the source cannot identify, which is not the same thing as `empty`, a slot
+ * with nothing in it.
  */
 const amsTray = z.object({
   id: finiteNumber,

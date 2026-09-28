@@ -482,7 +482,16 @@ test("Bambuddy publishes a spools snapshot with the inventory joined onto the AM
             id: 0,
             trays: [
               { id: 0, state: "empty" },
-              { id: 1, state: "untagged", spoolId: "7" },
+              {
+                id: 1,
+                state: "read",
+                material: "PLA",
+                subtype: "Basic",
+                colorName: "Jade White",
+                rgba: "FFFFFFFF",
+                remainPercent: 68,
+                spoolId: "7",
+              },
             ],
           },
         ],
