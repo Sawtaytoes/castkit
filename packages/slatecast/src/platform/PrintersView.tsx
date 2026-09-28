@@ -80,7 +80,7 @@ export const PrintersView = ({
   }
   return (
     <div class="platform-printers">
-      {data.printers.map((printer) => {
+      {data.printers.map((printer, index) => {
         const camera = cameras?.cameras.find(
           (candidate) => candidate.id === printer.id,
         )
@@ -127,7 +127,26 @@ export const PrintersView = ({
             ) : null}
             <div class="printer-body">
               <div class="printer-head">
-                <h2 class="printer-name">{printer.name}</h2>
+                {/* The same badge and name block as the device view: the
+                    badge counts the columns, and the name is the printer's
+                    own (the Bambuddy source strips its "1 - " ordering
+                    prefix). */}
+                <div
+                  class="printer-index"
+                  aria-hidden="true"
+                >
+                  {index + 1}
+                </div>
+                <div class="printer-names">
+                  <h2 class="printer-name">
+                    {printer.name}
+                  </h2>
+                  {printer.nozzleText ? (
+                    <div class="printer-meta">
+                      {printer.nozzleText}
+                    </div>
+                  ) : null}
+                </div>
                 <span class="printer-state">
                   {printer.state}
                 </span>
