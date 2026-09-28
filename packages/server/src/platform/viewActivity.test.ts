@@ -145,3 +145,26 @@ test("a view's activity is keyed by panel, and the view is active when any panel
     }),
   ).toBe(false)
 })
+
+test("a view with no panel that can be idle has no activity answer, so its tab draws no dot", () => {
+  const channels = {
+    photos: channel("images.v1", { images: [] }),
+  }
+  expect(
+    isViewActive({
+      view: view([
+        { id: "photo-frame", channelId: "photos" },
+        { id: "clock" },
+      ]),
+      channels,
+    }),
+  ).toBeUndefined()
+  expect(
+    getPanelActivity({
+      view: view([
+        { id: "photo-frame", channelId: "photos" },
+      ]),
+      channels,
+    }),
+  ).toEqual({})
+})
