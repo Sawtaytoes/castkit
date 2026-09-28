@@ -1786,19 +1786,22 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * The head is the badge, the name and the state chip on one line. The buttons
- * used to share it and wrapped under the name at three columns; they are at
- * the foot of the card now, a fingertip tall, so the head no longer wraps.
+ * The head is the badge, the name and the state chip. The buttons used to
+ * share it and wrapped under the name at three columns; they are at the foot
+ * of the card now, a fingertip tall. The head still wraps, because a 480 px
+ * panel at three columns gives a card about 110 px, where the chip has to
+ * drop under the name rather than sit on the subtitle.
  */
 .printer-head {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   gap: 8px 10px;
   align-items: center;
 }
 
 .printer-names {
-  flex: 1 1 0;
+  flex: 1 1 150px;
 }
 
 .printer-index {
@@ -1828,9 +1831,12 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-meta {
+  overflow: hidden;
   margin-top: 1px;
   color: var(--color-content-muted);
   font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /*
