@@ -192,6 +192,33 @@ const bambuddyPrinterFilaments = (
     ]
   })
 
+  // Bambuddy leaves `ams_mapping` empty on a live X1C status (measured
+  // 2026-09-28 on three running printers), so the per-slot list here comes
+  // from the print's archive record instead: `extra_data.filament_slots`
+  // carries each filament's type, color and grams. The poll attaches that
+  // list to the status as `archive_filament_slots`. An archive slot is the
+  // 3MF filament index, not an AMS tray, so its location names the slot.
+  if (filaments.length === 0) {
+    const archiveSlots = Array.isArray(
+      status.archive_filament_slots,
+    )
+      ? status.archive_filament_slots.map(record)
+      : []
+    archiveSlots.forEach((slot) => {
+      const slotId = finiteNumber(slot.slot_id)
+      const name = textValue(slot.type) || undefined
+      const color = bambuddyFilamentColor(slot.color)
+      const grams = finiteNumber(slot.used_g)
+      if (slotId === undefined && !name && !color) return
+      filaments.push({
+        globalId: 1000 + (slotId ?? filaments.length + 1),
+        ...(name ? { name } : {}),
+        ...(color ? { color } : {}),
+        location: `Filament ${slotId ?? filaments.length + 1}${grams !== undefined ? ` · ${grams.toFixed(grams < 10 ? 1 : 0)} g` : ""}`,
+      })
+    })
+  }
+
   if (finiteNumber(status.tray_now) === 254) {
     const external = Array.isArray(status.vt_tray)
       ? status.vt_tray.map(record)[0]
@@ -324,6 +351,8 @@ export const createBambuddySource: SourceFactory = (
     statusById: new Map<string, unknown>(),
     spools: [] as Record<string, unknown>[],
     assignments: [] as BambuddyAssignment[],
+    /** Per-slot filament lists by archive id; an archive never changes. */
+    archiveSlotsById: new Map<string, unknown[]>(),
     reader: initialSpoolReaderState(),
     inventoryRefresh: undefined as
       | Promise<void>
@@ -539,6 +568,44 @@ export const createBambuddySource: SourceFactory = (
             ).json(),
           ] as const,
       ),
+    )
+    // The live status carries no per-slot filament list (see
+    // bambuddyPrinterFilaments); the print's archive does. Read each
+    // running print's archive once and hang its slots on the status.
+    await Promise.all(
+      statuses.map(async ([, status]) => {
+        const printerStatus = record(status)
+        const archiveId = finiteNumber(
+          printerStatus.current_archive_id,
+        )
+        if (archiveId === undefined) return
+        const key = String(archiveId)
+        if (!state.archiveSlotsById.has(key)) {
+          try {
+            const archive = record(
+              await (
+                await sourceRequest({
+                  context,
+                  headers,
+                  path: `/api/v1/archives/${encodeURIComponent(key)}`,
+                })
+              ).json(),
+            )
+            const slots = record(
+              archive.extra_data,
+            ).filament_slots
+            state.archiveSlotsById.set(
+              key,
+              Array.isArray(slots) ? slots : [],
+            )
+          } catch {
+            // A missing archive costs the detail list, not the card.
+            return
+          }
+        }
+        printerStatus.archive_filament_slots =
+          state.archiveSlotsById.get(key) ?? []
+      }),
     )
     state.statusById = new Map(statuses)
     if (spoolsChannels().length > 0) {
