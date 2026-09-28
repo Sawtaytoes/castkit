@@ -124,6 +124,121 @@ test("Bambuddy printer normalization lists the archive's filament slots when the
   ])
 })
 
+test("Bambuddy printer normalization names each archive slot's color from the loaded spool", () => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    spools: [
+      {
+        id: 10,
+        material: "PLA",
+        subtype: "Basic",
+        color_name: "Mistletoe Green",
+        rgba: "3F8E43FF",
+      },
+      {
+        id: 11,
+        material: "PLA",
+        subtype: "Matte",
+        color_name: "Charcoal",
+        rgba: "000000FF",
+      },
+      {
+        id: 12,
+        material: "PLA",
+        subtype: "Basic",
+        color_name: "Black",
+        rgba: "000000FF",
+      },
+      {
+        id: 13,
+        material: "PETG",
+        subtype: "HF",
+        color_name: "Red",
+        rgba: "E94B3CFF",
+      },
+    ],
+    assignments: [
+      {
+        spoolId: "10",
+        printerId: "3",
+        printerName: "Printer",
+        amsId: 2,
+        trayId: 3,
+      },
+      {
+        spoolId: "11",
+        printerId: "3",
+        printerName: "Printer",
+        amsId: 1,
+        trayId: 2,
+      },
+      {
+        spoolId: "12",
+        printerId: "3",
+        printerName: "Printer",
+        amsId: 1,
+        trayId: 3,
+      },
+      // Loaded in a different printer, so it names nothing here.
+      {
+        spoolId: "13",
+        printerId: "4",
+        printerName: "Other",
+        amsId: 0,
+        trayId: 0,
+      },
+    ],
+    data: {
+      id: 3,
+      name: "Printer",
+      connected: true,
+      state: "RUNNING",
+      progress: 12,
+      ams: [{ id: 0, tray: [] }],
+      ams_mapping: [],
+      archive_filament_slots: [
+        {
+          slot_id: 1,
+          used_g: 21.31,
+          type: "PLA",
+          color: "#3F8E43",
+        },
+        {
+          slot_id: 2,
+          used_g: 0.68,
+          type: "PLA",
+          color: "#000000",
+        },
+        {
+          slot_id: 3,
+          used_g: 1,
+          type: "PLA",
+          color: "#E94B3C",
+        },
+      ],
+    },
+  })
+  expect(printer?.filaments).toEqual([
+    {
+      name: "PLA Basic",
+      color: "#3f8e43",
+      colorName: "Mistletoe Green",
+      location: "Filament 1 · 21 g",
+    },
+    // Two black spools with different names: neither is guessed.
+    {
+      name: "PLA",
+      color: "#000000",
+      location: "Filament 2 · 0.7 g",
+    },
+    {
+      name: "PLA",
+      color: "#e94b3c",
+      location: "Filament 3 · 1.0 g",
+    },
+  ])
+})
+
 test("Bambuddy printer normalization matches the printer contract and ignores idle machines", () => {
   expect(
     normalizeBambuddyPrinter({

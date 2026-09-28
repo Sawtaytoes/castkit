@@ -127,6 +127,7 @@ const printer = z.object({
           .string()
           .regex(/^#[0-9a-fA-F]{6}$/)
           .optional(),
+        colorName: z.string().optional(),
         location: z.string(),
       }),
     )
