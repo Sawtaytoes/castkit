@@ -41,7 +41,7 @@ export const FilamentControl = ({
         {text || (count ? countText : "Filament details")}
       </span>
       <span class="printer-filament-count">
-        {count ? countText : "Details"}
+        {count ? `${countText} · Details ›` : "Details ›"}
       </span>
     </button>
   )
