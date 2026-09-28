@@ -66,6 +66,14 @@ export type ViewDefinition = {
   }
   access: "public" | "pin"
   isControlEnabled: boolean
+  /**
+   * Show only the panels that have something active, and one line when none
+   * has: no rip running, every plate cleared, nothing playing. The server
+   * answers activity per panel from the bound channel's data (see
+   * `viewActivity.ts`); a panel whose contract has no idle state is always
+   * active.
+   */
+  isActiveOnly?: boolean
   sessionMinutes?: number
   hasPin?: boolean
 }

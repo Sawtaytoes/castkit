@@ -1120,3 +1120,24 @@
   opacity: 0.6;
   cursor: default;
 }
+/* The dot on a tab whose view has something going on right now. */
+.platform-view-tab-dot {
+  display: inline-block;
+  inline-size: 8px;
+  block-size: 8px;
+  margin-inline-start: 8px;
+  border-radius: 50%;
+  background: var(--color-intent-success-content);
+  vertical-align: 1px;
+}
+/* An active-only view with nothing to show says so in one line. */
+.platform-nothing-active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.platform-nothing-active p {
+  margin: 0;
+  color: var(--fg-dim);
+  font-size: 20px;
+}

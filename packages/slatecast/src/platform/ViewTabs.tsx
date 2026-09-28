@@ -7,6 +7,12 @@
  * carries more views than fit (the Areas screen has thirty-two), and the
  * active tab is scrolled into view when it changes.
  *
+ * A tab with `isActive` carries a dot: something is going on in that view
+ * right now (a rip, a print, music), so a glance at the tab row answers "is
+ * anything happening" from any tab. The server answers activity; see
+ * `viewActivity.ts` and
+ * docs/decisions/2026-09-28-an-active-only-view-shows-only-what-is-going-on.md.
+ *
  * This replaced a native `<select>` on 2026-09-28. The owner wants a
  * screen's views reachable the way Home Assistant's dashboard views are —
  * tabs at the top, every one visible — and the native select is deprecated
@@ -20,7 +26,7 @@ export const ViewTabs = ({
   activeId,
   isDisabled = false,
 }: {
-  views: { id: string; name: string }[]
+  views: { id: string; name: string; isActive?: boolean }[]
   activeId: string
   isDisabled?: boolean
 }) => {
@@ -51,11 +57,19 @@ export const ViewTabs = ({
             }
             aria-disabled={isDisabled ? "true" : undefined}
             data-castkit-target={`screen:select-view:${view.id}`}
+            data-active={String(view.isActive === true)}
             onClick={(event) => {
               if (isDisabled) event.preventDefault()
             }}
           >
             {view.name}
+            {view.isActive ? (
+              <span
+                class="platform-view-tab-dot"
+                role="img"
+                aria-label="Something is active"
+              />
+            ) : null}
           </a>
         ))}
       </div>

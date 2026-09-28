@@ -182,6 +182,72 @@ export const PrintersThree: Story = {
     </main>
   ),
 }
+/**
+ * The Working screen's first tab: an active-only view. Both the rip deck and
+ * the printer have something going on, so both regions show.
+ */
+export const WorkingNowBothActive: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={{
+          ...storySnapshot,
+          view: {
+            ...storySnapshot.view,
+            name: "Now",
+            isActiveOnly: true,
+          },
+          panelActivity: { printers: true, discs: true },
+        }}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+/**
+ * The same tab with the rip tower off: its region is gone and the printer
+ * takes the width.
+ */
+export const WorkingNowPrinterOnly: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={{
+          ...storySnapshot,
+          view: {
+            ...storySnapshot.view,
+            name: "Now",
+            isActiveOnly: true,
+          },
+          panelActivity: { printers: true, discs: false },
+        }}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+/** Every plate cleared and no rip running: the tab says so in one line. */
+export const WorkingNowNothingActive: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={{
+          ...storySnapshot,
+          view: {
+            ...storySnapshot.view,
+            name: "Now",
+            isActiveOnly: true,
+          },
+          panelActivity: { printers: false, discs: false },
+        }}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
 /** The keypad works without a hardware keyboard. */
 export const Locked: Story = {
   render: () => (

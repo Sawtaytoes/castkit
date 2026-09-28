@@ -26,6 +26,7 @@ import {
   safeMediaUrl,
 } from "./protocol.ts"
 import { RipDeckView } from "./RipDeckView.tsx"
+import { ViewTabs } from "./ViewTabs.tsx"
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -52,6 +53,82 @@ test("composes independent channels and sends an action for the selected panel o
     action: "pause",
     payload: { printerId: "printer-one" },
   })
+})
+
+test("an active-only view hides the idle panel, and says so when none is active", () => {
+  const activeOnly: DisplaySnapshot = {
+    ...compositionFixture,
+    view: {
+      ...compositionFixture.view,
+      isActiveOnly: true,
+    },
+    panelActivity: { printers: true, discs: false },
+  }
+  const { rerender } = render(
+    <DisplayComposition
+      snapshot={activeOnly}
+      isConnected
+      onAction={async () => undefined}
+    />,
+  )
+  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(screen.queryByText("Sample movie")).toBeNull()
+  expect(
+    document
+      .querySelector(".platform-layout")
+      ?.getAttribute("data-layout"),
+  ).toBe("single")
+  rerender(
+    <DisplayComposition
+      snapshot={{
+        ...activeOnly,
+        panelActivity: { printers: false, discs: false },
+      }}
+      isConnected
+      onAction={async () => undefined}
+    />,
+  )
+  expect(screen.queryByText("Printer One")).toBeNull()
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Nothing active",
+  )
+  rerender(
+    <DisplayComposition
+      snapshot={{
+        ...compositionFixture,
+        panelActivity: { printers: false, discs: false },
+      }}
+      isConnected
+      onAction={async () => undefined}
+    />,
+  )
+  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(screen.getByText("Sample movie")).toBeVisible()
+})
+
+test("a tab carries a dot while its view has something active", () => {
+  render(
+    <ViewTabs
+      views={[
+        { id: "now", name: "Now", isActive: true },
+        { id: "photos", name: "Photos" },
+      ]}
+      activeId="photos"
+    />,
+  )
+  const tabs = within(
+    screen.getByRole("navigation", { name: "Views" }),
+  )
+  expect(
+    within(
+      tabs.getByRole("link", { name: /Now/ }),
+    ).getByRole("img", { name: "Something is active" }),
+  ).toBeVisible()
+  expect(
+    within(
+      tabs.getByRole("link", { name: "Photos" }),
+    ).queryByRole("img"),
+  ).toBeNull()
 })
 
 test("stale or failed sources keep their last value and remove controls", () => {
