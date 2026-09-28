@@ -134,6 +134,8 @@ export type PrinterFilamentAssignment = {
   name?: string
   /** Filament color as `#rrggbb`, when the source reports it. */
   color?: string
+  /** The spool's own color name, e.g. "Mistletoe Green", when the source knows it. */
+  colorName?: string
   /** Human-readable AMS and slot, for example `AMS 1, slot 2`. */
   location: string
 }
