@@ -547,9 +547,9 @@ export const stopPrinter = (printerId: string) => {
 }
 
 /**
- * Clear a finished or failed printer's plate. The house makes the same call
- * the printer's own andon button makes, and the card leaves the glass when
- * the next printers push no longer carries the job.
+ * Clear a finished or failed printer's plate. The house makes the clear-plate
+ * call for that printer, and the card leaves the glass when the next printers
+ * push no longer carries the job.
  */
 export const clearPrinterPlate = (printerId: string) => {
   sendCommand({
