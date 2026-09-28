@@ -426,6 +426,9 @@ argument for keying behavior on properties instead of on panel technology.
 
 This file is the rule. The code does not follow all of it.
 
+Views that a panel's size or shape cannot carry are listed in
+[panel limits](panel-limits.md). None of those limits is enforced yet.
+
 1. ~~Every image-mode device is offered all nine view names.~~ **Done
    2026-09-14.** `getViewsForDevice` runs the freshness rule over every view
    and the discovery `select` carries only what the panel can draw. A
