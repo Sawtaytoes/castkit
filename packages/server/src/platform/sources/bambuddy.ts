@@ -131,8 +131,80 @@ const bambuddyFilamentColor = (
     : undefined
 }
 
+/** A Bambuddy inventory spool sitting in one AMS tray of this printer. */
+type LoadedSpool = {
+  amsId: number
+  trayId: number
+  spool: Record<string, unknown>
+}
+
+/** The inventory spools assigned to one printer's trays. */
+const loadedSpoolsFor = ({
+  printerId,
+  spools,
+  assignments,
+}: {
+  printerId: string
+  spools: readonly Record<string, unknown>[]
+  assignments: readonly BambuddyAssignment[]
+}): LoadedSpool[] =>
+  assignments
+    .filter(
+      (assignment) => assignment.printerId === printerId,
+    )
+    .flatMap(({ amsId, trayId, spoolId }) => {
+      const spool = spools.find(
+        (candidate) => String(candidate.id) === spoolId,
+      )
+      return spool ? [{ amsId, trayId, spool }] : []
+    })
+
+/**
+ * The spool's own color name ("Mistletoe Green") for a print slot. An
+ * archive slot names only a material and a hex color, so it is matched to
+ * the loaded spools of that color and material; two loaded spools of the
+ * same color with different names match neither, rather than guess.
+ */
+const spoolColorName = ({
+  loadedSpools,
+  color,
+  material,
+}: {
+  loadedSpools: readonly LoadedSpool[]
+  color: string | undefined
+  material: string | undefined
+}) => {
+  if (!color) {
+    return {}
+  }
+  const matches = loadedSpools.filter(
+    ({ spool }) =>
+      bambuddyFilamentColor(spool.rgba) === color &&
+      (!material ||
+        textValue(spool.material).toLowerCase() ===
+          material.toLowerCase()),
+  )
+  const unique = (values: string[]) => {
+    const distinct = Array.from(
+      new Set(values.filter(Boolean)),
+    )
+    return distinct.length === 1 ? distinct[0] : undefined
+  }
+  const colorName = unique(
+    matches.map(({ spool }) => textValue(spool.color_name)),
+  )
+  const subtype = unique(
+    matches.map(({ spool }) => textValue(spool.subtype)),
+  )
+  return {
+    ...(colorName ? { colorName } : {}),
+    ...(subtype && matches.length ? { subtype } : {}),
+  }
+}
+
 const bambuddyPrinterFilaments = (
   status: Record<string, unknown>,
+  loadedSpools: readonly LoadedSpool[] = [],
 ) => {
   const units = Array.isArray(status.ams)
     ? status.ams.map(record)
@@ -182,11 +254,19 @@ const bambuddyPrinterFilaments = (
       textValue(tray.tray_type) ||
       undefined
     const color = bambuddyFilamentColor(tray.tray_color)
+    const colorName = textValue(
+      loadedSpools.find(
+        (loaded) =>
+          loaded.amsId === amsId &&
+          loaded.trayId === slotId,
+      )?.spool.color_name,
+    )
     return [
       {
         globalId,
         ...(name ? { name } : {}),
         ...(color ? { color } : {}),
+        ...(colorName ? { colorName } : {}),
         location: `${amsName}, slot ${slotId + 1}`,
       },
     ]
@@ -206,14 +286,26 @@ const bambuddyPrinterFilaments = (
       : []
     archiveSlots.forEach((slot) => {
       const slotId = finiteNumber(slot.slot_id)
-      const name = textValue(slot.type) || undefined
+      const material = textValue(slot.type) || undefined
       const color = bambuddyFilamentColor(slot.color)
       const grams = finiteNumber(slot.used_g)
-      if (slotId === undefined && !name && !color) return
+      if (slotId === undefined && !material && !color)
+        return
+      const { colorName, subtype } = spoolColorName({
+        loadedSpools,
+        color,
+        material,
+      })
+      // "PLA" plus the matched spool's "Basic" reads as the tray does.
+      const name =
+        material && subtype && !material.includes(subtype)
+          ? `${material} ${subtype}`
+          : material
       filaments.push({
         globalId: 1000 + (slotId ?? filaments.length + 1),
         ...(name ? { name } : {}),
         ...(color ? { color } : {}),
+        ...(colorName ? { colorName } : {}),
         location: `Filament ${slotId ?? filaments.length + 1}${grams !== undefined ? ` · ${grams.toFixed(grams < 10 ? 1 : 0)} g` : ""}`,
       })
     })
@@ -247,9 +339,14 @@ const bambuddyPrinterFilaments = (
 export const normalizeBambuddyPrinter = ({
   data,
   channelId,
+  spools = [],
+  assignments = [],
 }: {
   data: unknown
   channelId: string
+  /** Bambuddy's inventory, so a slot can carry its spool's color name. */
+  spools?: readonly Record<string, unknown>[]
+  assignments?: readonly BambuddyAssignment[]
 }):
   | ContractData["printers.v1"]["printers"][number]
   | undefined => {
@@ -274,7 +371,14 @@ export const normalizeBambuddyPrinter = ({
     .filter(Boolean)
   const filament = activeFilament(status)
   const nozzleText = activeNozzleText(status)
-  const assignedFilaments = bambuddyPrinterFilaments(status)
+  const assignedFilaments = bambuddyPrinterFilaments(
+    status,
+    loadedSpoolsFor({
+      printerId: String(status.id),
+      spools,
+      assignments,
+    }),
+  )
   return {
     id,
     // The owner names his printers "1 - Magi", "2 - Foopie" so Bambuddy
@@ -322,9 +426,10 @@ export const normalizeBambuddyPrinter = ({
     ...(assignedFilaments.length
       ? {
           filaments: assignedFilaments.map(
-            ({ name, color, location }) => ({
+            ({ name, color, colorName, location }) => ({
               ...(name ? { name } : {}),
               ...(color ? { color } : {}),
+              ...(colorName ? { colorName } : {}),
               location,
             }),
           ),
@@ -616,6 +721,14 @@ export const createBambuddySource: SourceFactory = (
     state.statusById = new Map(statuses)
     if (spoolsChannels().length > 0) {
       await readInventory()
+    } else if (
+      context.channels.some(
+        (channel) => channel.type === "printers.v1",
+      )
+    ) {
+      // The printer card names each slot's spool color from the inventory.
+      // Without it the card still works, so a failed read is not an outage.
+      await readInventory().catch(() => undefined)
     }
     context.channels.forEach((channel) => {
       const selection = selectedIds(channel.id)
@@ -646,6 +759,8 @@ export const createBambuddySource: SourceFactory = (
           const printer = normalizeBambuddyPrinter({
             data: state.statusById.get(id),
             channelId: channel.id,
+            spools: state.spools,
+            assignments: state.assignments,
           })
           return printer ? [printer] : []
         })

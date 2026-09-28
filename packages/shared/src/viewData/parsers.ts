@@ -440,6 +440,7 @@ const toPrinterFilaments = (
         return dropUndefined({
           name: toTrimmedText(filament.name),
           color: toHexColor(filament.color),
+          colorName: toTrimmedText(filament.colorName),
           location,
         })
       },

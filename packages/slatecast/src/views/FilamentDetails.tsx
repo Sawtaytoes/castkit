@@ -1,3 +1,4 @@
+import { filamentColorName } from "@castkit/shared/viewData/filamentColorName"
 import type { PrinterFilamentAssignment } from "@castkit/shared/viewData/types"
 import { useEffect } from "preact/hooks"
 
@@ -100,28 +101,37 @@ export const FilamentDetailsDialog = ({
         </header>
         {filaments?.length ? (
           <ul class="filament-details-list">
-            {filaments.map((filament, index) => (
-              <li key={`${filament.location}:${index}`}>
-                <span
-                  class={`filament-details-swatch${filament.color ? "" : " is-empty"}`}
-                  style={
-                    filament.color
-                      ? { background: filament.color }
-                      : undefined
-                  }
-                  aria-hidden="true"
-                />
-                <span class="filament-details-info">
-                  <span class="filament-details-name">
-                    {filament.name ||
-                      "Filament name unavailable"}
+            {filaments.map((filament, index) => {
+              // The color leads, in words: a swatch alone does not say
+              // which of two dark spools to load.
+              const colorName =
+                filament.colorName ||
+                filamentColorName(filament.color)
+              return (
+                <li key={`${filament.location}:${index}`}>
+                  <span
+                    class={`filament-details-swatch${filament.color ? "" : " is-empty"}`}
+                    style={
+                      filament.color
+                        ? { background: filament.color }
+                        : undefined
+                    }
+                    aria-hidden="true"
+                  />
+                  <span class="filament-details-info">
+                    <span class="filament-details-name">
+                      {[colorName, filament.name]
+                        .filter(Boolean)
+                        .join(" ") ||
+                        "Filament name unavailable"}
+                    </span>
+                    <span class="filament-details-location">
+                      {filament.location}
+                    </span>
                   </span>
-                  <span class="filament-details-location">
-                    {filament.location}
-                  </span>
-                </span>
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
         ) : (
           <p class="filament-details-empty">
