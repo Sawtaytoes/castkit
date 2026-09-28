@@ -1053,13 +1053,49 @@
   border-radius: 0.15rem;
 }
 
-.platform-view-picker {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 14px;
+/*
+ * A screen's views are tabs across the header, every one visible, the way
+ * Home Assistant's dashboard views are. The row takes the header's slack and
+ * scrolls sideways when the views outrun it; the active tab is underlined in
+ * the accent and scrolled into view. Tabs go quiet while a switch is pending
+ * or the socket is down, but they never disappear.
+ */
+.platform-view-tabs {
+  flex: 1 1 0;
+  min-inline-size: 0;
 }
-.platform-view-picker select {
-  max-inline-size: min(32vw, 360px);
-  min-inline-size: 100px;
+.platform-view-tabs > div {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-block-end: 2px;
+}
+.platform-view-tabs > div::-webkit-scrollbar {
+  display: none;
+}
+.platform-view-tabs a {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border-block-end: 2px solid transparent;
+  color: var(--fg-dim);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.platform-view-tabs a:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+.platform-view-tabs a[aria-current="page"] {
+  color: var(--fg);
+  border-block-end-color: var(--accent-content);
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+.platform-view-tabs[data-disabled="true"] a {
+  opacity: 0.6;
+  cursor: default;
 }
