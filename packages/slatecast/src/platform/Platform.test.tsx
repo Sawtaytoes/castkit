@@ -541,12 +541,15 @@ test("one screen PIN grants dropdown and internal-link navigation without changi
   )
   await waitFor(() =>
     expect(
-      screen.getByRole("combobox", { name: "View" }),
-    ).toBeEnabled(),
+      within(
+        screen.getByRole("navigation", { name: "Views" }),
+      ).getByRole("link", { name: "Clock view" }),
+    ).not.toHaveAttribute("aria-disabled"),
   )
-  await user.selectOptions(
-    screen.getByRole("combobox", { name: "View" }),
-    "clock",
+  await user.click(
+    within(
+      screen.getByRole("navigation", { name: "Views" }),
+    ).getByRole("link", { name: "Clock view" }),
   )
   await screen.findByRole("heading", {
     name: "Clock view",
@@ -635,7 +638,7 @@ test("a physical screen shows view navigation only when its drawer is enabled", 
   })
   await screen.findByText("Printer One")
   expect(
-    screen.queryByRole("combobox", { name: "View" }),
+    screen.queryByRole("navigation", { name: "Views" }),
   ).toBeNull()
   await waitFor(() =>
     expect(connections.send).toBeDefined(),
@@ -652,7 +655,7 @@ test("a physical screen shows view navigation only when its drawer is enabled", 
   )
   await waitFor(() =>
     expect(
-      screen.getByRole("combobox", { name: "View" }),
+      screen.getByRole("navigation", { name: "Views" }),
     ).toBeVisible(),
   )
 })
@@ -711,7 +714,7 @@ test("a preview receives live updates without exposing device actions or screen 
     screen.queryByRole("button", { name: "Lock" }),
   ).toBeNull()
   expect(
-    screen.queryByRole("combobox", { name: "View" }),
+    screen.queryByRole("navigation", { name: "Views" }),
   ).toBeNull()
   expect(
     screen.queryByText("Connection lost · Retrying"),

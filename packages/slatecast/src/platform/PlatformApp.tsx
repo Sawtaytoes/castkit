@@ -13,6 +13,7 @@ import type {
 import { useRenderReadiness } from "./RenderReadiness.ts"
 import { useDisplay } from "./useDisplay.ts"
 import "./platform.css"
+import { ViewTabs } from "./ViewTabs.tsx"
 
 /** Pure composition surface shared by the live client and preview stories. */
 export const DisplayComposition = ({
@@ -203,28 +204,13 @@ export const PlatformApp = ({
         <h1>{display.snapshot.view.name}</h1>
         <div>
           {hasScreenNavigation ? (
-            <label class="platform-view-picker">
-              View
-              <select
-                aria-label="View"
-                data-castkit-target="screen:select-view"
-                value={display.snapshot.view.id}
-                disabled={
-                  display.isPending || !display.isConnected
-                }
-                onChange={(event) =>
-                  void display.selectView(
-                    event.currentTarget.value,
-                  )
-                }
-              >
-                {availableViews.map((view) => (
-                  <option key={view.id} value={view.id}>
-                    {view.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <ViewTabs
+              views={availableViews}
+              activeId={display.snapshot.view.id}
+              isDisabled={
+                display.isPending || !display.isConnected
+              }
+            />
           ) : null}
           {!display.isConnected ? (
             <span role="status">

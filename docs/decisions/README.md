@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-28 | [A screen's views are tabs across its header](2026-09-28-a-screens-views-are-tabs-across-its-header.md) — the native select view picker is replaced by a scrolling tab row of real `/view/<id>` links; management draws its `Nav` in the side `Rail` through `useNavLayout`; the header mark links home and the `Home` links go | Accepted |
 | 2026-09-28 | [A wide platform printer card puts the picture beside the facts](2026-09-28-a-wide-platform-printer-card-puts-the-picture-beside-the-facts.md) — a platform printer card 900 px or wider is picture left at 40%, facts right and centered; the breakpoint is the card's width through a container query on the card's children | Accepted |
 | 2026-09-28 | [Printer Status stacks printers top to bottom on a portrait panel](2026-09-28-printer-status-stacks-printers-top-to-bottom-on-a-portrait-panel.md) — on a portrait panel the printers sit one above the other at full width; the column rule stands on landscape | Accepted |
 | 2026-09-28 | [A panel too small for a view is a stated limit, not a layout to fix](2026-09-28-a-panel-too-small-for-a-view-is-a-stated-limit.md) — Printer Status shows at most one printer on a 480 px panel; Photo Frame is not recommended on a round panel and needs a zoom-to-fill option; every limit is written in `docs/panel-limits.md` against a panel property | Accepted |
