@@ -14,6 +14,7 @@ import { Ambient } from "./views/Ambient.tsx"
 import { Calendar } from "./views/Calendar.tsx"
 import { Clock } from "./views/Clock.tsx"
 import { ExternalView } from "./views/ExternalView.tsx"
+import { FilamentSpoolScale } from "./views/FilamentSpoolScale.tsx"
 import { NowPlaying } from "./views/NowPlaying.tsx"
 import { PhotoFrame } from "./views/PhotoFrame.tsx"
 import { PrinterStatus } from "./views/PrinterStatus.tsx"
@@ -35,6 +36,7 @@ export const viewByClientId: Record<string, ComponentType> =
     calendar: Calendar,
     "photo-frame": PhotoFrame,
     "printer-status": PrinterStatus,
+    "filament-spool-scale": FilamentSpoolScale,
     "touch-test": TouchTest,
   }
 

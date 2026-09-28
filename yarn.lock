@@ -440,6 +440,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@castkit/shared@workspace:packages/shared"
   dependencies:
+    "@castkit/sdk": "workspace:*"
     "@types/node": "npm:^26.1.0"
     mqtt: "npm:^5.15.1"
     typescript: "npm:^6.0.3"

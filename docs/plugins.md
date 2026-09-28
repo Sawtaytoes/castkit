@@ -77,10 +77,38 @@ The bundled adapters and view groups have separate plugin entries. You can disab
 - Home Assistant: an optional direct API connection for selected entities, groups, calendars, weather, images, cameras, history, and narrow service actions.
 - Immich: photo selections from people, albums, or search. Credentials stay on the server.
 - Rip Deck: normalized bays, job state, poster art, and supported drive controls.
-- Bambuddy: selected printers, progress, covers, camera snapshots, and printer controls.
+- Bambuddy: selected printers, progress, covers, camera snapshots, printer controls, and the `spools.v1` channel below.
 - Clock: local time without a network service.
 
 An API source writes directly to the internal channel cache. It does not need to publish its results back to MQTT. A Home Assistant publisher can instead supply the same contracts through named MQTT channels.
+
+### Bambuddy `spools.v1`
+
+A `spools.v1` channel on a `bambuddy` source is the data behind the Filament Spool Scale device-page view: a SpoolBuddy scale with a tag reader beside the printers, plus Bambuddy's spool inventory and every AMS tray. The channel honors the same `printerIds` setting as the printer channels; leave it empty for every printer.
+
+The live half comes over Bambuddy's WebSocket. The source mints a token with `POST /api/v1/auth/ws-token` (the API key in `X-API-Key`), connects to `/api/v1/ws?token=…`, and reconnects with a bounded backoff after a close or an error. Bambuddy sends every event flat, as `{ "type": "…", "device_id": "…", …fields }`, and replays nothing for the reader on connect, so the scale starts `isOnline: false` and the tag starts `none` until an event arrives:
+
+| Event | Fields read | Effect |
+| --- | --- | --- |
+| `spoolbuddy_weight` | `weight_grams`, `stable` | `scale` (and marks it online) |
+| `spoolbuddy_tag_matched` | `tag_uid`, `tray_uuid`, `spool.id` | `tag.state = "matched"`, then an inventory refresh |
+| `spoolbuddy_unknown_tag` | `tag_uid`, `tray_uuid`, `tag_type` | `tag.state = "unknown"` |
+| `spoolbuddy_tag_removed` | — | `tag.state = "none"` |
+| `spoolbuddy_offline` | — | `scale.isOnline = false` |
+| `inventory_changed`, `spoolbuddy_tag_written` | — | an inventory refresh |
+
+The inventory half is polled every `pollSeconds` (default 5) and refreshed at once after any spool action succeeds: `GET /api/v1/inventory/spools` (Bambuddy stores `label_weight`, `core_weight` and the `weight_used`; remaining is the label weight less the used weight; `extra_colors` is a comma-joined list of hex stops), `GET /api/v1/inventory/assignments` (a `spool_id` on a `printer_id` / `ams_id` / `tray_id`, which becomes the spool's `location` and the tray's `spoolId`), and each selected printer's `GET /api/v1/printers/{id}/status` for its `ams[].tray[]`. A tray is `read` when its `tag_uid` is present and not all zeros; `untagged` when Bambuddy senses a spool it cannot read (a `tray_type`, the firmware's `exists` bit, or tray state 10 / 11); otherwise `empty`.
+
+The four spool actions arrive with the `spool_` prefix removed and a `spoolId` that must be in the last inventory read:
+
+| Action | Payload | Bambuddy request |
+| --- | --- | --- |
+| `save_weight` | `grams` | `POST /api/v1/spoolbuddy/scale/update-spool-weight` `{ spool_id, weight_grams }` |
+| `assign_slot` | `printerId`, integer `amsId`, integer `trayId` | `POST /api/v1/inventory/assignments` `{ spool_id, printer_id, ams_id, tray_id }` |
+| `copy_to_tag` | `tagUid`, optional `tagType`, `trayUuid` | `POST /api/v1/inventory/spools` with only the product fields of the source spool (material, subtype, brand, color name, rgba, extra colors, effect type, label weight, core weight; never the used weight), then `PATCH /api/v1/inventory/spools/{newId}/link-tag` |
+| `link_tag` | `tagUid`, optional `tagType`, `trayUuid` | `PATCH /api/v1/inventory/spools/{spoolId}/link-tag` `{ tag_uid, tray_uuid?, tag_type? }` |
+
+A non-2xx answer from Bambuddy is reported as an error that names the action.
 
 ## Package format references
 

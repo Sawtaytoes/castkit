@@ -3,6 +3,7 @@ import type {
   NowPlayingData,
   PrintersData,
   QueueData,
+  SpoolsData,
   WeatherData,
 } from "@castkit/shared/viewData/types"
 
@@ -74,6 +75,11 @@ export type ViewDataStore = {
     deviceId: string
     data: QueueData
   }) => void
+  getSpools: (deviceId: string) => SpoolsData | undefined
+  setSpools: (params: {
+    deviceId: string
+    data: SpoolsData
+  }) => void
 }
 
 export const createViewDataStore = (): ViewDataStore => {
@@ -89,6 +95,7 @@ export const createViewDataStore = (): ViewDataStore => {
   const agendaByDeviceId = new Map<string, AgendaData>()
   const printersByDeviceId = new Map<string, PrintersData>()
   const queueByDeviceId = new Map<string, QueueData>()
+  const spoolsByDeviceId = new Map<string, SpoolsData>()
 
   return {
     getNowPlaying: (deviceId) =>
@@ -122,6 +129,10 @@ export const createViewDataStore = (): ViewDataStore => {
     getQueue: (deviceId) => queueByDeviceId.get(deviceId),
     setQueue: ({ deviceId, data }) => {
       queueByDeviceId.set(deviceId, data)
+    },
+    getSpools: (deviceId) => spoolsByDeviceId.get(deviceId),
+    setSpools: ({ deviceId, data }) => {
+      spoolsByDeviceId.set(deviceId, data)
     },
   }
 }

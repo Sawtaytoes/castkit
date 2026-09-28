@@ -1,9 +1,10 @@
 # Printer Status view
 
 A native CastKit view for a workbench panel: the prints that are running right
-now, and nothing else. An idle printer gets no card. When every printer is idle
-the view says `No prints running`, and the panel's automation normally moves it
-to another view before anyone reads that.
+now, plus a print that has just finished or failed and is still holding its
+plate. An idle printer gets no card. When every printer is idle the view says
+`Nothing printing`, and the panel's automation normally moves it to another
+view before anyone reads that.
 
 It replaces an external view that pointed at a printer dashboard's own camera
 wall. That page is a control surface for a person at a desk. It carries per-AMS
@@ -35,7 +36,11 @@ Per printer, the payload carries:
 | Problem banner | `binary_sensor.<printer>_hms_errors`, `binary_sensor.<printer>_print_error`, `binary_sensor.<printer>_online` |
 
 A printer is **active**, and therefore on the glass, while its print status is
-`prepare`, `running` or `pause`.
+`prepare`, `running` or `pause` — and it **stays active after the print ends**,
+as `finished` or `failed`, until its plate is cleared. Home Assistant keeps
+publishing the job through that window and drops it from the payload once
+BambuBuddy reports the plate clear, whether the clear came from this panel or
+from the printer's andon button.
 
 ### The topic and the payload
 
@@ -67,8 +72,10 @@ Home Assistant publishes every active printer, together, retained, to
 
 `id`, `name` and `state` are required; a row missing any of the three is
 dropped, because `id` is what a Pause is addressed to. `state` is `preparing`,
-`printing` or `paused` — the three CastKit draws. Everything else degrades: a
-job with no layer count still shows its percentage.
+`printing`, `paused`, `finished` or `failed` — the five CastKit draws.
+Everything else degrades: a job with no layer count still shows its percentage.
+On a `finished` or `failed` job, `finishAt` is the time the print **ended**, and
+the card prints it as `Ended 3:47 PM` when it is present.
 
 ⚠️ **`{ "printers": [] }` is a real answer and the one that clears the glass.**
 Publishing nothing leaves the last job on the panel forever.
@@ -111,11 +118,38 @@ with the printer's own id as the value:
 { "action": "printer_stop", "value": "magi" }
 ```
 
-The actions are `printer_pause`, `printer_resume` and `printer_stop`. Home
-Assistant maps the id onto that printer's button entity. CastKit does NOT
-predict the result the way the media controls do: a pause takes seconds to take
-effect on the machine in the room, so the button shows its own pending label and
-the card waits for the printer's own state.
+The actions are `printer_pause`, `printer_resume`, `printer_stop` and
+`printer_clear_plate`. Home Assistant maps the id onto that printer's button
+entity. CastKit does NOT predict the result the way the media controls do: a
+pause takes seconds to take effect on the machine in the room, so the button
+shows its own pending label and the card waits for the printer's own state.
+
+Pause, Resume and Stop sit at the **foot of an active card**, full width and
+split evenly, sized for a fingertip: 64 px tall on the 1280x720 workbench panel,
+scaled in proportion on the smaller profiles and never under 48 px. The box IS
+the touch area — no pseudo-element pad — because the remote-display renderer
+binds a touch by the bounding box
+(`printerStatusTouchTargets.test.tsx` measures them).
+
+### Clear plate
+
+A `finished` or `failed` card offers one control: a full-width **`Clear plate`**
+button, with `Or press the andon button on the printer.` under it. It is **one
+tap, with no confirmation** — a print that has already stopped cannot be lost by
+it, and the printer's own andon button does the same with one press.
+
+The tap publishes `{ "action": "printer_clear_plate", "value": "magi" }`, the
+button reads `Clearing…`, and the card waits for the job to leave the payload.
+Home Assistant maps `printer_clear_plate` onto BambuBuddy's clear-plate call
+for that printer, which is the same call the andon button makes. If the job is
+still in the payload after ten seconds, the label lapses and the button is live
+again, so a request Home Assistant dropped costs one more tap and not a dead
+control on the wall.
+
+After the clear, the panel shows **whatever Home Assistant makes active next**.
+CastKit does not switch the view on its own: HA is always in charge of the
+active screen, and this view only renders the printers it is handed
+([decision](decisions/2026-09-28-a-finished-print-stays-on-the-glass-until-the-plate-is-cleared.md)).
 
 ## Leaving the view
 
@@ -175,21 +209,34 @@ holding open a space for a number that does not exist.
 never `space-between`. With `space-between` a paused card has a single child, and
 the percentage is shoved to the left edge and into the colored fill.
 
-The state word — `Printing`, `Paused`, `Preparing` — is a **chip in the card's
-head, immediately left of the Pause and Stop buttons**, with a dot before it. It
-is a fact about the printer, not about the progress, so it belongs with the
-printer's name and the controls that change it.
+The state word — `Printing`, `Paused`, `Preparing`, `Finished`, `Failed` — is a
+**chip in the card's head, at the right of the printer's name**, with a dot
+before it. It is a fact about the printer, not about the progress, so it belongs
+with the name. The buttons that change it used to share the head; they sit at
+the foot now, for their size, and the head no longer wraps.
 
 The chip takes its color from the card's intent rather than naming a state, so a
-fourth state needs no new rule.
+new state needs no new chip rule. The neutral case is the accent rather than a
+gray: printing is the normal case and should read as calm, and a paused, faulted
+or finished card is already tinted around it.
 
-The chip and the buttons are one group in the markup, and **the head wraps.** At
-one and two printers they share a line with the printer's name. At three the
-card is about 380 px wide and they cannot, so the group drops to its own line
-and the name keeps its width. They wrap together on purpose: separately, the
-chip would strand itself beside a name squeezed to nothing. The neutral case is the accent rather than a
-gray: printing is the normal case and should read as calm, and a paused or
-faulted card is already tinted around it.
+### Finished and failed cards
+
+A `finished` or `failed` print keeps its card until the plate is cleared, and
+the **whole card** takes the state's color: the success surface and border on a
+finished print, the danger surface and border on a failed one — the same tint a
+card reporting a problem already gets. The chip and the band fill follow.
+
+The band reads `100%` on a finished print, and the percentage reached on a
+failed one. Where the time left was, two short lines say how it ended:
+`Finished` or `Stopped at layer 173`, over `Ended 3:47 PM` when the payload
+carries `finishAt`. The ended time names its day the way `Finishes` does, in
+the other direction: a plate nobody cleared overnight reads `Ended Yesterday
+3:47 PM`, not as this afternoon.
+
+The metric row goes, and the Pause and Stop pair goes; `Clear plate` and the
+andon sentence take their place. A finished card beside a running one is
+therefore a different height, and that is intended: the reminder is the shape.
 
 ### The job name is a control
 
@@ -241,4 +288,7 @@ The canonical preview is this view's Storybook story, rendered from fixture
 data at the panel profile, like every other view here. `Views/Printer Status`
 carries one story per panel plus the states that change the layout: one, two and
 three printers, a paused card, a card reporting a problem, a preparing card, and
-the idle panel.
+the idle panel. The settled states are on **every** panel, because they change
+the card's shape: a finished card, a failed card, the two beside a running
+printer, and the finished card mid-clear reading `Clearing…`. They are the
+`vrt` job's pictures of this change.

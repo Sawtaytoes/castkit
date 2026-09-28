@@ -71,6 +71,13 @@ export const BROWSER_VIEWS: readonly BrowserViewDefinition[] =
       isTouchRequired: true,
     },
     {
+      name: "Filament Spool Scale",
+      clientId: "filament-spool-scale",
+      // A scale beside the printers: every screen of it is something to tap —
+      // save a weight, assign a slot, copy a spool to a new tag.
+      isTouchRequired: true,
+    },
+    {
       name: "Touch Test",
       clientId: "touch-test",
       isTouchRequired: true,

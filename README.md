@@ -61,6 +61,8 @@ server during development.
   provider, on an `ai-usage.v1` channel
 - [Printer Status](docs/printer-status-view.md) — the 3D prints running right
   now, with Pause, Resume and Stop
+- [Filament Spool Scale](docs/filament-spool-scale-view.md) — the spool on the
+  scale, its one-tap weight save, every AMS slot, and a three-tap assign
 
 **Reference**
 

@@ -2069,6 +2069,7 @@ const main = async () => {
     config,
     publisher,
     getGlobalClockConfig,
+    platform,
   })
   await browserMode.start()
 

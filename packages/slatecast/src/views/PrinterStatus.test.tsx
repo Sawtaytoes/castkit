@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, test } from "vitest"
+import { describe, expect, test, vi } from "vitest"
 import {
   buildDeviceProfile,
   buildPrinterJob,
@@ -57,6 +57,30 @@ const commitButton = () =>
   document.querySelector<HTMLButtonElement>(
     ".printer-confirm-commit",
   )
+
+/**
+ * A UTC wall-clock time on a day relative to the day the test runs. The
+ * fixture clock is UTC, so a day offset here is the day offset the card
+ * computes, whatever hour the suite happens to run at.
+ */
+const utcMillisOnDay = ({
+  dayOffset,
+  hour,
+  minute,
+}: {
+  dayOffset: number
+  hour: number
+  minute: number
+}) => {
+  const now = new Date()
+  return Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + dayOffset,
+    hour,
+    minute,
+  )
+}
 
 describe("the printer cards", () => {
   test("gives every active printer a column", async () => {
@@ -150,7 +174,7 @@ describe("the printer cards", () => {
     ).toBeNull()
   })
 
-  test("the state reads beside the controls, and the band carries the time left and the percentage", async () => {
+  test("the state reads in the head, the controls at the foot, and the band carries the time left and the percentage", async () => {
     await mountPrinterStatus([
       buildPrinterJob({ percent: 41, state: "printing" }),
     ])
@@ -158,29 +182,27 @@ describe("the printer cards", () => {
     const card = cards()[0]
     const state = card?.querySelector(".printer-state")
     const band = card?.querySelector(".printer-band")
+    const actions = card?.querySelector(".printer-actions")
 
     expect(state?.textContent).toBe("Printing")
 
-    // It is a sibling of the buttons, inside the head's control group and not
-    // inside the band. This is the whole point of the shape, so it is asserted
-    // structurally rather than by reading the text back out of the document.
-    // The group exists so the chip and the buttons wrap together at three
-    // columns; the chip must never be separated from them.
-    const controls = state?.parentElement
+    // The chip is in the head and not inside the band. This is the whole
+    // point of the shape, so it is asserted structurally rather than by
+    // reading the text back out of the document. The buttons are the LAST
+    // thing in the card body: they moved to the foot for their size, and a
+    // refactor that puts them back beside the name fails here.
     expect(
-      controls?.classList.contains("printer-head-controls"),
-    ).toBe(true)
-    expect(
-      controls?.parentElement?.classList.contains(
+      state?.parentElement?.classList.contains(
         "printer-head",
       ),
     ).toBe(true)
+    expect(band?.contains(state ?? null)).toBe(false)
+    expect(actions?.nextElementSibling).toBeNull()
     expect(
-      state?.nextElementSibling?.classList.contains(
-        "printer-actions",
+      actions?.parentElement?.classList.contains(
+        "printer-body",
       ),
     ).toBe(true)
-    expect(band?.contains(state ?? null)).toBe(false)
     expect(
       band?.querySelector(".printer-band-text")
         ?.textContent,
@@ -211,30 +233,6 @@ describe("the printer cards", () => {
           "Finishes",
       )
       ?.querySelector("dd")?.textContent
-
-  /**
-   * A UTC wall-clock time on a day relative to the day the test runs. The
-   * fixture clock is UTC, so a day offset here is the day offset the card
-   * computes, whatever hour the suite happens to run at.
-   */
-  const utcMillisOnDay = ({
-    dayOffset,
-    hour,
-    minute,
-  }: {
-    dayOffset: number
-    hour: number
-    minute: number
-  }) => {
-    const now = new Date()
-    return Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate() + dayOffset,
-      hour,
-      minute,
-    )
-  }
 
   test("a finish on the same day is the bare clock time", async () => {
     await mountPrinterStatus([
@@ -372,5 +370,207 @@ describe("pause and stop", () => {
       ),
     )
     expect(screen.queryByText("Pausing…")).toBeNull()
+  })
+})
+
+describe("a finished or failed print", () => {
+  const clearButton = () =>
+    document.querySelector<HTMLButtonElement>(
+      ".printer-clear",
+    )
+
+  test("a finished card is tinted whole in success and reads 100%", async () => {
+    await mountPrinterStatus([
+      buildPrinterJob({
+        state: "finished",
+        percent: 100,
+        currentLayer: 334,
+      }),
+    ])
+
+    // The word is in the chip AND leads the band: the band is what is read
+    // from across the room, the chip is what sits by the name.
+    expect(
+      cards()[0]?.querySelector(".printer-state")
+        ?.textContent,
+    ).toBe("Finished")
+    expect(
+      cards()[0]?.querySelector(".printer-band-ended")
+        ?.textContent,
+    ).toBe("Finished")
+    expect(cards()[0]?.getAttribute("data-intent")).toBe(
+      "success",
+    )
+    expect(cards()[0]?.getAttribute("data-state")).toBe(
+      "finished",
+    )
+    expect(screen.getByText("100%")).toBeVisible()
+    expect(
+      (
+        cards()[0]?.querySelector(
+          ".printer-band-fill",
+        ) as HTMLElement
+      ).style.width,
+    ).toBe("100%")
+  })
+
+  test("a failed card is tinted in danger and names the layer it stopped at", async () => {
+    await mountPrinterStatus([
+      buildPrinterJob({
+        state: "failed",
+        percent: 41,
+        currentLayer: 173,
+      }),
+    ])
+
+    expect(screen.getByText("Failed")).toBeVisible()
+    expect(cards()[0]?.getAttribute("data-intent")).toBe(
+      "danger",
+    )
+    expect(cards()[0]?.getAttribute("data-state")).toBe(
+      "failed",
+    )
+    expect(screen.getByText("41%")).toBeVisible()
+    expect(
+      screen.getByText("Stopped at layer 173"),
+    ).toBeVisible()
+  })
+
+  test("the band names the time the print ended when the payload carries it", async () => {
+    await mountPrinterStatus([
+      buildPrinterJob({
+        state: "finished",
+        percent: 100,
+        finishAtMs: utcMillisOnDay({
+          dayOffset: 0,
+          hour: 0,
+          minute: 1,
+        }),
+      }),
+    ])
+
+    expect(screen.getByText("Ended 00:01")).toBeVisible()
+  })
+
+  test("a plate nobody cleared overnight says so", async () => {
+    await mountPrinterStatus([
+      buildPrinterJob({
+        state: "finished",
+        percent: 100,
+        finishAtMs: utcMillisOnDay({
+          dayOffset: -1,
+          hour: 15,
+          minute: 47,
+        }),
+      }),
+    ])
+
+    expect(
+      screen.getByText("Ended Yesterday 15:47"),
+    ).toBeVisible()
+  })
+
+  test("offers Clear plate and the andon reminder, and no Pause or Stop", async () => {
+    await mountPrinterStatus([
+      buildPrinterJob({ state: "finished", percent: 100 }),
+    ])
+
+    expect(
+      screen.getByRole("button", { name: "Clear plate" }),
+    ).toBeVisible()
+    expect(
+      screen.getByText(
+        "Or press the andon button on the printer.",
+      ),
+    ).toBeVisible()
+    expect(cardActions(".is-pause")).toHaveLength(0)
+    expect(cardActions(".is-stop")).toHaveLength(0)
+    expect(
+      cards()[0]?.querySelector(".printer-metrics"),
+    ).toBeNull()
+  })
+
+  test("Clear plate sends printer_clear_plate with the printer's id on one tap", async () => {
+    const { server } = await mountPrinterStatus([
+      buildPrinterJob(),
+      buildPrinterJob({
+        id: "foopie",
+        name: "Foopie",
+        state: "failed",
+        percent: 41,
+      }),
+    ])
+    const user = userEvent.setup()
+
+    await user.click(clearButton()!)
+
+    // No question in between: the command is the first thing that happens.
+    expect(screen.queryByRole("dialog")).toBeNull()
+    await waitUntil(() => server.commands.length > 0)
+    expect(server.commands).toEqual([
+      { action: "printer_clear_plate", value: "foopie" },
+    ])
+    expect(screen.getByText("Clearing…")).toBeVisible()
+    expect(clearButton()?.disabled).toBe(true)
+  })
+
+  test("the card leaves when the next push no longer carries the job", async () => {
+    const { server } = await mountPrinterStatus([
+      buildPrinterJob({ state: "finished", percent: 100 }),
+      buildPrinterJob({ id: "foopie", name: "Foopie" }),
+    ])
+    const user = userEvent.setup()
+
+    await user.click(clearButton()!)
+    await waitUntil(() => server.commands.length > 0)
+
+    server.push({
+      type: "printers",
+      data: {
+        printers: [
+          buildPrinterJob({ id: "foopie", name: "Foopie" }),
+        ],
+      },
+    })
+
+    await waitUntil(() => cards().length === 1)
+    expect(screen.queryByText("Clearing…")).toBeNull()
+    expect(clearButton()).toBeNull()
+  })
+})
+
+describe("a clear that nothing answers", () => {
+  test("the pending label lapses after ten seconds so the button can be tapped again", async () => {
+    // Mounted on real timers: the harness polls the socket with setTimeout.
+    // Only the tap's own timer is faked, so the ten seconds can be advanced.
+    await mountPrinterStatus([
+      buildPrinterJob({ state: "finished", percent: 100 }),
+    ])
+    const clearButton = () =>
+      document.querySelector<HTMLButtonElement>(
+        ".printer-clear",
+      )
+
+    vi.useFakeTimers({ toFake: ["setTimeout"] })
+    try {
+      const user = userEvent.setup({
+        advanceTimers: vi.advanceTimersByTime,
+      })
+      await user.click(clearButton()!)
+      expect(clearButton()?.textContent).toBe("Clearing…")
+
+      vi.advanceTimersByTime(9_000)
+      await Promise.resolve()
+      expect(clearButton()?.textContent).toBe("Clearing…")
+
+      vi.advanceTimersByTime(1_100)
+    } finally {
+      vi.useRealTimers()
+    }
+
+    await waitUntil(
+      () => clearButton()?.textContent === "Clear plate",
+    )
+    expect(clearButton()?.disabled).toBe(false)
   })
 })

@@ -1,3 +1,4 @@
+import type { ContractData } from "@castkit/sdk/contracts"
 /**
  * The view-data shapes Home Assistant PUSHES to CastKit over MQTT
  * (`<base>/<device>/{now_playing,queue,weather,agenda}/set`). CastKit never
@@ -110,14 +111,18 @@ export type AgendaData = {
 /**
  * How far along a print is. `preparing` covers every pre-print stage the
  * printer reports (heating, bed levelling, purging); `printing` and `paused`
- * are the two states a person acts on. A printer in any other state is not
- * active and Home Assistant leaves it out of the payload entirely — the view
- * shows only what is running right now.
+ * are the two states a person acts on while a job runs. `finished` and
+ * `failed` are the two that end one: the job is over, the plate still carries
+ * it, and the card stays on the glass until somebody clears the plate. A
+ * printer in any other state is idle and Home Assistant leaves it out of the
+ * payload entirely.
  */
 export const PRINTER_JOB_STATES = [
   "preparing",
   "printing",
   "paused",
+  "finished",
+  "failed",
 ] as const
 
 export type PrinterJobState =
@@ -167,3 +172,10 @@ export type PrinterJob = {
 export type PrintersData = {
   printers: readonly PrinterJob[]
 }
+
+/**
+ * The filament scale and inventory a workbench panel shows. Defined once, in
+ * the SDK's `spools.v1` contract, because the same data reaches a panel two
+ * ways: the platform's channel cache and the device page's socket.
+ */
+export type SpoolsData = ContractData["spools.v1"]
