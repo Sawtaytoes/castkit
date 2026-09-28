@@ -1857,6 +1857,13 @@ html[data-grayscale-text="true"] {
   opacity: 0.55;
 }
 
+.printer-action-icon {
+  display: none;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
 .printer-action.is-pause {
   border: 1px solid var(--color-intent-warning-border);
   color: var(--color-intent-warning-content);
@@ -2165,6 +2172,393 @@ html[data-grayscale-text="true"] {
 .printer-status[data-count="1"] .printer-action {
   padding: 9px 18px;
   font-size: 15px;
+}
+
+/* Four printers use a 2×2 grid. The plate stays beside the facts. */
+.printer-status[data-layout="quad"] .printer-cards {
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.printer-status[data-layout="quad"] .printer-card {
+  display: grid;
+  grid-template-columns: minmax(140px, 38%) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-card[data-has-thumbnail="false"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.printer-status[data-layout="quad"] .printer-plate {
+  width: 100%;
+  height: 100%;
+  flex: none;
+}
+
+.printer-status[data-layout="quad"] .printer-body {
+  min-height: 0;
+  justify-content: center;
+  gap: 5px;
+}
+
+.printer-status[data-layout="quad"] .printer-head {
+  gap: 5px 7px;
+}
+
+.printer-status[data-layout="quad"] .printer-names {
+  flex-basis: 105px;
+}
+
+.printer-status[data-layout="quad"] .printer-name {
+  font-size: 16px;
+}
+
+.printer-status[data-layout="quad"] .printer-meta {
+  font-size: 10px;
+}
+
+.printer-status[data-layout="quad"] .printer-head-controls {
+  gap: 5px;
+}
+
+.printer-status[data-layout="quad"] .printer-state {
+  gap: 5px;
+  padding: 4px 7px;
+  font-size: 10px;
+}
+
+.printer-status[data-layout="quad"] .printer-state-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.printer-status[data-layout="quad"] .printer-actions {
+  gap: 4px;
+}
+
+.printer-status[data-layout="quad"] .printer-action {
+  padding: 5px 7px;
+  font-size: 10px;
+}
+
+.printer-status[data-layout="quad"] .printer-job {
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.printer-status[data-layout="quad"] .printer-problem {
+  margin-top: 2px;
+  padding: 5px 7px;
+  font-size: 11px;
+}
+
+.printer-status[data-layout="quad"] .printer-band {
+  height: 48px;
+  margin-top: 3px;
+}
+
+.printer-status[data-layout="quad"] .printer-band-text {
+  gap: 6px;
+  padding: 0 9px;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-band-remaining {
+  font-size: 12px;
+}
+
+.printer-status[data-layout="quad"] .printer-percent {
+  font-size: 32px;
+}
+
+.printer-status[data-layout="quad"] .printer-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.printer-status[data-layout="quad"] .printer-metric {
+  padding: 4px 5px;
+}
+
+.printer-status[data-layout="quad"] .printer-metric dt {
+  font-size: 8px;
+}
+
+.printer-status[data-layout="quad"] .printer-metric dd {
+  gap: 3px;
+  font-size: 11px;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-metric.is-filament {
+  grid-column: auto;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="quad"] .printer-swatch {
+  width: 10px;
+  height: 10px;
+}
+
+/* Five or more printers use compact rows with a preview and controls. */
+.printer-status[data-layout="list"] .printer-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.printer-status[data-layout="list"] .printer-card {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 64px;
+  padding: 4px 8px;
+}
+
+.printer-status[data-layout="list"]
+  .printer-card[data-has-thumbnail="false"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.printer-status[data-layout="list"] .printer-plate {
+  width: 62px;
+  height: 100%;
+  flex: none;
+}
+
+.printer-status[data-layout="list"] .printer-plate img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 7px;
+}
+
+.printer-status[data-layout="list"] .printer-body {
+  display: grid;
+  grid-template-columns:
+    minmax(300px, 1.3fr)
+    minmax(200px, 1fr)
+    minmax(170px, 0.8fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 0 10px;
+  min-height: 0;
+}
+
+.printer-status[data-layout="list"]
+  .printer-card[data-has-thumbnail="false"]
+  .printer-body {
+  grid-column: 1 / -1;
+}
+
+.printer-status[data-layout="list"] .printer-head {
+  grid-column: 1;
+  grid-row: 1;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.printer-status[data-layout="list"] .printer-index {
+  width: 24px;
+  height: 24px;
+  font-size: 13px;
+}
+
+.printer-status[data-layout="list"] .printer-names {
+  flex: 1 1 auto;
+  min-width: 70px;
+}
+
+.printer-status[data-layout="list"] .printer-name {
+  font-size: 14px;
+}
+
+.printer-status[data-layout="list"] .printer-meta {
+  font-size: 9px;
+}
+
+.printer-status[data-layout="list"] .printer-head-controls {
+  gap: 5px;
+}
+
+.printer-status[data-layout="list"] .printer-state {
+  gap: 4px;
+  padding: 3px 6px;
+  font-size: 10px;
+}
+
+.printer-status[data-layout="list"] .printer-state-dot {
+  width: 5px;
+  height: 5px;
+}
+
+.printer-status[data-layout="list"] .printer-actions {
+  gap: 4px;
+}
+
+.printer-status[data-layout="list"] .printer-action {
+  min-height: 28px;
+  padding: 3px 7px;
+  font-size: 10px;
+}
+
+.printer-status[data-layout="list"] .printer-job {
+  grid-column: 1;
+  grid-row: 2;
+  margin-top: 0;
+  font-size: 11px;
+}
+
+.printer-status[data-layout="list"] .printer-problem {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0;
+  padding: 2px 5px;
+  font-size: 9px;
+}
+
+.printer-status[data-layout="list"]
+  .printer-card:has(.printer-problem)
+  .printer-job {
+  display: none;
+}
+
+.printer-status[data-layout="list"] .printer-band {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  height: 38px;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"] .printer-band-text {
+  gap: 5px;
+  padding: 0 7px;
+}
+
+.printer-status[data-layout="list"]
+  .printer-band-remaining {
+  font-size: 10px;
+}
+
+.printer-status[data-layout="list"] .printer-percent {
+  font-size: 24px;
+}
+
+.printer-status[data-layout="list"] .printer-metrics {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-self: center;
+  gap: 4px;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"] .printer-metric {
+  padding: 3px 4px;
+}
+
+.printer-status[data-layout="list"] .printer-metric dt {
+  font-size: 7px;
+}
+
+.printer-status[data-layout="list"] .printer-metric dd {
+  gap: 3px;
+  font-size: 9px;
+}
+
+.printer-status[data-layout="list"]
+  .printer-metric.is-filament {
+  grid-column: auto;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"] .printer-swatch {
+  width: 8px;
+  height: 8px;
+}
+
+@media (max-width: 1000px) {
+  .printer-status[data-layout="list"] .printer-card {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 7px;
+    padding: 4px 6px;
+  }
+
+  .printer-status[data-layout="list"] .printer-plate {
+    width: 52px;
+  }
+
+  .printer-status[data-layout="list"] .printer-body {
+    grid-template-columns: minmax(180px, 1fr) minmax(
+        135px,
+        0.8fr
+      );
+    gap: 0 6px;
+  }
+
+  .printer-status[data-layout="list"] .printer-band {
+    grid-column: 2;
+  }
+
+  .printer-status[data-layout="list"] .printer-metrics {
+    display: none;
+  }
+
+  .printer-status[data-layout="list"] .printer-action {
+    width: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 5px;
+  }
+
+  .printer-status[data-layout="list"] .printer-action-icon {
+    display: block;
+  }
+
+  .printer-status[data-layout="list"]
+    .printer-action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .printer-status[data-layout="list"] .printer-body {
+    grid-template-columns: minmax(0, 1fr) 110px;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 0 4px;
+  }
+
+  .printer-status[data-layout="list"] .printer-head {
+    grid-column: 1 / -1;
+  }
+
+  .printer-status[data-layout="list"] .printer-job,
+  .printer-status[data-layout="list"] .printer-problem {
+    grid-column: 1;
+  }
+
+  .printer-status[data-layout="list"] .printer-band {
+    grid-column: 2;
+    grid-row: 2;
+    height: 30px;
+  }
+
+  .printer-status[data-layout="list"] .printer-meta {
+    display: none;
+  }
 }
 
 .printer-empty {

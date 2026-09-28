@@ -135,16 +135,16 @@ The edge publishes `{ "action": "view_release" }`. It is a separate action from
 
 ## Layout
 
-One column per active printer, because the item is card-shaped: it carries a
-picture the eye can anchor on. The count changes the shape rather than only the
-column width.
+The view draws one card per active printer that fits on the panel. The count
+selects the card arrangement.
 
 | Active printers | Shape |
 | --- | --- |
 | 1 | The picture on the left, the facts in a column on the right. Type grows to fill the panel, because there is room and the panel is read a step back from the bench. |
 | 2 | Two columns. The picture sits above the facts and takes the slack height. |
 | 3 | Three columns, same shape as two. |
-| 4 or more | **Not designed.** See below. |
+| 4 | Two rows and two columns. Each card puts the plate picture on the left and the facts on the right. |
+| 5 or more | A compact row list. Each row keeps the plate picture, printer name, state, job, progress, finish, and controls. |
 
 The plate picture has no box around it. The cover is square and carries its own
 dark background, so a surrounding panel letterboxes the square inside a
@@ -203,31 +203,17 @@ to close it. Hover or keyboard focus shows the file name the printer reported.
 
 ### Four or more printers
 
-The three-printer arrangement does not extend. A fourth column leaves each card
-too narrow for the band, the four metric blocks and the picture at a readable
-size on a 1280 px panel.
+At four printers the cards form a 2×2 grid. The plate picture stays on the left
+side of each card. The printer facts and controls stay on the right.
 
-Notes for whoever takes this on:
+At five or more printers the view uses compact rows. Each row keeps the plate
+picture and the Pause or Resume and Stop controls. At the Pi Touch Display 2's
+1280×720 landscape size, control labels remain visible. Narrower screens show
+the control icons and keep the labels available to assistive technology.
 
-1. **Four is a quad: two rows, two columns.** Each cell is about half the panel
-   in each direction, which is close to the two-column cell in width and half its
-   height. The picture must shrink first, and the metric blocks fold from three
-   across to two.
-2. **Five or more needs a different view, not a smaller card.** Past four cells
-   the plate picture stops earning its space. The likely answer is a row list
-   with no picture: the number chip, the job name, the band, and a finish time,
-   which is what the optical-tower kiosk already does at nine rows.
-3. **The switch is a count, not a panel width.** A panel does not change size,
-   and the same view must answer for one printer and for nine. Read the count and
-   pick the arrangement; do not reach for a media query.
-4. **Keep the state readable at the smallest size.** The percentage and the
-   state chip are the two things a person reads from across the room. Whatever
-   folds away, those two stay. The chip rides with the buttons, so an
-   arrangement that drops the buttons must find the chip another home rather
-   than dropping it with them.
-5. **A count above three is untested here.** The installation this was built for
-   has three printers. Build the arrangement behind fixture data first, and shoot
-   it at the panel's true size before it reaches glass.
+The list draws only whole rows. It budgets a 64 px row, a 6 px gap, and the
+view's 36 px of vertical padding. It drops later printers when the panel cannot
+show another whole row. Home Assistant's printer order is preserved.
 
 ## Previews
 
@@ -238,7 +224,7 @@ them carried a person's name in the model itself. A PNG is opaque to every
 search, so nobody finds that later.
 
 The canonical preview is this view's Storybook story, rendered from fixture
-data at the panel profile, like every other view here. `Views/Printer Status`
-carries one story per panel plus the states that change the layout: one, two and
-three printers, a paused card, a card reporting a problem, a preparing card, and
-the idle panel.
+data at the panel profile, like every other view here. `Views/3D Printer Status`
+carries one story per panel plus the states that change the layout: one, two,
+three, four, five and nine printers, a paused card, a card reporting a problem,
+a preparing card, and the idle panel.

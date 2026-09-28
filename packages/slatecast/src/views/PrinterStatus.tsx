@@ -82,6 +82,21 @@ const PENDING_LABELS: Record<PendingAction, string> = {
   stop: "Stopping…",
 }
 
+const PRINTER_LIST_ROW_HEIGHT = 64
+const PRINTER_LIST_ROW_GAP = 6
+const PRINTER_STATUS_VERTICAL_PADDING = 36
+
+const countPrinterRowsThatFit = (viewportHeight: number) =>
+  Math.max(
+    0,
+    Math.floor(
+      (viewportHeight -
+        PRINTER_STATUS_VERTICAL_PADDING +
+        PRINTER_LIST_ROW_GAP) /
+        (PRINTER_LIST_ROW_HEIGHT + PRINTER_LIST_ROW_GAP),
+    ),
+  )
+
 const STATE_LABELS: Record<PrinterJob["state"], string> = {
   preparing: "Preparing",
   printing: "Printing",
@@ -107,6 +122,15 @@ const PrinterCard = ({
   const clock = clockConfig.value
   const isPaused = job.state === "paused"
   const hasProblem = job.problemText !== undefined
+  const controlAction: PendingAction = isPaused
+    ? "resume"
+    : "pause"
+  const controlLabel =
+    pendingAction === "pause" || pendingAction === "resume"
+      ? PENDING_LABELS[pendingAction]
+      : isPaused
+        ? "Resume"
+        : "Pause"
   const finishAtMs = getFinishAtMs({
     job,
     nowMillis: nowMs.value,
@@ -128,6 +152,9 @@ const PrinterCard = ({
             : "neutral"
       }
       data-expanded={String(isExpanded)}
+      data-has-thumbnail={String(
+        Boolean(job.thumbnailPath),
+      )}
     >
       {job.thumbnailPath ? (
         <div class="printer-plate">
@@ -172,27 +199,64 @@ const PrinterCard = ({
               <button
                 type="button"
                 class="printer-action is-pause"
+                aria-label={controlLabel}
                 disabled={pendingAction !== null}
-                onClick={() =>
-                  onRequest(isPaused ? "resume" : "pause")
-                }
+                onClick={() => onRequest(controlAction)}
               >
-                {pendingAction === "pause" ||
-                pendingAction === "resume"
-                  ? PENDING_LABELS[pendingAction]
-                  : isPaused
-                    ? "Resume"
-                    : "Pause"}
+                <svg
+                  class="printer-action-icon"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  {controlAction === "pause" ? (
+                    <path
+                      d="M6 4v12M14 4v12"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-width="2.5"
+                    />
+                  ) : (
+                    <path
+                      d="M6 4.5v11l9-5.5z"
+                      fill="currentColor"
+                    />
+                  )}
+                </svg>
+                <span class="printer-action-label">
+                  {controlLabel}
+                </span>
               </button>
               <button
                 type="button"
                 class="printer-action is-stop"
+                aria-label={
+                  pendingAction === "stop"
+                    ? PENDING_LABELS.stop
+                    : "Stop"
+                }
                 disabled={pendingAction !== null}
                 onClick={() => onRequest("stop")}
               >
-                {pendingAction === "stop"
-                  ? PENDING_LABELS.stop
-                  : "Stop"}
+                <svg
+                  class="printer-action-icon"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="5"
+                    y="5"
+                    width="10"
+                    height="10"
+                    rx="1.5"
+                    fill="currentColor"
+                  />
+                </svg>
+                <span class="printer-action-label">
+                  {pendingAction === "stop"
+                    ? PENDING_LABELS.stop
+                    : "Stop"}
+                </span>
               </button>
             </div>
           </div>
@@ -298,6 +362,9 @@ const PrinterCard = ({
 
 export const PrinterStatus = () => {
   const jobs = printers.value?.printers ?? []
+  const [viewportHeight, setViewportHeight] = useState(
+    () => window.innerHeight,
+  )
   const [confirmation, setConfirmation] =
     useState<Confirmation | null>(null)
   const [expandedIds, setExpandedIds] = useState<
@@ -306,6 +373,19 @@ export const PrinterStatus = () => {
   const [pending, setPending] = useState<
     Record<string, PendingAction>
   >({})
+
+  useEffect(() => {
+    const updateViewportHeight = () => {
+      setViewportHeight(window.innerHeight)
+    }
+    window.addEventListener("resize", updateViewportHeight)
+    return () => {
+      window.removeEventListener(
+        "resize",
+        updateViewportHeight,
+      )
+    }
+  }, [])
 
   // A question nobody answered withdraws itself.
   useEffect(() => {
@@ -392,14 +472,30 @@ export const PrinterStatus = () => {
   const confirmedJob = confirmation
     ? jobs.find((job) => job.id === confirmation.printerId)
     : undefined
+  const layout =
+    jobs.length === 4
+      ? "quad"
+      : jobs.length >= 5
+        ? "list"
+        : "columns"
+  const visibleJobs =
+    layout === "list"
+      ? jobs.slice(
+          0,
+          countPrinterRowsThatFit(viewportHeight),
+        )
+      : jobs
 
   return (
     <div
       class="printer-status"
       data-count={String(jobs.length)}
+      data-layout={
+        layout === "columns" ? undefined : layout
+      }
     >
       <div class="printer-cards">
-        {jobs.map((job, index) => (
+        {visibleJobs.map((job, index) => (
           <PrinterCard
             key={job.id}
             index={index}
