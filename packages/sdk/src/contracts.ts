@@ -14,6 +14,7 @@ export const CONTRACT_TYPES = [
   "points.v1",
   "ai-usage.v1",
   "time.v1",
+  "spools.v1",
 ] as const
 /** An independently configured provider; secrets never belong in this DTO. */
 export type SourceDefinition = {
@@ -188,6 +189,68 @@ const entity = z.object({
   actions: z.array(z.string()),
 })
 /** Runtime schemas strip unknown fields before data reaches an extension. */
+
+const hexColor = z
+  .string()
+  .regex(
+    /^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/,
+    "Expected 6 or 8 hex digits",
+  )
+/**
+ * One inventory spool. `remainingGrams` is the dashboard's own count
+ * (label weight minus what it has charged), never the scale; the scale is a
+ * separate fact on the channel and the view shows the two side by side.
+ * `rgba` keeps its alpha: below `FF` the filament is translucent and a swatch
+ * draws it on a checkerboard.
+ */
+const spool = z.object({
+  id: z.string(),
+  brand: z.string().optional(),
+  material: z.string(),
+  subtype: z.string().optional(),
+  colorName: z.string().optional(),
+  rgba: hexColor.optional(),
+  extraColors: z.array(hexColor).optional(),
+  effectType: z.string().optional(),
+  labelWeightGrams: finiteNumber,
+  coreWeightGrams: finiteNumber,
+  remainingGrams: finiteNumber,
+  lastScaleGrams: finiteNumber.optional(),
+  lastWeighedAtMs: finiteNumber.optional(),
+  tagUid: z.string().optional(),
+  trayUuid: z.string().optional(),
+  tagType: z.string().optional(),
+  location: z
+    .object({
+      printerId: z.string(),
+      printerName: z.string(),
+      amsId: finiteNumber,
+      trayId: finiteNumber,
+    })
+    .optional(),
+})
+/**
+ * One AMS tray. `read` is a spool whose tag the AMS decoded; `untagged` is a
+ * spool the AMS can see but cannot read (a third-party spool with no Bambu
+ * tag), which is not the same thing as `empty`, a slot with nothing in it.
+ */
+const amsTray = z.object({
+  id: finiteNumber,
+  state: z.enum(["read", "untagged", "empty"]),
+  material: z.string().optional(),
+  subtype: z.string().optional(),
+  colorName: z.string().optional(),
+  rgba: hexColor.optional(),
+  remainPercent: finiteNumber.optional(),
+  spoolId: z.string().optional(),
+})
+const amsUnit = z.object({
+  id: finiteNumber,
+  label: z.string(),
+  humidityPercent: finiteNumber.optional(),
+  temperatureCelsius: finiteNumber.optional(),
+  trays: z.array(amsTray),
+})
 export const builtinContractSchemas = {
   "now-playing.v1": nowPlaying,
   "queue.v1": z.object({
@@ -296,6 +359,38 @@ export const builtinContractSchemas = {
     isMock: z.boolean().optional(),
   }),
   "time.v1": z.object({ now: z.string() }),
+  /**
+   * A filament scale with a tag reader beside a fleet of printers. The scale
+   * and the tag are live facts from the reader; the spools and the printers'
+   * AMS trays are the dashboard's inventory, polled. A `tag.state` of `none`
+   * means nothing is on the reader; `unknown` is a tag the inventory has never
+   * seen, which is what the copy-to-tag action exists for.
+   */
+  "spools.v1": z.object({
+    scale: z.object({
+      grams: finiteNumber,
+      isStable: z.boolean(),
+      isOnline: z.boolean(),
+      updatedAtMs: finiteNumber.optional(),
+    }),
+    tag: z.object({
+      state: z.enum(["none", "matched", "unknown"]),
+      uid: z.string().optional(),
+      tagType: z.string().optional(),
+      trayUuid: z.string().optional(),
+      spoolId: z.string().optional(),
+      updatedAtMs: finiteNumber.optional(),
+    }),
+    spools: z.array(spool),
+    printers: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        isOnline: z.boolean(),
+        ams: z.array(amsUnit),
+      }),
+    ),
+  }),
 } satisfies Record<string, z.ZodType>
 /** Inferred consumer data for each built-in channel type. */
 export type ContractData = {

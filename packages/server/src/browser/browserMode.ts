@@ -1,5 +1,13 @@
+import type {
+  ChannelSnapshot,
+  ContractData,
+} from "@castkit/sdk/contracts"
+import type { SourceAction } from "@castkit/sdk/plugin"
 import type { MqttPublisher } from "@castkit/shared/mqtt/publisher"
-import { parseDeviceCommand } from "@castkit/shared/protocol/commands"
+import {
+  parseDeviceCommand,
+  SPOOL_COMMAND_ACTIONS,
+} from "@castkit/shared/protocol/commands"
 import type {
   BrowserClockConfig,
   BrowserDeviceSettings,
@@ -105,6 +113,21 @@ export type BrowserMode = ReturnType<
   typeof createBrowserMode
 >
 
+/** The slice of the platform the device page reads channels and actions through. */
+export type BrowserModePlatform = {
+  hub: {
+    get: (id: string) => ChannelSnapshot | undefined
+    subscribe: (
+      listener: (snapshot: ChannelSnapshot) => void,
+    ) => () => void
+  }
+  runtime: {
+    executeAction: (
+      request: SourceAction,
+    ) => Promise<unknown>
+  }
+}
+
 /**
  * Map a current color mode back to the value a pre-2026-09-14 Slatecast bundle
  * expects. Only used to fill the deprecated `colour` alias in the snapshot.
@@ -129,6 +152,7 @@ export const createBrowserMode = ({
   publisher,
   getGlobalClockConfig,
   externalViewProbe,
+  platform,
 }: {
   config: InkcastConfig
   publisher: MqttPublisher
@@ -143,6 +167,14 @@ export const createBrowserMode = ({
     timeoutMs?: number
     fetchHealth?: typeof fetch
   }
+  /**
+   * The platform's channel cache and source runtime, for the one device-page
+   * view whose data is not pushed by Home Assistant: a device's
+   * `spoolsChannel` is read from the cache and its spool commands are executed
+   * by that channel's source. Optional so a test of the MQTT-fed views needs
+   * no platform.
+   */
+  platform?: BrowserModePlatform
 }) => {
   const devices = config.browserDevices
   const { baseTopic } = config.mqtt
@@ -249,13 +281,109 @@ export const createBrowserMode = ({
     const weather = viewDataStore.getWeather(deviceId)
     const agenda = viewDataStore.getAgenda(deviceId)
     const printers = viewDataStore.getPrinters(deviceId)
+    const spools = viewDataStore.getSpools(deviceId)
     return {
       ...(nowPlaying ? { nowPlaying } : {}),
       ...(queue ? { queue } : {}),
       ...(weather ? { weather } : {}),
       ...(agenda ? { agenda } : {}),
       ...(printers ? { printers } : {}),
+      ...(spools ? { spools } : {}),
     }
+  }
+
+  /**
+   * The spools channel is the one device-page feed that comes from the
+   * platform's cache rather than from an MQTT push. Every device naming a
+   * channel gets that channel's last valid value on connect and every change
+   * after; a channel in `waiting` or `error` keeps the last value on the glass
+   * rather than blanking it, the same way a retained MQTT payload would.
+   */
+  const spoolsDeviceIdsByChannelId = new Map<
+    string,
+    string[]
+  >()
+  devices.forEach((device) => {
+    if (!device.spoolsChannel) {
+      return
+    }
+    spoolsDeviceIdsByChannelId.set(device.spoolsChannel, [
+      ...(spoolsDeviceIdsByChannelId.get(
+        device.spoolsChannel,
+      ) ?? []),
+      device.id,
+    ])
+  })
+  const applySpoolsSnapshot = (
+    snapshot: ChannelSnapshot,
+  ) => {
+    const deviceIds = spoolsDeviceIdsByChannelId.get(
+      snapshot.id,
+    )
+    if (
+      !deviceIds ||
+      snapshot.data === null ||
+      snapshot.data === undefined ||
+      (snapshot.status !== "ready" &&
+        snapshot.status !== "stale")
+    ) {
+      return
+    }
+    const data = snapshot.data as ContractData["spools.v1"]
+    deviceIds.forEach((deviceId) => {
+      viewDataStore.setSpools({ deviceId, data })
+      hub.broadcast({
+        deviceId,
+        message: { type: "spools", data },
+      })
+    })
+  }
+  const spoolsSubscription = {
+    unsubscribe: undefined as (() => void) | undefined,
+  }
+  if (platform && spoolsDeviceIdsByChannelId.size > 0) {
+    spoolsDeviceIdsByChannelId.forEach(
+      (_ids, channelId) => {
+        const snapshot = platform.hub.get(channelId)
+        if (snapshot) {
+          applySpoolsSnapshot(snapshot)
+        }
+      },
+    )
+    spoolsSubscription.unsubscribe = platform.hub.subscribe(
+      applySpoolsSnapshot,
+    )
+  }
+
+  /**
+   * A spool command is EXECUTED here, by the device's spools channel source,
+   * and never published: Home Assistant holds no spool inventory, so there is
+   * nothing on the other end of the command topic that could act on it. The
+   * source validates the spool, the slot and the tag against its own data
+   * before it calls the dashboard.
+   */
+  const executeSpoolCommand = async ({
+    deviceId,
+    action,
+    value,
+    payload,
+  }: {
+    deviceId: string
+    action: string
+    value: string
+    payload: Record<string, unknown>
+  }) => {
+    const device = stateStore.deviceById.get(deviceId)
+    if (!platform || !device?.spoolsChannel) {
+      throw new Error(
+        `Device ${deviceId} has no spools channel to execute ${action}.`,
+      )
+    }
+    await platform.runtime.executeAction({
+      channelId: device.spoolsChannel,
+      action: action.replace(/^spool_/, ""),
+      payload: { ...payload, spoolId: value },
+    })
   }
 
   /** The device's settings with the current global clock config stamped on. */
@@ -1175,6 +1303,25 @@ export const createBrowserMode = ({
                 })
               }
             }
+            if (
+              SPOOL_COMMAND_ACTIONS.includes(
+                command.action,
+              ) &&
+              typeof command.value === "string"
+            ) {
+              executeSpoolCommand({
+                deviceId,
+                action: command.action,
+                value: command.value,
+                payload: command.payload ?? {},
+              }).catch((error) => {
+                console.error(
+                  `[castkit] ${command.action} failed for ${deviceId}`,
+                  error,
+                )
+              })
+              return
+            }
             publisher
               .publish({
                 topic: topics.command,
@@ -1265,6 +1412,7 @@ export const createBrowserMode = ({
     start,
     /** Stops the timers this mode owns, so a test (or shutdown) can settle. */
     stop: () => {
+      spoolsSubscription.unsubscribe?.()
       externalViewHealth.stop()
       hub.stop()
     },

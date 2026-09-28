@@ -21,6 +21,11 @@ export const DEVICE_COMMAND_ACTIONS = [
   "printer_pause",
   "printer_resume",
   "printer_stop",
+  "printer_clear_plate",
+  "spool_save_weight",
+  "spool_assign_slot",
+  "spool_copy_to_tag",
+  "spool_link_tag",
 ] as const
 
 export type DeviceCommandAction =
@@ -28,7 +33,29 @@ export type DeviceCommandAction =
 
 /** The actions whose value is a printer id. */
 const PRINTER_COMMAND_ACTIONS: readonly DeviceCommandAction[] =
-  ["printer_pause", "printer_resume", "printer_stop"]
+  [
+    "printer_pause",
+    "printer_resume",
+    "printer_stop",
+    "printer_clear_plate",
+  ]
+
+/**
+ * The actions whose value is a spool id and whose `payload` carries the rest.
+ *
+ * These are the one family the server EXECUTES rather than forwards: a spool
+ * lives in the printer dashboard's inventory, which Home Assistant does not
+ * hold, so the device's configured `spoolsChannel` source performs them and
+ * nothing is published to the command topic. See
+ * docs/filament-spool-scale-view.md.
+ */
+export const SPOOL_COMMAND_ACTIONS: readonly DeviceCommandAction[] =
+  [
+    "spool_save_weight",
+    "spool_assign_slot",
+    "spool_copy_to_tag",
+    "spool_link_tag",
+  ]
 
 export const DeviceCommandSchema = z.object({
   action: z.enum(DEVICE_COMMAND_ACTIONS),
@@ -38,6 +65,14 @@ export const DeviceCommandSchema = z.object({
    * unused; printer_pause / printer_resume / printer_stop: the printer's id.
    */
   value: z.optional(z.union([z.number(), z.string()])),
+  /**
+   * Structured arguments for the spool actions, which need more than one
+   * value: `spool_save_weight` carries `grams`; `spool_assign_slot` carries
+   * `printerId`, `amsId` and `trayId`; `spool_copy_to_tag` and
+   * `spool_link_tag` carry `tagUid`, and optionally `tagType` and `trayUuid`.
+   * Every other action leaves it out.
+   */
+  payload: z.optional(z.record(z.string(), z.unknown())),
 })
 
 export type DeviceCommand = z.infer<
@@ -94,5 +129,42 @@ export const parseDeviceCommand = (
   ) {
     return null
   }
+  if (SPOOL_COMMAND_ACTIONS.includes(command.action)) {
+    return getIsSpoolCommandValid(command) ? command : null
+  }
   return command
+}
+
+const getIsNonEmptyText = (value: unknown) =>
+  typeof value === "string" && value.length > 0
+
+/**
+ * A spool command names a spool, and its payload carries what the action
+ * needs. `spool_copy_to_tag` is the one exception on the spool id: it copies
+ * FROM that spool, and the tag it links is in the payload.
+ */
+const getIsSpoolCommandValid = (command: DeviceCommand) => {
+  if (!getIsNonEmptyText(command.value)) {
+    return false
+  }
+  const payload = command.payload ?? {}
+  switch (command.action) {
+    case "spool_save_weight":
+      return (
+        typeof payload.grams === "number" &&
+        Number.isFinite(payload.grams) &&
+        payload.grams >= 0
+      )
+    case "spool_assign_slot":
+      return (
+        getIsNonEmptyText(payload.printerId) &&
+        Number.isInteger(payload.amsId) &&
+        Number.isInteger(payload.trayId)
+      )
+    case "spool_copy_to_tag":
+    case "spool_link_tag":
+      return getIsNonEmptyText(payload.tagUid)
+    default:
+      return true
+  }
 }

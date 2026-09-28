@@ -86,6 +86,8 @@ const STATE_LABELS: Record<PrinterJob["state"], string> = {
   preparing: "Preparing",
   printing: "Printing",
   paused: "Paused",
+  finished: "Finished",
+  failed: "Failed",
 }
 
 /** Left-to-right ordering is HA's; the badge only counts the columns. */

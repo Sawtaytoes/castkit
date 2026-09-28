@@ -6,6 +6,7 @@ import type {
   NowPlayingData,
   PrintersData,
   QueueData,
+  SpoolsData,
   WeatherData,
 } from "../viewData/types.ts"
 import type { DeviceCommand } from "./commands.ts"
@@ -147,6 +148,7 @@ export type ViewDataState = {
   weather?: WeatherData
   agenda?: AgendaData
   printers?: PrintersData
+  spools?: SpoolsData
 }
 
 export type ServerToClientMessage =
@@ -176,6 +178,7 @@ export type ServerToClientMessage =
   | { type: "weather"; data: WeatherData }
   | { type: "agenda"; data: AgendaData }
   | { type: "printers"; data: PrintersData }
+  | { type: "spools"; data: SpoolsData }
   | { type: "settings"; settings: BrowserDeviceSettings }
   /**
    * The device's external views again, sent when one's availability changes.
