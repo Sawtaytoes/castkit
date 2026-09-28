@@ -188,8 +188,13 @@
       auto-fit,
       minmax(min(100%, 260px), 1fr)
     );
+  /* The row is the panel's height, never the tallest picture's: a card
+     shrinks its picture to fit, so three plate covers on a 1400x800 window
+     do not push the facts under the fold (owner's screenshot, 2026-09-28). */
+  grid-auto-rows: minmax(0, 1fr);
   gap: 8px;
   flex: 1;
+  min-block-size: 0;
 }
 /*
  * A card on the face has no chrome of its own: its background is the panel's
@@ -254,7 +259,13 @@
 .platform-printers .printer-card {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* `min-content`, not 0, as the picture row's floor: the picture's own min
+     is 0 (below), so a card still shrinks it to nothing, but a camera box
+     that carries its "camera unavailable" notice keeps the notice's height
+     and the text does not land on the head. `minmax(auto, 1fr)` does not do
+     this in Chromium; the track stayed 0 (vrt screen-tabs-1280x480,
+     2026-09-28). */
+  grid-template-rows: minmax(min-content, 1fr) auto;
   gap: 12px;
   container: platform-printer-card / inline-size;
 }
@@ -262,6 +273,16 @@
 .platform-printers .printer-card > .platform-printer-image {
   grid-column: 1 / -1;
   grid-row: 1;
+  /* The picture row is minmax(0, 1fr); the picture itself must also be
+     allowed to shrink, or its natural height sets the row anyway. */
+  min-block-size: 0;
+  max-block-size: 100%;
+}
+.platform-printers
+  .printer-card
+  > .platform-camera
+  > .platform-printer-image {
+  max-block-size: 100%;
 }
 .platform-printers .printer-card > .printer-body {
   grid-column: 1 / -1;

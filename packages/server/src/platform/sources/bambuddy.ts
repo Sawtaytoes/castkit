@@ -277,7 +277,13 @@ export const normalizeBambuddyPrinter = ({
   const assignedFilaments = bambuddyPrinterFilaments(status)
   return {
     id,
-    name: textValue(status.name),
+    // The owner names his printers "1 - Magi", "2 - Foopie" so Bambuddy
+    // lists them in order. The number is ordering, not the name; the card
+    // draws its own badge, so the prefix comes off here.
+    name: textValue(status.name).replace(
+      /^\s*\d+\s*[-–·:]\s*/,
+      "",
+    ),
     jobName:
       textValue(status.subtask_name) ||
       textValue(status.current_print) ||
