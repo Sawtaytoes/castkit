@@ -19,6 +19,7 @@ import {
  */
 
 const PLATE_PHOTO = "sample-photos/landscape-gradient.jpg"
+const PLATE_RENDER = "/print-preview-sample.svg"
 
 const THREE_PRINTERS: readonly PrinterJob[] = [
   buildPrinterJob({ thumbnailPath: PLATE_PHOTO }),
@@ -49,8 +50,42 @@ const THREE_PRINTERS: readonly PrinterJob[] = [
   }),
 ]
 
+const EXTRA_PRINTERS: readonly PrinterJob[] = Array.from(
+  { length: 6 },
+  (_, index) => {
+    const printerNumber = index + 4
+    return buildPrinterJob({
+      id: `printer-${printerNumber}`,
+      name: `Printer ${printerNumber}`,
+      jobName: `Storage_Tray_Set_${printerNumber}_PETG`,
+      percent: 82 - index * 9,
+      currentLayer: 24 + index * 17,
+      totalLayers: 188 + index * 23,
+      remainingMinutes: 38 + index * 31,
+      filamentText: "Matte PETG · AMS slot 2",
+      thumbnailPath: PLATE_RENDER,
+    })
+  },
+)
+
+const FOUR_PRINTERS: readonly PrinterJob[] = [
+  ...THREE_PRINTERS.map((printer) => ({
+    ...printer,
+    thumbnailPath: PLATE_RENDER,
+  })),
+  EXTRA_PRINTERS[0] as PrinterJob,
+]
+const FIVE_PRINTERS: readonly PrinterJob[] = [
+  ...FOUR_PRINTERS,
+  EXTRA_PRINTERS[1] as PrinterJob,
+]
+const NINE_PRINTERS: readonly PrinterJob[] = [
+  ...FOUR_PRINTERS,
+  ...EXTRA_PRINTERS.slice(1),
+]
+
 const meta = {
-  title: "Views/Printer Status",
+  title: "Views/3D Printer Status",
   render: renderApp,
   decorators: [seedDecorator("printer-status")],
 }
@@ -99,6 +134,21 @@ export const OnePrinter: Story = {
 export const TwoPrinters: Story = {
   ...workbenchVariant(THREE_PRINTERS.slice(0, 2)),
   name: "Two printers",
+}
+
+export const FourPrinters: Story = {
+  ...workbenchVariant(FOUR_PRINTERS),
+  name: "Four printers",
+}
+
+export const FivePrinters: Story = {
+  ...workbenchVariant(FIVE_PRINTERS),
+  name: "Five printers",
+}
+
+export const NinePrinters: Story = {
+  ...workbenchVariant(NINE_PRINTERS),
+  name: "Nine printers",
 }
 
 export const Paused: Story = {
