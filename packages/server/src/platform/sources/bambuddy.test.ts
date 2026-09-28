@@ -68,6 +68,48 @@ test("Bambuddy printer normalization names the filament in the active tray and t
   expect(none?.nozzleText).toBeUndefined()
 })
 
+test("Bambuddy printer normalization lists the archive's filament slots when the live mapping is empty", () => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      id: 3,
+      name: "Printer",
+      connected: true,
+      state: "RUNNING",
+      progress: 12,
+      ams: [{ id: 0, tray: [] }],
+      ams_mapping: [],
+      tray_now: 10,
+      archive_filament_slots: [
+        {
+          slot_id: 1,
+          used_g: 4.03,
+          type: "PLA",
+          color: "#000000",
+        },
+        {
+          slot_id: 2,
+          used_g: 12,
+          type: "PLA",
+          color: "#5FA35D",
+        },
+      ],
+    },
+  })
+  expect(printer?.filaments).toEqual([
+    {
+      name: "PLA",
+      color: "#000000",
+      location: "Filament 1 · 4.0 g",
+    },
+    {
+      name: "PLA",
+      color: "#5fa35d",
+      location: "Filament 2 · 12 g",
+    },
+  ])
+})
+
 test("Bambuddy printer normalization matches the printer contract and ignores idle machines", () => {
   expect(
     normalizeBambuddyPrinter({
