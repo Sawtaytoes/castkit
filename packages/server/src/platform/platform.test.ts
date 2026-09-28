@@ -224,6 +224,47 @@ describe("platform access and saved compositions", () => {
       ).status,
     ).toBe(401)
   })
+  test("the management PIN unlocks a private display, including one with no PIN of its own", async () => {
+    const fixture = await createFixture()
+    expect(
+      (
+        await fixture.save("views", {
+          ...fixture.view,
+          id: "keyed",
+          access: "pin",
+          pin: "4477",
+        })
+      ).status,
+    ).toBe(201)
+    const wrong = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "keyed", pin: "0000" },
+    )
+    expect(wrong.status).toBe(401)
+    const byMaster = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "keyed", pin: "123456" },
+    )
+    expect(byMaster.status).toBe(200)
+    fixture.platform.store.update((previous) => ({
+      ...previous,
+      views: [
+        ...previous.views,
+        ...previous.views
+          .filter((view) => view.id === "keyed")
+          .map((view) => ({ ...view, id: "orphan" })),
+      ],
+    }))
+    const orphan = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "orphan", pin: "123456" },
+    )
+    expect(orphan.status).toBe(200)
+  })
+
   test("rejects incompatible bindings and changes which would break an existing view", async () => {
     const fixture = await createFixture()
     const invalid = {
