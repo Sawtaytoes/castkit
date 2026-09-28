@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks"
+import { reloadPage } from "../reloadPage.ts"
 import type {
   DisplaySnapshot,
   DisplayTarget,
@@ -51,7 +52,7 @@ export const useDisplay = (target: DisplayTarget) => {
         value.buildId &&
         lifecycle.buildId !== value.buildId
       ) {
-        window.location.reload()
+        reloadPage()
         return
       }
       lifecycle.buildId = value.buildId
@@ -90,7 +91,7 @@ export const useDisplay = (target: DisplayTarget) => {
           return
         }
         if (response.status === 409) {
-          window.location.reload()
+          reloadPage()
           return
         }
         if (
@@ -132,7 +133,7 @@ export const useDisplay = (target: DisplayTarget) => {
           try {
             const message = JSON.parse(event.data)
             if (message.type === "reload") {
-              window.location.reload()
+              reloadPage()
               return
             }
             if (message.type === "locked") {
@@ -258,7 +259,7 @@ export const useDisplay = (target: DisplayTarget) => {
         },
       )
       if (response.status === 409 && target.deviceId) {
-        window.location.reload()
+        reloadPage()
         return
       }
       if (response.status === 401) lockState()
