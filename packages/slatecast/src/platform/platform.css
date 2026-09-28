@@ -180,14 +180,27 @@
       auto-fit,
       minmax(min(100%, 260px), 1fr)
     );
-  gap: 20px;
+  gap: 8px;
   flex: 1;
 }
+/*
+ * A card on the face has no chrome of its own: its background is the panel's
+ * and its border is gone. It KEEPS its padding, because a failed or finished
+ * card tints its whole surface, and a tint with the job box hard against its
+ * edge read as a bleed rather than a card. The grid gap is smaller by the
+ * same amount, so the columns sit where they did.
+ */
 .platform-printers .printer-card {
   min-block-size: 0;
-  padding: 0;
+  padding: 12px;
   background: transparent;
   border: 0;
+}
+.platform-printers .printer-card[data-intent="danger"] {
+  background: var(--color-intent-danger-surface);
+}
+.platform-printers .printer-card[data-intent="success"] {
+  background: var(--color-intent-success-surface);
 }
 /*
  * The picture takes the slack and the facts sit at the bottom, as on the

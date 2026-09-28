@@ -53,6 +53,75 @@ const mediaUrl = ({
   kind: string
 }) =>
   `/api/platform/channels/${encodeURIComponent(channelId)}/media/${encodeURIComponent(printerId)}?kind=${kind}`
+/**
+ * The filament the printer is feeding right now, from Bambuddy's `tray_now`:
+ * a global tray id (`ams_id * 4 + slot`), 254 for the external spool and 255
+ * for none. The text matches what Home Assistant's own printers source
+ * publishes ("PLA Matte · AMS 3 slot 3"), so the Printer Status card reads
+ * the same whichever source feeds it.
+ */
+const activeFilament = (
+  status: Record<string, unknown>,
+):
+  | { filamentText: string; filamentColor?: string }
+  | undefined => {
+  const trayNow = finiteNumber(status.tray_now)
+  if (trayNow === undefined || trayNow === 255) {
+    return undefined
+  }
+  const trays = (list: unknown) =>
+    (Array.isArray(list) ? list : []).map(record)
+  const isExternal = trayNow === 254
+  const unit = trays(status.ams).find(
+    (entry) =>
+      finiteNumber(entry.id) === Math.floor(trayNow / 4),
+  )
+  const tray = (
+    isExternal ? trays(status.vt_tray) : trays(unit?.tray)
+  ).find((entry, index) =>
+    isExternal
+      ? index === 0
+      : finiteNumber(entry.id) === trayNow % 4,
+  )
+  const name = tray
+    ? textValue(tray.tray_sub_brands) ||
+      textValue(tray.tray_type)
+    : ""
+  if (!tray || !name) {
+    return undefined
+  }
+  const color = textValue(tray.tray_color)
+  const place = isExternal
+    ? "External spool"
+    : `AMS ${Math.floor(trayNow / 4) + 1} slot ${(trayNow % 4) + 1}`
+  return {
+    filamentText: `${name} · ${place}`,
+    ...(color
+      ? { filamentColor: `#${color.slice(0, 6)}` }
+      : {}),
+  }
+}
+
+/** "0.4 mm hardened steel", from the primary nozzle Bambuddy reports. */
+const activeNozzleText = (
+  status: Record<string, unknown>,
+) => {
+  const nozzle = record(
+    (Array.isArray(status.nozzles)
+      ? status.nozzles
+      : [])[0],
+  )
+  const diameter = textValue(nozzle.nozzle_diameter)
+  if (!diameter) {
+    return undefined
+  }
+  const type = textValue(nozzle.nozzle_type).replace(
+    /_/g,
+    " ",
+  )
+  return `${diameter} mm${type ? ` ${type}` : ""}`.trim()
+}
+
 /** Bambuddy's printer state becomes the same contract as an MQTT printer source. */
 export const normalizeBambuddyPrinter = ({
   data,
@@ -82,6 +151,8 @@ export const normalizeBambuddyPrinter = ({
   )
     .map((error) => textValue(record(error).code))
     .filter(Boolean)
+  const filament = activeFilament(status)
+  const nozzleText = activeNozzleText(status)
   return {
     id,
     name: textValue(status.name),
@@ -126,6 +197,8 @@ export const normalizeBambuddyPrinter = ({
       kind: "stream",
     }),
     cameraIsLive: true,
+    ...(filament ? filament : {}),
+    ...(nozzleText ? { nozzleText } : {}),
     ...(problems.length
       ? {
           problemText: `Printer reports: ${problems.join(", ")}`,
