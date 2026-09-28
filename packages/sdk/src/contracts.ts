@@ -119,6 +119,19 @@ const printer = z.object({
   cameraIsLive: z.boolean().optional(),
   filamentText: z.string().optional(),
   filamentColor: z.string().optional(),
+  filaments: z
+    .array(
+      z.object({
+        name: z.string().optional(),
+        color: z
+          .string()
+          .regex(/^#[0-9a-fA-F]{6}$/)
+          .optional(),
+        location: z.string(),
+      }),
+    )
+    .max(32)
+    .optional(),
   nozzleText: z.string().optional(),
   problemText: z.string().optional(),
 })

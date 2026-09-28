@@ -40,7 +40,21 @@ const endedAtMs = (minutesAgo: number) =>
   SCREENSHOT_EPOCH_MILLIS - minutesAgo * MINUTE_MILLIS
 
 const THREE_PRINTERS: readonly PrinterJob[] = [
-  buildPrinterJob({ thumbnailPath: PLATE_PHOTO }),
+  buildPrinterJob({
+    thumbnailPath: PLATE_PHOTO,
+    filaments: [
+      {
+        name: "PLA Matte",
+        color: "#1c1c1c",
+        location: "AMS 3, slot 3",
+      },
+      {
+        name: "Support for PLA",
+        color: "#f1e7d0",
+        location: "AMS 1, slot 1",
+      },
+    ],
+  }),
   buildPrinterJob({
     id: "foopie",
     name: "Foopie",
