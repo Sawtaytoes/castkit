@@ -11,14 +11,18 @@ import {
 /**
  * Printer Status on fixture data.
  *
- * The plate renders are SAMPLE PHOTOS, not real ones. A real plate render of
- * this household's prints carries a person's name modeled into the part, and a
+ * The plate renders are INVENTED, not real ones. A real plate render of this
+ * household's prints carries a person's name modeled into the part, and a
  * picture is opaque to every search that would otherwise catch it before a
- * public repo shipped it. The shape of the card is what a story has to show,
- * and a landscape photo tests the fit harder than a square render does.
+ * public repo shipped it. These are square slicer-style renders of made-up
+ * parts, drawn by `scripts/printer-fixture-images/`, so the card shows the
+ * picture it shows on the glass: a square render on a dark field.
  */
 
-const PLATE_PHOTO = "sample-photos/landscape-gradient.jpg"
+const PLATE_PHOTO = "sample-photos/printer-plate-stand.png"
+const PODS_PLATE = "sample-photos/printer-plate-pods.png"
+const CANISTERS_PLATE =
+  "sample-photos/printer-plate-canisters.png"
 
 const THREE_PRINTERS: readonly PrinterJob[] = [
   buildPrinterJob({ thumbnailPath: PLATE_PHOTO }),
@@ -33,7 +37,7 @@ const THREE_PRINTERS: readonly PrinterJob[] = [
     remainingMinutes: 537,
     filamentText: "PETG Translucent · AMS 1 slot 4",
     filamentColor: "#8e8e8e",
-    thumbnailPath: PLATE_PHOTO,
+    thumbnailPath: PODS_PLATE,
   }),
   buildPrinterJob({
     id: "quadrahedron",
@@ -45,7 +49,7 @@ const THREE_PRINTERS: readonly PrinterJob[] = [
     totalLayers: 503,
     remainingMinutes: 331,
     filamentText: "PLA Basic · AMS 2 slot 4",
-    thumbnailPath: PLATE_PHOTO,
+    thumbnailPath: CANISTERS_PLATE,
   }),
 ]
 

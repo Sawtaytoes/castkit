@@ -1,4 +1,5 @@
 import type { BrowserDeviceProfile } from "@castkit/shared/protocol/ws"
+import { useEffect, useState } from "preact/hooks"
 
 /**
  * A story rendered at its panel's real size, inside a nested `<iframe>`.
@@ -43,6 +44,43 @@ export const buildPanelUrl = (storyId: string) =>
 /** Bezel thickness around the panel, in pixels. */
 const BEZEL_WIDTH = 8
 
+/** The frame's padding, and the room the caption line takes under the panel. */
+const CANVAS_PADDING = 24
+const CAPTION_ALLOWANCE = 32
+
+/**
+ * How far to shrink the panel so the whole of it fits the canvas. A 1280-tall
+ * portrait panel is taller than any Storybook canvas, and at its native size
+ * the bottom of the glass fell off the canvas: the Pi Touch Portrait stories
+ * showed the top of the view and read as a layout with nothing at the bottom.
+ * Only the OUTER frame scales — the nested document keeps the panel's own
+ * size, so every `vmin` inside it still resolves exactly as on the glass.
+ */
+const measureFitScale = (device: BrowserDeviceProfile) =>
+  Math.min(
+    1,
+    (window.innerWidth - CANVAS_PADDING * 2) /
+      (device.width + BEZEL_WIDTH * 2),
+    (window.innerHeight -
+      CANVAS_PADDING * 2 -
+      CAPTION_ALLOWANCE) /
+      (device.height + BEZEL_WIDTH * 2),
+  )
+
+const useFitScale = (device: BrowserDeviceProfile) => {
+  const [scale, setScale] = useState(() =>
+    measureFitScale(device),
+  )
+  useEffect(() => {
+    const onResize = () => setScale(measureFitScale(device))
+    onResize()
+    window.addEventListener("resize", onResize)
+    return () =>
+      window.removeEventListener("resize", onResize)
+  }, [device])
+  return scale
+}
+
 const CAPTION_STYLE = {
   color: "#8a8a8a",
   fontFamily: "monospace",
@@ -59,6 +97,9 @@ export const PanelFrame = ({
   storyId: string
 }) => {
   const isRound = device.shape === "round"
+  const scale = useFitScale(device)
+  const outerWidth = device.width + BEZEL_WIDTH * 2
+  const outerHeight = device.height + BEZEL_WIDTH * 2
   return (
     <div
       style={{
@@ -68,43 +109,56 @@ export const PanelFrame = ({
         flexDirection: "column",
         justifyContent: "center",
         minHeight: "100vh",
-        padding: "24px",
+        padding: `${CANVAS_PADDING}px`,
         width: "100%",
       }}
     >
       <div
         style={{
-          // The mask is the point for the porthole: the real panel is a
-          // circle, and a square preview of it hides every corner the bezel
-          // actually eats. `overflow: hidden` clips the nested document.
-          background: "#101010",
-          borderRadius: isRound
-            ? "50%"
-            : `${BEZEL_WIDTH}px`,
-          boxSizing: "content-box",
           flex: "none",
-          height: `${device.height}px`,
-          overflow: "hidden",
-          padding: `${BEZEL_WIDTH}px`,
-          width: `${device.width}px`,
+          height: `${outerHeight * scale}px`,
+          width: `${outerWidth * scale}px`,
         }}
       >
-        <iframe
-          height={device.height}
-          src={buildPanelUrl(storyId)}
+        <div
           style={{
-            border: 0,
-            borderRadius: isRound ? "50%" : "2px",
-            colorScheme: "normal",
-            display: "block",
+            // The mask is the point for the porthole: the real panel is a
+            // circle, and a square preview of it hides every corner the bezel
+            // actually eats. `overflow: hidden` clips the nested document.
+            background: "#101010",
+            borderRadius: isRound
+              ? "50%"
+              : `${BEZEL_WIDTH}px`,
+            boxSizing: "content-box",
+            flex: "none",
+            height: `${device.height}px`,
+            overflow: "hidden",
+            padding: `${BEZEL_WIDTH}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            width: `${device.width}px`,
           }}
-          title={device.label}
-          width={device.width}
-        />
+        >
+          <iframe
+            height={device.height}
+            src={buildPanelUrl(storyId)}
+            style={{
+              border: 0,
+              borderRadius: isRound ? "50%" : "2px",
+              colorScheme: "normal",
+              display: "block",
+            }}
+            title={device.label}
+            width={device.width}
+          />
+        </div>
       </div>
       <div style={CAPTION_STYLE}>
         {device.label} — {device.width}x{device.height}
         {isRound ? " — masked to the round bezel" : ""}
+        {scale < 1
+          ? ` — shown at ${Math.round(scale * 100)}%`
+          : ""}
       </div>
     </div>
   )

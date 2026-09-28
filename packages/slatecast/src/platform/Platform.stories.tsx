@@ -1,25 +1,95 @@
-import type { StoryObj } from "@storybook/preact-vite"
+import type { ContractData } from "@castkit/sdk/contracts"
+import type {
+  Decorator,
+  StoryObj,
+} from "@storybook/preact-vite"
 import {
   aiUsageFixture,
   compositionFixture,
 } from "./fixtures.ts"
 import { PinKeypad } from "./PinKeypad.tsx"
 import { DisplayComposition } from "./PlatformApp.tsx"
+import type { DisplaySnapshot } from "./protocol.ts"
 import "../styles.css"
 import "./platform.css"
 
+/**
+ * Stamps the story's scheme on `<html>`, where the server stamps it on a real
+ * display. The palette variables (`--bg`, `--fg`, …) are declared on `:root`
+ * and resolve there, so a `data-scheme` on the story's own `<main>` flips the
+ * Charcuterie tokens under it and leaves every palette variable light — the
+ * dashboard rendered light, with its dark progress text on a dark track.
+ */
+const withDocumentScheme: Decorator = (Story, context) => {
+  const scheme = context.parameters.scheme as
+    | string
+    | undefined
+  if (scheme) {
+    document.documentElement.dataset.scheme = scheme
+  } else {
+    delete document.documentElement.dataset.scheme
+  }
+  return <Story />
+}
+
 const meta = {
   title: "Views/Composed Dashboard",
-  parameters: { layout: "fullscreen" },
+  parameters: { layout: "fullscreen", scheme: "dark" },
+  decorators: [withDocumentScheme],
 }
 export default meta
 type Story = StoryObj<typeof meta>
+
+/**
+ * A root-relative path to a Storybook static file. A card takes only a path
+ * that starts with `/`, and this Storybook is served at `/` on localhost but
+ * at `/refs/castkit-slatecast/` inside the composed site, so the path is
+ * resolved against the document rather than written out.
+ */
+const staticPath = (file: string) =>
+  new URL(file, document.baseURI).pathname
+
+/**
+ * The composition fixture with pictures that load: an invented plate render
+ * and an invented chamber-camera frame from `scripts/printer-fixture-images/`.
+ * The unit tests keep the fixture's own paths; only the story swaps them.
+ */
+const fixturePrints = compositionFixture.channels.prints
+if (!fixturePrints) {
+  throw new Error(
+    "The composition fixture lost its prints channel.",
+  )
+}
+const fixturePrinters = (
+  fixturePrints.data as ContractData["printers.v1"]
+).printers
+
+const storySnapshot: DisplaySnapshot = {
+  ...compositionFixture,
+  channels: {
+    ...compositionFixture.channels,
+    prints: {
+      ...fixturePrints,
+      data: {
+        printers: fixturePrinters.map((printer) => ({
+          ...printer,
+          thumbnailPath: staticPath(
+            "sample-photos/printer-plate-stand.png",
+          ),
+          cameraPath: staticPath(
+            "sample-photos/printer-camera-chamber.jpg",
+          ),
+        })),
+      },
+    },
+  },
+}
 /** Two independent channels share one responsive composition. */
 export const PrintersAndRips: Story = {
   render: () => (
-    <main class="platform" data-scheme="dark">
+    <main class="platform">
       <DisplayComposition
-        snapshot={compositionFixture}
+        snapshot={storySnapshot}
         isConnected
         onAction={async () => undefined}
       />
@@ -43,7 +113,7 @@ export const Disconnected: Story = {
     <main class="platform">
       <p role="status">Connection lost · Retrying</p>
       <DisplayComposition
-        snapshot={compositionFixture}
+        snapshot={storySnapshot}
         isConnected={false}
         onAction={async () => undefined}
       />
@@ -53,7 +123,7 @@ export const Disconnected: Story = {
 /** Every AI subscription's remaining quota on one panel. */
 export const AiUsage: Story = {
   render: () => (
-    <main class="platform" data-scheme="dark">
+    <main class="platform">
       <DisplayComposition
         snapshot={aiUsageFixture}
         isConnected
