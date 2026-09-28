@@ -5,6 +5,69 @@ import {
   normalizeBambuddyPrinter,
 } from "./bambuddy.ts"
 
+test("Bambuddy printer normalization names the filament in the active tray and the nozzle", () => {
+  const normalized = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      id: 3,
+      name: "Printer",
+      connected: true,
+      state: "RUNNING",
+      progress: 10,
+      tray_now: 6,
+      ams: [
+        { id: 0, tray: [{ id: 0, tray_type: "PLA" }] },
+        {
+          id: 1,
+          tray: [
+            { id: 1, tray_type: "PETG" },
+            {
+              id: 2,
+              tray_type: "PLA",
+              tray_sub_brands: "PLA Matte",
+              tray_color: "A03B3BFF",
+            },
+          ],
+        },
+      ],
+      nozzles: [
+        {
+          nozzle_type: "hardened_steel",
+          nozzle_diameter: "0.4",
+        },
+      ],
+    },
+  })
+  expect(normalized).toMatchObject({
+    filamentText: "PLA Matte · AMS 2 slot 3",
+    filamentColor: "#A03B3B",
+    nozzleText: "0.4 mm hardened steel",
+  })
+  expect(
+    normalizeBambuddyPrinter({
+      channelId: "printers",
+      data: {
+        id: 3,
+        connected: true,
+        state: "RUNNING",
+        tray_now: 254,
+        vt_tray: [{ id: 254, tray_type: "TPU" }],
+      },
+    }),
+  ).toMatchObject({ filamentText: "TPU · External spool" })
+  const none = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      id: 3,
+      connected: true,
+      state: "RUNNING",
+      tray_now: 255,
+    },
+  })
+  expect(none?.filamentText).toBeUndefined()
+  expect(none?.nozzleText).toBeUndefined()
+})
+
 test("Bambuddy printer normalization matches the printer contract and ignores idle machines", () => {
   expect(
     normalizeBambuddyPrinter({
