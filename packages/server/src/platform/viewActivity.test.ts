@@ -86,7 +86,7 @@ test("a rip deck is active only when the tower is present with a job", () => {
   ).toBe(false)
 })
 
-test("music is active while playing; a contract with no idle state is always active", () => {
+test("music is active while playing; a contract with no idle state has no answer", () => {
   expect(
     isChannelActive(
       channel("now-playing.v1", { isPlaying: false }),
@@ -99,7 +99,7 @@ test("music is active while playing; a contract with no idle state is always act
   ).toBe(true)
   expect(
     isChannelActive(channel("images.v1", { images: [] })),
-  ).toBe(true)
+  ).toBeUndefined()
   expect(isChannelActive(undefined)).toBe(false)
   expect(
     isChannelActive({
@@ -134,7 +134,6 @@ test("a view's activity is keyed by panel, and the view is active when any panel
   ).toEqual({
     "rip-deck": false,
     "printer-status": true,
-    clock: true,
   })
   expect(isViewActive({ view: composed, channels })).toBe(
     true,
@@ -145,4 +144,27 @@ test("a view's activity is keyed by panel, and the view is active when any panel
       channels,
     }),
   ).toBe(false)
+})
+
+test("a view with no panel that can be idle has no activity answer, so its tab draws no dot", () => {
+  const channels = {
+    photos: channel("images.v1", { images: [] }),
+  }
+  expect(
+    isViewActive({
+      view: view([
+        { id: "photo-frame", channelId: "photos" },
+        { id: "clock" },
+      ]),
+      channels,
+    }),
+  ).toBeUndefined()
+  expect(
+    getPanelActivity({
+      view: view([
+        { id: "photo-frame", channelId: "photos" },
+      ]),
+      channels,
+    }),
+  ).toEqual({})
 })
