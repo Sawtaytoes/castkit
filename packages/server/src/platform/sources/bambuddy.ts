@@ -1,6 +1,16 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import type { SourceFactory } from "@castkit/sdk/plugin"
 import {
+  type BambuddyAssignment,
+  createBambuddyEventStream,
+  INVENTORY_REFRESH_EVENTS,
+  initialSpoolReaderState,
+  normalizeBambuddyAssignments,
+  normalizeBambuddySpool,
+  normalizeBambuddySpoolsPrinter,
+  reduceSpoolReaderEvent,
+} from "./bambuddySpools.ts"
+import {
   finiteNumber,
   pollingSource,
   record,
@@ -8,6 +18,30 @@ import {
   stringList,
   textValue,
 } from "./http.ts"
+
+/** The product half of a Bambuddy spool: what a copy onto a new tag carries. */
+const SPOOL_PRODUCT_FIELDS = [
+  "material",
+  "subtype",
+  "brand",
+  "color_name",
+  "rgba",
+  "extra_colors",
+  "effect_type",
+  "label_weight",
+  "core_weight",
+] as const
+const SPOOL_ACTIONS = [
+  "save_weight",
+  "assign_slot",
+  "copy_to_tag",
+  "link_tag",
+] as const
+/** Bambuddy keys every spool and printer by an integer id. */
+const integerId = (value: unknown) => {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) ? parsed : undefined
+}
 
 const mediaUrl = ({
   channelId,
@@ -108,7 +142,18 @@ export const createBambuddySource: SourceFactory = (
   }
   const state = {
     printers: [] as Record<string, unknown>[],
+    statusById: new Map<string, unknown>(),
+    spools: [] as Record<string, unknown>[],
+    assignments: [] as BambuddyAssignment[],
+    reader: initialSpoolReaderState(),
+    inventoryRefresh: undefined as
+      | Promise<void>
+      | undefined,
   }
+  const spoolsChannels = () =>
+    context.channels.filter(
+      (channel) => channel.type === "spools.v1",
+    )
   const camera = {
     token: undefined as
       | { value: string; expiresAt: number }
@@ -186,6 +231,112 @@ export const createBambuddySource: SourceFactory = (
     state.printers = data.map(record)
     return state.printers
   }
+  const printerNames = () =>
+    new Map(
+      state.printers.map((printer) => [
+        String(printer.id),
+        textValue(printer.name),
+      ]),
+    )
+  /** One spools snapshot for a channel: the reader state plus the inventory. */
+  const spoolsSnapshot = (
+    channelId: string,
+  ): ContractData["spools.v1"] => ({
+    ...state.reader,
+    spools: state.spools.flatMap((spool) => {
+      const normalized = normalizeBambuddySpool({
+        data: spool,
+        assignments: state.assignments,
+        printerNames: printerNames(),
+      })
+      return normalized ? [normalized] : []
+    }),
+    printers: selectedIds(channelId).flatMap((id) => {
+      const printer = normalizeBambuddySpoolsPrinter({
+        data: state.statusById.get(id),
+        assignments: state.assignments,
+      })
+      return printer ? [printer] : []
+    }),
+  })
+  const publishSpools = (channelId: string) => {
+    context.publish({
+      channelId,
+      data: spoolsSnapshot(channelId),
+    })
+  }
+  const publishSpoolsEverywhere = () => {
+    spoolsChannels().forEach((channel) => {
+      publishSpools(channel.id)
+    })
+  }
+  /** Bambuddy's spool list and slot assignments, kept for the next snapshot. */
+  const readInventory = async () => {
+    const readJson = (path: string) =>
+      sourceRequest({ context, headers, path }).then(
+        (response) => response.json(),
+      )
+    const [spools, assignments] = await Promise.all([
+      readJson("/api/v1/inventory/spools"),
+      readJson("/api/v1/inventory/assignments"),
+    ])
+    if (!Array.isArray(spools)) {
+      throw new Error(
+        "Bambuddy returned an invalid spool list.",
+      )
+    }
+    state.spools = spools.map(record)
+    state.assignments =
+      normalizeBambuddyAssignments(assignments)
+  }
+  /** An out-of-cycle inventory read after an action or an inventory event. */
+  const refreshInventory = () => {
+    if (state.inventoryRefresh) {
+      return state.inventoryRefresh
+    }
+    state.inventoryRefresh = (async () => {
+      try {
+        await readInventory()
+        publishSpoolsEverywhere()
+      } catch {
+        // The next poll reports the source as unreachable.
+      } finally {
+        state.inventoryRefresh = undefined
+      }
+    })()
+    return state.inventoryRefresh
+  }
+  const eventStream = createBambuddyEventStream({
+    context,
+    headers,
+    onEvent: (event) => {
+      const reader = reduceSpoolReaderEvent({
+        state: state.reader,
+        event,
+      })
+      const eventType = textValue(record(event).type)
+      if (reader !== state.reader) {
+        state.reader = reader
+        publishSpoolsEverywhere()
+      }
+      if (
+        (
+          INVENTORY_REFRESH_EVENTS as readonly string[]
+        ).includes(eventType)
+      ) {
+        void refreshInventory()
+      }
+    },
+    onDisconnect: () => {
+      if (state.reader.scale.isOnline) {
+        state.reader = {
+          ...state.reader,
+          scale: { ...state.reader.scale, isOnline: false },
+        }
+        publishSpoolsEverywhere()
+      }
+    },
+  })
   const poll = async () => {
     await listPrinters()
     const ids = Array.from(
@@ -210,10 +361,15 @@ export const createBambuddySource: SourceFactory = (
           ] as const,
       ),
     )
-    const statusById = new Map(statuses)
+    state.statusById = new Map(statuses)
+    if (spoolsChannels().length > 0) {
+      await readInventory()
+    }
     context.channels.forEach((channel) => {
       const selection = selectedIds(channel.id)
-      if (channel.type === "cameras.v1") {
+      if (channel.type === "spools.v1") {
+        publishSpools(channel.id)
+      } else if (channel.type === "cameras.v1") {
         context.publish({
           channelId: channel.id,
           data: {
@@ -236,7 +392,7 @@ export const createBambuddySource: SourceFactory = (
       } else {
         const printers = selection.flatMap((id) => {
           const printer = normalizeBambuddyPrinter({
-            data: statusById.get(id),
+            data: state.statusById.get(id),
             channelId: channel.id,
           })
           return printer ? [printer] : []
@@ -248,14 +404,193 @@ export const createBambuddySource: SourceFactory = (
       }
     })
   }
+  /** A Bambuddy write with the failure named for the person who pressed it. */
+  const spoolRequest = async ({
+    verb,
+    path,
+    method,
+    body,
+  }: {
+    verb: string
+    path: string
+    method: "POST" | "PATCH"
+    body: Record<string, unknown>
+  }) => {
+    try {
+      const response = await sourceRequest({
+        context,
+        headers,
+        path,
+        method,
+        body,
+      })
+      return record(await response.json().catch(() => ({})))
+    } catch (error) {
+      throw new Error(
+        `Bambuddy could not ${verb}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
+  const linkTag = ({
+    spoolId,
+    payload,
+  }: {
+    spoolId: number
+    payload: Record<string, unknown>
+  }) =>
+    spoolRequest({
+      verb: "link the tag",
+      path: `/api/v1/inventory/spools/${spoolId}/link-tag`,
+      method: "PATCH",
+      body: {
+        tag_uid: textValue(payload.tagUid),
+        ...(textValue(payload.trayUuid)
+          ? { tray_uuid: textValue(payload.trayUuid) }
+          : {}),
+        ...(textValue(payload.tagType)
+          ? { tag_type: textValue(payload.tagType) }
+          : {}),
+      },
+    })
+  /**
+   * The spool actions, each validated against the last inventory read before
+   * Bambuddy is asked, and each followed by an immediate inventory refresh so
+   * the panel does not wait a poll to see its own change.
+   */
+  const executeSpoolAction = async ({
+    channelId,
+    action,
+    payload,
+  }: {
+    channelId: string
+    action: string
+    payload: Record<string, unknown>
+  }) => {
+    const command = action.replace(/^spool_/, "")
+    if (
+      !(SPOOL_ACTIONS as readonly string[]).includes(
+        command,
+      )
+    ) {
+      throw new Error(
+        "This channel does not allow that spool action.",
+      )
+    }
+    const spoolId = integerId(payload.spoolId)
+    const spool = state.spools.find(
+      (entry) => String(entry.id) === String(spoolId),
+    )
+    if (spoolId === undefined || !spool) {
+      throw new Error(
+        "That spool is not in the Bambuddy inventory.",
+      )
+    }
+    const result = await (async () => {
+      switch (command) {
+        case "save_weight": {
+          const grams = finiteNumber(payload.grams)
+          if (grams === undefined || grams < 0) {
+            throw new Error(
+              "A scale weight in grams is required.",
+            )
+          }
+          return spoolRequest({
+            verb: "save the weight",
+            path: "/api/v1/spoolbuddy/scale/update-spool-weight",
+            method: "POST",
+            body: {
+              spool_id: spoolId,
+              weight_grams: grams,
+            },
+          })
+        }
+        case "assign_slot": {
+          const printerId = integerId(payload.printerId)
+          const amsId = payload.amsId
+          const trayId = payload.trayId
+          if (
+            printerId === undefined ||
+            !selectedIds(channelId).includes(
+              String(printerId),
+            )
+          ) {
+            throw new Error(
+              "That printer is not part of this channel.",
+            )
+          }
+          if (
+            !Number.isInteger(amsId) ||
+            !Number.isInteger(trayId)
+          ) {
+            throw new Error(
+              "An AMS id and a tray id are required.",
+            )
+          }
+          return spoolRequest({
+            verb: "assign the slot",
+            path: "/api/v1/inventory/assignments",
+            method: "POST",
+            body: {
+              spool_id: spoolId,
+              printer_id: printerId,
+              ams_id: amsId,
+              tray_id: trayId,
+            },
+          })
+        }
+        case "copy_to_tag": {
+          if (!textValue(payload.tagUid)) {
+            throw new Error("A tag uid is required.")
+          }
+          const created = await spoolRequest({
+            verb: "create the spool",
+            path: "/api/v1/inventory/spools",
+            method: "POST",
+            body: Object.fromEntries(
+              SPOOL_PRODUCT_FIELDS.filter(
+                (field) =>
+                  spool[field] !== undefined &&
+                  spool[field] !== null,
+              ).map((field) => [field, spool[field]]),
+            ),
+          })
+          const newId = integerId(created.id)
+          if (newId === undefined) {
+            throw new Error(
+              "Bambuddy created the spool without an id.",
+            )
+          }
+          return linkTag({ spoolId: newId, payload })
+        }
+        default: {
+          if (!textValue(payload.tagUid)) {
+            throw new Error("A tag uid is required.")
+          }
+          return linkTag({ spoolId, payload })
+        }
+      }
+    })()
+    await refreshInventory()
+    return result
+  }
+  const polling = pollingSource({
+    context,
+    poll,
+    intervalSeconds:
+      finiteNumber(context.source.settings.pollSeconds) ??
+      5,
+  })
   return {
-    ...pollingSource({
-      context,
-      poll,
-      intervalSeconds:
-        finiteNumber(context.source.settings.pollSeconds) ??
-        5,
-    }),
+    start: async () => {
+      if (spoolsChannels().length > 0) {
+        eventStream.start()
+      }
+      await polling.start()
+    },
+    dispose: () => {
+      eventStream.dispose()
+      polling.dispose()
+    },
     discover: async () => ({
       printers: (await listPrinters()).map((printer) => ({
         id: String(printer.id),
@@ -267,6 +602,16 @@ export const createBambuddySource: SourceFactory = (
       action,
       payload,
     }) => {
+      const channel = context.channels.find(
+        (entry) => entry.id === channelId,
+      )
+      if (channel?.type === "spools.v1") {
+        return executeSpoolAction({
+          channelId,
+          action,
+          payload,
+        })
+      }
       const printerId = textValue(payload.printerId)
       const command = action.replace(/^printer_/, "")
       if (

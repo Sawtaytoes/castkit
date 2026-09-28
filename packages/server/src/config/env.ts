@@ -251,6 +251,11 @@ const BrowserDeviceConfigSchema = z.object({
   // Absent preserves the historical behavior: every compatible view is
   // offered. A configured list is an ordered allow-list by display name.
   views: z.optional(z.array(z.string())),
+  // The platform channel (type `spools.v1`) that feeds this panel's Filament
+  // Spool Scale view and performs its spool actions. The channel's source
+  // holds the dashboard credential; the panel never sees it. Absent means the
+  // view has no data and is offered with an empty scale.
+  spoolsChannel: z.optional(z.string()),
 })
 
 export type BrowserDeviceConfig = z.infer<

@@ -62,8 +62,12 @@ const adapters: AdapterDefinition[] = [
     id: "bambuddy",
     name: "Bambuddy",
     description:
-      "Printer jobs, camera snapshots, and print controls.",
-    channelTypes: ["printers.v1", "cameras.v1"],
+      "Printer jobs, camera snapshots, print controls, and the SpoolBuddy filament scale with the spool inventory.",
+    channelTypes: [
+      "printers.v1",
+      "cameras.v1",
+      "spools.v1",
+    ],
     settings: [
       urlField,
       { key: "apiKey", label: "API key", type: "secret" },
@@ -79,11 +83,19 @@ const adapters: AdapterDefinition[] = [
           "Leave empty to include every printer.",
       },
     ],
-    actions: ["pause", "resume", "stop"].map((id) => ({
-      id,
-      name: id,
-      isConfirmationRequired: true,
-    })),
+    actions: [
+      ...["pause", "resume", "stop"].map((id) => ({
+        id,
+        name: id,
+        isConfirmationRequired: true,
+      })),
+      ...[
+        "save_weight",
+        "assign_slot",
+        "copy_to_tag",
+        "link_tag",
+      ].map((id) => ({ id, name: id })),
+    ],
   },
   {
     id: "mqtt",
