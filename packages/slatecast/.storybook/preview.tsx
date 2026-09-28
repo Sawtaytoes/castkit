@@ -1,6 +1,10 @@
-import type { Preview } from "@storybook/preact-vite"
+import type {
+  Decorator,
+  Preview,
+} from "@storybook/preact-vite"
 import { BROWSER_DEVICE_PROFILES } from "../src/stories/deviceProfiles.ts"
 import { freezeClockUnderAutomation } from "../src/stories/freezeClockUnderAutomation.ts"
+import { isPanelDocument } from "../src/stories/panelFrame.tsx"
 import "../src/styles.css"
 
 // Before any story module loads: the fixtures read the clock at import time.
@@ -40,7 +44,54 @@ const panelViewports = Object.fromEntries(
   the test harness uses it for the WebSocket, where there is no static
   equivalent.
 */
+/**
+ * The composed site's `scheme` global, declared so this ref accepts it. No
+ * default: standalone (localhost, the `vrt` capture) it stays unset and the
+ * canvas keeps its old color, so the capture does not change.
+ */
+export const globalTypes = {
+  scheme: {
+    description:
+      "The canvas around the panel: light or dark.",
+    toolbar: {
+      title: "Scheme",
+      icon: "circlehollow",
+      dynamicTitle: true,
+      items: [
+        { value: "dark", title: "Dark" },
+        { value: "light", title: "Light" },
+      ],
+    },
+  },
+}
+
+/**
+ * The canvas AROUND a panel follows the composed site's Scheme toolbar.
+ *
+ * `storybook.octen.dev` declares a `scheme` global (`dark` by default) and
+ * Storybook copies the host's globals into every composed ref. Nothing here
+ * read it, so the outer document had no `data-scheme`, its `--bg` resolved to
+ * the light surface, and every panel sat on a bright white canvas while the
+ * site around it was dark. `styles.css` already paints `html, body` with `--bg`,
+ * so stamping the scheme is the whole fix.
+ *
+ * The panel's own nested document is left alone: what the glass shows is the
+ * view's business, not the reviewer's toolbar. A story that stamps its own
+ * scheme (the Composed Dashboard) runs its decorator inside this one and wins.
+ */
+const withCanvasScheme: Decorator = (Story, context) => {
+  const scheme = context.globals.scheme
+  if (
+    !isPanelDocument() &&
+    (scheme === "dark" || scheme === "light")
+  ) {
+    document.documentElement.dataset.scheme = scheme
+  }
+  return <Story />
+}
+
 const preview: Preview = {
+  decorators: [withCanvasScheme],
   parameters: {
     layout: "fullscreen",
     viewport: { options: panelViewports },
