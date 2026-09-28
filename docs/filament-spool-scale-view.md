@@ -173,6 +173,7 @@ before the first push. All fixture data is invented; nothing in it is the
 household's inventory.
 
 ![Ready to scan](images/filament-spool-scale-ready.png)
+![Ready to scan, a wave on its way out](images/filament-spool-scale-ready-wave.png)
 ![Weighing, no tag](images/filament-spool-scale-weighing.png)
 ![Tag matched](images/filament-spool-scale-matched.png)
 ![Unknown tag](images/filament-spool-scale-unknown.png)
