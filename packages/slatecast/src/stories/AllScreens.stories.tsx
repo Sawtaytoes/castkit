@@ -46,6 +46,10 @@ const VIEW_STORIES = [
     storyId: "views-printer-status",
   },
   {
+    label: "Filament Spool Scale",
+    storyId: "views-filament-spool-scale",
+  },
+  {
     label: "Touch Test",
     storyId: "views-touch-test",
   },

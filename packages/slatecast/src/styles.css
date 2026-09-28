@@ -2353,3 +2353,1018 @@ html[data-grayscale-text="true"] {
   background: var(--color-intent-danger-solid);
   color: var(--color-intent-danger-on-solid);
 }
+
+/*
+ * ————— Filament Spool Scale —————
+ *
+ * The scale and tag reader beside the printers, on the 1280×720 Pi Touch
+ * Display 2 read at arm's length. Every size below is in px and was tuned on
+ * that panel across three review rounds of the mockup; it is not meant to
+ * scale to another panel, because no other panel has a scale under it.
+ *
+ * The mockup's palette is the token set with local names. They are mapped
+ * here once, so the rules below read like the mockup they reproduce.
+ */
+.fss {
+  --fss-sunken: var(--color-surface-sunken);
+  --fss-overlay: var(--color-surface-overlay);
+  --fss-muted: var(--color-content-muted);
+  --fss-disabled: var(--color-content-disabled);
+  --fss-border: var(--color-border-subtle);
+  --fss-border-default: var(--color-border-default);
+  --fss-border-strong: var(--color-border-strong);
+  --fss-accent-surface: var(--color-intent-accent-surface);
+  --fss-accent-border: var(--color-intent-accent-border);
+  --fss-success: var(--color-intent-success-solid);
+  --fss-success-content: var(
+    --color-intent-success-content
+  );
+  --fss-success-surface: var(
+    --color-intent-success-surface
+  );
+  --fss-success-border: var(--color-intent-success-border);
+  --fss-warning: var(--color-intent-warning-solid);
+  --fss-warning-content: var(
+    --color-intent-warning-content
+  );
+  --fss-warning-surface: var(
+    --color-intent-warning-surface
+  );
+  --fss-warning-border: var(--color-intent-warning-border);
+  --fss-danger: var(--color-intent-danger-solid);
+
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px 30px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+
+/*
+ * The button reset sits at zero specificity so every `.fss-*` class below
+ * outranks it. As `.fss button` it was (0,1,1) and silently beat all of them:
+ * the pill, the tabs and the cards rendered as bare text on the first shot.
+ */
+:where(.fss button) {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+}
+
+.fss button:disabled {
+  opacity: 0.55;
+}
+
+.fss h1,
+.fss p {
+  margin: 0;
+}
+
+/* The type scale. */
+.fss-title {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.fss-subtitle {
+  color: var(--fg-dim);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.fss-label {
+  color: var(--fss-muted);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fss-hint {
+  color: var(--fss-muted);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.fss-title-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.fss-title-row > * {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-card {
+  padding: 22px;
+  border: 1px solid var(--fss-border);
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+/* Buttons: a hand's width, and the label shrinks to a wrap before it clips. */
+.fss-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 96px;
+  padding: 18px 26px;
+  border: 2px solid var(--fss-border-default);
+  border-radius: 20px;
+  background: var(--fss-overlay);
+  color: var(--fg);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.fss-btn.is-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--color-content-on-accent, #fff);
+}
+
+.fss-btn.is-success {
+  border-color: var(--fss-success);
+  background: var(--fss-success);
+  color: var(--color-intent-success-on-solid, #04140c);
+}
+
+.fss-btn.is-small {
+  min-height: 68px;
+  padding: 12px 24px;
+  border-radius: 16px;
+  font-size: 24px;
+}
+
+.fss-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--fss-border-default);
+  border-radius: 999px;
+  color: var(--fg-dim);
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fss-chip.is-accent {
+  border-color: var(--fss-accent-border);
+  background: var(--fss-accent-surface);
+  color: var(--accent-content);
+}
+
+.fss-chip.is-success {
+  border-color: var(--fss-success-border);
+  background: var(--fss-success-surface);
+  color: var(--fss-success-content);
+}
+
+.fss-chip.is-warning {
+  border-color: var(--fss-warning-border);
+  background: var(--fss-warning-surface);
+  color: var(--fss-warning-content);
+}
+
+.fss-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--fss-success);
+}
+
+.fss-dot.is-danger {
+  background: var(--fss-danger);
+}
+
+.fss-spacer {
+  flex: 1;
+}
+
+/*
+ * Swatches. A two-tone one is clipped bands inside the rounded box, never a
+ * gradient: a gradient bleeds under the translucent border and reads as a
+ * smudge at this size. The `::after` ring is the border; it is drawn last so
+ * it sits over the bands and the effects alike.
+ */
+.fss-swatch {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 16px;
+  background: var(--c);
+}
+
+.fss-swatch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+  pointer-events: none;
+}
+
+.fss-swatch.is-big {
+  width: 170px;
+  height: 170px;
+  border-radius: 34px;
+}
+
+.fss-swatch.is-tiny {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.fss-swatch.is-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+}
+
+.fss-swatch.is-hatched {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--fss-overlay) 0 12px,
+    var(--fss-border-default) 12px 24px
+  );
+}
+
+/* The checkerboard shows through a translucent color's own alpha. */
+.fss-swatch.is-translucent {
+  background:
+    repeating-conic-gradient(#979797 0% 25%, #f5f5f5 0% 50%)
+    0 0 / 14px 14px;
+}
+
+.fss-swatch.is-translucent::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--c);
+}
+
+.fss-swatch.is-outlined {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.fss-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.fss-swatch.is-galaxy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 18% 28%,
+      rgb(255 255 255 / 0.9) 0 1.6px,
+      transparent 2.4px
+    ),
+    radial-gradient(
+      circle at 62% 18%,
+      rgb(255 255 255 / 0.7) 0 1.2px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 80% 58%,
+      rgb(255 255 255 / 0.9) 0 1.8px,
+      transparent 2.6px
+    ),
+    radial-gradient(
+      circle at 36% 70%,
+      rgb(255 255 255 / 0.6) 0 1.2px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 55% 48%,
+      rgb(200 220 255 / 0.8) 0 1.4px,
+      transparent 2.2px
+    ),
+    radial-gradient(
+      circle at 24% 86%,
+      rgb(255 255 255 / 0.7) 0 1.2px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 88% 22%,
+      rgb(255 255 255 / 0.5) 0 1px,
+      transparent 1.8px
+    ),
+    radial-gradient(
+      circle at 70% 84%,
+      rgb(255 255 255 / 0.8) 0 1.4px,
+      transparent 2.2px
+    ),
+    radial-gradient(
+      circle at 45% 12%,
+      rgb(255 255 255 / 0.5) 0 1px,
+      transparent 1.8px
+    ),
+    radial-gradient(
+      circle at 10% 55%,
+      rgb(255 255 255 / 0.6) 0 1.2px,
+      transparent 2px
+    ),
+    linear-gradient(
+      110deg,
+      rgb(255 255 255 / 0) 30%,
+      rgb(255 255 255 / 0.14) 50%,
+      rgb(255 255 255 / 0) 70%
+    );
+}
+
+.fss-swatch.is-marble::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 30% 14% at 30% 35%,
+      rgb(0 0 0 / 0.28) 0 60%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse 22% 10% at 68% 62%,
+      rgb(0 0 0 / 0.24) 0 60%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse 14% 8% at 78% 24%,
+      rgb(0 0 0 / 0.22) 0 60%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse 18% 8% at 22% 78%,
+      rgb(0 0 0 / 0.2) 0 60%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle at 52% 82%,
+      rgb(0 0 0 / 0.3) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 56% 20%,
+      rgb(0 0 0 / 0.3) 0 1.6px,
+      transparent 2.6px
+    ),
+    repeating-linear-gradient(
+      135deg,
+      rgb(0 0 0 / 0.06) 0 1px,
+      transparent 1px 9px
+    );
+}
+
+.fss-swatch.is-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    rgb(255 255 255 / 0) 30%,
+    rgb(255 255 255 / 0.32) 50%,
+    rgb(255 255 255 / 0) 70%
+  );
+}
+
+/* The footer: status bottom-left, the toggle or the hint bottom-right. */
+.fss-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: 0;
+  margin-top: auto;
+}
+
+.fss-foot-left,
+.fss-foot-right {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.fss-foot-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.fss-status {
+  display: flex;
+  gap: 18px;
+  color: var(--fss-muted);
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fss-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fss-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px 26px;
+  border: 2px solid var(--fss-accent-border);
+  border-radius: 999px;
+  background: var(--fss-accent-surface);
+  color: var(--accent-content);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.fss-toggle svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Ready to scan: the ring and the copy beside it. */
+.fss-stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 70px;
+  min-height: 0;
+}
+
+.fss-ring {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  flex: none;
+  border: 4px solid var(--fss-border-default);
+  border-radius: 50%;
+}
+
+.fss-ring::before {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  border: 4px solid var(--fss-accent-border);
+  border-radius: 50%;
+}
+
+.fss-ring::after {
+  content: "";
+  position: absolute;
+  inset: 62px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.fss-stage-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.fss-big {
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* The spool card and its actions. */
+.fss-two-col {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 20px;
+  min-height: 0;
+}
+
+.fss-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.fss-hero {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 26px;
+  min-height: 0;
+}
+
+.fss-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.fss-spool-name {
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.fss-line {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-spool-sub {
+  overflow: hidden;
+  margin-top: 8px;
+  color: var(--fg-dim);
+  font-size: 24px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.fss-chips .fss-chip {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+.fss-facts {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fss-fact {
+  min-width: 0;
+  padding: 16px 20px;
+  border-radius: 18px;
+  background: var(--fss-sunken);
+}
+
+.fss-value {
+  overflow: hidden;
+  margin-top: 6px;
+  font-size: 46px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-value small {
+  margin-left: 6px;
+  color: var(--fg-dim);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.fss-value.is-muted {
+  color: var(--fss-muted);
+}
+
+.fss-value.is-small {
+  font-size: 30px;
+  line-height: 46px;
+}
+
+.fss-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.fss-actions .fss-btn {
+  flex: 1;
+}
+
+.fss-note {
+  flex: 1;
+  padding: 18px 22px;
+  border: 1px dashed var(--fss-border-strong);
+  border-radius: 18px;
+  background: var(--fss-sunken);
+  color: var(--fg-dim);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.fss-note b {
+  color: var(--fg);
+}
+
+/* The copy / link picker. */
+.fss-filters {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.fss-spool-grid {
+  display: grid;
+  flex: 1;
+  grid-auto-rows: min-content;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.fss-tile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  min-height: 110px;
+  padding: 16px;
+  border: 2px solid var(--fss-border);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.fss-tile-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.fss-tile-name {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.fss-tile-meta {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--fg-dim);
+  font-size: 19px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+/* The AMS overview: printer tabs, then one card per unit. */
+.fss-tabs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.fss-tab {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 68px;
+  padding: 14px 26px;
+  border: 2px solid var(--fss-border-default);
+  border-radius: 18px;
+  color: var(--fg-dim);
+  font-size: 26px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-tab.is-active {
+  border-color: var(--fss-accent-border);
+  background: var(--fss-accent-surface);
+  color: var(--accent-content);
+}
+
+.fss-tab.is-offline {
+  opacity: 0.45;
+}
+
+.fss-ams-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(
+      var(--columns, 3),
+      minmax(0, 1fr)
+    );
+  gap: 16px;
+  min-height: 0;
+}
+
+.fss-ams-grid.is-offline {
+  opacity: 0.45;
+}
+
+.fss-ams-unit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+}
+
+.fss-ams-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fss-ams-name {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.fss-ams-env {
+  color: var(--fss-muted);
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fss-slot {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 0;
+  padding: 12px 14px;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  background: var(--fss-sunken);
+}
+
+.fss-slot-text {
+  min-width: 0;
+}
+
+.fss-slot-name {
+  display: block;
+  overflow: hidden;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-slot-meta {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--fg-dim);
+  font-size: 17px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-slot-pct {
+  min-width: 80px;
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.fss-bar {
+  display: block;
+  overflow: hidden;
+  height: 14px;
+  margin-top: 8px;
+  border-radius: 7px;
+  background: var(--bg);
+}
+
+.fss-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 7px;
+  background: var(--accent);
+}
+
+.fss-slot.is-low {
+  border-color: var(--fss-warning-border);
+}
+
+.fss-slot.is-low .fss-slot-pct {
+  color: var(--fss-warning-content);
+}
+
+.fss-slot.is-low .fss-bar > i {
+  background: var(--fss-warning);
+}
+
+.fss-slot.is-empty {
+  border: 2px dashed var(--fss-border-default);
+  background: transparent;
+}
+
+.fss-slot.is-empty .fss-slot-name {
+  color: var(--fss-muted);
+}
+
+.fss-slot.is-untagged {
+  border-color: var(--fss-accent-border);
+  background: var(--fss-accent-surface);
+}
+
+.fss-slot.is-untagged .fss-slot-meta,
+.fss-slot.is-untagged .fss-slot-pct {
+  color: var(--accent-content);
+}
+
+.fss-slot.is-untagged .fss-slot-pct {
+  min-width: 30px;
+  font-size: 22px;
+}
+
+/* The assign flow: crumbs, then a row of big cards. */
+.fss-steps {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.fss-crumb-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fss-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-dim);
+  font-size: 26px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fss-crumb.is-now {
+  color: var(--fg);
+}
+
+.fss-crumb-sep {
+  color: var(--fss-disabled);
+  font-size: 26px;
+}
+
+.fss-choice-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(
+      var(--columns, 3),
+      minmax(0, 1fr)
+    );
+  gap: 18px;
+  min-height: 0;
+}
+
+.fss-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+  border: 3px solid var(--fss-border-default);
+  border-radius: 26px;
+  background: var(--surface);
+}
+
+.fss-choice.is-good {
+  border-color: var(--accent);
+}
+
+.fss-choice.is-empty {
+  border-style: dashed;
+}
+
+.fss-choice-head {
+  display: block;
+  overflow: hidden;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-choice.is-empty .fss-choice-head {
+  color: var(--fss-muted);
+}
+
+.fss-choice-sub {
+  display: block;
+  color: var(--fg-dim);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.fss-choice-sub.is-good {
+  color: var(--accent-content);
+}
+
+.fss-choice-fill {
+  flex: 1;
+}
+
+.fss-mini {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  height: 54px;
+}
+
+.fss-mini-empty {
+  display: block;
+  border: 2px dashed var(--fss-border-strong);
+  border-radius: 12px;
+}
+
+.fss-choice-swatch {
+  display: block;
+  flex: none;
+  width: 100%;
+  aspect-ratio: 1.7;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.fss-choice-swatch .fss-swatch {
+  border-radius: 20px;
+}
+
+.fss-choice-swatch.is-empty {
+  border: 2px dashed var(--fss-border-strong);
+}

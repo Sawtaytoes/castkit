@@ -801,5 +801,6 @@ export const __resetStateForTests = () => {
   weather.value = snapshot?.data.weather ?? null
   agenda.value = snapshot?.data.agenda ?? null
   printers.value = snapshot?.data.printers ?? null
+  spools.value = snapshot?.data.spools ?? null
   scrubPositionSeconds.value = null
 }
