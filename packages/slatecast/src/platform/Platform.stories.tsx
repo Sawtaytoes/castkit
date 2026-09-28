@@ -132,3 +132,47 @@ export const AiUsage: Story = {
     </main>
   ),
 }
+
+/**
+ * A printer in trouble tints its whole card on the face. The card keeps its
+ * padding so the tint reads as a card and not as a bleed behind the job box,
+ * and the filament row shows what the active tray is feeding.
+ */
+export const PrintersProblem: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={
+          {
+            ...storySnapshot,
+            channels: {
+              ...storySnapshot.channels,
+              prints: {
+                ...storySnapshot.channels.prints,
+                data: {
+                  printers:
+                    (
+                      storySnapshot.channels.prints?.data as
+                        | ContractData["printers.v1"]
+                        | undefined
+                    )?.printers.map((printer, index) =>
+                      index === 0
+                        ? {
+                            ...printer,
+                            state: "paused" as const,
+                            problemText:
+                              "Printer reports: 0x20005",
+                          }
+                        : printer,
+                    ) ?? [],
+                },
+              },
+            },
+          } as DisplaySnapshot
+        }
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
