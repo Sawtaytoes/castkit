@@ -491,6 +491,81 @@ test("Bambuddy publishes a spools snapshot with the inventory joined onto the AM
   })
   adapter.dispose()
 })
+test("Bambuddy keeps publishing the printers when the inventory read fails, and only the spools channel reports it", async () => {
+  const fetchRequest = vi
+    .fn<typeof fetch>()
+    .mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname
+      if (path.endsWith("/inventory/spools")) {
+        return new Response("Internal Server Error", {
+          status: 500,
+        })
+      }
+      return new Response(
+        JSON.stringify(
+          path.endsWith("/auth/ws-token")
+            ? { token: "ws-token" }
+            : path.endsWith("/printers/")
+              ? [{ id: 2, name: "Printer" }]
+              : path.endsWith("/status")
+                ? {
+                    id: 2,
+                    name: "Printer",
+                    connected: true,
+                    state: "RUNNING",
+                    progress: 40,
+                    current_print: "Desk stand",
+                  }
+                : path.endsWith("/inventory/assignments")
+                  ? []
+                  : { status: "ok" },
+        ),
+      )
+    })
+  const context = sourceContext({
+    fetch: fetchRequest,
+    channels: [
+      {
+        id: "printers",
+        name: "Printers",
+        sourceId: "source",
+        type: "printers.v1",
+        settings: {},
+      },
+      {
+        id: "spools",
+        name: "Spools",
+        sourceId: "source",
+        type: "spools.v1",
+        settings: {},
+      },
+    ],
+  })
+  const adapter = createBambuddySource(context)
+  await adapter.start?.()
+  const published = vi
+    .mocked(context.publish)
+    .mock.calls.map((call) => call[0])
+  expect(
+    published.find((call) => call.channelId === "printers")
+      ?.data,
+  ).toMatchObject({
+    printers: [
+      { id: "2", name: "Printer", jobName: "Desk stand" },
+    ],
+  })
+  expect(
+    published.some((call) => call.channelId === "spools"),
+  ).toBe(false)
+  expect(context.reportError).toHaveBeenCalledWith({
+    channelId: "spools",
+    error: expect.stringContaining("Bambuddy inventory"),
+  })
+  expect(context.reportError).not.toHaveBeenCalledWith(
+    expect.objectContaining({ channelId: "printers" }),
+  )
+  adapter.dispose()
+})
 test("Bambuddy spool actions map onto the dashboard's requests and refresh the inventory", async () => {
   const { adapter, requests } = spoolsAdapter()
   await adapter.start?.()
