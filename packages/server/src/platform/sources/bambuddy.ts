@@ -122,6 +122,100 @@ const activeNozzleText = (
   return `${diameter} mm${type ? ` ${type}` : ""}`.trim()
 }
 
+const bambuddyFilamentColor = (
+  value: unknown,
+): string | undefined => {
+  const text = textValue(value).trim().replace(/^#/, "")
+  return /^[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(text)
+    ? `#${text.slice(0, 6).toLowerCase()}`
+    : undefined
+}
+
+const bambuddyPrinterFilaments = (
+  status: Record<string, unknown>,
+) => {
+  const units = Array.isArray(status.ams)
+    ? status.ams.map(record)
+    : []
+  const mappings = Array.isArray(status.ams_mapping)
+    ? status.ams_mapping
+    : []
+  // Bambuddy uses global tray ids: 0-31 for AMS slots and 128-135 for AMS-HT.
+  const usedGlobalIds = Array.from(
+    new Set(
+      mappings
+        .map(finiteNumber)
+        .filter(
+          (globalId): globalId is number =>
+            globalId !== undefined &&
+            Number.isInteger(globalId) &&
+            ((globalId >= 0 && globalId < 32) ||
+              (globalId >= 128 && globalId <= 135)),
+        ),
+    ),
+  )
+
+  const filaments = usedGlobalIds.flatMap((globalId) => {
+    const isAmsHt = globalId >= 128
+    const amsId = isAmsHt
+      ? globalId
+      : Math.floor(globalId / 4)
+    const slotId = isAmsHt ? 0 : globalId % 4
+    const unit = units.find(
+      (candidate) => finiteNumber(candidate.id) === amsId,
+    )
+    const trays =
+      unit && Array.isArray(unit.tray)
+        ? unit.tray.map(record)
+        : []
+    const tray = trays.find(
+      (candidate) => finiteNumber(candidate.id) === slotId,
+    )
+    if (!tray) {
+      return []
+    }
+    const amsName = isAmsHt
+      ? `AMS HT ${String.fromCharCode(65 + amsId - 128)}`
+      : `AMS ${amsId + 1}`
+    const name =
+      textValue(tray.tray_sub_brands) ||
+      textValue(tray.tray_type) ||
+      undefined
+    const color = bambuddyFilamentColor(tray.tray_color)
+    return [
+      {
+        globalId,
+        ...(name ? { name } : {}),
+        ...(color ? { color } : {}),
+        location: `${amsName}, slot ${slotId + 1}`,
+      },
+    ]
+  })
+
+  if (finiteNumber(status.tray_now) === 254) {
+    const external = Array.isArray(status.vt_tray)
+      ? status.vt_tray.map(record)[0]
+      : undefined
+    if (external) {
+      const name =
+        textValue(external.tray_sub_brands) ||
+        textValue(external.tray_type) ||
+        undefined
+      const color = bambuddyFilamentColor(
+        external.tray_color,
+      )
+      filaments.push({
+        globalId: 254,
+        ...(name ? { name } : {}),
+        ...(color ? { color } : {}),
+        location: "External spool",
+      })
+    }
+  }
+
+  return filaments
+}
+
 /** Bambuddy's printer state becomes the same contract as an MQTT printer source. */
 export const normalizeBambuddyPrinter = ({
   data,
@@ -153,6 +247,7 @@ export const normalizeBambuddyPrinter = ({
     .filter(Boolean)
   const filament = activeFilament(status)
   const nozzleText = activeNozzleText(status)
+  const assignedFilaments = bambuddyPrinterFilaments(status)
   return {
     id,
     name: textValue(status.name),
@@ -189,6 +284,17 @@ export const normalizeBambuddyPrinter = ({
             printerId: id,
             kind: "cover",
           }),
+        }
+      : {}),
+    ...(assignedFilaments.length
+      ? {
+          filaments: assignedFilaments.map(
+            ({ name, color, location }) => ({
+              ...(name ? { name } : {}),
+              ...(color ? { color } : {}),
+              location,
+            }),
+          ),
         }
       : {}),
     cameraPath: mediaUrl({

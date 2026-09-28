@@ -55,6 +55,14 @@
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+.platform .printer-filament-button {
+  min-block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+}
 .platform input,
 .platform-lock input {
   font: inherit;

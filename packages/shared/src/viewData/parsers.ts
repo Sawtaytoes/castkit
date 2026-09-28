@@ -3,6 +3,7 @@ import {
   type AgendaEvent,
   type NowPlayingData,
   PRINTER_JOB_STATES,
+  type PrinterFilamentAssignment,
   type PrinterJob,
   type PrinterJobState,
   type PrintersData,
@@ -410,6 +411,46 @@ const toHexColor = (value: unknown): string | undefined => {
     : undefined
 }
 
+const MAX_PRINTER_FILAMENTS = 32
+
+const toPrinterFilaments = (
+  value: unknown,
+): readonly PrinterFilamentAssignment[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+  const filaments = value
+    .slice(0, MAX_PRINTER_FILAMENTS)
+    .map(
+      (rawFilament): PrinterFilamentAssignment | null => {
+        if (
+          typeof rawFilament !== "object" ||
+          rawFilament === null
+        ) {
+          return null
+        }
+        const filament = rawFilament as Record<
+          string,
+          unknown
+        >
+        const location = toTrimmedText(filament.location)
+        if (!location) {
+          return null
+        }
+        return dropUndefined({
+          name: toTrimmedText(filament.name),
+          color: toHexColor(filament.color),
+          location,
+        })
+      },
+    )
+    .filter(
+      (filament): filament is PrinterFilamentAssignment =>
+        filament !== null,
+    )
+  return filaments.length ? filaments : undefined
+}
+
 const toPrinterJobState = (
   value: unknown,
 ): PrinterJobState | null => {
@@ -491,6 +532,9 @@ export const parsePrintersPayload = (
         ),
         filamentColor: toHexColor(
           printerRecord.filamentColor,
+        ),
+        filaments: toPrinterFilaments(
+          printerRecord.filaments,
         ),
         nozzleText: toTrimmedText(printerRecord.nozzleText),
         problemText: toTrimmedText(
