@@ -11,7 +11,7 @@ import { safeMediaUrl } from "./protocol.ts"
 
 type PrinterData = ContractData["printers.v1"]
 
-/** Native printer cards reuse the existing progress-card tokens and add optional cameras. */
+/** Browser printer cards keep a printer's live camera separate from its print preview. */
 export const PrintersView = ({
   data,
   cameras,
@@ -65,13 +65,20 @@ export const PrintersView = ({
         const camera = cameras?.cameras.find(
           (candidate) => candidate.id === printer.id,
         )
-        const imageUrl =
-          settings.isCameraVisible === false ||
-          !properties.hasLiveCamera
-            ? safeMediaUrl(printer.thumbnailPath)
-            : (safeMediaUrl(
-                camera?.url ?? printer.cameraPath,
-              ) ?? safeMediaUrl(printer.thumbnailPath))
+        const cameraUrl = safeMediaUrl(
+          camera?.url ?? printer.cameraPath,
+        )
+        const isCameraLive =
+          camera?.isLive ?? printer.cameraIsLive ?? false
+        const hasCameraUrl = cameraUrl !== undefined
+        const isCameraAvailable =
+          hasCameraUrl &&
+          (properties.hasLiveCamera || !isCameraLive)
+        const printPreviewUrl = safeMediaUrl(
+          printer.thumbnailPath,
+        )
+        const hasPrintPreview =
+          printPreviewUrl !== undefined
         return (
           <article
             key={printer.id}
@@ -87,138 +94,176 @@ export const PrintersView = ({
               expandedId === printer.id,
             )}
           >
-            {imageUrl &&
-            settings.isCameraVisible !== false &&
-            properties.hasLiveCamera &&
-            (camera || printer.cameraPath) ? (
-              <CameraImage
-                url={imageUrl}
-                name={printer.name}
-                isLive={
-                  camera?.isLive ?? printer.cameraIsLive
-                }
-                className="platform-printer-image"
-              />
-            ) : imageUrl ? (
-              <img
-                class="platform-printer-image"
-                src={imageUrl}
-                alt=""
-              />
-            ) : null}
-            <div class="printer-body">
-              <div class="printer-head">
-                <h2 class="printer-name">{printer.name}</h2>
-                <span class="printer-state">
-                  {printer.state}
-                </span>
-              </div>
-              <button
-                class="printer-job"
-                type="button"
-                onClick={() =>
-                  setExpandedId(
-                    expandedId === printer.id
-                      ? ""
-                      : printer.id,
-                  )
-                }
-              >
-                {expandedId === printer.id
-                  ? printer.jobName
-                  : getPrinterJobTitle(printer) ||
-                    printer.jobName}
-              </button>
-              {printer.problemText ? (
-                <p class="printer-problem">
-                  {printer.problemText}
-                </p>
-              ) : null}
-              <div class="printer-band">
-                <div
-                  class="printer-band-fill"
-                  style={{
-                    width: properties.hasProgress
-                      ? `${printer.percent}%`
-                      : "0%",
-                  }}
-                />
-                <div class="printer-band-text">
-                  {properties.hasRelativeTimes &&
-                  printer.state !== "paused" &&
-                  printer.remainingMinutes !== undefined ? (
-                    <span class="printer-band-remaining">
-                      {formatRemaining(
-                        printer.remainingMinutes,
-                      )}{" "}
-                      left
-                    </span>
-                  ) : null}
-                  {properties.hasProgress ? (
-                    <strong class="printer-percent">
-                      {Math.round(printer.percent)}%
-                    </strong>
+            {settings.isCameraVisible !== false ? (
+              <div class="platform-printer-camera">
+                {isCameraAvailable && cameraUrl ? (
+                  properties.hasLiveCamera ? (
+                    <CameraImage
+                      url={cameraUrl}
+                      name={printer.name}
+                      isLive={isCameraLive}
+                      className="platform-printer-image"
+                    />
                   ) : (
-                    <span>Print in progress</span>
-                  )}
-                </div>
+                    <img
+                      class="platform-printer-image"
+                      src={cameraUrl}
+                      alt={`${printer.name} camera`}
+                    />
+                  )
+                ) : (
+                  <div
+                    class="platform-camera-placeholder"
+                    role="status"
+                  >
+                    {hasCameraUrl
+                      ? "Live camera unavailable on this display"
+                      : "Camera unavailable"}
+                  </div>
+                )}
+                {isCameraAvailable ? (
+                  <span
+                    class="platform-camera-label"
+                    aria-hidden="true"
+                  >
+                    <span />
+                    {isCameraLive
+                      ? "Live camera"
+                      : "Camera"}
+                  </span>
+                ) : null}
               </div>
-              <dl class="printer-metrics">
-                <div class="printer-metric">
-                  <dt>Layer</dt>
-                  <dd>
-                    {printer.currentLayer ?? "—"}
-                    {printer.totalLayers
-                      ? ` / ${printer.totalLayers}`
-                      : ""}
-                  </dd>
-                </div>
-                <div class="printer-metric">
-                  <dt>Finishes</dt>
-                  <dd>
-                    {printer.state !== "paused" &&
-                    printer.finishAtMs
-                      ? formatFinishTime({
-                          finishAtMs: printer.finishAtMs,
-                          nowMillis: Date.now(),
-                        })
-                      : "—"}
-                  </dd>
-                </div>
-              </dl>
-              {printer.filamentText ? (
-                <p>{printer.filamentText}</p>
-              ) : null}
-              {isControlEnabled ? (
-                <div class="platform-actions">
-                  {[
-                    printer.state === "paused"
-                      ? "resume"
-                      : "pause",
-                    "stop",
-                  ].map((action) => (
-                    <button
-                      key={action}
-                      data-castkit-target={`printer:${printer.id}:${printer.jobName}:${printer.state}:${action}`}
-                      type="button"
-                      onClick={() =>
-                        setConfirmation({
-                          id: printer.id,
-                          state: printer.state,
-                          jobName: printer.jobName,
-                          action,
-                        })
-                      }
-                    >
-                      {action === "resume"
-                        ? "Resume"
-                        : action === "pause"
-                          ? "Pause"
-                          : "Stop"}
-                    </button>
-                  ))}
+            ) : null}
+            <div
+              class="platform-printer-details"
+              data-has-preview={String(hasPrintPreview)}
+            >
+              {printPreviewUrl ? (
+                <div class="platform-printer-preview">
+                  <span>Print preview</span>
+                  <img
+                    src={printPreviewUrl}
+                    alt={`${printer.name} print preview`}
+                  />
                 </div>
               ) : null}
+              <div class="printer-body">
+                <div class="printer-head">
+                  <h2 class="printer-name">
+                    {printer.name}
+                  </h2>
+                  <span class="printer-state">
+                    {printer.state}
+                  </span>
+                </div>
+                <button
+                  class="printer-job"
+                  type="button"
+                  onClick={() =>
+                    setExpandedId(
+                      expandedId === printer.id
+                        ? ""
+                        : printer.id,
+                    )
+                  }
+                >
+                  {expandedId === printer.id
+                    ? printer.jobName
+                    : getPrinterJobTitle(printer) ||
+                      printer.jobName}
+                </button>
+                {printer.problemText ? (
+                  <p class="printer-problem">
+                    {printer.problemText}
+                  </p>
+                ) : null}
+                <div class="printer-band">
+                  <div
+                    class="printer-band-fill"
+                    style={{
+                      width: properties.hasProgress
+                        ? `${printer.percent}%`
+                        : "0%",
+                    }}
+                  />
+                  <div class="printer-band-text">
+                    {properties.hasRelativeTimes &&
+                    printer.state !== "paused" &&
+                    printer.remainingMinutes !==
+                      undefined ? (
+                      <span class="printer-band-remaining">
+                        {formatRemaining(
+                          printer.remainingMinutes,
+                        )}{" "}
+                        left
+                      </span>
+                    ) : null}
+                    {properties.hasProgress ? (
+                      <strong class="printer-percent">
+                        {Math.round(printer.percent)}%
+                      </strong>
+                    ) : (
+                      <span>Print in progress</span>
+                    )}
+                  </div>
+                </div>
+                <dl class="printer-metrics">
+                  <div class="printer-metric">
+                    <dt>Layer</dt>
+                    <dd>
+                      {printer.currentLayer ?? "—"}
+                      {printer.totalLayers
+                        ? ` / ${printer.totalLayers}`
+                        : ""}
+                    </dd>
+                  </div>
+                  <div class="printer-metric">
+                    <dt>Finishes</dt>
+                    <dd>
+                      {printer.state !== "paused" &&
+                      printer.finishAtMs
+                        ? formatFinishTime({
+                            finishAtMs: printer.finishAtMs,
+                            nowMillis: Date.now(),
+                          })
+                        : "—"}
+                    </dd>
+                  </div>
+                </dl>
+                {printer.filamentText ? (
+                  <p>{printer.filamentText}</p>
+                ) : null}
+                {isControlEnabled ? (
+                  <div class="platform-actions">
+                    {[
+                      printer.state === "paused"
+                        ? "resume"
+                        : "pause",
+                      "stop",
+                    ].map((action) => (
+                      <button
+                        key={action}
+                        data-castkit-target={`printer:${printer.id}:${printer.jobName}:${printer.state}:${action}`}
+                        type="button"
+                        onClick={() =>
+                          setConfirmation({
+                            id: printer.id,
+                            state: printer.state,
+                            jobName: printer.jobName,
+                            action,
+                          })
+                        }
+                      >
+                        {action === "resume"
+                          ? "Resume"
+                          : action === "pause"
+                            ? "Pause"
+                            : "Stop"}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </article>
         )
