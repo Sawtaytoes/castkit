@@ -106,8 +106,8 @@ export const isViewActive = ({
 }): boolean | undefined => {
   const answers = view.panels
     .map((panel) => isPanelActive({ panel, channels }))
-    .filter((answer) => answer !== undefined)
+    .filter((isActive) => isActive !== undefined)
   return answers.length === 0
     ? undefined
-    : answers.some((answer) => answer)
+    : answers.some((isActive) => isActive)
 }
