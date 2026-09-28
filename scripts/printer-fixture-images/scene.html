@@ -1,0 +1,261 @@
+<!doctype html>
+<!--
+  Fixture pictures for the Printer Status stories: a slicer-style plate
+  render per job, and one chamber-camera frame. Every shape here is invented,
+  so the pictures carry nothing from a real print. Run render.ts to rebuild.
+-->
+<html lang="en"><body style="margin:0;background:#000">
+<canvas id="c"></canvas>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three"
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js"
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js"
+
+const params = new URLSearchParams(location.search)
+const kind = params.get("kind")
+const width = Number(params.get("w"))
+const height = Number(params.get("h"))
+const canvas = document.getElementById("c")
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
+renderer.setSize(width, height)
+renderer.setPixelRatio(1)
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFShadowMap
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+const scene = new THREE.Scene()
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+
+// A seeded random, so a re-run makes the same picture.
+const randomState = { seed: 7 }
+const random = () => {
+  randomState.seed = (randomState.seed * 16807) % 2147483647
+  return randomState.seed / 2147483647
+}
+
+// ---------- Slicer-style part groups ----------
+const partMaterial = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.02 })
+
+const canister = (material) => {
+  const group = new THREE.Group()
+  const points = [
+    [0, 0], [17, 0], [18, 1.5], [18, 3], [16.5, 4], [16.5, 38], [18, 39.5], [18, 44], [15.5, 44], [15.5, 6], [0, 6],
+  ].map(([x, y]) => new THREE.Vector2(x, y))
+  const body = new THREE.Mesh(new THREE.LatheGeometry(points, 72), material)
+  body.castShadow = body.receiveShadow = true
+  group.add(body)
+  const ribs = new THREE.Mesh(new THREE.TorusGeometry(16.6, 0.7, 10, 72), material)
+  ribs.rotation.x = Math.PI / 2
+  ribs.position.y = 22
+  group.add(ribs)
+  return group
+}
+
+const buildCanisters = () => {
+  const material = partMaterial(0x9aa0a6)
+  const group = new THREE.Group()
+  const rows = [4, 4, 4, 3]
+  rows.forEach((count, row) => {
+    Array.from({ length: count }).forEach((_, column) => {
+      const item = canister(material)
+      item.position.set((column - (count - 1) / 2) * 40 + (row % 2) * 8, 0, (row - 1.5) * 40)
+      group.add(item)
+    })
+  })
+  return group
+}
+
+const buildStand = () => {
+  const material = partMaterial(0x3a3d42)
+  const group = new THREE.Group()
+  const frame = new THREE.Shape()
+  frame.moveTo(-95, -60); frame.lineTo(95, -60); frame.lineTo(95, 60); frame.lineTo(-95, 60); frame.lineTo(-95, -60)
+  const hole = new THREE.Path()
+  hole.moveTo(-82, -48); hole.lineTo(82, -48); hole.lineTo(82, 48); hole.lineTo(-82, 48); hole.lineTo(-82, -48)
+  frame.holes.push(hole)
+  const face = new THREE.Mesh(new THREE.ExtrudeGeometry(frame, { depth: 6, bevelEnabled: true, bevelSize: 1.2, bevelThickness: 1.2, bevelSegments: 3 }), material)
+  face.rotation.x = -Math.PI / 2
+  face.position.set(0, 0, -25)
+  group.add(face)
+  // Two flat stand legs, printed lying down beside the frame.
+  const leg = new THREE.Shape()
+  leg.moveTo(0, 0); leg.lineTo(70, 0); leg.lineTo(70, 12); leg.lineTo(14, 58); leg.lineTo(0, 58); leg.lineTo(0, 0)
+  ;[-80, 10].forEach((x) => {
+    const part = new THREE.Mesh(new THREE.ExtrudeGeometry(leg, { depth: 8, bevelEnabled: true, bevelSize: 1, bevelThickness: 1, bevelSegments: 2 }), material)
+    part.rotation.x = -Math.PI / 2
+    part.position.set(x, 0, 128)
+    group.add(part)
+  })
+  return group
+}
+
+const buildPods = () => {
+  const material = partMaterial(0x8b8f94)
+  const group = new THREE.Group()
+  Array.from({ length: 6 }).forEach((_, index) => {
+    const pod = new THREE.Mesh(new RoundedBoxGeometry(52, 34, 70, 4, 6), material)
+    pod.position.set(((index % 3) - 1) * 62, 17, (Math.floor(index / 3) - 0.5) * 82)
+    pod.castShadow = pod.receiveShadow = true
+    group.add(pod)
+    const grille = new THREE.Mesh(new RoundedBoxGeometry(36, 2, 50, 2, 1), partMaterial(0x6d7176))
+    grille.position.set(pod.position.x, 34.5, pod.position.z)
+    group.add(grille)
+  })
+  return group
+}
+
+const renderPlate = (group) => {
+  // Bambu Studio's plate thumbnail: parts only, on a flat dark field, lit from above.
+  scene.background = new THREE.Color(0x2f3136)
+  scene.add(group)
+  const box = new THREE.Box3().setFromObject(group)
+  const center = box.getCenter(new THREE.Vector3())
+  const size = box.getSize(new THREE.Vector3()).length()
+  const camera = new THREE.PerspectiveCamera(30, width / height, 1, 5000)
+  camera.position.copy(center).add(new THREE.Vector3(0.62, 0.78, 0.95).normalize().multiplyScalar(size * 1.75))
+  camera.lookAt(center)
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 1.4))
+  const key = new THREE.DirectionalLight(0xffffff, 1.6)
+  key.position.set(200, 400, 300)
+  scene.add(key)
+  renderer.render(scene, camera)
+}
+
+// ---------- Chamber camera ----------
+const renderChamber = () => {
+  scene.background = new THREE.Color(0x18191b)
+  const _wallMaterial = new THREE.MeshStandardMaterial({ color: 0x3b3d40, roughness: 0.85 })
+  const panelMaterial = new THREE.MeshStandardMaterial({ color: 0xc9ccd0, roughness: 0.7 })
+  const metal = new THREE.MeshStandardMaterial({ color: 0x9ea3a8, roughness: 0.35, metalness: 0.8 })
+  const blackPlastic = new THREE.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.55 })
+
+  // Chamber: floor, back wall, side walls, ceiling.
+  const room = new THREE.Mesh(new THREE.BoxGeometry(340, 360, 340), new THREE.MeshStandardMaterial({ color: 0x2a2c2f, roughness: 0.9, side: THREE.BackSide }))
+  room.position.set(0, 150, 0)
+  room.receiveShadow = true
+  scene.add(room)
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(320, 300), panelMaterial)
+  back.position.set(0, 160, -168)
+  back.receiveShadow = true
+  scene.add(back)
+
+  // Textured PEI plate: speckled gold-brown sheet on a black heatbed.
+  const bed = new THREE.Mesh(new THREE.BoxGeometry(270, 8, 270), blackPlastic)
+  bed.position.set(0, 20, 0)
+  bed.receiveShadow = true
+  scene.add(bed)
+  const peiCanvas = document.createElement("canvas")
+  peiCanvas.width = peiCanvas.height = 1024
+  const peiContext = peiCanvas.getContext("2d")
+  peiContext.fillStyle = "#2a2622"
+  peiContext.fillRect(0, 0, 1024, 1024)
+  Array.from({ length: 90000 }).forEach(() => {
+    const shade = 30 + Math.floor(random() * 40)
+    peiContext.fillStyle = `rgb(${shade + 8},${shade + 2},${shade - 4})`
+    peiContext.fillRect(random() * 1024, random() * 1024, 2, 2)
+  })
+  const peiTexture = new THREE.CanvasTexture(peiCanvas)
+  peiTexture.colorSpace = THREE.SRGBColorSpace
+  const pei = new THREE.Mesh(new THREE.BoxGeometry(256, 1, 256), new THREE.MeshStandardMaterial({ map: peiTexture, roughness: 0.8, metalness: 0.2 }))
+  pei.position.set(0, 24.5, 0)
+  pei.receiveShadow = true
+  scene.add(pei)
+
+  // The job: a black matte frame, about 40% up.
+  const printMaterial = new THREE.MeshStandardMaterial({ color: 0x222325, roughness: 0.9 })
+  const frame = new THREE.Shape()
+  frame.moveTo(-85, -55); frame.lineTo(85, -55); frame.lineTo(85, 55); frame.lineTo(-85, 55); frame.lineTo(-85, -55)
+  const hole = new THREE.Path()
+  hole.moveTo(-72, -42); hole.lineTo(72, -42); hole.lineTo(72, 42); hole.lineTo(-72, 42); hole.lineTo(-72, -42)
+  frame.holes.push(hole)
+  const part = new THREE.Mesh(new THREE.ExtrudeGeometry(frame, { depth: 14, bevelEnabled: false }), printMaterial)
+  part.rotation.x = -Math.PI / 2
+  part.position.set(10, 25, 20)
+  part.castShadow = part.receiveShadow = true
+  scene.add(part)
+  // A purge line along the front edge.
+  const purge = new THREE.Mesh(new THREE.BoxGeometry(120, 0.8, 1.2), printMaterial)
+  purge.position.set(-40, 25.4, 118)
+  scene.add(purge)
+
+  // Gantry rail and toolhead, parked over the part.
+  const rail = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 330, 24), new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.4, metalness: 0.3 }))
+  rail.rotation.z = Math.PI / 2
+  rail.position.set(0, 128, -32)
+  scene.add(rail)
+  const railTwo = rail.clone()
+  railTwo.position.set(0, 100, -32)
+  scene.add(railTwo)
+  const toolhead = new THREE.Group()
+  const shell = new THREE.Mesh(new RoundedBoxGeometry(62, 80, 70, 4, 6), new THREE.MeshStandardMaterial({ color: 0xe8e9ea, roughness: 0.5 }))
+  shell.castShadow = true
+  toolhead.add(shell)
+  const faceplate = new THREE.Mesh(new RoundedBoxGeometry(54, 50, 4, 3, 2), blackPlastic)
+  faceplate.position.set(0, -8, 35)
+  toolhead.add(faceplate)
+  const fan = new THREE.Mesh(new THREE.TorusGeometry(15, 2.5, 12, 48), new THREE.MeshStandardMaterial({ color: 0x3a3b3d, roughness: 0.6 }))
+  fan.position.set(0, -8, 38)
+  toolhead.add(fan)
+  const hub = new THREE.Mesh(new THREE.CircleGeometry(6, 32), new THREE.MeshStandardMaterial({ color: 0x5a5c5f }))
+  hub.position.set(0, -8, 38.5)
+  toolhead.add(hub)
+  const nozzle = new THREE.Mesh(new THREE.ConeGeometry(4, 10, 20), metal)
+  nozzle.rotation.x = Math.PI
+  nozzle.position.set(0, -45, 0)
+  toolhead.add(nozzle)
+  toolhead.position.set(-45, 82, 5)
+  scene.add(toolhead)
+
+  // Z rods at the back corners.
+  ;[-130, 130].forEach((x) => {
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 300, 20), metal)
+    rod.position.set(x, 150, -140)
+    scene.add(rod)
+  })
+
+  // Chamber light: one cool LED strip high on the left, as the real one sits.
+  scene.add(new THREE.AmbientLight(0xdfe6ff, 0.35))
+  const led = new THREE.SpotLight(0xf2f5ff, 90000, 0, 0.9, 0.6, 2)
+  led.position.set(-120, 290, 120)
+  led.target.position.set(0, 20, 0)
+  led.castShadow = true
+  led.shadow.mapSize.set(2048, 2048)
+  scene.add(led, led.target)
+
+  // Door-top camera: wide lens, high front-left, looking down at the bed.
+  const camera = new THREE.PerspectiveCamera(62, width / height, 1, 2000)
+  camera.position.set(-40, 235, 250)
+  camera.lookAt(10, 55, -10)
+  renderer.render(scene, camera)
+
+  // Sensor noise and a light vignette, as a small chamber camera shows it.
+  const overlay = document.createElement("canvas")
+  overlay.width = width
+  overlay.height = height
+  const context = overlay.getContext("2d")
+  context.drawImage(canvas, 0, 0)
+  const image = context.getImageData(0, 0, width, height)
+  image.data.forEach((_, index) => {
+    if (index % 4 === 3) return
+    const pixel = Math.floor(index / 4)
+    const x = pixel % width
+    const y = Math.floor(pixel / width)
+    const dx = (x - width / 2) / (width / 2)
+    const dy = (y - height / 2) / (height / 2)
+    const vignette = 1 - 0.28 * (dx * dx + dy * dy)
+    image.data[index] = Math.max(0, Math.min(255, image.data[index] * vignette + (random() - 0.5) * 14))
+  })
+  context.putImageData(image, 0, 0)
+  document.body.replaceChildren(overlay)
+  overlay.id = "c"
+}
+
+if (kind === "chamber") {
+  renderChamber()
+} else {
+  renderPlate({ canisters: buildCanisters, stand: buildStand, pods: buildPods }[kind]())
+}
+document.title = "done"
+</script>
+</body></html>
