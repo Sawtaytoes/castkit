@@ -92,8 +92,11 @@ body {
  * trips — but that is a fact about one renderer's settings, not about the
  * glass, and a kiosk browser on a slow panel asks for no such thing.
  *
- * `!important` is doing real work here: the rules it overrides are equally
- * specific and come later in the file.
+ * ⚠️ There is no `!important` here, so this wins only against a rule that is
+ * LESS specific than `html:not([…]) *` — a single class and nothing more; a
+ * tie goes to the later rule, and every rule below is later. It never reaches a `::before`/`::after`, since `*` does not
+ * match one. An animation behind a longer selector must name
+ * `html[data-repaint="instant"]` itself, as the spool scale's ring does.
  */
 html:not([data-repaint="instant"]) * {
   animation: none;
@@ -2967,14 +2970,26 @@ html[data-grayscale-text="true"] {
   stroke-linejoin: round;
 }
 
-/* Ready to scan: the ring and the copy beside it. */
+/*
+ * Ready to scan: the ring and the copy beside it. The ring takes the accent
+ * while it waits and the success color while something sits on the scale.
+ */
 .fss-stage {
+  --fss-ring-color: var(--accent);
+  --fss-ring-border: var(--fss-accent-border);
+
   display: flex;
   flex: 1;
   align-items: center;
   justify-content: center;
   gap: 70px;
   min-height: 0;
+}
+
+.fss-stage[data-load="settling"],
+.fss-stage[data-load="stable"] {
+  --fss-ring-color: var(--fss-success);
+  --fss-ring-border: var(--fss-success-border);
 }
 
 .fss-ring {
@@ -2990,7 +3005,7 @@ html[data-grayscale-text="true"] {
   content: "";
   position: absolute;
   inset: 28px;
-  border: 4px solid var(--fss-accent-border);
+  border: 4px solid var(--fss-ring-border);
   border-radius: 50%;
 }
 
@@ -2999,15 +3014,99 @@ html[data-grayscale-text="true"] {
   position: absolute;
   inset: 62px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--fss-ring-color);
   opacity: 0.85;
 }
 
+/*
+ * The waves are invisible until they animate, so a panel that may not animate
+ * (and the reduced-motion `vrt` shot) draws only the still ring. They are
+ * elements and not more pseudo-elements because the only-`instant`-animates
+ * rule at the top of this file reaches `*`, and `*` never matches one.
+ */
+.fss-ring-wave {
+  position: absolute;
+  inset: 62px;
+  border: 3px solid var(--fss-ring-color);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes fss-ring-wave {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+
+  80%,
+  100% {
+    transform: scale(2.9);
+    opacity: 0;
+  }
+}
+
+/*
+ * Transform and opacity only, like SpoolBuddy's own ping, so the Pi composites
+ * it without a repaint. Nothing on the scale pings slowly — listening. A load
+ * that has not settled pings fast; a settled one goes back to the slow beat.
+ * An offline scale does not ping at all.
+ *
+ * Every selector names `data-repaint="instant"` itself: the blanket
+ * no-animation rule near the top of this file is less specific than these,
+ * so it would lose to them on a slow panel.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-repaint="instant"] .fss-ring::before {
+    transition: border-color 0.3s linear;
+  }
+
+  html[data-repaint="instant"] .fss-ring::after {
+    transition: background-color 0.3s linear;
+  }
+
+  html[data-repaint="instant"]
+    .fss-stage:is([data-load="empty"], [data-load="stable"])
+    .fss-ring-wave {
+    animation: fss-ring-wave 3.5s cubic-bezier(0, 0, 0.2, 1)
+      infinite;
+  }
+
+  html[data-repaint="instant"]
+    .fss-stage[data-load="settling"]
+    .fss-ring-wave {
+    animation: fss-ring-wave 1.2s cubic-bezier(0, 0, 0.2, 1)
+      infinite;
+  }
+
+  /* The second wave runs half a beat behind the first. */
+  html[data-repaint="instant"] .fss-stage:is(
+      [data-load="empty"],
+      [data-load="stable"]
+    )
+    .fss-ring-wave
+    + .fss-ring-wave {
+    animation-delay: 1.75s;
+  }
+
+  html[data-repaint="instant"]
+    .fss-stage[data-load="settling"]
+    .fss-ring-wave
+    + .fss-ring-wave {
+    animation-delay: 0.6s;
+  }
+}
+
+/*
+ * Wide enough for the longest ready or weighing copy, so the ring does not
+ * jump sideways when the title turns from `Ready to scan` into a weight — but
+ * never wider than what the ring and the gap (330px) leave on a small panel.
+ */
 .fss-stage-copy {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-width: 0;
+  min-width: min(460px, 100% - 330px);
 }
 
 .fss-big {
