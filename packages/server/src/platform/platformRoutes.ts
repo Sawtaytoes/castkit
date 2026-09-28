@@ -21,6 +21,10 @@ import {
   verifyPin,
 } from "./platformStore.ts"
 import { attachPluginRoutes } from "./pluginRoutes.ts"
+import {
+  getPanelActivity,
+  isViewActive,
+} from "./viewActivity.ts"
 
 const targetKind = z.enum(["view", "screen"])
 const pinSchema = z.string().min(4).max(128)
@@ -120,11 +124,22 @@ export const getDisplay = ({
               .get()
               .views.find((item) => item.id === viewId)
             return candidate
-              ? [{ id: candidate.id, name: candidate.name }]
+              ? [
+                  {
+                    id: candidate.id,
+                    name: candidate.name,
+                    isActive: isViewActive({
+                      view: candidate,
+                      channels:
+                        platform.channelsForView(candidate),
+                    }),
+                  },
+                ]
               : []
           })
         : undefined,
       channels: rewriteMedia(channels),
+      panelActivity: getPanelActivity({ view, channels }),
       viewSpecs: platform.catalog.viewSpecs.filter((spec) =>
         view.panels.some(
           (panel) => panel.specId === spec.id,

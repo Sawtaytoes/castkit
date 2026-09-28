@@ -165,6 +165,95 @@ describe("platform access and saved compositions", () => {
       readFileSync(fixture.file, "utf8"),
     ).not.toContain('"123456"')
   })
+  test("a screen's snapshot answers activity per view and per panel", async () => {
+    const fixture = await createFixture()
+    await fixture.save("channels", {
+      id: "rip-deck/live",
+      name: "Rip deck",
+      sourceId: "events",
+      type: "rip-deck.v1",
+      settings: {},
+    })
+    await fixture.save("views", {
+      ...fixture.view,
+      id: "now",
+      name: "Now",
+      layout: "split",
+      isActiveOnly: true,
+      panels: [
+        ...fixture.view.panels,
+        {
+          id: "rips",
+          specId: "rip-deck",
+          bindings: { data: "rip-deck/live" },
+          settings: {},
+        },
+      ],
+    })
+    expect(
+      (
+        await fixture.save("screens", {
+          id: "working",
+          name: "Working",
+          defaultViewId: "now",
+          viewIds: ["now", "workbench"],
+          access: "public",
+        })
+      ).status,
+    ).toBe(201)
+    fixture.platform.hub.publish({
+      channelId: "printers/workbench",
+      data: { printers: [] },
+    })
+    fixture.platform.hub.publish({
+      channelId: "rip-deck/live",
+      data: {
+        bays: [],
+        alerts: [],
+        isPresent: true,
+        activeCount: 1,
+        loadedDiscCount: 1,
+      },
+    })
+    const idle = await (
+      await fixture.request("/api/display/screen/working")
+    ).json()
+    expect(idle.view.isActiveOnly).toBe(true)
+    expect(idle.panelActivity).toEqual({
+      printers: false,
+      rips: true,
+    })
+    expect(idle.availableViews).toEqual([
+      { id: "now", name: "Now", isActive: true },
+      {
+        id: "workbench",
+        name: "Workbench",
+        isActive: false,
+      },
+    ])
+    fixture.platform.hub.publish({
+      channelId: "printers/workbench",
+      data: {
+        printers: [
+          {
+            id: "one",
+            name: "Printer One",
+            jobName: "Desk stand",
+            percent: 40,
+            state: "printing",
+          },
+        ],
+      },
+    })
+    const printing = await (
+      await fixture.request("/api/display/screen/working")
+    ).json()
+    expect(printing.panelActivity).toEqual({
+      printers: true,
+      rips: true,
+    })
+    expect(printing.availableViews[1].isActive).toBe(true)
+  })
   test("persists definitions and a kiosk grant without storing the PIN", async () => {
     const fixture = await createFixture()
     expect(

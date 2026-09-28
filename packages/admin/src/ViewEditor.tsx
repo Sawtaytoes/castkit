@@ -473,6 +473,20 @@ export const ViewEditor = ({
           action. A view can show live data without allowing
           changes.
         </p>
+        <Checkbox
+          label="Show only what is active"
+          isChecked={value.isActiveOnly === true}
+          onChange={(isActiveOnly) =>
+            onChange({ ...value, isActiveOnly })
+          }
+        />
+        <p className="text-sm text-content-secondary">
+          A panel with nothing going on hides itself: no rip
+          running, every plate cleared, nothing playing. The
+          other panels take the room, and the view shows one
+          line when none is active. Photos, calendars,
+          clocks and entity lists are always active.
+        </p>
         <AccessFields
           value={value}
           onChange={(next) =>
