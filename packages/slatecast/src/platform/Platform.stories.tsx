@@ -96,6 +96,40 @@ export const PrintersAndRips: Story = {
     </main>
   ),
 }
+/**
+ * One printer on a wide panel: the card passes its 900 px breakpoint and puts
+ * the picture on the left with the facts beside it. Shrink the canvas under
+ * about 950 px and it stacks again. The breakpoint is the card's own width.
+ */
+export const PrintersWide: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={
+          {
+            ...storySnapshot,
+            channels: {
+              ...storySnapshot.channels,
+              prints: {
+                ...storySnapshot.channels.prints,
+                data: {
+                  printers:
+                    (
+                      storySnapshot.channels.prints?.data as
+                        | ContractData["printers.v1"]
+                        | undefined
+                    )?.printers.slice(0, 1) ?? [],
+                },
+              },
+            },
+          } as DisplaySnapshot
+        }
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
 /** The keypad works without a hardware keyboard. */
 export const Locked: Story = {
   render: () => (
