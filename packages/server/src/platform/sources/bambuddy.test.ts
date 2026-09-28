@@ -177,7 +177,7 @@ test("Bambuddy controls and media only address configured printer IDs", async ()
     kind: "cover",
   })
   expect(fetchRequest.mock.calls.at(-1)?.[0]).toBe(
-    "https://service.example/api/v1/printers/2/cover?token=fixture-token",
+    "https://service.example/api/v1/printers/2/cover",
   )
   adapter.dispose()
 })
