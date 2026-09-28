@@ -719,21 +719,35 @@ export const createBambuddySource: SourceFactory = (
       }),
     )
     state.statusById = new Map(statuses)
-    if (spoolsChannels().length > 0) {
-      await readInventory()
-    } else if (
-      context.channels.some(
-        (channel) => channel.type === "printers.v1",
-      )
-    ) {
-      // The printer card names each slot's spool color from the inventory.
-      // Without it the card still works, so a failed read is not an outage.
-      await readInventory().catch(() => undefined)
-    }
+    // The spools channels are built from the inventory, and the printer
+    // card names each slot's spool color from it. A failed inventory read
+    // is the SPOOLS channels' fault to report, never the printers': on
+    // 2026-09-28 Bambuddy's /api/v1/inventory/spools answered 500 for hours
+    // while its printers answered fine, and the whole poll threw, so the
+    // printer cards went dark on every screen. The last good inventory
+    // stays in `state` for the cards.
+    const inventoryError = await (spoolsChannels().length >
+      0 ||
+    context.channels.some(
+      (channel) => channel.type === "printers.v1",
+    )
+      ? readInventory().then(
+          () => undefined,
+          (error: unknown) =>
+            `Bambuddy inventory: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      : Promise.resolve(undefined))
     context.channels.forEach((channel) => {
       const selection = selectedIds(channel.id)
       if (channel.type === "spools.v1") {
-        publishSpools(channel.id)
+        if (inventoryError) {
+          context.reportError({
+            channelId: channel.id,
+            error: inventoryError,
+          })
+        } else {
+          publishSpools(channel.id)
+        }
       } else if (channel.type === "cameras.v1") {
         context.publish({
           channelId: channel.id,
