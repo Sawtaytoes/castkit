@@ -130,6 +130,58 @@ export const PrintersWide: Story = {
     </main>
   ),
 }
+/**
+ * Three printers on a 1400x640 window, each with a tall plate cover: the row
+ * is the panel's height and every picture shrinks to fit, so the facts stay
+ * above the fold. Before 2026-09-28 the covers set the row and the panel
+ * scrolled. The badge counts the columns; the name carries no "1 - " prefix.
+ */
+export const PrintersThree: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={
+          {
+            ...storySnapshot,
+            view: {
+              ...storySnapshot.view,
+              name: "3D Printers",
+              layout: "single",
+              panels: storySnapshot.view.panels.filter(
+                (panel) =>
+                  panel.specId === "printer-status",
+              ),
+            },
+            channels: {
+              ...storySnapshot.channels,
+              prints: {
+                ...storySnapshot.channels.prints,
+                data: {
+                  printers: [
+                    "Magi",
+                    "Foopie",
+                    "Quadrahedron",
+                  ].map((name, index) => ({
+                    ...(
+                      storySnapshot.channels.prints?.data as
+                        | ContractData["printers.v1"]
+                        | undefined
+                    )?.printers[0],
+                    id: String(index + 1),
+                    name,
+                    percent: [41, 3, 64][index],
+                  })),
+                },
+              },
+            },
+          } as DisplaySnapshot
+        }
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
 /** The keypad works without a hardware keyboard. */
 export const Locked: Story = {
   render: () => (

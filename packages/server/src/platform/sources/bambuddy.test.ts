@@ -68,6 +68,20 @@ test("Bambuddy printer normalization names the filament in the active tray and t
   expect(none?.nozzleText).toBeUndefined()
 })
 
+test("Bambuddy printer normalization drops an ordering prefix from the printer's name", () => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      id: 2,
+      name: "2 - Foopie",
+      connected: true,
+      state: "RUNNING",
+      progress: 3,
+    },
+  })
+  expect(printer?.name).toBe("Foopie")
+})
+
 test("Bambuddy printer normalization lists the archive's filament slots when the live mapping is empty", () => {
   const printer = normalizeBambuddyPrinter({
     channelId: "printers",
