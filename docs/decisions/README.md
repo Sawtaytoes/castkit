@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-28 | [A wide platform printer card puts the picture beside the facts](2026-09-28-a-wide-platform-printer-card-puts-the-picture-beside-the-facts.md) — a platform printer card 900 px or wider is picture left at 40%, facts right and centered; the breakpoint is the card's width through a container query on the card's children | Accepted |
 | 2026-09-28 | [Printer Status stacks printers top to bottom on a portrait panel](2026-09-28-printer-status-stacks-printers-top-to-bottom-on-a-portrait-panel.md) — on a portrait panel the printers sit one above the other at full width; the column rule stands on landscape | Accepted |
 | 2026-09-28 | [A panel too small for a view is a stated limit, not a layout to fix](2026-09-28-a-panel-too-small-for-a-view-is-a-stated-limit.md) — Printer Status shows at most one printer on a 480 px panel; Photo Frame is not recommended on a round panel and needs a zoom-to-fill option; every limit is written in `docs/panel-limits.md` against a panel property | Accepted |
 | 2026-09-28 | [The Clear plate card names no other hardware](2026-09-28-the-clear-plate-card-names-no-other-hardware.md) — the `Or press the andon button on the printer.` sentence is removed from the finished/failed card; whoever can read the button taps the button, and an andon module is one household's hardware, not every panel's | Accepted |
