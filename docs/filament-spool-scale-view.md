@@ -18,7 +18,8 @@ person has to leave; a tag arriving or leaving moves the panel by itself.
 
 | Reader state | Screen |
 | --- | --- |
-| `tag.state: none` | **Ready to scan.** The ring, the prompt, the scale's live reading in the corner. |
+| `tag.state: none` | **Ready to scan.** The ring, the prompt, the scale's live reading in the corner. Two waves grow out of the ring's center and fade, every 3.5 s, in the accent color — the reader is listening. An offline scale stills them. |
+| `tag.state: none`, scale at 5 g or more | **Weighing.** Something is on the scale and no tag was read — a spool with its sticker turned away, or a calibration weight. The title becomes the reading (`500 g`) and the ring turns the success color. It pings every 1.2 s while the reading settles and goes back to the slow beat once `isStable`. Under 5 g is scale creep and stays Ready to scan. |
 | `tag.state: matched` | **The spool card.** Swatch, product and color name, brand and label weight, where it is loaded if it is, and three facts: the scale, what that leaves on the spool, and what the record says. One primary button: `Save NNN g remaining`. |
 | `tag.state: unknown` | **Not in the inventory.** The tag's uid, two actions — copy an existing spool onto the tag, or link the tag to a spool that has none — and a plain note about adding a new product. |
 | no `spools` data yet | **Waiting for the scale.** The view has not heard from the reader. |
@@ -164,13 +165,16 @@ which screen is up.
 ## Previews
 
 `Views/Filament Spool Scale` in the browser Storybook carries one story per
-panel plus every state at the 1280×720 profile: ready, matched (plain,
+panel plus every state at the 1280×720 profile: ready, weighing with no tag
+(settled and settling), matched (plain,
 translucent, galaxy, two-color), unknown, both pickers, each assign step, the
 AMS view online and with an offline printer, the scale offline, and the wait
 before the first push. All fixture data is invented; nothing in it is the
 household's inventory.
 
 ![Ready to scan](images/filament-spool-scale-ready.png)
+![Ready to scan, a wave on its way out](images/filament-spool-scale-ready-wave.png)
+![Weighing, no tag](images/filament-spool-scale-weighing.png)
 ![Tag matched](images/filament-spool-scale-matched.png)
 ![Unknown tag](images/filament-spool-scale-unknown.png)
 ![Assign, step 3](images/filament-spool-scale-assign-slot.png)

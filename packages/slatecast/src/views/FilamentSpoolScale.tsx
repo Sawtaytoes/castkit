@@ -37,7 +37,7 @@ import { Swatch } from "./spoolSwatch.tsx"
  * 1280×720 Pi Touch Display 2 at arm's length.
  *
  * The data decides the reader's screen. Nothing on the reader is `Ready to
- * scan`; a tag the inventory knows is the spool card with a one-tap save; a
+ * scan`; something on the scale with no tag is its weight; a tag the inventory knows is the spool card with a one-tap save; a
  * tag it has never seen offers to copy a spool onto it or link one that has
  * no tag. A toggle in the corner flips to every AMS slot at a glance, and
  * `Assign to an AMS slot` walks a spool to a slot in three taps.
@@ -57,6 +57,31 @@ const SAVED_SHOWN_MS = 4_000
  * save the dashboard silently dropped.
  */
 const SAVE_PENDING_MS = 15_000
+
+/**
+ * The least the scale must read before the ready screen counts something as
+ * ON it. The scale node already rounds its idle drift to zero; this keeps a
+ * gram or two of creep from flipping the screen back and forth.
+ */
+const LOADED_MIN_GRAMS = 5
+
+/**
+ * What the ready screen's ring says about the scale: nothing on it (the ring
+ * pings, listening), something settling, something settled, or no scale at
+ * all (the ring is still — nothing is listening).
+ */
+type ScaleLoad = "offline" | "empty" | "settling" | "stable"
+
+const getScaleLoad = (
+  scale: SpoolsData["scale"],
+): ScaleLoad =>
+  !scale.isOnline
+    ? "offline"
+    : scale.grams < LOADED_MIN_GRAMS
+      ? "empty"
+      : scale.isStable
+        ? "stable"
+        : "settling"
 
 type SaveState = {
   spoolId: string
@@ -94,18 +119,27 @@ const Fact = ({
   </div>
 )
 
-/** The idle stage: the ring and the copy beside it. */
+/**
+ * The idle stage: the ring and the copy beside it. The ring's two waves grow
+ * out of the center and fade, and `data-load` recolors them: accent while it
+ * waits, success while something sits on the scale.
+ */
 const Stage = ({
   title,
   subtitle,
   hint,
+  load = "offline",
 }: {
   title: string
   subtitle: string
   hint?: string
+  load?: ScaleLoad
 }) => (
-  <div class="fss-stage">
-    <div class="fss-ring" aria-hidden="true" />
+  <div class="fss-stage" data-load={load}>
+    <div class="fss-ring" aria-hidden="true">
+      <span class="fss-ring-wave" />
+      <span class="fss-ring-wave" />
+    </div>
     <div class="fss-stage-copy">
       <h1 class="fss-big">{title}</h1>
       <p class="fss-subtitle">{subtitle}</p>
@@ -584,9 +618,34 @@ export const FilamentSpoolScale = () => {
     )
   }
 
+  /*
+   * Something on the scale with no tag read — a spool whose sticker is
+   * facing away, or a calibration weight — is still a reading worth showing.
+   * The ring turns to the success color and the title becomes the weight.
+   */
+  const load = getScaleLoad(data.scale)
+  if (load === "settling" || load === "stable") {
+    return (
+      <div class="fss" data-screen="weighing">
+        <Stage
+          load={load}
+          title={`${formatGrams(data.scale.grams)} g`}
+          subtitle={
+            load === "stable"
+              ? "On the scale. No tag was read."
+              : "Weighing…"
+          }
+          hint="A spool with a tag opens its card by itself."
+        />
+        {footer}
+      </div>
+    )
+  }
+
   return (
     <div class="fss" data-screen="ready">
       <Stage
+        load={load}
         title="Ready to scan"
         subtitle="Put a spool on the scale."
         hint="A Bambu tag or an NTAG sticker is read by itself."
