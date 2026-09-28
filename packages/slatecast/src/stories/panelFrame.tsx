@@ -55,17 +55,23 @@ const CAPTION_ALLOWANCE = 32
  * showed the top of the view and read as a layout with nothing at the bottom.
  * Only the OUTER frame scales — the nested document keeps the panel's own
  * size, so every `vmin` inside it still resolves exactly as on the glass.
+ *
+ * A browser under automation — the `vrt` capture — keeps the native size. Its
+ * 1280x800 canvas would shrink every large panel a few percent, and a resampled
+ * picture blurs the one-pixel differences the comparison exists to catch.
  */
 const measureFitScale = (device: BrowserDeviceProfile) =>
-  Math.min(
-    1,
-    (window.innerWidth - CANVAS_PADDING * 2) /
-      (device.width + BEZEL_WIDTH * 2),
-    (window.innerHeight -
-      CANVAS_PADDING * 2 -
-      CAPTION_ALLOWANCE) /
-      (device.height + BEZEL_WIDTH * 2),
-  )
+  navigator.webdriver
+    ? 1
+    : Math.min(
+        1,
+        (window.innerWidth - CANVAS_PADDING * 2) /
+          (device.width + BEZEL_WIDTH * 2),
+        (window.innerHeight -
+          CANVAS_PADDING * 2 -
+          CAPTION_ALLOWANCE) /
+          (device.height + BEZEL_WIDTH * 2),
+      )
 
 const useFitScale = (device: BrowserDeviceProfile) => {
   const [scale, setScale] = useState(() =>
