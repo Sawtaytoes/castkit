@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-28 | [Browser printer cards preserve the small-count layouts](2026-09-28-browser-printer-cards-preserve-small-count-layouts.md) — one through three keep a full-width camera or print preview above details; four camera cards use a tall 2×2 grid, and the print preview sits beside the facts when camera mode is off | Accepted |
 | 2026-09-28 | [Storybook calls this view 3D Printer Status](2026-09-28-storybook-calls-this-view-3d-printer-status.md) — the Storybook title says `Views/3D Printer Status`; the panel and Home Assistant keep `Printer Status` | Accepted |
 | 2026-09-28 | [Printer Status adds layouts from four](2026-09-28-printer-status-adds-layouts-from-four.md) — counts one through three stay as they are; four uses a 2×2 image-and-facts grid; five or more use compact rows with a print preview and controls, sized to complete rows at the 1280×720 Pi Touch Display 2 | Accepted |
 | 2026-09-27 | [Browser printer cameras use live streams](2026-09-27-browser-printer-cameras-use-live-streams.md) — direct Bambuddy browser views proxy MJPEG instead of refreshing a still image every ten seconds | Accepted |
