@@ -76,6 +76,7 @@ export const platformSchemas = {
     theme: z.enum(["auto", "light", "dark"]),
     access: z.enum(["public", "pin"]),
     isControlEnabled: z.boolean(),
+    isActiveOnly: z.boolean().optional(),
     appearance: z
       .object({
         fontFamily: z.string().max(160).optional(),

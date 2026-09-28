@@ -26,43 +26,67 @@ export const DisplayComposition = ({
   isConnected: boolean
   isPending?: boolean
   onAction: (action: PanelAction) => Promise<void>
-}) => (
-  <DisplayPropertiesContext.Provider
-    value={snapshot.displayProperties}
-  >
-    <DisplayContext.Provider value={snapshot.target}>
-      <div
-        class="platform-layout"
-        style={viewAppearance(snapshot.view)}
-        data-layout={snapshot.view.layout}
-      >
-        {snapshot.view.panels.map((panel) => (
-          <Panel
-            key={`${snapshot.view.id}:${panel.id}`}
-            panel={panel}
-            browserEntry={
-              snapshot.viewSpecs?.find(
-                (spec) => spec.id === panel.specId,
-              )?.browserEntry
-            }
-            inputs={
-              snapshot.viewSpecs?.find(
-                (spec) => spec.id === panel.specId,
-              )?.inputs
-            }
-            channels={snapshot.channels}
-            isControlEnabled={
-              snapshot.canControl &&
-              isConnected &&
-              !isPending
-            }
-            onAction={onAction}
-          />
-        ))}
-      </div>
-    </DisplayContext.Provider>
-  </DisplayPropertiesContext.Provider>
-)
+}) => {
+  // An active-only view draws only the panels the server says have something
+  // going on; a region with nothing to report gets out of the way and the
+  // others take the room. A panel the server did not answer for is drawn.
+  const panels = snapshot.view.isActiveOnly
+    ? snapshot.view.panels.filter(
+        (panel) =>
+          snapshot.panelActivity?.[panel.id] !== false,
+      )
+    : snapshot.view.panels
+  const layout =
+    snapshot.view.isActiveOnly && panels.length <= 1
+      ? "single"
+      : snapshot.view.layout
+  return (
+    <DisplayPropertiesContext.Provider
+      value={snapshot.displayProperties}
+    >
+      <DisplayContext.Provider value={snapshot.target}>
+        <div
+          class="platform-layout"
+          style={viewAppearance(snapshot.view)}
+          data-layout={layout}
+        >
+          {snapshot.view.isActiveOnly &&
+          panels.length === 0 ? (
+            <section
+              class="platform-panel platform-nothing-active"
+              aria-label="Nothing active"
+            >
+              <p role="status">Nothing active</p>
+            </section>
+          ) : null}
+          {panels.map((panel) => (
+            <Panel
+              key={`${snapshot.view.id}:${panel.id}`}
+              panel={panel}
+              browserEntry={
+                snapshot.viewSpecs?.find(
+                  (spec) => spec.id === panel.specId,
+                )?.browserEntry
+              }
+              inputs={
+                snapshot.viewSpecs?.find(
+                  (spec) => spec.id === panel.specId,
+                )?.inputs
+              }
+              channels={snapshot.channels}
+              isControlEnabled={
+                snapshot.canControl &&
+                isConnected &&
+                !isPending
+              }
+              onAction={onAction}
+            />
+          ))}
+        </div>
+      </DisplayContext.Provider>
+    </DisplayPropertiesContext.Provider>
+  )
+}
 
 /** Browser views and named screens share a client without registering a device. */
 export const PlatformApp = ({
