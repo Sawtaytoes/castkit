@@ -14,18 +14,20 @@ import type {
  * has to come from the server, because a screen's tabs want it for every view
  * on the screen, and the client only holds the current view's channels.
  *
- * Only contracts with an idle state answer `false`. A photo frame, a
+ * Only contracts with an idle state answer at all. A photo frame, a
  * calendar, a clock or an entity list has nothing to be idle about, and a
- * plugin's own contract is unknown here, so all of those are active: putting
- * one in an active-only view keeps it on screen, which is the safe reading.
- * A channel that is waiting, stale or in error keeps its last data, and that
- * data decides, so a rip in progress does not vanish because the tower missed
- * one poll.
+ * plugin's own contract is unknown here, so all of those answer `undefined`:
+ * an active-only view keeps them on screen (the safe reading), and a tab
+ * whose view holds nothing else draws no dot, because "the photos are still
+ * there" is not something going on. A channel that is waiting, stale or in
+ * error keeps its last data, and that data decides, so a rip in progress
+ * does not vanish because the tower missed one poll.
  */
 export const isChannelActive = (
   channel: ChannelSnapshot | undefined,
-) => {
-  if (!channel || channel.data === null) return false
+): boolean | undefined => {
+  if (!channel) return false
+  if (channel.data === null) return false
   switch (channel.type) {
     case "printers.v1":
       return (
@@ -51,26 +53,29 @@ export const isChannelActive = (
           .length > 0
       )
     default:
-      return true
+      return undefined
   }
 }
 
-/** A panel is active when its data binding is; a panel with no data binding has nothing to be idle about. */
+/** A panel answers as its data binding does; a panel with no data binding has nothing to be idle about. */
 export const isPanelActive = ({
   panel,
   channels,
 }: {
   panel: ViewPanel
   channels: Record<string, ChannelSnapshot>
-}) => {
+}): boolean | undefined => {
   const channelId =
     panel.bindings.data ?? Object.values(panel.bindings)[0]
   return channelId === undefined
-    ? true
+    ? undefined
     : isChannelActive(channels[channelId])
 }
 
-/** Activity keyed by panel id, for the snapshot of one view. */
+/**
+ * Activity keyed by panel id, for the snapshot of one view. A panel with no
+ * idle state is left out; the client draws a panel it has no answer for.
+ */
 export const getPanelActivity = ({
   view,
   channels,
@@ -79,20 +84,30 @@ export const getPanelActivity = ({
   channels: Record<string, ChannelSnapshot>
 }): Record<string, boolean> =>
   Object.fromEntries(
-    view.panels.map((panel) => [
-      panel.id,
-      isPanelActive({ panel, channels }),
-    ]),
+    view.panels.flatMap((panel) => {
+      const isActive = isPanelActive({ panel, channels })
+      return isActive === undefined
+        ? []
+        : [[panel.id, isActive]]
+    }),
   )
 
-/** A view is active when any of its panels is, which is what a tab's dot reports. */
+/**
+ * What a tab's dot reports: `true` when any panel with an idle state is
+ * active, `false` when every such panel is idle, `undefined` when the view
+ * has no such panel (a photo frame, an agenda), so the tab draws no dot.
+ */
 export const isViewActive = ({
   view,
   channels,
 }: {
   view: ViewDefinition
   channels: Record<string, ChannelSnapshot>
-}) =>
-  view.panels.some((panel) =>
-    isPanelActive({ panel, channels }),
-  )
+}): boolean | undefined => {
+  const answers = view.panels
+    .map((panel) => isPanelActive({ panel, channels }))
+    .filter((answer) => answer !== undefined)
+  return answers.length === 0
+    ? undefined
+    : answers.some((answer) => answer)
+}
