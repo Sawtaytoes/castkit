@@ -718,16 +718,21 @@ export const createBambuddySource: SourceFactory = (
           "This media is not part of the selected printers.",
         )
       }
-      // Bambuddy guards the plate cover with the same stream token as the
-      // camera snapshot; without it the cover answers 401 and every card
-      // that hides its camera shows a broken picture.
-      const token = encodeURIComponent(
-        await getCameraToken(),
-      )
+      // The camera snapshot and stream take Bambuddy's camera-stream token.
+      // The plate cover no longer does: since Bambuddy #3025 that route
+      // wants a separate media token, and a stream token on it answers 401
+      // (measured 2026-09-28), which left every card with an empty picture.
+      // The X-API-Key header alone is accepted there, so the cover carries
+      // no token at all.
+      const isCameraMedia =
+        kind === "camera" || kind === "stream"
+      const token = isCameraMedia
+        ? `?token=${encodeURIComponent(await getCameraToken())}`
+        : ""
       return sourceRequest({
         context,
         headers,
-        path: `/api/v1/printers/${encodeURIComponent(assetId)}/${kind === "stream" ? "camera/stream" : kind === "camera" ? "camera/snapshot" : "cover"}?token=${token}`,
+        path: `/api/v1/printers/${encodeURIComponent(assetId)}/${kind === "stream" ? "camera/stream" : kind === "camera" ? "camera/snapshot" : "cover"}${token}`,
         timeoutMilliseconds:
           kind === "camera" || kind === "stream"
             ? 20000
