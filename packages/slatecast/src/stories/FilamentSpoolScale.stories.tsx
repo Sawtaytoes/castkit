@@ -99,6 +99,22 @@ export const Ready: Story = panelVariant({
   data: buildSpools(),
 })
 
+/** A calibration weight on the scale: a reading, and no tag to read. */
+export const Weighing: Story = panelVariant({
+  name: "Weighing, no tag",
+  data: buildSpools({
+    scale: { grams: 500, isStable: true, isOnline: true },
+  }),
+})
+
+/** The same weight still settling: the ring pings fast. */
+export const WeighingSettling: Story = panelVariant({
+  name: "Weighing, settling",
+  data: buildSpools({
+    scale: { grams: 498, isStable: false, isOnline: true },
+  }),
+})
+
 export const Matched: Story = panelVariant({
   name: "Tag matched",
   data: buildMatchedSpools(),

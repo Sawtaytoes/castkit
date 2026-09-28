@@ -130,6 +130,85 @@ describe("the reader's screen", () => {
   })
 })
 
+describe("the ready screen's ring", () => {
+  const ringLoad = () =>
+    document
+      .querySelector(".fss-stage")
+      ?.getAttribute("data-load")
+
+  test("nothing on the scale keeps Ready to scan and a listening ring", async () => {
+    await mountSpoolScale(buildSpools())
+
+    expect(screen.getByText("Ready to scan")).toBeVisible()
+    expect(ringLoad()).toBe("empty")
+  })
+
+  test("a weight with no tag shows its grams and turns the ring", async () => {
+    await mountSpoolScale(
+      buildSpools({
+        scale: {
+          grams: 500,
+          isStable: true,
+          isOnline: true,
+        },
+      }),
+    )
+
+    expect(screen.getByText("500 g")).toBeVisible()
+    expect(
+      screen.getByText("On the scale. No tag was read."),
+    ).toBeVisible()
+    expect(currentScreen()).toBe("weighing")
+    expect(ringLoad()).toBe("stable")
+  })
+
+  test("a reading that has not settled says it is weighing", async () => {
+    await mountSpoolScale(
+      buildSpools({
+        scale: {
+          grams: 1_210,
+          isStable: false,
+          isOnline: true,
+        },
+      }),
+    )
+
+    expect(screen.getByText("1 210 g")).toBeVisible()
+    expect(screen.getByText("Weighing…")).toBeVisible()
+    expect(ringLoad()).toBe("settling")
+  })
+
+  test("a few grams of creep is still nothing on the scale", async () => {
+    await mountSpoolScale(
+      buildSpools({
+        scale: {
+          grams: 4,
+          isStable: false,
+          isOnline: true,
+        },
+      }),
+    )
+
+    expect(screen.getByText("Ready to scan")).toBeVisible()
+    expect(ringLoad()).toBe("empty")
+  })
+
+  test("an offline scale stills the ring", async () => {
+    await mountSpoolScale(
+      buildSpools({
+        scale: {
+          grams: 0,
+          isStable: false,
+          isOnline: false,
+        },
+      }),
+    )
+
+    expect(screen.getByText("Ready to scan")).toBeVisible()
+    expect(ringLoad()).toBe("offline")
+  })
+})
+
 describe("saving the weight", () => {
   test("the button names the net grams and sends the scale's reading", async () => {
     const { server } = await mountSpoolScale(
