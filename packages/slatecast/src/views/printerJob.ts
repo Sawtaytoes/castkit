@@ -124,3 +124,51 @@ export const formatFinishTime = ({
   }
   return `${formatClockMonthDay(finishAtMs, clock)} ${time}`
 }
+
+/**
+ * A job that has stopped moving: it finished, or it failed. Either way the
+ * plate still holds the part, and the card stays on the glass until somebody
+ * clears it. The other three states are a printer that is still working.
+ */
+export const isSettledPrinterJob = (
+  job: Pick<PrinterJob, "state">,
+) => job.state === "finished" || job.state === "failed"
+
+/**
+ * When the print ended, as a person reads it off the glass: "3:47 PM" earlier
+ * today, "Yesterday 3:47 PM", "Fri 3:47 PM" further back, a date a week or more
+ * back.
+ *
+ * The same calendar-day rule as {@link formatFinishTime}, mirrored: a finished
+ * plate that nobody cleared overnight must not read as this afternoon. A
+ * printer's end time can also sit a little AHEAD of the panel's clock — the two
+ * are not synchronized to the second — so a finish inside the same day is the
+ * bare time whichever side of now it lands.
+ */
+export const formatEndedTime = ({
+  clock,
+  endedAtMs,
+  nowMillis,
+}: {
+  clock?: BrowserClockConfig
+  endedAtMs: number
+  nowMillis: number
+}): string => {
+  const time = formatClockTime(endedAtMs, clock)
+  const dayOffset = getClockDayOffset({
+    clock,
+    fromMillis: nowMillis,
+    toMillis: endedAtMs,
+  })
+
+  if (dayOffset >= 0) {
+    return time
+  }
+  if (dayOffset === -1) {
+    return `Yesterday ${time}`
+  }
+  if (dayOffset > -7) {
+    return `${formatClockWeekdayShort(endedAtMs, clock)} ${time}`
+  }
+  return `${formatClockMonthDay(endedAtMs, clock)} ${time}`
+}

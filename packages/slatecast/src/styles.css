@@ -1745,6 +1745,16 @@ html[data-grayscale-text="true"] {
 }
 
 /*
+ * A finished print tints the WHOLE card, the way a failed one does in danger:
+ * the card is a reminder that a plate is waiting, and it has to read as one
+ * from across the room, not from a chip.
+ */
+.printer-card[data-intent="success"] {
+  border-color: var(--color-intent-success-border);
+  background: var(--color-intent-success-surface);
+}
+
+/*
  * The plate picture takes the slack and is never cropped. It carries its own
  * dark background, so it gets NO box: a box letterboxes the square render
  * inside a differently-colored rectangle, which reads as a clipped picture.
@@ -1776,34 +1786,19 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * The head wraps as two groups: the badge and the name, then the state chip
- * and the buttons. At one and two printers they share a line. At three the
- * card is about 380 px wide and they cannot, so the controls drop below and
- * the name keeps its width instead of colliding with the chip.
+ * The head is the badge, the name and the state chip on one line. The buttons
+ * used to share it and wrapped under the name at three columns; they are at
+ * the foot of the card now, a fingertip tall, so the head no longer wraps.
  */
 .printer-head {
   display: flex;
   flex: none;
-  flex-wrap: wrap;
   gap: 8px 10px;
   align-items: center;
 }
 
-.printer-head-controls {
-  display: flex;
-  flex: none;
-  gap: 10px;
-  align-items: center;
-  margin-left: auto;
-}
-
-/*
- * The name group asks for more room than three columns can give, which is what
- * makes the controls wrap there and not at two. Below this width the flex line
- * cannot hold both groups.
- */
 .printer-names {
-  flex: 1 1 190px;
+  flex: 1 1 0;
 }
 
 .printer-index {
@@ -1838,19 +1833,33 @@ html[data-grayscale-text="true"] {
   font-size: 12px;
 }
 
+/*
+ * Pause and Stop sit at the FOOT of the card, full width and split evenly.
+ *
+ * They are sized for a fingertip on a wall panel: 64 px tall at the 1280x720
+ * workbench panel, and never under 48 px on the small profiles. The height is
+ * `vmin` so the smaller panels scale it down in proportion, with a floor so
+ * the short panel keeps a tappable control. A bounding box IS the touch area
+ * here — no pseudo-element pad — because the remote-display renderer binds a
+ * touch by that box (see `nowPlayingTouchTargets.test.tsx`).
+ */
 .printer-actions {
   display: flex;
   flex: none;
-  gap: 7px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .printer-action {
-  padding: 6px 13px;
-  border-radius: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: max(48px, 8.9vmin);
+  padding: 8px 16px;
+  border-radius: 12px;
   background: transparent;
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: max(15px, 3.2vmin);
+  font-weight: 700;
 }
 
 .printer-action[disabled] {
@@ -1865,6 +1874,46 @@ html[data-grayscale-text="true"] {
 .printer-action.is-stop {
   border: 1px solid var(--color-intent-danger-border);
   color: var(--color-intent-danger-content);
+}
+
+/*
+ * Clear plate: the one control on a finished or failed card. Full width, taller
+ * than Pause and Stop, and SOLID in the card's own color, because the card is
+ * a reminder and this is the thing that dismisses it. The andon reminder under
+ * it says the printer's own button does the same job.
+ */
+.printer-clear {
+  flex: none;
+  width: 100%;
+  min-height: max(56px, 13.4vmin);
+  margin-top: 10px;
+  padding: 10px 20px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: var(--color-intent-success-solid);
+  color: var(--color-intent-success-on-solid);
+  font: inherit;
+  font-size: max(20px, 4.4vmin);
+  font-weight: 700;
+}
+
+.printer-card[data-state="failed"] .printer-clear {
+  background: var(--color-intent-danger-solid);
+  color: var(--color-intent-danger-on-solid);
+}
+
+.printer-clear[disabled] {
+  opacity: 0.55;
+}
+
+.printer-clear-hint {
+  flex: none;
+  margin-top: 8px;
+  color: var(--color-content-muted);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
 }
 
 /*
@@ -1935,6 +1984,35 @@ html[data-grayscale-text="true"] {
   opacity: 0.5;
 }
 
+.printer-card[data-intent="success"] .printer-band-fill {
+  background: var(--color-intent-success-solid);
+  opacity: 0.5;
+}
+
+/*
+ * A settled card's band says how the print ended where the time left was:
+ * two short lines — "Stopped at layer 32" over "Ended 3:47 PM" — because
+ * together they do not fit one line beside the percentage at three columns.
+ */
+.printer-band-ended {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 0;
+  color: var(--fg);
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.printer-band-ended span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /*
  * The band carries the percentage at its right and the time left at its left.
  *
@@ -1978,6 +2056,7 @@ html[data-grayscale-text="true"] {
   flex: none;
   gap: 7px;
   align-items: center;
+  margin-left: auto;
   padding: 4px 11px;
   border-radius: 999px;
   background: color-mix(
@@ -2007,6 +2086,15 @@ html[data-grayscale-text="true"] {
     transparent
   );
   color: var(--color-intent-danger-content);
+}
+
+.printer-card[data-intent="success"] .printer-state {
+  background: color-mix(
+    in oklab,
+    var(--color-intent-success-solid) 30%,
+    transparent
+  );
+  color: var(--color-intent-success-content);
 }
 
 .printer-state-dot {
@@ -2163,8 +2251,19 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-status[data-count="1"] .printer-action {
-  padding: 9px 18px;
-  font-size: 15px;
+  font-size: max(17px, 3.6vmin);
+}
+
+.printer-status[data-count="1"] .printer-band-ended {
+  font-size: 21px;
+}
+
+.printer-status[data-count="1"] .printer-clear {
+  margin-top: 14px;
+}
+
+.printer-status[data-count="1"] .printer-clear-hint {
+  font-size: 18px;
 }
 
 .printer-empty {
