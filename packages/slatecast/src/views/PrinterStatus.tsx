@@ -10,6 +10,10 @@ import {
   stopPrinter,
 } from "../state.ts"
 import {
+  FilamentControl,
+  FilamentDetailsDialog,
+} from "./FilamentDetails.tsx"
+import {
   formatEndedTime,
   formatFinishTime,
   formatRemaining,
@@ -161,17 +165,21 @@ export const __setPrinterPendingForStories = (
 const PrinterCard = ({
   index,
   isExpanded,
+  isFilamentDetailsOpen,
   job,
   onClear,
   onToggleExpanded,
+  onShowFilaments,
   pendingAction,
   onRequest,
 }: {
   index: number
   isExpanded: boolean
+  isFilamentDetailsOpen: boolean
   job: PrinterJob
   onClear: () => void
   onToggleExpanded: () => void
+  onShowFilaments: () => void
   pendingAction: PendingAction | null
   onRequest: (action: ConfirmedAction) => void
 }) => {
@@ -353,18 +361,15 @@ const PrinterCard = ({
               >
                 <dt>Filament</dt>
                 <dd>
-                  {job.filamentText ? (
-                    <>
-                      {job.filamentColor ? (
-                        <span
-                          class="printer-swatch"
-                          style={{
-                            background: job.filamentColor,
-                          }}
-                        />
-                      ) : null}
-                      <span>{job.filamentText}</span>
-                    </>
+                  {job.filamentText ||
+                  job.filaments?.length ? (
+                    <FilamentControl
+                      color={job.filamentColor}
+                      isExpanded={isFilamentDetailsOpen}
+                      filaments={job.filaments}
+                      onClick={onShowFilaments}
+                      text={job.filamentText}
+                    />
                   ) : (
                     <>
                       <span class="printer-swatch is-pending" />
@@ -422,6 +427,8 @@ export const PrinterStatus = () => {
   const [expandedIds, setExpandedIds] = useState<
     readonly string[]
   >([])
+  const [filamentDetailsId, setFilamentDetailsId] =
+    useState<string | null>(null)
   const [pending, setPending] = useState<
     Record<string, PendingAction>
   >(() => storyPending.value)
@@ -468,6 +475,15 @@ export const PrinterStatus = () => {
         : Object.fromEntries(remaining)
     })
   }, [jobs])
+
+  useEffect(() => {
+    if (
+      filamentDetailsId &&
+      !jobs.some((job) => job.id === filamentDetailsId)
+    ) {
+      setFilamentDetailsId(null)
+    }
+  }, [filamentDetailsId, jobs])
 
   /** Mark a printer pending, and let the mark lapse if nothing answers. */
   const startPending = ({
@@ -537,6 +553,9 @@ export const PrinterStatus = () => {
   const confirmedJob = confirmation
     ? jobs.find((job) => job.id === confirmation.printerId)
     : undefined
+  const filamentDetailsJob = filamentDetailsId
+    ? jobs.find((job) => job.id === filamentDetailsId)
+    : undefined
 
   return (
     <div
@@ -549,6 +568,9 @@ export const PrinterStatus = () => {
             key={job.id}
             index={index}
             isExpanded={expandedIds.includes(job.id)}
+            isFilamentDetailsOpen={
+              filamentDetailsId === job.id
+            }
             job={job}
             pendingAction={pending[job.id] ?? null}
             onClear={() => {
@@ -567,9 +589,23 @@ export const PrinterStatus = () => {
                   : [...currentIds, job.id],
               )
             }}
+            onShowFilaments={() => {
+              setFilamentDetailsId(job.id)
+            }}
           />
         ))}
       </div>
+      {filamentDetailsJob ? (
+        <FilamentDetailsDialog
+          filaments={filamentDetailsJob.filaments}
+          jobName={
+            getPrinterJobTitle(filamentDetailsJob) ||
+            filamentDetailsJob.jobName
+          }
+          onClose={() => setFilamentDetailsId(null)}
+          printerName={filamentDetailsJob.name}
+        />
+      ) : null}
       {confirmation && confirmedJob ? (
         <div
           class="printer-confirm"

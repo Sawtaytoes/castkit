@@ -1,6 +1,10 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { useEffect, useState } from "preact/hooks"
 import {
+  FilamentControl,
+  FilamentDetailsDialog,
+} from "../views/FilamentDetails.tsx"
+import {
   formatFinishTime,
   formatRemaining,
   getPrinterJobTitle,
@@ -36,6 +40,8 @@ export const PrintersView = ({
     action: string
   } | null>(null)
   const [expandedId, setExpandedId] = useState("")
+  const [filamentDetailsId, setFilamentDetailsId] =
+    useState("")
   useEffect(() => {
     const timer = setTimeout(
       () => setConfirmation(null),
@@ -43,6 +49,16 @@ export const PrintersView = ({
     )
     return () => clearTimeout(timer)
   }, [confirmation])
+  useEffect(() => {
+    if (
+      filamentDetailsId &&
+      !data.printers.some(
+        (printer) => printer.id === filamentDetailsId,
+      )
+    ) {
+      setFilamentDetailsId("")
+    }
+  }, [data.printers, filamentDetailsId])
   const confirmedJob = confirmation
     ? data.printers.find(
         (printer) =>
@@ -51,6 +67,9 @@ export const PrintersView = ({
           printer.jobName === confirmation.jobName,
       )
     : undefined
+  const filamentDetailsPrinter = data.printers.find(
+    (printer) => printer.id === filamentDetailsId,
+  )
   if (data.printers.length === 0) {
     return (
       <div class="platform-empty">
@@ -185,10 +204,26 @@ export const PrintersView = ({
                       : "—"}
                   </dd>
                 </div>
+                {printer.filamentText ||
+                printer.filaments?.length ? (
+                  <div class="printer-metric is-filament">
+                    <dt>Filament</dt>
+                    <dd>
+                      <FilamentControl
+                        color={printer.filamentColor}
+                        isExpanded={
+                          filamentDetailsId === printer.id
+                        }
+                        filaments={printer.filaments}
+                        onClick={() =>
+                          setFilamentDetailsId(printer.id)
+                        }
+                        text={printer.filamentText}
+                      />
+                    </dd>
+                  </div>
+                ) : null}
               </dl>
-              {printer.filamentText ? (
-                <p>{printer.filamentText}</p>
-              ) : null}
               {isControlEnabled ? (
                 <div class="platform-actions">
                   {[
@@ -223,6 +258,14 @@ export const PrintersView = ({
           </article>
         )
       })}
+      {filamentDetailsPrinter ? (
+        <FilamentDetailsDialog
+          filaments={filamentDetailsPrinter.filaments}
+          jobName={filamentDetailsPrinter.jobName}
+          onClose={() => setFilamentDetailsId("")}
+          printerName={filamentDetailsPrinter.name}
+        />
+      ) : null}
       {confirmation && confirmedJob ? (
         <div
           class="platform-dialog"

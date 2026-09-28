@@ -2188,6 +2188,156 @@ html[data-grayscale-text="true"] {
   background: transparent;
 }
 
+.printer-filament-button {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 28px;
+  max-width: 100%;
+  width: 100%;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.printer-filament-button:focus-visible,
+.filament-details-close:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.printer-filament-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.printer-filament-count {
+  flex: none;
+  color: var(--color-content-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.filament-details-dialog {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  inset: 0;
+  padding: 24px;
+  background: rgb(0 0 0 / 72%);
+}
+
+.filament-details-box {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.filament-details-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.filament-details-head h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.filament-details-head p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--color-content-muted);
+  font-size: 14px;
+}
+
+.filament-details-close {
+  flex: none;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filament-details-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filament-details-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  background: color-mix(
+    in oklab,
+    var(--color-surface-sunken) 70%,
+    transparent
+  );
+}
+
+.filament-details-swatch {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 6px;
+}
+
+.filament-details-swatch.is-empty {
+  background: transparent;
+}
+
+.filament-details-info {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.filament-details-name {
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.filament-details-location {
+  color: var(--color-content-muted);
+  font-size: 14px;
+}
+
+.filament-details-empty {
+  margin: 0;
+  color: var(--color-content-muted);
+}
+
 /*
  * ONE printer has room to spare, so the picture goes BESIDE the facts rather
  * than above them and the type grows. The facts stay a column either way; a

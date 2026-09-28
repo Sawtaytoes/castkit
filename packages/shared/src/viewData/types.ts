@@ -128,7 +128,17 @@ export const PRINTER_JOB_STATES = [
 export type PrinterJobState =
   (typeof PRINTER_JOB_STATES)[number]
 
-/** One active printer, as pushed by Home Assistant. */
+/** One AMS slot that supplies filament to the active print. */
+export type PrinterFilamentAssignment = {
+  /** Filament name, when the source reports it. */
+  name?: string
+  /** Filament color as `#rrggbb`, when the source reports it. */
+  color?: string
+  /** Human-readable AMS and slot, for example `AMS 1, slot 2`. */
+  location: string
+}
+
+/** One active printer, as carried by a source payload. */
 export type PrinterJob = {
   /**
    * Stable id for this printer. It is echoed back on a pause/resume/stop
@@ -155,6 +165,8 @@ export type PrinterJob = {
   filamentText?: string
   /** That filament's color as `#rrggbb`, for the swatch beside the text. */
   filamentColor?: string
+  /** Every AMS slot used by this print, in source order. */
+  filaments?: readonly PrinterFilamentAssignment[]
   /** The nozzle in use, e.g. "0.4 mm hardened steel". */
   nozzleText?: string
   /**

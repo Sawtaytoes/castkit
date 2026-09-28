@@ -31,7 +31,8 @@ Per printer, the payload carries:
 | Layer | `sensor.<printer>_current_layer`, `sensor.<printer>_total_layer_count` |
 | Remaining | `sensor.<printer>_remaining_time` |
 | Finishes | `sensor.<printer>_end_time` |
-| Filament | `sensor.<printer>_active_tray` |
+| Active filament | `sensor.<printer>_active_tray` |
+| Filaments used by the print | `sensor.<printer>_print_weight` attributes and the matching AMS tray sensors |
 | Plate picture | `image.<printer>_cover_image` |
 | Problem banner | `binary_sensor.<printer>_hms_errors`, `binary_sensor.<printer>_print_error`, `binary_sensor.<printer>_online` |
 
@@ -51,20 +52,31 @@ Home Assistant publishes every active printer, together, retained, to
 {
   "printers": [
     {
-      "id": "magi",
-      "name": "Magi",
-      "jobName": "Touch_Display_2_-_Front_Frame_and_Stand_-_Matte_Black_-_Magi",
+      "id": "printer-1",
+      "name": "Printer 1",
+      "jobName": "Sample print",
       "percent": 41,
       "state": "printing",
       "currentLayer": 32,
       "totalLayers": 334,
       "remainingMinutes": 128,
       "finishAt": "2026-09-23T21:05:00-05:00",
-      "thumbnailPath": "/api/image_proxy/image.magi_cover_image?token=...",
-      "filamentText": "PLA Matte · AMS 3 slot 3",
+      "thumbnailPath": "/api/image_proxy/image.printer_1_cover_image?token=...",
+      "filamentText": "PLA Matte · AMS 1 slot 1",
       "filamentColor": "1C1C1CFF",
-      "nozzleText": "0.4 mm hardened steel",
-      "problemText": "HMS_0300_0100_0001_0007 — filament ran out"
+      "filaments": [
+        {
+          "name": "PLA Matte",
+          "color": "#1c1c1c",
+          "location": "AMS 1, slot 1"
+        },
+        {
+          "name": "Support for PLA",
+          "color": "#f1e7d0",
+          "location": "AMS 2, slot 3"
+        }
+      ],
+      "nozzleText": "0.4 mm hardened steel"
     }
   ]
 }
@@ -84,6 +96,12 @@ The **Filament** row is always drawn. A print always runs from a tray, but
 Home Assistant reports `active_tray` only once the print starts, so a preparing
 job has none. Dropping the row made that card shorter than its neighbors; it
 shows a dashed empty swatch and `Chosen when the print starts` instead.
+
+When the source provides `filaments`, the row opens a list of the filament names,
+colors and AMS slots used by the print. The HA publisher reads the positive
+per-slot values from `print_weight`; it does not list every filament loaded in
+the AMS. A source that has no per-slot print mapping can still publish the
+active filament, but the dialog reports that slot details are unavailable.
 
 Two conveniences for an HA template. `finishAt` takes epoch milliseconds or an
 ISO timestamp, and is optional — CastKit computes the finish from
