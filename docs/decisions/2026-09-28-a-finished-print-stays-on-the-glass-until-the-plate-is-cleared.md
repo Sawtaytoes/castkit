@@ -4,7 +4,7 @@
 - **Date:** 2026-09-28
 - **Type:** View / behavior
 - **Supersedes:** [The print state is a chip beside the controls](2026-09-24-the-print-state-is-a-chip-beside-the-controls.md), for the placement of Pause and Stop only. The chip in the head, its dot, and its intent-driven color all stand.
-- **Superseded by:** —
+- **Superseded by:** in part — [The Clear plate card names no other hardware](2026-09-28-the-clear-plate-card-names-no-other-hardware.md) removes the andon sentence
 
 ## Decision
 

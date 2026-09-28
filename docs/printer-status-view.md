@@ -41,7 +41,7 @@ A printer is **active**, and therefore on the glass, while its print status is
 as `finished` or `failed`, until its plate is cleared. Home Assistant keeps
 publishing the job through that window and drops it from the payload once
 BambuBuddy reports the plate clear, whether the clear came from this panel or
-from the printer's andon button.
+from anything else that clears a plate in BambuBuddy.
 
 ### The topic and the payload
 
@@ -152,14 +152,16 @@ binds a touch by the bounding box
 ### Clear plate
 
 A `finished` or `failed` card offers one control: a full-width **`Clear plate`**
-button, with `Or press the andon button on the printer.` under it. It is **one
-tap, with no confirmation** — a print that has already stopped cannot be lost by
-it, and the printer's own andon button does the same with one press.
+button, with nothing under it. It is **one tap, with no confirmation** — a
+print that has already stopped cannot be lost by it. No sentence points at any
+other way to clear the plate: whoever can read the button will tap the button,
+and the other ways are one household's hardware, not every panel's
+([decision](decisions/2026-09-28-the-clear-plate-card-names-no-other-hardware.md)).
 
 The tap publishes `{ "action": "printer_clear_plate", "value": "magi" }`, the
 button reads `Clearing…`, and the card waits for the job to leave the payload.
 Home Assistant maps `printer_clear_plate` onto BambuBuddy's clear-plate call
-for that printer, which is the same call the andon button makes. If the job is
+for that printer. If the job is
 still in the payload after ten seconds, the label lapses and the button is live
 again, so a request Home Assistant dropped costs one more tap and not a dead
 control on the wall.
@@ -252,8 +254,8 @@ carries `finishAt`. The ended time names its day the way `Finishes` does, in
 the other direction: a plate nobody cleared overnight reads `Ended Yesterday
 3:47 PM`, not as this afternoon.
 
-The metric row goes, and the Pause and Stop pair goes; `Clear plate` and the
-andon sentence take their place. A finished card beside a running one is
+The metric row goes, and the Pause and Stop pair goes; `Clear plate` takes
+their place. A finished card beside a running one is
 therefore a different height, and that is intended: the reminder is the shape.
 
 ### The job name is a control

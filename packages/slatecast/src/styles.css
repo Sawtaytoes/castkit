@@ -1885,8 +1885,8 @@ html[data-grayscale-text="true"] {
 /*
  * Clear plate: the one control on a finished or failed card. Full width, taller
  * than Pause and Stop, and SOLID in the card's own color, because the card is
- * a reminder and this is the thing that dismisses it. The andon reminder under
- * it says the printer's own button does the same job.
+ * a reminder and this is the thing that dismisses it. Nothing sits under it:
+ * a sentence about other hardware was removed on 2026-09-28.
  */
 .printer-clear {
   flex: none;
@@ -1910,16 +1910,6 @@ html[data-grayscale-text="true"] {
 
 .printer-clear[disabled] {
   opacity: 0.55;
-}
-
-.printer-clear-hint {
-  flex: none;
-  margin-top: 8px;
-  color: var(--color-content-muted);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.25;
-  text-align: center;
 }
 
 /*
@@ -2416,10 +2406,6 @@ html[data-grayscale-text="true"] {
 
 .printer-status[data-count="1"] .printer-clear {
   margin-top: 14px;
-}
-
-.printer-status[data-count="1"] .printer-clear-hint {
-  font-size: 18px;
 }
 
 .printer-empty {

@@ -470,7 +470,7 @@ describe("a finished or failed print", () => {
     ).toBeVisible()
   })
 
-  test("offers Clear plate and the andon reminder, and no Pause or Stop", async () => {
+  test("offers Clear plate alone, and no Pause or Stop", async () => {
     await mountPrinterStatus([
       buildPrinterJob({ state: "finished", percent: 100 }),
     ])
@@ -479,10 +479,8 @@ describe("a finished or failed print", () => {
       screen.getByRole("button", { name: "Clear plate" }),
     ).toBeVisible()
     expect(
-      screen.getByText(
-        "Or press the andon button on the printer.",
-      ),
-    ).toBeVisible()
+      cards()[0]?.querySelector(".printer-clear-hint"),
+    ).toBeNull()
     expect(cardActions(".is-pause")).toHaveLength(0)
     expect(cardActions(".is-stop")).toHaveLength(0)
     expect(
