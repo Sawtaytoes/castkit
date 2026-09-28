@@ -115,8 +115,8 @@ its humidity, and one row per slot:
 
 | Tray state | Row |
 | --- | --- |
-| `read` | Swatch, product, a remaining bar and the percentage. At or below 10 % the row is outlined in the warning color. |
-| `untagged` | Swatch, `Spool, no tag`, the material, outlined in the accent with a `?` where the percentage would be. |
+| `read` | Swatch, product, a remaining bar and the percentage. Bambuddy can identify the spool from its AMS tag or its inventory assignment. At or below 10 % the row is outlined in the warning color. |
+| `untagged` | Swatch, `Spool, no tag`, the material, outlined in the accent with a `?` where the percentage would be. Bambuddy sees the spool but has no tag or inventory assignment that identifies it. |
 | `empty` | A dashed box that says `Empty`. |
 
 Chips beside the tabs count the chosen printer's low slots and unread spools.

@@ -6,6 +6,7 @@ import {
   INVENTORY_REFRESH_EVENTS,
   initialSpoolReaderState,
   normalizeBambuddyAssignments,
+  normalizeBambuddyPrinterName,
   normalizeBambuddySpool,
   normalizeBambuddySpoolsPrinter,
   reduceSpoolReaderEvent,
@@ -384,10 +385,7 @@ export const normalizeBambuddyPrinter = ({
     // The owner names his printers "1 - Magi", "2 - Foopie" so Bambuddy
     // lists them in order. The number is ordering, not the name; the card
     // draws its own badge, so the prefix comes off here.
-    name: textValue(status.name).replace(
-      /^\s*\d+\s*[-–·:]\s*/,
-      "",
-    ),
+    name: normalizeBambuddyPrinterName(status.name),
     jobName:
       textValue(status.subtask_name) ||
       textValue(status.current_print) ||
@@ -560,24 +558,28 @@ export const createBambuddySource: SourceFactory = (
   /** One spools snapshot for a channel: the reader state plus the inventory. */
   const spoolsSnapshot = (
     channelId: string,
-  ): ContractData["spools.v1"] => ({
-    ...state.reader,
-    spools: state.spools.flatMap((spool) => {
+  ): ContractData["spools.v1"] => {
+    const spools = state.spools.flatMap((spool) => {
       const normalized = normalizeBambuddySpool({
         data: spool,
         assignments: state.assignments,
         printerNames: printerNames(),
       })
       return normalized ? [normalized] : []
-    }),
-    printers: selectedIds(channelId).flatMap((id) => {
-      const printer = normalizeBambuddySpoolsPrinter({
-        data: state.statusById.get(id),
-        assignments: state.assignments,
-      })
-      return printer ? [printer] : []
-    }),
-  })
+    })
+    return {
+      ...state.reader,
+      spools,
+      printers: selectedIds(channelId).flatMap((id) => {
+        const printer = normalizeBambuddySpoolsPrinter({
+          data: state.statusById.get(id),
+          assignments: state.assignments,
+          spools,
+        })
+        return printer ? [printer] : []
+      }),
+    }
+  }
   const publishSpools = (channelId: string) => {
     context.publish({
       channelId,
