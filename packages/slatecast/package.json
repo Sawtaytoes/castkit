@@ -17,7 +17,7 @@
     "@castkit/sdk": "workspace:*",
     "@castkit/shared": "workspace:*",
     "@charcuterie/logic": "^2.4.0",
-    "@charcuterie/tokens": "^1.10.1",
+    "@charcuterie/tokens": "^1.10.2",
     "@preact/signals": "^2.5.1",
     "@preact/signals-core": "^1.13.1",
     "preact": "^10.29.1"
