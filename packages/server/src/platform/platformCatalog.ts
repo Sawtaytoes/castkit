@@ -449,6 +449,20 @@ const viewSpecs: ViewSpec[] = [
     name: "Printer Status",
     type: "printers.v1",
   }),
+  {
+    ...view({
+      id: "filament-spool-scale",
+      name: "Filament Spool Scale",
+      type: "spools.v1",
+    }),
+    renderers: ["browser"],
+    minimumRepaint: "fast",
+  },
+  {
+    ...view({ id: "touch-test", name: "Touch Test" }),
+    renderers: ["browser"],
+    minimumRepaint: "fast",
+  },
   view({
     id: "rip-deck",
     name: "Rip Deck",
@@ -711,7 +725,12 @@ const viewGroups = [
   {
     id: "printers",
     name: "3D printers",
-    specs: ["printer-status"],
+    specs: ["printer-status", "filament-spool-scale"],
+  },
+  {
+    id: "touch",
+    name: "Touch diagnostics",
+    specs: ["touch-test"],
   },
   { id: "rip-deck", name: "Rip Deck", specs: ["rip-deck"] },
   {

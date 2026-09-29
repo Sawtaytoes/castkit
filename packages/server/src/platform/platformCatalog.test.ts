@@ -1,5 +1,6 @@
 import type { CastKitPlugin } from "@castkit/sdk/plugin"
 import { expect, test } from "vitest"
+import { BROWSER_VIEWS } from "../views/browserRegistry.ts"
 import { createPlatformCatalog } from "./platformCatalog.ts"
 import {
   parsePluginPackages,
@@ -144,6 +145,27 @@ test("bundled sources and view libraries are independently registered plugins", 
       ],
     }),
   ).toThrow("Duplicate contract")
+})
+
+test("the browser-only device views are available as platform view specifications", () => {
+  const catalog = createPlatformCatalog()
+  expect(
+    BROWSER_VIEWS.filter(
+      (view) => !catalog.getViewSpec(view.clientId),
+    ),
+  ).toEqual([])
+  expect(
+    catalog.getViewSpec("filament-spool-scale"),
+  ).toMatchObject({
+    name: "Filament Spool Scale",
+    inputs: [{ key: "data", type: "spools.v1" }],
+    renderers: ["browser"],
+  })
+  expect(catalog.getViewSpec("touch-test")).toMatchObject({
+    name: "Touch Test",
+    inputs: [],
+    renderers: ["browser"],
+  })
 })
 
 test("text panels optionally bind entity states for visibility conditions", () => {

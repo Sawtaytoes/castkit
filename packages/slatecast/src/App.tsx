@@ -36,7 +36,7 @@ export const viewByClientId: Record<string, ComponentType> =
     calendar: Calendar,
     "photo-frame": PhotoFrame,
     "printer-status": PrinterStatus,
-    "filament-spool-scale": FilamentSpoolScale,
+    "filament-spool-scale": () => <FilamentSpoolScale />,
     "touch-test": TouchTest,
   }
 

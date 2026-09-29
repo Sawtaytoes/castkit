@@ -5,6 +5,8 @@ import type {
   ViewPanel,
 } from "@castkit/sdk/contracts"
 import type { ViewInput } from "@castkit/sdk/plugin"
+import { FilamentSpoolScale } from "../views/FilamentSpoolScale.tsx"
+import { TouchTest } from "../views/TouchTest.tsx"
 import { BuiltinView } from "./BuiltinView.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { PluginView } from "./PluginView.tsx"
@@ -68,6 +70,9 @@ export const Panel = ({
     panel.specId === "clock" ||
     panel.specId === "ambient" ||
     panel.specId === "text"
+  const isLocalView =
+    panel.specId === "filament-spool-scale" ||
+    panel.specId === "touch-test"
   const declaredInputs =
     inputs ??
     (Object.keys(panel.bindings).length
@@ -159,8 +164,23 @@ export const Panel = ({
           }
           onAction={onAction}
         />
-      ) : isClock || !isWaiting ? (
-        panel.specId === "printer-status" ? (
+      ) : isClock || isLocalView || !isWaiting ? (
+        panel.specId === "filament-spool-scale" ? (
+          <FilamentSpoolScale
+            data={
+              (source?.data as ContractData["spools.v1"]) ??
+              null
+            }
+            onAction={requestAction}
+            isControlEnabled={
+              isControlEnabled &&
+              properties.isInteractive &&
+              isSourceReady
+            }
+          />
+        ) : panel.specId === "touch-test" ? (
+          <TouchTest />
+        ) : panel.specId === "printer-status" ? (
           <PrintersView
             data={
               source?.data as ContractData["printers.v1"]
