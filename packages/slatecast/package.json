@@ -20,6 +20,7 @@
     "@charcuterie/tokens": "^1.10.2",
     "@preact/signals": "^2.5.1",
     "@preact/signals-core": "^1.13.1",
+    "hls.js": "^1.7.3",
     "preact": "^10.29.1"
   },
   "devDependencies": {

@@ -82,6 +82,12 @@ The bundled adapters and view groups have separate plugin entries. You can disab
 
 An API source writes directly to the internal channel cache. It does not need to publish its results back to MQTT. A Home Assistant publisher can instead supply the same contracts through named MQTT channels.
 
+### Home Assistant live cameras
+
+A Home Assistant `cameras.v1` channel can play HA's HLS stream on browser views. Add a Home Assistant source with its URL and a dedicated long-lived access token, select the camera entities for the channel, and set **Camera playback** to **Home Assistant live stream**. CastKit requests each stream through HA's camera WebSocket API and proxies its HLS playlist and video pieces through the view's media access policy. The HA access token and signed stream URL stay on the CastKit server. Still image playback remains the default for cameras without a stream.
+
+To put those cameras on a printer card, bind the camera channel to the Printer Status panel's optional **Cameras** input. Set **Camera ID aliases** on the channel to match the printer IDs used by its `printers.v1` channel, one entry per camera in the form `camera.example=printer-id`. A panel with **Show printer cameras** turned off continues to show its print cover image.
+
 ### Bambuddy `spools.v1`
 
 A `spools.v1` channel on a `bambuddy` source is the data behind the Filament Spool Scale device-page view: a SpoolBuddy scale with a tag reader beside the printers, plus Bambuddy's spool inventory and every AMS tray. The channel honors the same `printerIds` setting as the printer channels; leave it empty for every printer.

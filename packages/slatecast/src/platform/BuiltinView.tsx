@@ -319,6 +319,7 @@ export const BuiltinView = ({
                 url={camera.url}
                 name={camera.name}
                 isLive={camera.isLive}
+                format={camera.format}
               />
               <figcaption>
                 {camera.name}
