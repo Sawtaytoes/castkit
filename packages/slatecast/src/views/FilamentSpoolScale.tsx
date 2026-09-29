@@ -355,8 +355,60 @@ const UnknownTag = ({
   </>
 )
 
-export const FilamentSpoolScale = () => {
-  const data = spools.value
+export const FilamentSpoolScale = ({
+  data: suppliedData,
+  onAction,
+  isControlEnabled = true,
+}: {
+  data?: SpoolsData | null
+  isControlEnabled?: boolean
+  onAction?: (
+    action: string,
+    payload: Record<string, unknown>,
+  ) => Promise<void>
+} = {}) => {
+  const data =
+    suppliedData === undefined ? spools.value : suppliedData
+  const sendSpoolAction = (
+    action: string,
+    payload: Record<string, unknown>,
+  ) => {
+    if (!isControlEnabled) return
+    if (onAction) {
+      void onAction(action, payload)
+      return
+    }
+    const spoolId = String(payload.spoolId)
+    switch (action) {
+      case "save_weight":
+        saveSpoolWeight({
+          spoolId,
+          grams: Number(payload.grams),
+        })
+        break
+      case "assign_slot":
+        assignSpoolToSlot({
+          spoolId,
+          printerId: String(payload.printerId),
+          amsId: Number(payload.amsId),
+          trayId: Number(payload.trayId),
+        })
+        break
+      case "copy_to_tag":
+      case "link_tag": {
+        const tagFacts = {
+          spoolId,
+          tagUid: String(payload.tagUid),
+          tagType: payload.tagType as string | undefined,
+          trayUuid: payload.trayUuid as string | undefined,
+        }
+        if (action === "copy_to_tag")
+          copySpoolToTag(tagFacts)
+        else linkSpoolTag(tagFacts)
+        break
+      }
+    }
+  }
   const screen = spoolScreen.value
   const [saveState, setSaveState] =
     useState<SaveState | null>(null)
@@ -453,7 +505,12 @@ export const FilamentSpoolScale = () => {
     amsId: number
     trayId: number
   }) => {
-    assignSpoolToSlot({ spoolId, printerId, amsId, trayId })
+    sendSpoolAction("assign_slot", {
+      spoolId,
+      printerId,
+      amsId,
+      trayId,
+    })
     resetSpoolScreen()
   }
 
@@ -490,11 +547,10 @@ export const FilamentSpoolScale = () => {
         tagType: data.tag.tagType,
         trayUuid: data.tag.trayUuid,
       }
-      if (screen.mode === "copy") {
-        copySpoolToTag(tagFacts)
-      } else {
-        linkSpoolTag(tagFacts)
-      }
+      sendSpoolAction(
+        screen.mode === "copy" ? "copy_to_tag" : "link_tag",
+        tagFacts,
+      )
       resetSpoolScreen()
     }
     return (
@@ -572,7 +628,7 @@ export const FilamentSpoolScale = () => {
           spool={matchedSpool}
           saveState={saveState}
           onSave={() => {
-            saveSpoolWeight({
+            sendSpoolAction("save_weight", {
               spoolId: matchedSpool.id,
               grams: data.scale.grams,
             })

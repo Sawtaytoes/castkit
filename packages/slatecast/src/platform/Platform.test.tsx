@@ -14,6 +14,7 @@ import {
   test,
   vi,
 } from "vitest"
+import { buildMatchedSpools } from "../__fixtures__/buildSpools.ts"
 import { compositionFixture } from "./fixtures.ts"
 import { PinKeypad } from "./PinKeypad.tsx"
 import {
@@ -52,6 +53,64 @@ test("composes independent channels and sends an action for the selected panel o
     panelId: "printers",
     action: "pause",
     payload: { printerId: "printer-one" },
+  })
+})
+
+test("a saved spool view reads its channel and sends a weight through its bound panel", async () => {
+  const onAction = vi.fn(async () => undefined)
+  render(
+    <DisplayComposition
+      snapshot={{
+        ...compositionFixture,
+        view: {
+          ...compositionFixture.view,
+          id: "spools",
+          layout: "single",
+          panels: [
+            {
+              id: "scale",
+              specId: "filament-spool-scale",
+              bindings: { data: "spools" },
+              settings: {},
+            },
+          ],
+        },
+        channels: {
+          spools: {
+            id: "spools",
+            type: "spools.v1",
+            status: "ready",
+            data: buildMatchedSpools(),
+          },
+        },
+        viewSpecs: [
+          {
+            id: "filament-spool-scale",
+            inputs: [
+              {
+                key: "data",
+                label: "Data",
+                type: "spools.v1",
+                isRequired: true,
+              },
+            ],
+          },
+        ],
+      }}
+      isConnected
+      onAction={onAction}
+    />,
+  )
+  expect(screen.getByText("Ash Gray")).toBeVisible()
+  await userEvent.setup().click(
+    screen.getByRole("button", {
+      name: /Save 292 g remaining/,
+    }),
+  )
+  expect(onAction).toHaveBeenCalledWith({
+    panelId: "scale",
+    action: "save_weight",
+    payload: { spoolId: "spool-ash-gray", grams: 542 },
   })
 })
 
