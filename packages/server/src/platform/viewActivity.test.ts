@@ -86,6 +86,36 @@ test("a rip deck is active only when the tower is present with a job", () => {
   ).toBe(false)
 })
 
+test("a paused track stays active only while the pause is recent, and only with a track", () => {
+  const paused = channel("now-playing.v1", {
+    title: "Track One",
+    artist: "Artist One",
+    isPlaying: false,
+  })
+  expect(isChannelActive(paused, () => true)).toBe(true)
+  expect(isChannelActive(paused, () => false)).toBe(false)
+  expect(
+    isChannelActive(
+      channel("now-playing.v1", {
+        title: "",
+        artist: "",
+        isPlaying: false,
+      }),
+      () => true,
+    ),
+  ).toBe(false)
+  expect(
+    getPanelActivity({
+      view: view([
+        { id: "music", channelId: "now-playing.v1" },
+      ]),
+      channels: { "now-playing.v1": paused },
+      isRecentlyPaused: (channelId) =>
+        channelId === "now-playing.v1",
+    }),
+  ).toEqual({ music: true })
+})
+
 test("music is active while playing; a contract with no idle state has no answer", () => {
   expect(
     isChannelActive(

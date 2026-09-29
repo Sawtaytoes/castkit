@@ -254,6 +254,68 @@ describe("platform access and saved compositions", () => {
     })
     expect(printing.availableViews[1].isActive).toBe(true)
   })
+  test("a paused track keeps its panel in an active-only view for ten minutes", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    try {
+      const fixture = await createFixture()
+      await fixture.save("channels", {
+        id: "music/now-playing",
+        name: "Music",
+        sourceId: "events",
+        type: "now-playing.v1",
+        settings: {},
+      })
+      await fixture.save("views", {
+        ...fixture.view,
+        id: "now",
+        name: "Now",
+        layout: "split",
+        isActiveOnly: true,
+        panels: [
+          ...fixture.view.panels,
+          {
+            id: "music",
+            specId: "now-playing",
+            bindings: { data: "music/now-playing" },
+            settings: {},
+          },
+        ],
+      })
+      fixture.platform.hub.publish({
+        channelId: "printers/workbench",
+        data: { printers: [] },
+      })
+      const track = {
+        title: "Track One",
+        artist: "Artist One",
+      }
+      const musicActivity = async () =>
+        (
+          await (
+            await fixture.request("/api/display/view/now")
+          ).json()
+        ).panelActivity.music
+      fixture.platform.hub.publish({
+        channelId: "music/now-playing",
+        data: { ...track, isPlaying: true },
+      })
+      expect(await musicActivity()).toBe(true)
+      vi.advanceTimersByTime(5 * 60 * 1000)
+      // Music Assistant turns a sync-group pause into a stop: the payload
+      // only says the track is not playing.
+      fixture.platform.hub.publish({
+        channelId: "music/now-playing",
+        data: { ...track, isPlaying: false },
+      })
+      expect(await musicActivity()).toBe(true)
+      vi.advanceTimersByTime(9 * 60 * 1000)
+      expect(await musicActivity()).toBe(true)
+      vi.advanceTimersByTime(60 * 1000)
+      expect(await musicActivity()).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
   test("persists definitions and a kiosk grant without storing the PIN", async () => {
     const fixture = await createFixture()
     expect(

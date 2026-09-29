@@ -248,6 +248,75 @@ export const WorkingNowNothingActive: Story = {
     </main>
   ),
 }
+/**
+ * The Now tab with a music panel whose track is paused. The server keeps a
+ * paused track active for ten minutes after a real stop, so the panel stays
+ * and its Play button resumes the track in place.
+ */
+const workingNowWithPausedMusic = (
+  isMusicActive: boolean,
+): DisplaySnapshot => ({
+  ...storySnapshot,
+  view: {
+    ...storySnapshot.view,
+    name: "Now",
+    isActiveOnly: true,
+    panels: [
+      ...storySnapshot.view.panels,
+      {
+        id: "music",
+        specId: "now-playing",
+        bindings: { data: "music" },
+        settings: {},
+      },
+    ],
+  },
+  channels: {
+    ...storySnapshot.channels,
+    music: {
+      id: "music",
+      type: "now-playing.v1",
+      data: {
+        title: "Track One",
+        artist: "Artist One",
+        album: "Album One",
+        isPlaying: false,
+        positionSeconds: 84,
+        durationSeconds: 212,
+      },
+      status: "ready",
+    },
+  },
+  panelActivity: {
+    printers: true,
+    discs: false,
+    music: isMusicActive,
+  },
+})
+/** Paused less than ten minutes ago: the paused track stays beside the printer. */
+export const WorkingNowMusicPaused: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={workingNowWithPausedMusic(true)}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+/** Ten minutes after the pause the room is given back: the music panel goes. */
+export const WorkingNowMusicPausedTenMinutesAgo: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={workingNowWithPausedMusic(false)}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
 /** The keypad works without a hardware keyboard. */
 export const Locked: Story = {
   render: () => (
