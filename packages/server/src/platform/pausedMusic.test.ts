@@ -37,17 +37,17 @@ test("a pause after real playback stays active for ten minutes", () => {
   paused.observe(music(true))
   time.advance(MINIMUM_PLAY_SECONDS + 60)
   paused.observe(music(false))
-  expect(
-    paused.isRecentlyPaused("music/now-playing"),
-  ).toBe(true)
+  expect(paused.isRecentlyPaused("music/now-playing")).toBe(
+    true,
+  )
   time.advance(PAUSED_ACTIVE_SECONDS - 1)
-  expect(
-    paused.isRecentlyPaused("music/now-playing"),
-  ).toBe(true)
+  expect(paused.isRecentlyPaused("music/now-playing")).toBe(
+    true,
+  )
   time.advance(1)
-  expect(
-    paused.isRecentlyPaused("music/now-playing"),
-  ).toBe(false)
+  expect(paused.isRecentlyPaused("music/now-playing")).toBe(
+    false,
+  )
   paused.dispose()
 })
 
@@ -60,9 +60,9 @@ test("the same paused card published again does not restart the ten minutes", ()
   time.advance(PAUSED_ACTIVE_SECONDS - 10)
   paused.observe(music(false))
   time.advance(10)
-  expect(
-    paused.isRecentlyPaused("music/now-playing"),
-  ).toBe(false)
+  expect(paused.isRecentlyPaused("music/now-playing")).toBe(
+    false,
+  )
   paused.dispose()
 })
 
@@ -72,9 +72,9 @@ test("an announcement burst neither starts nor restarts the ten minutes", () => 
   paused.observe(music(true))
   time.advance(3)
   paused.observe(music(false))
-  expect(
-    paused.isRecentlyPaused("music/now-playing"),
-  ).toBe(false)
+  expect(paused.isRecentlyPaused("music/now-playing")).toBe(
+    false,
+  )
 
   paused.observe(music(true))
   time.advance(300)
@@ -84,9 +84,9 @@ test("an announcement burst neither starts nor restarts the ten minutes", () => 
   time.advance(3)
   paused.observe(music(false))
   time.advance(57)
-  expect(
-    paused.isRecentlyPaused("music/now-playing"),
-  ).toBe(false)
+  expect(paused.isRecentlyPaused("music/now-playing")).toBe(
+    false,
+  )
   paused.dispose()
 })
 
@@ -94,9 +94,9 @@ test("nothing is known about a stop that happened before the server started", ()
   const time = clock()
   const paused = createPausedMusic({ now: time.now })
   paused.observe(music(false))
-  expect(
-    paused.isRecentlyPaused("music/now-playing"),
-  ).toBe(false)
+  expect(paused.isRecentlyPaused("music/now-playing")).toBe(
+    false,
+  )
   paused.dispose()
 })
 
