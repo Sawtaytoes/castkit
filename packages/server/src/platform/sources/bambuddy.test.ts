@@ -387,6 +387,20 @@ test("Bambuddy printer normalization matches the printer contract and ignores id
     }),
   ).toBeUndefined()
 })
+
+test("a printer with a direct camera uses the HLS path", () => {
+  expect(
+    normalizeBambuddyPrinter({
+      channelId: "printers",
+      cameraFormat: "hls",
+      data: { id: 2, connected: true, state: "RUNNING" },
+    }),
+  ).toMatchObject({
+    cameraPath:
+      "/api/platform/channels/printers/media/2?kind=hls",
+    cameraFormat: "hls",
+  })
+})
 test("Bambuddy controls and media only address configured printer IDs", async () => {
   const fetchRequest = vi
     .fn<typeof fetch>()
