@@ -34,6 +34,7 @@ RUN yarn install --immutable
 
 # Chromium + its system libraries for the render engine.
 RUN yarn playwright install --with-deps chromium
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # --- Source + bundle ---
 COPY . .

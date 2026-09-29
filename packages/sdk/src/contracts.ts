@@ -125,6 +125,7 @@ const printer = z.object({
   thumbnailPath: safeUrl.optional(),
   cameraPath: safeUrl.optional(),
   cameraIsLive: z.boolean().optional(),
+  cameraFormat: z.enum(["hls", "mjpeg"]).optional(),
   filamentText: z.string().optional(),
   filamentColor: z.string().optional(),
   filaments: z

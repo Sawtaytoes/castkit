@@ -19,6 +19,7 @@ import {
   stringList,
   textValue,
 } from "./http.ts"
+import { createPrinterHls } from "./printerHls.ts"
 
 /** The product half of a Bambuddy spool: what a copy onto a new tag carries. */
 const SPOOL_PRODUCT_FIELDS = [
@@ -342,12 +343,14 @@ export const normalizeBambuddyPrinter = ({
   channelId,
   spools = [],
   assignments = [],
+  cameraFormat,
 }: {
   data: unknown
   channelId: string
   /** Bambuddy's inventory, so a slot can carry its spool's color name. */
   spools?: readonly Record<string, unknown>[]
   assignments?: readonly BambuddyAssignment[]
+  cameraFormat?: "hls"
 }):
   | ContractData["printers.v1"]["printers"][number]
   | undefined => {
@@ -436,9 +439,10 @@ export const normalizeBambuddyPrinter = ({
     cameraPath: mediaUrl({
       channelId,
       printerId: id,
-      kind: "stream",
+      kind: cameraFormat ?? "stream",
     }),
     cameraIsLive: true,
+    ...(cameraFormat ? { cameraFormat } : {}),
     ...(filament ? filament : {}),
     ...(nozzleText ? { nozzleText } : {}),
     ...(problems.length
@@ -452,6 +456,20 @@ export const normalizeBambuddyPrinter = ({
 export const createBambuddySource: SourceFactory = (
   context,
 ) => {
+  const hls = createPrinterHls()
+  const configuredCodes = (() => {
+    try {
+      return record(
+        JSON.parse(
+          context.secrets.cameraAccessCodes ?? "{}",
+        ),
+      )
+    } catch {
+      return {}
+    }
+  })()
+  const cameraCode = (id: string) =>
+    textValue(configuredCodes[id])
   const headers = {
     "X-API-Key": context.secrets.apiKey ?? "",
   }
@@ -764,9 +782,14 @@ export const createBambuddySource: SourceFactory = (
                 url: mediaUrl({
                   channelId: channel.id,
                   printerId: String(printer.id),
-                  kind: "stream",
+                  kind: cameraCode(String(printer.id))
+                    ? "hls"
+                    : "stream",
                 }),
                 isLive: true,
+                ...(cameraCode(String(printer.id))
+                  ? { format: "hls" as const }
+                  : {}),
               })),
           },
         })
@@ -777,6 +800,9 @@ export const createBambuddySource: SourceFactory = (
             channelId: channel.id,
             spools: state.spools,
             assignments: state.assignments,
+            cameraFormat: cameraCode(id)
+              ? "hls"
+              : undefined,
           })
           return printer ? [printer] : []
         })
@@ -973,6 +999,7 @@ export const createBambuddySource: SourceFactory = (
     dispose: () => {
       eventStream.dispose()
       polling.dispose()
+      hls.dispose()
     },
     discover: async () => ({
       printers: (await listPrinters()).map((printer) => ({
@@ -1019,14 +1046,40 @@ export const createBambuddySource: SourceFactory = (
       }
       return result
     },
-    getMedia: async ({ channelId, assetId, kind }) => {
+    getMedia: async ({
+      channelId,
+      assetId,
+      kind,
+      query,
+    }) => {
       if (
         !selectedIds(channelId).includes(assetId) ||
-        !["camera", "stream", "cover"].includes(kind ?? "")
+        !["camera", "stream", "cover", "hls"].includes(
+          kind ?? "",
+        )
       ) {
         throw new Error(
           "This media is not part of the selected printers.",
         )
+      }
+      if (kind === "hls") {
+        const accessCode = cameraCode(assetId)
+        const printer = state.printers.find(
+          (entry) => String(entry.id) === assetId,
+        )
+        const address = textValue(
+          printer?.ip_address || printer?.ip,
+        )
+        if (!accessCode || !address)
+          throw new Error(
+            "Printer camera is not configured",
+          )
+        return hls.fetchResource({
+          id: assetId,
+          address,
+          accessCode,
+          resource: query?.resource,
+        })
       }
       // The camera snapshot and stream take Bambuddy's camera-stream token.
       // The plate cover no longer does: since Bambuddy #3025 that route
