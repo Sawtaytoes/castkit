@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs"
-import mqtt from "mqtt"
+import mqtt, { type ISubscriptionMap } from "mqtt"
 
 /**
  * Thin MQTT client wrapper for the CastKit bridge. Connects with a Last-Will on
@@ -135,9 +135,25 @@ export const createMqttPublisher = async ({
         qos: 1,
       })
     },
+    /*
+     * ⚠️ `resubscribe: true` is load-bearing. mqtt.js silently drops a
+     * SUBSCRIBE for a topic this client already holds, and the broker sends a
+     * topic's retained message only in answer to a SUBSCRIBE. A source that
+     * restarts — which every channel edit does — subscribes again and would
+     * otherwise never see the retained value it lost with its old instance.
+     * A producer that publishes only on change (a points service between
+     * scans) then leaves the channel waiting for hours.
+     */
     subscribe: async ({ topics, handler }) => {
       messageHandlers.add(handler)
-      await client.subscribeAsync(topics, { qos: 1 })
+      // mqtt.js types the flag as an intersection its own index signature
+      // contradicts, so no object literal satisfies it without a cast.
+      await client.subscribeAsync({
+        ...Object.fromEntries(
+          topics.map((topic) => [topic, { qos: 1 }]),
+        ),
+        resubscribe: true,
+      } as ISubscriptionMap)
     },
     close: async () => {
       clearInterval(heartbeatInterval)
