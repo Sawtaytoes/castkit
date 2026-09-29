@@ -93,6 +93,11 @@ export const createPrinterHls = () => {
         "-an",
         "-c:v",
         "copy",
+        // These printers report 30 FPS but their RTSP packet timestamps can
+        // advance by microseconds or jump by hours. Rebuild timestamps from
+        // packet count without re-encoding the H.264 video.
+        "-bsf:v",
+        "setts=pts=N/(30*TB):dts=N/(30*TB):duration=1/(30*TB)",
         "-f",
         "hls",
         "-hls_time",
