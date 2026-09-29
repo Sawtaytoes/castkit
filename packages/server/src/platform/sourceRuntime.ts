@@ -213,6 +213,7 @@ export const createSourceRuntime = ({
       channelId: string
       assetId: string
       kind?: string
+      query?: Record<string, string>
     }) => {
       const instance = instanceFor(request.channelId)
       if (!instance?.getMedia) {

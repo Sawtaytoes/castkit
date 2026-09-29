@@ -141,6 +141,7 @@ export type SourceInstance = {
     channelId: string
     assetId: string
     kind?: string
+    query?: Record<string, string>
   }) => Promise<Response>
 }
 /** A factory is run only for an explicitly configured, enabled source. */

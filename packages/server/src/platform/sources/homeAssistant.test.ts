@@ -116,6 +116,55 @@ test("camera data uses CastKit media paths and media requests check channel memb
   adapter.dispose()
 })
 
+test("HA camera channel can provide live video under a printer ID alias", async () => {
+  const context = sourceContext({
+    fetch: vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              entity_id: "camera.example_printer",
+              state: "idle",
+              attributes: {
+                friendly_name: "Example printer",
+              },
+            },
+          ]),
+        ),
+    ),
+    channels: [
+      {
+        id: "cameras",
+        name: "Cameras",
+        sourceId: "source",
+        type: "cameras.v1",
+        settings: {
+          entityIds: ["camera.example_printer"],
+          cameraFormat: "hls",
+          cameraIdAliases: ["camera.example_printer=1"],
+        },
+      },
+    ],
+  })
+  const adapter = createHomeAssistantSource(context)
+  await adapter.start?.()
+  expect(context.publish).toHaveBeenCalledWith({
+    channelId: "cameras",
+    data: {
+      cameras: [
+        {
+          id: "1",
+          name: "Example printer",
+          url: "/api/platform/channels/cameras/media/camera.example_printer?kind=hls",
+          isLive: true,
+          format: "hls",
+        },
+      ],
+    },
+  })
+  adapter.dispose()
+})
+
 test("script actions send only channel-approved variables", async () => {
   const fetchRequest = vi
     .fn<typeof fetch>()
