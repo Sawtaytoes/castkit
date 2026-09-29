@@ -118,7 +118,7 @@ test("management uses the PIN session while the root and API reference remain pu
   await page.goto("/")
   await expect(
     page.getByRole("heading", {
-      name: "CastKit",
+      name: "Your data, on any display.",
       exact: true,
     }),
   ).toBeVisible()

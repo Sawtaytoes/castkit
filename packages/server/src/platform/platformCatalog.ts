@@ -71,6 +71,14 @@ const adapters: AdapterDefinition[] = [
     settings: [
       urlField,
       { key: "apiKey", label: "API key", type: "secret" },
+      {
+        key: "cameraAccessCodes",
+        label:
+          "Printer camera access codes (JSON by printer ID)",
+        type: "secret",
+        description:
+          'Optional. Enables direct H.264 video for configured printers. Example: {"1":"code"}.',
+      },
       pollingField,
     ],
     channelSettings: [
