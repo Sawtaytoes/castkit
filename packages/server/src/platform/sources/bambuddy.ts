@@ -132,6 +132,52 @@ const bambuddyFilamentColor = (
     : undefined
 }
 
+/** A tray in the printer's live AMS state. */
+type BambuddyAmsTray = {
+  amsId: number
+  trayId: number
+  tray: Record<string, unknown>
+}
+
+/** Every AMS tray with an id that Bambuddy currently reports. */
+const bambuddyAmsTrays = (
+  status: Record<string, unknown>,
+): BambuddyAmsTray[] =>
+  (Array.isArray(status.ams) ? status.ams : []).flatMap(
+    (rawUnit) => {
+      const unit = record(rawUnit)
+      const amsId = finiteNumber(unit.id)
+      if (
+        amsId === undefined ||
+        !Array.isArray(unit.tray)
+      ) {
+        return []
+      }
+      return unit.tray.flatMap((rawTray) => {
+        const tray = record(rawTray)
+        const trayId = finiteNumber(tray.id)
+        return trayId === undefined
+          ? []
+          : [{ amsId, trayId, tray }]
+      })
+    },
+  )
+
+/** Human-readable location for one physical AMS slot. */
+const bambuddyAmsLocation = ({
+  amsId,
+  trayId,
+}: {
+  amsId: number
+  trayId: number
+}) => {
+  const amsName =
+    amsId >= 128
+      ? `AMS HT ${String.fromCharCode(65 + amsId - 128)}`
+      : `AMS ${amsId + 1}`
+  return `${amsName}, slot ${trayId + 1}`
+}
+
 /** A Bambuddy inventory spool sitting in one AMS tray of this printer. */
 type LoadedSpool = {
   amsId: number
@@ -163,8 +209,8 @@ const loadedSpoolsFor = ({
 /**
  * The spool's own color name ("Mistletoe Green") for a print slot. An
  * archive slot names only a material and a hex color, so it is matched to
- * the loaded spools of that color and material; two loaded spools of the
- * same color with different names match neither, rather than guess.
+ * the loaded spools of that color and material. The physical location is
+ * returned only when one loaded spool matches.
  */
 const spoolColorName = ({
   loadedSpools,
@@ -197,9 +243,14 @@ const spoolColorName = ({
   const subtype = unique(
     matches.map(({ spool }) => textValue(spool.subtype)),
   )
+  const location =
+    matches.length === 1
+      ? bambuddyAmsLocation(matches[0])
+      : undefined
   return {
     ...(colorName ? { colorName } : {}),
     ...(subtype && matches.length ? { subtype } : {}),
+    ...(location ? { location } : {}),
   }
 }
 
@@ -278,13 +329,25 @@ const bambuddyPrinterFilaments = (
   // from the print's archive record instead: `extra_data.filament_slots`
   // carries each filament's type, color and grams. The poll attaches that
   // list to the status as `archive_filament_slots`. An archive slot is the
-  // 3MF filament index, not an AMS tray, so its location names the slot.
+  // 3MF filament index, not an AMS tray, so match it to a physical tray only
+  // when material and color identify one loaded AMS slot.
   if (filaments.length === 0) {
+    const amsTrays = bambuddyAmsTrays(status)
     const archiveSlots = Array.isArray(
       status.archive_filament_slots,
     )
       ? status.archive_filament_slots.map(record)
       : []
+    const hasLiveAmsDetails = amsTrays.some(
+      ({ tray }) =>
+        Boolean(bambuddyFilamentColor(tray.tray_color)) ||
+        Boolean(textValue(tray.tray_type)),
+    )
+    const activeExternalTray =
+      finiteNumber(status.tray_now) === 254 &&
+      Array.isArray(status.vt_tray)
+        ? record(status.vt_tray[0])
+        : undefined
     archiveSlots.forEach((slot) => {
       const slotId = finiteNumber(slot.slot_id)
       const material = textValue(slot.type) || undefined
@@ -292,22 +355,97 @@ const bambuddyPrinterFilaments = (
       const grams = finiteNumber(slot.used_g)
       if (slotId === undefined && !material && !color)
         return
-      const { colorName, subtype } = spoolColorName({
+      const matchingAmsTrays = amsTrays.filter(
+        ({ tray }) =>
+          color !== undefined &&
+          bambuddyFilamentColor(tray.tray_color) ===
+            color &&
+          (!material ||
+            textValue(tray.tray_type).toLowerCase() ===
+              material.toLowerCase()),
+      )
+      const isActiveExternalMatch = Boolean(
+        color &&
+          activeExternalTray &&
+          bambuddyFilamentColor(
+            activeExternalTray.tray_color,
+          ) === color &&
+          (!material ||
+            !textValue(activeExternalTray.tray_type) ||
+            textValue(
+              activeExternalTray.tray_type,
+            ).toLowerCase() === material.toLowerCase()),
+      )
+      const {
+        colorName,
+        subtype,
+        location: inventoryLocation,
+      } = spoolColorName({
         loadedSpools,
         color,
         material,
       })
+      const trayNames = Array.from(
+        new Set(
+          matchingAmsTrays
+            .map(
+              ({ tray }) =>
+                textValue(tray.tray_sub_brands) ||
+                textValue(tray.tray_type),
+            )
+            .filter(Boolean),
+        ),
+      )
+      const trayName =
+        trayNames.length === 1 ? trayNames[0] : undefined
+      const matchedAmsTray =
+        matchingAmsTrays.length === 1
+          ? matchingAmsTrays[0]
+          : undefined
+      const matchedSpool = matchedAmsTray
+        ? loadedSpools.find(
+            (loaded) =>
+              loaded.amsId === matchedAmsTray.amsId &&
+              loaded.trayId === matchedAmsTray.trayId,
+          )
+        : undefined
+      const matchedColorName =
+        textValue(matchedSpool?.spool.color_name) ||
+        colorName
       // "PLA" plus the matched spool's "Basic" reads as the tray does.
+      // If live AMS state has multiple different profiles for this material
+      // and color, keep the archive material instead of guessing a profile.
+      const safeSubtype =
+        matchingAmsTrays.length > 1 && !trayName
+          ? undefined
+          : subtype
       const name =
-        material && subtype && !material.includes(subtype)
-          ? `${material} ${subtype}`
-          : material
+        trayName ||
+        (material &&
+        safeSubtype &&
+        !material.includes(safeSubtype)
+          ? `${material} ${safeSubtype}`
+          : material)
+      const amsLocation = matchedAmsTray
+        ? isActiveExternalMatch
+          ? undefined
+          : bambuddyAmsLocation(matchedAmsTray)
+        : matchingAmsTrays.length === 0 &&
+            !hasLiveAmsDetails &&
+            !isActiveExternalMatch
+          ? inventoryLocation
+          : undefined
+      const printLocation = `Filament ${slotId ?? filaments.length + 1}${grams !== undefined ? ` · ${grams.toFixed(grams < 10 ? 1 : 0)} g` : ""}`
       filaments.push({
         globalId: 1000 + (slotId ?? filaments.length + 1),
         ...(name ? { name } : {}),
         ...(color ? { color } : {}),
-        ...(colorName ? { colorName } : {}),
-        location: `Filament ${slotId ?? filaments.length + 1}${grams !== undefined ? ` · ${grams.toFixed(grams < 10 ? 1 : 0)} g` : ""}`,
+        ...(matchedColorName
+          ? { colorName: matchedColorName }
+          : {}),
+        location: [amsLocation, printLocation]
+          .filter(Boolean)
+          .join(" · "),
       })
     })
   }
