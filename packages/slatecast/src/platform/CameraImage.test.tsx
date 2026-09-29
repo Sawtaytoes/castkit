@@ -42,7 +42,18 @@ test("a live camera reconnects when its displayed frame stops changing", async (
   await act(async () => {
     await vi.advanceTimersByTimeAsync(25_000)
   })
-  expect(camera.getAttribute("src")).toContain("frame=1")
+  expect(camera.isConnected).toBe(false)
+  expect(
+    screen.getByText("Reconnecting Printer camera…"),
+  ).toBeVisible()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(8_000)
+  })
+  expect(
+    screen
+      .getByRole("img", { name: "Printer camera" })
+      .getAttribute("src"),
+  ).toContain("frame=1")
 })
 
 test("a changing live camera keeps its stream connection", async () => {
