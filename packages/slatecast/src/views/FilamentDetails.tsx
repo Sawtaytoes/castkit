@@ -61,22 +61,24 @@ export const FilamentControl = ({
       title={`Show ${count ? countText : "AMS and slot details"}`}
       onClick={onClick}
     >
-      {filamentColor ? (
-        <span
-          class="printer-swatch"
-          style={{ background: filamentColor }}
-          aria-hidden="true"
-        />
-      ) : null}
-      <span class="printer-filament-text">
-        <span class="printer-filament-name">
-          {filamentName}
-        </span>
-        {filamentLocation ? (
-          <span class="printer-filament-location">
-            {filamentLocation}
-          </span>
+      <span class="printer-filament-summary">
+        {filamentColor ? (
+          <span
+            class="printer-swatch"
+            style={{ background: filamentColor }}
+            aria-hidden="true"
+          />
         ) : null}
+        <span class="printer-filament-text">
+          <span class="printer-filament-name">
+            {filamentName}
+          </span>
+          {filamentLocation ? (
+            <span class="printer-filament-location">
+              {filamentLocation}
+            </span>
+          ) : null}
+        </span>
       </span>
       <span class="printer-filament-count">
         {count ? `${countText} · Details ›` : "Details ›"}

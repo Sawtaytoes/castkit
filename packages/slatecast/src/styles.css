@@ -2218,6 +2218,14 @@ html[data-grayscale-text="true"] {
   gap: 1px;
 }
 
+.printer-filament-summary {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  gap: 7px;
+}
+
 .printer-metric dd .printer-filament-text {
   overflow: visible;
   text-overflow: clip;
