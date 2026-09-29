@@ -17,6 +17,11 @@ import { createAiUsageSource } from "./sources/aiUsage.ts"
 import { createBambuddySource } from "./sources/bambuddy.ts"
 import { createHomeAssistantSource } from "./sources/homeAssistant.ts"
 import { createImmichSource } from "./sources/immich.ts"
+import {
+  createKidsPointsSource,
+  DEFAULT_KIDS_POINTS_SCAN_TOPIC,
+  DEFAULT_KIDS_POINTS_STATE_TOPIC,
+} from "./sources/kidsPoints.ts"
 import { createMqttSource } from "./sources/mqtt.ts"
 import { createRipDeckSource } from "./sources/ripDeck.ts"
 
@@ -345,6 +350,47 @@ const adapters: AdapterDefinition[] = [
     actions: [],
   },
   {
+    id: "kids-points",
+    name: "Kids Points",
+    description:
+      "Each child's points today and every card scan, read from a points service over MQTT. CastKit never awards points.",
+    channelTypes: ["kids-points.v1"],
+    settings: [
+      {
+        key: "stateTopic",
+        label: "Child state topic",
+        type: "text",
+        defaultValue: DEFAULT_KIDS_POINTS_STATE_TOPIC,
+        description:
+          "One retained document per child. Use + for the child's ID.",
+      },
+      {
+        key: "scanTopic",
+        label: "Scan result topic",
+        type: "text",
+        defaultValue: DEFAULT_KIDS_POINTS_SCAN_TOPIC,
+      },
+    ],
+    channelSettings: [
+      {
+        key: "kidIds",
+        label: "Children",
+        type: "string-list",
+        discoveryKey: "kids",
+        description: "Leave empty to include every child.",
+      },
+      {
+        key: "readers",
+        label: "Card readers",
+        type: "string-list",
+        discoveryKey: "readers",
+        description:
+          "Show scans from these readers only. Leave empty to show a scan from any reader. A reader appears here after its first scan.",
+      },
+    ],
+    actions: [],
+  },
+  {
     id: "clock",
     name: "Clock",
     description:
@@ -505,6 +551,25 @@ const viewSpecs: ViewSpec[] = [
       type: "points.v1",
     }),
     minimumRepaint: "fast",
+  },
+  {
+    ...view({
+      id: "kids-points",
+      name: "Kids Points",
+      type: "kids-points.v1",
+      description:
+        "Each child's points today against the goal. A card scan puts that child first; a larger panel keeps every child on the board.",
+    }),
+    settings: [
+      {
+        key: "scanSeconds",
+        label: "Show a scan for (seconds)",
+        type: "number",
+        defaultValue: 15,
+        description:
+          "A panel that repaints slower than this shows the last card instead.",
+      },
+    ],
   },
   {
     ...view({
@@ -729,6 +794,7 @@ const sourceFactories: NonNullable<
   immich: createImmichSource,
   "rip-deck": createRipDeckSource,
   "ai-usage": createAiUsageSource,
+  "kids-points": createKidsPointsSource,
   clock: (context) => {
     const publish = () =>
       context.channels.forEach((channel) => {
@@ -772,7 +838,7 @@ const viewGroups = [
   {
     id: "points",
     name: "Points",
-    specs: ["points"],
+    specs: ["kids-points", "points"],
   },
   {
     id: "ai-usage",
