@@ -41,6 +41,8 @@ export const rewritePrinterPlaylist = (playlist: string) =>
 /** Copy printer H.264 into short browser-playable HLS segments. */
 export const createPrinterHls = () => {
   const sessions = new Map<string, Session>()
+  const pendingStarts = new Map<string, Promise<Session>>()
+  let isDisposed = false
   const stop = (id: string) => {
     const session = sessions.get(id)
     if (!session) return
@@ -67,6 +69,10 @@ export const createPrinterHls = () => {
     const directory = await mkdtemp(
       join(tmpdir(), "castkit-printer-"),
     )
+    if (isDisposed) {
+      await rm(directory, { recursive: true, force: true })
+      throw new Error("Printer video source has stopped")
+    }
     const url = new URL(
       "rtsps://printer:322/streaming/live/1",
     )
@@ -118,6 +124,23 @@ export const createPrinterHls = () => {
     })
     return session
   }
+  const getOrStart = (
+    id: string,
+    address: string,
+    accessCode: string,
+  ) => {
+    const existing = sessions.get(id)
+    if (existing) return Promise.resolve(existing)
+    const pending = pendingStarts.get(id)
+    if (pending) return pending
+    const task = start(id, address, accessCode).finally(
+      () => {
+        pendingStarts.delete(id)
+      },
+    )
+    pendingStarts.set(id, task)
+    return task
+  }
 
   const fetchResource = async ({
     id,
@@ -145,7 +168,7 @@ export const createPrinterHls = () => {
         session = undefined
       }
     }
-    session ??= await start(id, address, accessCode)
+    session ??= await getOrStart(id, address, accessCode)
     session.lastRequestAt = Date.now()
     const path = join(session.directory, resource)
     let content: Buffer | undefined
@@ -173,6 +196,7 @@ export const createPrinterHls = () => {
   return {
     fetchResource,
     dispose: () => {
+      isDisposed = true
       clearInterval(reap)
       for (const id of sessions.keys()) stop(id)
     },
