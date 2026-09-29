@@ -5,6 +5,22 @@ import {
 } from "@castkit/sdk/contracts"
 
 type ContractParser = { parse: (data: unknown) => unknown }
+/**
+ * How long a channel's last value stays current when the channel sets no
+ * `staleAfterSeconds`. Five minutes suits a source that re-publishes on a
+ * schedule. Two contracts differ:
+ *
+ * - `images.v1`: a photo list is re-read slowly on purpose.
+ * - `kids-points.v1`: the points service publishes only when a child's day
+ *   changes, and a quiet afternoon is not an outage. Its state topics are
+ *   retained, so a restart reads the current value again. Zero is never stale.
+ */
+const DEFAULT_STALE_AFTER_SECONDS: Record<string, number> =
+  {
+    "images.v1": 7200,
+    "kids-points.v1": 0,
+  }
+
 /** Validates every update and fans out source-independent channel snapshots. */
 export const createChannelHub = ({
   contracts = new Map<string, ContractParser>(
@@ -120,9 +136,8 @@ export const createChannelHub = ({
         typeof channel.settings.staleAfterSeconds ===
         "number"
           ? channel.settings.staleAfterSeconds
-          : channel.type === "images.v1"
-            ? 7200
-            : 300
+          : (DEFAULT_STALE_AFTER_SECONDS[channel.type] ??
+            300)
       const snapshot = snapshots.get(channel.id)
       if (
         maximumAge > 0 &&

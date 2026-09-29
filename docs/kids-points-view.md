@@ -77,6 +77,10 @@ Two channel settings narrow what a channel shows:
   room does not take it over. The picker offers each reader after its first
   scan.
 
+A `kids-points.v1` channel never goes stale on its own. The service publishes
+only when a child's day changes, and a quiet afternoon is not an outage. Set
+`staleAfterSeconds` on the channel to change that.
+
 ## The contract
 
 ```ts
