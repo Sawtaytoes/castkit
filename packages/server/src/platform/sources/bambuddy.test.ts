@@ -124,6 +124,120 @@ test("Bambuddy printer normalization lists the archive's filament slots when the
   ])
 })
 
+test("Bambuddy printer normalization joins archive filaments to uniquely matching AMS trays", () => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      id: 3,
+      name: "Printer",
+      connected: true,
+      state: "RUNNING",
+      progress: 12,
+      ams_mapping: [],
+      tray_now: 11,
+      ams: [
+        {
+          id: 2,
+          tray: [
+            {
+              id: 0,
+              tray_type: "PLA",
+              tray_sub_brands: "PLA Basic",
+              tray_color: "000000FF",
+            },
+            {
+              id: 3,
+              tray_type: "PLA",
+              tray_sub_brands: "PLA Basic",
+              tray_color: "3F8E43FF",
+            },
+          ],
+        },
+      ],
+      archive_filament_slots: [
+        {
+          slot_id: 1,
+          used_g: 77,
+          type: "PLA",
+          color: "#000000",
+        },
+        {
+          slot_id: 2,
+          used_g: 38,
+          type: "PLA",
+          color: "#3F8E43",
+        },
+      ],
+    },
+  })
+
+  expect(printer?.filamentText).toBe(
+    "PLA Basic · AMS 3 slot 4",
+  )
+  expect(printer?.filaments).toEqual([
+    {
+      name: "PLA Basic",
+      color: "#000000",
+      location: "AMS 3, slot 1 · Filament 1 · 77 g",
+    },
+    {
+      name: "PLA Basic",
+      color: "#3f8e43",
+      location: "AMS 3, slot 4 · Filament 2 · 38 g",
+    },
+  ])
+})
+
+test("Bambuddy printer normalization keeps an archive slot when live AMS matches are ambiguous", () => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      id: 3,
+      name: "Printer",
+      connected: true,
+      state: "RUNNING",
+      progress: 12,
+      ams_mapping: [],
+      tray_now: 1,
+      ams: [
+        {
+          id: 0,
+          tray: [
+            {
+              id: 0,
+              tray_type: "PLA",
+              tray_sub_brands: "PLA Basic",
+              tray_color: "000000FF",
+            },
+            {
+              id: 1,
+              tray_type: "PLA",
+              tray_sub_brands: "PLA Matte",
+              tray_color: "000000FF",
+            },
+          ],
+        },
+      ],
+      archive_filament_slots: [
+        {
+          slot_id: 1,
+          used_g: 77,
+          type: "PLA",
+          color: "#000000",
+        },
+      ],
+    },
+  })
+
+  expect(printer?.filaments).toEqual([
+    {
+      name: "PLA",
+      color: "#000000",
+      location: "Filament 1 · 77 g",
+    },
+  ])
+})
+
 test("Bambuddy printer normalization names each archive slot's color from the loaded spool", () => {
   const printer = normalizeBambuddyPrinter({
     channelId: "printers",
@@ -223,7 +337,7 @@ test("Bambuddy printer normalization names each archive slot's color from the lo
       name: "PLA Basic",
       color: "#3f8e43",
       colorName: "Mistletoe Green",
-      location: "Filament 1 · 21 g",
+      location: "AMS 3, slot 4 · Filament 1 · 21 g",
     },
     // Two black spools with different names: neither is guessed.
     {
