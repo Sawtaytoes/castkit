@@ -141,3 +141,17 @@ test("a publisher with no broker URL subscribes to nothing", async () => {
   })
   expect(fakeClient.subscribeAsync).not.toHaveBeenCalled()
 })
+
+test("a repeat subscription is sent again so the broker re-sends retained values", async () => {
+  const publisher = await buildPublisher()
+  await publisher.subscribe({
+    topics: ["points/state/+", "points/resp/scan"],
+    handler: () => {},
+  })
+  expect(fakeClient.subscribeAsync).toHaveBeenCalledWith({
+    "points/state/+": { qos: 1 },
+    "points/resp/scan": { qos: 1 },
+    resubscribe: true,
+  })
+  await publisher.close()
+})
