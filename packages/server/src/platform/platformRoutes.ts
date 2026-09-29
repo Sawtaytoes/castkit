@@ -132,6 +132,9 @@ export const getDisplay = ({
                       view: candidate,
                       channels:
                         platform.channelsForView(candidate),
+                      isRecentlyPaused:
+                        platform.pausedMusic
+                          .isRecentlyPaused,
                     }),
                   },
                 ]
@@ -139,7 +142,12 @@ export const getDisplay = ({
           })
         : undefined,
       channels: rewriteMedia(channels),
-      panelActivity: getPanelActivity({ view, channels }),
+      panelActivity: getPanelActivity({
+        view,
+        channels,
+        isRecentlyPaused:
+          platform.pausedMusic.isRecentlyPaused,
+      }),
       viewSpecs: platform.catalog.viewSpecs.filter((spec) =>
         view.panels.some(
           (panel) => panel.specId === spec.id,

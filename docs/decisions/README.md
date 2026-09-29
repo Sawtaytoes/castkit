@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-09-29 | [A paused track stays in an active-only view for ten minutes](2026-09-29-a-paused-track-stays-in-an-active-only-view-for-ten-minutes.md) — a now-playing channel stays active for ten minutes after it really stops, while it still names a track; a stop counts only after thirty seconds of playback, so an announcement cannot start or restart the ten minutes | Accepted |
 | 2026-09-28 | [A failed inventory read is the spools channels' fault, not the printers'](2026-09-28-a-failed-inventory-read-is-the-spools-channels-fault-not-the-printers.md) — the Bambuddy source reports a failed `/inventory/*` read on the spools channels only; the printers and cameras keep publishing from the last good inventory | Accepted |
 | 2026-09-28 | [A tab draws a dot only for a view that can be idle](2026-09-28-a-tab-draws-a-dot-only-for-a-view-that-can-be-idle.md) — a contract with no idle state answers no activity: an active-only view still draws the panel, and a tab dots only while a panel that can be idle is active | Accepted |
 | 2026-09-28 | [An active-only view shows only what is going on](2026-09-28-an-active-only-view-shows-only-what-is-going-on.md) — `isActiveOnly` hides a panel whose channel has nothing going on and says `Nothing active` when none has; the server answers activity per panel and per view from the contract data; a tab carries a dot while its view is active; `Working` and `House` are the two browser screens | Accepted |

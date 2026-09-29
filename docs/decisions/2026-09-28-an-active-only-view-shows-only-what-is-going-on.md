@@ -4,7 +4,12 @@
 - **Date:** 2026-09-28
 - **Type:** product / composition model
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [A paused track stays in an active-only view for ten minutes](2026-09-29-a-paused-track-stays-in-an-active-only-view-for-ten-minutes.md), for the music clause only.
+
+> ⚠️ **Partly superseded on 2026-09-29.** Music is no longer active only while
+> `isPlaying`: a paused track stays active for ten minutes after a real stop.
+> See [the newer record](2026-09-29-a-paused-track-stays-in-an-active-only-view-for-ten-minutes.md).
+> Everything else below stands.
 
 ## Decision
 
