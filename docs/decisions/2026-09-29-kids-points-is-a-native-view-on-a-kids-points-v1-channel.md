@@ -38,6 +38,8 @@ a per-room channel, and a fifteen-second screen override — but `points.v1`
 holds one person, so it could not show the family, and the per-room republish
 carried only one child's number.
 
+![The room card before this change, from fixture data](../images/2026-09-29-points-room-card-before-480x480.png)
+
 ## Why
 
 - **The producer already publishes everything the board needs.** Every child's
