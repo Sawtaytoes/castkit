@@ -1277,6 +1277,7 @@ const sendMedia = async ({
       channelId: context.req.param("channelId") ?? "",
       assetId: context.req.param("assetId") ?? "",
       kind: context.req.query("kind"),
+      query: context.req.query(),
     })
     if (!response.ok)
       return context.json(
@@ -1286,10 +1287,15 @@ const sendMedia = async ({
     const contentType =
       response.headers.get("content-type") ??
       "application/octet-stream"
+    const isHls = context.req.query("kind") === "hls"
     if (
-      !/^(image\/(jpeg|png|webp|gif|avif)|video\/(mp4|webm)|multipart\/x-mixed-replace)/i.test(
-        contentType,
-      )
+      !(isHls
+        ? /^(application\/(vnd\.apple\.mpegurl|x-mpegurl)|video\/(mp4|iso\.segment))\b/i.test(
+            contentType,
+          )
+        : /^(image\/(jpeg|png|webp|gif|avif)|video\/(mp4|webm)|multipart\/x-mixed-replace)/i.test(
+            contentType,
+          ))
     )
       return context.json(
         { error: "Unsupported media format" },

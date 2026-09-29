@@ -167,6 +167,28 @@ const adapters: AdapterDefinition[] = [
     channelSettings: [
       { ...entityField, isRequired: false },
       {
+        key: "cameraFormat",
+        label: "Camera playback",
+        type: "select",
+        options: [
+          { value: "still", label: "Still image" },
+          {
+            value: "hls",
+            label: "Home Assistant live stream",
+          },
+        ],
+        defaultValue: "still",
+        description:
+          "Use Home Assistant's HLS stream for selected camera entities on browser views.",
+      },
+      {
+        key: "cameraIdAliases",
+        label: "Camera ID aliases",
+        type: "string-list",
+        description:
+          "Optional entity ID to matching printer ID, such as camera.printer=1.",
+      },
+      {
         key: "forecastType",
         label: "Forecast",
         type: "select",
@@ -610,6 +632,12 @@ viewSpecs.forEach((spec) => {
   }
   if (spec.id === "printer-status") {
     spec.minimumRepaint = "fast"
+    spec.inputs.push({
+      key: "cameras",
+      label: "Cameras",
+      type: "cameras.v1",
+      isRequired: false,
+    })
     spec.settings = [
       {
         key: "isCameraVisible",

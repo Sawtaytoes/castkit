@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks"
+import { CameraHls } from "./CameraHls.tsx"
 import { safeMediaUrl } from "./protocol.ts"
 
 const CAMERA_CHECK_INTERVAL_MILLISECONDS = 5_000
@@ -9,18 +10,21 @@ const CAMERA_RESTART_PAUSE_MILLISECONDS = 8_000
 const CAMERA_SAMPLE_WIDTH = 256
 const CAMERA_SAMPLE_HEIGHT = 144
 
-/** Keep authenticated still and live cameras current without exposing upstream credentials. */
-export const CameraImage = ({
+type CameraProps = {
+  url: string
+  name: string
+  isLive?: boolean
+  format?: "hls" | "mjpeg"
+  className?: string
+}
+
+/** Keep authenticated still and MJPEG cameras current. */
+const MjpegCameraImage = ({
   url,
   name,
   isLive = false,
   className,
-}: {
-  url: string
-  name: string
-  isLive?: boolean
-  className?: string
-}) => {
+}: CameraProps) => {
   const image = useRef<HTMLImageElement>(null)
   const [frame, setFrame] = useState(0)
   const [hasFailed, setHasFailed] = useState(false)
@@ -138,3 +142,15 @@ export const CameraImage = ({
     </div>
   )
 }
+
+/** Select the media player for the source's camera format. */
+export const CameraImage = (props: CameraProps) =>
+  props.format === "hls" ? (
+    <CameraHls
+      url={props.url}
+      name={props.name}
+      className={props.className}
+    />
+  ) : (
+    <MjpegCameraImage {...props} />
+  )

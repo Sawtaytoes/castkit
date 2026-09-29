@@ -510,7 +510,8 @@
     );
   gap: 20px;
 }
-.platform-camera-grid img {
+.platform-camera-grid img,
+.platform-camera-grid video {
   inline-size: 100%;
   object-fit: contain;
 }
@@ -591,7 +592,8 @@
   color: var(--fg-dim);
   font-size: 13px;
 }
-.platform-camera img {
+.platform-camera img,
+.platform-camera video {
   inline-size: 100%;
   object-fit: contain;
 }
