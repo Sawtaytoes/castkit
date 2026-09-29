@@ -121,3 +121,27 @@ test("an unavailable custom contract reports an error without stopping built-in 
   expect(hub.get("missing")?.status).toBe("error")
   hub.dispose()
 })
+test("a points board does not go stale between scans", () => {
+  vi.useFakeTimers()
+  const hub = createChannelHub()
+  hub.configure([
+    {
+      id: "board",
+      name: "Board",
+      sourceId: "source",
+      type: "kids-points.v1",
+      settings: {},
+    },
+  ])
+  hub.publish({
+    channelId: "board",
+    data: {
+      kids: [
+        { id: "robin", name: "Robin", pointsToday: 10 },
+      ],
+    },
+  })
+  vi.advanceTimersByTime(3_600_000)
+  expect(hub.get("board")?.status).toBe("ready")
+  hub.dispose()
+})
