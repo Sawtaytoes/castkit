@@ -1,6 +1,6 @@
 import { filamentColorName } from "@castkit/shared/viewData/filamentColorName"
 import type { PrinterFilamentAssignment } from "@castkit/shared/viewData/types"
-import { useEffect } from "preact/hooks"
+import { useEffect, useRef } from "preact/hooks"
 
 /** A compact summary that opens the per-slot details for an active print. */
 export const FilamentControl = ({
@@ -19,6 +19,36 @@ export const FilamentControl = ({
   const count = filaments?.length ?? 0
   const countText =
     count === 1 ? "1 filament" : `${count} filaments`
+  const firstFilament = filaments?.[0]
+  const [filamentNameText, ...filamentLocationParts] = (
+    text ?? ""
+  ).split(" · ")
+  const filamentLocationFromText =
+    filamentLocationParts.join(" · ")
+  const firstFilamentColorName =
+    firstFilament?.colorName ||
+    filamentColorName(firstFilament?.color)
+  const firstFilamentName = [
+    firstFilamentColorName,
+    firstFilament?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+  const filamentName =
+    filamentNameText ||
+    (!text ? firstFilamentName : "") ||
+    (count ? countText : "Filament details")
+  const filamentLocation =
+    filamentLocationFromText ||
+    (!text ? firstFilament?.location : undefined)
+  const filamentColor =
+    color || (!text ? firstFilament?.color : undefined)
+  const accessibleSummary = [filamentName, filamentLocation]
+    .filter(Boolean)
+    .join(" · ")
+  const actionText = count
+    ? countText
+    : "AMS and slot details"
 
   return (
     <button
@@ -27,19 +57,26 @@ export const FilamentControl = ({
       aria-haspopup="dialog"
       aria-expanded={isExpanded}
       aria-controls="printer-filament-details"
-      aria-label={`Show ${count ? countText : "AMS and slot details"} for this print`}
+      aria-label={`${accessibleSummary}. Show ${actionText} for this print`}
       title={`Show ${count ? countText : "AMS and slot details"}`}
       onClick={onClick}
     >
-      {color ? (
+      {filamentColor ? (
         <span
           class="printer-swatch"
-          style={{ background: color }}
+          style={{ background: filamentColor }}
           aria-hidden="true"
         />
       ) : null}
       <span class="printer-filament-text">
-        {text || (count ? countText : "Filament details")}
+        <span class="printer-filament-name">
+          {filamentName}
+        </span>
+        {filamentLocation ? (
+          <span class="printer-filament-location">
+            {filamentLocation}
+          </span>
+        ) : null}
       </span>
       <span class="printer-filament-count">
         {count ? `${countText} · Details ›` : "Details ›"}
@@ -60,20 +97,36 @@ export const FilamentDetailsDialog = ({
   onClose: () => void
   printerName: string
 }) => {
+  const dialogOverlay = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
+    const overlay = dialogOverlay.current
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose()
       }
     }
+    const handleOverlayClick = (event: MouseEvent) => {
+      if (event.target === overlay) {
+        onClose()
+      }
+    }
     window.addEventListener("keydown", handleKeyDown)
+    overlay?.addEventListener("click", handleOverlayClick)
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
+      overlay?.removeEventListener(
+        "click",
+        handleOverlayClick,
+      )
     }
   }, [onClose])
 
   return (
-    <div class="filament-details-dialog">
+    <div
+      ref={dialogOverlay}
+      class="filament-details-dialog"
+    >
       <section
         id="printer-filament-details"
         class="filament-details-box"

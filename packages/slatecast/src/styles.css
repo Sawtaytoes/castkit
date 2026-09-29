@@ -2161,7 +2161,7 @@ html[data-grayscale-text="true"] {
 .printer-metric.is-filament {
   position: relative;
   grid-column: 1 / -1;
-  min-height: 54px;
+  min-height: 62px;
   margin-top: 7px;
 }
 
@@ -2190,7 +2190,7 @@ html[data-grayscale-text="true"] {
   display: flex;
   align-items: flex-end;
   min-width: 0;
-  min-height: 54px;
+  min-height: 62px;
   max-width: none;
   width: auto;
   gap: 7px;
@@ -2211,10 +2211,36 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-filament-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  gap: 1px;
+}
+
+.printer-metric dd .printer-filament-text {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.printer-metric dd .printer-filament-text > span {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.printer-filament-name {
+  font-size: 0.82em;
+  line-height: 1.1;
+}
+
+.printer-filament-location {
+  color: var(--color-content-muted);
+  font-size: 0.62em;
+  font-weight: 500;
+  line-height: 1.1;
 }
 
 .printer-filament-count {
