@@ -6,6 +6,7 @@ import type {
 import {
   aiUsageFixture,
   compositionFixture,
+  kidsPointsFixture,
 } from "./fixtures.ts"
 import { PinKeypad } from "./PinKeypad.tsx"
 import { DisplayComposition } from "./PlatformApp.tsx"
@@ -391,6 +392,37 @@ export const PrintersProblem: Story = {
             },
           } as DisplaySnapshot
         }
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+
+/**
+ * Kids Points on a panel wide enough for every child side by side: each card
+ * is the child's total against the goal, striped in their color.
+ */
+export const KidsPointsBoard: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={kidsPointsFixture({ hasScan: false })}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+/**
+ * A card scan three seconds ago: the child who scanned is outlined and
+ * carries the result, and the rest of the board dims but stays.
+ */
+export const KidsPointsScan: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={kidsPointsFixture({ hasScan: true })}
         isConnected
         onAction={async () => undefined}
       />

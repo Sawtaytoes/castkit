@@ -193,3 +193,91 @@ export const aiUsageFixture: DisplaySnapshot = {
     },
   },
 }
+
+/**
+ * Four invented children on one board. Times are relative to the fixture's
+ * own clock, which the Storybook freezes under automation, so the scan is
+ * always fresh in a screenshot and the running timer always started at the
+ * same minute.
+ */
+export const kidsPointsFixture = ({
+  hasScan,
+}: {
+  hasScan: boolean
+}): DisplaySnapshot => ({
+  target: { kind: "view", id: "kids-points" },
+  canControl: false,
+  view: {
+    id: "kids-points",
+    name: "Kids Points",
+    layout: "single",
+    theme: "dark",
+    access: "public",
+    isControlEnabled: false,
+    panels: [
+      {
+        id: "points",
+        specId: "kids-points",
+        bindings: { data: "points" },
+        settings: {},
+      },
+    ],
+  },
+  channels: {
+    points: {
+      id: "points",
+      type: "kids-points.v1",
+      status: "ready",
+      data: {
+        kids: [
+          {
+            id: "quinn",
+            name: "Quinn",
+            color: "#E07A5F",
+            pointsToday: 0,
+            goal: 500,
+          },
+          {
+            id: "robin",
+            name: "Robin",
+            color: "#81B29A",
+            pointsToday: 130,
+            goal: 500,
+            lastTask: "Feed the Cat",
+          },
+          {
+            id: "sky",
+            name: "Sky",
+            color: "#F2CC8F",
+            pointsToday: 520,
+            goal: 500,
+            lastTask: "Unload the Dishwasher",
+          },
+          {
+            id: "wren",
+            name: "Wren",
+            color: "#7A8BD6",
+            pointsToday: 240,
+            goal: 500,
+            activeTask: {
+              name: "Reading",
+              startedAtMs: Date.now() - 1_200_000,
+            },
+          },
+        ],
+        ...(hasScan
+          ? {
+              lastScan: {
+                kidId: "robin",
+                result: "awarded",
+                points: 10,
+                taskName: "Feed the Cat",
+                reader: "Hall Reader",
+                atMs: Date.now() - 3_000,
+              },
+            }
+          : {}),
+      },
+    },
+  },
+})

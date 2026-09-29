@@ -39,6 +39,8 @@ View data uses separate topics. The MQTT source defaults to `castkit/channels/<c
 
 A `points.v1` channel carries the person name, awarded points, message, and optional expiration. A source can supply `total` for an account total or `pointsToday` for a daily total. The view labels each value explicitly. Pair the result with a short screen override to show an NFC outcome without changing the screen URL. The display does not award points.
 
+For a household board, use the **Kids Points** view on a `kids-points.v1` channel. It shows every child's points today and the last card scan, and a channel can limit scans to one room's readers. See [the Kids Points view](kids-points-view.md).
+
 ## Access
 
 Management requires its PIN session or the configured machine API token. First setup requires a private one-time token, so the first anonymous visitor cannot claim the installation. The platform file stores salted PIN hashes and hashed session identifiers. Keep this file private and persistent.

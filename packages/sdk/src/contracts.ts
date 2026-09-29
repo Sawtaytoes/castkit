@@ -12,6 +12,7 @@ export const CONTRACT_TYPES = [
   "entities.v1",
   "cameras.v1",
   "points.v1",
+  "kids-points.v1",
   "ai-usage.v1",
   "time.v1",
   "spools.v1",
@@ -203,6 +204,47 @@ const usageProvider = z.object({
   /** The producer served its last good answer while the provider was unreachable. */
   isCached: z.boolean().optional(),
 })
+/**
+ * One child on a household points board: what they have today against the
+ * day's goal. `color` is the identity color the household already uses for
+ * that child (their cards, their charts); the view draws it as a stripe and a
+ * bar, never as text, because a pale identity color is unreadable as type on
+ * a light scheme.
+ */
+const kidPoints = z.object({
+  id: z.string(),
+  name: z.string(),
+  pointsToday: finiteNumber,
+  goal: finiteNumber.positive().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
+  lastTask: z.string().optional(),
+  /** A timed card that is running now, and when it started. */
+  activeTask: z
+    .object({ name: z.string(), startedAtMs: finiteNumber })
+    .optional(),
+})
+/**
+ * The most recent card scan. `result` is the producer's outcome reduced to
+ * the four things a display draws differently: points paid, a refusal (too
+ * early, already done), and a timer starting or stopping.
+ */
+const kidScan = z.object({
+  kidId: z.string(),
+  result: z.enum([
+    "awarded",
+    "refused",
+    "started",
+    "stopped",
+  ]),
+  points: finiteNumber,
+  taskName: z.string().optional(),
+  message: z.string().optional(),
+  reader: z.string().optional(),
+  atMs: finiteNumber,
+})
 const entity = z.object({
   id: z.string(),
   name: z.string(),
@@ -378,6 +420,10 @@ export const builtinContractSchemas = {
         value.pointsToday !== undefined,
       "A points result requires the account total or today's points.",
     ),
+  "kids-points.v1": z.object({
+    kids: z.array(kidPoints),
+    lastScan: kidScan.optional(),
+  }),
   "ai-usage.v1": z.object({
     providers: z.array(usageProvider),
     fetchedAtMs: finiteNumber.optional(),
