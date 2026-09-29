@@ -25,6 +25,7 @@ import type {
  */
 export const isChannelActive = (
   channel: ChannelSnapshot | undefined,
+  isRecentlyPaused: IsRecentlyPaused = () => false,
 ): boolean | undefined => {
   if (!channel) return false
   if (channel.data === null) return false
@@ -43,10 +44,16 @@ export const isChannelActive = (
           data.bays.some((bay) => bay.jobId !== undefined))
       )
     }
-    case "now-playing.v1":
-      return (
+    case "now-playing.v1": {
+      // A paused track stays for ten minutes; see pausedMusic.ts.
+      const data =
         channel.data as ContractData["now-playing.v1"]
-      ).isPlaying
+      return (
+        data.isPlaying ||
+        (Boolean(data.title || data.artist) &&
+          isRecentlyPaused(channel.id))
+      )
+    }
     case "queue.v1":
       return (
         (channel.data as ContractData["queue.v1"]).items
@@ -57,19 +64,26 @@ export const isChannelActive = (
   }
 }
 
+/** Whether a now-playing channel stopped less than ten minutes ago. */
+export type IsRecentlyPaused = (
+  channelId: string,
+) => boolean
+
 /** A panel answers as its data binding does; a panel with no data binding has nothing to be idle about. */
 export const isPanelActive = ({
   panel,
   channels,
+  isRecentlyPaused,
 }: {
   panel: ViewPanel
   channels: Record<string, ChannelSnapshot>
+  isRecentlyPaused?: IsRecentlyPaused
 }): boolean | undefined => {
   const channelId =
     panel.bindings.data ?? Object.values(panel.bindings)[0]
   return channelId === undefined
     ? undefined
-    : isChannelActive(channels[channelId])
+    : isChannelActive(channels[channelId], isRecentlyPaused)
 }
 
 /**
@@ -79,13 +93,19 @@ export const isPanelActive = ({
 export const getPanelActivity = ({
   view,
   channels,
+  isRecentlyPaused,
 }: {
   view: ViewDefinition
   channels: Record<string, ChannelSnapshot>
+  isRecentlyPaused?: IsRecentlyPaused
 }): Record<string, boolean> =>
   Object.fromEntries(
     view.panels.flatMap((panel) => {
-      const isActive = isPanelActive({ panel, channels })
+      const isActive = isPanelActive({
+        panel,
+        channels,
+        isRecentlyPaused,
+      })
       return isActive === undefined
         ? []
         : [[panel.id, isActive]]
@@ -100,12 +120,16 @@ export const getPanelActivity = ({
 export const isViewActive = ({
   view,
   channels,
+  isRecentlyPaused,
 }: {
   view: ViewDefinition
   channels: Record<string, ChannelSnapshot>
+  isRecentlyPaused?: IsRecentlyPaused
 }): boolean | undefined => {
   const answers = view.panels
-    .map((panel) => isPanelActive({ panel, channels }))
+    .map((panel) =>
+      isPanelActive({ panel, channels, isRecentlyPaused }),
+    )
     .filter((isActive) => isActive !== undefined)
   return answers.length === 0
     ? undefined

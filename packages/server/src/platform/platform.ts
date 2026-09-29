@@ -11,6 +11,7 @@ import type {
 import { getRepaintForDevice } from "../views/viewsForDevice.ts"
 import { createChannelHub } from "./channelHub.ts"
 import { getDisplayCompatibility } from "./displayCompatibility.ts"
+import { createPausedMusic } from "./pausedMusic.ts"
 import { createPlatformAccess } from "./platformAccess.ts"
 import { createPlatformStore } from "./platformStore.ts"
 import { createPluginRuntime } from "./pluginRuntime.ts"
@@ -83,6 +84,12 @@ export const createPlatform = async ({
   const hub = createChannelHub({
     contracts: catalog.contracts,
   })
+  // Subscribed before `notify`, so a pause is recorded before any snapshot
+  // is rebuilt from it; its expiry re-sends every snapshot.
+  const pausedMusic = createPausedMusic({
+    onExpire: () => notify(),
+  })
+  hub.subscribe(pausedMusic.observe)
   const renderKey = randomBytes(32).toString("hex")
   const access = createPlatformAccess({
     store,
@@ -324,6 +331,7 @@ export const createPlatform = async ({
     store,
     catalog,
     hub,
+    pausedMusic,
     access,
     screens,
     runtime,
@@ -341,6 +349,7 @@ export const createPlatform = async ({
     dispose: () => {
       const saved = runtime.dispose()
       screens.dispose()
+      pausedMusic.dispose()
       hub.dispose()
       listeners.clear()
       return saved
