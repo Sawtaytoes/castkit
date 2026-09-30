@@ -1,0 +1,149 @@
+import type { ContractData } from "@castkit/sdk/contracts"
+import {
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/preact"
+import userEvent from "@testing-library/user-event"
+import { expect, test, vi } from "vitest"
+import { page } from "vitest/browser"
+import { compositionFixture } from "./fixtures.ts"
+import { PrintersView } from "./PrintersView.tsx"
+import "../styles.css"
+import "./platform.css"
+
+const printerData = compositionFixture.channels.prints
+  ?.data as ContractData["printers.v1"]
+const picture = "/sample-photos/printer-camera-chamber.jpg"
+const mount = async ({
+  width,
+  height,
+  isCamera = true,
+}: {
+  width: number
+  height: number
+  isCamera?: boolean
+}) => {
+  await page.viewport(width, height)
+  document.documentElement.dataset.scheme = "dark"
+  const onAction = vi.fn(async () => undefined)
+  render(
+    <main class="platform">
+      <PrintersView
+        data={{
+          printers: printerData.printers.map((printer) => ({
+            ...printer,
+            thumbnailPath: picture,
+            cameraPath: picture,
+          })),
+        }}
+        isControlEnabled
+        onAction={onAction}
+        settings={{ isCameraVisible: isCamera }}
+      />
+    </main>,
+  )
+  await document.fonts.ready
+  return onAction
+}
+
+const card = () =>
+  document.querySelector<HTMLElement>(".printer-card")
+
+test("the tall landscape camera card stacks to enlarge the camera, and a short card reorients", async () => {
+  await mount({ width: 1814, height: 1376 })
+  await waitFor(() =>
+    expect(card()?.dataset.orientation).toBe("vertical"),
+  )
+  const image = document.querySelector(
+    ".platform-printer-image",
+  ) as HTMLImageElement
+  expect(
+    image.getBoundingClientRect().width,
+  ).toBeGreaterThan(1300)
+  await page.viewport(1280, 720)
+  await waitFor(() =>
+    expect(card()?.dataset.orientation).toBe("horizontal"),
+  )
+  expect(
+    screen
+      .getByRole("button", { name: "Stop" })
+      .getBoundingClientRect().bottom,
+  ).toBeLessThanOrEqual(720)
+})
+
+test("static images prioritize the facts and both action colors survive platform button rules", async () => {
+  await mount({ width: 1280, height: 720, isCamera: false })
+  await waitFor(() =>
+    expect(card()?.dataset.orientation).toBeDefined(),
+  )
+  const pause = screen.getByRole("button", {
+    name: "Pause",
+  })
+  const stop = screen.getByRole("button", { name: "Stop" })
+  expect(getComputedStyle(pause).color).not.toBe(
+    getComputedStyle(stop).color,
+  )
+  expect(getComputedStyle(pause).color).not.toBe(
+    getComputedStyle(card() as HTMLElement).color,
+  )
+  expect(
+    stop.getBoundingClientRect().bottom,
+  ).toBeLessThanOrEqual(720)
+  expect(
+    document
+      .querySelector(".printer-body")
+      ?.getBoundingClientRect().width,
+  ).toBeGreaterThanOrEqual(600)
+})
+
+test("camera lightbox closes by the image, outside area, and Escape and never sends a printer command", async () => {
+  const onAction = await mount({ width: 1280, height: 720 })
+  const user = userEvent.setup()
+  const trigger = screen.getByRole("button", {
+    name: "Enlarge Printer One camera",
+  })
+  const image = document.querySelector(
+    ".platform-printer-image",
+  ) as HTMLImageElement
+  await user.click(trigger)
+  expect(
+    screen.getByRole("dialog", {
+      name: "Printer One camera",
+    }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("img", { name: "Printer One camera" }),
+  ).toBe(image)
+  await user.click(image)
+  expect(screen.queryByRole("dialog")).toBeNull()
+  expect(trigger).toHaveFocus()
+  await user.click(trigger)
+  await user.click(
+    screen.getByRole("button", {
+      name: "Close Printer One camera",
+    }),
+  )
+  expect(screen.queryByRole("dialog")).toBeNull()
+  await user.click(trigger)
+  await user.keyboard("{Escape}")
+  expect(screen.queryByRole("dialog")).toBeNull()
+  expect(onAction).not.toHaveBeenCalled()
+})
+
+test("a static print image also opens and closes", async () => {
+  await mount({ width: 1280, height: 720, isCamera: false })
+  const user = userEvent.setup()
+  await user.click(
+    screen.getByRole("button", {
+      name: "Enlarge Printer One print image",
+    }),
+  )
+  expect(
+    screen.getByRole("dialog", {
+      name: "Printer One print image",
+    }),
+  ).toBeVisible()
+  await user.keyboard("{Escape}")
+  expect(screen.queryByRole("dialog")).toBeNull()
+})

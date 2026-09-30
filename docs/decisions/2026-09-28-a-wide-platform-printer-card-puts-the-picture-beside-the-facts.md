@@ -4,7 +4,7 @@
 - **Date:** 2026-09-28
 - **Type:** layout
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [Priority-based section fit](2026-09-30-printer-layouts-fit-sections-in-priority-order.md)
 
 ## Decision
 

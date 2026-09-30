@@ -239,80 +239,64 @@
   flex: none;
   gap: 6px;
 }
-/*
- * A WIDE card puts the picture on the left and the facts on the right. Stacked,
- * a 1900 px card is a postage-stamp camera frame floating over a band that runs
- * the whole width, with the eye travelling down through empty panel to reach
- * the name (the owner's screenshot, 2026-09-28). The breakpoint is the CARD's
- * width, not the window's: two cards on a 1280 px view are 630 px each and stay
- * stacked; one card on that view, or two on a 2560 px monitor, go side by side.
- * 900 px is where the split pays: the picture keeps 40% (360 px, about the
- * plate on the workbench panel) and the facts keep 540 px, enough for the band,
- * the two metrics and the filament row at their stacked sizes. The facts sit
- * centered on the picture's height, as the device view does with one card.
- *
- * The card is the container, and a container query cannot read the element it
- * is set on — only that element's descendants can — so the card is a fixed
- * two-column grid and its CHILDREN move: stacked, each spans both columns on
- * its own row; wide, the picture takes column one and the body column two.
- */
+/* The shared priority policy compares actual card dimensions and facts. */
 .platform-printers .printer-card {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  /* `min-content`, not 0, as the picture row's floor: the picture's own min
-     is 0 (below), so a card still shrinks it to nothing, but a camera box
-     that carries its "camera unavailable" notice keeps the notice's height
-     and the text does not land on the head. `minmax(auto, 1fr)` does not do
-     this in Chromium; the track stayed 0 (vrt screen-tabs-1280x480,
-     2026-09-28). */
+  grid-template-columns: minmax(0, 1fr);
+  /* A failed camera keeps its status notice above the facts. */
   grid-template-rows: minmax(min-content, 1fr) auto;
   gap: 12px;
-  container: platform-printer-card / inline-size;
 }
-.platform-printers .printer-card > .platform-camera,
-.platform-printers .printer-card > .platform-printer-image {
-  grid-column: 1 / -1;
+.platform-printers .platform-printer-media {
+  grid-column: 1;
   grid-row: 1;
-  /* The picture row is minmax(0, 1fr); the picture itself must also be
-     allowed to shrink, or its natural height sets the row anyway. */
+  display: flex;
   min-block-size: 0;
-  max-block-size: 100%;
 }
-.platform-printers
-  .printer-card
-  > .platform-camera
-  > .platform-printer-image {
-  max-block-size: 100%;
+.platform-printer-media .platform-camera {
+  inline-size: 100%;
 }
 .platform-printers .printer-card > .printer-body {
-  grid-column: 1 / -1;
+  grid-column: 1;
   grid-row: 2;
+  min-inline-size: 0;
 }
-@container platform-printer-card (min-width: 900px) {
-  .platform-printers .printer-card > .platform-camera,
-  .platform-printers
-    .printer-card
-    > .platform-printer-image {
-    grid-column: 1;
-    grid-row: 1 / -1;
-    margin-inline-end: 8px;
-  }
-  .platform-printers
-    .printer-card
-    > .platform-printer-image,
-  .platform-printers
-    .printer-card
-    > .platform-camera
-    > .platform-printer-image {
-    block-size: 100%;
-    max-block-size: 100%;
-  }
-  .platform-printers .printer-card > .printer-body {
-    grid-column: 2;
-    grid-row: 1 / -1;
-    align-self: center;
-    min-inline-size: 0;
-  }
+.platform-printers
+  .printer-card[data-orientation="horizontal"] {
+  grid-template-columns: minmax(0, 1fr) var(
+      --printer-facts-width
+    );
+  grid-template-rows: minmax(0, 1fr);
+}
+.platform-printers
+  .printer-card[data-orientation="horizontal"]
+  > .printer-body {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+}
+.platform-printers .printer-card[data-orientation="facts"] {
+  grid-template-rows: minmax(0, 1fr);
+}
+.platform-printers
+  .printer-card[data-orientation="facts"]
+  > .printer-body {
+  grid-row: 1;
+  align-self: center;
+}
+.platform .printer-action {
+  flex: 1 1 0;
+  min-block-size: max(48px, 8.9vmin);
+  font-size: max(15px, 3.2vmin);
+  background: transparent;
+}
+.platform .printer-action.is-pause {
+  border-color: var(--color-intent-warning-border);
+  color: var(--color-intent-warning-content);
+}
+.platform .printer-action.is-stop {
+  border-color: var(--color-intent-danger-border);
+  color: var(--color-intent-danger-content);
 }
 .platform-printers .printer-band {
   block-size: 80px;
