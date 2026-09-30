@@ -97,6 +97,7 @@ const adapters: AdapterDefinition[] = [
       },
     ],
     actions: [
+      { id: "clear_plate", name: "Clear plate" },
       ...["pause", "resume", "stop"].map((id) => ({
         id,
         name: id,

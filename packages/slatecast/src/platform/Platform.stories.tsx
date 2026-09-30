@@ -470,3 +470,52 @@ export const PrinterStaticImage: Story = {
     </main>
   ),
 }
+
+const settledPrinterSnapshot = (
+  state: "finished" | "failed",
+): DisplaySnapshot => ({
+  ...printerOnly(true),
+  channels: {
+    ...storySnapshot.channels,
+    prints: {
+      ...fixturePrints,
+      data: {
+        printers: fixturePrinters.map((printer) => ({
+          ...printer,
+          state,
+          percent:
+            state === "finished" ? 100 : printer.percent,
+          cameraPath: staticPath(
+            "sample-photos/printer-camera-chamber.jpg",
+          ),
+        })),
+      },
+    },
+  },
+})
+
+/** Finished jobs keep their camera and plate-clear action until acknowledged. */
+export const PrinterCameraFinished: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={settledPrinterSnapshot("finished")}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+
+/** Failed jobs also hold the plate-clear gate, with danger styling. */
+export const PrinterCameraFailed: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={settledPrinterSnapshot("failed")}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}

@@ -9,6 +9,7 @@ import {
   formatFinishTime,
   formatRemaining,
   getPrinterJobTitle,
+  isSettledPrinterJob,
 } from "../views/printerJob.ts"
 import { CameraImage } from "./CameraImage.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
@@ -27,6 +28,9 @@ type PrinterCardProps = {
   setExpandedId: (id: string) => void
   filamentDetailsId: string
   setFilamentDetailsId: (id: string) => void
+  onClear: () => void
+  isClearing: boolean
+  clearError?: string
   setConfirmation: (value: {
     id: string
     state: string
@@ -46,7 +50,11 @@ const PrinterCard = ({
   filamentDetailsId,
   setFilamentDetailsId,
   setConfirmation,
+  onClear,
+  isClearing,
+  clearError,
 }: PrinterCardProps) => {
+  const isSettled = isSettledPrinterJob(printer)
   const properties = useDisplayProperties()
   const camera = cameras?.cameras.find(
     (candidate) => candidate.id === printer.id,
@@ -72,12 +80,16 @@ const PrinterCard = ({
     <article
       ref={cardRef}
       class="printer-card"
+      data-state={printer.state}
       data-intent={
-        printer.problemText
-          ? "danger"
-          : printer.state === "paused"
-            ? "warning"
-            : "neutral"
+        printer.state === "finished"
+          ? "success"
+          : printer.state === "failed" ||
+              printer.problemText
+            ? "danger"
+            : printer.state === "paused"
+              ? "warning"
+              : "neutral"
       }
       data-expanded={String(expandedId === printer.id)}
     >
@@ -156,6 +168,7 @@ const PrinterCard = ({
           />
           <div class="printer-band-text">
             {properties.hasRelativeTimes &&
+            !isSettled &&
             printer.state !== "paused" &&
             printer.remainingMinutes !== undefined ? (
               <span class="printer-band-remaining">
@@ -163,7 +176,13 @@ const PrinterCard = ({
                 left
               </span>
             ) : null}
-            {properties.hasProgress ? (
+            {isSettled ? (
+              <strong>
+                {printer.state === "finished"
+                  ? "Finished · Clear plate"
+                  : "Failed · Clear plate"}
+              </strong>
+            ) : properties.hasProgress ? (
               <strong class="printer-percent">
                 {Math.round(printer.percent)}%
               </strong>
@@ -172,49 +191,70 @@ const PrinterCard = ({
             )}
           </div>
         </div>
-        <dl class="printer-metrics">
-          <div class="printer-metric">
-            <dt>Layer</dt>
-            <dd>
-              {printer.currentLayer ?? "—"}
-              {printer.totalLayers
-                ? ` / ${printer.totalLayers}`
-                : ""}
-            </dd>
-          </div>
-          <div class="printer-metric">
-            <dt>Finishes</dt>
-            <dd>
-              {printer.state !== "paused" &&
-              printer.finishAtMs
-                ? formatFinishTime({
-                    finishAtMs: printer.finishAtMs,
-                    nowMillis: Date.now(),
-                  })
-                : "—"}
-            </dd>
-          </div>
-          {printer.filamentText ||
-          printer.filaments?.length ? (
-            <div class="printer-metric is-filament">
-              <dt>Filament</dt>
+        {isSettled ? (
+          <>
+            {clearError ? (
+              <p class="printer-problem" role="alert">
+                {clearError}
+              </p>
+            ) : null}
+            {isControlEnabled ? (
+              <button
+                class="printer-clear"
+                type="button"
+                disabled={isClearing}
+                data-castkit-target={`printer-clear-plate:${printer.id}`}
+                onClick={onClear}
+              >
+                {isClearing ? "Clearing…" : "Clear plate"}
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <dl class="printer-metrics">
+            <div class="printer-metric">
+              <dt>Layer</dt>
               <dd>
-                <FilamentControl
-                  color={printer.filamentColor}
-                  isExpanded={
-                    filamentDetailsId === printer.id
-                  }
-                  filaments={printer.filaments}
-                  onClick={() =>
-                    setFilamentDetailsId(printer.id)
-                  }
-                  text={printer.filamentText}
-                />
+                {printer.currentLayer ?? "—"}
+                {printer.totalLayers
+                  ? ` / ${printer.totalLayers}`
+                  : ""}
               </dd>
             </div>
-          ) : null}
-        </dl>
-        {isControlEnabled ? (
+            <div class="printer-metric">
+              <dt>Finishes</dt>
+              <dd>
+                {printer.state !== "paused" &&
+                printer.finishAtMs
+                  ? formatFinishTime({
+                      finishAtMs: printer.finishAtMs,
+                      nowMillis: Date.now(),
+                    })
+                  : "—"}
+              </dd>
+            </div>
+            {printer.filamentText ||
+            printer.filaments?.length ? (
+              <div class="printer-metric is-filament">
+                <dt>Filament</dt>
+                <dd>
+                  <FilamentControl
+                    color={printer.filamentColor}
+                    isExpanded={
+                      filamentDetailsId === printer.id
+                    }
+                    filaments={printer.filaments}
+                    onClick={() =>
+                      setFilamentDetailsId(printer.id)
+                    }
+                    text={printer.filamentText}
+                  />
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        )}
+        {!isSettled && isControlEnabled ? (
           <div class="platform-actions printer-actions">
             {[
               printer.state === "paused"
@@ -273,6 +313,31 @@ export const PrintersView = ({
     jobName: string
     action: string
   } | null>(null)
+  const [clearingIds, setClearingIds] = useState<string[]>(
+    [],
+  )
+  const [clearErrors, setClearErrors] = useState<
+    Record<string, string>
+  >({})
+  const clearPlate = async (id: string) => {
+    setClearingIds((ids) => ids.concat(id))
+    setClearErrors((errors) => ({ ...errors, [id]: "" }))
+    try {
+      await onAction("clear_plate", { printerId: id })
+    } catch (error) {
+      setClearErrors((errors) => ({
+        ...errors,
+        [id]:
+          error instanceof Error
+            ? error.message
+            : "Could not clear plate",
+      }))
+    } finally {
+      setClearingIds((ids) =>
+        ids.filter((candidate) => candidate !== id),
+      )
+    }
+  }
   const [expandedId, setExpandedId] = useState("")
   const [filamentDetailsId, setFilamentDetailsId] =
     useState("")
@@ -327,6 +392,11 @@ export const PrintersView = ({
           filamentDetailsId={filamentDetailsId}
           setFilamentDetailsId={setFilamentDetailsId}
           setConfirmation={setConfirmation}
+          onClear={() => {
+            void clearPlate(printer.id)
+          }}
+          isClearing={clearingIds.includes(printer.id)}
+          clearError={clearErrors[printer.id]}
         />
       ))}
       {filamentDetailsPrinter ? (
