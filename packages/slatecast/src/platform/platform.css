@@ -619,6 +619,93 @@
     grid-template-rows: minmax(0, 1fr);
   }
 }
+/* Compact facts depend on the card height, including short split panels. */
+.platform-printers .printer-card[data-compact="true"] {
+  gap: 0;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-name {
+  font-size: 16px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-state {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-head {
+  gap: 5px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-job {
+  font-size: 13px;
+  padding: 0;
+  min-block-size: 24px;
+  margin-block-start: 4px;
+  border: 0;
+  background: transparent;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-band {
+  block-size: 48px;
+  margin-block-start: 4px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-band-text {
+  padding: 0 10px;
+  gap: 4px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-percent {
+  font-size: 30px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-band-remaining {
+  font-size: 12px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-metrics {
+  margin-block-start: 4px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-metric {
+  padding: 4px 6px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-metric
+  dd {
+  font-size: 14px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-body
+  > p {
+  font-size: 12px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .platform-actions {
+  gap: 5px;
+  margin-block-start: 4px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .platform-actions
+  button {
+  font-size: 12px;
+  padding: 8px 12px;
+}
 @media (max-height: 420px) {
   .platform {
     gap: 6px;
@@ -630,61 +717,6 @@
   .platform-panel {
     padding: 10px;
     border-radius: 10px;
-  }
-  .platform-printers .printer-card {
-    gap: 0;
-  }
-  .platform-printers .printer-name {
-    font-size: 16px;
-  }
-  .platform-printers .printer-state {
-    font-size: 11px;
-    padding: 3px 8px;
-  }
-  .platform-printers .printer-head {
-    gap: 5px;
-  }
-  .platform-printers .printer-job {
-    font-size: 13px;
-    padding: 0;
-    min-block-size: 24px;
-    margin-block-start: 4px;
-    border: 0;
-    background: transparent;
-  }
-  .platform-printers .printer-band {
-    block-size: 48px;
-    margin-block-start: 4px;
-  }
-  .platform-printers .printer-band-text {
-    padding: 0 10px;
-    gap: 4px;
-  }
-  .platform-printers .printer-percent {
-    font-size: 30px;
-  }
-  .platform-printers .printer-band-remaining {
-    font-size: 12px;
-  }
-  .platform-printers .printer-metrics {
-    margin-block-start: 4px;
-  }
-  .platform-printers .printer-metric {
-    padding: 4px 6px;
-  }
-  .platform-printers .printer-metric dd {
-    font-size: 14px;
-  }
-  .platform-printers .printer-body > p {
-    font-size: 12px;
-  }
-  .platform-printers .platform-actions {
-    gap: 5px;
-    margin-block-start: 4px;
-  }
-  .platform-printers .platform-actions button {
-    font-size: 12px;
-    padding: 8px 12px;
   }
   .platform button.platform-rip-row {
     gap: 8px;

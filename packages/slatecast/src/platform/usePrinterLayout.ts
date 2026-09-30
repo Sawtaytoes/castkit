@@ -40,6 +40,7 @@ export const usePrinterLayout = ({
       if (width <= 0 || height <= 0) {
         return
       }
+      element.dataset.compact = String(height < 420)
       if (!hasImage) {
         element.dataset.orientation = "facts"
         return

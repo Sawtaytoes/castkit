@@ -147,3 +147,31 @@ test("a static print image also opens and closes", async () => {
   await user.keyboard("{Escape}")
   expect(screen.queryByRole("dialog")).toBeNull()
 })
+
+test("a short split panel keeps the printer heading and controls inside its card", async () => {
+  await mount({ width: 1280, height: 480 })
+  const printers = document.querySelector<HTMLElement>(
+    ".platform-printers",
+  ) as HTMLElement
+  printers.style.inlineSize = "560px"
+  printers.style.blockSize = "340px"
+  printers.style.flex = "none"
+  await waitFor(() =>
+    expect(card()?.dataset.compact).toBe("true"),
+  )
+  const bounds = (
+    card() as HTMLElement
+  ).getBoundingClientRect()
+  await waitFor(() => {
+    expect(
+      screen
+        .getByText("Printer One")
+        .getBoundingClientRect().top,
+    ).toBeGreaterThanOrEqual(bounds.top)
+    expect(
+      screen
+        .getByRole("button", { name: "Stop" })
+        .getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(bounds.bottom)
+  })
+})
