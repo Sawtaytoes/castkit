@@ -187,7 +187,9 @@ describe("placeSections", () => {
       height: 200,
     })
     expect(
-      layout.columns[0]?.map((section) => section.provider.id),
+      layout.columns[0]?.map(
+        (section) => section.provider.id,
+      ),
     ).toStrictEqual(["real"])
   })
 })
