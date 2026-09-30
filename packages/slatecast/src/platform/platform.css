@@ -243,9 +243,16 @@
 .platform-printers .printer-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  /* A failed camera keeps its status notice above the facts. */
-  grid-template-rows: minmax(min-content, 1fr) auto;
+  /* Loaded images may shrink below their intrinsic height to leave facts room. */
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 12px;
+}
+/* A failed camera still reserves enough room for its status notice. */
+.platform-printers
+.printer-card:has(.platform-camera p):not(
+  [data-orientation="horizontal"]
+) {
+  grid-template-rows: minmax(min-content, 1fr) auto;
 }
 .platform-printers .platform-printer-media {
   grid-column: 1;
