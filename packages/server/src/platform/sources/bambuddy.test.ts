@@ -833,3 +833,99 @@ test("Bambuddy reports a refused spool action by name", async () => {
   )
   adapter.dispose()
 })
+
+test.each([
+  "FINISH",
+  "FAILED",
+  "IDLE",
+])("%s stays visible only until Bambuddy's plate-clear gate drops", (state) => {
+  const data = {
+    id: 2,
+    name: "Printer",
+    connected: true,
+    state,
+    awaiting_plate_clear: true,
+    progress: 100,
+    remaining_time: 0,
+  }
+  const normalized = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data,
+  })
+  expect(normalized?.state).toBe(
+    state === "FAILED" ? "failed" : "finished",
+  )
+  expect(normalized?.finishAtMs).toBeUndefined()
+  expect(normalized?.remainingMinutes).toBeUndefined()
+  expect(
+    normalizeBambuddyPrinter({
+      channelId: "printers",
+      data: { ...data, awaiting_plate_clear: false },
+    }),
+  ).toBeUndefined()
+  expect(
+    normalizeBambuddyPrinter({
+      channelId: "printers",
+      data: { ...data, connected: false },
+    }),
+  ).toBeUndefined()
+})
+
+test("plate clearance rechecks live state and only posts to the selected printer's clear endpoint", async () => {
+  const status = {
+    id: 2,
+    connected: true,
+    state: "FINISH",
+    awaiting_plate_clear: true,
+  }
+  const fetchRequest = vi.fn<typeof fetch>(
+    async (url) =>
+      new Response(
+        JSON.stringify(
+          String(url).endsWith("/printers/")
+            ? [{ id: 2, name: "Printer" }]
+            : String(url).endsWith("/status")
+              ? status
+              : { success: true },
+        ),
+      ),
+  )
+  const context = sourceContext({
+    fetch: fetchRequest,
+    channels: [
+      {
+        id: "printers",
+        name: "Printers",
+        sourceId: "source",
+        type: "printers.v1",
+        settings: { printerIds: ["2"] },
+      },
+    ],
+  })
+  const adapter = createBambuddySource(context)
+  await adapter.start?.()
+  await adapter.executeAction?.({
+    channelId: "printers",
+    action: "clear_plate",
+    payload: { printerId: "2" },
+  })
+  expect(fetchRequest.mock.calls.at(-1)?.[0]).toBe(
+    "https://service.example/api/v1/printers/2/clear-plate",
+  )
+  status.state = "RUNNING"
+  await expect(
+    adapter.executeAction?.({
+      channelId: "printers",
+      action: "clear_plate",
+      payload: { printerId: "2" },
+    }),
+  ).rejects.toThrow("not awaiting")
+  await expect(
+    adapter.executeAction?.({
+      channelId: "printers",
+      action: "clear_plate",
+      payload: { printerId: "3" },
+    }),
+  ).rejects.toThrow("does not allow")
+  adapter.dispose?.()
+})

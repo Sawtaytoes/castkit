@@ -494,9 +494,16 @@ export const normalizeBambuddyPrinter = ({
   | undefined => {
   const status = record(data)
   const state = textValue(status.state)
+  const isRunning = [
+    "RUNNING",
+    "PAUSE",
+    "PREPARE",
+  ].includes(state)
+  const isAwaitingClear =
+    status.awaiting_plate_clear === true && !isRunning
   if (
     !status.connected ||
-    !["RUNNING", "PAUSE", "PREPARE"].includes(state)
+    (!isRunning && !isAwaitingClear)
   ) {
     return undefined
   }
@@ -535,13 +542,16 @@ export const normalizeBambuddyPrinter = ({
       100,
       Math.max(0, finiteNumber(status.progress) ?? 0),
     ),
-    state:
-      state === "PAUSE"
+    state: isAwaitingClear
+      ? state === "FAILED"
+        ? "failed"
+        : "finished"
+      : state === "PAUSE"
         ? "paused"
         : state === "PREPARE"
           ? "preparing"
           : "printing",
-    ...(remainingMinutes !== undefined
+    ...(!isAwaitingClear && remainingMinutes !== undefined
       ? {
           remainingMinutes,
           finishAtMs: Date.now() + remainingMinutes * 60000,
@@ -1163,17 +1173,44 @@ export const createBambuddySource: SourceFactory = (
       const printerId = textValue(payload.printerId)
       const command = action.replace(/^printer_/, "")
       if (
-        !["pause", "resume", "stop"].includes(command) ||
+        ![
+          "pause",
+          "resume",
+          "stop",
+          "clear_plate",
+        ].includes(command) ||
         !selectedIds(channelId).includes(printerId)
       ) {
         throw new Error(
           "This channel does not allow that printer action.",
         )
       }
+      if (command === "clear_plate") {
+        const status = record(
+          await (
+            await sourceRequest({
+              context,
+              headers,
+              path: `/api/v1/printers/${encodeURIComponent(printerId)}/status`,
+            })
+          ).json(),
+        )
+        if (
+          !status.connected ||
+          status.awaiting_plate_clear !== true ||
+          ["RUNNING", "PAUSE", "PREPARE"].includes(
+            textValue(status.state),
+          )
+        ) {
+          throw new Error(
+            "This printer is not awaiting plate clearance.",
+          )
+        }
+      }
       const response = await sourceRequest({
         context,
         headers,
-        path: `/api/v1/printers/${encodeURIComponent(printerId)}/print/${command}`,
+        path: `/api/v1/printers/${encodeURIComponent(printerId)}/${command === "clear_plate" ? "clear-plate" : `print/${command}`}`,
         method: "POST",
       })
       const result = await response.json()
