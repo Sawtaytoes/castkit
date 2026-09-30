@@ -19,6 +19,7 @@ export const Panel = ({
   panel,
   channels,
   isControlEnabled,
+  controlDisabledReason,
   onAction,
   browserEntry,
   inputs,
@@ -26,6 +27,7 @@ export const Panel = ({
   panel: ViewPanel
   channels: Record<string, ChannelSnapshot>
   isControlEnabled: boolean
+  controlDisabledReason?: string
   browserEntry?: string
   inputs?: ViewInput[]
   onAction: (action: PanelAction) => Promise<void>
@@ -195,6 +197,13 @@ export const Panel = ({
               isControlEnabled &&
               properties.isInteractive &&
               isSourceReady
+            }
+            controlDisabledReason={
+              !properties.isInteractive
+                ? "Controls unavailable on this display"
+                : !isSourceReady
+                  ? "Source unavailable · Controls disabled"
+                  : controlDisabledReason
             }
             onAction={requestAction}
             settings={panel.settings}

@@ -33,6 +33,8 @@ export type DisplaySnapshot = {
   // Wire field shared with the display API.
   // eslint-disable-next-line @typescript-eslint/naming-convention
   canControl: boolean
+  /** A shared management session, checked by the server on every update. */
+  isAuthenticated?: boolean
   viewSpecs?: {
     id: string
     browserEntry?: string

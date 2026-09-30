@@ -125,7 +125,9 @@ export const Access = ({
           <div className="grid gap-4">
             <p>
               You can manage sources, views, screens, and
-              devices from this browser.
+              devices from this browser. Enabled printer
+              controls are unlocked across views for this
+              session.
             </p>
             <form
               className="grid gap-4 border-t border-border-subtle pt-4"
@@ -198,7 +200,7 @@ export const Access = ({
             <p className="text-content-secondary">
               {session.isSetupRequired
                 ? "Choose a PIN to protect CastKit management. Each private view or screen can use its own PIN."
-                : "Enter the management PIN. Unlock private views from their own pages."}
+                : "Enter the management PIN. This also unlocks enabled printer controls across views in this browser."}
             </p>
             <Field
               label={

@@ -137,6 +137,203 @@ describe("platform access and saved compositions", () => {
     expect(state).not.toHaveProperty("sessions")
     expect(state).not.toHaveProperty("pinHashes")
   })
+  test("one management sign-in enables public printer controls across views and sign-out revokes them", async () => {
+    const fixture = await createFixture()
+    await fixture.request(
+      "/api/manage/platform/views/workbench",
+      "PUT",
+      { ...fixture.view, isControlEnabled: true },
+      fixture.cookie,
+    )
+    await fixture.save("views", {
+      ...fixture.view,
+      id: "camera",
+      isControlEnabled: true,
+    })
+    fixture.platform.hub.publish({
+      channelId: "printers/workbench",
+      data: {
+        printers: [
+          {
+            id: "printer-a",
+            name: "Printer",
+            jobName: "Bracket",
+            percent: 20,
+            state: "printing",
+          },
+        ],
+      },
+    })
+    const execute = vi
+      .spyOn(fixture.platform.runtime, "executeAction")
+      .mockResolvedValue({ ok: true })
+    const action = {
+      panelId: "printers",
+      action: "pause",
+      payload: { printerId: "printer-a" },
+    }
+    const publicSnapshot = await (
+      await fixture.request("/api/display/view/workbench")
+    ).json()
+    expect(publicSnapshot.isAuthenticated).toBe(false)
+    expect(publicSnapshot.canControl).toBe(false)
+    expect(
+      (
+        await fixture.request(
+          "/api/display/view/workbench/actions",
+          "POST",
+          action,
+        )
+      ).status,
+    ).toBe(403)
+    expect(execute).not.toHaveBeenCalled()
+    const login = await fixture.request(
+      "/api/access/login",
+      "POST",
+      { pin: "123456" },
+    )
+    const cookie = login.headers
+      .get("set-cookie")
+      ?.split(";")[0]
+    await Promise.all(
+      ["workbench", "camera"].map(async (id) => {
+        const snapshot = await (
+          await fixture.request(
+            `/api/display/view/${id}`,
+            "GET",
+            undefined,
+            cookie,
+          )
+        ).json()
+        expect(snapshot.isAuthenticated).toBe(true)
+        expect(snapshot.canControl).toBe(true)
+        expect(
+          (
+            await fixture.request(
+              `/api/display/view/${id}/actions`,
+              "POST",
+              action,
+              cookie,
+            )
+          ).status,
+        ).toBe(200)
+      }),
+    )
+    expect(execute).toHaveBeenCalledTimes(2)
+    await fixture.request(
+      "/api/access/logout",
+      "POST",
+      {},
+      cookie,
+    )
+    expect(
+      (
+        await fixture.request(
+          "/api/display/view/camera/actions",
+          "POST",
+          action,
+          cookie,
+        )
+      ).status,
+    ).toBe(403)
+    expect(
+      (
+        await fixture.request(
+          "/api/display/view/camera",
+          "GET",
+          undefined,
+          cookie,
+        )
+      ).status,
+    ).toBe(200)
+    expect(execute).toHaveBeenCalledTimes(2)
+  })
+  test("view-specific PINs and expired management sessions cannot operate printers", async () => {
+    const fixture = await createFixture()
+    await fixture.request(
+      "/api/manage/platform/views/workbench",
+      "PUT",
+      {
+        ...fixture.view,
+        access: "pin",
+        pin: "4477",
+        isControlEnabled: true,
+      },
+      fixture.cookie,
+    )
+    const unlock = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "workbench", pin: "4477" },
+    )
+    const viewerCookie = unlock.headers
+      .get("set-cookie")
+      ?.split(";")[0]
+    const viewer = await (
+      await fixture.request(
+        "/api/display/view/workbench",
+        "GET",
+        undefined,
+        viewerCookie,
+      )
+    ).json()
+    expect(viewer.isAuthenticated).toBe(false)
+    expect(viewer.canControl).toBe(false)
+    const management = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "workbench", pin: "123456" },
+    )
+    const managementCookie = management.headers
+      .get("set-cookie")
+      ?.split(";")[0]
+    expect(
+      (
+        await (
+          await fixture.request(
+            "/api/access/session",
+            "GET",
+            undefined,
+            managementCookie,
+          )
+        ).json()
+      ).isAuthenticated,
+    ).toBe(true)
+    await fixture.request(
+      "/api/manage/platform/views/workbench",
+      "PUT",
+      { ...fixture.view, isControlEnabled: true },
+      fixture.cookie,
+    )
+    fixture.platform.store.update((previous) => ({
+      ...previous,
+      sessions: previous.sessions.map((session) =>
+        session.isAdmin
+          ? { ...session, expiresAt: Date.now() - 1 }
+          : session,
+      ),
+    }))
+    const expired = await (
+      await fixture.request(
+        "/api/display/view/workbench",
+        "GET",
+        undefined,
+        managementCookie,
+      )
+    ).json()
+    expect(expired.canControl).toBe(false)
+    expect(expired.isAuthenticated).toBe(false)
+    expect(
+      (
+        await fixture.request(
+          "/api/display/view/workbench/actions",
+          "POST",
+          { panelId: "printers", action: "stop" },
+          managementCookie,
+        )
+      ).status,
+    ).toBe(403)
+  })
   test("requires the one-time setup token and rejects a second setup", async () => {
     const fixture = await createFixture()
     expect(

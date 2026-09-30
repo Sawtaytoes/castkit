@@ -1792,3 +1792,37 @@
     translate: 0 0.6em;
   }
 }
+
+.platform-access-status[data-authenticated="true"] {
+  color: var(--color-intent-success-content);
+}
+.printer-control-status {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.platform-sign-in {
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 16px;
+  max-inline-size: min(95vw, 440px);
+  max-block-size: 95dvh;
+  background: var(--surface);
+}
+.platform-sign-in::backdrop {
+  background: rgb(0 0 0 / 75%);
+}
+.platform-sign-in .platform-lock {
+  block-size: auto;
+  min-block-size: 0;
+  padding: 24px;
+}
+@media (max-width: 600px) {
+  .platform-header {
+    flex-wrap: wrap;
+  }
+  .platform-header > div {
+    flex-wrap: wrap;
+  }
+}

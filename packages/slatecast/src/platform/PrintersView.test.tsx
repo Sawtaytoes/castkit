@@ -275,7 +275,7 @@ test.each([
   ).toBeNull()
 })
 
-test("read-only completed cards report clearance without exposing an action", () => {
+test("read-only completed cards explain disabled plate clearance", () => {
   render(
     <PrintersView
       data={{
@@ -285,6 +285,7 @@ test("read-only completed cards report clearance without exposing an action", ()
         })),
       }}
       isControlEnabled={false}
+      controlDisabledReason="Sign in to control"
       onAction={vi.fn()}
       settings={{}}
     />,
@@ -293,6 +294,9 @@ test("read-only completed cards report clearance without exposing an action", ()
     screen.getByText("Finished · Clear plate"),
   ).toBeVisible()
   expect(
-    screen.queryByRole("button", { name: "Clear plate" }),
-  ).toBeNull()
+    screen.getByRole("button", { name: "Clear plate" }),
+  ).toBeDisabled()
+  expect(
+    screen.getByText("Sign in to control"),
+  ).toBeVisible()
 })

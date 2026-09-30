@@ -6,7 +6,13 @@ export const PinKeypad = ({
   error,
   isPending,
   onUnlock,
+  description = "Enter the PIN to unlock this display. The management PIN signs you in across views.",
+  buttonLabel = "Unlock",
+  onCancel,
 }: {
+  description?: string
+  buttonLabel?: string
+  onCancel?: () => void
   name: string
   error: string
   isPending: boolean
@@ -23,7 +29,7 @@ export const PinKeypad = ({
         }}
       >
         <h1>{name}</h1>
-        <p>Enter the PIN to unlock this display.</p>
+        <p>{description}</p>
         <input
           aria-label="PIN"
           type="password"
@@ -32,9 +38,7 @@ export const PinKeypad = ({
           value={pin}
           maxLength={32}
           onInput={(event) =>
-            setPin(
-              event.currentTarget.value.replace(/\D/g, ""),
-            )
+            setPin(event.currentTarget.value)
           }
         />
         <div class="platform-keypad">
@@ -76,8 +80,13 @@ export const PinKeypad = ({
           data-castkit-target="pin:unlock"
           disabled={isPending || pin.length === 0}
         >
-          {isPending ? "Unlocking…" : "Unlock"}
+          {isPending ? "Signing in…" : buttonLabel}
         </button>
+        {onCancel ? (
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+        ) : null}
         {error ? <p role="alert">{error}</p> : null}
       </form>
     </main>

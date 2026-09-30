@@ -1,5 +1,5 @@
 import type { JSX } from "preact"
-import { useEffect } from "preact/hooks"
+import { useEffect, useRef, useState } from "preact/hooks"
 import { viewAppearance } from "./appearance.ts"
 import { DisplayContext } from "./DisplayContext.ts"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
@@ -20,11 +20,13 @@ export const DisplayComposition = ({
   snapshot,
   isConnected,
   isPending = false,
+  controlDisabledReason,
   onAction,
 }: {
   snapshot: DisplaySnapshot
   isConnected: boolean
   isPending?: boolean
+  controlDisabledReason?: string
   onAction: (action: PanelAction) => Promise<void>
 }) => {
   // An active-only view draws only the panels the server says have something
@@ -79,6 +81,18 @@ export const DisplayComposition = ({
                 isConnected &&
                 !isPending
               }
+              controlDisabledReason={
+                controlDisabledReason ??
+                (!isConnected
+                  ? "Connection lost · Controls disabled"
+                  : isPending
+                    ? "Please wait · Action in progress"
+                    : !snapshot.view.isControlEnabled
+                      ? "Controls disabled for this view"
+                      : !snapshot.canControl
+                        ? "Sign in to control"
+                        : undefined)
+              }
               onAction={onAction}
             />
           ))}
@@ -95,6 +109,15 @@ export const PlatformApp = ({
   target: DisplayTarget
 }) => {
   const display = useDisplay(target)
+  const [isSignInOpen, setIsSignInOpen] = useState(false)
+  const signInDialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    if (isSignInOpen) {
+      signInDialog.current?.showModal()
+    } else {
+      signInDialog.current?.close()
+    }
+  }, [isSignInOpen])
   const isReady = useRenderReadiness(display.snapshot)
   useEffect(() => {
     if (
@@ -241,7 +264,38 @@ export const PlatformApp = ({
               Connection lost · Retrying
             </span>
           ) : null}
+          {!display.isPreview && !target.deviceId ? (
+            <>
+              <span
+                class="platform-access-status"
+                data-authenticated={String(
+                  Boolean(display.snapshot.isAuthenticated),
+                )}
+                role="status"
+              >
+                {display.snapshot.isAuthenticated
+                  ? display.snapshot.view.isControlEnabled
+                    ? "Controls unlocked"
+                    : "Signed in · Controls disabled for this view"
+                  : "Read-only"}
+              </span>
+              <button
+                type="button"
+                disabled={display.isPending}
+                onClick={() =>
+                  display.snapshot?.isAuthenticated
+                    ? void display.signOut()
+                    : setIsSignInOpen(true)
+                }
+              >
+                {display.snapshot.isAuthenticated
+                  ? "Sign out"
+                  : "Sign in"}
+              </button>
+            </>
+          ) : null}
           {!display.isPreview &&
+          !display.snapshot.isAuthenticated &&
           (display.snapshot.view.access === "pin" ||
             display.snapshot.screen?.access === "pin") ? (
             <button
@@ -258,10 +312,38 @@ export const PlatformApp = ({
           {display.error}
         </p>
       ) : null}
+      {isSignInOpen ? (
+        <dialog
+          ref={signInDialog}
+          class="platform-sign-in"
+          aria-label="Sign in to control"
+          onClose={() => setIsSignInOpen(false)}
+          onCancel={() => setIsSignInOpen(false)}
+        >
+          <PinKeypad
+            name="Sign in to control"
+            description="Enter your management PIN. Controls unlock across views in this browser for 12 hours."
+            buttonLabel="Sign in"
+            error={display.error}
+            isPending={display.isPending}
+            onCancel={() => setIsSignInOpen(false)}
+            onUnlock={async (pin) => {
+              if (await display.signIn(pin)) {
+                setIsSignInOpen(false)
+              }
+            }}
+          />
+        </dialog>
+      ) : null}
       <DisplayComposition
         snapshot={display.snapshot}
         isConnected={display.isConnected}
         isPending={display.isPending}
+        controlDisabledReason={
+          display.isPreview
+            ? "Preview · Controls disabled"
+            : undefined
+        }
         onAction={display.requestAction}
       />
     </main>

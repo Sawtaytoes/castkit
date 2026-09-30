@@ -71,6 +71,7 @@ const createFixture = async () => {
   }
   platform.store.update((previous) => ({
     ...previous,
+    adminHash: hashPin("9876"),
     sources: [
       {
         id: "mqtt",
@@ -353,7 +354,7 @@ test("printer controls reject missing targets, other printers, and stale data be
   const cookie = await fixture.unlock(
     "view",
     "private",
-    "1357",
+    "9876",
   )
   fixture.publisher.publish.mockClear()
   const action = (payload: Record<string, unknown>) =>

@@ -155,7 +155,13 @@ export const getDisplay = ({
           (panel) => panel.specId === spec.id,
         ),
       ),
-      canControl: view.isControlEnabled,
+      isAuthenticated: platform.access.isAdmin(context),
+      canControl:
+        view.isControlEnabled &&
+        (!view.panels.some(
+          (panel) => panel.specId === "printer-status",
+        ) ||
+          platform.access.isAdmin(context)),
       buildId: resolveSlatecastBuildId(),
     },
   }
@@ -267,6 +273,7 @@ export const attachPlatformRoutes = ({
         403,
       )
     access.issue({ context, isAdminSession: true })
+    platform.notify()
     return context.json({ isAuthenticated: true })
   })
   app.post("/api/access/login", async (context) => {
@@ -285,6 +292,7 @@ export const attachPlatformRoutes = ({
     )
       return context.json({ error: "Incorrect PIN" }, 401)
     access.issue({ context, isAdminSession: true })
+    platform.notify()
     return context.json({ isAuthenticated: true })
   })
   app.post("/api/access/change-pin", async (context) => {
@@ -363,15 +371,26 @@ export const attachPlatformRoutes = ({
      * and the person who knows the management PIN is the one who set the
      * display's PIN in the first place.
      */
-    const isAccepted =
-      verifyPin({
-        pin,
-        hash: store.get().pinHashes[`${kind}:${id}`],
-      }) || verifyPin({ pin, hash: store.get().adminHash })
+    const isViewPin = verifyPin({
+      pin,
+      hash: store.get().pinHashes[`${kind}:${id}`],
+    })
+    if (!isViewPin && !access.checkAttempt("admin-login")) {
+      return context.json(
+        {
+          error:
+            "Please wait one minute before another attempt",
+        },
+        429,
+      )
+    }
+    const isManagementPin = access.verifyAdmin(pin)
+    const isAccepted = isViewPin || isManagementPin
     if (!isAccepted)
       return context.json({ error: "Incorrect PIN" }, 401)
     access.issue({
       context,
+      isAdminSession: isManagementPin,
       grant: {
         kind,
         id,
@@ -379,6 +398,7 @@ export const attachPlatformRoutes = ({
           .sessionMinutes,
       },
     })
+    platform.notify()
     return context.json({ ok: true })
   })
   app.post("/api/access/lock", async (context) => {

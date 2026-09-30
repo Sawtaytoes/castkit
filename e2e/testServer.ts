@@ -164,7 +164,7 @@ export const startTestServer = async ({
         layout: "split",
         theme: "dark",
         access: "public",
-        isControlEnabled: false,
+        isControlEnabled: true,
         panels: [
           {
             id: "printers",
@@ -186,7 +186,7 @@ export const startTestServer = async ({
         layout: "single",
         theme: "dark",
         access: "pin",
-        isControlEnabled: false,
+        isControlEnabled: true,
         panels: [
           {
             id: "printers",
