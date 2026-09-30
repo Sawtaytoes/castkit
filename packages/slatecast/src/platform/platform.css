@@ -291,6 +291,18 @@
   grid-row: 1;
   align-self: center;
 }
+.platform .printer-clear {
+  background: var(--color-intent-success-solid);
+  color: var(--color-intent-success-on-solid);
+  min-block-size: max(48px, 8.9vmin);
+  font-size: max(15px, 3.2vmin);
+}
+.platform
+  .printer-card[data-state="failed"]
+  .printer-clear {
+  background: var(--color-intent-danger-solid);
+  color: var(--color-intent-danger-on-solid);
+}
 .platform .printer-action {
   flex: 1 1 0;
   min-block-size: max(48px, 8.9vmin);

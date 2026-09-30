@@ -211,3 +211,88 @@ test("a loaded static image leaves tall-window facts visible before and after en
   await user.keyboard("{Escape}")
   await waitFor(checkFit)
 })
+
+test.each([
+  "finished",
+  "failed",
+] as const)("a %s camera job keeps its card and clears on one tap until the source removes it", async (state) => {
+  await page.viewport(1280, 720)
+  const onAction = vi.fn(async () => undefined)
+  const data = {
+    printers: printerData.printers.map((printer) => ({
+      ...printer,
+      state,
+      cameraPath: cameraPicture,
+    })),
+  }
+  const mounted = render(
+    <main class="platform">
+      <PrintersView
+        data={data}
+        isControlEnabled
+        onAction={onAction}
+        settings={{}}
+      />
+    </main>,
+  )
+  expect(
+    screen.getByText(
+      state === "finished"
+        ? "Finished · Clear plate"
+        : "Failed · Clear plate",
+    ),
+  ).toBeVisible()
+  expect(
+    screen.queryByRole("button", { name: "Pause" }),
+  ).toBeNull()
+  expect(
+    screen.queryByRole("button", { name: "Stop" }),
+  ).toBeNull()
+  expect(screen.queryByText("Finishes")).toBeNull()
+  const clear = screen.getByRole("button", {
+    name: "Clear plate",
+  })
+  expect(
+    clear.getBoundingClientRect().bottom,
+  ).toBeLessThanOrEqual(720)
+  await userEvent.setup().click(clear)
+  expect(onAction).toHaveBeenCalledWith("clear_plate", {
+    printerId: data.printers[0]?.id,
+  })
+  expect(clear).toBeVisible()
+  mounted.rerender(
+    <main class="platform">
+      <PrintersView
+        data={{ printers: [] }}
+        isControlEnabled
+        onAction={onAction}
+        settings={{}}
+      />
+    </main>,
+  )
+  expect(
+    screen.queryByRole("button", { name: "Clear plate" }),
+  ).toBeNull()
+})
+
+test("read-only completed cards report clearance without exposing an action", () => {
+  render(
+    <PrintersView
+      data={{
+        printers: printerData.printers.map((printer) => ({
+          ...printer,
+          state: "finished",
+        })),
+      }}
+      isControlEnabled={false}
+      onAction={vi.fn()}
+      settings={{}}
+    />,
+  )
+  expect(
+    screen.getByText("Finished · Clear plate"),
+  ).toBeVisible()
+  expect(
+    screen.queryByRole("button", { name: "Clear plate" }),
+  ).toBeNull()
+})
