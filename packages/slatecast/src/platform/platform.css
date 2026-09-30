@@ -826,16 +826,45 @@
  * view's arithmetic and the glass disagreeing by one gap per row, which is how
  * a row ends up half-drawn on a panel that cannot scroll.
  */
+/*
+ * Every length in this block is a base number times `--ai-usage-scale`, and
+ * the view sets that variable from the panel it measured. The same base
+ * numbers live in `aiUsageLayout.ts` as the row budget, so a panel that is
+ * told its type is 1.5x taller is also told it holds two thirds as many rows.
+ * ⚠️ Change a base height here and there together, or the last row on every
+ * panel is cut in half.
+ *
+ * Why a variable and not `cqi`: the budget is arithmetic in the view, and a
+ * `clamp()` the stylesheet resolves on its own is a number the view cannot
+ * read back. One measured height, two readers, one scale.
+ */
 .ai-usage {
+  --ai-usage-scale: 1;
+  --ai-usage-columns: 1;
   display: flex;
   flex-direction: column;
   gap: 0;
   overflow: hidden;
 }
 .ai-usage > h2 {
-  block-size: 40px;
+  block-size: calc(40px * var(--ai-usage-scale));
   flex: none;
-  font-size: 22px;
+  font-size: calc(22px * var(--ai-usage-scale));
+}
+.ai-usage-columns {
+  display: grid;
+  grid-template-columns: repeat(
+      var(--ai-usage-columns),
+      minmax(0, 1fr)
+    );
+  column-gap: calc(34px * var(--ai-usage-scale));
+  align-content: start;
+  flex: none;
+}
+.ai-usage-column {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
 }
 .ai-usage section {
   display: flex;
@@ -845,20 +874,20 @@
 .ai-usage-provider-head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  block-size: 34px;
+  gap: calc(8px * var(--ai-usage-scale));
+  block-size: calc(34px * var(--ai-usage-scale));
   flex: none;
 }
 .ai-usage-provider-head h3 {
-  font-size: 18px;
+  font-size: calc(18px * var(--ai-usage-scale));
   font-weight: 600;
 }
 .ai-usage-plan {
-  font-size: 13px;
+  font-size: calc(13px * var(--ai-usage-scale));
   color: var(--fg-dim);
 }
 .ai-usage-problem {
-  font-size: 13px;
+  font-size: calc(13px * var(--ai-usage-scale));
   font-weight: 600;
   color: var(--color-intent-danger-content);
 }
@@ -866,33 +895,33 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 5px;
-  block-size: 70px;
+  gap: calc(5px * var(--ai-usage-scale));
+  block-size: calc(70px * var(--ai-usage-scale));
   flex: none;
-  padding-block-end: 16px;
+  padding-block-end: calc(16px * var(--ai-usage-scale));
 }
 .ai-usage-window-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(12px * var(--ai-usage-scale));
 }
 .ai-usage-window-label {
-  font-size: 15px;
+  font-size: calc(15px * var(--ai-usage-scale));
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .ai-usage-window-percent {
-  font-size: 17px;
+  font-size: calc(17px * var(--ai-usage-scale));
   font-weight: 700;
   white-space: nowrap;
 }
 .ai-usage-bar {
   position: relative;
   overflow: hidden;
-  block-size: 10px;
-  border-radius: 5px;
+  block-size: calc(10px * var(--ai-usage-scale));
+  border-radius: calc(5px * var(--ai-usage-scale));
   background: var(--color-surface-sunken);
 }
 .ai-usage-bar-fill {
@@ -933,8 +962,9 @@
  * marker that changed the row's height would have to be taught to the view.
  */
 .ai-usage-window[data-escalated="true"] {
-  padding-inline-start: 10px;
-  border-inline-start: 3px solid var(--fg);
+  padding-inline-start: calc(10px * var(--ai-usage-scale));
+  border-inline-start: calc(3px * var(--ai-usage-scale))
+    solid var(--fg);
 }
 .ai-usage-window[data-escalated="true"]
   .ai-usage-window-label {
@@ -943,8 +973,8 @@
 .ai-usage-window-foot {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 13px;
+  gap: calc(12px * var(--ai-usage-scale));
+  font-size: calc(13px * var(--ai-usage-scale));
   color: var(--fg-dim);
   white-space: nowrap;
 }
@@ -957,8 +987,8 @@
   line-height: 1.1;
 }
 .ai-usage-more {
-  block-size: 16px;
-  font-size: 13px;
+  block-size: calc(16px * var(--ai-usage-scale));
+  font-size: calc(13px * var(--ai-usage-scale));
   color: var(--fg-dim);
 }
 .platform-panel-title {
