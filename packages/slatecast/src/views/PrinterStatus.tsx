@@ -9,6 +9,7 @@ import {
   resumePrinter,
   stopPrinter,
 } from "../state.ts"
+import { ExpandableMedia } from "./ExpandableMedia.tsx"
 import {
   FilamentControl,
   FilamentDetailsDialog,
@@ -225,7 +226,9 @@ const PrinterCard = ({
           {/* The plate render is decorative: every fact it carries is already
               written beside it, and a name read out of a picture is not one a
               screen reader can announce. */}
-          <img alt="" src={job.thumbnailPath} />
+          <ExpandableMedia name={`${job.name} print image`}>
+            <img alt="" src={job.thumbnailPath} />
+          </ExpandableMedia>
         </div>
       ) : null}
       <div class="printer-body">

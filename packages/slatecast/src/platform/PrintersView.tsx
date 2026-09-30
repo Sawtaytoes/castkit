@@ -1,5 +1,6 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { useEffect, useState } from "preact/hooks"
+import { ExpandableMedia } from "../views/ExpandableMedia.tsx"
 import {
   FilamentControl,
   FilamentDetailsDialog,
@@ -12,8 +13,242 @@ import {
 import { CameraImage } from "./CameraImage.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { safeMediaUrl } from "./protocol.ts"
+import { usePrinterLayout } from "./usePrinterLayout.ts"
 
 type PrinterData = ContractData["printers.v1"]
+
+type PrinterCardProps = {
+  printer: PrinterData["printers"][number]
+  index: number
+  cameras?: ContractData["cameras.v1"]
+  settings: Record<string, unknown>
+  isControlEnabled: boolean
+  expandedId: string
+  setExpandedId: (id: string) => void
+  filamentDetailsId: string
+  setFilamentDetailsId: (id: string) => void
+  setConfirmation: (value: {
+    id: string
+    state: string
+    jobName: string
+    action: string
+  }) => void
+}
+
+const PrinterCard = ({
+  printer,
+  index,
+  cameras,
+  settings,
+  isControlEnabled,
+  expandedId,
+  setExpandedId,
+  filamentDetailsId,
+  setFilamentDetailsId,
+  setConfirmation,
+}: PrinterCardProps) => {
+  const properties = useDisplayProperties()
+  const camera = cameras?.cameras.find(
+    (candidate) => candidate.id === printer.id,
+  )
+  const cameraUrl =
+    settings.isCameraVisible !== false &&
+    properties.hasLiveCamera
+      ? safeMediaUrl(camera?.url ?? printer.cameraPath)
+      : null
+  const imageUrl =
+    cameraUrl ?? safeMediaUrl(printer.thumbnailPath)
+  const isCamera = Boolean(cameraUrl)
+  const cardRef = usePrinterLayout({
+    isCamera,
+    hasImage: Boolean(imageUrl),
+    contentKey: JSON.stringify([
+      printer,
+      isControlEnabled,
+      expandedId,
+    ]),
+  })
+  return (
+    <article
+      ref={cardRef}
+      class="printer-card"
+      data-intent={
+        printer.problemText
+          ? "danger"
+          : printer.state === "paused"
+            ? "warning"
+            : "neutral"
+      }
+      data-expanded={String(expandedId === printer.id)}
+    >
+      {imageUrl ? (
+        <ExpandableMedia
+          className="platform-printer-media"
+          name={`${printer.name} ${isCamera ? "camera" : "print image"}`}
+        >
+          {isCamera ? (
+            <CameraImage
+              url={imageUrl}
+              name={printer.name}
+              isLive={
+                camera?.isLive ?? printer.cameraIsLive
+              }
+              format={
+                camera?.format ?? printer.cameraFormat
+              }
+              className="platform-printer-image"
+            />
+          ) : (
+            <img
+              class="platform-printer-image"
+              src={imageUrl}
+              alt=""
+            />
+          )}
+        </ExpandableMedia>
+      ) : null}
+      <div class="printer-body">
+        <div class="printer-head">
+          {/* The same badge and name block as the device view: the
+                    badge counts the columns, and the name is the printer's
+                    own (the Bambuddy source strips its "1 - " ordering
+                    prefix). */}
+          <div class="printer-index" aria-hidden="true">
+            {index + 1}
+          </div>
+          <div class="printer-names">
+            <h2 class="printer-name">{printer.name}</h2>
+            {printer.nozzleText ? (
+              <div class="printer-meta">
+                {printer.nozzleText}
+              </div>
+            ) : null}
+          </div>
+          <span class="printer-state">{printer.state}</span>
+        </div>
+        <button
+          class="printer-job"
+          type="button"
+          onClick={() =>
+            setExpandedId(
+              expandedId === printer.id ? "" : printer.id,
+            )
+          }
+        >
+          {expandedId === printer.id
+            ? printer.jobName
+            : getPrinterJobTitle(printer) ||
+              printer.jobName}
+        </button>
+        {printer.problemText ? (
+          <p class="printer-problem">
+            {printer.problemText}
+          </p>
+        ) : null}
+        <div class="printer-band">
+          <div
+            class="printer-band-fill"
+            style={{
+              width: properties.hasProgress
+                ? `${printer.percent}%`
+                : "0%",
+            }}
+          />
+          <div class="printer-band-text">
+            {properties.hasRelativeTimes &&
+            printer.state !== "paused" &&
+            printer.remainingMinutes !== undefined ? (
+              <span class="printer-band-remaining">
+                {formatRemaining(printer.remainingMinutes)}{" "}
+                left
+              </span>
+            ) : null}
+            {properties.hasProgress ? (
+              <strong class="printer-percent">
+                {Math.round(printer.percent)}%
+              </strong>
+            ) : (
+              <span>Print in progress</span>
+            )}
+          </div>
+        </div>
+        <dl class="printer-metrics">
+          <div class="printer-metric">
+            <dt>Layer</dt>
+            <dd>
+              {printer.currentLayer ?? "—"}
+              {printer.totalLayers
+                ? ` / ${printer.totalLayers}`
+                : ""}
+            </dd>
+          </div>
+          <div class="printer-metric">
+            <dt>Finishes</dt>
+            <dd>
+              {printer.state !== "paused" &&
+              printer.finishAtMs
+                ? formatFinishTime({
+                    finishAtMs: printer.finishAtMs,
+                    nowMillis: Date.now(),
+                  })
+                : "—"}
+            </dd>
+          </div>
+          {printer.filamentText ||
+          printer.filaments?.length ? (
+            <div class="printer-metric is-filament">
+              <dt>Filament</dt>
+              <dd>
+                <FilamentControl
+                  color={printer.filamentColor}
+                  isExpanded={
+                    filamentDetailsId === printer.id
+                  }
+                  filaments={printer.filaments}
+                  onClick={() =>
+                    setFilamentDetailsId(printer.id)
+                  }
+                  text={printer.filamentText}
+                />
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+        {isControlEnabled ? (
+          <div class="platform-actions printer-actions">
+            {[
+              printer.state === "paused"
+                ? "resume"
+                : "pause",
+              "stop",
+            ].map((action) => (
+              <button
+                key={action}
+                class={`printer-action ${action === "stop" ? "is-stop" : "is-pause"}`}
+                data-castkit-target={`printer:${printer.id}:${printer.jobName}:${printer.state}:${action}`}
+                type="button"
+                onClick={() =>
+                  setConfirmation({
+                    id: printer.id,
+                    state: printer.state,
+                    jobName: printer.jobName,
+                    action,
+                  })
+                }
+              >
+                {action === "resume"
+                  ? "Resume"
+                  : action === "pause"
+                    ? "Pause"
+                    : "Stop"}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </article>
+  )
+}
 
 /** Native printer cards reuse the existing progress-card tokens and add optional cameras. */
 export const PrintersView = ({
@@ -32,7 +267,6 @@ export const PrintersView = ({
   ) => Promise<void>
   settings: Record<string, unknown>
 }) => {
-  const properties = useDisplayProperties()
   const [confirmation, setConfirmation] = useState<{
     id: string
     state: string
@@ -80,206 +314,21 @@ export const PrintersView = ({
   }
   return (
     <div class="platform-printers">
-      {data.printers.map((printer, index) => {
-        const camera = cameras?.cameras.find(
-          (candidate) => candidate.id === printer.id,
-        )
-        const imageUrl =
-          settings.isCameraVisible === false ||
-          !properties.hasLiveCamera
-            ? safeMediaUrl(printer.thumbnailPath)
-            : (safeMediaUrl(
-                camera?.url ?? printer.cameraPath,
-              ) ?? safeMediaUrl(printer.thumbnailPath))
-        return (
-          <article
-            key={printer.id}
-            class="printer-card"
-            data-intent={
-              printer.problemText
-                ? "danger"
-                : printer.state === "paused"
-                  ? "warning"
-                  : "neutral"
-            }
-            data-expanded={String(
-              expandedId === printer.id,
-            )}
-          >
-            {imageUrl &&
-            settings.isCameraVisible !== false &&
-            properties.hasLiveCamera &&
-            (camera || printer.cameraPath) ? (
-              <CameraImage
-                url={imageUrl}
-                name={printer.name}
-                isLive={
-                  camera?.isLive ?? printer.cameraIsLive
-                }
-                format={
-                  camera?.format ?? printer.cameraFormat
-                }
-                className="platform-printer-image"
-              />
-            ) : imageUrl ? (
-              <img
-                class="platform-printer-image"
-                src={imageUrl}
-                alt=""
-              />
-            ) : null}
-            <div class="printer-body">
-              <div class="printer-head">
-                {/* The same badge and name block as the device view: the
-                    badge counts the columns, and the name is the printer's
-                    own (the Bambuddy source strips its "1 - " ordering
-                    prefix). */}
-                <div
-                  class="printer-index"
-                  aria-hidden="true"
-                >
-                  {index + 1}
-                </div>
-                <div class="printer-names">
-                  <h2 class="printer-name">
-                    {printer.name}
-                  </h2>
-                  {printer.nozzleText ? (
-                    <div class="printer-meta">
-                      {printer.nozzleText}
-                    </div>
-                  ) : null}
-                </div>
-                <span class="printer-state">
-                  {printer.state}
-                </span>
-              </div>
-              <button
-                class="printer-job"
-                type="button"
-                onClick={() =>
-                  setExpandedId(
-                    expandedId === printer.id
-                      ? ""
-                      : printer.id,
-                  )
-                }
-              >
-                {expandedId === printer.id
-                  ? printer.jobName
-                  : getPrinterJobTitle(printer) ||
-                    printer.jobName}
-              </button>
-              {printer.problemText ? (
-                <p class="printer-problem">
-                  {printer.problemText}
-                </p>
-              ) : null}
-              <div class="printer-band">
-                <div
-                  class="printer-band-fill"
-                  style={{
-                    width: properties.hasProgress
-                      ? `${printer.percent}%`
-                      : "0%",
-                  }}
-                />
-                <div class="printer-band-text">
-                  {properties.hasRelativeTimes &&
-                  printer.state !== "paused" &&
-                  printer.remainingMinutes !== undefined ? (
-                    <span class="printer-band-remaining">
-                      {formatRemaining(
-                        printer.remainingMinutes,
-                      )}{" "}
-                      left
-                    </span>
-                  ) : null}
-                  {properties.hasProgress ? (
-                    <strong class="printer-percent">
-                      {Math.round(printer.percent)}%
-                    </strong>
-                  ) : (
-                    <span>Print in progress</span>
-                  )}
-                </div>
-              </div>
-              <dl class="printer-metrics">
-                <div class="printer-metric">
-                  <dt>Layer</dt>
-                  <dd>
-                    {printer.currentLayer ?? "—"}
-                    {printer.totalLayers
-                      ? ` / ${printer.totalLayers}`
-                      : ""}
-                  </dd>
-                </div>
-                <div class="printer-metric">
-                  <dt>Finishes</dt>
-                  <dd>
-                    {printer.state !== "paused" &&
-                    printer.finishAtMs
-                      ? formatFinishTime({
-                          finishAtMs: printer.finishAtMs,
-                          nowMillis: Date.now(),
-                        })
-                      : "—"}
-                  </dd>
-                </div>
-                {printer.filamentText ||
-                printer.filaments?.length ? (
-                  <div class="printer-metric is-filament">
-                    <dt>Filament</dt>
-                    <dd>
-                      <FilamentControl
-                        color={printer.filamentColor}
-                        isExpanded={
-                          filamentDetailsId === printer.id
-                        }
-                        filaments={printer.filaments}
-                        onClick={() =>
-                          setFilamentDetailsId(printer.id)
-                        }
-                        text={printer.filamentText}
-                      />
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-              {isControlEnabled ? (
-                <div class="platform-actions">
-                  {[
-                    printer.state === "paused"
-                      ? "resume"
-                      : "pause",
-                    "stop",
-                  ].map((action) => (
-                    <button
-                      key={action}
-                      data-castkit-target={`printer:${printer.id}:${printer.jobName}:${printer.state}:${action}`}
-                      type="button"
-                      onClick={() =>
-                        setConfirmation({
-                          id: printer.id,
-                          state: printer.state,
-                          jobName: printer.jobName,
-                          action,
-                        })
-                      }
-                    >
-                      {action === "resume"
-                        ? "Resume"
-                        : action === "pause"
-                          ? "Pause"
-                          : "Stop"}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </article>
-        )
-      })}
+      {data.printers.map((printer, index) => (
+        <PrinterCard
+          key={printer.id}
+          printer={printer}
+          index={index}
+          cameras={cameras}
+          settings={settings}
+          isControlEnabled={isControlEnabled}
+          expandedId={expandedId}
+          setExpandedId={setExpandedId}
+          filamentDetailsId={filamentDetailsId}
+          setFilamentDetailsId={setFilamentDetailsId}
+          setConfirmation={setConfirmation}
+        />
+      ))}
       {filamentDetailsPrinter ? (
         <FilamentDetailsDialog
           filaments={filamentDetailsPrinter.filaments}
