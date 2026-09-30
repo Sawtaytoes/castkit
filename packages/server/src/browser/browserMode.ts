@@ -1061,9 +1061,11 @@ export const createBrowserMode = ({
   const attach = (
     app: Hono,
     options?: {
-      getPlatformScreenId?: (
+      getPlatformTarget?: (
         deviceId: string,
-      ) => string | undefined
+      ) =>
+        | { kind: "view" | "screen"; id: string }
+        | undefined
     },
   ) => {
     const { injectWebSocket, upgradeWebSocket } =
@@ -1119,14 +1121,14 @@ export const createBrowserMode = ({
           404,
         )
       }
-      const screenId = options?.getPlatformScreenId?.(
+      const target = options?.getPlatformTarget?.(
         context.req.param("id") ?? "",
       )
-      if (screenId)
+      if (target)
         return context.html(
           buildPlatformPage().replace(
             "</body>",
-            `<script id="castkit-platform-target" type="application/json">${JSON.stringify({ kind: "screen", id: screenId, deviceId: context.req.param("id") }).replaceAll("<", "\\u003c")}</script></body>`,
+            `<script id="castkit-platform-target" type="application/json">${JSON.stringify({ ...target, deviceId: context.req.param("id") }).replaceAll("<", "\\u003c")}</script></body>`,
           ),
         )
       return context.html(buildDevicePageHtml({ snapshot }))

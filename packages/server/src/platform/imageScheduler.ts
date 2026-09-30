@@ -23,17 +23,19 @@ export const createPlatformImageScheduler = ({
     if (lifecycle.isDisposed || lifecycle.isBusy) return
     const candidate = deviceIds
       .map((deviceId) => {
-        const screenId =
-          platform.store.get().deviceScreens[deviceId]
-        const target = screenId
-          ? platform.getTarget({
-              kind: "screen",
-              id: screenId,
-            })
+        const deviceTarget =
+          platform.getDeviceTarget(deviceId)
+        const target = deviceTarget
+          ? platform.getTarget(deviceTarget)
           : null
         const display =
           platform.getDeviceProperties(deviceId)
-        if (!target || !display) return null
+        if (!target || !display) {
+          // Back on its own views: the next platform target is a new view,
+          // however soon it comes.
+          states.delete(deviceId)
+          return null
+        }
         const capabilities =
           getPlatformDisplayCapabilities(display)
         const channels = platform.channelsForView(
