@@ -7,6 +7,8 @@ import {
 import userEvent from "@testing-library/user-event"
 import { expect, test, vi } from "vitest"
 import { page } from "vitest/browser"
+import cameraPicture from "../../../../assets/sample-photos/printer-camera-chamber.jpg"
+import printPicture from "../../../../assets/sample-photos/printer-plate-canisters.png"
 import { compositionFixture } from "./fixtures.ts"
 import { PrintersView } from "./PrintersView.tsx"
 import "../styles.css"
@@ -14,7 +16,6 @@ import "./platform.css"
 
 const printerData = compositionFixture.channels.prints
   ?.data as ContractData["printers.v1"]
-const picture = "/sample-photos/printer-camera-chamber.jpg"
 const mount = async ({
   width,
   height,
@@ -33,8 +34,8 @@ const mount = async ({
         data={{
           printers: printerData.printers.map((printer) => ({
             ...printer,
-            thumbnailPath: picture,
-            cameraPath: picture,
+            thumbnailPath: printPicture,
+            cameraPath: cameraPicture,
           })),
         }}
         isControlEnabled
@@ -44,6 +45,12 @@ const mount = async ({
     </main>,
   )
   await document.fonts.ready
+  await waitFor(() => {
+    const image = document.querySelector<HTMLImageElement>(
+      ".platform-printer-image",
+    )
+    expect(image?.naturalWidth).toBeGreaterThan(0)
+  })
   return onAction
 }
 
@@ -174,4 +181,33 @@ test("a short split panel keeps the printer heading and controls inside its card
         .getBoundingClientRect().bottom,
     ).toBeLessThanOrEqual(bounds.bottom)
   })
+})
+
+test("a loaded static image leaves tall-window facts visible before and after enlargement", async () => {
+  await mount({
+    width: 1814,
+    height: 1376,
+    isCamera: false,
+  })
+  const user = userEvent.setup()
+  const checkFit = () => {
+    expect(
+      document
+        .querySelector(".printer-body")
+        ?.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(1376)
+    expect(
+      document
+        .querySelector(".platform-printer-image")
+        ?.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(1376)
+  }
+  await waitFor(checkFit)
+  await user.click(
+    screen.getByRole("button", {
+      name: "Enlarge Printer One print image",
+    }),
+  )
+  await user.keyboard("{Escape}")
+  await waitFor(checkFit)
 })
