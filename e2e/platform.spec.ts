@@ -185,3 +185,108 @@ test("a temporary view takes over a display's own page and hands it back", async
     page.locator("[data-castkit-ready]"),
   ).toBeVisible()
 })
+
+test("public printer views share one PIN session and explain disabled controls", async ({
+  page,
+  context,
+  request,
+}) => {
+  await publishPrinters(request)
+  await page.goto("/view/lab")
+  await expect(
+    page.getByText("Read-only", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Sign in to control", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", {
+      name: "Pause",
+      exact: true,
+    }),
+  ).toBeDisabled()
+  await expect(
+    page.getByRole("button", { name: "Stop", exact: true }),
+  ).toBeDisabled()
+  const other = await context.newPage()
+  await other.goto("/screen/desktop")
+  await expect(
+    other.getByRole("button", {
+      name: "Pause",
+      exact: true,
+    }),
+  ).toBeDisabled()
+  await page
+    .getByRole("button", { name: "Sign in", exact: true })
+    .click()
+  const dialog = page.getByRole("dialog", {
+    name: "Sign in to control",
+  })
+  await dialog.getByLabel("PIN").fill("0000")
+  await dialog
+    .getByRole("button", { name: "Sign in", exact: true })
+    .click()
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "The management PIN was not accepted.",
+  )
+  await dialog.getByLabel("PIN").fill("2468")
+  await dialog
+    .getByRole("button", { name: "Sign in", exact: true })
+    .click()
+  await expect(dialog).not.toBeVisible()
+  await expect(
+    page.getByText("Controls unlocked", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", {
+      name: "Pause",
+      exact: true,
+    }),
+  ).toBeEnabled()
+  await expect(
+    other.getByRole("button", {
+      name: "Pause",
+      exact: true,
+    }),
+  ).toBeEnabled()
+  await page.goto("/view/private-lab")
+  await expect(
+    page.getByText("Controls unlocked", { exact: true }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", { name: "Pause", exact: true })
+    .click()
+  await expect(
+    page.getByRole("alertdialog", {
+      name: "Confirm printer action",
+    }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", { name: "Go back", exact: true })
+    .click()
+  await other
+    .getByRole("button", { name: "Sign out", exact: true })
+    .click()
+  await expect(
+    other.getByText("Read-only", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    other.getByRole("button", {
+      name: "Stop",
+      exact: true,
+    }),
+  ).toBeDisabled()
+  await expect(
+    page.getByRole("button", {
+      name: "Unlock",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await page.goto("/view/lab")
+  await expect(
+    page.getByRole("button", {
+      name: "Pause",
+      exact: true,
+    }),
+  ).toBeDisabled()
+})

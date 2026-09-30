@@ -21,6 +21,104 @@ export const useDisplay = (target: DisplayTarget) => {
   const [revision, setRevision] = useState(0)
   const [isPending, setIsPending] = useState(false)
   const actionPending = useRef(false)
+  const authChannel = useRef<BroadcastChannel | null>(null)
+  useEffect(() => {
+    if (isPreview) {
+      return
+    }
+    const refresh = () =>
+      setRevision((current) => current + 1)
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refresh()
+      }
+    }
+    const channel = new BroadcastChannel("castkit-access")
+    authChannel.current = channel
+    channel.onmessage = refresh
+    window.addEventListener("focus", refresh)
+    document.addEventListener(
+      "visibilitychange",
+      onVisibility,
+    )
+    return () => {
+      channel.close()
+      window.removeEventListener("focus", refresh)
+      document.removeEventListener(
+        "visibilitychange",
+        onVisibility,
+      )
+    }
+  }, [isPreview])
+  const signIn = async (pin: string) => {
+    if (isPreview) {
+      return false
+    }
+    setIsPending(true)
+    setError("")
+    try {
+      const response = await fetch("/api/access/login", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      })
+      if (!response.ok) {
+        throw new Error(
+          response.status === 429
+            ? "Wait before trying the PIN again."
+            : "The management PIN was not accepted.",
+        )
+      }
+      setRevision((current) => current + 1)
+      authChannel.current?.postMessage("changed")
+      return true
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Sign-in failed.",
+      )
+      return false
+    } finally {
+      setIsPending(false)
+    }
+  }
+  const signOut = async () => {
+    if (isPreview) {
+      return
+    }
+    setIsPending(true)
+    try {
+      const response = await fetch("/api/access/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      })
+      if (!response.ok) {
+        throw new Error("Could not sign out.")
+      }
+      setSnapshot((current) =>
+        current
+          ? {
+              ...current,
+              canControl: false,
+              isAuthenticated: false,
+            }
+          : null,
+      )
+      setRevision((current) => current + 1)
+      authChannel.current?.postMessage("changed")
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Sign-out failed.",
+      )
+    } finally {
+      setIsPending(false)
+    }
+  }
+
   const deviceQuery = target.deviceId
     ? `?device=${encodeURIComponent(target.deviceId)}`
     : ""
@@ -202,6 +300,7 @@ export const useDisplay = (target: DisplayTarget) => {
         )
       }
       setRevision((current) => current + 1)
+      authChannel.current?.postMessage("changed")
     } catch (failure) {
       setError(
         failure instanceof Error
@@ -332,6 +431,8 @@ export const useDisplay = (target: DisplayTarget) => {
     error,
     name,
     unlock,
+    signIn,
+    signOut,
     lock,
     requestAction,
     selectView,

@@ -190,7 +190,7 @@ test("a tab carries a dot while its view has something active", () => {
   ).toBeNull()
 })
 
-test("stale or failed sources keep their last value and remove controls", () => {
+test("stale or failed sources keep their last value and disable controls", () => {
   const snapshot = {
     ...compositionFixture,
     channels: {
@@ -214,11 +214,11 @@ test("stale or failed sources keep their last value and remove controls", () => 
   ).toBeVisible()
   expect(screen.getByText("Printer One")).toBeVisible()
   expect(
-    screen.queryByRole("button", { name: "Pause" }),
-  ).toBeNull()
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
 })
 
-test("a connection loss removes controls even when cached sources were ready", () => {
+test("a connection loss disables controls even when cached sources were ready", () => {
   render(
     <DisplayComposition
       snapshot={compositionFixture}
@@ -227,8 +227,8 @@ test("a connection loss removes controls even when cached sources were ready", (
     />,
   )
   expect(
-    screen.queryByRole("button", { name: "Pause" }),
-  ).toBeNull()
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
 })
 
 test("Rip Deck details preserve cancel confirmation and prevent tray operations while ripping", async () => {
@@ -844,8 +844,8 @@ test("a preview receives live updates without exposing device actions or screen 
     name: "Updated preview",
   })
   expect(
-    screen.queryByRole("button", { name: "Pause" }),
-  ).toBeNull()
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
   expect(
     screen.queryByRole("button", { name: "Lock" }),
   ).toBeNull()

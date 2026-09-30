@@ -24,6 +24,7 @@ type PrinterCardProps = {
   cameras?: ContractData["cameras.v1"]
   settings: Record<string, unknown>
   isControlEnabled: boolean
+  controlDisabledReason?: string
   expandedId: string
   setExpandedId: (id: string) => void
   filamentDetailsId: string
@@ -45,6 +46,7 @@ const PrinterCard = ({
   cameras,
   settings,
   isControlEnabled,
+  controlDisabledReason,
   expandedId,
   setExpandedId,
   filamentDetailsId,
@@ -73,6 +75,7 @@ const PrinterCard = ({
     contentKey: JSON.stringify([
       printer,
       isControlEnabled,
+      controlDisabledReason,
       expandedId,
     ]),
   })
@@ -191,6 +194,11 @@ const PrinterCard = ({
             )}
           </div>
         </div>
+        {!isControlEnabled ? (
+          <p class="printer-control-status" role="status">
+            {controlDisabledReason ?? "Controls disabled"}
+          </p>
+        ) : null}
         {isSettled ? (
           <>
             {clearError ? (
@@ -198,17 +206,15 @@ const PrinterCard = ({
                 {clearError}
               </p>
             ) : null}
-            {isControlEnabled ? (
-              <button
-                class="printer-clear"
-                type="button"
-                disabled={isClearing}
-                data-castkit-target={`printer-clear-plate:${printer.id}`}
-                onClick={onClear}
-              >
-                {isClearing ? "Clearing…" : "Clear plate"}
-              </button>
-            ) : null}
+            <button
+              class="printer-clear"
+              type="button"
+              disabled={!isControlEnabled || isClearing}
+              data-castkit-target={`printer-clear-plate:${printer.id}`}
+              onClick={onClear}
+            >
+              {isClearing ? "Clearing…" : "Clear plate"}
+            </button>
           </>
         ) : (
           <dl class="printer-metrics">
@@ -254,7 +260,7 @@ const PrinterCard = ({
             ) : null}
           </dl>
         )}
-        {!isSettled && isControlEnabled ? (
+        {!isSettled ? (
           <div class="platform-actions printer-actions">
             {[
               printer.state === "paused"
@@ -267,6 +273,13 @@ const PrinterCard = ({
                 class={`printer-action ${action === "stop" ? "is-stop" : "is-pause"}`}
                 data-castkit-target={`printer:${printer.id}:${printer.jobName}:${printer.state}:${action}`}
                 type="button"
+                disabled={!isControlEnabled}
+                title={
+                  !isControlEnabled
+                    ? (controlDisabledReason ??
+                      "Controls disabled")
+                    : undefined
+                }
                 onClick={() =>
                   setConfirmation({
                     id: printer.id,
@@ -295,12 +308,14 @@ export const PrintersView = ({
   data,
   cameras,
   isControlEnabled,
+  controlDisabledReason,
   onAction,
   settings,
 }: {
   data: PrinterData
   cameras?: ContractData["cameras.v1"]
   isControlEnabled: boolean
+  controlDisabledReason?: string
   onAction: (
     action: string,
     payload?: Record<string, unknown>,
@@ -387,6 +402,7 @@ export const PrintersView = ({
           cameras={cameras}
           settings={settings}
           isControlEnabled={isControlEnabled}
+          controlDisabledReason={controlDisabledReason}
           expandedId={expandedId}
           setExpandedId={setExpandedId}
           filamentDetailsId={filamentDetailsId}
