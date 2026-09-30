@@ -152,3 +152,36 @@ test("management uses the PIN session while the root and API reference remain pu
     200,
   )
 })
+
+test("a temporary view takes over a display's own page and hands it back", async ({
+  page,
+  request,
+}) => {
+  await publishPrinters(request)
+  await page.goto("/d/e2e-preview")
+  await expect(
+    page.locator("[data-castkit-ready]"),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Bracket", { exact: true }),
+  ).toHaveCount(0)
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/e2e-preview/override/set",
+      payload: {
+        viewId: "lab",
+        durationSeconds: 3,
+        priority: 100,
+      },
+    },
+  })
+  await expect(
+    page.getByText("Bracket", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Bracket", { exact: true }),
+  ).toHaveCount(0, { timeout: 10_000 })
+  await expect(
+    page.locator("[data-castkit-ready]"),
+  ).toBeVisible()
+})

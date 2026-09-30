@@ -338,6 +338,27 @@ export const buildPlatformOpenApi = () => {
         management,
       ),
     },
+    "/api/manage/platform/devices/{id}/show": {
+      parameters: [pathId],
+      post: post(
+        "Show a view on one physical display for a while. A slow display lengthens the time to ten repaints; a super-slow display refuses. The response carries the seconds granted.",
+        {
+          viewId: { type: "string" },
+          durationSeconds: {
+            type: "number",
+            exclusiveMinimum: 0,
+            maximum: 86400,
+          },
+          priority: {
+            type: "number",
+            minimum: 0,
+            maximum: 1000,
+          },
+        },
+        ["viewId", "durationSeconds"],
+        management,
+      ),
+    },
     "/api/manage/platform/sources/{id}/discover": {
       parameters: [pathId],
       post: {

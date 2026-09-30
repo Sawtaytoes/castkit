@@ -32,6 +32,7 @@ import {
   parseNowPlayingPayload,
   parseWeatherPayload,
 } from "./mqtt/viewDataPayloads.ts"
+import { watchDeviceTargets } from "./platform/deviceTargetWatcher.ts"
 import { createPlatformImageScheduler } from "./platform/imageScheduler.ts"
 import { createPlatform } from "./platform/platform.ts"
 import { attachPlatformSockets } from "./platform/platformSockets.ts"
@@ -468,15 +469,9 @@ const main = async () => {
 
   const pushController = createPushController({
     getPlatformSelection: (deviceId) => {
-      const screenId =
-        platform.store.get().deviceScreens[deviceId]
-      return screenId
-        ? JSON.stringify(
-            platform.getTarget({
-              kind: "screen",
-              id: screenId,
-            })?.view,
-          )
+      const target = platform.getDeviceTarget(deviceId)
+      return target
+        ? JSON.stringify(platform.getTarget(target)?.view)
         : undefined
     },
     renderPlatform: async ({
@@ -484,14 +479,13 @@ const main = async () => {
       margin,
       adjustments,
     }) => {
-      const screenId =
-        platform.store.get().deviceScreens[device.id]
-      if (!screenId) return null
+      const target = platform.getDeviceTarget(device.id)
+      if (!target) return null
       return renderService.renderPage({
         device,
         margin,
         adjustments,
-        url: `http://127.0.0.1:${config.port}/screen/${encodeURIComponent(screenId)}?device=${encodeURIComponent(device.id)}&capture=1`,
+        url: `http://127.0.0.1:${config.port}/${target.kind}/${encodeURIComponent(target.id)}?device=${encodeURIComponent(device.id)}&capture=1`,
         headers: {
           "x-castkit-render-key": platform.renderKey,
         },
@@ -2269,31 +2263,19 @@ const main = async () => {
   })
   const { injectWebSocket, upgradeWebSocket } =
     browserMode.attach(app, {
-      getPlatformScreenId: (deviceId) =>
-        platform.store.get().deviceScreens[deviceId],
+      getPlatformTarget: platform.getDeviceTarget,
     })
   attachPlatformSockets({ app, platform, upgradeWebSocket })
-  const assignments = {
-    value: JSON.stringify(
-      platform.store.get().deviceScreens,
+  watchDeviceTargets({
+    platform,
+    browserDeviceIds: config.browserDevices.map(
+      (device) => device.id,
     ),
-  }
-  platform.subscribe(() => {
-    const current = JSON.stringify(
-      platform.store.get().deviceScreens,
-    )
-    if (current !== assignments.value) {
-      const previous = JSON.parse(
-        assignments.value,
-      ) as Record<string, string>
-      new Set([
-        ...Object.keys(previous),
-        ...Object.keys(platform.store.get().deviceScreens),
-      ]).forEach((deviceId) => {
-        browserMode.reloadDevice(deviceId)
-      })
-      assignments.value = current
-    }
+    imageDeviceIds: config.devices.map(
+      (device) => device.id,
+    ),
+    onBrowserTargetChanged: browserMode.reloadDevice,
+    onImageTargetRemoved: pushDeviceLogged,
   })
   const server = serve({
     fetch: app.fetch,

@@ -9,6 +9,7 @@ import { serve } from "@hono/node-server"
 import { createApp } from "../packages/server/src/app.ts"
 import { createBrowserMode } from "../packages/server/src/browser/browserMode.ts"
 import { loadConfig } from "../packages/server/src/config/env.ts"
+import { watchDeviceTargets } from "../packages/server/src/platform/deviceTargetWatcher.ts"
 import { createPlatform } from "../packages/server/src/platform/platform.ts"
 import { attachPlatformSockets } from "../packages/server/src/platform/platformSockets.ts"
 import { hashPin } from "../packages/server/src/platform/platformStore.ts"
@@ -262,10 +263,18 @@ export const startTestServer = async ({
 
   const { injectWebSocket, upgradeWebSocket } =
     browserMode.attach(app, {
-      getPlatformScreenId: (deviceId) =>
-        platform.store.get().deviceScreens[deviceId],
+      getPlatformTarget: platform.getDeviceTarget,
     })
   attachPlatformSockets({ app, platform, upgradeWebSocket })
+  watchDeviceTargets({
+    platform,
+    browserDeviceIds: config.browserDevices.map(
+      (device) => device.id,
+    ),
+    imageDeviceIds: [],
+    onBrowserTargetChanged: browserMode.reloadDevice,
+    onImageTargetRemoved: () => {},
+  })
   const server = serve({ fetch: app.fetch, port })
   injectWebSocket(server)
 
