@@ -64,7 +64,7 @@ const renderInPanel = ({
   repaint,
   settings,
 }: {
-  data?: ReturnType<typeof buildUsage>
+  data?: Parameters<typeof AiUsageView>[0]["data"]
   panelHeight: number
   repaint: "instant" | "slow" | "super-slow"
   settings?: Record<string, unknown>
@@ -199,6 +199,54 @@ test("a live panel counts down only within the day, never in hundreds of hours",
    * on a live panel and still fails the reader, who cannot hold 94 hours.
    */
   expect(screen.getAllByText(/Resets in/)).toHaveLength(1)
+})
+
+test("a letterbox panel lays its providers out in columns and grows its type", () => {
+  vi.spyOn(
+    HTMLElement.prototype,
+    "clientWidth",
+    "get",
+  ).mockReturnValue(1360)
+  const fiveProviders = {
+    providers: [
+      "Claude",
+      "Codex",
+      "Codex 2",
+      "Grok",
+      "Cursor",
+    ].map((name) => ({
+      id: name.toLowerCase().replace(" ", "_"),
+      name,
+      isOk: true,
+      windows: [
+        {
+          id: "weekly",
+          label: "Weekly",
+          periodHours: 168,
+          percentUsed: 40,
+        },
+      ],
+    })),
+  }
+  const { container } = renderInPanel({
+    data: fiveProviders,
+    panelHeight: 480,
+    repaint: "slow",
+  })
+  expect(
+    container.querySelectorAll(".ai-usage-column"),
+  ).toHaveLength(3)
+  fiveProviders.providers.forEach((provider) => {
+    expect(screen.getByText(provider.name)).toBeVisible()
+  })
+  expect(screen.queryByText(/more limits?/)).toBeNull()
+  const root =
+    container.querySelector<HTMLElement>(".ai-usage")
+  expect(
+    Number(
+      root?.style.getPropertyValue("--ai-usage-scale"),
+    ),
+  ).toBeGreaterThan(1.5)
 })
 
 test("an unavailable provider keeps its row and says why", () => {
