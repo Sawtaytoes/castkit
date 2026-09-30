@@ -125,11 +125,41 @@ scanned is outlined and carries the result, and the other cards dim but stay.
 On a smaller panel the whole panel goes to that child: the name, the result,
 the task, and the total against the goal.
 
-**A panel too slow for the scan window never shows a scan.** A fifteen-second
-result has a fifteen-second life, and the freshness rule needs ten times the
-repaint time. A `slow` or `super-slow` panel shows the board or the rows, whose
-totals change only when a card is scanned. A running timer is stated
-absolutely — `Reading since 4:05 PM` — so it stays true on every panel.
+**The scan window is the display's temporary-view time.** A scan result is a
+value with a short life, so the freshness rule sets how long it stays:
+`getTemporaryViewSeconds` in `@castkit/shared/panels/repaint`, the same rule
+that sets how long a temporary view stays on a display. An `instant` or `fast`
+panel keeps `scanSeconds`. A `slow` panel lengthens it to ten repaints, thirty
+seconds. A `super-slow` panel never shows a scan: it shows the board or the
+rows, whose totals change only when a card is scanned. A running timer is
+stated absolutely — `Reading since 4:05 PM` — so it stays true on every panel.
+
+**Only an instant panel moves.** On an `instant` panel a scan that earned points
+plays in the child's card or across the whole small panel:
+
+1. A chip with the points (`+20`) appears above the old total.
+2. The chip drops into the total. The old total squashes out, and the new total
+   bounces in. The goal bar grows from where it was.
+3. The scan that reaches today's goal throws confetti, and **Goal reached**
+   pops in.
+4. A scan after the goal flips the total with a gold glow inside a ring of
+   stars.
+
+On a small panel the total is the hero while this plays, and the scan's line
+(`+20` and the task) arrives under it when the number settles. A `fast` or
+`slow` panel draws the same result as a still frame: the points the scan earned,
+the task, and the new total. A refused scan and a timer start earn nothing, so
+they do not move the total on any panel.
+
+Every motion element's resting style is the end of its motion. A panel with
+motion switched off — the blanket rule on
+`html:not([data-repaint="instant"])`, or `prefers-reduced-motion` — therefore
+shows the final total and never a half-played frame. The confetti and the stars
+are a fixed pattern (the golden angle), not random, so screenshots stay stable.
+
+![A goal scan on a 480 x 480 instant panel, frame by frame, from fixture data](images/2026-09-29-kids-points-goal-motion-480x480.png)
+
+![A scan after the goal on a 480 x 480 instant panel, from fixture data](images/2026-09-29-kids-points-bonus-motion-480x480.png)
 
 **The identity color is a stripe and a bar, never type.** An identity color is
 chosen to match printed cards, and a pale one is unreadable as text on a light
@@ -139,11 +169,19 @@ scheme. On a monochrome panel every stripe and bar is the body ink.
 
 CastKit does not know which room a reader is in; the house does. The pattern:
 
-1. Give each room's screen a view whose Kids Points channel lists that room's
-   reader in `readers`.
-2. When a scan result arrives, send that room's screen a temporary override:
-   `<base>/screens/<screen-id>/view/set` with
-   `{"viewId":"<view-id>","durationSeconds":15,"priority":100}`.
+1. Give each room a view whose Kids Points channel lists that room's reader in
+   `readers`.
+2. When a scan result arrives, send each display in that room a temporary
+   view: `<base>/<device-id>/override/set` with
+   `{"viewId":"<view-id>","durationSeconds":15,"priority":100}`. A browser
+   screen with no physical display takes the screen override instead:
+   `<base>/screens/<screen-id>/view/set` with the same payload.
+
+The display decides the rest. An `instant` or `fast` display keeps fifteen
+seconds, a `slow` one takes thirty, and a `super-slow` one refuses and keeps
+what it was showing. The automation can therefore send the view to every
+display in the room without knowing what each display is. See
+[temporary views on a display](display-platform.md#a-temporary-view-on-one-display).
 
 The override brings the view up; the channel's reader filter decides which
 child it shows. A board that is always on a large panel needs no override —

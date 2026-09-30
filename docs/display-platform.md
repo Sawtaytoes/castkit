@@ -21,6 +21,33 @@ CastKit rejects compositions whose renderer, repaint requirement, or value lifet
 
 The legacy device View command can select an assigned composition when its ID or name matches, or when exactly one allowed single-panel composition has the matching view specification. For unambiguous automation, use the named screen command.
 
+### A temporary view on one display
+
+Any physical display can show a platform view for a while, whether or not it is
+assigned a screen. Send the display, not a screen:
+
+```text
+<base>/<device-id>/override/set
+{"viewId":"kids-points-kitchen","durationSeconds":15,"priority":100}
+```
+
+The equivalent HTTP endpoint is
+`POST /api/manage/platform/devices/<device-id>/show`, which answers with the
+seconds granted. The highest priority wins and a more recent request wins a tie,
+as for a screen. When the last override expires, the display returns to its
+assigned screen, or to its own view system: a browser display reloads its
+page, and an image display is sent a frame of its own view. Nothing is saved; a
+restart ends every temporary view.
+
+The display sets the length. A temporary view is a value whose lifetime is the
+time it stays up, so the freshness rule applies to it: it lasts at least ten
+repaints. An `instant` or `fast` display keeps the requested time, a `slow`
+display lengthens fifteen seconds to thirty, and a `super-slow` display refuses
+the request and keeps its view, because it would spend most of a minute in two
+full flashes. The view must also be compatible with the display, exactly as for
+an assignment. A PIN-protected view on a browser display still needs that
+display's grant.
+
 ## Screen automation
 
 With MQTT enabled, each screen publishes a Home Assistant select entity. Its command topic is `<base>/screens/<id>/view/set`. Send a view ID as plain text for a persistent selection. For a temporary override, send:

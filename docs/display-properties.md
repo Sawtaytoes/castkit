@@ -94,6 +94,10 @@ it.
 - **Which fields inside a view render.** Now Playing on a `slow` panel prints
   the track, the artist and the album, and prints no position bar. The same view
   on an `instant` panel prints the bar and the running position.
+- **How long a temporary view stays, and whether it is allowed.** A view
+  sent to a display for a while lasts at least ten repaints: thirty seconds on
+  a `slow` panel. A `super-slow` panel refuses one. See
+  [a temporary view on one display](display-platform.md#a-temporary-view-on-one-display).
 - **Whether an animation is allowed at all.** Only `instant` may animate. On
   `fast` an animation is a stutter; below that it is a flicker. Enforced since
   2026-09-14 by a blanket rule on `html:not([data-repaint="instant"])`, so a

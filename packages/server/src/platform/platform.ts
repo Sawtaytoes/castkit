@@ -4,12 +4,14 @@ import type {
   ViewDefinition,
 } from "@castkit/sdk/contracts"
 import type { MqttPublisher } from "@castkit/shared/mqtt/publisher"
+import { getTemporaryViewSeconds } from "@castkit/shared/panels/repaint"
 import type {
   BrowserDeviceConfig,
   ConfiguredDevice,
 } from "../config/env.ts"
 import { getRepaintForDevice } from "../views/viewsForDevice.ts"
 import { createChannelHub } from "./channelHub.ts"
+import { createDeviceOverrides } from "./deviceOverrides.ts"
 import { getDisplayCompatibility } from "./displayCompatibility.ts"
 import { createPausedMusic } from "./pausedMusic.ts"
 import { createPlatformAccess } from "./platformAccess.ts"
@@ -97,6 +99,7 @@ export const createPlatform = async ({
     renderKey,
   })
   const screens = createScreenController({ store })
+  const deviceOverrides = createDeviceOverrides()
   const listeners = new Set<() => void>()
   const notify = () =>
     listeners.forEach((listener) => {
@@ -186,6 +189,7 @@ export const createPlatform = async ({
       ),
     )
   })
+  deviceOverrides.subscribe(notify)
   await publisher.subscribe({
     topics: [`${topicPrefix}/screens/+/view/set`],
     handler: async (message) => {
@@ -240,6 +244,37 @@ export const createPlatform = async ({
       } catch (error) {
         console.warn(
           "[platform] Ignored invalid screen command",
+          error instanceof Error
+            ? error.message
+            : "invalid JSON",
+        )
+      }
+    },
+  })
+  // The broker hands every message to every handler, so this one filters its
+  // own topic, as the screen handler above does.
+  const overrideSuffix = "/override/set"
+  await publisher.subscribe({
+    topics: [`${topicPrefix}/+${overrideSuffix}`],
+    handler: async (message) => {
+      if (
+        !message.topic.startsWith(`${topicPrefix}/`) ||
+        !message.topic.endsWith(overrideSuffix)
+      )
+        return
+      const deviceId = message.topic.slice(
+        topicPrefix.length + 1,
+        -overrideSuffix.length,
+      )
+      if (!deviceId || deviceId.includes("/")) return
+      try {
+        showOnDevice({
+          deviceId,
+          ...JSON.parse(message.payload),
+        })
+      } catch (error) {
+        console.warn(
+          `[platform] Ignored display override for ${deviceId}`,
           error instanceof Error
             ? error.message
             : "invalid JSON",
@@ -305,6 +340,81 @@ export const createPlatform = async ({
       ? { view, screen }
       : null
   }
+  /**
+   * What a physical display shows through the platform: a temporary view
+   * first, then its assigned screen. `undefined` means its own view system.
+   */
+  const getDeviceTarget = (
+    deviceId: string,
+  ):
+    | { kind: "view" | "screen"; id: string }
+    | undefined => {
+    const viewId = deviceOverrides.getViewId(deviceId)
+    if (
+      viewId &&
+      store.get().views.some((view) => view.id === viewId)
+    )
+      return { kind: "view", id: viewId }
+    const screenId = store.get().deviceScreens[deviceId]
+    return screenId
+      ? { kind: "screen", id: screenId }
+      : undefined
+  }
+  /**
+   * Put a view on one display for a while, whatever it normally shows.
+   *
+   * The display must be able to draw the view, and the time is the display's
+   * to set: see `getTemporaryViewSeconds`. Returns the seconds granted.
+   */
+  const showOnDevice = ({
+    deviceId,
+    viewId,
+    durationSeconds,
+    priority,
+  }: {
+    deviceId: string
+    viewId: unknown
+    durationSeconds: unknown
+    priority?: unknown
+  }) => {
+    const display = getDeviceProperties(deviceId)
+    if (!display) throw new Error("Unknown display")
+    const view = store
+      .get()
+      .views.find((item) => item.id === viewId)
+    if (!view) throw new Error("Unknown view")
+    if (
+      typeof durationSeconds !== "number" ||
+      !(durationSeconds > 0) ||
+      (priority !== undefined &&
+        typeof priority !== "number")
+    )
+      throw new Error(
+        "Invalid display override duration or priority",
+      )
+    const compatibility = getDisplayCompatibility({
+      view,
+      catalog,
+      display,
+    })
+    if (!compatibility.isCompatible)
+      throw new Error(compatibility.reasons.join(" "))
+    const seconds = getTemporaryViewSeconds({
+      repaint: compatibility.capabilities.repaint,
+      requestedSeconds: durationSeconds,
+    })
+    if (seconds === undefined)
+      throw new Error(
+        "A super-slow display does not take a temporary view.",
+      )
+    deviceOverrides.show({
+      deviceId,
+      viewId: view.id,
+      durationSeconds: seconds,
+      priority,
+    })
+    return seconds
+  }
   const channelsForView = (view: ViewDefinition) =>
     Object.fromEntries(
       Array.from(
@@ -336,6 +446,9 @@ export const createPlatform = async ({
     screens,
     runtime,
     getTarget,
+    getDeviceTarget,
+    showOnDevice,
+    deviceOverrides,
     channelsForView,
     refresh,
     notify,
@@ -349,6 +462,7 @@ export const createPlatform = async ({
     dispose: () => {
       const saved = runtime.dispose()
       screens.dispose()
+      deviceOverrides.dispose()
       pausedMusic.dispose()
       hub.dispose()
       listeners.clear()

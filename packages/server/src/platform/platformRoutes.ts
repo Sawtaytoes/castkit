@@ -53,10 +53,12 @@ export const getDisplay = ({
   id: string
 }) => {
   const deviceId = context.req.query("device")
+  const deviceTarget = deviceId
+    ? platform.getDeviceTarget(deviceId)
+    : undefined
   if (
     deviceId &&
-    (kind !== "screen" ||
-      platform.store.get().deviceScreens[deviceId] !== id)
+    (deviceTarget?.kind !== kind || deviceTarget.id !== id)
   )
     return {
       error: "device-assignment-changed",
@@ -393,16 +395,14 @@ export const attachPlatformRoutes = ({
     return context.json({ ok: true })
   })
   app.use("/api/devices/:id/*", async (context, next) => {
-    const screenId =
-      store.get().deviceScreens[
-        context.req.param("id") ?? ""
-      ]
-    if (screenId) {
+    const target = platform.getDeviceTarget(
+      context.req.param("id") ?? "",
+    )
+    if (target) {
       const result = getDisplay({
         platform,
         context,
-        kind: "screen",
-        id: screenId,
+        ...target,
       })
       if (!result.snapshot)
         return context.json(result, result.status)
@@ -965,6 +965,36 @@ export const attachPlatformRoutes = ({
           ...parsed.data,
         })
         return context.json({ ok: true })
+      } catch (error) {
+        return context.json({ error: getError(error) }, 400)
+      }
+    },
+  )
+  app.post(
+    "/api/manage/platform/devices/:id/show",
+    async (context) => {
+      const parsed = z
+        .object({
+          viewId: z.string(),
+          durationSeconds: z.number().positive(),
+          priority: z.number().optional(),
+        })
+        .safeParse(
+          await context.req.json().catch(() => null),
+        )
+      if (!parsed.success)
+        return context.json(
+          { error: "Invalid display override" },
+          400,
+        )
+      try {
+        return context.json({
+          ok: true,
+          durationSeconds: platform.showOnDevice({
+            deviceId: context.req.param("id"),
+            ...parsed.data,
+          }),
+        })
       } catch (error) {
         return context.json({ error: getError(error) }, 400)
       }

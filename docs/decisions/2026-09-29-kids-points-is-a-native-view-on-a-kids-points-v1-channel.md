@@ -4,7 +4,7 @@
 - **Date:** 2026-09-29
 - **Type:** View / data source
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** item 4 by [A scan reaches every display in its room, and only an instant display animates it](2026-09-29-a-scan-reaches-every-display-in-its-room-and-only-an-instant-display-animates-it.md)
 
 ## Decision
 

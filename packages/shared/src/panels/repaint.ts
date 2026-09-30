@@ -93,3 +93,30 @@ export const getEffectiveRepaint = ({
     ] ?? repaint
   )
 }
+
+/**
+ * How long a temporary view stays on a display of this grade, or `undefined`
+ * when the display refuses one.
+ *
+ * A temporary view — a card scan's result, a doorbell — is a value whose
+ * lifetime is the time it stays up, so the freshness rule applies to it
+ * whole: it lasts at least ten repaints, and a request for less is
+ * lengthened rather than refused. A slow panel asked for fifteen seconds
+ * shows thirty. A super-slow panel refuses outright: it would spend most of a
+ * minute in two full flashes, one to show the event and one to take it away,
+ * and the event would be over before either finished.
+ */
+export const getTemporaryViewSeconds = ({
+  repaint,
+  requestedSeconds,
+}: {
+  repaint: RepaintGrade
+  requestedSeconds: number
+}): number | undefined =>
+  repaint === "super-slow"
+    ? undefined
+    : Math.max(
+        requestedSeconds,
+        (REPAINT_MILLISECONDS[repaint] * FRESHNESS_RATIO) /
+          1000,
+      )

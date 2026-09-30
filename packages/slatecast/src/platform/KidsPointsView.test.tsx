@@ -61,7 +61,7 @@ const renderInPanel = ({
 }: {
   width: number
   height: number
-  repaint?: "instant" | "super-slow"
+  repaint?: "instant" | "slow" | "super-slow"
   value?: ContractData["kids-points.v1"]
 }) => {
   vi.spyOn(
@@ -134,8 +134,123 @@ test("a scan on a small panel gives the whole panel to that child", () => {
   expect(
     screen.queryByRole("heading", { name: "Sky" }),
   ).toBe(null)
-  expect(screen.getByText("+10")).toBeVisible()
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "+10Feed the Cat",
+  )
   expect(screen.getByText("of 500 today")).toBeVisible()
+})
+
+test("an instant panel merges the scan's points into the old total", () => {
+  const { container } = renderInPanel({
+    width: 440,
+    height: 440,
+    value: scanned,
+  })
+  expect(
+    container.querySelector(".kids-points-number"),
+  ).toHaveAttribute("data-motion", "count")
+  expect(
+    container.querySelector(".kids-points-number-before"),
+  ).toHaveTextContent("120")
+  expect(
+    container.querySelector(".kids-points-number-after"),
+  ).toHaveTextContent("130")
+  expect(
+    container.querySelector(".kids-points-chip"),
+  ).toHaveTextContent("+10")
+})
+
+test("the scan that reaches the goal throws confetti, and a later one a ring of stars", () => {
+  const atGoal = {
+    ...scanned,
+    kids: scanned.kids.map((kid) =>
+      kid.id === "robin"
+        ? { ...kid, pointsToday: 500 }
+        : kid,
+    ),
+  }
+  const first = renderInPanel({
+    width: 440,
+    height: 440,
+    value: atGoal,
+  })
+  expect(
+    first.container.querySelectorAll(
+      ".kids-points-confetti i",
+    ).length,
+  ).toBeGreaterThan(0)
+  expect(
+    first.container.querySelector(".kids-points-stars"),
+  ).toBe(null)
+  first.unmount()
+  const afterGoal = renderInPanel({
+    width: 440,
+    height: 440,
+    value: {
+      ...atGoal,
+      kids: atGoal.kids.map((kid) =>
+        kid.id === "robin"
+          ? { ...kid, pointsToday: 600 }
+          : kid,
+      ),
+    },
+  })
+  expect(
+    afterGoal.container.querySelector(".kids-points-stars"),
+  ).not.toBe(null)
+  expect(
+    afterGoal.container.querySelector(
+      ".kids-points-confetti",
+    ),
+  ).toBe(null)
+})
+
+test("a refused scan does not move the total", () => {
+  const { container } = renderInPanel({
+    width: 440,
+    height: 440,
+    value: {
+      ...scanned,
+      lastScan: {
+        kidId: "robin",
+        result: "refused",
+        points: 0,
+        message: "Already done today",
+        atMs: now - 3_000,
+      },
+    },
+  })
+  expect(
+    container.querySelector(".kids-points-number"),
+  ).toBe(null)
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Not counted",
+  )
+})
+
+test("a slow panel shows the points and the new total, without motion", () => {
+  const { container } = renderInPanel({
+    width: 440,
+    height: 440,
+    repaint: "slow",
+    value: {
+      ...scanned,
+      lastScan: {
+        kidId: "robin",
+        result: "awarded",
+        points: 10,
+        taskName: "Feed the Cat",
+        atMs: now - 20_000,
+      },
+    },
+  })
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "+10Feed the Cat",
+  )
+  expect(screen.getByText("130")).toBeVisible()
+  expect(
+    container.querySelector(".kids-points-number"),
+  ).toBe(null)
 })
 
 test("a small panel with no scan lists the rows that fit and counts the rest", () => {
