@@ -1,4 +1,8 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import {
+  getTemporaryViewSeconds,
+  type RepaintGrade,
+} from "@castkit/shared/panels/repaint"
 
 type KidsPointsData = ContractData["kids-points.v1"]
 type KidEntry = KidsPointsData["kids"][number]
@@ -42,33 +46,124 @@ export const readScanSeconds = (
 /**
  * Whether the last scan still owns the panel.
  *
- * ⚠️ The freshness rule decides first. A scan shown for fifteen seconds is a
- * value with a fifteen-second life, and a panel that takes 28 seconds to
- * repaint would draw it after it had already ended. Such a panel never shows
- * the scan; it shows the totals the scan changed, which live far longer.
+ * ⚠️ The freshness rule decides first, through the same rule as a temporary
+ * view on a display: a slow panel shows the scan for ten repaints, thirty
+ * seconds, so it matches the time that display is given to the view. A
+ * super-slow panel never shows the scan; it would draw it after it had
+ * already ended, so it shows the totals the scan changed, which live far
+ * longer.
  */
 export const getIsScanShowing = ({
   lastScan,
   now,
   scanSeconds,
-  isValueFresh,
+  repaint,
 }: {
   lastScan: KidScan | undefined
   now: number
   scanSeconds: number
-  isValueFresh: (
-    valueLifetimeMilliseconds: number,
-  ) => boolean
+  repaint: RepaintGrade
 }) => {
-  if (!lastScan || !isValueFresh(scanSeconds * 1000)) {
+  const windowSeconds = getTemporaryViewSeconds({
+    repaint,
+    requestedSeconds: scanSeconds,
+  })
+  if (!lastScan || windowSeconds === undefined) {
     return false
   }
   const age = now - lastScan.atMs
   return (
     age >= -CLOCK_SKEW_MILLISECONDS &&
-    age < scanSeconds * 1000
+    age < windowSeconds * 1000
   )
 }
+
+/**
+ * How an instant panel celebrates a scan that earned points.
+ *
+ * `count` merges the points into the old total. `goal` is the scan that
+ * reaches today's goal, and `bonus` is any scan after it. A scan that earned
+ * nothing does not move the total, so it has no motion.
+ */
+export type ScanMotion = "none" | "count" | "goal" | "bonus"
+
+export const getScanMotion = ({
+  kid,
+  scan,
+}: {
+  kid: KidEntry
+  scan: KidScan
+}): ScanMotion => {
+  if (scan.points <= 0) {
+    return "none"
+  }
+  if (kid.goal === undefined) {
+    return "count"
+  }
+  const before = kid.pointsToday - scan.points
+  if (before >= kid.goal) {
+    return "bonus"
+  }
+  return kid.pointsToday >= kid.goal ? "goal" : "count"
+}
+
+/** A scan's identity, so a second scan restarts its motion. */
+export const getScanKey = (scan: KidScan) =>
+  `${scan.kidId}:${scan.atMs}`
+
+const CONFETTI_COLORS = [
+  "#f5c518",
+  "#ff5d8f",
+  "#3fa7ff",
+  "#4cd964",
+  "#ff9500",
+  "#af52de",
+] as const
+const GOLDEN_ANGLE_DEGREES = 137.508
+
+/**
+ * Where each piece of confetti flies, in the view's `cqmin`.
+ *
+ * Fixed, not random: the golden angle spreads any count of pieces evenly
+ * round the burst, and a fixed pattern keeps screenshots and tests stable.
+ * Each piece bursts outward, mostly upward, then falls.
+ */
+export const getConfettiPieces = (count: number) =>
+  Array.from({ length: count }, (_, index) => {
+    const radians =
+      ((index * GOLDEN_ANGLE_DEGREES) % 360) *
+      (Math.PI / 180)
+    const distance = 22 + ((index * 37) % 28)
+    return {
+      x: Math.round(Math.cos(radians) * distance * 10) / 10,
+      y:
+        Math.round(
+          (Math.sin(radians) * distance * 0.8 - 12) * 10,
+        ) / 10,
+      fall: 30 + ((index * 53) % 30),
+      spin:
+        (index % 2 === 0 ? 1 : -1) *
+        (360 + ((index * 47) % 360)),
+      delayMilliseconds: (index % 6) * 40,
+      color:
+        CONFETTI_COLORS[index % CONFETTI_COLORS.length] ??
+        CONFETTI_COLORS[0],
+      isRound: index % 3 === 0,
+    }
+  })
+
+/** A ring of stars round the total, evenly spaced, in `cqmin`. */
+export const getStarBurst = (count: number) =>
+  Array.from({ length: count }, (_, index) => {
+    const radians =
+      ((index * 360) / count) * (Math.PI / 180)
+    const distance = index % 2 === 0 ? 30 : 22
+    return {
+      x: Math.round(Math.cos(radians) * distance * 10) / 10,
+      y: Math.round(Math.sin(radians) * distance * 10) / 10,
+      delayMilliseconds: (index % 2) * 180,
+    }
+  })
 
 /**
  * Board or rows, decided from the view's own box.
