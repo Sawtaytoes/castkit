@@ -3,8 +3,42 @@ import {
   render,
   screen,
 } from "@testing-library/preact"
-import { afterEach, expect, test, vi } from "vitest"
+import { HttpResponse, http } from "msw"
+import { setupWorker } from "msw/browser"
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  expect,
+  test,
+  vi,
+} from "vitest"
 import { CameraImage } from "./CameraImage.tsx"
+
+// A missing stream triggers the error-retry timer as well as the stall timer.
+// Serve a valid still frame so these tests isolate pixel-based stall recovery.
+const worker = setupWorker(
+  http.get(
+    "*/api/display/view/printers/media/camera",
+    () =>
+      new HttpResponse(
+        Uint8Array.from(
+          atob(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8ZkAAAAASUVORK5CYII=",
+          ),
+          (character) => character.charCodeAt(0),
+        ),
+        { headers: { "Content-Type": "image/png" } },
+      ),
+  ),
+)
+beforeAll(() =>
+  worker.start({
+    quiet: true,
+    onUnhandledRequest: "bypass",
+  }),
+)
+afterAll(() => worker.stop())
 
 afterEach(() => {
   vi.restoreAllMocks()
