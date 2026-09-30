@@ -3648,3 +3648,92 @@ html[data-grayscale-text="true"] {
 .fss-choice-swatch.is-empty {
   border: 2px dashed var(--fss-border-strong);
 }
+
+/* Display lightbox: keep the same live player mounted through enlargement. */
+.expandable-media {
+  position: relative;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.expandable-media-dialog:not([open]),
+.expandable-media-dialog:not([open])
+  .expandable-media-close {
+  display: contents;
+}
+.expandable-media-dialog:not([open])
+  .expandable-media-hint {
+  display: none;
+}
+.expandable-media-trigger {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: zoom-in;
+}
+.expandable-media .expandable-media-trigger,
+.platform .expandable-media-trigger {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+.expandable-media[data-expanded="true"]
+  > .expandable-media-trigger {
+  visibility: hidden;
+}
+.expandable-media-dialog[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  padding: 0;
+  border: 0;
+  max-inline-size: none;
+  max-block-size: none;
+  inline-size: 100dvw;
+  block-size: 100dvh;
+  background: var(--color-scrim);
+  color: var(--fg);
+}
+.expandable-media-dialog::backdrop {
+  background: var(--color-scrim);
+}
+.expandable-media-dialog[open] .expandable-media-close,
+.platform
+  .expandable-media-dialog[open]
+  .expandable-media-close {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: zoom-out;
+}
+.expandable-media-dialog[open] .platform-camera {
+  display: contents;
+}
+.expandable-media-dialog[open] :is(img, video) {
+  flex: 1 1 0;
+  min-block-size: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  max-block-size: calc(100dvh - 80px);
+  object-fit: contain;
+}
+.expandable-media-hint {
+  flex: none;
+  font-size: 14px;
+}
+
+.printer-plate > .expandable-media {
+  display: contents;
+}
+.printer-plate {
+  position: relative;
+}

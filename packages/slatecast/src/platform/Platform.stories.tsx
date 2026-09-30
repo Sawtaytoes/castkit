@@ -97,11 +97,7 @@ export const PrintersAndRips: Story = {
     </main>
   ),
 }
-/**
- * One printer on a wide panel: the card passes its 900 px breakpoint and puts
- * the picture on the left with the facts beside it. Shrink the canvas under
- * about 950 px and it stacks again. The breakpoint is the card's own width.
- */
+/** One printer beside another panel, using measured section priorities. */
 export const PrintersWide: Story = {
   render: () => (
     <main class="platform">
@@ -423,6 +419,51 @@ export const KidsPointsScan: Story = {
     <main class="platform">
       <DisplayComposition
         snapshot={kidsPointsFixture({ hasScan: true })}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+
+const printerOnly = (
+  isCameraVisible: boolean,
+): DisplaySnapshot => ({
+  ...storySnapshot,
+  view: {
+    ...storySnapshot.view,
+    name: isCameraVisible
+      ? "3D Printers and Cameras"
+      : "3D Printers",
+    layout: "single",
+    panels: storySnapshot.view.panels
+      .filter((panel) => panel.specId === "printer-status")
+      .map((panel) => ({
+        ...panel,
+        settings: { isCameraVisible },
+      })),
+  },
+})
+
+/** Camera area chooses the orientation; resize the canvas in either axis. */
+export const PrinterCamera: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={printerOnly(true)}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+
+/** A static preview gives the live stats priority over enlarging the cover. */
+export const PrinterStaticImage: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={printerOnly(false)}
         isConnected
         onAction={async () => undefined}
       />
