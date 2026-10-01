@@ -7,6 +7,7 @@ import {
   aiUsageFixture,
   compositionFixture,
   kidsPointsFixture,
+  pointsHistoryFixture,
 } from "./fixtures.ts"
 import { PinKeypad } from "./PinKeypad.tsx"
 import { DisplayComposition } from "./PlatformApp.tsx"
@@ -513,6 +514,43 @@ export const PrinterCameraFailed: Story = {
     <main class="platform">
       <DisplayComposition
         snapshot={settledPrinterSnapshot("failed")}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+
+/** The producer supplies the same history to either delivery mode. */
+export const PointsHistory: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={pointsHistoryFixture()}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+/** Historical accumulation is distinct from lifetime and spendable balances. */
+export const PointsCumulative: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={pointsHistoryFixture("cumulative")}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+/** Completed task time uses minute deltas rather than daily cumulative minutes. */
+export const PointsTaskTime: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={pointsHistoryFixture("minutes")}
         isConnected
         onAction={async () => undefined}
       />

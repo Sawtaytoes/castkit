@@ -19,6 +19,7 @@ import { CameraImage } from "./CameraImage.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { EntitiesView } from "./EntitiesView.tsx"
 import { KidsPointsView } from "./KidsPointsView.tsx"
+import { PointsHistoryView } from "./PointsHistoryView.tsx"
 import { safeMediaUrl } from "./protocol.ts"
 import { ReportContent } from "./ReportContent.tsx"
 import { TimersView } from "./TimersView.tsx"
@@ -336,6 +337,13 @@ export const BuiltinView = ({
         <AiUsageView
           data={data as ContractData["ai-usage.v1"]}
           now={now}
+          settings={panel.settings}
+        />
+      )
+    case "points-history":
+      return (
+        <PointsHistoryView
+          data={data as ContractData["points-history.v1"]}
           settings={panel.settings}
         />
       )

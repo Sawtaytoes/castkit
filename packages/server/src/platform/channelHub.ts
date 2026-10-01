@@ -19,6 +19,7 @@ const DEFAULT_STALE_AFTER_SECONDS: Record<string, number> =
   {
     "images.v1": 7200,
     "kids-points.v1": 0,
+    "points-history.v1": 0,
   }
 
 /** Validates every update and fans out source-independent channel snapshots. */
