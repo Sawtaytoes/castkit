@@ -2183,6 +2183,14 @@ html[data-grayscale-text="true"] {
   background: transparent;
 }
 
+.printer-filament-summary .printer-swatch {
+  border: 0;
+}
+
+.printer-swatch .fss-swatch {
+  border-radius: inherit;
+}
+
 .printer-filament-button {
   position: absolute;
   z-index: 1;
@@ -2338,14 +2346,8 @@ html[data-grayscale-text="true"] {
 
 .filament-details-swatch {
   flex: none;
-  width: 26px;
-  height: 26px;
-  border: 1px solid rgb(255 255 255 / 30%);
-  border-radius: 6px;
-}
-
-.filament-details-swatch.is-empty {
-  background: transparent;
+  width: 40px;
+  height: 40px;
 }
 
 .filament-details-info {
@@ -2360,7 +2362,8 @@ html[data-grayscale-text="true"] {
   font-weight: 600;
 }
 
-.filament-details-location {
+.filament-details-location,
+.filament-details-metadata {
   color: var(--color-content-muted);
   font-size: 14px;
 }
@@ -2795,8 +2798,9 @@ html[data-grayscale-text="true"] {
 .fss-swatch.is-hatched {
   background: repeating-linear-gradient(
     45deg,
-    var(--fss-overlay) 0 12px,
-    var(--fss-border-default) 12px 24px
+    var(--fss-overlay, var(--color-surface-raised)) 0 12px,
+    var(--fss-border-default, var(--color-border-default))
+      12px 24px
   );
 }
 

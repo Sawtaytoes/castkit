@@ -1,6 +1,7 @@
 import { filamentColorName } from "@castkit/shared/viewData/filamentColorName"
 import type { PrinterFilamentAssignment } from "@castkit/shared/viewData/types"
 import { useEffect, useRef } from "preact/hooks"
+import { parseRgba, Swatch } from "./spoolSwatch.tsx"
 
 /** A compact summary that opens the per-slot details for an active print. */
 export const FilamentControl = ({
@@ -43,6 +44,15 @@ export const FilamentControl = ({
     (!text ? firstFilament?.location : undefined)
   const filamentColor =
     color || (!text ? firstFilament?.color : undefined)
+  const swatchFilament = !text
+    ? firstFilament
+    : filaments?.find(
+        (filament) =>
+          filament.location
+            .replace(/,/g, "")
+            .split(" · ")[0] ===
+          filamentLocation?.replace(/,/g, ""),
+      )
   const accessibleSummary = [filamentName, filamentLocation]
     .filter(Boolean)
     .join(" · ")
@@ -62,12 +72,15 @@ export const FilamentControl = ({
       onClick={onClick}
     >
       <span class="printer-filament-summary">
-        {filamentColor ? (
-          <span
-            class="printer-swatch"
-            style={{ background: filamentColor }}
-            aria-hidden="true"
-          />
+        {swatchFilament?.rgba || filamentColor ? (
+          <span class="printer-swatch">
+            <Swatch
+              size="fill"
+              rgba={swatchFilament?.rgba ?? filamentColor}
+              extraColors={swatchFilament?.extraColors}
+              effectType={swatchFilament?.effectType}
+            />
+          </span>
         ) : null}
         <span class="printer-filament-text">
           <span class="printer-filament-name">
@@ -162,17 +175,33 @@ export const FilamentDetailsDialog = ({
               const colorName =
                 filament.colorName ||
                 filamentColorName(filament.color)
+              const rgba = filament.rgba ?? filament.color
+              const isTranslucent = rgba
+                ? parseRgba(rgba).isTranslucent
+                : false
+              const metadata = [
+                filament.brand,
+                filament.effectType?.replace(/[_-]/g, " "),
+                isTranslucent &&
+                !/translucent|transparent/i.test(
+                  filament.name ?? "",
+                )
+                  ? "Translucent"
+                  : undefined,
+              ]
+                .filter(Boolean)
+                .join(" · ")
               return (
                 <li key={`${filament.location}:${index}`}>
-                  <span
-                    class={`filament-details-swatch${filament.color ? "" : " is-empty"}`}
-                    style={
-                      filament.color
-                        ? { background: filament.color }
-                        : undefined
-                    }
-                    aria-hidden="true"
-                  />
+                  <span class="filament-details-swatch">
+                    <Swatch
+                      size="fill"
+                      rgba={rgba}
+                      extraColors={filament.extraColors}
+                      effectType={filament.effectType}
+                      isHatched={!rgba}
+                    />
+                  </span>
                   <span class="filament-details-info">
                     <span class="filament-details-name">
                       {[colorName, filament.name]
@@ -180,8 +209,17 @@ export const FilamentDetailsDialog = ({
                         .join(" ") ||
                         "Filament name unavailable"}
                     </span>
+                    {metadata ? (
+                      <span class="filament-details-metadata">
+                        {metadata}
+                      </span>
+                    ) : null}
                     <span class="filament-details-location">
-                      {filament.location}
+                      {filament.location.startsWith(
+                        "Filament ",
+                      )
+                        ? `AMS slot unavailable · ${filament.location}`
+                        : filament.location}
                     </span>
                   </span>
                 </li>

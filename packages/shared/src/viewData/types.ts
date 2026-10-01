@@ -132,10 +132,18 @@ export type PrinterJobState =
 export type PrinterFilamentAssignment = {
   /** Filament name, when the source reports it. */
   name?: string
-  /** Filament color as `#rrggbb`, when the source reports it. */
+  /** Filament color as `#rrggbb` or `#rrggbbaa`, when the source reports it. */
   color?: string
   /** The spool's own color name, e.g. "Mistletoe Green", when the source knows it. */
   colorName?: string
+  /** Inventory color with alpha, as 6 or 8 hex digits. */
+  rgba?: string
+  /** Additional bands for a multicolor filament. */
+  extraColors?: readonly string[]
+  /** The inventory's finish, such as silk, galaxy, or marble. */
+  effectType?: string
+  /** The filament manufacturer, when known. */
+  brand?: string
   /** Human-readable AMS and slot, for example `AMS 1, slot 2`. */
   location: string
 }
@@ -165,7 +173,7 @@ export type PrinterJob = {
   thumbnailPath?: string
   /** The loaded filament, e.g. "Matte Black PLA". */
   filamentText?: string
-  /** That filament's color as `#rrggbb`, for the swatch beside the text. */
+  /** That filament's color as `#rrggbb` or `#rrggbbaa`, preserving translucence. */
   filamentColor?: string
   /** Every AMS slot used by this print, in source order. */
   filaments?: readonly PrinterFilamentAssignment[]

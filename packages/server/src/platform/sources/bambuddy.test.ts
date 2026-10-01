@@ -178,11 +178,13 @@ test("Bambuddy printer normalization joins archive filaments to uniquely matchin
     {
       name: "PLA Basic",
       color: "#000000",
+      rgba: "000000FF",
       location: "AMS 3, slot 1 · Filament 1 · 77 g",
     },
     {
       name: "PLA Basic",
       color: "#3f8e43",
+      rgba: "3F8E43FF",
       location: "AMS 3, slot 4 · Filament 2 · 38 g",
     },
   ])
@@ -337,12 +339,14 @@ test("Bambuddy printer normalization names each archive slot's color from the lo
       name: "PLA Basic",
       color: "#3f8e43",
       colorName: "Mistletoe Green",
+      rgba: "3F8E43FF",
       location: "AMS 3, slot 4 · Filament 1 · 21 g",
     },
     // Two black spools with different names: neither is guessed.
     {
       name: "PLA",
       color: "#000000",
+      rgba: "000000FF",
       location: "Filament 2 · 0.7 g",
     },
     {
@@ -928,4 +932,303 @@ test("plate clearance rechecks live state and only posts to the selected printer
     }),
   ).rejects.toThrow("does not allow")
   adapter.dispose?.()
+})
+
+const sparsePrint = {
+  id: 9,
+  name: "Printer",
+  connected: true,
+  state: "RUNNING",
+  current_archive_id: 42,
+  ams_mapping: [],
+  ams: [{ id: 0, tray: [{ id: 2 }] }],
+  archive_filament_slots: [
+    {
+      slot_id: 1,
+      type: "PLA",
+      color: "#000000",
+      used_g: 4.1,
+    },
+    {
+      slot_id: 3,
+      type: "PLA",
+      color: "#FFFFFF",
+      used_g: 2.3,
+    },
+    {
+      slot_id: 7,
+      type: "PLA",
+      color: "#F74E02",
+      used_g: 1.8,
+    },
+  ],
+}
+const orangeInventory = [
+  {
+    id: 10,
+    material: "PLA",
+    subtype: "Translucent",
+    color_name: "Orange",
+    brand: "Sample Brand",
+    rgba: "F74E0280",
+  },
+]
+const printMapping = [7, 8, 0, -1, 4, 5, 2]
+
+test("a queue mapping resolves sparse slicer indices even when live trays have no filament details", () => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      ...sparsePrint,
+      print_ams_mapping: printMapping,
+    },
+    spools: orangeInventory,
+  })
+  expect(printer?.filaments).toEqual([
+    {
+      name: "PLA",
+      color: "#000000",
+      location: "AMS 2, slot 4 · Filament 1 · 4.1 g",
+    },
+    {
+      name: "PLA",
+      color: "#ffffff",
+      location: "AMS 1, slot 1 · Filament 3 · 2.3 g",
+    },
+    {
+      name: "PLA Translucent",
+      color: "#f74e02",
+      colorName: "Orange",
+      rgba: "F74E0280",
+      brand: "Sample Brand",
+      location: "AMS 1, slot 3 · Filament 7 · 1.8 g",
+    },
+  ])
+})
+
+test("a mapped physical slot disambiguates products with the same base color", () => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      ...sparsePrint,
+      print_ams_mapping: [7],
+      archive_filament_slots: [
+        sparsePrint.archive_filament_slots[0],
+      ],
+    },
+    spools: [
+      {
+        id: 1,
+        material: "PLA",
+        subtype: "Basic",
+        rgba: "000000FF",
+        color_name: "Black",
+      },
+      {
+        id: 2,
+        material: "PLA",
+        subtype: "Galaxy",
+        rgba: "000000FF",
+        color_name: "Starry Black",
+        effect_type: "galaxy",
+        extra_colors: "112233,445566",
+      },
+    ],
+    assignments: [
+      {
+        printerId: "9",
+        printerName: "Printer",
+        spoolId: "1",
+        amsId: 0,
+        trayId: 1,
+      },
+      {
+        printerId: "9",
+        printerName: "Printer",
+        spoolId: "2",
+        amsId: 1,
+        trayId: 3,
+      },
+    ],
+  })
+  expect(printer?.filaments?.[0]).toEqual({
+    name: "PLA Galaxy",
+    color: "#000000",
+    colorName: "Starry Black",
+    rgba: "000000FF",
+    effectType: "galaxy",
+    extraColors: ["112233", "445566"],
+    location: "AMS 2, slot 4 · Filament 1 · 4.1 g",
+  })
+})
+
+test("ambiguous inventory appearance does not assign a finish or a physical location", () => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      ...sparsePrint,
+      archive_filament_slots: [
+        sparsePrint.archive_filament_slots[2],
+      ],
+    },
+    spools: orangeInventory.concat([
+      {
+        id: 11,
+        material: "PLA",
+        subtype: "Basic",
+        color_name: "Orange",
+        brand: "Sample Brand",
+        rgba: "F74E02FF",
+      },
+    ]),
+  })
+  expect(printer?.filaments?.[0]).toEqual({
+    name: "PLA",
+    color: "#f74e02",
+    colorName: "Orange",
+    brand: "Sample Brand",
+    location: "Filament 7 · 1.8 g",
+  })
+})
+
+test.each([
+  -1,
+  255,
+  32,
+  1.5,
+  "7",
+  null,
+])("invalid queue tray %s does not invent an AMS location", (trayId) => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    data: {
+      ...sparsePrint,
+      print_ams_mapping: [trayId],
+      archive_filament_slots: [
+        sparsePrint.archive_filament_slots[0],
+      ],
+    },
+  })
+  expect(printer?.filaments?.[0]?.location).toBe(
+    "Filament 1 · 4.1 g",
+  )
+})
+
+test.each([
+  200, 403,
+])("Bambuddy reads the active print's own queue map and preserves the printer when queue returns %s", async (queueStatus) => {
+  const context = sourceContext({
+    channels: [
+      {
+        id: "printers",
+        name: "Printers",
+        sourceId: "source",
+        type: "printers.v1",
+        settings: {},
+      },
+    ],
+    fetch: vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (url) => {
+        const path = new URL(String(url)).pathname
+        if (path.endsWith("/queue/")) {
+          return new Response(
+            JSON.stringify([
+              {
+                printer_id: 8,
+                archive_id: 42,
+                status: "printing",
+                ams_mapping: [1, 1, 1],
+              },
+              {
+                printer_id: 9,
+                archive_id: 41,
+                status: "printing",
+                ams_mapping: [1, 1, 1],
+              },
+              {
+                printer_id: 9,
+                archive_id: 42,
+                status: "completed",
+                ams_mapping: [1, 1, 1],
+              },
+              {
+                printer_id: 9,
+                archive_id: 42,
+                status: "printing",
+                ams_mapping: printMapping,
+              },
+            ]),
+            { status: queueStatus },
+          )
+        }
+        const data = path.endsWith("/printers/")
+          ? [{ id: 9, name: "Printer" }]
+          : path.endsWith("/status")
+            ? sparsePrint
+            : path.endsWith("/archives/42")
+              ? {
+                  extra_data: {
+                    filament_slots:
+                      sparsePrint.archive_filament_slots,
+                  },
+                }
+              : path.endsWith("/inventory/spools")
+                ? orangeInventory
+                : []
+        return new Response(JSON.stringify(data))
+      }),
+  })
+  const adapter = createBambuddySource(context)
+  try {
+    await adapter.start?.()
+    const published = vi
+      .mocked(context.publish)
+      .mock.calls.at(-1)?.[0]
+    const data = published?.data as {
+      printers: {
+        filaments: { location: string; rgba?: string }[]
+      }[]
+    }
+    expect(data.printers[0]?.filaments[2]).toMatchObject({
+      location:
+        queueStatus === 200
+          ? "AMS 1, slot 3 · Filament 7 · 1.8 g"
+          : "Filament 7 · 1.8 g",
+      rgba: "F74E0280",
+    })
+    expect(context.reportError).not.toHaveBeenCalled()
+  } finally {
+    adapter.dispose()
+  }
+})
+
+test("an archive mapped to the active external spool keeps its usage without duplicating the spool", () => {
+  const printer = normalizeBambuddyPrinter({
+    channelId: "printers",
+    spools: orangeInventory,
+    data: {
+      ...sparsePrint,
+      tray_now: 254,
+      vt_tray: [
+        { tray_type: "PLA", tray_color: "F74E0280" },
+      ],
+      archive_filament_slots: [
+        sparsePrint.archive_filament_slots[2],
+      ],
+      print_ams_mapping: printMapping.map(
+        (_trayId, index) => (index === 6 ? 254 : -1),
+      ),
+    },
+  })
+  expect(printer?.filaments).toEqual([
+    {
+      name: "PLA Translucent",
+      color: "#f74e02",
+      colorName: "Orange",
+      brand: "Sample Brand",
+      rgba: "F74E0280",
+      location: "External spool · Filament 7 · 1.8 g",
+    },
+  ])
 })
