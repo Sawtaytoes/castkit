@@ -456,7 +456,7 @@ __metadata:
   dependencies:
     "@castkit/sdk": "workspace:*"
     "@castkit/shared": "workspace:*"
-    "@charcuterie/logic": "npm:^2.5.0"
+    "@charcuterie/logic": "npm:^2.6.1"
     "@charcuterie/server": "npm:^0.5.1"
     "@charcuterie/tokens": "npm:^1.10.2"
     "@preact/preset-vite": "npm:^2.10.2"
@@ -567,9 +567,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@charcuterie/logic@npm:^2.5.0":
-  version: 2.5.0
-  resolution: "@charcuterie/logic@npm:2.5.0"
+"@charcuterie/logic@npm:^2.6.1":
+  version: 2.6.1
+  resolution: "@charcuterie/logic@npm:2.6.1"
   peerDependencies:
     "@preact/signals-core": ">=1.8"
     "@tanstack/react-query": ">=5"
@@ -593,7 +593,7 @@ __metadata:
       optional: true
     react:
       optional: true
-  checksum: 10c0/f88bfae6af6ab85388f7666e9657eb9cd7b5c8b690cf4710c6efb173d7d78d17a772fa830e8d4cb0e87f73837618c5effbe5f0768268b5481fd5045920eb3af1
+  checksum: 10c0/f64edf457b78e5798cf70ece1f9d39038e0e0f4e51560073b7013fb39aaefdd23d140e1a1b75583d594d6d4199d5e40282cd68c45510485eb07fc7c5b28b5504
   languageName: node
   linkType: hard
 

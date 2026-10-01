@@ -13,6 +13,7 @@ export const CONTRACT_TYPES = [
   "cameras.v1",
   "points.v1",
   "kids-points.v1",
+  "points-history.v1",
   "ai-usage.v1",
   "time.v1",
   "spools.v1",
@@ -442,6 +443,76 @@ export const builtinContractSchemas = {
   "kids-points.v1": z.object({
     kids: z.array(kidPoints),
     lastScan: kidScan.optional(),
+  }),
+  "points-history.v1": z.object({
+    version: z.literal(1),
+    generatedAtMs: finiteNumber,
+    range: z.object({
+      fromDay: z.string(),
+      toDay: z.string(),
+      dayCount: finiteNumber.int().min(1).max(366),
+      timezone: z.string(),
+      isPartial: z.boolean(),
+    }),
+    source: z.object({
+      name: z.enum(["influxdb", "sqlite"]),
+      isFallback: z.boolean(),
+      message: z.string().nullable(),
+    }),
+    children: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        color: z.string(),
+        pointsToday: finiteNumber,
+        goalToday: finiteNumber,
+        lifetimeEarned: finiteNumber,
+        spendable: finiteNumber,
+        totals: z.object({
+          net: finiteNumber,
+          previousNet: finiteNumber,
+          averagePerCalendarDay: finiteNumber,
+          averagePerActiveDay: finiteNumber.nullable(),
+          activeDays: finiteNumber,
+          qualifyingDays: finiteNumber,
+          bonusPercent: finiteNumber.nullable(),
+          pointsToPenaltyRatio: finiteNumber.nullable(),
+        }),
+        days: z
+          .array(
+            z.object({
+              day: z.string(),
+              goal: finiteNumber,
+              net: finiteNumber,
+              chores: finiteNumber,
+              bonus: finiteNumber,
+              penalty: finiteNumber,
+              reversals: finiteNumber,
+              cumulative: finiteNumber,
+              minutes: z.record(z.string(), finiteNumber),
+            }),
+          )
+          .max(366),
+        tasks: z.array(
+          z.object({
+            key: z.string(),
+            name: z.string(),
+            points: finiteNumber,
+            minutes: finiteNumber,
+            averageMinutesPerCalendarDay: finiteNumber,
+            days: z
+              .array(
+                z.object({
+                  day: z.string(),
+                  points: finiteNumber,
+                  minutes: finiteNumber,
+                }),
+              )
+              .max(366),
+          }),
+        ),
+      }),
+    ),
   }),
   "ai-usage.v1": z.object({
     providers: z.array(usageProvider),

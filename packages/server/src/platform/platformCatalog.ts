@@ -23,6 +23,11 @@ import {
   DEFAULT_KIDS_POINTS_STATE_TOPIC,
 } from "./sources/kidsPoints.ts"
 import { createMqttSource } from "./sources/mqtt.ts"
+import {
+  createPointsHistorySource,
+  DEFAULT_POINTS_REPORT_REQUEST_TOPIC,
+  DEFAULT_POINTS_REPORT_RESPONSE_TOPIC,
+} from "./sources/pointsHistory.ts"
 import { createRipDeckSource } from "./sources/ripDeck.ts"
 
 const urlField: SettingField = {
@@ -351,6 +356,62 @@ const adapters: AdapterDefinition[] = [
     actions: [],
   },
   {
+    id: "points-history",
+    name: "Tally Marks History",
+    description:
+      "Historical points and task time calculated by the points service, available over MQTT.",
+    channelTypes: ["points-history.v1"],
+    settings: [
+      {
+        key: "requestTopic",
+        label: "Report request topic",
+        type: "text",
+        defaultValue: DEFAULT_POINTS_REPORT_REQUEST_TOPIC,
+      },
+      {
+        key: "responseTopic",
+        label: "Report response topic",
+        type: "text",
+        defaultValue: DEFAULT_POINTS_REPORT_RESPONSE_TOPIC,
+      },
+      {
+        key: "stateTopic",
+        label: "Child state topic",
+        type: "text",
+        defaultValue: "points/state/+",
+      },
+      {
+        key: "ledgerTopic",
+        label: "Ledger change topic",
+        type: "text",
+        defaultValue: "points/ledger",
+      },
+      {
+        key: "goalTopic",
+        label: "Goal response topic",
+        type: "text",
+        defaultValue: "tally-marks/resp/daily-goal",
+      },
+    ],
+    channelSettings: [
+      {
+        key: "days",
+        label: "Calendar days",
+        type: "number",
+        defaultValue: 7,
+        description:
+          "Rolling history through today, from 1 to 366 days.",
+      },
+      {
+        key: "kidIds",
+        label: "Children",
+        type: "string-list",
+        description: "Leave empty to include every child.",
+      },
+    ],
+    actions: [],
+  },
+  {
     id: "kids-points",
     name: "Tally Marks",
     description:
@@ -552,6 +613,48 @@ const viewSpecs: ViewSpec[] = [
       type: "points.v1",
     }),
     minimumRepaint: "fast",
+  },
+  {
+    ...view({
+      id: "points-history",
+      name: "Tally Marks History",
+      type: "points-history.v1",
+      description:
+        "Points, daily goals, cumulative earnings, and task time from the same reports as the points app.",
+    }),
+    settings: [
+      {
+        key: "metric",
+        label: "Show",
+        type: "select",
+        defaultValue: "daily",
+        options: [
+          {
+            value: "daily",
+            label: "Daily points and goal",
+          },
+          {
+            value: "cumulative",
+            label: "Cumulative points",
+          },
+          { value: "task-points", label: "Points by task" },
+          { value: "minutes", label: "Task time" },
+        ],
+      },
+      {
+        key: "kidId",
+        label: "Child ID",
+        type: "text",
+        description:
+          "Leave empty to compare every child; select a child for the goal or task details.",
+      },
+      {
+        key: "taskKey",
+        label: "Task key",
+        type: "text",
+        description: "Optional: select one timed task.",
+      },
+    ],
   },
   {
     ...view({
@@ -796,6 +899,7 @@ const sourceFactories: NonNullable<
   "rip-deck": createRipDeckSource,
   "ai-usage": createAiUsageSource,
   "kids-points": createKidsPointsSource,
+  "points-history": createPointsHistorySource,
   clock: (context) => {
     const publish = () =>
       context.channels.forEach((channel) => {
@@ -839,7 +943,7 @@ const viewGroups = [
   {
     id: "points",
     name: "Points",
-    specs: ["kids-points", "points"],
+    specs: ["kids-points", "points", "points-history"],
   },
   {
     id: "ai-usage",

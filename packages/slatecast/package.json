@@ -16,7 +16,7 @@
   "dependencies": {
     "@castkit/sdk": "workspace:*",
     "@castkit/shared": "workspace:*",
-    "@charcuterie/logic": "^2.5.0",
+    "@charcuterie/logic": "^2.6.1",
     "@charcuterie/tokens": "^1.10.2",
     "@preact/signals": "^2.5.1",
     "@preact/signals-core": "^1.13.1",
