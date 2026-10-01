@@ -141,9 +141,22 @@ const printer = z.object({
         name: z.string().optional(),
         color: z
           .string()
-          .regex(/^#[0-9a-fA-F]{6}$/)
+          .regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/)
           .optional(),
         colorName: z.string().optional(),
+        rgba: z
+          .string()
+          .regex(/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/)
+          .optional(),
+        extraColors: z
+          .array(
+            z
+              .string()
+              .regex(/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/),
+          )
+          .optional(),
+        effectType: z.string().optional(),
+        brand: z.string().optional(),
         location: z.string(),
       }),
     )
