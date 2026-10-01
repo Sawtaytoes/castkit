@@ -1209,7 +1209,7 @@
   font-size: 20px;
 }
 /*
- * Kids Points. The view measures its own box to choose a board or rows
+ * Tally Marks. The view measures its own box to choose a board or rows
  * (`kidsPointsLayout.ts`), so the root fills the panel and never scrolls. A
  * card is its own size container: the same card is 245 px wide on an
  * 800 x 480 panel and 500 px on a 13-inch one, and its type follows the card,
