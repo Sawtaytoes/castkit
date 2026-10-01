@@ -1,4 +1,4 @@
-# Kids Points view
+# Tally Marks view
 
 Each child's points today against the day's goal, and the result of the card a
 child just scanned. A panel wide enough for every child side by side is a
@@ -21,10 +21,10 @@ A channel of type `kids-points.v1`. Two adapters fill it.
 
 | Adapter | Use it when |
 | --- | --- |
-| **Kids Points** | A points service publishes one retained state document per child and one result message per scan. |
+| **Tally Marks** | A points service publishes one retained state document per child and one result message per scan. |
 | **MQTT** | Something else already builds the canonical `kids-points.v1` document below and publishes it to one topic. |
 
-The **Kids Points** adapter subscribes to two topics, both source settings:
+The **Tally Marks** adapter subscribes to two topics, both source settings:
 
 | Setting | Default | What it carries |
 | --- | --- | --- |
@@ -169,7 +169,7 @@ scheme. On a monochrome panel every stripe and bar is the body ink.
 
 CastKit does not know which room a reader is in; the house does. The pattern:
 
-1. Give each room a view whose Kids Points channel lists that room's reader in
+1. Give each room a view whose Tally Marks channel lists that room's reader in
    `readers`.
 2. When a scan result arrives, send each display in that room a temporary
    view: `<base>/<device-id>/override/set` with

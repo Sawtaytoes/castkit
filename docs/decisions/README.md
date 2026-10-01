@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-10-01 | [Tally Marks is the app; Tally Marks Store is the shop](2026-10-01-tally-marks-is-the-app-and-tally-marks-store-is-the-shop.md) | Accepted |
 | 2026-09-30 | [Public printer views use shared management sign-in](2026-09-30-public-printer-views-use-shared-management-sign-in.md) — public viewing, one management PIN session across views, and visible disabled controls with reasons | Accepted |
 | 2026-09-30 | [Printer layouts fit sections in priority order](2026-09-30-printer-layouts-fit-sections-in-priority-order.md) — camera views maximize contained camera area; static views prioritize live facts; both images enlarge without restarting their player, and printer actions keep warning/danger colors | Accepted |
 | 2026-09-30 | [AI Usage type scales with the panel and a letterbox flows into columns](2026-09-30-ai-usage-type-scales-with-the-panel-and-a-letterbox-flows-into-columns.md) — one `--ai-usage-scale` from the measured content height (1 to 2), columns from the aspect held to the width, and the row budget sharing the stylesheet's base heights as a contract | Accepted |

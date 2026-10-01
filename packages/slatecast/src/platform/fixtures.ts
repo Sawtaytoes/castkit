@@ -209,7 +209,7 @@ export const kidsPointsFixture = ({
   canControl: false,
   view: {
     id: "kids-points",
-    name: "Kids Points",
+    name: "Tally Marks",
     layout: "single",
     theme: "dark",
     access: "public",

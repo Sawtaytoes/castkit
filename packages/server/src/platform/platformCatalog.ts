@@ -352,7 +352,7 @@ const adapters: AdapterDefinition[] = [
   },
   {
     id: "kids-points",
-    name: "Kids Points",
+    name: "Tally Marks",
     description:
       "Each child's points today and every card scan, read from a points service over MQTT. CastKit never awards points.",
     channelTypes: ["kids-points.v1"],
@@ -556,7 +556,7 @@ const viewSpecs: ViewSpec[] = [
   {
     ...view({
       id: "kids-points",
-      name: "Kids Points",
+      name: "Tally Marks",
       type: "kids-points.v1",
       description:
         "Each child's points today against the goal. A card scan puts that child first; a larger panel keeps every child on the board.",

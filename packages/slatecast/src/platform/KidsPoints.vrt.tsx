@@ -17,7 +17,7 @@ import "../styles.css"
 import "./platform.css"
 
 /**
- * Visual-regression shots of Kids Points at the sizes where it changes shape.
+ * Visual-regression shots of Tally Marks at the sizes where it changes shape.
  *
  * The view picks a board or rows from its own box, and Storybook stages only
  * the canvas it is given, so the small panel's single-child result and its
