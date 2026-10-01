@@ -281,3 +281,96 @@ export const kidsPointsFixture = ({
     },
   },
 })
+
+/** Fixed historical samples with negative entries and separate timed tasks. */
+export const pointsHistoryFixture = (
+  metric = "daily",
+): DisplaySnapshot => ({
+  target: { kind: "view", id: "points-history" },
+  canControl: false,
+  view: {
+    id: "points-history",
+    name: "Points History",
+    layout: "single",
+    theme: "dark",
+    access: "public",
+    isControlEnabled: false,
+    panels: [
+      {
+        id: "history",
+        specId: "points-history",
+        bindings: { data: "history" },
+        settings: { metric },
+      },
+    ],
+  },
+  channels: {
+    history: {
+      id: "history",
+      type: "points-history.v1",
+      status: "ready",
+      data: {
+        version: 1,
+        generatedAtMs: Date.parse("2026-09-30T20:00:00Z"),
+        range: {
+          fromDay: "2026-09-28",
+          toDay: "2026-09-30",
+          dayCount: 3,
+          timezone: "America/Chicago",
+          isPartial: true,
+        },
+        source: {
+          name: "influxdb",
+          isFallback: false,
+          message: null,
+        },
+        children: [
+          {
+            id: "robin",
+            name: "Robin",
+            color: "#80B918",
+            pointsToday: 150,
+            goalToday: 120,
+            lifetimeEarned: 3000,
+            spendable: 2600,
+            totals: {
+              net: 200,
+              previousNet: 180,
+              averagePerCalendarDay: 200 / 3,
+              averagePerActiveDay: 200 / 3,
+              activeDays: 3,
+              qualifyingDays: 1,
+              bonusPercent: 0,
+              pointsToPenaltyRatio: 5,
+            },
+            days: [-50, 100, 150].map((net, index) => ({
+              day: `2026-09-${28 + index}`,
+              goal: 120,
+              net,
+              chores: index === 0 ? 0 : net,
+              bonus: 0,
+              penalty: index === 0 ? -50 : 0,
+              reversals: 0,
+              cumulative: [-50, 50, 200][index],
+              minutes: { reading: [0, 30, 45][index] },
+            })),
+            tasks: [
+              {
+                key: "reading",
+                name: "Reading",
+                points: 250,
+                minutes: 75,
+                averageMinutesPerCalendarDay: 25,
+                days: [0, 30, 45].map((minutes, index) => ({
+                  day: `2026-09-${28 + index}`,
+                  points: [0, 100, 150][index],
+                  minutes,
+                })),
+              },
+            ],
+          },
+        ],
+      },
+    },
+  },
+})

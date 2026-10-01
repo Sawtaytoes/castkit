@@ -24,3 +24,7 @@ limits that the admin panel explains before a view is assigned —
 Size and shape limits belong beside them, as a warning for "not recommended"
 and a count cap for Printer Status, so this page and the admin panel say the
 same thing.
+
+## Tally Marks History
+
+A plot needs more than 220 pixels of available content height. Shorter panels show the period net, date range, and update time with a stated chart-space limit. The view never starts a graph that would be cut off by the panel. Daily points retain negative values; a selected child adds the dated goal. Cumulative points begin at the selected period, and task minutes remain separate by task.

@@ -1826,3 +1826,78 @@
     flex-wrap: wrap;
   }
 }
+
+.platform-points-history {
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-inline-size: 0;
+  block-size: 100%;
+  overflow: hidden;
+}
+.platform-points-history h2 {
+  font-size: clamp(20px, 3vw, 40px);
+  font-weight: 600;
+  margin: 0;
+}
+.platform-points-history header p,
+.platform-points-history footer {
+  font-size: clamp(12px, 1.6vw, 20px);
+  margin: 0;
+}
+.points-history-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  font-size: clamp(14px, 2vw, 28px);
+}
+.points-history-plot {
+  flex: 1;
+  min-block-size: 120px;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+.points-history-legend {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: clamp(12px, 1.6vw, 22px);
+  max-block-size: 3em;
+  overflow: hidden;
+}
+.points-history-legend span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.points-history-legend i {
+  display: inline-block;
+  inline-size: 24px;
+}
+
+.points-history-compact {
+  display: none;
+}
+@container (max-height: 220px) {
+  .points-history-full {
+    display: none;
+  }
+  .points-history-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+  }
+  .points-history-compact strong {
+    font-size: 22px;
+  }
+  .platform-points-history footer {
+    font-size: 10px;
+  }
+}
