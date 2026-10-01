@@ -396,7 +396,7 @@ export const PrintersProblem: Story = {
 }
 
 /**
- * Kids Points on a panel wide enough for every child side by side: each card
+ * Tally Marks on a panel wide enough for every child side by side: each card
  * is the child's total against the goal, striped in their color.
  */
 export const KidsPointsBoard: Story = {

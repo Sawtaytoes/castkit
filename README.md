@@ -59,7 +59,7 @@ server during development.
 
 - [AI Usage](docs/ai-usage-view.md) — remaining subscription quota per AI
   provider, on an `ai-usage.v1` channel
-- [Kids Points](docs/kids-points-view.md) — each child's points today and the
+- [Tally Marks](docs/kids-points-view.md) — each child's points today and the
   card they just scanned, on a `kids-points.v1` channel
 - [Printer Status](docs/printer-status-view.md) — the 3D prints running right
   now, with Pause, Resume and Stop

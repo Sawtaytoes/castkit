@@ -29,7 +29,7 @@ const withInstantRepaint: Decorator = (Story) => {
 }
 
 const meta = {
-  title: "Views/Kids Points Scan",
+  title: "Views/Tally Marks Scan",
   parameters: { layout: "fullscreen" },
   decorators: [withInstantRepaint],
 }
@@ -58,7 +58,7 @@ const scanSnapshot = ({
   const channel = fixture.channels.points
   if (!channel) {
     throw new Error(
-      "The Kids Points fixture lost its channel.",
+      "The Tally Marks fixture lost its channel.",
     )
   }
   const data = channel.data as KidsPointsData
