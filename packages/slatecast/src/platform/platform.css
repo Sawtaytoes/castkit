@@ -1910,6 +1910,35 @@
   .printer-card {
   padding: 0;
 }
+/* The composition panel owns the surface and padding of each printer. */
+.platform-layout[data-priority-layout="true"]
+> .platform-panel[data-spec="printer-status"]:has(
+  > .platform-printers > .printer-card[data-intent="danger"]
+) {
+  background: var(--color-intent-danger-surface);
+  border-color: var(--color-intent-danger-border);
+}
+.platform-layout[data-priority-layout="true"]
+  > .platform-panel[data-spec="printer-status"]:has(
+    > .platform-printers
+      > .printer-card[data-intent="warning"]
+  ) {
+  background: var(--color-intent-warning-surface);
+  border-color: var(--color-intent-warning-border);
+}
+.platform-layout[data-priority-layout="true"]
+  > .platform-panel[data-spec="printer-status"]:has(
+    > .platform-printers
+      > .printer-card[data-intent="success"]
+  ) {
+  background: var(--color-intent-success-surface);
+  border-color: var(--color-intent-success-border);
+}
+.platform-layout[data-priority-layout="true"]
+  .platform-printers
+  .printer-card {
+  background: transparent;
+}
 .printer-progress-row {
   display: flex;
   align-items: center;

@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-10-01 | [Composed printer state colors the padded panel](2026-10-01-composed-printer-state-colors-the-padded-panel.md) | Accepted |
 | 2026-10-01 | [Automatic compositions reclaim camera letterboxing](2026-10-01-automatic-compositions-reclaim-camera-letterboxing.md) | Accepted |
 | 2026-10-01 | [Browser views reserve space for content](2026-10-01-browser-views-reserve-space-for-content.md) | Accepted |
 | 2026-10-02 | [Printer progress fits beside icon controls](2026-10-02-printer-progress-fits-beside-icon-controls.md) | Accepted |
