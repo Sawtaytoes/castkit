@@ -14,10 +14,9 @@ import "../styles.css"
  *
  * The remote-display renderer binds a touch by the control's bounding box
  * (see `nowPlayingTouchTargets.test.tsx` for the whole story), so the box is
- * what is measured here. The numbers are the rule in `styles.css`: Pause and
- * Stop are `max(48px, 8.9vmin)` tall and Clear plate is `max(56px, 13.4vmin)`,
- * which is 64 px and 96 px at the 1280x720 workbench panel and scales down
- * in proportion on the smaller profiles, never under the floor.
+ * what is measured here. Pause and Stop scale within 48–56 px and a 320 px
+ * row; viewport growth gives space to the camera and facts. Clear plate keeps
+ * its existing `max(56px, 13.4vmin)` sizing for the settled-job reminder.
  */
 
 const PANELS = [
@@ -32,6 +31,7 @@ const PANELS = [
     "the 720x1280 portrait panel",
     { width: 720, height: 1280 },
   ],
+  ["the 2560x1440 browser", { width: 2560, height: 1440 }],
 ] as const
 
 const TARGET_ATTRIBUTE = "data-castkit-target"
@@ -75,7 +75,10 @@ describe.each(
   PANELS,
 )("Printer Status touch targets on %s", (_label, panel) => {
   const vmin = Math.min(panel.width, panel.height) / 100
-  const expectedActionHeight = Math.max(48, 8.9 * vmin)
+  const expectedActionHeight = Math.min(
+    56,
+    Math.max(48, 8.9 * vmin),
+  )
   const expectedClearHeight = Math.max(56, 13.4 * vmin)
 
   test("Pause and Stop are a fingertip tall", async () => {
@@ -111,7 +114,7 @@ describe.each(
   })
 })
 
-test("the workbench panel's Pause and Stop are at least 64 px tall, side by side", async () => {
+test("the workbench panel's Pause and Stop stay capped, side by side", async () => {
   await mountOnPanel({
     width: 1280,
     height: 720,
@@ -133,9 +136,12 @@ test("the workbench panel's Pause and Stop are at least 64 px tall, side by side
     )
     ?.getBoundingClientRect()
 
-  expect(pause?.height).toBeGreaterThanOrEqual(64)
-  expect(stop?.height).toBeGreaterThanOrEqual(64)
-  // Split evenly across the card's width, on one row.
+  expect(pause?.height).toBe(56)
+  expect(stop?.height).toBe(56)
+  expect(
+    (pause?.width ?? 0) + (stop?.width ?? 0),
+  ).toBeLessThanOrEqual(310)
+  // Split evenly inside the bounded action row.
   expect(pause?.top).toBe(stop?.top)
   expect(pause?.width).toBeCloseTo(stop?.width ?? 0, 0)
 })

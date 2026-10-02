@@ -305,8 +305,10 @@
 }
 .platform .printer-action {
   flex: 1 1 0;
-  min-block-size: max(48px, 8.9vmin);
-  font-size: max(15px, 3.2vmin);
+  block-size: clamp(48px, 8.9vmin, 56px);
+  min-block-size: 48px;
+  max-block-size: 56px;
+  font-size: clamp(15px, 3.2vmin, 22px);
   background: transparent;
 }
 .platform .printer-action.is-pause {
