@@ -226,3 +226,16 @@ test("omitting the view heading reclaims its height for another complete account
       .hiddenRowCount,
   ).toBe(0)
 })
+
+test("adaptive columns include their scaled gaps in the reading width", () => {
+  const layout = placeSections({
+    providerRows: fiveProviders.slice(0, 3),
+    width: 670,
+    height: 220,
+    isAdaptive: true,
+    hasViewHeading: false,
+  })
+  expect(layout.hiddenRowCount).toBe(0)
+  expect(layout.columnCount).toBe(2)
+  expect(layout.scale).toBe(1)
+})

@@ -16,6 +16,7 @@ type ProviderRows = ReturnType<
 export const BASE_VIEW_HEADING_HEIGHT = 58
 export const BASE_PROVIDER_HEADING_HEIGHT = 34
 export const BASE_ROW_HEIGHT = 70
+export const BASE_COLUMN_GAP = 34
 
 /**
  * The panel height at which the type is drawn at scale 1. Below it nothing
@@ -269,7 +270,12 @@ export const placeSections = ({
           { priority: 1, width: scale * 100, height: 1 },
           {
             priority: 0,
-            width: width / columnCount,
+            width:
+              (width -
+                BASE_COLUMN_GAP *
+                  scale *
+                  (columnCount - 1)) /
+              columnCount,
             height: Math.max(0, height),
             minimumWidth: MIN_COLUMN_WIDTH * scale,
           },
