@@ -339,6 +339,25 @@ describe("assigning to a slot", () => {
     expect(currentScreen()).toBe("matched")
   })
 
+  test("completed stages return directly and discard dependent choices without assigning", async () => {
+    const { server } = await mountSpoolScale(
+      buildMatchedSpools(),
+    )
+    const user = userEvent.setup()
+    await user.click(button("Assign to an AMS slot"))
+    await user.click(button(/2 · Foopie/))
+    await user.click(button(/^AMS 2/))
+    await user.click(button("Return to Printer"))
+    expect(screen.getByText("Tap a printer.")).toBeVisible()
+    await user.click(button(/1 · Magi/))
+    expect(screen.getByText("Tap an AMS.")).toBeVisible()
+    expect(server.commands).toEqual([])
+    await user.click(button(/^AMS 1/))
+    await user.click(button("Return to AMS"))
+    expect(screen.getByText("Tap an AMS.")).toBeVisible()
+    expect(server.commands).toEqual([])
+  })
+
   test("Back undoes one tap and Cancel leaves the flow", async () => {
     const { server } = await mountSpoolScale(
       buildMatchedSpools(),

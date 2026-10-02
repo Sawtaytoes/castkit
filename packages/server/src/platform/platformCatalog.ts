@@ -77,6 +77,7 @@ const adapters: AdapterDefinition[] = [
       "printers.v1",
       "cameras.v1",
       "spools.v1",
+      "ams.v1",
     ],
     settings: [
       urlField,
@@ -589,6 +590,29 @@ const viewSpecs: ViewSpec[] = [
   }),
   {
     ...view({
+      id: "ams",
+      name: "AMS Filaments",
+      type: "ams.v1",
+      description:
+        "Every printer’s loaded filaments, AMS temperature, humidity, and calibration.",
+    }),
+    renderers: ["browser"],
+    minimumRepaint: "fast",
+    settings: [
+      {
+        key: "layout",
+        label: "Layout",
+        type: "select",
+        defaultValue: "cards",
+        options: [
+          { value: "cards", label: "Slot cards" },
+          { value: "rows", label: "Spool rows" },
+        ],
+      },
+    ],
+  },
+  {
+    ...view({
       id: "filament-spool-scale",
       name: "Filament Spool Scale",
       type: "spools.v1",
@@ -1038,7 +1062,11 @@ const viewGroups = [
   {
     id: "printers",
     name: "3D printers",
-    specs: ["printer-status", "filament-spool-scale"],
+    specs: [
+      "printer-status",
+      "filament-spool-scale",
+      "ams",
+    ],
   },
   {
     id: "touch",

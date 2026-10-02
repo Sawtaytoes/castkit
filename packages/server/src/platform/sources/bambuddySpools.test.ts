@@ -8,6 +8,7 @@ import {
   normalizeBambuddyAssignments,
   normalizeBambuddySpool,
   normalizeBambuddySpoolsPrinter,
+  normalizeBambuddyTray,
   reduceSpoolReaderEvent,
 } from "./bambuddySpools.ts"
 
@@ -359,4 +360,26 @@ test("the event stream fetches a token, parses frames, and reconnects after a cl
   await vi.advanceTimersByTimeAsync(1000)
   expect(sockets).toHaveLength(2)
   vi.useRealTimers()
+})
+
+test("AMS calibration preserves zero and excludes missing or invalid K values", () => {
+  expect(
+    normalizeBambuddyTray({
+      data: { id: 0, tray_type: "PLA", k: 0 },
+    })?.kValue,
+  ).toBe(0)
+  expect(
+    normalizeBambuddyTray({
+      data: { id: 0, tray_type: "PLA", k: 0.025 },
+    })?.kValue,
+  ).toBe(0.025)
+  expect(
+    normalizeBambuddyTray({
+      data: { id: 0, tray_type: "PLA", k: -1 },
+    })?.kValue,
+  ).toBeUndefined()
+  expect(
+    normalizeBambuddyTray({ data: { id: 0, k: 0.025 } })
+      ?.kValue,
+  ).toBeUndefined()
 })

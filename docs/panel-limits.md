@@ -10,6 +10,7 @@ today.
 
 | View | Panel property | Limit | Panels today | State |
 | --- | --- | --- | --- | --- |
+| AMS Filaments | Content width below 900 px | One selected printer and AMS unit at a time; use the tabs to browse the rest. The 1280×720 fleet layout supports three printers with three four-slot AMS units each. | Narrow browser panels | Enforced |
 | Printer Status | 480 px on its long edge or less | At most **one** printer. More printers may shift to the compact row layout for five or more, once it lands. | Porthole (480x480 round), Workbench (480x320) | Written down; not enforced |
 | Printer Status | Portrait | Printers stack top to bottom, not side by side ([decision](decisions/2026-09-28-printer-status-stacks-printers-top-to-bottom-on-a-portrait-panel.md)) | Pi Touch Portrait (720x1280) | Decided; not built |
 | Photo Frame | `shape: round` | **Not recommended.** A rectangular photo leaves bands inside the circle. Needs a zoom-to-fill option; the admin panel should recommend against the view here, not refuse it. | Porthole | Written down; not enforced |
