@@ -2187,3 +2187,76 @@
   flex: 1;
   min-inline-size: 0;
 }
+
+/* Measured visibility tiers preserve essential facts and actions before optional details. */
+.platform-printers .printer-card[data-detail-level="1"]
+  .printer-metric.is-filament,
+.platform-printers
+  .printer-card[data-detail-level="2"]
+  .printer-metrics,
+.platform-printers
+  .printer-card[data-detail-level="3"]
+  .printer-metrics,
+.platform-printers
+  .printer-card[data-detail-level="3"]
+  > .platform-printer-media {
+  display: none;
+}
+.platform-printers
+  .printer-card[data-detail-level="2"]
+  .printer-meta,
+.platform-printers
+  .printer-card[data-detail-level="3"]
+  .printer-meta {
+  display: none;
+}
+@container (max-width: 230px) {
+  .platform-printers .printer-progress-row {
+    flex-wrap: wrap;
+  }
+  .platform-printers .printer-progress-row > .printer-band {
+    flex-basis: 100%;
+  }
+  .platform-printers
+    .printer-progress-row
+    > .printer-actions {
+    margin-inline-start: auto;
+  }
+}
+
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-names {
+  flex: 1 1 64px;
+}
+
+.platform-printers .printer-body {
+  container-type: inline-size;
+}
+
+.platform-rips[data-row-posters="true"]
+  .platform-rip-poster {
+  flex: 0 0 44px;
+  inline-size: 44px;
+  block-size: calc(100% - 16px);
+  min-block-size: 64px;
+}
+.platform-rip-rows[data-density="compact"] {
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 4px;
+  font-size: 14px;
+}
+.platform-rip-rows[data-density="compact"]
+  .platform-rip-row {
+  gap: 6px;
+  padding: 4px;
+}
+.platform-rip-rows[data-density="compact"]
+  .platform-rip-number {
+  padding: 2px 4px;
+}
+.platform-rip-rows[data-density="compact"]
+  .platform-rip-title
+  span {
+  display: none;
+}

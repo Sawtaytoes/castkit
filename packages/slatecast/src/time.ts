@@ -1,3 +1,4 @@
+import { compactClockTime } from "@castkit/shared/compactClockTime"
 import type { BrowserClockConfig } from "@castkit/shared/protocol/ws"
 
 /**
@@ -76,7 +77,7 @@ const formatPartsSafely = ({
 }
 
 /**
- * The clock time as two pieces — "12:45" and "PM" — so a panel can set the
+ * The clock time as two pieces — "12:45" and "p" — so a panel can set the
  * meridiem in its own size. The meridiem is "" in twenty-four-hour mode.
  */
 export const formatClockTimeParts = (
@@ -93,8 +94,10 @@ export const formatClockTimeParts = (
     },
   })
   const meridiem =
-    parts.find((part) => part.type === "dayPeriod")
-      ?.value ?? ""
+    parts
+      .find((part) => part.type === "dayPeriod")
+      ?.value.toLowerCase()
+      .slice(0, 1) ?? ""
   const time = parts
     .filter((part) => part.type !== "dayPeriod")
     .map((part) => part.value)
@@ -237,19 +240,17 @@ export const formatClockMonthDay = (
     options: { month: "short", day: "numeric" },
   })
 
+/** Compact clock time shared by browser views, retaining the configured 24-hour mode. */
 export const formatClockTime = (
   millis: number,
   clock: BrowserClockConfig = DEFAULT_CLOCK,
-) =>
-  formatSafely({
+) => {
+  const { time, meridiem } = formatClockTimeParts(
     millis,
-    timeZone: clock.timeZone,
-    options: {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: clock.isTwelveHour,
-    },
-  })
+    clock,
+  )
+  return compactClockTime(time + meridiem)
+}
 
 export const formatClockDate = (
   millis: number,
@@ -277,14 +278,4 @@ export const formatEventTime = ({
   isAllDay: boolean
   clock?: BrowserClockConfig
 }) =>
-  isAllDay
-    ? "All day"
-    : formatSafely({
-        millis: startMillis,
-        timeZone: clock.timeZone,
-        options: {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: clock.isTwelveHour,
-        },
-      })
+  isAllDay ? "All day" : formatClockTime(startMillis, clock)

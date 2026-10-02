@@ -146,7 +146,7 @@ test("quota fit budgets keep an account's multiple rows together", () => {
   )
   const quotaMinimum =
     layout?.sections.at(-1)?.minimumHeight
-  expect(quotaMinimum).toBe(270)
+  expect(quotaMinimum).toBeCloseTo(184.6)
   expect(
     layout?.sections.at(-1)?.height,
   ).toBeGreaterThanOrEqual(quotaMinimum ?? 0)

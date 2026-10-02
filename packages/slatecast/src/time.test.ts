@@ -38,7 +38,7 @@ describe("formatClockTime", () => {
           isNumericDate: false,
         }),
       ),
-    ).toBe("3:05 PM")
+    ).toBe("3:05p")
   })
 
   test("renders a twenty-four-hour time in the configured zone", () => {
@@ -60,13 +60,13 @@ describe("formatClockTime", () => {
           isNumericDate: false,
         }),
       ),
-    ).toBe("5:05 AM")
+    ).toBe("5:05a")
   })
 
   test("defaults to twelve-hour device-local time with no config", () => {
     expect(
       withPlainSpaces(formatClockTime(AFTERNOON_MILLIS)),
-    ).toMatch(/^\d{1,2}:\d{2} (AM|PM)$/)
+    ).toMatch(/^\d{1,2}:\d{2}[ap]$/)
   })
 
   test("falls back to device-local time when the zone is unknown", () => {
@@ -83,7 +83,7 @@ describe("formatClockTime", () => {
     })
 
     expect(withPlainSpaces(withBadZone)).toMatch(
-      /^\d{1,2}:\d{2} (AM|PM)$/,
+      /^\d{1,2}:\d{2}[ap]$/,
     )
     expect(withBadZone).toBe(deviceLocal)
   })
@@ -155,7 +155,7 @@ describe("formatEventTime", () => {
           },
         }),
       ),
-    ).toBe("3:05 PM")
+    ).toBe("3:05p")
   })
 
   test("renders a timed event as twenty-four-hour time", () => {
@@ -193,7 +193,7 @@ describe("formatEventTime", () => {
     })
 
     expect(withPlainSpaces(withBadZone)).toMatch(
-      /^\d{1,2}:\d{2} (AM|PM)$/,
+      /^\d{1,2}:\d{2}[ap]$/,
     )
     expect(withBadZone).toBe(deviceLocal)
   })
@@ -207,7 +207,7 @@ describe("formatClockTimeParts", () => {
         isTwelveHour: true,
         isNumericDate: false,
       }),
-    ).toEqual({ time: "3:05", meridiem: "PM" })
+    ).toEqual({ time: "3:05", meridiem: "p" })
   })
 
   test("has no meridiem in twenty-four-hour mode", () => {
@@ -230,7 +230,7 @@ describe("formatClockTimeParts", () => {
       },
     )
     expect(time).toMatch(/^\d{1,2}:\d{2}$/)
-    expect(["AM", "PM"]).toContain(meridiem)
+    expect(["a", "p"]).toContain(meridiem)
   })
 })
 

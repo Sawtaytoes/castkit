@@ -73,6 +73,9 @@ const PrinterCard = ({
   const cardRef = usePrinterLayout({
     isCamera,
     hasImage: Boolean(imageUrl),
+    minimumDetailLevel: Number(
+      settings.minimumDetailLevel ?? 0,
+    ),
     contentKey: JSON.stringify([
       printer,
       isControlEnabled,

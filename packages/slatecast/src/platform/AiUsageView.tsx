@@ -1,4 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { compactClockTime } from "@castkit/shared/compactClockTime"
 import {
   useLayoutEffect,
   useRef,
@@ -74,10 +75,12 @@ const formatResetAt = ({
       : `Resets in ${hours}h ${remainingMinutes % 60}m`
   }
   const resetsAt = new Date(resetsAtMs)
-  const timeText = resetsAt.toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  })
+  const timeText = compactClockTime(
+    resetsAt.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    }),
+  )
   if (
     resetsAt.toDateString() === new Date(now).toDateString()
   ) {
@@ -235,6 +238,8 @@ export const AiUsageView = ({
     width: contentBox.width,
     height: contentBox.height,
     isAdaptive: settings?.isAdaptiveLayout === true,
+    minimumScale:
+      settings?.isAdaptiveLayout === true ? 0.65 : 1,
     hasViewHeading,
   })
   const mostSpentWindow = providerRows

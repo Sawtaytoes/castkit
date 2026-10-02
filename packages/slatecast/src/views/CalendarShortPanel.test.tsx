@@ -141,7 +141,7 @@ describe("calendar on a short landscape panel", () => {
     expect(
       document.querySelector(".calendar-meridiem")
         ?.textContent,
-    ).toMatch(/^(AM|PM)$/)
+    ).toMatch(/^[ap]$/)
     expect(fontSizeOf(".calendar-time")).toBe(44)
     expect(fontSizeOf(".calendar-meridiem")).toBe(22)
     expect(fontSizeOf(".calendar-date")).toBe(22)
@@ -208,7 +208,7 @@ describe("calendar on a short landscape panel", () => {
     ).toBeNull()
     expect(
       document.querySelector(".calendar-time")?.textContent,
-    ).toMatch(/^\d{1,2}:\d{2}\s(AM|PM)$/)
+    ).toMatch(/^\d{1,2}:\d{2}[ap]$/)
     // The weather line sits under the header, not beside it.
     expect(
       rectOf(".calendar-weather").top,

@@ -701,3 +701,27 @@ export const CombinedPrinterStates: Story = {
     )
   },
 }
+
+/** Three printers keep progress and controls whole while lower-priority usage shrinks. */
+export const CombinedPrintersAndUsage: Story = {
+  render: () => {
+    const snapshot = combinedSnapshot(3)
+    return (
+      <main class="platform">
+        <DisplayComposition
+          snapshot={{
+            ...snapshot,
+            view: {
+              ...snapshot.view,
+              panels: snapshot.view.panels.filter(
+                (panel) => panel.specId !== "rip-deck",
+              ),
+            },
+          }}
+          isConnected
+          onAction={async () => undefined}
+        />
+      </main>
+    )
+  },
+}

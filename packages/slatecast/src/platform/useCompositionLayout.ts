@@ -12,6 +12,7 @@ import {
   selectProviderRows,
 } from "./aiUsageRows.ts"
 import { chooseCompositionLayout } from "./compositionLayout.ts"
+import { measurePrinterFacts } from "./printerContentFit.ts"
 
 /** Measure actual content, then spend remaining space in priority order. */
 export const useCompositionLayout = ({
@@ -102,9 +103,9 @@ export const useCompositionLayout = ({
           usageRows,
           insetWidth,
           insetHeight,
-          minimumWidth: isPrinter ? 280 : usage ? 320 : 240,
+          minimumWidth: isPrinter ? 180 : usage ? 160 : 240,
           minimumHeight: isPrinter
-            ? 260
+            ? 0
             : panel.specId === "ai-usage"
               ? 104
               : 180,
@@ -117,8 +118,8 @@ export const useCompositionLayout = ({
         gap,
         items,
         mode: mode as "cards" | "rail" | "adaptive",
-        measureFacts: (key, width) => {
-          const cacheKey = `${key}:${width}`
+        measureFacts: (key, width, detailLevel = 0) => {
+          const cacheKey = `${key}:${width}:${detailLevel}`
           const cached = measured.get(cacheKey)
           if (cached !== undefined) return cached
           const index = panels.findIndex(
@@ -141,22 +142,14 @@ export const useCompositionLayout = ({
             Number.parseFloat(panelStyle.paddingTop) +
             Number.parseFloat(panelStyle.paddingBottom) +
             2
-          const probe = body.cloneNode(true) as HTMLElement
-          probe.inert = true
-          probe.setAttribute("aria-hidden", "true")
-          Object.assign(probe.style, {
-            position: "absolute",
-            visibility: "hidden",
-            inlineSize: `${Math.max(1, width - insetWidth)}px`,
-            blockSize: "auto",
-            inset: "0 auto auto 0",
-          })
-          body.parentElement?.append(probe)
+          const card = body.parentElement as HTMLElement
           const height =
-            probe.getBoundingClientRect().height +
-            insetHeight +
-            12
-          probe.remove()
+            measurePrinterFacts({
+              card,
+              width: Math.max(1, width - insetWidth),
+              detailLevel,
+              isCompact: true,
+            }) + insetHeight
           measured.set(cacheKey, height)
           return height
         },

@@ -224,12 +224,14 @@ export const placeSections = ({
   height,
   isAdaptive = false,
   hasViewHeading = true,
+  minimumScale = 1,
 }: {
   providerRows: readonly ProviderRows[]
   width: number
   height: number
   isAdaptive?: boolean
   hasViewHeading?: boolean
+  minimumScale?: number
 }) => {
   const scale = getTypeScale(height)
   if (!isAdaptive)
@@ -242,10 +244,16 @@ export const placeSections = ({
       columnCount: getColumnCount({ width, height, scale }),
     })
   const candidates = [1, 2, 3].flatMap((columnCount) =>
-    Array.from(
-      { length: 11 },
-      (_unused, index) => 1 + index / 10,
-    ).map((scale) => {
+    [
+      ...new Set(
+        Array.from(
+          {
+            length: Math.floor((2 - minimumScale) * 10) + 1,
+          },
+          (_unused, index) => minimumScale + index / 10,
+        ).concat(2),
+      ),
+    ].map((scale) => {
       const result = placeAtScale({
         providerRows,
         hasViewHeading,

@@ -137,7 +137,19 @@ export const DisplayComposition = ({
                   ? combined.layout?.cells[key]
                   : undefined
               }
-              panel={panel}
+              panel={
+                isCombined &&
+                panel.specId === "printer-status"
+                  ? {
+                      ...panel,
+                      settings: {
+                        ...panel.settings,
+                        minimumDetailLevel:
+                          combined.layout?.detailLevel ?? 0,
+                      },
+                    }
+                  : panel
+              }
               browserEntry={
                 snapshot.viewSpecs?.find(
                   (spec) => spec.id === panel.specId,

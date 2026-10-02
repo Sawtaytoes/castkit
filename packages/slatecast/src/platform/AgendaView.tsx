@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { formatClockTime } from "../time.ts"
 
 /** The view budgets whole rows from its own panel, including its heading and overflow count. */
 export const AgendaView = ({
@@ -58,12 +59,7 @@ export const AgendaView = ({
             >
               {event.isAllDay
                 ? "All day"
-                : new Date(
-                    event.startMs,
-                  ).toLocaleTimeString([], {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                : formatClockTime(event.startMs)}
             </time>
             <h3>{event.summary}</h3>
           </article>

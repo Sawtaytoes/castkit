@@ -9,6 +9,7 @@ import {
   type WeatherData,
 } from "@castkit/shared/viewData/types"
 import { useEffect, useState } from "preact/hooks"
+import { formatClockTime } from "../time.ts"
 import { useIsShortPanel } from "../useIsShortPanel.ts"
 import { AmbientFace } from "../views/Ambient.tsx"
 import { CalendarFace } from "../views/Calendar.tsx"
@@ -163,15 +164,9 @@ export const BuiltinView = ({
         <div class="platform-clock">
           {properties.hasClockMinutes ? (
             <time dateTime={new Date(now).toISOString()}>
-              {new Date(now).toLocaleTimeString(
-                typeof panel.settings.locale === "string"
-                  ? panel.settings.locale
-                  : undefined,
-                {
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: panel.settings.hour12 !== false,
-                },
+              {formatClockTime(
+                now,
+                readClockConfig(panel.settings),
               )}
             </time>
           ) : null}
