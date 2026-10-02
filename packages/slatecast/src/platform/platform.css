@@ -1903,3 +1903,194 @@
     font-size: 10px;
   }
 }
+/* Compositions allocate space first; each contained view then budgets its own content. */
+.platform-layout[data-priority-layout="true"] {
+  gap: 12px;
+}
+.platform-layout[data-priority-layout="true"]
+  > .platform-panel {
+  padding: 12px;
+  overflow: hidden;
+}
+.platform-layout[data-priority-layout="true"]
+  .platform-printers
+  .printer-card {
+  padding: 0;
+}
+.printer-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+}
+.printer-progress-row > .printer-band {
+  flex: 1;
+  min-inline-size: 0;
+}
+.platform .printer-progress-row .printer-actions {
+  align-self: center;
+  flex: 0 0 auto;
+  inline-size: auto;
+  margin: 0;
+  gap: 6px;
+}
+.platform
+  .printer-actions[data-icons="true"]
+  .printer-action {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex: 0 0 48px;
+  inline-size: 48px;
+  min-inline-size: 48px;
+  block-size: 48px;
+  min-block-size: 48px;
+  max-block-size: 48px;
+}
+.printer-progress-row[data-icons="false"] {
+  flex-wrap: wrap;
+}
+.platform
+  .printer-progress-row[data-icons="false"]
+  .printer-actions {
+  inline-size: min(100%, 320px);
+}
+.platform-rips[data-presentation="posters"] {
+  min-block-size: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-rows {
+  display: grid;
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 140px), 1fr)
+    );
+  grid-auto-rows: minmax(0, 1fr);
+  flex: 1;
+  min-block-size: 0;
+  gap: 10px;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-block-size: 0;
+  padding: 8px;
+  overflow: hidden;
+  text-align: start;
+}
+.platform-rip-poster {
+  min-block-size: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.platform-rip-poster img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-title
+  strong {
+  font-size: clamp(16px, 2cqi, 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-fill {
+  inset: auto 0 0;
+  block-size: 5px;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-meta {
+  display: none;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-job {
+  background: transparent;
+  border: 0;
+  min-block-size: 32px;
+  padding: 0;
+  text-align: start;
+  font-size: clamp(16px, 3cqi, 26px);
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metric {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metric
+  :is(dt, dd) {
+  font-size: clamp(14px, 2.7cqi, 19px);
+  white-space: nowrap;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metric
+  dt {
+  text-transform: none;
+  letter-spacing: normal;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metric.is-filament {
+  flex: 1 1 auto;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .is-filament
+  dt {
+  display: none;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-filament-button {
+  min-block-size: 44px;
+  padding: 0;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-title {
+  flex: none;
+  gap: 2px;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-number {
+  align-self: start;
+  font-size: 14px;
+  padding: 2px 6px;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-row
+  > strong {
+  font-size: 20px;
+}
+.platform-rip-more {
+  font-size: 14px;
+  color: var(--fg-dim);
+}

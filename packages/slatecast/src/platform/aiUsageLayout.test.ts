@@ -193,3 +193,23 @@ describe("placeSections", () => {
     ).toStrictEqual(["real"])
   })
 })
+
+test("an adaptive tall rail stacks accounts and a shallow strip rotates them to fit", () => {
+  const providerRows = fiveProviders.slice(0, 3)
+  const rail = placeSections({
+    providerRows,
+    width: 420,
+    height: 1000,
+    isAdaptive: true,
+  })
+  expect(rail.columnCount).toBe(1)
+  expect(rail.hiddenRowCount).toBe(0)
+  const strip = placeSections({
+    providerRows,
+    width: 1100,
+    height: 280,
+    isAdaptive: true,
+  })
+  expect(strip.columnCount).toBe(3)
+  expect(strip.hiddenRowCount).toBe(0)
+})

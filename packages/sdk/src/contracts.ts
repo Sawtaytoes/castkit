@@ -57,7 +57,13 @@ export type ViewDefinition = {
   tags?: string[]
   id: string
   name: string
-  layout: "single" | "split" | "grid"
+  layout:
+    | "single"
+    | "split"
+    | "grid"
+    | "cards"
+    | "rail"
+    | "adaptive"
   panels: ViewPanel[]
   theme: "auto" | "light" | "dark"
   appearance?: {

@@ -4,6 +4,7 @@ import type {
   ViewDefinition,
   ViewPanel,
 } from "@castkit/sdk/contracts"
+import { selectPanelData } from "@castkit/sdk/panelSelection"
 
 /**
  * "Is anything going on" per channel, answered from the contract's own data.
@@ -54,6 +55,14 @@ export const isChannelActive = (
           isRecentlyPaused(channel.id))
       )
     }
+    case "ai-usage.v1":
+      return (
+        channel.data as ContractData["ai-usage.v1"]
+      ).providers.some((provider) =>
+        provider.windows.some(
+          (window) => (window.percentUsed ?? 0) > 0,
+        ),
+      )
     case "queue.v1":
       return (
         (channel.data as ContractData["queue.v1"]).items
@@ -83,7 +92,18 @@ export const isPanelActive = ({
     panel.bindings.data ?? Object.values(panel.bindings)[0]
   return channelId === undefined
     ? undefined
-    : isChannelActive(channels[channelId], isRecentlyPaused)
+    : isChannelActive(
+        channels[channelId]
+          ? {
+              ...channels[channelId],
+              data: selectPanelData({
+                ...panel,
+                data: channels[channelId]?.data,
+              }),
+            }
+          : undefined,
+        isRecentlyPaused,
+      )
 }
 
 /**

@@ -4,7 +4,9 @@ import type {
   ContractData,
   ViewPanel,
 } from "@castkit/sdk/contracts"
+import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { ViewInput } from "@castkit/sdk/plugin"
+import type { JSX } from "preact"
 import { FilamentSpoolScale } from "../views/FilamentSpoolScale.tsx"
 import { TouchTest } from "../views/TouchTest.tsx"
 import { BuiltinView } from "./BuiltinView.tsx"
@@ -17,6 +19,7 @@ import { RipDeckView } from "./RipDeckView.tsx"
 /** Resolve each panel's own bindings; no shared mutable view data crosses panels. */
 export const Panel = ({
   panel,
+  layoutStyle,
   channels,
   isControlEnabled,
   controlDisabledReason,
@@ -24,6 +27,7 @@ export const Panel = ({
   browserEntry,
   inputs,
 }: {
+  layoutStyle?: JSX.CSSProperties
   panel: ViewPanel
   channels: Record<string, ChannelSnapshot>
   isControlEnabled: boolean
@@ -39,8 +43,13 @@ export const Panel = ({
         Object.values(panel.bindings)[0] ??
         ""
     ]
+  const selectedData = selectPanelData({
+    ...panel,
+    data: source?.data,
+  })
   const title =
-    typeof panel.settings.title === "string"
+    typeof panel.settings.title === "string" &&
+    panel.settings.title
       ? panel.settings.title
       : panel.specId.replaceAll("-", " ")
   const requestAction = (
@@ -110,6 +119,7 @@ export const Panel = ({
   return (
     <section
       class="platform-panel"
+      style={layoutStyle}
       aria-label={title}
       data-spec={panel.specId}
     >
@@ -185,7 +195,7 @@ export const Panel = ({
         ) : panel.specId === "printer-status" ? (
           <PrintersView
             data={
-              source?.data as ContractData["printers.v1"]
+              selectedData as ContractData["printers.v1"]
             }
             cameras={
               channels[panel.bindings.cameras ?? ""]
@@ -211,7 +221,7 @@ export const Panel = ({
         ) : panel.specId === "rip-deck" ? (
           <RipDeckView
             data={
-              source?.data as ContractData["rip-deck.v1"]
+              selectedData as ContractData["rip-deck.v1"]
             }
             isControlEnabled={
               isControlEnabled &&
@@ -219,11 +229,12 @@ export const Panel = ({
               isSourceReady
             }
             onAction={requestAction}
+            settings={panel.settings}
           />
         ) : (
           <BuiltinView
             panel={panel}
-            data={source?.data}
+            data={selectedData}
             weather={
               channels[panel.bindings.weather ?? ""]
                 ?.data as

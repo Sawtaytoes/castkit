@@ -1,3 +1,4 @@
+import type { ContractData } from "@castkit/sdk/contracts"
 import {
   Button,
   Card,
@@ -179,6 +180,8 @@ export const ViewEditor = ({
               onChange({
                 ...value,
                 layout: preset.layout,
+                isActiveOnly:
+                  preset.isActiveOnly ?? value.isActiveOnly,
                 panels: preset.panels.map((panel) => ({
                   id: panel.id,
                   specId: panel.specId,
@@ -206,6 +209,19 @@ export const ViewEditor = ({
                 {
                   label: "Two panels side by side",
                   value: "split",
+                },
+                {
+                  label:
+                    "Automatic · prioritize printer cameras",
+                  value: "adaptive",
+                },
+                {
+                  label: "A · Adaptive cards",
+                  value: "cards",
+                },
+                {
+                  label: "B · Cameras and rail",
+                  value: "rail",
                 },
                 { label: "Grid", value: "grid" },
               ]}
@@ -264,6 +280,66 @@ export const ViewEditor = ({
           const spec = platform.viewSpecs.find(
             (item) => item.id === panel.specId,
           )
+          const data =
+            platform.channelStates[
+              panel.bindings.data ?? ""
+            ]?.data
+          const discovery = {
+            printers:
+              panel.specId === "printer-status"
+                ? (
+                    (
+                      data as
+                        | ContractData["printers.v1"]
+                        | undefined
+                    )?.printers ?? []
+                  ).map((printer) => ({
+                    id: printer.id,
+                    name: printer.name,
+                  }))
+                : [],
+            bays:
+              panel.specId === "rip-deck"
+                ? (
+                    (
+                      data as
+                        | ContractData["rip-deck.v1"]
+                        | undefined
+                    )?.bays ?? []
+                  ).map((bay) => ({
+                    id: bay.id,
+                    name: bay.name,
+                  }))
+                : [],
+            providers:
+              panel.specId === "ai-usage"
+                ? (
+                    (
+                      data as
+                        | ContractData["ai-usage.v1"]
+                        | undefined
+                    )?.providers ?? []
+                  ).map((provider) => ({
+                    id: provider.id,
+                    name: provider.name,
+                  }))
+                : [],
+            windows:
+              panel.specId === "ai-usage"
+                ? (
+                    (
+                      data as
+                        | ContractData["ai-usage.v1"]
+                        | undefined
+                    )?.providers ?? []
+                  ).flatMap((provider) =>
+                    provider.windows.map((window) => ({
+                      id: `${provider.id}:${window.id}`,
+                      name: `${provider.name} · ${window.label}`,
+                    })),
+                  )
+                : [],
+          }
           return (
             <Card
               key={panel.id}
@@ -348,7 +424,9 @@ export const ViewEditor = ({
                       Panel settings
                     </legend>
                     <SettingsFields
+                      key={`${presetId}:${panel.specId}`}
                       fields={spec.settings}
+                      discovery={discovery}
                       values={panel.settings}
                       onChange={(settings) =>
                         changePanel(panel.id, { settings })
@@ -360,8 +438,9 @@ export const ViewEditor = ({
                   Available on:{" "}
                   {spec?.renderers.join(", ") ?? "Unknown"}
                 </p>
-                {value.layout === "grid" &&
-                value.panels.length > 1 ? (
+                {!["single", "split"].includes(
+                  value.layout,
+                ) && value.panels.length > 1 ? (
                   <Button
                     type="button"
                     appearance="outline"
@@ -382,7 +461,7 @@ export const ViewEditor = ({
             </Card>
           )
         })}
-        {value.layout === "grid" ? (
+        {!["single", "split"].includes(value.layout) ? (
           <Button
             type="button"
             appearance="outline"
@@ -474,6 +553,7 @@ export const ViewEditor = ({
           changes.
         </p>
         <Checkbox
+          key={`${value.id}:${presetId}`}
           label="Show only what is active"
           isChecked={value.isActiveOnly === true}
           onChange={(isActiveOnly) =>

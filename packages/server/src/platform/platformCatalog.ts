@@ -684,7 +684,7 @@ const viewSpecs: ViewSpec[] = [
     settings: [
       {
         key: "alertPercent",
-        label: "Show a second limit at (percent used)",
+        label: "Shorter limit alert (percent used)",
         type: "number",
         defaultValue: 80,
       },
@@ -815,7 +815,33 @@ viewSpecs.forEach((spec) => {
       type: "cameras.v1",
       isRequired: false,
     })
-    spec.settings = [
+    spec.settings = spec.settings.concat([
+      {
+        key: "isPrinterSelectionEnabled",
+        label: "Choose printers for this view",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "printerIds",
+        label: "Printers",
+        type: "string-list",
+        discoveryKey: "printers",
+        description:
+          "Only applies when choosing printers is enabled. An empty selection shows none.",
+      },
+      {
+        key: "isCompactControls",
+        label: "Use compact icon controls beside progress",
+        type: "boolean",
+        defaultValue: true,
+      },
+      {
+        key: "isCompactFacts",
+        label: "Use a compact printer facts row",
+        type: "boolean",
+        defaultValue: false,
+      },
       {
         key: "isCameraVisible",
         label: "Show printer cameras",
@@ -824,10 +850,75 @@ viewSpecs.forEach((spec) => {
         description:
           "Shown on browser screens; touch displays can disable cameras.",
       },
-    ]
+    ])
   }
   if (spec.id === "rip-deck") {
     spec.minimumRepaint = "fast"
+    spec.settings = spec.settings.concat([
+      {
+        key: "isBaySelectionEnabled",
+        label: "Choose bays for this view",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "bayIds",
+        label: "Bays",
+        type: "string-list",
+        discoveryKey: "bays",
+      },
+      {
+        key: "presentation",
+        label: "Presentation",
+        type: "select",
+        defaultValue: "rows",
+        options: [
+          { value: "rows", label: "Compact rows" },
+          { value: "posters", label: "Poster cards" },
+        ],
+      },
+    ])
+  }
+  if (spec.id === "ai-usage") {
+    spec.settings = spec.settings.concat([
+      {
+        key: "isProviderSelectionEnabled",
+        label: "Choose accounts for this view",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "providerIds",
+        label: "AI accounts",
+        type: "string-list",
+        discoveryKey: "providers",
+      },
+      {
+        key: "isWindowSelectionEnabled",
+        label: "Choose usage windows for this view",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "windowIds",
+        label: "Usage windows",
+        type: "string-list",
+        discoveryKey: "windows",
+      },
+      {
+        key: "isPositiveUsageOnly",
+        label: "Show only usage above zero",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "isAlertReplacementEnabled",
+        label:
+          "Replace weekly usage with a shorter limit above the alert threshold",
+        type: "boolean",
+        defaultValue: false,
+      },
+    ])
   }
   if (
     ["entities", "timers", "map", "charts"].includes(
@@ -888,6 +979,21 @@ viewSpecs.forEach((spec) => {
       },
     ])
   }
+  spec.settings = spec.settings.concat([
+    {
+      key: "priority",
+      label: "Composition priority",
+      type: "number",
+      defaultValue:
+        spec.id === "printer-status"
+          ? 3
+          : spec.id === "rip-deck"
+            ? 2
+            : 1,
+      description:
+        "Higher values receive useful space first in Automatic layouts. Required content still has to fit.",
+    },
+  ])
 })
 const sourceFactories: NonNullable<
   CastKitPlugin["adapters"]
@@ -979,6 +1085,43 @@ const presetsByGroup: Record<
     },
   ],
   "rip-deck": [
+    {
+      id: "working",
+      name: "Combined kiosk",
+      description:
+        "Prioritize printer cameras, with active disc jobs and AI usage fitted around them.",
+      layout: "adaptive",
+      isActiveOnly: true,
+      panels: [
+        {
+          id: "printers",
+          specId: "printer-status",
+          settings: {
+            title: "",
+            isCompactControls: true,
+            isCompactFacts: true,
+          },
+        },
+        {
+          id: "rips",
+          specId: "rip-deck",
+          settings: {
+            title: "Rip Deck",
+            presentation: "posters",
+          },
+        },
+        {
+          id: "ai",
+          specId: "ai-usage",
+          settings: {
+            title: "",
+            isPositiveUsageOnly: true,
+            isAlertReplacementEnabled: true,
+            alertPercent: 80,
+          },
+        },
+      ],
+    },
     {
       id: "rip-deck-printers",
       name: "Rip Deck and printers",
@@ -1210,9 +1353,14 @@ const createCatalogSnapshot = ({
   })
   presets.forEach((preset) => {
     if (
-      !["single", "split", "grid"].includes(
-        preset.layout,
-      ) ||
+      ![
+        "single",
+        "split",
+        "grid",
+        "cards",
+        "rail",
+        "adaptive",
+      ].includes(preset.layout) ||
       !Array.isArray(preset.panels) ||
       preset.panels.length === 0 ||
       preset.panels.some(
