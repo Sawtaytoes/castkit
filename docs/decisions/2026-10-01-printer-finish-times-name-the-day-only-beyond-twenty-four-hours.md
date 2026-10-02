@@ -1,10 +1,10 @@
 # Printer finish times name the day only beyond twenty-four hours
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-10-01
 - **Type:** View / formatting
 - **Supersedes:** [Calendar-day finish labels](2026-09-25-a-finish-time-names-its-day-when-it-is-not-today.md)
-- **Superseded by:** —
+- **Superseded by:** [Compact clock labels](2026-10-02-clock-labels-use-compact-day-and-period-suffixes.md)
 
 ## Decision
 

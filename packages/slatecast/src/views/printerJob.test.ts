@@ -140,7 +140,7 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("5:47 PM")
+    ).toBe("5:47p")
   })
 
   test("a finish the next day names tomorrow", () => {
@@ -152,7 +152,7 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("Tomorrow 3:47 PM")
+    ).toBe("T 3:47p")
   })
 
   test("an overnight finish keeps the bare time within twenty-four hours", () => {
@@ -164,17 +164,17 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("1:00 AM")
+    ).toBe("1:00a")
   })
 
   test.each([
     {
       elapsedMillis: 24 * 60 * 60 * 1_000,
-      expected: "3:05 PM",
+      expected: "3:05p",
     },
     {
       elapsedMillis: 24 * 60 * 60 * 1_000 + 1,
-      expected: "Tomorrow 3:05 PM",
+      expected: "T 3:05p",
     },
   ])("the twenty-four-hour boundary: $elapsedMillis ms", ({
     elapsedMillis,
@@ -200,7 +200,7 @@ describe("formatFinishTime", () => {
           finishAtMs: Date.UTC(2026, 2, 9, 5, 15),
         }),
       ),
-    ).toBe("12:15 AM")
+    ).toBe("12:15a")
   })
 
   test("a finish further out names its weekday", () => {
@@ -212,7 +212,7 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("Sun 2:30 PM")
+    ).toBe("Sun 2:30p")
   })
 
   test("a week or more out names the date instead", () => {
@@ -224,7 +224,7 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("Aug 1 2:30 PM")
+    ).toBe("Aug 1 2:30p")
   })
 
   test("a finish already past keeps the bare time", () => {
@@ -236,6 +236,6 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("3:05 PM")
+    ).toBe("3:05p")
   })
 })

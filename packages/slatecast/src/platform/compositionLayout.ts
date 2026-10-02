@@ -7,6 +7,7 @@ import {
   placeSections,
 } from "./aiUsageLayout.ts"
 import type { selectProviderRows } from "./aiUsageRows.ts"
+import type { PrinterDetailLevel } from "./printerContentFit.ts"
 
 export type CompositionItem = {
   key: string
@@ -28,8 +29,9 @@ const usageHeight = (
   const entries = item.usageRows ?? []
   const heights = entries.map(
     (entry) =>
-      BASE_PROVIDER_HEADING_HEIGHT +
-      entry.rows.length * BASE_ROW_HEIGHT,
+      (BASE_PROVIDER_HEADING_HEIGHT +
+        entry.rows.length * BASE_ROW_HEIGHT) *
+      0.65,
   )
   const candidates = heights
     .flatMap((_height, index) =>
@@ -53,6 +55,7 @@ const usageHeight = (
           ),
           height,
           isAdaptive: true,
+          minimumScale: 0.65,
           hasViewHeading: false,
         }).hiddenRowCount === 0,
     ) ?? item.minimumHeight) + (item.insetHeight ?? 0)
@@ -73,7 +76,11 @@ export const chooseCompositionLayout = ({
   gap: number
   items: readonly CompositionItem[]
   mode: "cards" | "rail" | "adaptive"
-  measureFacts: (key: string, width: number) => number
+  measureFacts: (
+    key: string,
+    width: number,
+    detailLevel?: PrinterDetailLevel,
+  ) => number
 }) => {
   const printers = items.filter((item) => item.isPrinter)
   const supporting = items.filter((item) => !item.isPrinter)
@@ -93,101 +100,150 @@ export const chooseCompositionLayout = ({
       columnSpan: number
       rowSpan: number
     }[]
-  }) => {
-    const sections: LayoutSection[] = cells.flatMap(
-      (cell) => {
-        const item = items.find(
-          (item) => item.key === cell.key,
-        )
-        if (!item) return []
-        const cellWidth =
-          columns
-            .slice(
-              cell.column,
-              cell.column + cell.columnSpan,
-            )
-            .reduce((total, value) => total + value, 0) +
-          gap * (cell.columnSpan - 1)
-        const cellHeight =
-          rows
-            .slice(cell.row, cell.row + cell.rowSpan)
-            .reduce((total, value) => total + value, 0) +
-          gap * (cell.rowSpan - 1)
-        const contentWidth = Math.max(
-          0,
-          cellWidth - (item.insetWidth ?? 0),
-        )
-        const minimumHeight = item.usageRows
-          ? usageHeight(item, cellWidth)
-          : item.minimumHeight
-        const usage = item.usageRows
-          ? placeSections({
-              providerRows: item.usageRows,
-              width: contentWidth,
-              height: Math.max(
-                0,
-                cellHeight - (item.insetHeight ?? 0),
+  }) =>
+    ([0, 1, 2, 3] as const).map((detailLevel) => {
+      const sections: LayoutSection[] = cells.flatMap(
+        (cell) => {
+          const item = items.find(
+            (item) => item.key === cell.key,
+          )
+          if (!item) return []
+          const cellWidth =
+            columns
+              .slice(
+                cell.column,
+                cell.column + cell.columnSpan,
+              )
+              .reduce((total, value) => total + value, 0) +
+            gap * (cell.columnSpan - 1)
+          const cellHeight =
+            rows
+              .slice(cell.row, cell.row + cell.rowSpan)
+              .reduce((total, value) => total + value, 0) +
+            gap * (cell.rowSpan - 1)
+          const contentWidth = Math.max(
+            0,
+            cellWidth - (item.insetWidth ?? 0),
+          )
+          const minimumHeight = item.usageRows
+            ? usageHeight(item, cellWidth)
+            : item.minimumHeight
+          const usage = item.usageRows
+            ? placeSections({
+                providerRows: item.usageRows,
+                width: contentWidth,
+                height: Math.max(
+                  0,
+                  cellHeight - (item.insetHeight ?? 0),
+                ),
+                isAdaptive: true,
+                minimumScale: 0.65,
+                hasViewHeading: false,
+              })
+            : undefined
+          const factsHeight = item.isPrinter
+            ? measureFacts(item.key, cellWidth, detailLevel)
+            : 0
+          return [
+            {
+              priority: item.priority,
+              width: usage
+                ? usage.scale * 100
+                : contentWidth,
+              height: usage
+                ? 1
+                : Math.max(
+                    0,
+                    cellHeight -
+                      factsHeight -
+                      (item.isPrinter && detailLevel < 3
+                        ? 12
+                        : 0),
+                  ),
+              visibilityPriority: item.isPrinter
+                ? 3
+                : undefined,
+              isHidden: item.isPrinter && detailLevel === 3,
+              minimumWidth:
+                item.isPrinter && detailLevel < 3
+                  ? 100
+                  : undefined,
+              minimumHeight:
+                item.isPrinter && detailLevel < 3
+                  ? 56
+                  : undefined,
+              aspectRatio: usage
+                ? undefined
+                : item.aspectRatio,
+              idealArea: item.isPrinter
+                ? undefined
+                : item.minimumWidth *
+                  item.minimumHeight *
+                  4,
+            },
+            {
+              priority: 0,
+              width: cellWidth,
+              height: cellHeight,
+              minimumWidth: item.minimumWidth,
+              minimumHeight: Math.max(
+                minimumHeight,
+                factsHeight +
+                  (item.isPrinter && detailLevel < 3
+                    ? 68
+                    : 0),
               ),
-              isAdaptive: true,
-              hasViewHeading: false,
-            })
-          : undefined
-        const factsHeight = item.isPrinter
-          ? measureFacts(item.key, cellWidth)
-          : 0
-        return [
-          {
-            priority: item.priority,
-            width: usage ? usage.scale * 100 : contentWidth,
-            height: usage
-              ? 1
-              : Math.max(0, cellHeight - factsHeight),
-            aspectRatio: usage
-              ? undefined
-              : item.aspectRatio,
-            idealArea: item.isPrinter
-              ? undefined
-              : item.minimumWidth * item.minimumHeight * 4,
-          },
-          {
-            priority: 0,
-            width: cellWidth,
-            height: cellHeight,
-            minimumWidth: item.minimumWidth,
-            minimumHeight: Math.max(
-              minimumHeight,
-              factsHeight + (item.isPrinter ? 100 : 0),
-            ),
-          },
-        ]
-      },
-    )
-    return {
-      id,
-      sections,
-      style: {
-        gridTemplateColumns: columns
-          .map(
-            (value) => `minmax(0, ${Math.max(1, value)}fr)`,
-          )
-          .join(" "),
-        gridTemplateRows: rows
-          .map(
-            (value) => `minmax(0, ${Math.max(1, value)}fr)`,
-          )
-          .join(" "),
-      } as JSX.CSSProperties,
-      cells: Object.fromEntries(
-        cells.map((cell) => [
-          cell.key,
-          {
-            gridColumn: `${cell.column + 1} / span ${cell.columnSpan}`,
-            gridRow: `${cell.row + 1} / span ${cell.rowSpan}`,
-          } as JSX.CSSProperties,
-        ]),
-      ),
-    }
-  }
+            },
+            ...(item.isPrinter
+              ? [
+                  {
+                    priority: 0,
+                    visibilityPriority: 2,
+                    isHidden: detailLevel >= 2,
+                    width: 1,
+                    height: 1,
+                  },
+                  {
+                    priority: 0,
+                    visibilityPriority: 1,
+                    isHidden: detailLevel >= 1,
+                    width: 1,
+                    height: 1,
+                  },
+                ]
+              : []),
+          ]
+        },
+      )
+      return {
+        id,
+        detailLevel,
+        sections,
+        style: {
+          gridTemplateColumns: columns
+            .map(
+              (value) =>
+                `minmax(0, ${Math.max(1, value)}fr)`,
+            )
+            .join(" "),
+          gridTemplateRows: rows
+            .map(
+              (value) =>
+                `minmax(0, ${Math.max(1, value)}fr)`,
+            )
+            .join(" "),
+        } as JSX.CSSProperties,
+        cells: Object.fromEntries(
+          cells.map((cell) => [
+            cell.key,
+            {
+              gridColumn: `${cell.column + 1} / span ${cell.columnSpan}`,
+              gridRow: `${cell.row + 1} / span ${cell.rowSpan}`,
+            } as JSX.CSSProperties,
+          ]),
+        ),
+      }
+    })
   const cardCandidates = Array.from(
     {
       length: Math.min(
@@ -259,7 +315,7 @@ export const chooseCompositionLayout = ({
             ]),
           ]
         : [height]
-    return supportHeights.map((supportHeight) => {
+    return supportHeights.flatMap((supportHeight) => {
       const rowCount = printerRows + supportRows
       const printerHeight = printerRows
         ? (height -
@@ -323,7 +379,7 @@ export const chooseCompositionLayout = ({
               { length: Math.min(3, printers.length) },
               (_unused, index) => index + 1,
             )
-            return columnCounts.map((columnCount) => {
+            return columnCounts.flatMap((columnCount) => {
               const printerRows = Math.ceil(
                 printers.length / columnCount,
               )

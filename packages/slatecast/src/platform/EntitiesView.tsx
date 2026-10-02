@@ -1,6 +1,7 @@
 import { isVisible } from "@castkit/sdk/conditions"
 import type { ContractData } from "@castkit/sdk/contracts"
 import { useEffect, useState } from "preact/hooks"
+import { formatClockTime } from "../time.ts"
 import { AttributeFields } from "./AttributeFields.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { EntityChart } from "./EntityChart.tsx"
@@ -182,7 +183,7 @@ export const EntitiesView = ({
             <p class="platform-entity-value">
               {remaining !== null &&
               !properties.hasClockSeconds
-                ? `Ends at ${new Date(finish).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+                ? `Ends at ${formatClockTime(finish)}`
                 : remaining !== null
                   ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`
                   : entity.domain === "timer" &&

@@ -1,5 +1,10 @@
 import { selectPriorityLayout } from "@charcuterie/logic/core"
-import { useEffect, useRef } from "preact/hooks"
+import { useLayoutEffect, useRef } from "preact/hooks"
+import {
+  applyPrinterDetailLevel,
+  measurePrinterFacts,
+  type PrinterDetailLevel,
+} from "./printerContentFit.ts"
 
 const SECTION_PRIORITIES = {
   camera: { media: 2, facts: 1 },
@@ -11,13 +16,15 @@ export const usePrinterLayout = ({
   isCamera,
   hasImage,
   contentKey,
+  minimumDetailLevel = 0,
 }: {
   isCamera: boolean
   hasImage: boolean
   contentKey: string
+  minimumDetailLevel?: number
 }) => {
   const card = useRef<HTMLElement>(null)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = card.current
     const body =
       element?.querySelector<HTMLElement>(".printer-body")
@@ -41,10 +48,6 @@ export const usePrinterLayout = ({
         return
       }
       element.dataset.compact = String(height < 420)
-      if (!hasImage) {
-        element.dataset.orientation = "facts"
-        return
-      }
       const media = element.querySelector<
         HTMLImageElement | HTMLVideoElement
       >(".expandable-media img, .expandable-media video")
@@ -62,92 +65,121 @@ export const usePrinterLayout = ({
           : isCamera
             ? 16 / 9
             : 1
-      // Measure a noninteractive clone at each candidate width, with the real
-      // font and card styles. It never participates in grid sizing or a11y.
-      const probe = body.cloneNode(true) as HTMLElement
-      probe.inert = true
-      probe.setAttribute("aria-hidden", "true")
-      Object.assign(probe.style, {
-        position: "absolute",
-        visibility: "hidden",
-        pointerEvents: "none",
-        blockSize: "auto",
-        maxBlockSize: "none",
-        inset: "0 auto auto 0",
-      })
-      element.append(probe)
       const measuredGap = Number.parseFloat(style.columnGap)
       const gap = Number.isFinite(measuredGap)
         ? measuredGap
         : 12
       const makeCandidate = (
-        orientation: "vertical" | "horizontal",
+        orientation: "vertical" | "horizontal" | "facts",
         factsWidth: number,
+        detailLevel: PrinterDetailLevel,
       ) => {
-        probe.style.inlineSize = `${factsWidth}px`
-        const factsHeight =
-          probe.getBoundingClientRect().height
+        const factsHeight = measurePrinterFacts({
+          card: element,
+          width: factsWidth,
+          detailLevel,
+          isCompact: height < 420,
+        })
         const mediaWidth =
-          orientation === "vertical"
-            ? width
-            : Math.max(0, width - factsWidth - gap)
+          orientation === "horizontal"
+            ? Math.max(0, width - factsWidth - gap)
+            : width
         const mediaHeight =
           orientation === "vertical"
             ? Math.max(0, height - factsHeight - gap)
             : height
+        const isMediaHidden = orientation === "facts"
         return {
-          id: `${orientation}-${factsWidth}`,
+          id: `${orientation}-${factsWidth}-${detailLevel}`,
           orientation,
           factsWidth,
+          detailLevel,
           sections: [
             {
               priority: priorities.media,
-              width: mediaWidth,
-              height: mediaHeight,
+              visibilityPriority: 3,
+              isHidden: isMediaHidden,
+              width: isMediaHidden ? 0 : mediaWidth,
+              height: isMediaHidden ? 0 : mediaHeight,
+              minimumWidth: 100,
+              minimumHeight: Math.max(
+                56,
+                100 / aspectRatio,
+              ),
               aspectRatio,
             },
-            // Width represents the useful reading measure; height is scored
-            // separately through the required fit, rather than rewarding wraps.
             {
               priority: priorities.facts,
               width: factsWidth,
               height: 1,
               idealArea: Math.min(640, width),
-              minimumWidth: Math.min(320, width),
+              minimumWidth: Math.min(
+                detailLevel < 2 ? 320 : 180,
+                width,
+              ),
             },
             {
               priority: 0,
               width: factsWidth,
-              height:
-                orientation === "vertical"
-                  ? Math.min(height, factsHeight)
-                  : height,
+              height,
               minimumHeight: factsHeight,
+            },
+            {
+              priority: 0,
+              visibilityPriority: 2,
+              isHidden: detailLevel >= 2,
+              width: 1,
+              height: 1,
+            },
+            {
+              priority: 0,
+              visibilityPriority: 1,
+              isHidden: detailLevel >= 1,
+              width: 1,
+              height: 1,
             },
           ],
         }
       }
-      const candidates = [
-        makeCandidate("vertical", width),
-        ...[
-          0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7,
-        ].map((fraction) =>
-          makeCandidate(
-            "horizontal",
-            (width - gap) * fraction,
-          ),
-        ),
-        ...(width > 652
-          ? [
-              makeCandidate("horizontal", 640),
-              makeCandidate("horizontal", 320),
-            ]
-          : []),
-      ]
-      probe.remove()
+      const candidates = ([0, 1, 2, 3] as const)
+        .filter((level) => level >= minimumDetailLevel)
+        .flatMap((detailLevel) =>
+          detailLevel === 3 || !hasImage
+            ? [makeCandidate("facts", width, detailLevel)]
+            : [
+                makeCandidate(
+                  "vertical",
+                  width,
+                  detailLevel,
+                ),
+                ...[0.3, 0.4, 0.5, 0.6, 0.7].map(
+                  (fraction) =>
+                    makeCandidate(
+                      "horizontal",
+                      (width - gap) * fraction,
+                      detailLevel,
+                    ),
+                ),
+                ...(width > 652
+                  ? [
+                      makeCandidate(
+                        "horizontal",
+                        640,
+                        detailLevel,
+                      ),
+                      makeCandidate(
+                        "horizontal",
+                        320,
+                        detailLevel,
+                      ),
+                    ]
+                  : []),
+              ],
+        )
       const chosen = selectPriorityLayout(candidates)
       if (chosen) {
         element.dataset.orientation = chosen.orientation
+        applyPrinterDetailLevel(element, chosen.detailLevel)
         element.style.setProperty(
           "--printer-facts-width",
           `${chosen.factsWidth}px`,
@@ -188,6 +220,6 @@ export const usePrinterLayout = ({
         true,
       )
     }
-  }, [isCamera, hasImage, contentKey])
+  }, [isCamera, hasImage, contentKey, minimumDetailLevel])
   return card
 }
