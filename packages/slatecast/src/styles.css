@@ -1843,18 +1843,19 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * Pause and Stop sit at the FOOT of the card, full width and split evenly.
+ * Pause and Stop sit at the foot of the card in a bounded, evenly split row.
  *
- * They are sized for a fingertip on a wall panel: 64 px tall at the 1280x720
- * workbench panel, and never under 48 px on the small profiles. The height is
- * `vmin` so the smaller panels scale it down in proportion, with a floor so
- * the short panel keeps a tappable control. A bounding box IS the touch area
+ * Controls scale between 48 and 56 px high, with a 320 px row cap. Extra space
+ * belongs to the camera first and readable facts second. A bounding box IS the touch area
  * here — no pseudo-element pad — because the remote-display renderer binds a
  * touch by that box (see `nowPlayingTouchTargets.test.tsx`).
  */
 .printer-actions {
   display: flex;
   flex: none;
+  align-self: flex-end;
+  inline-size: 100%;
+  max-inline-size: 320px;
   gap: 10px;
   margin-top: 10px;
 }
@@ -1862,12 +1863,14 @@ html[data-grayscale-text="true"] {
 .printer-action {
   flex: 1 1 0;
   min-width: 0;
-  min-height: max(48px, 8.9vmin);
+  height: clamp(48px, 8.9vmin, 56px);
+  min-height: 48px;
+  max-height: 56px;
   padding: 8px 16px;
   border-radius: 12px;
   background: transparent;
   font: inherit;
-  font-size: max(15px, 3.2vmin);
+  font-size: clamp(15px, 3.2vmin, 22px);
   font-weight: 700;
 }
 
@@ -2442,7 +2445,7 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-status[data-count="1"] .printer-action {
-  font-size: max(17px, 3.6vmin);
+  font-size: clamp(17px, 3.6vmin, 22px);
 }
 
 .printer-status[data-count="1"] .printer-band-ended {
