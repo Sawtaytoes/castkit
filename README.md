@@ -63,6 +63,8 @@ server during development.
   card they just scanned, on a `kids-points.v1` channel
 - [Printer Status](docs/printer-status-view.md) — the 3D prints running right
   now, with Pause, Resume and Stop
+- [AMS Filaments](docs/ams-filaments-view.md) — public read-only fleet cards or
+  spacious spool rows, with reported temperatures, humidity and K values
 - [Filament Spool Scale](docs/filament-spool-scale-view.md) — the spool on the
   scale, its one-tap weight save, every AMS slot, and a three-tap assign
 

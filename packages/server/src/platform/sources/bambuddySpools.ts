@@ -242,6 +242,11 @@ export const normalizeBambuddyTray = ({
       ? { remainPercent: Math.min(100, remainPercent) }
       : {}),
     ...(assignedSpool ? { spoolId: assignedSpool.id } : {}),
+    ...(hasSpool &&
+    finiteNumber(tray.k) !== undefined &&
+    Number(tray.k) >= 0
+      ? { kValue: finiteNumber(tray.k) }
+      : {}),
   }
 }
 /**
@@ -322,6 +327,9 @@ export const normalizeBambuddySpoolsPrinter = ({
     id,
     name: normalizeBambuddyPrinterName(status.name),
     isOnline: status.connected === true,
+    ...(optionalText(status.model)
+      ? { model: optionalText(status.model) }
+      : {}),
     ams,
   }
 }

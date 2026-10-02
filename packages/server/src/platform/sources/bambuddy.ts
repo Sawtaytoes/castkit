@@ -1,5 +1,6 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import type { SourceFactory } from "@castkit/sdk/plugin"
+import { bambuddyPrinterImage } from "./bambuddyPrinterImage.ts"
 import {
   type BambuddyAssignment,
   createBambuddyEventStream,
@@ -748,7 +749,9 @@ export const createBambuddySource: SourceFactory = (
   }
   const spoolsChannels = () =>
     context.channels.filter(
-      (channel) => channel.type === "spools.v1",
+      (channel) =>
+        channel.type === "spools.v1" ||
+        channel.type === "ams.v1",
     )
   const camera = {
     token: undefined as
@@ -851,18 +854,39 @@ export const createBambuddySource: SourceFactory = (
       spools,
       printers: selectedIds(channelId).flatMap((id) => {
         const printer = normalizeBambuddySpoolsPrinter({
-          data: state.statusById.get(id),
+          data: {
+            ...state.printers.find(
+              (candidate) => String(candidate.id) === id,
+            ),
+            ...record(state.statusById.get(id)),
+          },
           assignments: state.assignments,
           spools,
         })
-        return printer ? [printer] : []
+        return printer
+          ? [
+              {
+                ...printer,
+                imagePath: mediaUrl({
+                  channelId,
+                  printerId: id,
+                  kind: "product",
+                }),
+              },
+            ]
+          : []
       }),
     }
   }
   const publishSpools = (channelId: string) => {
     context.publish({
       channelId,
-      data: spoolsSnapshot(channelId),
+      data:
+        context.channels.find(
+          (channel) => channel.id === channelId,
+        )?.type === "ams.v1"
+          ? { printers: spoolsSnapshot(channelId).printers }
+          : spoolsSnapshot(channelId),
     })
   }
   const publishSpoolsEverywhere = () => {
@@ -1056,7 +1080,9 @@ export const createBambuddySource: SourceFactory = (
       : Promise.resolve(undefined))
     context.channels.forEach((channel) => {
       const selection = selectedIds(channel.id)
-      if (channel.type === "spools.v1") {
+      if (channel.type === "ams.v1") {
+        publishSpools(channel.id)
+      } else if (channel.type === "spools.v1") {
         if (inventoryError) {
           context.reportError({
             channelId: channel.id,
@@ -1312,6 +1338,9 @@ export const createBambuddySource: SourceFactory = (
       const channel = context.channels.find(
         (entry) => entry.id === channelId,
       )
+      if (channel?.type === "ams.v1") {
+        throw new Error("This AMS source is read-only.")
+      }
       if (channel?.type === "spools.v1") {
         return executeSpoolAction({
           channelId,
@@ -1377,14 +1406,40 @@ export const createBambuddySource: SourceFactory = (
       query,
     }) => {
       if (
-        !selectedIds(channelId).includes(assetId) ||
-        !["camera", "stream", "cover", "hls"].includes(
-          kind ?? "",
+        context.channels.find(
+          (channel) => channel.id === channelId,
+        )?.type === "ams.v1" &&
+        kind !== "product"
+      ) {
+        throw new Error(
+          "The AMS channel only provides printer product images.",
         )
+      }
+      if (
+        !selectedIds(channelId).includes(assetId) ||
+        ![
+          "camera",
+          "stream",
+          "cover",
+          "hls",
+          "product",
+        ].includes(kind ?? "")
       ) {
         throw new Error(
           "This media is not part of the selected printers.",
         )
+      }
+      if (kind === "product") {
+        const printer = state.printers.find(
+          (entry) => String(entry.id) === assetId,
+        )
+        return sourceRequest({
+          context,
+          path: bambuddyPrinterImage(
+            textValue(printer?.model),
+          ),
+          headers,
+        })
       }
       if (kind === "hls") {
         const accessCode = cameraCode(assetId)

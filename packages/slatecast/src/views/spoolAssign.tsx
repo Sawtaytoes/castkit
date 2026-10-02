@@ -1,3 +1,4 @@
+import { getWizardSteps } from "@charcuterie/logic/core"
 import { SpoolFooter } from "./spoolChrome.tsx"
 import {
   type AmsUnit,
@@ -14,8 +15,7 @@ import { Swatch } from "./spoolSwatch.tsx"
 
 /**
  * The three-tap assign flow: printer, then AMS unit, then slot. One screen
- * per step, big cards, a crumb row that names the spool and shows which step
- * is up, and a Back button that undoes the last tap.
+ * per step, big cards, numbered progress, and completed stages that can be revisited.
  *
  * The cards are buttons the size of a hand. Standing at the scale with a
  * spool in the other hand, a person taps three times and is done; nothing
@@ -23,53 +23,98 @@ import { Swatch } from "./spoolSwatch.tsx"
  * assigning again.
  */
 
-const Crumbs = ({
+type AssignStep = "printer" | "ams" | "slot"
+const AssignProgress = ({
   spool,
   printerName,
   unitLabel,
   step,
+  onChooseStep,
 }: {
   spool: Spool
-  printerName: string | undefined
-  unitLabel: string | undefined
-  step: "printer" | "ams" | "slot"
+  printerName?: string
+  unitLabel?: string
+  step: AssignStep
+  onChooseStep: (step: AssignStep) => void
 }) => {
-  const crumbs = [
-    { key: "printer", text: printerName ?? "Printer" },
-    { key: "ams", text: unitLabel ?? "AMS" },
-    { key: "slot", text: "Slot" },
-  ]
+  const steps = getWizardSteps({
+    keys: ["printer", "ams", "slot"],
+    currentKey: step,
+  })
+  const labels: Record<string, string> = {
+    printer: "Printer",
+    ams: "AMS",
+    slot: "Slot",
+  }
+  const details: Record<string, string> = {
+    printer: printerName ?? "Choose a printer",
+    ams: unitLabel ?? "Choose an AMS",
+    slot: "Choose a slot",
+  }
   return (
-    <nav class="fss-steps" aria-label="Assign steps">
-      <span class="fss-crumb">
-        <Swatch
-          size="tiny"
-          rgba={spool.rgba}
-          extraColors={spool.extraColors}
-          effectType={spool.effectType}
-        />
-        {getSpoolShortName(spool)}
-      </span>
-      {crumbs.map((crumb) => (
-        <span key={crumb.key} class="fss-crumb-group">
-          <span class="fss-crumb-sep" aria-hidden="true">
-            ›
+    <>
+      <header class="fss-assign-title">
+        <div>
+          <h2>Assign spool to AMS</h2>
+          <span>
+            Step{" "}
+            {
+              steps.find(
+                (item) => item.status === "current",
+              )?.ordinal
+            }{" "}
+            of 3
           </span>
-          <span
-            class={
-              crumb.key === step
-                ? "fss-crumb is-now"
-                : "fss-crumb"
-            }
-            aria-current={
-              crumb.key === step ? "step" : undefined
-            }
-          >
-            {crumb.text}
-          </span>
+        </div>
+        <span class="fss-assign-spool">
+          <Swatch size="tiny" rgba={spool.rgba} />
+          {getSpoolShortName(spool)}
         </span>
-      ))}
-    </nav>
+      </header>
+      <ol
+        class="fss-wizard"
+        aria-label="Assignment progress"
+      >
+        {steps.map((item) => {
+          const contents = (
+            <>
+              <span class="fss-step-number">
+                {item.ordinal}
+              </span>
+              <span>
+                <strong>{labels[item.key]}</strong>
+                <small>{details[item.key]}</small>
+              </span>
+            </>
+          )
+          return (
+            <li
+              key={item.key}
+              data-status={item.status}
+              aria-current={
+                item.status === "current"
+                  ? "step"
+                  : undefined
+              }
+            >
+              {item.isSelectable ? (
+                <button
+                  type="button"
+                  aria-label={`Return to ${labels[item.key]}`}
+                  onClick={() =>
+                    onChooseStep(item.key as AssignStep)
+                  }
+                >
+                  {contents}
+                </button>
+              ) : (
+                <div>{contents}</div>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    </>
   )
 }
 
@@ -116,6 +161,7 @@ export const AssignFlow = ({
   onChooseAms,
   onChooseSlot,
   onBack,
+  onChooseStep,
 }: {
   spool: Spool
   printers: readonly SpoolPrinter[]
@@ -125,6 +171,7 @@ export const AssignFlow = ({
   onChooseAms: (amsId: number) => void
   onChooseSlot: (trayId: number) => void
   onBack: () => void
+  onChooseStep: (step: AssignStep) => void
 }) => {
   const printer = printers.find(
     (candidate) => candidate.id === printerId,
@@ -142,11 +189,12 @@ export const AssignFlow = ({
 
   return (
     <>
-      <Crumbs
+      <AssignProgress
         spool={spool}
         printerName={printer?.name}
         unitLabel={unit?.label}
         step={step}
+        onChooseStep={onChooseStep}
       />
       {step === "printer" ? (
         <div
@@ -182,7 +230,18 @@ export const AssignFlow = ({
                 <span class="fss-choice-sub">
                   {describePrinterForAssign(candidate)}
                 </span>
-                <span class="fss-choice-fill" />
+                {candidate.imagePath ? (
+                  <img
+                    class="fss-printer-picture"
+                    src={candidate.imagePath}
+                    alt=""
+                    onError={(event) => {
+                      event.currentTarget.hidden = true
+                    }}
+                  />
+                ) : (
+                  <span class="fss-choice-fill" />
+                )}
                 <Verdict {...verdict} />
               </button>
             )

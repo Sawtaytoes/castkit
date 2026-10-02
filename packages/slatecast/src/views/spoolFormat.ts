@@ -69,7 +69,10 @@ export const getSpoolProductName = ({
 }: {
   material: string
   subtype?: string
-}) => [material, subtype].filter(Boolean).join(" ")
+}) =>
+  subtype?.toLowerCase().includes(material.toLowerCase())
+    ? subtype
+    : [material, subtype].filter(Boolean).join(" ")
 
 /**
  * The short name the crumbs and the hints use: the color name, or the product

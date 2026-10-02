@@ -7,6 +7,7 @@ import {
 } from "./spoolChrome.tsx"
 import {
   type AmsTray,
+  type AmsUnit,
   describeAmsWarnings,
   describeTray,
   getIsTrayLow,
@@ -25,7 +26,7 @@ import { Swatch } from "./spoolSwatch.tsx"
  * it then puts that spool in this slot. With nothing on the reader there is
  * nothing to assign, and the row is a plain fact.
  */
-const SlotRow = ({
+export const SlotRow = ({
   tray,
   onAssign,
 }: {
@@ -60,6 +61,11 @@ const SlotRow = ({
                 width: `${Math.min(100, Math.max(0, tray.remainPercent))}%`,
               }}
             />
+          </span>
+        ) : null}
+        {tray.kValue !== undefined ? (
+          <span class="fss-slot-meta">
+            K {tray.kValue.toFixed(3)}
           </span>
         ) : null}
         {tray.state === "untagged" ? (
@@ -189,12 +195,7 @@ export const AmsOverview = ({
                 <span class="fss-ams-name">
                   {unit.label}
                 </span>
-                {unit.humidityPercent ===
-                undefined ? null : (
-                  <span class="fss-ams-env">
-                    {Math.round(unit.humidityPercent)}% RH
-                  </span>
-                )}
+                <AmsEnvironment unit={unit} />
               </header>
               {unit.trays.map((tray) => (
                 <SlotRow
@@ -225,3 +226,23 @@ export const AmsOverview = ({
     </>
   )
 }
+
+/** Optional environmental facts never substitute fabricated readings. */
+export const AmsEnvironment = ({
+  unit,
+}: {
+  unit: AmsUnit
+}) => (
+  <span class="fss-ams-env">
+    {[
+      unit.temperatureCelsius !== undefined
+        ? `${unit.temperatureCelsius.toFixed(1)}°C`
+        : null,
+      unit.humidityPercent !== undefined
+        ? `${Math.round(unit.humidityPercent)}% RH`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" · ")}
+  </span>
+)

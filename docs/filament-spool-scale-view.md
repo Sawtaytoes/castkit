@@ -77,8 +77,10 @@ screen per step, each a row of cards the size of a hand:
    that slot — `Replaces the spool here` for a read spool, `Different material`
    when the materials disagree, and `Free` for an empty slot.
 
-The crumbs across the top name the spool and the step. `Back` undoes one tap;
-on the first step it is `Cancel`. Tapping a slot sends the command and returns
+Numbered stages across the top show the current step and previous selections.
+Tap a completed stage to return directly; choosing a different printer clears
+the selected AMS. Printer cards include the source’s model product image.
+`Back` remains available; on the first step it is `Cancel`. Tapping a slot sends the command and returns
 to the spool card. There is no second confirmation: a wrong slot is undone by
 assigning again.
 

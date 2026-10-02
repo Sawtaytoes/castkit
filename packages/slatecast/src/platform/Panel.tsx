@@ -7,6 +7,7 @@ import type {
 import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { ViewInput } from "@castkit/sdk/plugin"
 import type { JSX } from "preact"
+import { AmsFilaments } from "../views/AmsFilaments.tsx"
 import { FilamentSpoolScale } from "../views/FilamentSpoolScale.tsx"
 import { TouchTest } from "../views/TouchTest.tsx"
 import { BuiltinView } from "./BuiltinView.tsx"
@@ -82,6 +83,7 @@ export const Panel = ({
     panel.specId === "ambient" ||
     panel.specId === "text"
   const isLocalView =
+    panel.specId === "ams" ||
     panel.specId === "filament-spool-scale" ||
     panel.specId === "touch-test"
   const declaredInputs =
@@ -177,7 +179,19 @@ export const Panel = ({
           onAction={onAction}
         />
       ) : isClock || isLocalView || !isWaiting ? (
-        panel.specId === "filament-spool-scale" ? (
+        panel.specId === "ams" ? (
+          <AmsFilaments
+            data={
+              (source?.data as ContractData["ams.v1"]) ??
+              null
+            }
+            initialLayout={
+              typeof panel.settings.layout === "string"
+                ? panel.settings.layout
+                : "cards"
+            }
+          />
+        ) : panel.specId === "filament-spool-scale" ? (
           <FilamentSpoolScale
             data={
               (source?.data as ContractData["spools.v1"]) ??

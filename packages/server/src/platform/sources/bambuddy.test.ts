@@ -1,3 +1,4 @@
+import type { ContractData } from "@castkit/sdk/contracts"
 import { expect, test, vi } from "vitest"
 import { sourceContext } from "./__fixtures__/sourceContext.ts"
 import {
@@ -516,7 +517,9 @@ const spoolsFixture = {
     },
   ],
 }
-const spoolsAdapter = () => {
+const spoolsAdapter = (
+  channelType: "spools.v1" | "ams.v1" = "spools.v1",
+) => {
   const requests: { url: string; init?: RequestInit }[] = []
   const fetchRequest = vi
     .fn<typeof fetch>()
@@ -569,7 +572,7 @@ const spoolsAdapter = () => {
         id: "spools",
         name: "Spools",
         sourceId: "source",
-        type: "spools.v1",
+        type: channelType,
         settings: {},
       },
     ],
@@ -1231,4 +1234,33 @@ test("an archive mapped to the active external spool keeps its usage without dup
       location: "External spool · Filament 7 · 1.8 g",
     },
   ])
+})
+
+test("the public AMS channel publishes only printer facts and refuses writes", async () => {
+  const { adapter, context } = spoolsAdapter("ams.v1")
+  await adapter.start?.()
+  const published = vi
+    .mocked(context.publish)
+    .mock.calls.at(-1)?.[0].data
+  expect(Object.keys(published as object)).toEqual([
+    "printers",
+  ])
+  expect(
+    (published as ContractData["ams.v1"]).printers[0]?.ams,
+  ).toHaveLength(1)
+  await expect(
+    adapter.executeAction?.({
+      channelId: "spools",
+      action: "pause",
+      payload: { printerId: "2" },
+    }),
+  ).rejects.toThrow("read-only")
+  await expect(
+    adapter.getMedia?.({
+      channelId: "spools",
+      assetId: "2",
+      kind: "camera",
+    }),
+  ).rejects.toThrow("only provides printer product images")
+  adapter.dispose()
 })

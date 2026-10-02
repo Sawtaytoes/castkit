@@ -3744,3 +3744,354 @@ html[data-grayscale-text="true"] {
 .printer-plate {
   position: relative;
 }
+
+/* Numbered assignment stages; completed stages have the entire step as a target. */
+.fss-assign-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.fss-assign-title h2 {
+  margin: 0 0 4px;
+  font-size: 28px;
+}
+.fss-assign-title > div > span {
+  color: var(--fg-dim);
+  font-size: 18px;
+}
+.fss-assign-spool {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.fss-wizard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.fss-wizard li {
+  border: 2px solid var(--fss-border-default);
+  border-radius: 16px;
+  min-width: 0;
+  background: var(--surface);
+}
+.fss-wizard li[data-status="current"] {
+  border-color: var(--accent);
+  background: var(--fss-accent-surface);
+}
+.fss-wizard li > :is(button, div) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  width: 100%;
+  min-height: 72px;
+  text-align: start;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  color: inherit;
+}
+.fss-wizard strong {
+  display: block;
+  font-size: 22px;
+}
+.fss-wizard small {
+  display: block;
+  font-size: 16px;
+  color: var(--fg-dim);
+  overflow-wrap: anywhere;
+}
+.fss-step-number {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--fss-border-strong);
+  border-radius: 50%;
+  font-size: 18px;
+}
+.fss-wizard li[data-status="current"] .fss-step-number {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--color-intent-accent-on-solid);
+}
+.fss-wizard li[data-status="done"] .fss-step-number {
+  border-color: var(--accent);
+}
+.fss-printer-picture {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  max-height: 220px;
+  width: 100%;
+  object-fit: contain;
+}
+
+/* Fleet cards and the original roomy rows share the same source facts. */
+.ams-view {
+  gap: 14px;
+  padding: 18px 22px;
+  container-type: size;
+}
+.ams-view-head,
+.ams-printer-head,
+.ams-unit-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ams-view-head h2 {
+  margin: 0;
+  font-size: 28px;
+}
+.ams-layout {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--fss-sunken);
+}
+.ams-layout button,
+.ams-printer-tabs button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 16px;
+}
+.ams-layout button[aria-pressed="true"],
+.ams-printer-tabs button[aria-pressed="true"] {
+  background: var(--fss-accent-surface);
+  border-color: var(--fss-accent-border);
+}
+.ams-printer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ams-fleet {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(
+      var(--ams-printers),
+      minmax(0, 1fr)
+    );
+  gap: 22px;
+}
+.ams-printer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.ams-printer-head h3 {
+  font-size: 22px;
+  margin: 0;
+}
+.ams-printer-head > span {
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+.ams-units {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+  grid-template-rows: repeat(
+      var(--ams-units),
+      minmax(0, 1fr)
+    );
+}
+.ams-unit {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--surface);
+}
+.ams-unit h4 {
+  margin: 0;
+  font-size: 16px;
+}
+.ams-unit .fss-ams-env {
+  font-size: 12px;
+  font-weight: 400;
+}
+.ams-trays {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  gap: 9px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.ams-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+.ams-slot-color {
+  position: relative;
+  display: block;
+  height: 38px;
+  flex: none;
+  border-radius: 10px;
+}
+.ams-slot-color .fss-swatch {
+  border-radius: inherit;
+}
+.ams-slot-number {
+  position: absolute;
+  inset-inline-end: 5px;
+  top: 5px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--fss-sunken);
+  color: var(--fg);
+  font-size: 12px;
+}
+.ams-slot-name {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ams-slot-facts {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 3px;
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+.ams-slot-facts strong {
+  color: var(--fg);
+  font-size: 13px;
+}
+.ams-slot-bar {
+  display: block;
+  flex: none;
+  height: 3px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--fss-border-default);
+}
+.ams-slot-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.ams-slot.is-low .ams-slot-bar i {
+  background: var(--fss-warning);
+}
+.ams-slot.is-low strong {
+  color: var(--fss-warning-content);
+}
+.ams-slot.is-empty .ams-slot-color {
+  border: 1px dashed var(--fss-border-strong);
+}
+.ams-slot.is-empty .ams-slot-name {
+  color: var(--fg-dim);
+}
+.ams-view[data-focused="true"] .ams-units {
+  grid-template-columns: repeat(
+      var(--ams-units),
+      minmax(0, 1fr)
+    );
+  grid-template-rows: minmax(0, 1fr);
+}
+.ams-view[data-layout="rows"] .ams-trays {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+}
+.ams-view[data-layout="rows"] .ams-unit h4 {
+  font-size: 26px;
+}
+.ams-view[data-layout="rows"] .ams-unit .fss-ams-env {
+  font-size: 16px;
+}
+.ams-view[data-layout="rows"] .fss-slot {
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  padding: 10px;
+  gap: 10px;
+}
+.ams-view[data-layout="rows"] .fss-slot .fss-swatch {
+  width: 56px;
+  height: 56px;
+}
+.ams-view[data-layout="rows"] .fss-slot-name {
+  font-size: clamp(18px, 2cqw, 26px);
+}
+.ams-view[data-layout="rows"] .fss-slot-pct {
+  min-width: 0;
+  font-size: clamp(22px, 2.7cqw, 34px);
+}
+.ams-view[data-layout="rows"] .fss-slot-meta {
+  font-size: 14px;
+}
+@container (max-width: 900px) {
+  .ams-view[data-focused="true"] .ams-units {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(
+        var(--ams-units),
+        minmax(0, 1fr)
+      );
+  }
+}
+@container (max-height: 550px) {
+  .ams-slot-color {
+    height: 26px;
+  }
+  .ams-unit {
+    gap: 5px;
+    padding: 8px;
+  }
+  .ams-slot {
+    gap: 3px;
+  }
+  .ams-unit .fss-ams-env {
+    font-size: 10px;
+  }
+  .ams-slot-name {
+    font-size: 12px;
+  }
+}
+.fss-printer-picture[hidden] {
+  display: none;
+}
+@container (max-height: 550px) {
+  .ams-view[data-layout="rows"] .fss-slot .fss-swatch {
+    width: 36px;
+    height: 36px;
+  }
+  .ams-view[data-layout="rows"] .fss-slot {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    padding: 7px;
+  }
+}

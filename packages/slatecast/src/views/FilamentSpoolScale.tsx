@@ -593,6 +593,15 @@ export const FilamentSpoolScale = ({
               })
             }
           }}
+          onChooseStep={(step) => {
+            spoolScreen.value =
+              step === "printer"
+                ? {
+                    kind: "assign",
+                    spoolId: screen.spoolId,
+                  }
+                : { ...screen, amsId: undefined }
+          }}
           onBack={() => {
             spoolScreen.value =
               screen.amsId !== undefined

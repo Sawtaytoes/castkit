@@ -456,7 +456,7 @@ __metadata:
   dependencies:
     "@castkit/sdk": "workspace:*"
     "@castkit/shared": "workspace:*"
-    "@charcuterie/logic": "npm:^2.7.0"
+    "@charcuterie/logic": "npm:^2.8.0"
     "@charcuterie/server": "npm:^0.5.1"
     "@charcuterie/tokens": "npm:^1.10.2"
     "@preact/preset-vite": "npm:^2.10.2"
@@ -567,9 +567,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@charcuterie/logic@npm:^2.7.0":
-  version: 2.7.0
-  resolution: "@charcuterie/logic@npm:2.7.0"
+"@charcuterie/logic@npm:^2.8.0":
+  version: 2.8.0
+  resolution: "@charcuterie/logic@npm:2.8.0"
   peerDependencies:
     "@preact/signals-core": ">=1.8"
     "@tanstack/react-query": ">=5"
@@ -593,7 +593,7 @@ __metadata:
       optional: true
     react:
       optional: true
-  checksum: 10c0/13750214cb0fef3ffd875be510a7411b9b24a49a328c1b6df9ebcb434028fcd5042e78dede35fe6c4ea012aabacf97899b8e48679ffeb80f6eb3a44ab76f728f
+  checksum: 10c0/816ed6a21cd81f0cec29e32090ee6756b16a5e8b5b8bcb01b3698974014a5a65549dcf12d626d408d48895a640f82f43b18da4463fdc48b201f63ce950e501a1
   languageName: node
   linkType: hard
 
@@ -4239,7 +4239,7 @@ __metadata:
     tsx: "npm:^4.22.4"
     typescript: "npm:^6.0.3"
     typescript-eslint: "npm:^8.62.1"
-    vitest: "npm:^4.1.9"
+    vitest: "npm:^4.1.10"
   languageName: unknown
   linkType: soft
 

@@ -17,6 +17,7 @@ export const CONTRACT_TYPES = [
   "ai-usage.v1",
   "time.v1",
   "spools.v1",
+  "ams.v1",
 ] as const
 /** An independently configured provider; secrets never belong in this DTO. */
 export type SourceDefinition = {
@@ -335,6 +336,7 @@ const amsTray = z.object({
   rgba: hexColor.optional(),
   remainPercent: finiteNumber.optional(),
   spoolId: z.string().optional(),
+  kValue: finiteNumber.nonnegative().optional(),
 })
 const amsUnit = z.object({
   id: finiteNumber,
@@ -343,7 +345,16 @@ const amsUnit = z.object({
   temperatureCelsius: finiteNumber.optional(),
   trays: z.array(amsTray),
 })
+const spoolsPrinter = z.object({
+  id: z.string(),
+  name: z.string(),
+  isOnline: z.boolean(),
+  model: z.string().optional(),
+  imagePath: safeUrl.optional(),
+  ams: z.array(amsUnit),
+})
 export const builtinContractSchemas = {
+  "ams.v1": z.object({ printers: z.array(spoolsPrinter) }),
   "now-playing.v1": nowPlaying,
   "queue.v1": z.object({
     items: z.array(
@@ -549,14 +560,7 @@ export const builtinContractSchemas = {
       updatedAtMs: finiteNumber.optional(),
     }),
     spools: z.array(spool),
-    printers: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        isOnline: z.boolean(),
-        ams: z.array(amsUnit),
-      }),
-    ),
+    printers: z.array(spoolsPrinter),
   }),
 } satisfies Record<string, z.ZodType>
 /** Inferred consumer data for each built-in channel type. */
