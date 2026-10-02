@@ -110,16 +110,19 @@ const placeAtScale = ({
   height,
   scale,
   columnCount,
+  hasViewHeading,
 }: {
   scale: number
   columnCount: number
+  hasViewHeading: boolean
   providerRows: readonly ProviderRows[]
   /** The panel's content box, before the view heading is taken. */
   width: number
   height: number
 }) => {
   const columnHeight =
-    height - BASE_VIEW_HEADING_HEIGHT * scale
+    height -
+    (hasViewHeading ? BASE_VIEW_HEADING_HEIGHT * scale : 0)
   const providerHeadingHeight =
     BASE_PROVIDER_HEADING_HEIGHT * scale
   const rowHeight = BASE_ROW_HEIGHT * scale
@@ -219,16 +222,19 @@ export const placeSections = ({
   width,
   height,
   isAdaptive = false,
+  hasViewHeading = true,
 }: {
   providerRows: readonly ProviderRows[]
   width: number
   height: number
   isAdaptive?: boolean
+  hasViewHeading?: boolean
 }) => {
   const scale = getTypeScale(height)
   if (!isAdaptive)
     return placeAtScale({
       providerRows,
+      hasViewHeading,
       width,
       height,
       scale,
@@ -241,6 +247,7 @@ export const placeSections = ({
     ).map((scale) => {
       const result = placeAtScale({
         providerRows,
+        hasViewHeading,
         width,
         height,
         scale,
@@ -274,6 +281,7 @@ export const placeSections = ({
     selectPriorityLayout(candidates)?.result ??
     placeAtScale({
       providerRows,
+      hasViewHeading,
       width,
       height,
       scale: 1,

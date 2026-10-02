@@ -8,7 +8,9 @@ Superseded by: None
 
 ## Decision
 
-Browser views omit the screen or view name and authentication controls. Sign in,
+Browser views omit the screen or view name and authentication controls. Combined
+AI panels also omit the redundant AI Usage heading and return its height to
+account rows; standalone AI views keep their heading. Sign in,
 sign out and management PIN changes remain in admin, with immediate session
 refresh across open displays. Keep a named screen's view tabs and private-view
 unlock keypad. Authentication, server-side permissions, disabled control reasons
@@ -43,6 +45,7 @@ must inform the priority layout instead of clipping a summary.
 Owner, chat `08aa412b-7bd8-47c5-b452-4085fc663efc`, 2026-10-01:
 “in a browser, I don't need the "Sign out" button or the "Working" screen's name.”
 “Missing padding/margin between the video and the text.”
+“Also don't need the "AI Usage" text where that's located.”
 
 Browser regressions cover both compact orientations, filament bounds, missing
 view and reconnect recovery. End-to-end coverage signs in and out in admin

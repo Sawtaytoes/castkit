@@ -69,8 +69,7 @@ export const chooseCompositionLayout = ({
         const minimumHeight =
           item.usageRowCount === undefined
             ? item.minimumHeight
-            : 58 +
-              Math.ceil(
+            : Math.ceil(
                 item.usageRowCount /
                   Math.max(
                     1,
@@ -79,8 +78,7 @@ export const chooseCompositionLayout = ({
                       Math.floor(cellWidth / 240),
                     ),
                   ),
-              ) *
-                104
+              ) * 104
         const factsHeight = item.isPrinter
           ? measureFacts(item.key, cellWidth)
           : 0
