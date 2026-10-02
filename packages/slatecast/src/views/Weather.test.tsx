@@ -8,7 +8,7 @@ import {
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
 
 /** The clock beneath the weather runs off the live tick — shape only. */
-const TWELVE_HOUR_TIME = /^\d{1,2}:\d{2}\s(AM|PM)$/
+const TWELVE_HOUR_TIME = /^\d{1,2}:\d{2}[ap]$/
 const LONG_DATE = /^\w+day, \w+ \d{1,2}$/
 
 const mountWeatherView = async (data: ViewDataState = {}) =>

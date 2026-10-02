@@ -1,4 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { compactClockTime } from "@castkit/shared/compactClockTime"
 import {
   getTemporaryViewSeconds,
   type RepaintGrade,
@@ -253,7 +254,9 @@ export const getScanText = (scan: KidScan) => {
 
 /** A clock time for a fact that stays true until the next scan. */
 export const formatClockTime = (milliseconds: number) =>
-  new Date(milliseconds).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  })
+  compactClockTime(
+    new Date(milliseconds).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    }),
+  )

@@ -2,6 +2,7 @@ import type { ContractData } from "@castkit/sdk/contracts"
 import { isRipBayActive as isActive } from "@castkit/sdk/ripActivity"
 import { useEffect, useRef, useState } from "preact/hooks"
 import { safeMediaUrl } from "./protocol.ts"
+import { chooseRipPosterLayout } from "./ripPosterLayout.ts"
 
 type RipData = ContractData["rip-deck.v1"]
 type Bay = RipData["bays"][number]
@@ -36,8 +37,7 @@ export const RipDeckView = ({
   })
   useEffect(() => {
     const element = container.current
-    if (!element || settings.presentation !== "posters")
-      return
+    if (!element) return
     const measure = () => {
       const noticesHeight = Array.from(
         element.querySelectorAll<HTMLElement>(
@@ -52,7 +52,7 @@ export const RipDeckView = ({
         width: element.clientWidth,
         height: Math.max(
           0,
-          element.clientHeight - noticesHeight - 26,
+          element.clientHeight - noticesHeight,
         ),
       }
       setPosterSize((current) =>
@@ -134,18 +134,16 @@ export const RipDeckView = ({
       isActive(bay) ||
       (visibleUntil[bay.id] ?? 0) > Date.now(),
   )
+  const posterLayout = chooseRipPosterLayout({
+    ...posterSize,
+    count: focused.length,
+    isPosterRequested: settings.presentation === "posters",
+  })
   const isPosterPresentation =
-    settings.presentation === "posters"
-  const posterColumns = Math.max(
-    1,
-    Math.floor(posterSize.width / 180),
-  )
-  const posterCapacity =
-    Math.floor(posterSize.height / 180) * posterColumns
-  const shown = isPosterPresentation
-    ? focused.slice(0, Math.max(0, posterCapacity))
-    : focused
-  const hiddenCount = focused.length - shown.length
+    posterLayout?.id === "posters"
+  const hasPosters = posterLayout?.id !== "rows"
+  const posterColumns = posterLayout?.columns ?? 1
+  const shown = focused
   const renderDetails = (bay: Bay) => (
     <div class="platform-rip-details">
       <h2>
@@ -266,10 +264,11 @@ export const RipDeckView = ({
     <div
       ref={container}
       class="platform-rips"
+      data-row-posters={String(
+        hasPosters && !isPosterPresentation,
+      )}
       data-presentation={
-        settings.presentation === "posters"
-          ? "posters"
-          : "rows"
+        isPosterPresentation ? "posters" : "rows"
       }
     >
       {data.alerts.map((alert, index) => (
@@ -333,7 +332,7 @@ export const RipDeckView = ({
               )}
               onClick={() => setSelectedId(bay.id)}
             >
-              {settings.presentation === "posters" ? (
+              {hasPosters ? (
                 <span class="platform-rip-poster">
                   {safeMediaUrl(bay.posterUrl) ? (
                     <img
@@ -365,12 +364,6 @@ export const RipDeckView = ({
           ))}
         </div>
       )}
-      {!selected && hiddenCount > 0 ? (
-        <p class="platform-rip-more">
-          {hiddenCount} more active{" "}
-          {hiddenCount === 1 ? "rip" : "rips"}
-        </p>
-      ) : null}
     </div>
   )
 }

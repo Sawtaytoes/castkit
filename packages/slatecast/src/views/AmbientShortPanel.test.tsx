@@ -110,7 +110,7 @@ describe("ambient on a short landscape panel", () => {
     // The time keeps its meridiem on the same line, and the date is one line.
     expect(
       document.querySelector(".ambient-time")?.textContent,
-    ).toMatch(/^\d{1,2}:\d{2}\s(AM|PM)$/)
+    ).toMatch(/^\d{1,2}:\d{2}[ap]$/)
     expect(
       document.querySelectorAll(".ambient-date"),
     ).toHaveLength(1)
@@ -167,7 +167,7 @@ describe("ambient on a short landscape panel", () => {
     ).toBe("Wednesday, September 30")
     expect(
       document.querySelector(".ambient-time")?.textContent,
-    ).toBe("12:45 PM")
+    ).toBe("12:45p")
     ;[
       ".ambient-time",
       ".ambient-date",
@@ -225,7 +225,7 @@ describe("ambient on a short landscape panel", () => {
     ).toBeNull()
     expect(
       document.querySelector(".ambient-time")?.textContent,
-    ).toMatch(/^\d{1,2}:\d{2}\s(AM|PM)$/)
+    ).toMatch(/^\d{1,2}:\d{2}[ap]$/)
     expect(fontSizeOf(".ambient-time")).toBe(
       0.17 * SQUARE_PANEL.height,
     )

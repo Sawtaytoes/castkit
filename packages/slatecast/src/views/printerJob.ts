@@ -109,7 +109,7 @@ export const formatFinishTime = ({
     return time
   }
   if (dayOffset === 1) {
-    return `Tomorrow ${time}`
+    return `T ${time}`
   }
   if (dayOffset < 7) {
     return `${formatClockWeekdayShort(finishAtMs, clock)} ${time}`

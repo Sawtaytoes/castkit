@@ -920,21 +920,31 @@ test("individual printer cards keep their original action binding and mounted ca
   })
   const onAction = vi.fn(async () => undefined)
   const mounted = render(
-    <DisplayComposition
-      snapshot={makeSnapshot(1)}
-      isConnected
-      onAction={onAction}
-    />,
+    <main
+      class="platform"
+      style={{ width: "1920px", height: "1080px" }}
+    >
+      <DisplayComposition
+        snapshot={makeSnapshot(1)}
+        isConnected
+        onAction={onAction}
+      />
+    </main>,
   )
   const camera = screen.getByRole("button", {
     name: "Enlarge Printer 1 camera",
   })
   mounted.rerender(
-    <DisplayComposition
-      snapshot={makeSnapshot(3)}
-      isConnected
-      onAction={onAction}
-    />,
+    <main
+      class="platform"
+      style={{ width: "1920px", height: "1080px" }}
+    >
+      <DisplayComposition
+        snapshot={makeSnapshot(3)}
+        isConnected
+        onAction={onAction}
+      />
+    </main>,
   )
   expect(
     screen.getByRole("button", {

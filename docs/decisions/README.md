@@ -7,7 +7,9 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
-| 2026-10-01 | [Printer finish times name the day only beyond twenty-four hours](2026-10-01-printer-finish-times-name-the-day-only-beyond-twenty-four-hours.md) — short overnight jobs show only the time; exactly 24 hours remains unprefixed | Accepted |
+| 2026-10-02 | [Optional details hide before printer cameras and controls](2026-10-02-optional-details-hide-before-printer-cameras-and-controls.md) | Accepted |
+| 2026-10-02 | [Clock labels use compact day and period suffixes](2026-10-02-clock-labels-use-compact-day-and-period-suffixes.md) | Accepted |
+| 2026-10-01 | [Printer finish times name the day only beyond twenty-four hours](2026-10-01-printer-finish-times-name-the-day-only-beyond-twenty-four-hours.md) — short overnight jobs show only the time; exactly 24 hours remains unprefixed | Superseded |
 | 2026-10-01 | [Composed printer state colors the padded panel](2026-10-01-composed-printer-state-colors-the-padded-panel.md) | Accepted |
 | 2026-10-01 | [Automatic compositions reclaim camera letterboxing](2026-10-01-automatic-compositions-reclaim-camera-letterboxing.md) | Accepted |
 | 2026-10-01 | [Browser views reserve space for content](2026-10-01-browser-views-reserve-space-for-content.md) | Accepted |
