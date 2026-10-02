@@ -1,3 +1,4 @@
+import { selectPriorityLayout } from "@charcuterie/logic/core"
 import type { selectProviderRows } from "./aiUsageRows.ts"
 
 type ProviderRows = ReturnType<
@@ -103,22 +104,20 @@ export type PlacedSection = {
  * "did not fit" is the one thing the reader must be told; rows the selection
  * rule withheld were never handed to this function and are not.
  */
-export const placeSections = ({
+const placeAtScale = ({
   providerRows,
   width,
   height,
+  scale,
+  columnCount,
 }: {
+  scale: number
+  columnCount: number
   providerRows: readonly ProviderRows[]
   /** The panel's content box, before the view heading is taken. */
   width: number
   height: number
 }) => {
-  const scale = getTypeScale(height)
-  const columnCount = getColumnCount({
-    width,
-    height,
-    scale,
-  })
   const columnHeight =
     height - BASE_VIEW_HEADING_HEIGHT * scale
   const providerHeadingHeight =
@@ -212,4 +211,73 @@ export const placeSections = ({
     ),
     hiddenRowCount: totalRowCount - placed.shownRowCount,
   }
+}
+
+/** Keep every selected quota readable, then grow type within its allocated panel. */
+export const placeSections = ({
+  providerRows,
+  width,
+  height,
+  isAdaptive = false,
+}: {
+  providerRows: readonly ProviderRows[]
+  width: number
+  height: number
+  isAdaptive?: boolean
+}) => {
+  const scale = getTypeScale(height)
+  if (!isAdaptive)
+    return placeAtScale({
+      providerRows,
+      width,
+      height,
+      scale,
+      columnCount: getColumnCount({ width, height, scale }),
+    })
+  const candidates = [1, 2, 3].flatMap((columnCount) =>
+    Array.from(
+      { length: 11 },
+      (_unused, index) => 1 + index / 10,
+    ).map((scale) => {
+      const result = placeAtScale({
+        providerRows,
+        width,
+        height,
+        scale,
+        columnCount,
+      })
+      return {
+        id: `${columnCount}:${scale}`,
+        result,
+        sections: [
+          {
+            priority: 2,
+            width:
+              providerRows.reduce(
+                (count, entry) => count + entry.rows.length,
+                0,
+              ) - result.hiddenRowCount,
+            height: 1,
+          },
+          { priority: 1, width: scale * 100, height: 1 },
+          {
+            priority: 0,
+            width: width / columnCount,
+            height: Math.max(0, height),
+            minimumWidth: MIN_COLUMN_WIDTH * scale,
+          },
+        ],
+      }
+    }),
+  )
+  return (
+    selectPriorityLayout(candidates)?.result ??
+    placeAtScale({
+      providerRows,
+      width,
+      height,
+      scale: 1,
+      columnCount: 1,
+    })
+  )
 }

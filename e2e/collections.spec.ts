@@ -415,3 +415,194 @@ test("a screen preview scrolls without scrolling the settings page", async ({
     outerScroll,
   )
 })
+
+test("combined kiosk preset exposes per-view printer and account choices and saves an explicit subset", async ({
+  page,
+}) => {
+  const platform = managementPlatform()
+  platform.channels = [
+    {
+      id: "prints",
+      name: "Printers",
+      sourceId: "sample-source",
+      type: "printers.v1",
+      settings: {},
+    },
+    {
+      id: "usage",
+      name: "Usage",
+      sourceId: "sample-source",
+      type: "ai-usage.v1",
+      settings: {},
+    },
+  ]
+  platform.channels = platform.channels.concat([
+    {
+      id: "rips",
+      name: "Disc jobs",
+      sourceId: "sample-source",
+      type: "rip-deck.v1",
+      settings: {},
+    },
+  ])
+  platform.channelStates = {
+    prints: {
+      status: "ready",
+      data: {
+        printers: [
+          { id: "one", name: "Printer One" },
+          { id: "two", name: "Printer Two" },
+        ],
+      },
+    },
+    usage: {
+      status: "ready",
+      data: {
+        providers: [
+          {
+            id: "account",
+            name: "Account",
+            windows: [{ id: "weekly", label: "Weekly" }],
+          },
+        ],
+      },
+    },
+  }
+  await page.route("**/api/manage/platform", (route) =>
+    route.fulfill({ json: platform }),
+  )
+  const captured = { writes: [] as unknown[] }
+  await page.route(
+    "**/api/manage/platform/views**",
+    async (route) => {
+      if (route.request().method() === "POST")
+        captured.writes = captured.writes.concat(
+          route.request().postDataJSON(),
+        )
+      await route.fulfill({ json: { ok: true } })
+    },
+  )
+  await page.goto("/manage/views")
+  await page
+    .getByRole("button", { name: "Add view", exact: true })
+    .click()
+  await page
+    .getByRole("textbox", {
+      name: "View name",
+      exact: true,
+    })
+    .fill("Combined dashboard")
+  await page
+    .getByRole("button", {
+      name: "Start from a preset: Custom layout",
+    })
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Combined kiosk",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: "Layout: Automatic · prioritize printer cameras",
+    }),
+  ).toBeVisible()
+  await page
+    .getByRole("link", { name: "Panels", exact: true })
+    .click()
+  await page
+    .getByRole("button", {
+      name: "Data channel: Choose a channel",
+    })
+    .first()
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Printers · ready",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("checkbox", {
+      name: "Choose printers for this view",
+      exact: true,
+    })
+    .check()
+  await page
+    .getByRole("checkbox", {
+      name: "Printer Two (two)",
+      exact: true,
+    })
+    .check()
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Printer One (one)",
+      exact: true,
+    }),
+  ).not.toBeChecked()
+  await page
+    .getByRole("button", {
+      name: "Data channel: Choose a channel",
+    })
+    .first()
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Disc jobs · waiting",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("button", {
+      name: "Data channel: Choose a channel",
+    })
+    .first()
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Usage · ready",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("checkbox", {
+      name: "Choose accounts for this view",
+      exact: true,
+    })
+    .check()
+  await page
+    .getByRole("checkbox", {
+      name: "Account (account)",
+      exact: true,
+    })
+    .check()
+  await page
+    .getByRole("navigation", { name: "View settings" })
+    .getByRole("link", { name: "Access", exact: true })
+    .click()
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Show only what is active",
+      exact: true,
+    }),
+  ).toBeChecked()
+  await page
+    .getByRole("button", { name: /Save view/ })
+    .click()
+  await expect.poll(() => captured.writes.length).toBe(1)
+  expect(captured.writes[0]).toMatchObject({
+    layout: "adaptive",
+    isActiveOnly: true,
+    panels: [
+      {
+        settings: {
+          isPrinterSelectionEnabled: true,
+          printerIds: ["two"],
+        },
+      },
+      {},
+      {},
+    ],
+  })
+})

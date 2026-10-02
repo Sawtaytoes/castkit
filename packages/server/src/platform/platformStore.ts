@@ -61,7 +61,14 @@ export const platformSchemas = {
       .array(z.string().trim().min(1).max(40))
       .max(30)
       .optional(),
-    layout: z.enum(["single", "split", "grid"]),
+    layout: z.enum([
+      "single",
+      "split",
+      "grid",
+      "cards",
+      "rail",
+      "adaptive",
+    ]),
     panels: z
       .array(
         z.object({

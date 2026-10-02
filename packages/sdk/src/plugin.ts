@@ -68,7 +68,14 @@ export type CompositionPreset = {
   id: string
   name: string
   description: string
-  layout: "single" | "split" | "grid"
+  layout:
+    | "single"
+    | "split"
+    | "grid"
+    | "cards"
+    | "rail"
+    | "adaptive"
+  isActiveOnly?: boolean
   panels: {
     id: string
     specId: string

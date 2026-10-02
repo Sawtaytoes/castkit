@@ -856,3 +856,84 @@ test("a preview receives live updates without exposing device actions or screen 
     screen.queryByText("Connection lost · Retrying"),
   ).toBeNull()
 })
+
+test("individual printer cards keep their original action binding and mounted camera when the group changes", async () => {
+  const data = compositionFixture.channels.prints?.data as {
+    printers: {
+      id: string
+      name: string
+      jobName: string
+      state: string
+    }[]
+  }
+  const makeSnapshot = (
+    count: number,
+  ): DisplaySnapshot => ({
+    ...compositionFixture,
+    view: {
+      ...compositionFixture.view,
+      layout: "adaptive",
+    },
+    channels: {
+      ...compositionFixture.channels,
+      prints: {
+        ...compositionFixture.channels.prints,
+        id: "prints",
+        type: "printers.v1",
+        status: "ready",
+        data: {
+          printers: Array.from(
+            { length: count },
+            (_unused, index) => ({
+              ...data.printers[0],
+              id: `printer-${index}`,
+              name: `Printer ${index + 1}`,
+            }),
+          ),
+        },
+      },
+    },
+  })
+  const onAction = vi.fn(async () => undefined)
+  const mounted = render(
+    <DisplayComposition
+      snapshot={makeSnapshot(1)}
+      isConnected
+      onAction={onAction}
+    />,
+  )
+  const camera = screen.getByRole("button", {
+    name: "Enlarge Printer 1 camera",
+  })
+  mounted.rerender(
+    <DisplayComposition
+      snapshot={makeSnapshot(3)}
+      isConnected
+      onAction={onAction}
+    />,
+  )
+  expect(
+    screen.getByRole("button", {
+      name: "Enlarge Printer 1 camera",
+    }),
+  ).toBe(camera)
+  expect(screen.getByText("Printer 3")).toBeVisible()
+  const thirdCard = screen
+    .getByText("Printer 3")
+    .closest("article")
+  if (!thirdCard) throw new Error("Missing third card")
+  const user = userEvent.setup()
+  await user.click(
+    within(thirdCard).getByRole("button", {
+      name: "Pause",
+    }),
+  )
+  await user.click(
+    screen.getByRole("button", { name: "Confirm" }),
+  )
+  expect(onAction).toHaveBeenCalledWith({
+    panelId: "printers",
+    action: "pause",
+    payload: { printerId: "printer-2" },
+  })
+})

@@ -252,6 +252,7 @@ export const AiUsageView = ({
     providerRows,
     width: contentBox.width,
     height: contentBox.height,
+    isAdaptive: settings?.isAdaptiveLayout === true,
   })
   const mostSpentWindow = providerRows
     .flatMap((entry) =>

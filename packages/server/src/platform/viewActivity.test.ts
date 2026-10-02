@@ -198,3 +198,55 @@ test("a view with no panel that can be idle has no activity answer, so its tab d
     }),
   ).toEqual({})
 })
+
+test("activity is based on selected printers and positive selected usage", () => {
+  const selectedView: ViewDefinition = {
+    ...view([]),
+    panels: [
+      {
+        id: "printers",
+        specId: "printer-status",
+        bindings: { data: "prints" },
+        settings: {
+          isPrinterSelectionEnabled: true,
+          printerIds: ["excluded"],
+        },
+      },
+      {
+        id: "ai",
+        specId: "ai-usage",
+        bindings: { data: "usage" },
+        settings: {
+          isProviderSelectionEnabled: true,
+          providerIds: ["zero"],
+          isPositiveUsageOnly: true,
+        },
+      },
+    ],
+  }
+  const channels = {
+    prints: channel("printers.v1", {
+      printers: [{ id: "active" }],
+    }),
+    usage: channel("ai-usage.v1", {
+      providers: [
+        {
+          id: "busy",
+          isOk: true,
+          windows: [{ percentUsed: 90 }],
+        },
+        {
+          id: "zero",
+          isOk: true,
+          windows: [{ percentUsed: 0 }],
+        },
+      ],
+    }),
+  }
+  expect(
+    getPanelActivity({ view: selectedView, channels }),
+  ).toEqual({ printers: false, ai: false })
+  expect(
+    isViewActive({ view: selectedView, channels }),
+  ).toBe(false)
+})
