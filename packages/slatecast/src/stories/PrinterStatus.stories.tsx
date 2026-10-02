@@ -238,7 +238,7 @@ export const NothingPrinting: Story = {
 /**
  * The case the bare clock time got wrong. A print of more than a day showed
  * "3:47 PM" beside its percentage, and that reads as this afternoon. A finish
- * on any other calendar day now names the day.
+ * more than twenty-four hours away names the day.
  *
  * Three cards, because three is where the metric block is narrowest and the
  * longer string has the least room.
