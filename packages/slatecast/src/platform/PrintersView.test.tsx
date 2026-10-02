@@ -300,3 +300,80 @@ test("read-only completed cards explain disabled plate clearance", () => {
     screen.getByText("Sign in to control"),
   ).toBeVisible()
 })
+
+test.each([
+  { width: 713, height: 423 },
+  { width: 348, height: 405 },
+])("compact camera cards separate the media and keep multi-filament details inside at $width × $height", async ({
+  width,
+  height,
+}) => {
+  await page.viewport(width, height)
+  render(
+    <main class="platform">
+      <PrintersView
+        data={{
+          printers: printerData.printers.map((printer) => ({
+            ...printer,
+            cameraPath: cameraPicture,
+            filamentText: "PLA Translucent · AMS 1 slot 3",
+            finishAtMs: Date.now() + 86400000,
+            filaments: [
+              {
+                name: "PLA Translucent",
+                color: "#cc3377",
+                location: "AMS 1 slot 3",
+              },
+              {
+                name: "PLA Basic",
+                color: "#4477cc",
+                location: "AMS 2 slot 1",
+              },
+            ],
+          })),
+        }}
+        isControlEnabled
+        onAction={vi.fn()}
+        settings={{ isCompactFacts: true }}
+      />
+    </main>,
+  )
+  await document.fonts.ready
+  await waitFor(() => {
+    const bounds = (
+      card() as HTMLElement
+    ).getBoundingClientRect()
+    const body = document.querySelector(
+      ".printer-body",
+    ) as HTMLElement
+    const media = document.querySelector(
+      ".platform-printer-media",
+    ) as HTMLElement
+    const bodyBounds = body.getBoundingClientRect()
+    const mediaBounds = media.getBoundingClientRect()
+    expect(card()?.dataset.orientation).toBeDefined()
+    const distance =
+      card()?.dataset.orientation === "horizontal"
+        ? bodyBounds.left - mediaBounds.right
+        : bodyBounds.top - mediaBounds.bottom
+    expect(distance).toBeGreaterThanOrEqual(11.5)
+    const summary = document.querySelector(
+      ".printer-filament-summary",
+    ) as HTMLElement
+    expect(
+      summary.getBoundingClientRect().width,
+    ).toBeGreaterThan(100)
+    const count = document.querySelector(
+      ".printer-filament-count",
+    ) as HTMLElement
+    expect(
+      count.getBoundingClientRect().right,
+    ).toBeLessThanOrEqual(bounds.right + 1)
+    expect(
+      count.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(bounds.bottom + 1)
+    expect(body.scrollWidth).toBeLessThanOrEqual(
+      body.clientWidth + 1,
+    )
+  })
+})

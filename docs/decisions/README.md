@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-10-01 | [Browser views reserve space for content](2026-10-01-browser-views-reserve-space-for-content.md) | Accepted |
 | 2026-10-02 | [Printer progress fits beside icon controls](2026-10-02-printer-progress-fits-beside-icon-controls.md) | Accepted |
 | 2026-10-01 | [Combined kiosks share space by nested priority](2026-10-01-combined-kiosks-share-space-by-nested-priority.md) | Automatic and manual card/rail layouts, per-view item selection, quota replacement, poster art and compact SVG controls. |
 | 2026-10-01 | [Tally Marks is the app; Tally Marks Store is the shop](2026-10-01-tally-marks-is-the-app-and-tally-marks-store-is-the-shop.md) | Accepted |

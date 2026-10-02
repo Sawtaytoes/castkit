@@ -76,7 +76,7 @@ export const useCompositionLayout = ({
                 ? image.naturalWidth / image.naturalHeight
                 : 16 / 9
             : usage
-              ? 320 / (58 + rowCount * 104)
+              ? 320 / (rowCount * 104)
               : panel.specId === "rip-deck"
                 ? 2 / 3
                 : undefined,
@@ -85,7 +85,7 @@ export const useCompositionLayout = ({
           minimumHeight: isPrinter
             ? 260
             : panel.specId === "ai-usage"
-              ? 58 + rowCount * 104
+              ? rowCount * 104
               : 180,
         }
       })

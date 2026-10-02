@@ -248,11 +248,13 @@ export const AiUsageView = ({
     providers: data.providers,
     alertPercent: readAlertPercent(settings),
   })
+  const hasViewHeading = settings?.isAdaptiveLayout !== true
   const layout = placeSections({
     providerRows,
     width: contentBox.width,
     height: contentBox.height,
     isAdaptive: settings?.isAdaptiveLayout === true,
+    hasViewHeading,
   })
   const mostSpentWindow = providerRows
     .flatMap((entry) =>
@@ -295,7 +297,7 @@ export const AiUsageView = ({
       }}
       ref={element}
     >
-      <h2>AI Usage</h2>
+      {hasViewHeading ? <h2>AI Usage</h2> : null}
       <div class="ai-usage-columns">
         {layout.columns.map((sections, columnIndex) => (
           <div class="ai-usage-column" key={columnIndex}>

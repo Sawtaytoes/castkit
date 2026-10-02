@@ -287,3 +287,21 @@ test("an unavailable provider keeps its row and says why", () => {
    */
   expect(screen.getByText("Monthly limit")).toBeVisible()
 })
+
+test("a combined usage panel starts with account names without a redundant view heading", () => {
+  renderInPanel({
+    panelHeight: 900,
+    repaint: "instant",
+    settings: { isAdaptiveLayout: true },
+  })
+  expect(
+    screen.queryByRole("heading", { name: "AI Usage" }),
+  ).toBeNull()
+  expect(
+    screen.getByRole("heading", { name: "Claude" }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("heading", { name: "Codex" }),
+  ).toBeVisible()
+  expect(screen.getByText("46% left")).toBeVisible()
+})

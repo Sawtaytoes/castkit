@@ -1,7 +1,7 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { JSX } from "preact"
-import { useEffect, useRef, useState } from "preact/hooks"
+import { useEffect } from "preact/hooks"
 import { viewAppearance } from "./appearance.ts"
 import { DisplayContext } from "./DisplayContext.ts"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
@@ -182,15 +182,6 @@ export const PlatformApp = ({
   target: DisplayTarget
 }) => {
   const display = useDisplay(target)
-  const [isSignInOpen, setIsSignInOpen] = useState(false)
-  const signInDialog = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    if (isSignInOpen) {
-      signInDialog.current?.showModal()
-    } else {
-      signInDialog.current?.close()
-    }
-  }, [isSignInOpen])
   const isReady = useRenderReadiness(display.snapshot)
   useEffect(() => {
     if (
@@ -245,7 +236,10 @@ export const PlatformApp = ({
   }
   if (!display.snapshot) {
     return (
-      <main class="platform-lock">
+      <main
+        class="platform-lock"
+        data-connection={display.connectionStatus}
+      >
         <h1>CastKit</h1>
         <p role="status">
           {display.error || "Connecting…"}
@@ -310,6 +304,7 @@ export const PlatformApp = ({
     <main
       class="platform"
       style={viewAppearance(display.snapshot.view)}
+      data-connection={display.connectionStatus}
       data-device={String(Boolean(target.deviceId))}
       data-screen-navigation={String(hasScreenNavigation)}
       onClick={navigate}
@@ -320,93 +315,33 @@ export const PlatformApp = ({
       }
       data-castkit-ready={String(isReady)}
     >
-      <header class="platform-header">
-        <h1>{display.snapshot.view.name}</h1>
-        <div>
-          {hasScreenNavigation ? (
-            <ViewTabs
-              views={availableViews}
-              activeId={display.snapshot.view.id}
-              isDisabled={
-                display.isPending || !display.isConnected
-              }
-            />
-          ) : null}
-          {!display.isConnected ? (
-            <span role="status">
-              Connection lost · Retrying
-            </span>
-          ) : null}
-          {!display.isPreview && !target.deviceId ? (
-            <>
-              <span
-                class="platform-access-status"
-                data-authenticated={String(
-                  Boolean(display.snapshot.isAuthenticated),
-                )}
-                role="status"
-              >
-                {display.snapshot.isAuthenticated
-                  ? display.snapshot.view.isControlEnabled
-                    ? "Controls unlocked"
-                    : "Signed in · Controls disabled for this view"
-                  : "Read-only"}
-              </span>
-              <button
-                type="button"
-                disabled={display.isPending}
-                onClick={() =>
-                  display.snapshot?.isAuthenticated
-                    ? void display.signOut()
-                    : setIsSignInOpen(true)
-                }
-              >
-                {display.snapshot.isAuthenticated
-                  ? "Sign out"
-                  : "Sign in"}
-              </button>
-            </>
-          ) : null}
-          {!display.isPreview &&
-          !display.snapshot.isAuthenticated &&
-          (display.snapshot.view.access === "pin" ||
-            display.snapshot.screen?.access === "pin") ? (
-            <button
-              type="button"
-              onClick={() => void display.lock()}
-            >
-              Lock
-            </button>
-          ) : null}
-        </div>
-      </header>
-      {display.error ? (
+      {hasScreenNavigation ? (
+        <header class="platform-header">
+          <ViewTabs
+            views={availableViews}
+            activeId={display.snapshot.view.id}
+            isDisabled={
+              display.isPending || !display.isConnected
+            }
+          />
+        </header>
+      ) : null}
+      <span
+        class="platform-connection-status"
+        role="status"
+      >
+        {display.connectionStatus === "disconnected"
+          ? "Connection unavailable · Retrying"
+          : display.connectionStatus === "reconnecting"
+            ? "Connection lost · Retrying"
+            : display.connectionStatus === "connecting"
+              ? "Connecting…"
+              : "Connected"}
+      </span>
+      {display.error && display.isConnected ? (
         <p class="platform-notice" role="alert">
           {display.error}
         </p>
-      ) : null}
-      {isSignInOpen ? (
-        <dialog
-          ref={signInDialog}
-          class="platform-sign-in"
-          aria-label="Sign in to control"
-          onClose={() => setIsSignInOpen(false)}
-          onCancel={() => setIsSignInOpen(false)}
-        >
-          <PinKeypad
-            name="Sign in to control"
-            description="Enter your management PIN. Controls unlock across views in this browser for 12 hours."
-            buttonLabel="Sign in"
-            error={display.error}
-            isPending={display.isPending}
-            onCancel={() => setIsSignInOpen(false)}
-            onUnlock={async (pin) => {
-              if (await display.signIn(pin)) {
-                setIsSignInOpen(false)
-              }
-            }}
-          />
-        </dialog>
       ) : null}
       <DisplayComposition
         snapshot={display.snapshot}
