@@ -1947,6 +1947,32 @@
   min-block-size: 48px;
   max-block-size: 48px;
 }
+.platform
+  .printer-progress-row[data-icons="true"]
+  > .printer-band {
+  block-size: 48px;
+  min-block-size: 48px;
+  max-block-size: 48px;
+  margin-block-start: 0;
+}
+.platform
+  .printer-progress-row[data-icons="true"]
+  .printer-band-text {
+  padding-inline: 12px;
+  gap: 8px;
+}
+.platform
+  .printer-progress-row[data-icons="true"]
+  .printer-percent {
+  flex: none;
+  font-size: clamp(22px, 2.5vmin, 30px);
+  line-height: 1;
+}
+.platform
+  .printer-progress-row[data-icons="true"]
+  .printer-band-remaining {
+  font-size: clamp(14px, 1.5vmin, 18px);
+}
 .printer-progress-row[data-icons="false"] {
   flex-wrap: wrap;
 }
