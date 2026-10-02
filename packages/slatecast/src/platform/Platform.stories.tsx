@@ -654,3 +654,50 @@ export const CombinedThreePrinters: Story = {
     </main>
   ),
 }
+
+/** State colors fill the padded outer surface of each independently composed printer. */
+export const CombinedPrinterStates: Story = {
+  render: () => {
+    const snapshot = combinedSnapshot(3)
+    const channel = snapshot.channels.prints
+    if (!channel)
+      throw new Error("Missing fixture printer channel")
+    const printers = (
+      channel.data as ContractData["printers.v1"]
+    ).printers
+    return (
+      <main class="platform">
+        <DisplayComposition
+          snapshot={{
+            ...snapshot,
+            channels: {
+              ...snapshot.channels,
+              prints: {
+                ...channel,
+                data: {
+                  printers: printers.map(
+                    (printer, index) => ({
+                      ...printer,
+                      state:
+                        index === 0
+                          ? "paused"
+                          : index === 2
+                            ? "finished"
+                            : "printing",
+                      problemText:
+                        index === 1
+                          ? "Printer needs attention"
+                          : undefined,
+                    }),
+                  ),
+                },
+              },
+            },
+          }}
+          isConnected
+          onAction={async () => undefined}
+        />
+      </main>
+    )
+  },
+}
