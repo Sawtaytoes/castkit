@@ -1,10 +1,10 @@
 # A finish time names its day when it is not today
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-09-25
 - **Type:** View / formatting
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [Elapsed-time threshold](2026-10-01-printer-finish-times-name-the-day-only-beyond-twenty-four-hours.md)
 
 ## Decision
 

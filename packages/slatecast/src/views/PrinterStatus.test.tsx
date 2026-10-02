@@ -248,22 +248,19 @@ describe("the printer cards", () => {
     expect(finishText()).toBe("23:59")
   })
 
-  /**
-   * The defect this view shipped with: a print that ran past midnight showed a
-   * bare "15:47" beside its percentage, and it read as the same afternoon.
-   */
-  test("a finish on the next day names tomorrow", async () => {
+  test("an overnight finish within twenty-four hours keeps the bare time", async () => {
+    const finishAtMs = Date.now() + 8 * 60 * 60 * 1_000
     await mountPrinterStatus([
-      buildPrinterJob({
-        finishAtMs: utcMillisOnDay({
-          dayOffset: 1,
-          hour: 15,
-          minute: 47,
-        }),
-      }),
+      buildPrinterJob({ finishAtMs }),
     ])
 
-    expect(finishText()).toBe("Tomorrow 15:47")
+    const time = new Intl.DateTimeFormat("en-US", {
+      timeZone: "UTC",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(finishAtMs)
+    expect(finishText()).toBe(time)
   })
 
   test("a problem is named on the card", async () => {

@@ -77,20 +77,9 @@ export const getFinishAtMs = ({
 }
 
 /**
- * The finish as a person reads it off the glass: "3:47 PM" later today,
- * "Tomorrow 3:47 PM", "Fri 3:47 PM" further out.
- *
- * A bare clock time reads as TODAY. A print that ended the next afternoon
- * showed "3:47 PM" on the workbench panel, and the owner read three hours where
- * the printer meant twenty-seven.
- *
- * The day is named whenever the finish falls on a DIFFERENT CALENDAR DAY, not
- * when it is more than twenty-four hours out. Midnight is the boundary a person
- * means: an overnight print ending at 01:00 is eight hours away and is still
- * not today, and the bare time would misread there in the same way.
- *
- * The words match BambuBuddy's own ETA, which is where the same finish is read
- * everywhere else in the house.
+ * A predicted finish within twenty-four hours shows only the clock time, even
+ * across midnight. Beyond that elapsed-time window, the configured timezone
+ * determines the day prefix: tomorrow, a weekday, or a date.
  *
  * A weekday stops naming a day once the name comes round again, so a week or
  * more out gets the date. No print runs that long; a bad end time pushed by an
@@ -113,7 +102,10 @@ export const formatFinishTime = ({
     toMillis: finishAtMs,
   })
 
-  if (dayOffset <= 0) {
+  if (
+    finishAtMs - nowMillis <= 24 * 60 * 60 * 1_000 ||
+    dayOffset <= 0
+  ) {
     return time
   }
   if (dayOffset === 1) {
@@ -139,7 +131,7 @@ export const isSettledPrinterJob = (
  * today, "Yesterday 3:47 PM", "Fri 3:47 PM" further back, a date a week or more
  * back.
  *
- * The same calendar-day rule as {@link formatFinishTime}, mirrored: a finished
+ * Historical finishes use calendar days: a finished
  * plate that nobody cleared overnight must not read as this afternoon. A
  * printer's end time can also sit a little AHEAD of the panel's clock — the two
  * are not synchronized to the second — so a finish inside the same day is the

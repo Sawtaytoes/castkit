@@ -155,7 +155,7 @@ describe("formatFinishTime", () => {
     ).toBe("Tomorrow 3:47 PM")
   })
 
-  test("an overnight finish names tomorrow after eight hours", () => {
+  test("an overnight finish keeps the bare time within twenty-four hours", () => {
     expect(
       withPlainSpaces(
         formatFinishTime({
@@ -164,7 +164,43 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("Tomorrow 1:00 AM")
+    ).toBe("1:00 AM")
+  })
+
+  test.each([
+    {
+      elapsedMillis: 24 * 60 * 60 * 1_000,
+      expected: "3:05 PM",
+    },
+    {
+      elapsedMillis: 24 * 60 * 60 * 1_000 + 1,
+      expected: "Tomorrow 3:05 PM",
+    },
+  ])("the twenty-four-hour boundary: $elapsedMillis ms", ({
+    elapsedMillis,
+    expected,
+  }) => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          finishAtMs: nowMillis + elapsedMillis,
+          nowMillis,
+        }),
+      ),
+    ).toBe(expected)
+  })
+
+  test("two calendar days within twenty-four hours across daylight saving keep the bare time", () => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          nowMillis: Date.UTC(2026, 2, 8, 5, 30),
+          finishAtMs: Date.UTC(2026, 2, 9, 5, 15),
+        }),
+      ),
+    ).toBe("12:15 AM")
   })
 
   test("a finish further out names its weekday", () => {
