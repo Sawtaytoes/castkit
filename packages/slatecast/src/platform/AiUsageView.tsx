@@ -6,7 +6,7 @@ import {
 } from "preact/hooks"
 import { placeSections } from "./aiUsageLayout.ts"
 import {
-  DEFAULT_ALERT_PERCENT,
+  readAlertPercent,
   selectProviderRows,
 } from "./aiUsageRows.ts"
 import { useDisplayProperties } from "./displayProperties.ts"
@@ -35,25 +35,6 @@ const USAGE_LIFETIME_MILLISECONDS = 300_000
 /** A computed length that is absent reads as zero, never as `NaN`. */
 const readPixels = (value: string) =>
   Number.parseFloat(value) || 0
-
-/**
- * The escalation threshold this panel was configured with.
- *
- * Settings arrive from stored JSON, so the value may be a number, the string
- * a form field produced, or nothing at all. Anything outside 0-100 falls back
- * to the default rather than silently turning every limit into an alert, or
- * none of them.
- */
-const readAlertPercent = (
-  settings: Record<string, unknown> | undefined,
-) => {
-  const value = Number(settings?.alertPercent)
-  return Number.isFinite(value) &&
-    value >= 0 &&
-    value <= 100
-    ? value
-    : DEFAULT_ALERT_PERCENT
-}
 
 const DAY_MILLISECONDS = 86_400_000
 const WEEK_MILLISECONDS = 7 * DAY_MILLISECONDS

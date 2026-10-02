@@ -15,6 +15,25 @@ type UsageProvider = AiUsageData["providers"][number]
  */
 export const DEFAULT_ALERT_PERCENT = 80
 
+/**
+ * The escalation threshold this panel was configured with.
+ *
+ * Settings arrive from stored JSON, so the value may be a number, the string
+ * a form field produced, or nothing at all. Anything outside 0-100 falls back
+ * to the default rather than silently turning every limit into an alert, or
+ * none of them.
+ */
+export const readAlertPercent = (
+  settings: Record<string, unknown> | undefined,
+) => {
+  const value = Number(settings?.alertPercent)
+  return Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 100
+    ? value
+    : DEFAULT_ALERT_PERCENT
+}
+
 /** Select the same primary window used by per-view server activity. */
 export const selectPrimaryWindow = selectQuotaWindow
 

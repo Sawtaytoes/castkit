@@ -7,6 +7,10 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import {
+  readAlertPercent,
+  selectProviderRows,
+} from "./aiUsageRows.ts"
 import { chooseCompositionLayout } from "./compositionLayout.ts"
 
 /** Measure actual content, then spend remaining space in priority order. */
@@ -47,12 +51,29 @@ export const useCompositionLayout = ({
                 | ContractData["ai-usage.v1"]
                 | undefined)
             : undefined
-        const rowCount =
-          usage?.providers.reduce(
-            (count, provider) =>
-              count + provider.windows.length,
-            0,
-          ) ?? 1
+        const usageRows = usage
+          ? selectProviderRows({
+              providers: usage.providers,
+              alertPercent: readAlertPercent(
+                panel.settings,
+              ),
+            })
+          : undefined
+        const childStyle = child
+          ? getComputedStyle(child)
+          : undefined
+        const pixels = (value: string | undefined) =>
+          Number.parseFloat(value ?? "") || 0
+        const insetWidth =
+          pixels(childStyle?.paddingLeft) +
+          pixels(childStyle?.paddingRight) +
+          pixels(childStyle?.borderLeftWidth) +
+          pixels(childStyle?.borderRightWidth)
+        const insetHeight =
+          pixels(childStyle?.paddingTop) +
+          pixels(childStyle?.paddingBottom) +
+          pixels(childStyle?.borderTopWidth) +
+          pixels(childStyle?.borderBottomWidth)
         return {
           key,
           isPrinter,
@@ -75,17 +96,17 @@ export const useCompositionLayout = ({
                   image.naturalHeight
                 ? image.naturalWidth / image.naturalHeight
                 : 16 / 9
-            : usage
-              ? 320 / (rowCount * 104)
-              : panel.specId === "rip-deck"
-                ? 2 / 3
-                : undefined,
-          usageRowCount: usage ? rowCount : undefined,
+            : panel.specId === "rip-deck"
+              ? 2 / 3
+              : undefined,
+          usageRows,
+          insetWidth,
+          insetHeight,
           minimumWidth: isPrinter ? 280 : usage ? 320 : 240,
           minimumHeight: isPrinter
             ? 260
             : panel.specId === "ai-usage"
-              ? rowCount * 104
+              ? 104
               : 180,
         }
       })
@@ -108,19 +129,33 @@ export const useCompositionLayout = ({
               index
             ]?.querySelector<HTMLElement>(".printer-body")
           if (!body) return 220
+          const panelElement = container.children[
+            index
+          ] as HTMLElement
+          const panelStyle = getComputedStyle(panelElement)
+          const insetWidth =
+            Number.parseFloat(panelStyle.paddingLeft) +
+            Number.parseFloat(panelStyle.paddingRight) +
+            2
+          const insetHeight =
+            Number.parseFloat(panelStyle.paddingTop) +
+            Number.parseFloat(panelStyle.paddingBottom) +
+            2
           const probe = body.cloneNode(true) as HTMLElement
           probe.inert = true
           probe.setAttribute("aria-hidden", "true")
           Object.assign(probe.style, {
             position: "absolute",
             visibility: "hidden",
-            inlineSize: `${Math.max(1, width - 48)}px`,
+            inlineSize: `${Math.max(1, width - insetWidth)}px`,
             blockSize: "auto",
             inset: "0 auto auto 0",
           })
           body.parentElement?.append(probe)
           const height =
-            probe.getBoundingClientRect().height + 48
+            probe.getBoundingClientRect().height +
+            insetHeight +
+            12
           probe.remove()
           measured.set(cacheKey, height)
           return height
