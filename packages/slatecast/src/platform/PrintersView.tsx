@@ -1,5 +1,6 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { useEffect, useState } from "preact/hooks"
+import { ICON_PATHS, Icon } from "../Icon.tsx"
 import { ExpandableMedia } from "../views/ExpandableMedia.tsx"
 import {
   FilamentControl,
@@ -84,6 +85,9 @@ const PrinterCard = ({
       ref={cardRef}
       class="printer-card"
       data-state={printer.state}
+      data-compact-facts={String(
+        settings.isCompactFacts === true,
+      )}
       data-intent={
         printer.state === "finished"
           ? "success"
@@ -160,39 +164,115 @@ const PrinterCard = ({
             {printer.problemText}
           </p>
         ) : null}
-        <div class="printer-band">
-          <div
-            class="printer-band-fill"
-            style={{
-              width: properties.hasProgress
-                ? `${printer.percent}%`
-                : "0%",
-            }}
-          />
-          <div class="printer-band-text">
-            {properties.hasRelativeTimes &&
-            !isSettled &&
-            printer.state !== "paused" &&
-            printer.remainingMinutes !== undefined ? (
-              <span class="printer-band-remaining">
-                {formatRemaining(printer.remainingMinutes)}{" "}
-                left
-              </span>
-            ) : null}
-            {isSettled ? (
-              <strong>
-                {printer.state === "finished"
-                  ? "Finished · Clear plate"
-                  : "Failed · Clear plate"}
-              </strong>
-            ) : properties.hasProgress ? (
-              <strong class="printer-percent">
-                {Math.round(printer.percent)}%
-              </strong>
-            ) : (
-              <span>Print in progress</span>
-            )}
+        <div
+          class="printer-progress-row"
+          data-icons={String(
+            settings.isCompactControls !== false,
+          )}
+        >
+          <div class="printer-band">
+            <div
+              class="printer-band-fill"
+              style={{
+                width: properties.hasProgress
+                  ? `${printer.percent}%`
+                  : "0%",
+              }}
+            />
+            <div class="printer-band-text">
+              {properties.hasRelativeTimes &&
+              !isSettled &&
+              printer.state !== "paused" &&
+              printer.remainingMinutes !== undefined ? (
+                <span class="printer-band-remaining">
+                  {formatRemaining(
+                    printer.remainingMinutes,
+                  )}{" "}
+                  left
+                </span>
+              ) : null}
+              {isSettled ? (
+                <strong>
+                  {printer.state === "finished"
+                    ? "Finished · Clear plate"
+                    : "Failed · Clear plate"}
+                </strong>
+              ) : properties.hasProgress ? (
+                <strong class="printer-percent">
+                  {Math.round(printer.percent)}%
+                </strong>
+              ) : (
+                <span>Print in progress</span>
+              )}
+            </div>
           </div>
+          {!isSettled ? (
+            <div
+              class="platform-actions printer-actions"
+              data-icons={String(
+                settings.isCompactControls !== false,
+              )}
+            >
+              {[
+                printer.state === "paused"
+                  ? "resume"
+                  : "pause",
+                "stop",
+              ].map((action) => (
+                <button
+                  key={action}
+                  class={`printer-action ${action === "stop" ? "is-stop" : "is-pause"}`}
+                  data-castkit-target={`printer:${printer.id}:${printer.jobName}:${printer.state}:${action}`}
+                  type="button"
+                  aria-label={
+                    action === "resume"
+                      ? "Resume"
+                      : action === "pause"
+                        ? "Pause"
+                        : "Stop"
+                  }
+                  disabled={!isControlEnabled}
+                  title={
+                    !isControlEnabled
+                      ? (controlDisabledReason ??
+                        "Controls disabled")
+                      : action === "resume"
+                        ? "Resume"
+                        : action === "pause"
+                          ? "Pause"
+                          : "Stop"
+                  }
+                  onClick={() =>
+                    setConfirmation({
+                      id: printer.id,
+                      state: printer.state,
+                      jobName: printer.jobName,
+                      action,
+                    })
+                  }
+                >
+                  {settings.isCompactControls !== false ? (
+                    <Icon
+                      path={
+                        action === "resume"
+                          ? ICON_PATHS.play
+                          : action === "pause"
+                            ? ICON_PATHS.pause
+                            : ICON_PATHS.stop
+                      }
+                      size="24px"
+                    />
+                  ) : action === "resume" ? (
+                    "Resume"
+                  ) : action === "pause" ? (
+                    "Pause"
+                  ) : (
+                    "Stop"
+                  )}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
         {!isControlEnabled ? (
           <p class="printer-control-status" role="status">
@@ -260,44 +340,6 @@ const PrinterCard = ({
             ) : null}
           </dl>
         )}
-        {!isSettled ? (
-          <div class="platform-actions printer-actions">
-            {[
-              printer.state === "paused"
-                ? "resume"
-                : "pause",
-              "stop",
-            ].map((action) => (
-              <button
-                key={action}
-                class={`printer-action ${action === "stop" ? "is-stop" : "is-pause"}`}
-                data-castkit-target={`printer:${printer.id}:${printer.jobName}:${printer.state}:${action}`}
-                type="button"
-                disabled={!isControlEnabled}
-                title={
-                  !isControlEnabled
-                    ? (controlDisabledReason ??
-                      "Controls disabled")
-                    : undefined
-                }
-                onClick={() =>
-                  setConfirmation({
-                    id: printer.id,
-                    state: printer.state,
-                    jobName: printer.jobName,
-                    action,
-                  })
-                }
-              >
-                {action === "resume"
-                  ? "Resume"
-                  : action === "pause"
-                    ? "Pause"
-                    : "Stop"}
-              </button>
-            ))}
-          </div>
-        ) : null}
       </div>
     </article>
   )
@@ -398,7 +440,12 @@ export const PrintersView = ({
         <PrinterCard
           key={printer.id}
           printer={printer}
-          index={index}
+          index={
+            index +
+            (typeof settings.printerIndex === "number"
+              ? settings.printerIndex
+              : 0)
+          }
           cameras={cameras}
           settings={settings}
           isControlEnabled={isControlEnabled}

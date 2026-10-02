@@ -1,3 +1,5 @@
+import type { ContractData } from "@castkit/sdk/contracts"
+import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { JSX } from "preact"
 import { useEffect, useRef, useState } from "preact/hooks"
 import { viewAppearance } from "./appearance.ts"
@@ -11,6 +13,7 @@ import type {
   PanelAction,
 } from "./protocol.ts"
 import { useRenderReadiness } from "./RenderReadiness.ts"
+import { useCompositionLayout } from "./useCompositionLayout.ts"
 import { useDisplay } from "./useDisplay.ts"
 import "./platform.css"
 import { ViewTabs } from "./ViewTabs.tsx"
@@ -38,8 +41,68 @@ export const DisplayComposition = ({
           snapshot.panelActivity?.[panel.id] !== false,
       )
     : snapshot.view.panels
-  const layout =
-    snapshot.view.isActiveOnly && panels.length <= 1
+  const isCombined = ["cards", "rail", "adaptive"].includes(
+    snapshot.view.layout,
+  )
+  const displayedPanels = panels.flatMap((panel) => {
+    const data = selectPanelData({
+      ...panel,
+      data: snapshot.channels[panel.bindings.data ?? ""]
+        ?.data,
+    })
+    if (
+      isCombined &&
+      panel.specId === "printer-status" &&
+      data
+    ) {
+      return (
+        data as ContractData["printers.v1"]
+      ).printers.map((printer, index) => ({
+        key: `${snapshot.view.id}:${panel.id}:${printer.id}`,
+        panel: {
+          ...panel,
+          settings: {
+            ...panel.settings,
+            title: "",
+            isCompactFacts:
+              panel.settings.isCompactFacts ?? true,
+            isPrinterSelectionEnabled: true,
+            printerIds: [printer.id],
+            printerIndex: index,
+          },
+        },
+        data: {
+          ...(data as ContractData["printers.v1"]),
+          printers: [printer],
+        },
+      }))
+    }
+    return [
+      {
+        key: `${snapshot.view.id}:${panel.id}`,
+        panel: isCombined
+          ? {
+              ...panel,
+              settings: {
+                ...panel.settings,
+                isAdaptiveLayout: true,
+              },
+            }
+          : panel,
+        data,
+      },
+    ]
+  })
+  const combined = useCompositionLayout({
+    panels: displayedPanels,
+    mode: snapshot.view.layout,
+    data: Object.fromEntries(
+      displayedPanels.map((item) => [item.key, item.data]),
+    ),
+  })
+  const layout = isCombined
+    ? (combined.layout?.id ?? "cards")
+    : snapshot.view.isActiveOnly && panels.length <= 1
       ? "single"
       : snapshot.view.layout
   return (
@@ -49,8 +112,13 @@ export const DisplayComposition = ({
       <DisplayContext.Provider value={snapshot.target}>
         <div
           class="platform-layout"
-          style={viewAppearance(snapshot.view)}
+          ref={combined.element}
+          style={{
+            ...viewAppearance(snapshot.view),
+            ...(isCombined ? combined.layout?.style : {}),
+          }}
           data-layout={layout}
+          data-priority-layout={String(isCombined)}
         >
           {snapshot.view.isActiveOnly &&
           panels.length === 0 ? (
@@ -61,9 +129,14 @@ export const DisplayComposition = ({
               <p role="status">Nothing active</p>
             </section>
           ) : null}
-          {panels.map((panel) => (
+          {displayedPanels.map(({ key, panel }) => (
             <Panel
-              key={`${snapshot.view.id}:${panel.id}`}
+              key={key}
+              layoutStyle={
+                isCombined
+                  ? combined.layout?.cells[key]
+                  : undefined
+              }
               panel={panel}
               browserEntry={
                 snapshot.viewSpecs?.find(

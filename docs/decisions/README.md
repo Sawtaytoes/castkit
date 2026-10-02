@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-10-01 | [Combined kiosks share space by nested priority](2026-10-01-combined-kiosks-share-space-by-nested-priority.md) | Automatic and manual card/rail layouts, per-view item selection, quota replacement, poster art and compact SVG controls. |
 | 2026-10-01 | [Tally Marks is the app; Tally Marks Store is the shop](2026-10-01-tally-marks-is-the-app-and-tally-marks-store-is-the-shop.md) | Accepted |
 | 2026-10-01 | [Printer actions stop growing before camera and facts](2026-10-01-printer-actions-stop-growing-before-camera-and-facts.md) — Pause/Resume/Stop cap at 56 px high, 22 px text and a 320 px row in both browser renderers | Accepted |
 | 2026-09-30 | [Public printer views use shared management sign-in](2026-09-30-public-printer-views-use-shared-management-sign-in.md) — public viewing, one management PIN session across views, and visible disabled controls with reasons | Accepted |

@@ -13,6 +13,7 @@ export default createVitestConfig({
       "e2e/**",
     ],
     projects: [
+      "packages/sdk/vitest.config.ts",
       "packages/core/vitest.config.ts",
       "packages/shared/vitest.config.ts",
       "packages/render/vitest.config.ts",

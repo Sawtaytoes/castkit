@@ -557,3 +557,100 @@ export const PointsTaskTime: Story = {
     </main>
   ),
 }
+
+const combinedSnapshot = (
+  count: number,
+): DisplaySnapshot => ({
+  ...storySnapshot,
+  view: {
+    ...storySnapshot.view,
+    id: "combined",
+    name: "Combined kiosk",
+    layout: "adaptive",
+    isActiveOnly: true,
+    panels: [
+      {
+        ...storySnapshot.view.panels[0],
+        settings: { title: "", isCompactFacts: true },
+      },
+      {
+        ...storySnapshot.view.panels[1],
+        settings: { title: "", presentation: "posters" },
+      },
+      {
+        ...aiUsageFixture.view.panels[0],
+        settings: {
+          title: "",
+          isPositiveUsageOnly: true,
+          isAlertReplacementEnabled: true,
+          alertPercent: 80,
+        },
+      },
+    ],
+  },
+  channels: {
+    ...storySnapshot.channels,
+    ...aiUsageFixture.channels,
+    prints: {
+      ...fixturePrints,
+      data: {
+        printers: Array.from(
+          { length: count },
+          (_unused, index) => ({
+            ...fixturePrinters[0],
+            id: `printer-${index}`,
+            name: `Printer ${index + 1}`,
+            cameraPath: staticPath(
+              "sample-photos/printer-camera-chamber.jpg",
+            ),
+          }),
+        ),
+      },
+    },
+    rips: {
+      ...compositionFixture.channels.rips,
+      id: "rips",
+      type: "rip-deck.v1",
+      status: "ready",
+      data: {
+        ...(compositionFixture.channels.rips
+          ?.data as ContractData["rip-deck.v1"]),
+        bays: (
+          compositionFixture.channels.rips
+            ?.data as ContractData["rip-deck.v1"]
+        ).bays.map((bay) => ({
+          ...bay,
+          posterUrl: staticPath(
+            "sample-photos/portrait-face.jpg",
+          ),
+        })),
+      },
+    },
+  },
+})
+
+/** One printer gets the camera rail; supporting accounts stack within their own region. */
+export const CombinedOnePrinter: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={combinedSnapshot(1)}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+
+/** Several individual printer cards share a composition with poster art and usage. */
+export const CombinedThreePrinters: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={combinedSnapshot(3)}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}

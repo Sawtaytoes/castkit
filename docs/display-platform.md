@@ -68,6 +68,16 @@ A `points.v1` channel carries the person name, awarded points, message, and opti
 
 For a household board, use the **Tally Marks** view on a `kids-points.v1` channel. It shows every child's points today and the last card scan, and a channel can limit scans to one room's readers. See [the Tally Marks view](kids-points-view.md).
 
+## Combined kiosks
+
+Start a saved view from **Combined kiosk**, bind its printer, Rip Deck and AI Usage channels, and keep **Show only what is active** enabled. **Automatic** measures the available room, preserves required content and gives higher-priority components useful space first. Its default order is printers, disc jobs, then AI usage. **A · Adaptive cards** and **B · Cameras and rail** remain manual choices.
+
+In **Panels**, enable **Choose printers for this view**, **Choose bays for this view** or **Choose accounts for this view** and check the items to include. An enabled empty selection shows none. Selections belong to the view, so another kiosk can use a different subset of the same channels.
+
+Enable **Show only usage above zero** to hide idle accounts. **Replace weekly usage with a shorter limit above the alert threshold** shows one quota per account: the aggregate weekly quota normally, or the shorter quota when it is strictly above the threshold (80% by default). At exactly 80%, the weekly quota stays. Usage-window selection can limit the eligible quotas further.
+
+Printer cards can use a compact facts row and bounded SVG controls beside progress. Each card still independently maximizes its camera's contained area before spending spare room on facts. Rip Deck's **Poster cards** presentation fills its region with artwork and shows only whole cards; any remaining active jobs are counted. AI usage stacks accounts in a tall rail and chooses more columns in a shallow region to preserve readable, complete rows.
+
 ## Access
 
 Management requires its PIN session or the configured machine API token. First setup requires a private one-time token, so the first anonymous visitor cannot claim the installation. The platform file stores salted PIN hashes and hashed session identifiers. Keep this file private and persistent.
