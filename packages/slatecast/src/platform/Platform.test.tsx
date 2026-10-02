@@ -28,6 +28,7 @@ import {
 } from "./protocol.ts"
 import { RipDeckView } from "./RipDeckView.tsx"
 import { ViewTabs } from "./ViewTabs.tsx"
+import "../styles.css"
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -395,8 +396,10 @@ test("the page restores a server session and responds to a screen switch through
   )
   await waitFor(() =>
     expect(
-      screen.getByText("Changed by automation"),
-    ).toBeVisible(),
+      document.querySelector(
+        '.platform-panel[data-spec="clock"]',
+      ),
+    ).not.toBeNull(),
   )
   expect(screen.queryByText("Printer One")).toBeNull()
   expect(fetch).toHaveBeenCalledWith(
@@ -687,10 +690,13 @@ test("one screen PIN grants dropdown and internal-link navigation without changi
       screen.getByRole("navigation", { name: "Views" }),
     ).getByRole("link", { name: "Clock view" }),
   )
-  await screen.findByRole("heading", {
-    name: "Clock view",
-    exact: true,
-  })
+  await waitFor(() =>
+    expect(
+      within(
+        screen.getByRole("navigation", { name: "Views" }),
+      ).getByRole("link", { name: "Clock view" }),
+    ).toHaveAttribute("aria-current", "page"),
+  )
   for (const name of ["Other view", "External"]) {
     let isPrevented = true
     document.addEventListener(
@@ -837,12 +843,27 @@ test("a preview receives live updates without exposing device actions or screen 
     JSON.stringify({
       type: "snapshot",
       ...snapshot,
-      view: { ...snapshot.view, name: "Updated preview" },
+      channels: {
+        ...snapshot.channels,
+        prints: {
+          ...snapshot.channels.prints,
+          data: {
+            printers: [
+              {
+                ...(
+                  snapshot.channels.prints?.data as {
+                    printers: Record<string, unknown>[]
+                  }
+                ).printers[0],
+                name: "Updated preview printer",
+              },
+            ],
+          },
+        },
+      },
     }),
   )
-  await screen.findByRole("heading", {
-    name: "Updated preview",
-  })
+  await screen.findByText("Updated preview printer")
   expect(
     screen.getByRole("button", { name: "Pause" }),
   ).toBeDisabled()
@@ -937,3 +958,118 @@ test("individual printer cards keep their original action binding and mounted ca
     payload: { printerId: "printer-2" },
   })
 })
+
+test("a browser view keeps content without access chrome and marks reconnect, disappearance and recovery", async () => {
+  const connections: { close?: () => void } = {}
+  const worker = setupWorker(
+    ws
+      .link("*/view/activity/ws")
+      .addEventListener("connection", ({ client }) => {
+        connections.close = () => client.close()
+      }),
+  )
+  await worker.start({
+    quiet: true,
+    onUnhandledRequest: "bypass",
+  })
+  onTestFinished(() => worker.stop())
+  const response = { status: 200 }
+  vi.spyOn(window, "fetch").mockImplementation(
+    async () =>
+      new Response(JSON.stringify(compositionFixture), {
+        status: response.status,
+      }),
+  )
+  const view = render(
+    <PlatformApp
+      target={{ kind: "view", id: "activity" }}
+    />,
+  )
+  onTestFinished(() => {
+    view.unmount()
+  })
+  const surface = () => document.querySelector("main")
+  await waitFor(() =>
+    expect(surface()).toHaveAttribute(
+      "data-connection",
+      "connected",
+    ),
+  )
+  expect(
+    screen.queryByRole("heading", {
+      name: compositionFixture.view.name,
+    }),
+  ).toBeNull()
+  expect(
+    screen.queryByRole("button", {
+      name: /Sign in|Sign out|Lock/,
+    }),
+  ).toBeNull()
+  response.status = 404
+  connections.close?.()
+  await waitFor(() =>
+    expect(surface()).toHaveAttribute(
+      "data-connection",
+      "reconnecting",
+    ),
+  )
+  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
+  const warning = getComputedStyle(
+    surface() as Element,
+    "::after",
+  ).borderColor
+  await waitFor(
+    () =>
+      expect(surface()).toHaveAttribute(
+        "data-connection",
+        "disconnected",
+      ),
+    { timeout: 5000 },
+  )
+  expect(
+    getComputedStyle(surface() as Element, "::after")
+      .borderColor,
+  ).not.toBe(warning)
+  expect(
+    screen.getByText("Connection unavailable · Retrying"),
+  ).toHaveTextContent("Connection unavailable")
+  response.status = 200
+  await waitFor(
+    () =>
+      expect(surface()).toHaveAttribute(
+        "data-connection",
+        "connected",
+      ),
+    { timeout: 6000 },
+  )
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeEnabled()
+  expect(
+    getComputedStyle(surface() as Element, "::after")
+      .content,
+  ).toBe("none")
+  response.status = 503
+  connections.close?.()
+  await waitFor(() =>
+    expect(surface()).toHaveAttribute(
+      "data-connection",
+      "reconnecting",
+    ),
+  )
+  await waitFor(
+    () =>
+      expect(surface()).toHaveAttribute(
+        "data-connection",
+        "disconnected",
+      ),
+    { timeout: 35000 },
+  )
+  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
+}, 45000)

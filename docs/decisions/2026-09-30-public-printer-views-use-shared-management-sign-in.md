@@ -4,7 +4,7 @@
 - **Date:** 2026-09-30
 - **Type:** Access / interaction
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [Browser views reserve space for content](2026-10-01-browser-views-reserve-space-for-content.md) (access chrome only)
 
 ## Decision
 
