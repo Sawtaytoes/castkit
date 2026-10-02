@@ -94,9 +94,9 @@ test("a private bookmark unlocks on the touch keypad and locks server data again
   await expect(
     page.getByText("Bracket", { exact: true }),
   ).toBeVisible()
-  await page
-    .getByRole("button", { name: "Lock", exact: true })
-    .click()
+  await page.request.post("/api/access/lock", {
+    data: { kind: "view", id: "private-lab" },
+  })
   await expect(
     page.getByRole("button", {
       name: "Unlock",
@@ -194,8 +194,13 @@ test("public printer views share one PIN session and explain disabled controls",
   await publishPrinters(request)
   await page.goto("/view/lab")
   await expect(
-    page.getByText("Read-only", { exact: true }),
-  ).toBeVisible()
+    page.getByRole("button", {
+      name: /Sign in|Sign out|Lock/,
+    }),
+  ).toHaveCount(0)
+  await expect(
+    page.locator(".platform-header"),
+  ).toHaveCount(0)
   await expect(
     page.getByText("Sign in to control", { exact: true }),
   ).toBeVisible()
@@ -216,26 +221,24 @@ test("public printer views share one PIN session and explain disabled controls",
       exact: true,
     }),
   ).toBeDisabled()
-  await page
+  const admin = await context.newPage()
+  await admin.goto("/manage/access")
+  await admin.getByLabel(/^Management PIN/).fill("0000")
+  await admin
     .getByRole("button", { name: "Sign in", exact: true })
     .click()
-  const dialog = page.getByRole("dialog", {
-    name: "Sign in to control",
-  })
-  await dialog.getByLabel("PIN").fill("0000")
-  await dialog
-    .getByRole("button", { name: "Sign in", exact: true })
-    .click()
-  await expect(dialog.getByRole("alert")).toHaveText(
-    "The management PIN was not accepted.",
-  )
-  await dialog.getByLabel("PIN").fill("2468")
-  await dialog
-    .getByRole("button", { name: "Sign in", exact: true })
-    .click()
-  await expect(dialog).not.toBeVisible()
   await expect(
-    page.getByText("Controls unlocked", { exact: true }),
+    admin.getByText("Incorrect PIN", { exact: true }),
+  ).toBeVisible()
+  await admin.getByLabel(/^Management PIN/).fill("2468")
+  await admin
+    .getByRole("button", { name: "Sign in", exact: true })
+    .click()
+  await expect(
+    admin.getByRole("button", {
+      name: "Sign out",
+      exact: true,
+    }),
   ).toBeVisible()
   await expect(
     page.getByRole("button", {
@@ -251,8 +254,11 @@ test("public printer views share one PIN session and explain disabled controls",
   ).toBeEnabled()
   await page.goto("/view/private-lab")
   await expect(
-    page.getByText("Controls unlocked", { exact: true }),
-  ).toBeVisible()
+    page.getByRole("button", {
+      name: "Pause",
+      exact: true,
+    }),
+  ).toBeEnabled()
   await page
     .getByRole("button", { name: "Pause", exact: true })
     .click()
@@ -264,12 +270,9 @@ test("public printer views share one PIN session and explain disabled controls",
   await page
     .getByRole("button", { name: "Go back", exact: true })
     .click()
-  await other
+  await admin
     .getByRole("button", { name: "Sign out", exact: true })
     .click()
-  await expect(
-    other.getByText("Read-only", { exact: true }),
-  ).toBeVisible()
   await expect(
     other.getByRole("button", {
       name: "Stop",

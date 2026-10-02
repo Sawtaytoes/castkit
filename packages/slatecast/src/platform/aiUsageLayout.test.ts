@@ -213,3 +213,16 @@ test("an adaptive tall rail stacks accounts and a shallow strip rotates them to 
   expect(strip.columnCount).toBe(3)
   expect(strip.hiddenRowCount).toBe(0)
 })
+
+test("omitting the view heading reclaims its height for another complete account", () => {
+  const options = {
+    providerRows: fiveProviders.slice(0, 2),
+    width: 240,
+    height: 220,
+  }
+  expect(placeSections(options).hiddenRowCount).toBe(1)
+  expect(
+    placeSections({ ...options, hasViewHeading: false })
+      .hiddenRowCount,
+  ).toBe(0)
+})

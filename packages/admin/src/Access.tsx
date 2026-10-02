@@ -1,6 +1,13 @@
 import { Button, Card, Field } from "@charcuterie/ui"
 import { useState } from "react"
 import { inputClass, mutate } from "./platformApi.ts"
+
+const notifyDisplays = () => {
+  const channel = new BroadcastChannel("castkit-access")
+  channel.postMessage("changed")
+  channel.close()
+}
+
 export type AccessSession = {
   isAuthenticated: boolean
   isSetupRequired: boolean
@@ -58,6 +65,7 @@ export const Access = ({
       setPin("")
       setConfirmation("")
       setSetupToken("")
+      notifyDisplays()
       await onChange()
     } catch (error) {
       setMessage(
@@ -86,6 +94,7 @@ export const Access = ({
       setCurrentPin("")
       setPin("")
       setConfirmation("")
+      notifyDisplays()
       await onChange()
       setIsSuccess(true)
       setMessage(
@@ -104,6 +113,7 @@ export const Access = ({
   const logout = async () => {
     try {
       await mutate("/api/access/logout", {})
+      notifyDisplays()
       await onChange()
     } catch (error) {
       setMessage(String(error))
