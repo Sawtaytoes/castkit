@@ -1,6 +1,12 @@
 import type { LayoutSection } from "@charcuterie/logic/core"
 import { selectPriorityLayout } from "@charcuterie/logic/core"
 import type { JSX } from "preact"
+import {
+  BASE_PROVIDER_HEADING_HEIGHT,
+  BASE_ROW_HEIGHT,
+  placeSections,
+} from "./aiUsageLayout.ts"
+import type { selectProviderRows } from "./aiUsageRows.ts"
 
 export type CompositionItem = {
   key: string
@@ -9,7 +15,48 @@ export type CompositionItem = {
   aspectRatio?: number
   minimumWidth: number
   minimumHeight: number
-  usageRowCount?: number
+  usageRows?: ReturnType<typeof selectProviderRows>
+  insetWidth?: number
+  insetHeight?: number
+}
+
+// Providers stay together, so a row count divided by columns is not a fit budget.
+const usageHeight = (
+  item: CompositionItem,
+  width: number,
+) => {
+  const entries = item.usageRows ?? []
+  const heights = entries.map(
+    (entry) =>
+      BASE_PROVIDER_HEADING_HEIGHT +
+      entry.rows.length * BASE_ROW_HEIGHT,
+  )
+  const candidates = heights
+    .flatMap((_height, index) =>
+      heights
+        .slice(index)
+        .map((_height, length) =>
+          heights
+            .slice(index, index + length + 1)
+            .reduce((total, height) => total + height, 0),
+        ),
+    )
+    .sort((first, second) => first - second)
+  return (
+    (candidates.find(
+      (height) =>
+        placeSections({
+          providerRows: entries,
+          width: Math.max(
+            0,
+            width - (item.insetWidth ?? 0),
+          ),
+          height,
+          isAdaptive: true,
+          hasViewHeading: false,
+        }).hiddenRowCount === 0,
+    ) ?? item.minimumHeight) + (item.insetHeight ?? 0)
+  )
 }
 
 /** Score the composition with the same policy each media card uses internally. */
@@ -66,28 +113,38 @@ export const chooseCompositionLayout = ({
             .slice(cell.row, cell.row + cell.rowSpan)
             .reduce((total, value) => total + value, 0) +
           gap * (cell.rowSpan - 1)
-        const minimumHeight =
-          item.usageRowCount === undefined
-            ? item.minimumHeight
-            : Math.ceil(
-                item.usageRowCount /
-                  Math.max(
-                    1,
-                    Math.min(
-                      3,
-                      Math.floor(cellWidth / 240),
-                    ),
-                  ),
-              ) * 104
+        const contentWidth = Math.max(
+          0,
+          cellWidth - (item.insetWidth ?? 0),
+        )
+        const minimumHeight = item.usageRows
+          ? usageHeight(item, cellWidth)
+          : item.minimumHeight
+        const usage = item.usageRows
+          ? placeSections({
+              providerRows: item.usageRows,
+              width: contentWidth,
+              height: Math.max(
+                0,
+                cellHeight - (item.insetHeight ?? 0),
+              ),
+              isAdaptive: true,
+              hasViewHeading: false,
+            })
+          : undefined
         const factsHeight = item.isPrinter
           ? measureFacts(item.key, cellWidth)
           : 0
         return [
           {
             priority: item.priority,
-            width: cellWidth,
-            height: Math.max(0, cellHeight - factsHeight),
-            aspectRatio: item.aspectRatio,
+            width: usage ? usage.scale * 100 : contentWidth,
+            height: usage
+              ? 1
+              : Math.max(0, cellHeight - factsHeight),
+            aspectRatio: usage
+              ? undefined
+              : item.aspectRatio,
             idealArea: item.isPrinter
               ? undefined
               : item.minimumWidth * item.minimumHeight * 4,
@@ -146,9 +203,61 @@ export const chooseCompositionLayout = ({
     const supportRows = Math.ceil(
       supporting.length / columnCount,
     )
+    const columnWidth =
+      (width - gap * (columnCount - 1)) / columnCount
+    const minimumSupportHeight = Math.max(
+      0,
+      ...supporting.map((item, index) => {
+        const span =
+          index === supporting.length - 1
+            ? columnCount - (index % columnCount)
+            : 1
+        const cellWidth =
+          columnWidth * span + gap * (span - 1)
+        return item.usageRows
+          ? usageHeight(item, cellWidth)
+          : item.minimumHeight
+      }),
+    )
+    const fittedPrinterHeight = Math.max(
+      0,
+      ...printers.map((item, index) => {
+        const span =
+          index === printers.length - 1
+            ? columnCount - (index % columnCount)
+            : 1
+        const cellWidth =
+          columnWidth * span + gap * (span - 1)
+        return (
+          measureFacts(item.key, cellWidth) +
+          (cellWidth - (item.insetWidth ?? 0)) /
+            (item.aspectRatio ?? 16 / 9)
+        )
+      }),
+    )
+    const reclaimedHeight =
+      (height -
+        gap * Math.max(0, printerRows + supportRows - 1) -
+        fittedPrinterHeight * printerRows) /
+      Math.max(1, supportRows)
     const supportHeights =
       printerRows && supportRows
-        ? [200, 280, 360, Math.min(440, height / 2)]
+        ? [
+            ...new Set([
+              minimumSupportHeight,
+              ...[1.2, 1.4, 1.6, 1.8, 2].map(
+                (scale) => minimumSupportHeight * scale,
+              ),
+              Math.max(
+                minimumSupportHeight,
+                reclaimedHeight,
+              ),
+              200,
+              280,
+              360,
+              Math.min(440, height / 2),
+            ]),
+          ]
         : [height]
     return supportHeights.map((supportHeight) => {
       const rowCount = printerRows + supportRows

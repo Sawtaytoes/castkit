@@ -15,7 +15,10 @@ import {
   vi,
 } from "vitest"
 import { buildMatchedSpools } from "../__fixtures__/buildSpools.ts"
-import { compositionFixture } from "./fixtures.ts"
+import {
+  aiUsageFixture,
+  compositionFixture,
+} from "./fixtures.ts"
 import { PinKeypad } from "./PinKeypad.tsx"
 import {
   DisplayComposition,
@@ -1073,3 +1076,119 @@ test("a browser view keeps content without access chrome and marks reconnect, di
     screen.getByRole("button", { name: "Pause" }),
   ).toBeDisabled()
 }, 45000)
+
+test("automatic reflows three quotas below three cameras without clipping selected rows", async () => {
+  const channel = compositionFixture.channels.prints
+  const first = (
+    channel?.data as { printers: Record<string, unknown>[] }
+  ).printers[0]
+  const snapshot: DisplaySnapshot = {
+    ...compositionFixture,
+    view: {
+      ...compositionFixture.view,
+      layout: "adaptive",
+      panels: [
+        compositionFixture.view.panels[0]!,
+        aiUsageFixture.view.panels[0]!,
+      ],
+    },
+    channels: {
+      ...compositionFixture.channels,
+      ...aiUsageFixture.channels,
+      prints: {
+        ...channel!,
+        data: {
+          printers: Array.from(
+            { length: 3 },
+            (_unused, index) => ({
+              ...first,
+              id: `printer-${index}`,
+              name: `Printer ${index}`,
+              cameraPath:
+                "/assets/printer-camera-chamber.jpg",
+              cameraIsLive: false,
+            }),
+          ),
+        },
+      },
+      usage: {
+        ...aiUsageFixture.channels.usage!,
+        data: {
+          providers: ["Alpha", "Beta", "Gamma"].map(
+            (name) => ({
+              id: name,
+              name,
+              isOk: true,
+              windows: [
+                {
+                  id: "weekly",
+                  label: "Weekly",
+                  percentUsed: 50,
+                  periodHours: 168,
+                },
+              ],
+            }),
+          ),
+        },
+      },
+    },
+  }
+  const mounted = render(
+    <main
+      class="platform"
+      style={{
+        width: "2048px",
+        height: "775px",
+        padding: "12px",
+      }}
+    >
+      <DisplayComposition
+        snapshot={snapshot}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  const usagePanel = (
+    await screen.findByText("Alpha")
+  ).closest(".platform-panel") as HTMLElement
+  await waitFor(() => {
+    expect(usagePanel.style.gridColumn).toBe("1 / span 3")
+    expect(usagePanel.style.gridRow).toBe("2 / span 1")
+    expect(screen.queryByText(/more limits/)).toBeNull()
+    expect(screen.getByText("Gamma")).toBeVisible()
+  })
+  expect(usagePanel.scrollHeight).toBe(
+    usagePanel.clientHeight,
+  )
+  expect(usagePanel.scrollWidth).toBe(
+    usagePanel.clientWidth,
+  )
+  const camera = screen.getByRole("button", {
+    name: "Enlarge Printer 0 camera",
+  })
+  mounted.rerender(
+    <main
+      class="platform"
+      style={{
+        width: "1920px",
+        height: "1080px",
+        padding: "12px",
+      }}
+    >
+      <DisplayComposition
+        snapshot={snapshot}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  await waitFor(() =>
+    expect(screen.getByText("Gamma")).toBeVisible(),
+  )
+  expect(
+    screen.getByRole("button", {
+      name: "Enlarge Printer 0 camera",
+    }),
+  ).toBe(camera)
+})
