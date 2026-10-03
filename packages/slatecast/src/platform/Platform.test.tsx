@@ -249,11 +249,11 @@ test("Rip Deck details preserve cancel confirmation and prevent tray operations 
     screen.getByRole("button", { name: /Sample movie/ }),
   )
   expect(
-    screen.getByRole("button", { name: "Open" }),
-  ).toBeDisabled()
+    screen.queryByRole("button", { name: "Open" }),
+  ).toBeNull()
   expect(
-    screen.getByRole("button", { name: "Disc removed" }),
-  ).toBeDisabled()
+    screen.queryByRole("button", { name: "Disc removed" }),
+  ).toBeNull()
   await user.click(
     screen.getByRole("button", { name: "Cancel rip" }),
   )

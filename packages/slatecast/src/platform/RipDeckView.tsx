@@ -148,60 +148,19 @@ export const RipDeckView = ({
   const hasPosters = posterLayout?.id !== "rows"
   const posterColumns = posterLayout?.columns ?? 1
   const shown = focused
+  const slotLabel = (bay: Bay) =>
+    String(
+      bay.slotNumber ??
+        (Number(
+          bay.name.match(
+            /^(?:Bay\s*)?0*(\d+)(?:\s*[-·:]|$)/i,
+          )?.[1],
+        ) ||
+          data.bays.indexOf(bay) + 1),
+    )
   const renderDetails = (bay: Bay) => (
     <div class="platform-rip-details">
-      <h2>
-        {bay.name} · {bay.title || "No disc"}
-      </h2>
-      <div class="platform-rip-disc">
-        {safeMediaUrl(bay.posterUrl) ? (
-          <img
-            src={safeMediaUrl(bay.posterUrl)}
-            alt={`Poster for ${bay.title}`}
-          />
-        ) : null}
-        <div>
-          <p>
-            {bay.state} · {Math.round(bay.percent)}%
-          </p>
-          {bay.phase ? <p>{bay.phase}</p> : null}
-          {bay.remainingSeconds !== undefined ? (
-            <p>
-              {Math.ceil(bay.remainingSeconds / 60)} minutes
-              left
-            </p>
-          ) : null}
-          {bay.outcome ? <p>{bay.outcome}</p> : null}
-          {bay.problemText ? (
-            <p role="status">{bay.problemText}</p>
-          ) : null}
-          <progress
-            max={100}
-            value={bay.percent}
-            aria-label={`${bay.name} progress`}
-          />
-        </div>
-      </div>
-      <div class="platform-actions">
-        {Object.entries(labels).map(([action, label]) => (
-          <button
-            type="button"
-            key={action}
-            disabled={
-              !isControlEnabled ||
-              !bay.actions.includes(action) ||
-              (action !== "cancel" && isActive(bay))
-            }
-            data-castkit-target={`${action}:${identity(bay)}`}
-            onClick={() =>
-              action === "cancel"
-                ? setCancelIdentity(identity(bay))
-                : void onAction(action, { driveId: bay.id })
-            }
-          >
-            {label}
-          </button>
-        ))}
+      <header class="platform-rip-detail-head">
         <button
           type="button"
           data-castkit-target={`back:${identity(bay)}`}
@@ -212,12 +171,75 @@ export const RipDeckView = ({
         >
           Back
         </button>
+        <h2>
+          {slotLabel(bay)} · {bay.title || "No disc"}
+        </h2>
+      </header>
+      <div class="platform-rip-detail-content">
+        {data.alerts.map((alert, index) => (
+          <p
+            key={`${alert.message}:${index}`}
+            class="platform-notice"
+            role="status"
+          >
+            {alert.message}
+          </p>
+        ))}
+        <div class="platform-rip-disc">
+          {safeMediaUrl(bay.posterUrl) ? (
+            <img
+              src={safeMediaUrl(bay.posterUrl)}
+              alt={`Poster for ${bay.title}`}
+            />
+          ) : null}
+          <div>
+            <p>
+              {bay.state} · {Math.round(bay.percent)}%
+            </p>
+            {bay.phase ? <p>{bay.phase}</p> : null}
+            {bay.remainingSeconds !== undefined ? (
+              <p>
+                {Math.ceil(bay.remainingSeconds / 60)}{" "}
+                minutes left
+              </p>
+            ) : null}
+            {bay.outcome ? <p>{bay.outcome}</p> : null}
+            {bay.problemText ? (
+              <p role="status">{bay.problemText}</p>
+            ) : null}
+            <progress
+              max={100}
+              value={bay.percent}
+              aria-label={`Slot ${slotLabel(bay)} progress`}
+            />
+          </div>
+        </div>
+        <div class="platform-actions">
+          {Object.entries(labels)
+            .filter(
+              ([action]) =>
+                bay.actions.includes(action) &&
+                (action === "cancel" || !isActive(bay)),
+            )
+            .map(([action, label]) => (
+              <button
+                type="button"
+                key={action}
+                disabled={!isControlEnabled}
+                data-castkit-target={`${action}:${identity(bay)}`}
+                onClick={() =>
+                  action === "cancel"
+                    ? setCancelIdentity(identity(bay))
+                    : void onAction(action, {
+                        driveId: bay.id,
+                      })
+                }
+              >
+                {label}
+              </button>
+            ))}
+        </div>
       </div>
-      {isActive(bay) ? (
-        <p>
-          Tray controls are unavailable while this bay rips.
-        </p>
-      ) : null}
       {cancelIdentity ? (
         <div
           class="platform-dialog"
@@ -273,15 +295,16 @@ export const RipDeckView = ({
         isPosterPresentation ? "posters" : "rows"
       }
     >
-      {data.alerts.map((alert, index) => (
-        <p
-          key={`${alert.message}:${index}`}
-          class="platform-notice"
-          role="status"
-        >
-          {alert.message}
-        </p>
-      ))}
+      {!selected &&
+        data.alerts.map((alert, index) => (
+          <p
+            key={`${alert.message}:${index}`}
+            class="platform-notice"
+            role="status"
+          >
+            {alert.message}
+          </p>
+        ))}
       {selected ? (
         renderDetails(selected)
       ) : selectedId ? (
@@ -347,7 +370,7 @@ export const RipDeckView = ({
                 style={{ width: `${bay.percent}%` }}
               />
               <span class="platform-rip-number">
-                {bay.name}
+                {slotLabel(bay)}
               </span>
               <span class="platform-rip-title">
                 <strong>{bay.title || "No disc"}</strong>
