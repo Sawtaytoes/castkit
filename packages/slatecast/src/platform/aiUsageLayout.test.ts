@@ -239,3 +239,65 @@ test("adaptive columns include their scaled gaps in the reading width", () => {
   expect(layout.columnCount).toBe(2)
   expect(layout.scale).toBe(1)
 })
+
+test("a narrow adaptive rail shrinks to fit all three subscriptions", () => {
+  const layout = placeSections({
+    providerRows: fiveProviders.slice(0, 3),
+    width: 102,
+    height: 200,
+    isAdaptive: true,
+    minimumScale: 0.65,
+    hasViewHeading: false,
+  })
+  expect(layout.hiddenRowCount).toBe(1)
+  const taller = placeSections({
+    providerRows: fiveProviders.slice(0, 3),
+    width: 102,
+    height: 220,
+    isAdaptive: true,
+    minimumScale: 0.65,
+    hasViewHeading: false,
+  })
+  expect(taller.hiddenRowCount).toBe(0)
+  expect(taller.scale).toBe(0.65)
+})
+
+test("hidden subscriptions yield to the fullest selected limits", () => {
+  const entries = [97, 1, 64].map((percentUsed, index) => ({
+    ...provider({ id: `account-${index}`, rowCount: 1 }),
+    rows: [
+      {
+        usageWindow: {
+          id: "weekly",
+          label: "Weekly",
+          percentUsed,
+        },
+        isEscalated: false,
+      },
+    ],
+  }))
+  const layout = placeSections({
+    providerRows: entries,
+    width: 240,
+    height: 220,
+    hasViewHeading: false,
+  })
+  expect(
+    layout.columns[0]?.map(
+      (section) => section.provider.id,
+    ),
+  ).toStrictEqual(["account-0", "account-2"])
+  expect(layout.hiddenRowCount).toBe(1)
+  const complete = placeSections({
+    providerRows: entries,
+    width: 240,
+    height: 350,
+    isAdaptive: true,
+    hasViewHeading: false,
+  })
+  expect(
+    complete.columns[0]?.map(
+      (section) => section.provider.id,
+    ),
+  ).toStrictEqual(["account-0", "account-1", "account-2"])
+})

@@ -951,11 +951,10 @@ test("individual printer cards keep their original action binding and mounted ca
       name: "Enlarge Printer 1 camera",
     }),
   ).toBe(camera)
-  expect(screen.getByText("Printer 3")).toBeVisible()
-  const thirdCard = screen
-    .getByText("Printer 3")
-    .closest("article")
-  if (!thirdCard) throw new Error("Missing third card")
+  const thirdCard = screen.getByRole("article", {
+    name: "Printer 3",
+  })
+  expect(thirdCard).toBeVisible()
   const user = userEvent.setup()
   await user.click(
     within(thirdCard).getByRole("button", {
