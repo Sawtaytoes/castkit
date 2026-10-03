@@ -131,6 +131,7 @@ export const getDisplay = ({
                     id: candidate.id,
                     name: candidate.name,
                     isActive: isViewActive({
+                      repaint: displayProperties?.repaint,
                       view: candidate,
                       channels:
                         platform.channelsForView(candidate),
@@ -145,6 +146,7 @@ export const getDisplay = ({
         : undefined,
       channels: rewriteMedia(channels),
       panelActivity: getPanelActivity({
+        repaint: displayProperties?.repaint,
         view,
         channels,
         isRecentlyPaused:

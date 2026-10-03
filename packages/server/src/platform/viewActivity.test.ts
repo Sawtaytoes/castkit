@@ -2,7 +2,7 @@ import type {
   ChannelSnapshot,
   ViewDefinition,
 } from "@castkit/sdk/contracts"
-import { expect, test } from "vitest"
+import { expect, test, vi } from "vitest"
 import {
   getPanelActivity,
   isChannelActive,
@@ -249,4 +249,98 @@ test("activity is based on selected printers and positive selected usage", () =>
   expect(
     isViewActive({ view: selectedView, channels }),
   ).toBe(false)
+})
+
+test("points are active only during the selected panel's scan window", () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(1_000_000)
+  try {
+    const kids = [
+      { id: "robin", name: "Robin", pointsToday: 120 },
+    ]
+    const lastScan = {
+      kidId: "robin",
+      atMs: Date.now(),
+      result: "awarded",
+      points: 20,
+    }
+    const selected = view([
+      { id: "points", channelId: "points" },
+    ])
+    selected.panels = selected.panels.map((panel) => ({
+      ...panel,
+      settings: { scanSeconds: 30 },
+    }))
+    const channels = {
+      points: channel("kids-points.v1", { kids, lastScan }),
+    }
+    expect(
+      isChannelActive(channel("kids-points.v1", { kids })),
+    ).toBe(false)
+    expect(
+      getPanelActivity({ view: selected, channels }),
+    ).toEqual({ points: true })
+    vi.advanceTimersByTime(15_000)
+    expect(isChannelActive(channels.points)).toBe(false)
+    const brief = {
+      ...selected,
+      panels: selected.panels.map((panel) => ({
+        ...panel,
+        settings: {},
+      })),
+    }
+    expect(
+      getPanelActivity({
+        view: brief,
+        channels,
+        repaint: "slow",
+      }),
+    ).toEqual({ points: true })
+    expect(
+      getPanelActivity({
+        view: brief,
+        channels,
+        repaint: "super-slow",
+      }),
+    ).toEqual({ points: false })
+    expect(isViewActive({ view: selected, channels })).toBe(
+      true,
+    )
+    vi.advanceTimersByTime(15_000)
+    expect(
+      getPanelActivity({ view: selected, channels }),
+    ).toEqual({ points: false })
+    expect(isViewActive({ view: selected, channels })).toBe(
+      false,
+    )
+    expect(
+      isChannelActive(
+        channel("kids-points.v1", { kids: [], lastScan }),
+      ),
+    ).toBe(false)
+    expect(
+      isChannelActive(
+        channel("kids-points.v1", {
+          kids,
+          lastScan: {
+            ...lastScan,
+            atMs: Date.now() + 5001,
+          },
+        }),
+      ),
+    ).toBe(false)
+    expect(
+      isChannelActive(
+        channel("kids-points.v1", {
+          kids,
+          lastScan: {
+            ...lastScan,
+            atMs: Date.now() + 5000,
+          },
+        }),
+      ),
+    ).toBe(true)
+  } finally {
+    vi.useRealTimers()
+  }
 })

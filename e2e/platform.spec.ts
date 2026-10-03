@@ -293,3 +293,58 @@ test("public printer views share one PIN session and explain disabled controls",
     }),
   ).toBeDisabled()
 })
+
+test("a scan panel appears in an active-only monitor and disappears without further broker messages", async ({
+  page,
+  request,
+}) => {
+  const kids = [
+    {
+      id: "robin",
+      name: "Robin",
+      pointsToday: 20,
+      goal: 400,
+    },
+  ]
+  const publish = async (payload: unknown) =>
+    request.post("/__test__/mqtt", {
+      data: {
+        topic: "castkit/channels/points/fixture/set",
+        payload,
+      },
+    })
+  await publish({ kids })
+  await page.goto("/view/scan-monitor")
+  await expect(
+    page.getByText("Nothing active", { exact: true }),
+  ).toBeVisible()
+  await publish({
+    kids,
+    lastScan: {
+      kidId: "robin",
+      result: "awarded",
+      points: 20,
+      taskName: "Feed the Cat",
+      atMs: Date.now(),
+    },
+  })
+  await expect(
+    page.getByRole("heading", {
+      name: "Robin",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Nothing active", { exact: true }),
+  ).toBeVisible({ timeout: 6000 })
+  await expect(
+    page.getByRole("heading", {
+      name: "Robin",
+      exact: true,
+    }),
+  ).toHaveCount(0)
+  await page.reload()
+  await expect(
+    page.getByText("Nothing active", { exact: true }),
+  ).toBeVisible()
+})
