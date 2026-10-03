@@ -312,6 +312,14 @@ export const CollectionPage = ({
       setIsBusy(false)
     }
   }
+  const savebarRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (message && isError) {
+      savebarRef.current?.scrollIntoView({
+        block: "nearest",
+      })
+    }
+  }, [message, isError])
   const remove = async () => {
     if (
       !draft ||
@@ -611,35 +619,68 @@ export const CollectionPage = ({
                   onRefresh={onRefresh}
                 />
               ) : null}
-              {message ? (
-                <p
-                  role={isError ? "alert" : "status"}
-                  className={
-                    isError
-                      ? "text-intent-danger-content"
-                      : "text-content-secondary"
-                  }
-                >
-                  {message}
-                </p>
-              ) : null}
-              <div className="collection-savebar flex flex-wrap items-center justify-between gap-3">
-                {isSaved ? (
-                  <Button
-                    type="button"
-                    appearance="outline"
-                    intent="danger"
-                    isDisabled={isBusy}
-                    onClick={() => void remove()}
+              <div
+                ref={savebarRef}
+                className="collection-savebar grid gap-3"
+              >
+                {message ? (
+                  <p
+                    role={isError ? "alert" : "status"}
+                    className={
+                      isError
+                        ? "text-intent-danger-content"
+                        : "text-content-secondary"
+                    }
                   >
-                    Delete {title.toLowerCase()}
+                    {message}
+                  </p>
+                ) : null}
+                {collection === "views" &&
+                isSaved &&
+                platform.screens.some((screen) =>
+                  screen.viewIds.includes(editingId ?? ""),
+                ) ? (
+                  <p className="text-content-secondary text-sm">
+                    Remove this view from these screens
+                    before deleting:{" "}
+                    {platform.screens
+                      .filter((screen) =>
+                        screen.viewIds.includes(
+                          editingId ?? "",
+                        ),
+                      )
+                      .map((screen, index) => (
+                        <span key={screen.id}>
+                          {index > 0 ? ", " : ""}
+                          <a
+                            className="underline"
+                            href={`/manage/screens/views?item=${encodeURIComponent(screen.id)}`}
+                          >
+                            {screen.name}
+                          </a>
+                        </span>
+                      ))}
+                    .
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {isSaved ? (
+                    <Button
+                      type="button"
+                      appearance="outline"
+                      intent="danger"
+                      isDisabled={isBusy}
+                      onClick={() => void remove()}
+                    >
+                      Delete {title.toLowerCase()}
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+                  <Button type="submit" isLoading={isBusy}>
+                    Save {title.toLowerCase()}
                   </Button>
-                ) : (
-                  <span />
-                )}
-                <Button type="submit" isLoading={isBusy}>
-                  Save {title.toLowerCase()}
-                </Button>
+                </div>
               </div>
             </form>
           </Card>

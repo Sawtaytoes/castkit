@@ -606,3 +606,47 @@ test("combined kiosk preset exposes per-view printer and account choices and sav
     ],
   })
 })
+
+test("a failed deletion stays visible beside the mobile save buttons and names its screen assignment", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 660 })
+  await page.route(
+    "**/api/manage/platform/views/view-0",
+    (route) =>
+      route.fulfill({
+        status: 409,
+        json: {
+          error:
+            "Remove this view from these screens before deleting it: Browser dashboard.",
+        },
+      }),
+  )
+  await page.goto("/manage/views/general?item=view-0")
+  await expect(
+    page.getByRole("link", {
+      name: "Browser dashboard",
+      exact: true,
+    }),
+  ).toHaveAttribute(
+    "href",
+    "/manage/screens/views?item=browser-screen",
+  )
+  page.on("dialog", (dialog) => dialog.accept())
+  await page
+    .getByRole("button", {
+      name: "Delete view",
+      exact: true,
+    })
+    .click()
+  await expect(page.getByRole("alert")).toContainText(
+    "Browser dashboard",
+  )
+  await expect(page.getByRole("alert")).toBeInViewport()
+  await expect(
+    page.getByRole("button", {
+      name: "Delete view",
+      exact: true,
+    }),
+  ).toBeInViewport()
+})

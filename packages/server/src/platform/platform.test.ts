@@ -833,6 +833,62 @@ describe("platform access and saved compositions", () => {
     )
     expect(inUse.status).toBe(409)
   })
+  test("deleting an assigned view names its screens and succeeds after removing its assignments", async () => {
+    const fixture = await createFixture()
+    await fixture.save("screens", {
+      id: "desktop",
+      name: "Desktop",
+      defaultViewId: "workbench",
+      viewIds: ["workbench"],
+      access: "public",
+    })
+    const blocked = await fixture.request(
+      "/api/manage/platform/views/workbench",
+      "DELETE",
+      undefined,
+      fixture.cookie,
+    )
+    expect(blocked.status).toBe(409)
+    expect(await blocked.json()).toEqual({
+      error:
+        "Remove this view from these screens before deleting it: Desktop.",
+    })
+    expect(
+      fixture.platform.store
+        .get()
+        .views.some((view) => view.id === "workbench"),
+    ).toBe(true)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/screens/desktop",
+          "DELETE",
+          undefined,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/views/workbench",
+          "DELETE",
+          undefined,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      fixture.platform.store
+        .get()
+        .views.some((view) => view.id === "workbench"),
+    ).toBe(false)
+    expect(
+      createPlatformStore({ file: fixture.file })
+        .get()
+        .views.some((view) => view.id === "workbench"),
+    ).toBe(false)
+  })
   test("editing a screen preserves its persistent selection", async () => {
     const fixture = await createFixture()
     await fixture.save("views", {

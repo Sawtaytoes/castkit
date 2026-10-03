@@ -7,6 +7,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-10-03 | [Room-specific screens reuse shared views](2026-10-03-room-specific-screens-reuse-shared-views.md) | Accepted |
 | 2026-10-03 | [Weather colors and queue gestures](2026-10-03-weather-colors-and-queue-gestures.md) | Accepted |
 | 2026-10-02 | [AMS fleet layouts and direct wizard navigation](2026-10-02-ams-fleet-and-assignment-wizard.md) | Accepted |
 | 2026-10-02 | [Optional details hide before printer cameras and controls](2026-10-02-optional-details-hide-before-printer-cameras-and-controls.md) | Accepted |
