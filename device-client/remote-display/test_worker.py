@@ -68,12 +68,23 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         self.session.guard.remember(
             50, [Target("view-gesture:ambient", 0, 0, 480, 320), Target("button", 0, 0, 100, 40)]
         )
-        for sequence, phase, y in [(1, 0, 25), (2, 1, 100), (3, 2, 150)]:
+        for sequence, phase, y in [(1, 0, 25), (2, 1, 45), (3, 1, 100), (4, 1, 150), (5, 2, 0)]:
             await self.session.touches.put(
-                ["touch", str(sequence), str(phase), "30", str(y), "0", "50", "0"]
+                [
+                    "touch",
+                    str(sequence),
+                    str(phase),
+                    "0" if phase == 2 else "30",
+                    str(y),
+                    "0",
+                    "50",
+                    "0",
+                ]
             )
             async with asyncio.timeout(3):
                 while self.session.processed_touch != sequence:
+                    if self.task.done():
+                        self.task.result()
                     await asyncio.sleep(0.01)
         self.assertIsNone(await self.page.evaluate("window.wasClicked"))
         self.assertEqual((await self.page.evaluate("window.gestures"))[-1], ["pointerup", 150])
