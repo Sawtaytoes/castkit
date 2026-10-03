@@ -282,9 +282,17 @@ export const createBrowserMode = ({
     const agenda = viewDataStore.getAgenda(deviceId)
     const printers = viewDataStore.getPrinters(deviceId)
     const spools = viewDataStore.getSpools(deviceId)
+    const printQueueChannel = devices.find(
+      (device) => device.id === deviceId,
+    )?.printQueueChannel
+    const printQueue = printQueueChannel
+      ? (platform?.hub.get(printQueueChannel)
+          ?.data as ViewDataState["queue"])
+      : undefined
     return {
       ...(nowPlaying ? { nowPlaying } : {}),
       ...(queue ? { queue } : {}),
+      ...(printQueue ? { printQueue } : {}),
       ...(weather ? { weather } : {}),
       ...(agenda ? { agenda } : {}),
       ...(printers ? { printers } : {}),
@@ -317,6 +325,27 @@ export const createBrowserMode = ({
   const applySpoolsSnapshot = (
     snapshot: ChannelSnapshot,
   ) => {
+    devices
+      .filter(
+        (device) =>
+          device.printQueueChannel === snapshot.id,
+      )
+      .forEach((device) => {
+        if (
+          snapshot.status === "ready" &&
+          snapshot.type === "queue.v1"
+        ) {
+          hub.broadcast({
+            deviceId: device.id,
+            message: {
+              type: "print_queue",
+              data: snapshot.data as NonNullable<
+                ViewDataState["queue"]
+              >,
+            },
+          })
+        }
+      })
     const deviceIds = spoolsDeviceIdsByChannelId.get(
       snapshot.id,
     )
@@ -341,7 +370,11 @@ export const createBrowserMode = ({
   const spoolsSubscription = {
     unsubscribe: undefined as (() => void) | undefined,
   }
-  if (platform && spoolsDeviceIdsByChannelId.size > 0) {
+  if (
+    platform &&
+    (spoolsDeviceIdsByChannelId.size > 0 ||
+      devices.some((device) => device.printQueueChannel))
+  ) {
     spoolsDeviceIdsByChannelId.forEach(
       (_ids, channelId) => {
         const snapshot = platform.hub.get(channelId)
@@ -419,6 +452,9 @@ export const createBrowserMode = ({
         shape: device.shape,
         hasTouch: device.hasTouch,
         hasViewDrawer: device.hasViewDrawer,
+        hasPrinterNavigation: Boolean(
+          device.printQueueChannel,
+        ),
         color: device.color,
         ...resolveBrowserPanelProperties(device),
         // Legacy aliases for a kiosk still on the pre-rename bundle. See

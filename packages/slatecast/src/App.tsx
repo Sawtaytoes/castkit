@@ -29,7 +29,8 @@ import { Weather } from "./views/Weather.tsx"
 export const viewByClientId: Record<string, ComponentType> =
   {
     "now-playing": NowPlaying,
-    queue: Queue,
+    queue: () => <Queue />,
+    "print-queue": () => <Queue isPrintQueue />,
     ambient: Ambient,
     clock: Clock,
     weather: Weather,
@@ -195,6 +196,7 @@ export const App = () => {
     <div
       class={`stage shape-${profile.shape}${profile.hasTouch ? "" : " touchless"}`}
       data-theme={theme.toLowerCase()}
+      data-view={activeView.value}
       data-castkit-ready="true"
       onPointerDown={
         profile.hasTouch ? beginViewSwipe : undefined

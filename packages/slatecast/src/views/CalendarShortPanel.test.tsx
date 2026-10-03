@@ -191,7 +191,7 @@ describe("calendar on a short landscape panel", () => {
     ).not.toBeNull()
   })
 
-  test("keeps the stacked header, six rows and no mark on the square", async () => {
+  test("keeps the stacked header, six rows and a weather mark on the square", async () => {
     await mountCalendarOn({
       ...SQUARE_PANEL,
       events: EIGHT_EVENTS,
@@ -202,7 +202,7 @@ describe("calendar on a short landscape panel", () => {
     ).toBe(6)
     expect(
       document.querySelector(".weather-mark"),
-    ).toBeNull()
+    ).not.toBeNull()
     expect(
       document.querySelector(".calendar-meridiem"),
     ).toBeNull()

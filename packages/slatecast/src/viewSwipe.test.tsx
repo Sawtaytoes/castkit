@@ -19,7 +19,18 @@ const mountView = async ({
   mountSlatecast({
     snapshot: buildSnapshot({
       view,
-      device: buildDeviceProfile({ hasTouch }),
+      device: buildDeviceProfile({
+        hasTouch,
+        hasPrinterNavigation: true,
+        views: [
+          "now-playing",
+          "queue",
+          "calendar",
+          "ambient",
+          "printer-status",
+          "print-queue",
+        ].map((clientId) => ({ name: clientId, clientId })),
+      }),
       data: { nowPlaying: buildNowPlaying() },
     }),
   })
@@ -64,6 +75,23 @@ const swipe = async ({
 }
 
 describe("a vertical swipe asks the house for a view", () => {
+  test.each([
+    ["calendar", "printer-status"],
+    ["printer-status", "print-queue"],
+    ["print-queue", "printer-status"],
+    ["queue", "now-playing"],
+  ])("swiping from %s opens %s", async (view, requested) => {
+    const { server } = await mountView({ view })
+    await swipe({
+      distanceY: view === "queue" ? 80 : 0,
+      distanceX: view === "queue" ? 0 : 80,
+    })
+    await waitUntil(() => server.commands.length > 0)
+    expect(server.commands).toEqual([
+      { action: "view", value: requested },
+    ])
+  })
+
   test("swiping down asks for now playing", async () => {
     const { server } = await mountView()
 
@@ -75,7 +103,7 @@ describe("a vertical swipe asks the house for a view", () => {
     ])
   })
 
-  test("swiping up asks for the calendar", async () => {
+  test("swiping up asks for ambient on an empty day", async () => {
     const { server } = await mountView({
       view: "now-playing",
     })
@@ -86,11 +114,11 @@ describe("a vertical swipe asks the house for a view", () => {
 
     await waitUntil(() => server.commands.length > 0)
     expect(server.commands).toEqual([
-      { action: "view", value: "calendar" },
+      { action: "view", value: "ambient" },
     ])
   })
 
-  test("a swipe towards the view already up is still sent, because it renews the hold", async () => {
+  test("a second audio swipe opens the queue", async () => {
     const { server } = await mountView({
       view: "now-playing",
     })
@@ -99,7 +127,7 @@ describe("a vertical swipe asks the house for a view", () => {
 
     await waitUntil(() => server.commands.length > 0)
     expect(server.commands).toEqual([
-      { action: "view", value: "now-playing" },
+      { action: "view", value: "queue" },
     ])
   })
 
@@ -116,7 +144,7 @@ describe("a vertical swipe asks the house for a view", () => {
 
     await swipe({
       distanceY: SWIPE_COMMIT_PIXELS + 10,
-      distanceX: SWIPE_COMMIT_PIXELS + 40,
+      distanceX: -(SWIPE_COMMIT_PIXELS + 40),
     })
 
     expect(server.commands).toEqual([])
@@ -144,7 +172,7 @@ describe("a vertical swipe asks the house for a view", () => {
 
     await waitUntil(() => server.commands.length > 0)
     expect(server.commands).toEqual([
-      { action: "view", value: "calendar" },
+      { action: "view", value: "ambient" },
     ])
   })
 })

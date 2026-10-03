@@ -93,6 +93,8 @@ export type BrowserDeviceProfile = {
   hasTouch: boolean
   /** Whether this installation exposes the panel-local edge view drawer. */
   hasViewDrawer: boolean
+  /** Printer gestures are enabled when this installation binds a print queue. */
+  hasPrinterNavigation?: boolean
   color: "monochrome" | "grayscale" | "spectra6" | "full"
   /**
    * How long this glass takes to show a new frame. A live-browser panel is
@@ -144,6 +146,7 @@ export type BrowserDeviceProfile = {
 
 export type ViewDataState = {
   nowPlaying?: NowPlayingData
+  printQueue?: QueueData
   queue?: QueueData
   weather?: WeatherData
   agenda?: AgendaData
@@ -175,6 +178,7 @@ export type ServerToClientMessage =
   | { type: "view"; view: string }
   | { type: "now_playing"; data: NowPlayingData }
   | { type: "queue"; data: QueueData }
+  | { type: "print_queue"; data: QueueData }
   | { type: "weather"; data: WeatherData }
   | { type: "agenda"; data: AgendaData }
   | { type: "printers"; data: PrintersData }
