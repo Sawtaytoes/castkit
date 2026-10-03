@@ -22,7 +22,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v2-gestures"
+BUILD_MARKER = "castkit-remote-display-v3-gesture-release"
 TARGETS_SCRIPT = """({attribute, loadingSelector}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width:480,height:320,loading:false}] : [];
@@ -149,15 +149,18 @@ class DisplaySession:
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue
+            if phase == 2:
+                x, y = self.contact["x"], self.contact["y"]
             if (
                 phase == 1
                 and not self.contact["is_gesture"]
                 and abs(y - self.contact["start_y"]) >= 48
                 and abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
             ):
-                await self.cdp.send(
-                    "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
-                )
+                if not self.contact.get("is_tap_cancelled"):
+                    await self.cdp.send(
+                        "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
+                    )
                 self.contact["is_gesture"] = True
                 await self.page.evaluate(
                     """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
@@ -170,19 +173,35 @@ class DisplaySession:
                 )
                 if phase == 2:
                     self.contact = None
+                else:
+                    self.contact.update(x=x, y=y)
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue
-            if phase == 2:
-                x, y = self.contact["x"], self.contact["y"]
             current = await self.page.evaluate(
                 HIT_SCRIPT, {"x": x, "y": y, "attribute": self.target_attribute}
             )
-            if (
-                current != self.contact["identity"]
-                or time.monotonic() - self.contact["started"] > 5
-            ):
+            if time.monotonic() - self.contact["started"] > 5:
                 await self.cancel_contact()
+                self.processed_touch = sequence
+                self.force_frame.set()
+                continue
+            if phase == 1 and current != self.contact["identity"]:
+                # Cancel the tap but keep sampling the finger: it may cross a
+                # small control before travelling far enough to commit a swipe.
+                if not self.contact.get("is_tap_cancelled"):
+                    await self.cdp.send(
+                        "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
+                    )
+                self.contact.update(x=x, y=y, is_tap_cancelled=True)
+                self.processed_touch = sequence
+                self.force_frame.set()
+                continue
+            if self.contact.get("is_tap_cancelled") or current != self.contact["identity"]:
+                if phase == 2:
+                    await self.cancel_contact()
+                else:
+                    self.contact.update(x=x, y=y)
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue
