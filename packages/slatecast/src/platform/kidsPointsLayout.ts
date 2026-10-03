@@ -1,4 +1,11 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { getIsScanRecent } from "@castkit/sdk/kidsPointsScan"
+
+export {
+  DEFAULT_SCAN_SECONDS,
+  readScanSeconds,
+} from "@castkit/sdk/kidsPointsScan"
+
 import { compactClockTime } from "@castkit/shared/compactClockTime"
 import {
   getTemporaryViewSeconds,
@@ -24,26 +31,6 @@ export const KIDS_POINTS_GAP = 12
  * left to say what it dropped.
  */
 export const OVERFLOW_LINE_HEIGHT = 28
-/** Matches the fifteen-second screen override that shows a scan in a room. */
-export const DEFAULT_SCAN_SECONDS = 15
-/*
- * A panel's clock and the points service's clock are different machines. A
- * scan stamped a few seconds in this panel's future is still this scan.
- */
-const CLOCK_SKEW_MILLISECONDS = 5_000
-
-/** The panel's scan window in seconds; stored settings may be text or nothing. */
-export const readScanSeconds = (
-  settings: Record<string, unknown> | undefined,
-) => {
-  const value = Number(settings?.scanSeconds)
-  return Number.isFinite(value) &&
-    value > 0 &&
-    value <= 3600
-    ? value
-    : DEFAULT_SCAN_SECONDS
-}
-
 /**
  * Whether the last scan still owns the panel.
  *
@@ -72,11 +59,11 @@ export const getIsScanShowing = ({
   if (!lastScan || windowSeconds === undefined) {
     return false
   }
-  const age = now - lastScan.atMs
-  return (
-    age >= -CLOCK_SKEW_MILLISECONDS &&
-    age < windowSeconds * 1000
-  )
+  return getIsScanRecent({
+    lastScan,
+    now,
+    scanSeconds: windowSeconds,
+  })
 }
 
 /**

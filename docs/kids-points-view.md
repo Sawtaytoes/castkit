@@ -186,3 +186,7 @@ display in the room without knowing what each display is. See
 The override brings the view up; the channel's reader filter decides which
 child it shows. A board that is always on a large panel needs no override —
 leave `readers` empty and every scan in the house marks its child.
+
+## Active-only monitoring
+
+A Kids Points panel in an active-only view appears during the most recent scan's feedback window (`scanSeconds`, default 15 seconds), then disappears. Retained totals and timed tasks alone keep it idle. The server pushes the expiry over the live socket even when the broker sends nothing else. Regular points views continue showing the totals between scans. Slow panels use the existing repaint minimum; super-slow panels do not show temporary feedback.
