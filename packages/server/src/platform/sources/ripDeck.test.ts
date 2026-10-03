@@ -339,3 +339,36 @@ test("Rip Deck omits unmeasured and healthy verdicts while preserving real failu
     "Check the USB connection.",
   ])
 })
+
+test("Rip Deck carries physical slot numbers separately from hardware labels", () => {
+  const snapshot = normalizeRipDeck({
+    ...document,
+    ripDeck: {
+      ...document.ripDeck,
+      bays: [
+        {
+          ...document.ripDeck.bays[0],
+          bay: 3,
+          label: "03 - Example Optical Drive",
+        },
+        {
+          ...document.ripDeck.bays[0],
+          drive_id: "drive-ten",
+          bay: 10,
+          label: "10 - Example Optical Drive",
+        },
+        {
+          ...document.ripDeck.bays[0],
+          drive_id: "unassigned",
+          bay: null,
+        },
+      ],
+    },
+  })
+  expect(snapshot.bays[0]).toMatchObject({
+    id: "drive-one",
+    slotNumber: 3,
+  })
+  expect(snapshot.bays[1]?.slotNumber).toBe(10)
+  expect(snapshot.bays[2]?.slotNumber).toBeUndefined()
+})

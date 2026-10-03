@@ -40,6 +40,7 @@ export const normalizeRipDeck = (
     .map(record)
   const bays = tower.bays.map((rawBay) => {
     const bay = record(rawBay)
+    const slotNumber = finiteNumber(bay.bay)
     const state = record(bay.state)
     const rip =
       rips.find(
@@ -93,6 +94,11 @@ export const normalizeRipDeck = (
     return {
       id: textValue(bay.drive_id),
       name: textValue(bay.label),
+      ...(slotNumber !== undefined &&
+      Number.isInteger(slotNumber) &&
+      slotNumber > 0
+        ? { slotNumber }
+        : {}),
       state: textValue(state.state) || "idle",
       ...(optionalText(state.job_id)
         ? { jobId: textValue(state.job_id) }

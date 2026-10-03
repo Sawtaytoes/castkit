@@ -176,6 +176,7 @@ const printer = z.object({
 const ripBay = z.object({
   id: z.string(),
   name: z.string(),
+  slotNumber: finiteNumber.int().positive().optional(),
   state: z.string(),
   title: z.string(),
   percent: finiteNumber.min(0).max(100),
