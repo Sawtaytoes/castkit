@@ -9,7 +9,7 @@ import "./platform.css"
 
 /** Fixture capture of missing artwork and unmeasured health on a compact rip panel. */
 test("rip status without optional metadata", async () => {
-  await page.viewport(480, 300)
+  await page.viewport(300, 300)
   document.documentElement.dataset.scheme = "dark"
   const source = compositionFixture.channels.rips
     ?.data as ContractData["rip-deck.v1"]
@@ -19,7 +19,7 @@ test("rip status without optional metadata", async () => {
     bays: [3, 4].map((percent) => ({
       ...source.bays[0]!,
       id: `bay-${percent}`,
-      name: `Bay ${percent}`,
+      name: `${percent} - Example Optical Drive`,
       title: "Sample film",
       percent,
       phase: "Reading disc",

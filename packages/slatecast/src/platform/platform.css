@@ -2307,3 +2307,40 @@
   > .platform-panel[data-spec="ai-usage"] {
   padding: 10px;
 }
+
+/* Long drive labels must leave the rip title, phase and percentage readable. */
+@container (max-width: 360px) {
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster)) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster))
+    .platform-rip-number {
+    grid-column: 1;
+    grid-row: 1;
+    inline-size: fit-content;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    overflow: hidden;
+    padding: 4px 8px;
+    font-size: 0.75em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster))
+    > strong {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster))
+    .platform-rip-title {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 4px;
+  }
+}

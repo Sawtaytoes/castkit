@@ -150,3 +150,78 @@ test("jobs without artwork use their space for rip status and preserve real warn
     ).toHaveAttribute("data-presentation", "rows")
   })
 })
+
+test("long drive names cannot crowd the title or overlap progress in a narrow rail", async () => {
+  const original = compositionFixture.channels.rips
+    ?.data as ContractData["rip-deck.v1"]
+  render(
+    <main
+      class="platform"
+      style={{
+        inlineSize: "300px",
+        blockSize: "300px",
+        padding: "12px",
+      }}
+    >
+      <section
+        class="platform-panel"
+        style={{ flex: 1, padding: "12px" }}
+      >
+        <RipDeckView
+          data={{
+            ...original,
+            bays: [3, 4].map((percent) => ({
+              ...original.bays[0]!,
+              id: `bay-${percent}`,
+              name: `${percent} - Example Optical Drive`,
+              title: "Sample film",
+              percent,
+              phase: "Copying file",
+            })),
+          }}
+          settings={{ presentation: "posters" }}
+          isControlEnabled
+          onAction={vi.fn(async () => undefined)}
+        />
+      </section>
+    </main>,
+  )
+  await document.fonts.ready
+  await waitFor(() => {
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".platform-rip-row",
+      ),
+    )
+    expect(rows).toHaveLength(2)
+    rows.forEach((row) => {
+      const name = row.querySelector<HTMLElement>(
+        ".platform-rip-number",
+      )!
+      const title = row.querySelector<HTMLElement>(
+        ".platform-rip-title",
+      )!
+      const percent = row.querySelector<HTMLElement>(
+        ":scope > strong",
+      )!
+      const bounds = row.getBoundingClientRect()
+      expect(
+        title.getBoundingClientRect().top,
+      ).toBeGreaterThanOrEqual(
+        name.getBoundingClientRect().bottom,
+      )
+      expect(
+        name.getBoundingClientRect().right,
+      ).toBeLessThanOrEqual(
+        percent.getBoundingClientRect().left,
+      )
+      expect(title.clientWidth).toBeGreaterThan(150)
+      expect(
+        title.getBoundingClientRect().bottom,
+      ).toBeLessThanOrEqual(bounds.bottom)
+      expect(
+        percent.getBoundingClientRect().right,
+      ).toBeLessThanOrEqual(bounds.right)
+    })
+  })
+})
