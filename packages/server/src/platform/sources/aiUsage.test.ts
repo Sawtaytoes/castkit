@@ -82,6 +82,24 @@ test("AI Usage normalizes provider titles, percentages and reset times", () => {
   })
 })
 
+test("AI Usage names both Codex accounts without changing their stable ids", () => {
+  const snapshot = normalizeAiUsage({
+    providers: [
+      { provider: "codex", windows: [] },
+      { provider: "codex_2", windows: [] },
+    ],
+  })
+  expect(
+    snapshot.providers.map(({ id, name }) => ({
+      id,
+      name,
+    })),
+  ).toEqual([
+    { id: "codex", name: "Codex 1" },
+    { id: "codex_2", name: "Codex 2" },
+  ])
+})
+
 test("AI Usage keeps a failed provider and its unmeasured window", () => {
   const snapshot = normalizeAiUsage(document)
   /*
