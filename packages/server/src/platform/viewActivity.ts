@@ -4,7 +4,16 @@ import type {
   ViewDefinition,
   ViewPanel,
 } from "@castkit/sdk/contracts"
+import {
+  DEFAULT_SCAN_SECONDS,
+  getIsScanRecent,
+  readScanSeconds,
+} from "@castkit/sdk/kidsPointsScan"
 import { selectPanelData } from "@castkit/sdk/panelSelection"
+import {
+  getTemporaryViewSeconds,
+  type RepaintGrade,
+} from "@castkit/shared/panels/repaint"
 
 /**
  * "Is anything going on" per channel, answered from the contract's own data.
@@ -27,6 +36,7 @@ import { selectPanelData } from "@castkit/sdk/panelSelection"
 export const isChannelActive = (
   channel: ChannelSnapshot | undefined,
   isRecentlyPaused: IsRecentlyPaused = () => false,
+  scanSeconds = DEFAULT_SCAN_SECONDS,
 ): boolean | undefined => {
   if (!channel) return false
   if (channel.data === null) return false
@@ -63,6 +73,22 @@ export const isChannelActive = (
           (window) => (window.percentUsed ?? 0) > 0,
         ),
       )
+    case "kids-points.v1": {
+      const data =
+        channel.data as ContractData["kids-points.v1"]
+      return Boolean(
+        scanSeconds > 0 &&
+          data.lastScan &&
+          data.kids.some(
+            (kid) => kid.id === data.lastScan?.kidId,
+          ) &&
+          getIsScanRecent({
+            lastScan: data.lastScan,
+            scanSeconds,
+            now: Date.now(),
+          }),
+      )
+    }
     case "queue.v1":
       return (
         (channel.data as ContractData["queue.v1"]).items
@@ -83,10 +109,12 @@ export const isPanelActive = ({
   panel,
   channels,
   isRecentlyPaused,
+  repaint = "instant",
 }: {
   panel: ViewPanel
   channels: Record<string, ChannelSnapshot>
   isRecentlyPaused?: IsRecentlyPaused
+  repaint?: RepaintGrade
 }): boolean | undefined => {
   const channelId =
     panel.bindings.data ?? Object.values(panel.bindings)[0]
@@ -103,6 +131,10 @@ export const isPanelActive = ({
             }
           : undefined,
         isRecentlyPaused,
+        getTemporaryViewSeconds({
+          repaint,
+          requestedSeconds: readScanSeconds(panel.settings),
+        }) ?? 0,
       )
 }
 
@@ -114,10 +146,12 @@ export const getPanelActivity = ({
   view,
   channels,
   isRecentlyPaused,
+  repaint = "instant",
 }: {
   view: ViewDefinition
   channels: Record<string, ChannelSnapshot>
   isRecentlyPaused?: IsRecentlyPaused
+  repaint?: RepaintGrade
 }): Record<string, boolean> =>
   Object.fromEntries(
     view.panels.flatMap((panel) => {
@@ -125,6 +159,7 @@ export const getPanelActivity = ({
         panel,
         channels,
         isRecentlyPaused,
+        repaint,
       })
       return isActive === undefined
         ? []
@@ -141,14 +176,21 @@ export const isViewActive = ({
   view,
   channels,
   isRecentlyPaused,
+  repaint = "instant",
 }: {
   view: ViewDefinition
   channels: Record<string, ChannelSnapshot>
   isRecentlyPaused?: IsRecentlyPaused
+  repaint?: RepaintGrade
 }): boolean | undefined => {
   const answers = view.panels
     .map((panel) =>
-      isPanelActive({ panel, channels, isRecentlyPaused }),
+      isPanelActive({
+        panel,
+        channels,
+        isRecentlyPaused,
+        repaint,
+      }),
     )
     .filter((isActive) => isActive !== undefined)
   return answers.length === 0
