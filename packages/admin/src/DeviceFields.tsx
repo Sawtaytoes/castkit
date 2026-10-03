@@ -138,6 +138,20 @@ export const DeviceFields = ({
           }
         />
       </div>
+      {device.renderer === "browser" ? (
+        <SettingField
+          label="Print queue channel"
+          description="A queue.v1 channel from the printer source."
+          value={device.printQueueChannel ?? ""}
+          onChange={(printQueueChannel) =>
+            onChange({
+              printQueueChannel:
+                printQueueChannel || undefined,
+            })
+          }
+          width="wide"
+        />
+      ) : null}
       <p className="text-content-secondary text-sm">
         Save the device to apply these settings. CastKit
         restarts after the save.

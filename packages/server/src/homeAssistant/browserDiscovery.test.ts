@@ -152,6 +152,7 @@ describe("buildBrowserDiscoveryMessages", () => {
       "Weather",
       "Calendar",
       "Photo Frame",
+      "Print Queue",
       "Printer Status",
       "Filament Spool Scale",
       "Touch Test",

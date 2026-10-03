@@ -22,17 +22,20 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v1"
-TARGETS_SCRIPT = """({attribute, loadingSelector}) => Array.from(document.querySelectorAll(`[${attribute}]`)).filter(element => {
+BUILD_MARKER = "castkit-remote-display-v2-gestures"
+TARGETS_SCRIPT = """({attribute, loadingSelector}) => {
+const stage = document.querySelector('.stage');
+const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width:480,height:320,loading:false}] : [];
+return gestures.concat(Array.from(document.querySelectorAll(`[${attribute}]`)).filter(element => {
   const bounds = element.getBoundingClientRect();
   return bounds.width && bounds.height && bounds.left >= 0 && bounds.top >= 0 && bounds.right <= 480 && bounds.bottom <= 320 && !element.matches(':disabled,[aria-disabled="true"]');
 }).map(element => { const bounds = element.getBoundingClientRect(); return {
   identity: element.getAttribute(attribute), x: bounds.x, y: bounds.y,
   width: bounds.width, height: bounds.height, loading: loadingSelector ? element.matches(loadingSelector) : false
-}; })"""
+}; })); }"""
 HIT_SCRIPT = """({x,y,attribute}) => {
  const element = document.elementFromPoint(x,y)?.closest(`[${attribute}]`);
- return element && !element.matches(':disabled,[aria-disabled="true"]') ? element.getAttribute(attribute) : null;
+ return element && !element.matches(':disabled,[aria-disabled="true"]') ? element.getAttribute(attribute) : document.querySelector('.stage') ? `view-gesture:${document.querySelector('.stage').dataset.view}` : null;
 }"""
 
 
@@ -132,9 +135,41 @@ class DisplaySession:
                     self.processed_touch = sequence
                     self.force_frame.set()
                     continue
-                self.contact = {"identity": identity, "x": x, "y": y, "started": time.monotonic()}
+                self.contact = {
+                    "identity": identity,
+                    "x": x,
+                    "y": y,
+                    "start_x": x,
+                    "start_y": y,
+                    "started": time.monotonic(),
+                    "is_gesture": False,
+                }
             elif self.contact is None:
                 # ESPHome replays its retained sensor value after reconnect.
+                self.processed_touch = sequence
+                self.force_frame.set()
+                continue
+            if (
+                phase == 1
+                and not self.contact["is_gesture"]
+                and abs(y - self.contact["start_y"]) >= 48
+                and abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
+            ):
+                await self.cdp.send(
+                    "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
+                )
+                self.contact["is_gesture"] = True
+                await self.page.evaluate(
+                    """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
+                    {"x": self.contact["start_x"], "y": self.contact["start_y"]},
+                )
+            if self.contact["is_gesture"]:
+                await self.page.evaluate(
+                    """({phase,x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent(phase === 2 ? 'pointerup' : 'pointermove', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
+                    {"phase": phase, "x": x, "y": y},
+                )
+                if phase == 2:
+                    self.contact = None
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue

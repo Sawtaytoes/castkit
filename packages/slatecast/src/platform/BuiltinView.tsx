@@ -287,6 +287,7 @@ export const BuiltinView = ({
         </div>
       )
     }
+    case "print-queue":
     case "queue": {
       const queue = data as ContractData["queue.v1"]
       return (
@@ -295,7 +296,11 @@ export const BuiltinView = ({
           {queue.items.map((item, index) => (
             <article key={`${item.title}:${index}`}>
               <span>
-                {item.isCurrent ? "Playing" : index + 1}
+                {item.isCurrent
+                  ? panel.specId === "print-queue"
+                    ? "Printing"
+                    : "Playing"
+                  : index + 1}
               </span>
               <div>
                 <h3>{item.title}</h3>

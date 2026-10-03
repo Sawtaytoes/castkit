@@ -256,6 +256,7 @@ const BrowserDeviceConfigSchema = z.object({
   // holds the dashboard credential; the panel never sees it. Absent means the
   // view has no data and is offered with an empty scale.
   spoolsChannel: z.optional(z.string()),
+  printQueueChannel: z.optional(z.string()),
 })
 
 export type BrowserDeviceConfig = z.infer<

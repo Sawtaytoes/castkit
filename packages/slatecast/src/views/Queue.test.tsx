@@ -178,3 +178,30 @@ describe("queue updates", () => {
     expect(screen.queryByRole("listitem")).toBeNull()
   })
 })
+
+test("print queue uses its own feed and never shows music or print controls", async () => {
+  await mountSlatecast({
+    snapshot: buildSnapshot({
+      view: "print-queue",
+      data: {
+        queue: buildQueue(),
+        printQueue: {
+          items: [
+            {
+              title: "Storage tray",
+              artist: "Printer · Manual start",
+              durationSeconds: 5400,
+              isCurrent: false,
+            },
+          ],
+        },
+      },
+    }),
+  })
+  expect(screen.getByText("Storage tray")).toBeVisible()
+  expect(
+    screen.getByText("Printer · Manual start"),
+  ).toBeVisible()
+  expect(screen.queryByText("Roygbiv")).toBeNull()
+  expect(screen.queryByRole("button")).toBeNull()
+})

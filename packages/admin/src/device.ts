@@ -11,6 +11,7 @@ export type Device = {
   shape?: "square" | "round" | "rectangle"
   hasTouch?: boolean
   hasViewDrawer?: boolean
+  printQueueChannel?: string
   /** A backlight agent listens on the device's MQTT light topics. */
   hasMqttBacklight?: boolean
   /** Ordered allow-list. Absent means every compatible view. */

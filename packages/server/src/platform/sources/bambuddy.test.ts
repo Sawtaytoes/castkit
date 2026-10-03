@@ -4,6 +4,7 @@ import { sourceContext } from "./__fixtures__/sourceContext.ts"
 import {
   createBambuddySource,
   normalizeBambuddyPrinter,
+  normalizeBambuddyQueue,
 } from "./bambuddy.ts"
 
 test("Bambuddy printer normalization names the filament in the active tray and the nozzle", () => {
@@ -1263,4 +1264,45 @@ test("the public AMS channel publishes only printer facts and refuses writes", a
     }),
   ).rejects.toThrow("only provides printer product images")
   adapter.dispose()
+})
+
+test("printer queue excludes finished jobs and preserves scheduler order and manual gates", () => {
+  expect(
+    normalizeBambuddyQueue([
+      {
+        position: 3,
+        status: "pending",
+        library_file_name: "Later",
+        target_model: "P1S",
+        manual_start: true,
+      },
+      {
+        position: 1,
+        status: "printing",
+        archive_name: "Running",
+        printer_name: "1 - Printer",
+        print_time_seconds: 90,
+      },
+      {
+        position: 2,
+        status: "completed",
+        archive_name: "Finished",
+      },
+    ]),
+  ).toEqual({
+    items: [
+      {
+        title: "Running",
+        artist: "Printer · Printing",
+        durationSeconds: 90,
+        isCurrent: true,
+      },
+      {
+        title: "Later",
+        artist: "P1S · Manual start",
+        durationSeconds: undefined,
+        isCurrent: false,
+      },
+    ],
+  })
 })

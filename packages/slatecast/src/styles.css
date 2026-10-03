@@ -1103,6 +1103,12 @@ html[data-grayscale-text="true"] {
 
 /* The condition's mark leads the weather row, centered on it rather than on
    the text baseline, a step taller than the temperature. */
+.calendar-weather .weather-mark {
+  width: 1.8em;
+  height: 1.8em;
+  color: var(--accent-content);
+}
+
 .ambient-weather .weather-mark {
   align-self: center;
   flex: none;
@@ -1509,7 +1515,13 @@ html[data-grayscale-text="true"] {
     margin-top: 18px;
   }
 
-  .ambient-short .ambient-weather .weather-mark {
+  .ambient-short .calendar-weather .weather-mark {
+    width: 1.8em;
+    height: 1.8em;
+    color: var(--accent-content);
+  }
+
+  .ambient-weather .weather-mark {
     width: 60px;
     height: 60px;
   }

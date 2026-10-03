@@ -6,8 +6,8 @@ import type { WeatherConditionCode } from "@castkit/shared/viewData/types"
  * Home Assistant sends only the code (`sunny`, `lightning-rainy`, …) and
  * CastKit already turns that into the words a panel prints; this is the same
  * mapping with a path instead of a string. Stroked, no fills, in
- * `currentColor`, so the mark reads on the dark scheme and the light one and
- * takes its color from the text around it. Feather-style geometry (MIT), in a
+ * weather colors, so the same condition keeps its color across views.
+ * Feather-style geometry (MIT), in a
  * 24-unit box.
  *
  * Same rule as `Icon`: no emoji, no symbol font — a kiosk OS ships neither,
@@ -125,7 +125,28 @@ export const WeatherMark = ({
     class={className}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke={
+      [
+        "sunny",
+        "partlycloudy",
+        "lightning",
+        "lightning-rainy",
+      ].includes(condition)
+        ? "#e8b339"
+        : [
+              "rainy",
+              "pouring",
+              "snowy",
+              "snowy-rainy",
+              "hail",
+            ].includes(condition)
+          ? "#69b9e8"
+          : condition === "clear-night"
+            ? "#ad9fe5"
+            : condition === "exceptional"
+              ? "#ed7e79"
+              : "#9eafc4"
+    }
     stroke-width="2"
     stroke-linecap="round"
     stroke-linejoin="round"
