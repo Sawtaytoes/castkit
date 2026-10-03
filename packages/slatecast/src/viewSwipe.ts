@@ -78,7 +78,8 @@ export const trackViewSwipe = (event: PointerEvent) => {
       Math.abs(distanceY) > Math.abs(distanceX)) ||
       (distanceX >= SWIPE_COMMIT_PIXELS &&
         Math.abs(distanceX) > Math.abs(distanceY) &&
-        device.value?.views.some(
+        device.value?.hasPrinterNavigation &&
+        device.value.views.some(
           (view) => view.clientId === "printer-status",
         )))
   ) {

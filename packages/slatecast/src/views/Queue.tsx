@@ -28,7 +28,12 @@ export const Queue = ({
   }
 
   return (
-    <ul class="queue">
+    <ul
+      class="queue"
+      aria-label={
+        isPrintQueue ? "Print queue" : "Audio queue"
+      }
+    >
       {data.items.map((item, index) => (
         <li
           key={`${index}-${item.title}`}
@@ -47,7 +52,11 @@ export const Queue = ({
             />
           ) : (
             <div class="queue-art placeholder">
-              <Icon path={ICON_PATHS.note} size="1em" />
+              {isPrintQueue ? (
+                index + 1
+              ) : (
+                <Icon path={ICON_PATHS.note} size="1em" />
+              )}
             </div>
           )}
           <div class="queue-track">
@@ -56,7 +65,9 @@ export const Queue = ({
           </div>
           {item.durationSeconds !== undefined ? (
             <span class="queue-duration">
-              {formatTime(item.durationSeconds)}
+              {isPrintQueue
+                ? `${Math.floor(item.durationSeconds / 3600)}h ${Math.floor((item.durationSeconds % 3600) / 60)}m`
+                : formatTime(item.durationSeconds)}
             </span>
           ) : null}
         </li>

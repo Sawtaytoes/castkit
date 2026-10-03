@@ -604,7 +604,7 @@ export const normalizeBambuddyQueue = (
         textValue(item.status),
       ),
     )
-    .sort(
+    .toSorted(
       (first, second) =>
         (finiteNumber(first.position) ?? 0) -
         (finiteNumber(second.position) ?? 0),

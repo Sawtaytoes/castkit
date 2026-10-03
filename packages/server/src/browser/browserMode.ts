@@ -452,6 +452,9 @@ export const createBrowserMode = ({
         shape: device.shape,
         hasTouch: device.hasTouch,
         hasViewDrawer: device.hasViewDrawer,
+        hasPrinterNavigation: Boolean(
+          device.printQueueChannel,
+        ),
         color: device.color,
         ...resolveBrowserPanelProperties(device),
         // Legacy aliases for a kiosk still on the pre-rename bundle. See

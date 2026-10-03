@@ -21,6 +21,7 @@ const mountView = async ({
       view,
       device: buildDeviceProfile({
         hasTouch,
+        hasPrinterNavigation: true,
         views: [
           "now-playing",
           "queue",
