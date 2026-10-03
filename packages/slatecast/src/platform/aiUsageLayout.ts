@@ -128,85 +128,109 @@ const placeAtScale = ({
     BASE_PROVIDER_HEADING_HEIGHT * scale
   const rowHeight = BASE_ROW_HEIGHT * scale
 
-  const placed = providerRows.reduce<{
-    columns: PlacedSection[][]
-    columnIndex: number
-    heightLeft: number
-    shownRowCount: number
-  }>(
-    (accumulated, entry) => {
-      if (entry.rows.length === 0) {
-        return accumulated
-      }
-      const fullHeight =
-        providerHeadingHeight +
-        entry.rows.length * rowHeight
-      const hasNextColumn =
-        accumulated.columnIndex < columnCount - 1
-      /*
-       * Moving to a fresh column only helps when this one has been partly
-       * spent. A section too tall for an EMPTY column is too tall for every
-       * column, and skipping ahead would waste the one it is standing in.
-       */
-      const isCurrentColumnSpent =
-        accumulated.heightLeft < columnHeight
-      const isMoving =
-        fullHeight > accumulated.heightLeft &&
-        hasNextColumn &&
-        isCurrentColumnSpent
-      const columnIndex = isMoving
-        ? accumulated.columnIndex + 1
-        : accumulated.columnIndex
-      const heightLeft = isMoving
-        ? columnHeight
-        : accumulated.heightLeft
-      const rowCount = clamp({
-        value: Math.floor(
-          (heightLeft - providerHeadingHeight) / rowHeight,
-        ),
-        minimum: 0,
-        maximum: entry.rows.length,
-      })
-      if (rowCount === 0) {
-        return {
-          columns: accumulated.columns,
-          columnIndex,
-          heightLeft,
-          shownRowCount: accumulated.shownRowCount,
-        }
-      }
-      const section = {
-        provider: entry.provider,
-        rows: entry.rows.slice(0, rowCount),
-      }
-      return {
-        columns: accumulated.columns.map((column, index) =>
-          index === columnIndex
-            ? column.concat([section])
-            : column,
-        ),
-        columnIndex,
-        heightLeft:
-          heightLeft -
-          providerHeadingHeight -
-          rowCount * rowHeight,
-        shownRowCount: accumulated.shownRowCount + rowCount,
-      }
-    },
-    {
-      columns: Array.from(
-        { length: columnCount },
-        () => [],
+  const prioritizedRows = providerRows
+    .map((entry) => ({
+      ...entry,
+      rows: entry.rows.toSorted(
+        (first, second) =>
+          (second.usageWindow.percentUsed ?? -1) -
+          (first.usageWindow.percentUsed ?? -1),
       ),
-      columnIndex: 0,
-      heightLeft: columnHeight,
-      shownRowCount: 0,
-    },
-  )
+    }))
+    .toSorted(
+      (first, second) =>
+        (second.rows[0]?.usageWindow.percentUsed ?? -1) -
+        (first.rows[0]?.usageWindow.percentUsed ?? -1),
+    )
+
+  const place = (entries: readonly ProviderRows[]) =>
+    entries.reduce<{
+      columns: PlacedSection[][]
+      columnIndex: number
+      heightLeft: number
+      shownRowCount: number
+    }>(
+      (accumulated, entry) => {
+        if (entry.rows.length === 0) {
+          return accumulated
+        }
+        const fullHeight =
+          providerHeadingHeight +
+          entry.rows.length * rowHeight
+        const hasNextColumn =
+          accumulated.columnIndex < columnCount - 1
+        /*
+         * Moving to a fresh column only helps when this one has been partly
+         * spent. A section too tall for an EMPTY column is too tall for every
+         * column, and skipping ahead would waste the one it is standing in.
+         */
+        const isCurrentColumnSpent =
+          accumulated.heightLeft < columnHeight
+        const isMoving =
+          fullHeight > accumulated.heightLeft &&
+          hasNextColumn &&
+          isCurrentColumnSpent
+        const columnIndex = isMoving
+          ? accumulated.columnIndex + 1
+          : accumulated.columnIndex
+        const heightLeft = isMoving
+          ? columnHeight
+          : accumulated.heightLeft
+        const rowCount = clamp({
+          value: Math.floor(
+            (heightLeft - providerHeadingHeight) /
+              rowHeight,
+          ),
+          minimum: 0,
+          maximum: entry.rows.length,
+        })
+        if (rowCount === 0) {
+          return {
+            columns: accumulated.columns,
+            columnIndex,
+            heightLeft,
+            shownRowCount: accumulated.shownRowCount,
+          }
+        }
+        const section = {
+          provider: entry.provider,
+          rows: entry.rows.slice(0, rowCount),
+        }
+        return {
+          columns: accumulated.columns.map(
+            (column, index) =>
+              index === columnIndex
+                ? column.concat([section])
+                : column,
+          ),
+          columnIndex,
+          heightLeft:
+            heightLeft -
+            providerHeadingHeight -
+            rowCount * rowHeight,
+          shownRowCount:
+            accumulated.shownRowCount + rowCount,
+        }
+      },
+      {
+        columns: Array.from(
+          { length: columnCount },
+          () => [],
+        ),
+        columnIndex: 0,
+        heightLeft: columnHeight,
+        shownRowCount: 0,
+      },
+    )
+  const initial = place(providerRows)
   const totalRowCount = providerRows.reduce(
     (total, entry) => total + entry.rows.length,
     0,
   )
+  const placed =
+    initial.shownRowCount < totalRowCount
+      ? place(prioritizedRows)
+      : initial
   return {
     scale,
     columnCount,
@@ -285,7 +309,10 @@ export const placeSections = ({
                   (columnCount - 1)) /
               columnCount,
             height: Math.max(0, height),
-            minimumWidth: MIN_COLUMN_WIDTH * scale,
+            minimumWidth:
+              columnCount === 1
+                ? Math.min(width, MIN_COLUMN_WIDTH * scale)
+                : MIN_COLUMN_WIDTH * scale,
           },
         ],
       }

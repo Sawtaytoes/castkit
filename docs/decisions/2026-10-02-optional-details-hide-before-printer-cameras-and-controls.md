@@ -4,7 +4,7 @@
 - **Date:** 2026-10-02
 - **Type:** View layout policy
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-10-03](2026-10-03-progress-and-fullest-subscriptions-survive-tight-layouts.md), only the requirement to retain the visible printer heading
 
 ## Decision
 

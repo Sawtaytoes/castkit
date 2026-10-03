@@ -87,6 +87,7 @@ const PrinterCard = ({
     <article
       ref={cardRef}
       class="printer-card"
+      aria-label={printer.name}
       data-state={printer.state}
       data-compact-facts={String(
         settings.isCompactFacts === true,
