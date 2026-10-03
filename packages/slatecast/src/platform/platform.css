@@ -421,15 +421,56 @@
 .platform-rip-details {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 6px;
   flex: 1;
+  min-block-size: 0;
+}
+.platform-rip-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.platform-rip-detail-head h2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-inline-size: 0;
+  font-size: clamp(16px, 4cqi, 24px);
+  overflow-wrap: anywhere;
+}
+.platform .platform-rip-detail-head button {
+  flex: none;
+  padding: 8px 12px;
+  min-block-size: 44px;
+  font-size: 16px;
+}
+.platform-rip-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+}
+.platform-rip-detail-content .platform-actions {
+  margin-block-start: 0;
+  flex: none;
+}
+.platform
+  .platform-rip-detail-content
+  .platform-actions
+  button {
+  padding: 8px 12px;
+  font-size: 16px;
+  min-block-size: 44px;
 }
 .platform-rip-disc {
   display: flex;
   align-items: center;
-  gap: 20px;
-  flex: 1;
-  min-block-size: 0;
+  gap: 12px;
+  flex: 1 0 auto;
 }
 .platform-rip-disc img {
   inline-size: 35%;
@@ -438,8 +479,14 @@
 }
 .platform-rip-disc > div {
   flex: 1;
+  min-inline-size: 0;
   display: grid;
-  gap: 12px;
+  gap: 6px;
+  font-size: clamp(16px, 3cqi, 22px);
+}
+.platform .platform-rip-disc progress {
+  block-size: 12px;
+  margin-block-start: 4px;
 }
 .platform progress {
   accent-color: var(--accent);
@@ -756,35 +803,6 @@
   padding: 10px;
 }
 @media (max-width: 650px) and (max-height: 420px) {
-  .platform-rip-details {
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    padding: 12px;
-    background: var(--bg);
-    gap: 8px;
-  }
-  .platform-rip-details h2 {
-    font-size: 22px;
-  }
-  .platform-rip-details .platform-rip-disc {
-    flex: 1;
-    max-block-size: 160px;
-  }
-  .platform-rip-details .platform-rip-disc img {
-    max-block-size: 140px;
-  }
-  .platform-rip-details .platform-actions {
-    margin-block-start: 0;
-    gap: 6px;
-  }
-  .platform-rip-details .platform-actions button {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-  .platform-rip-details > p {
-    font-size: 12px;
-  }
   .platform-dialog > div {
     padding: 16px;
     max-block-size: 95vh;
@@ -2306,4 +2324,41 @@
 .platform-layout[data-priority-layout="true"]
   > .platform-panel[data-spec="ai-usage"] {
   padding: 10px;
+}
+
+/* Slot badges leave the rip title, phase and percentage readable in a rail. */
+@container (max-width: 360px) {
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster)) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster))
+    .platform-rip-number {
+    grid-column: 1;
+    grid-row: 1;
+    inline-size: fit-content;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    overflow: hidden;
+    padding: 4px 8px;
+    font-size: 0.75em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster))
+    > strong {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster))
+    .platform-rip-title {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 4px;
+  }
 }
