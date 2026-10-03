@@ -2,7 +2,12 @@ import {
   useRovingFocus,
   useSinglePicker,
 } from "@charcuterie/logic/preact"
-import { useEffect, useRef, useState } from "preact/hooks"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks"
 
 /** A lightweight choice control uses the shared picker and independent keyboard focus. */
 export const HomePicker = ({
@@ -24,7 +29,7 @@ export const HomePicker = ({
   })
   const container = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return
     const unregister = options.flatMap((option) => [
       picker.register(option),
@@ -93,9 +98,10 @@ export const HomePicker = ({
               onClick={(event) => {
                 picker.select(option)
                 onChange(option)
-                event.currentTarget
-                  .closest("details")
-                  ?.removeAttribute("open")
+                const details =
+                  event.currentTarget.closest("details")
+                details?.removeAttribute("open")
+                details?.querySelector("summary")?.focus()
               }}
             >
               {option}

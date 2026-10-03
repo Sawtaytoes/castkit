@@ -216,6 +216,7 @@ test("picker arrows move focus without sending a service, Enter selects once, an
   expect(onChange).toHaveBeenCalledExactlyOnceWith(
     "Rainbow",
   )
+  expect(document.activeElement?.tagName).toBe("SUMMARY")
   rendered.rerender(
     <HomePicker
       label="Effect"

@@ -55,6 +55,7 @@ const staticPath = (file: string) =>
  * The composition fixture with pictures that load: an invented plate render
  * and an invented chamber-camera frame from `scripts/printer-fixture-images/`.
  * The unit tests keep the fixture's own paths; only the story swaps them.
+ * The chamber uses a lossless copy so JPEG decoder rounding cannot vary VRT pixels.
  */
 const fixturePrints = compositionFixture.channels.prints
 if (!fixturePrints) {
@@ -79,7 +80,7 @@ const storySnapshot: DisplaySnapshot = {
             "sample-photos/printer-plate-stand.png",
           ),
           cameraPath: staticPath(
-            "sample-photos/printer-camera-chamber.jpg",
+            "sample-photos/printer-camera-chamber.png",
           ),
         })),
       },
@@ -487,7 +488,7 @@ const settledPrinterSnapshot = (
           percent:
             state === "finished" ? 100 : printer.percent,
           cameraPath: staticPath(
-            "sample-photos/printer-camera-chamber.jpg",
+            "sample-photos/printer-camera-chamber.png",
           ),
         })),
       },
@@ -601,7 +602,7 @@ const combinedSnapshot = (
             id: `printer-${index}`,
             name: `Printer ${index + 1}`,
             cameraPath: staticPath(
-              "sample-photos/printer-camera-chamber.jpg",
+              "sample-photos/printer-camera-chamber.png",
             ),
           }),
         ),
@@ -848,7 +849,7 @@ export const CameraWall: Story = {
                     id: "camera.studio",
                     name: "Studio",
                     url: staticPath(
-                      "sample-photos/printer-camera-chamber.jpg",
+                      "sample-photos/printer-camera-chamber.png",
                     ),
                     isLive: false,
                   },
@@ -856,7 +857,7 @@ export const CameraWall: Story = {
                     id: "camera.workshop",
                     name: "Workshop",
                     url: staticPath(
-                      "sample-photos/printer-camera-chamber.jpg",
+                      "sample-photos/printer-camera-chamber.png",
                     ),
                     isLive: false,
                   },

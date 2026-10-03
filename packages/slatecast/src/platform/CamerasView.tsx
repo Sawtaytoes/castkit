@@ -84,22 +84,24 @@ const CameraCard = ({
           </button>
         ) : null}
       </header>
-      <CameraImage
-        url={camera.url}
-        name={name}
-        isLive={camera.isLive}
-        format={camera.format}
-      />
-      <button
-        ref={opener}
-        class="home-camera-expand"
-        type="button"
-        hidden={isExpanded}
-        onClick={() => setIsExpanded(true)}
-        aria-label={`Expand ${name}`}
-      >
-        Expand ↗
-      </button>
+      <div class="home-camera-frame">
+        <CameraImage
+          url={camera.url}
+          name={name}
+          isLive={camera.isLive}
+          format={camera.format}
+        />
+        <button
+          ref={opener}
+          class="home-camera-expand"
+          type="button"
+          hidden={isExpanded}
+          onClick={() => setIsExpanded(true)}
+          aria-label={`Expand ${name}`}
+        >
+          <span>Expand ↗</span>
+        </button>
+      </div>
     </section>
   )
 }

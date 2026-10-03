@@ -2643,6 +2643,9 @@
   font-size: 11px;
   color: var(--fg-dim);
 }
+.home-camera-frame {
+  position: relative;
+}
 .home-camera-card .platform-camera {
   aspect-ratio: 16 / 9;
   position: relative;
@@ -2667,8 +2670,19 @@
 }
 .platform .home-camera-expand {
   position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.home-camera-expand > span {
+  position: absolute;
   inset: auto 10px 10px auto;
   padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface);
   font-size: 12px;
 }
 .home-camera-card[data-expanded="true"] {
@@ -2685,6 +2699,11 @@
 }
 .home-camera-card[data-expanded="true"] header button {
   margin-inline-start: auto;
+}
+.home-camera-card[data-expanded="true"] .home-camera-frame {
+  min-block-size: 0;
+  flex: 1;
+  display: flex;
 }
 .home-camera-card[data-expanded="true"] .platform-camera {
   min-block-size: 0;
