@@ -223,6 +223,11 @@ export const getScanText = (scan: KidScan) => {
         headline: "Timer started",
         detail: scan.taskName ?? "",
       }
+    case "progress":
+      return {
+        headline: scan.taskName ?? "Timer running",
+        detail: scan.message ?? "",
+      }
     case "stopped":
       return {
         headline:

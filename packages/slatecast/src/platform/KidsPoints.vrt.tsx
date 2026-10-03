@@ -99,3 +99,55 @@ test("a scan on a wide panel marks that child on the board", async () => {
   ).not.toBeNull()
   await capture("kids-points-scan-1280x720")
 })
+
+const countdownSnapshot = (): DisplaySnapshot => {
+  const snapshot = kidsPointsFixture({ hasScan: true })
+  const points = snapshot.channels.points!
+  const data =
+    points.data as import("@castkit/sdk/contracts").ContractData["kids-points.v1"]
+  const atMs = SCREENSHOT_EPOCH_MILLIS - 204_000
+  return {
+    ...snapshot,
+    channels: {
+      points: {
+        ...points,
+        data: {
+          kids: data.kids.map((kid) =>
+            kid.id === data.lastScan?.kidId
+              ? {
+                  ...kid,
+                  activeTask: {
+                    name: "Sitting Still",
+                    startedAtMs: atMs,
+                    goalMinutes: 6,
+                    isCountdown: true,
+                  },
+                }
+              : kid,
+          ),
+          lastScan: {
+            ...data.lastScan!,
+            result: "started",
+            taskName: "Sitting Still",
+            points: 0,
+            atMs,
+          },
+        },
+      },
+    },
+  }
+}
+
+test("a countdown fits a short panel and a small square", async () => {
+  await page.viewport(480, 320)
+  const short = renderDevicePage(countdownSnapshot())
+  expect(
+    document.querySelector(".kids-points-countdown-times")
+      ?.textContent,
+  ).toContain("3:24")
+  await capture("kids-points-countdown-480x320")
+  short.unmount()
+  await page.viewport(480, 480)
+  renderDevicePage(countdownSnapshot())
+  await capture("kids-points-countdown-480x480")
+})
