@@ -152,13 +152,14 @@ test("a threshold outside 0-100 falls back to the default", () => {
 test("a short panel drops the rows it cannot finish and counts them", () => {
   /*
    * 58 for the heading and its reserved overflow line, 34 for a provider
-   * heading and 70 for a limit: this panel holds Claude's heading and its
-   * one row, no more.
+   * heading and 70 for a limit: this panel holds the fullest provider's
+   * heading and one row, no more.
    */
   renderInPanel({ panelHeight: 162, repaint: "instant" })
-  expect(screen.getByText("Claude")).toBeVisible()
+  expect(screen.getByText("Codex")).toBeVisible()
+  expect(screen.getByText("7% left")).toBeVisible()
   expect(screen.getByText("7-day limit")).toBeVisible()
-  expect(screen.queryByText("Codex")).toBeNull()
+  expect(screen.queryByText("Claude")).toBeNull()
   /*
    * One, not two. The five-hour limit was withheld by the rule, not lost to
    * the glass, so counting it here would send the reader looking for a row

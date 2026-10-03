@@ -12,6 +12,15 @@ import { createSourceMedia } from "./mediaAssets.ts"
 
 const optionalText = (value: unknown) =>
   typeof value === "string" && value ? value : undefined
+const readProblem = (value: unknown) => {
+  const alert = record(value)
+  return ["ok", "unknown", "disc_marginal_slow"].includes(
+    textValue(alert.verdict),
+  )
+    ? undefined
+    : optionalText(alert.message)
+}
+
 /** Normalize Rip Deck's shared API/MQTT tower payload without hiding idle loaded bays. */
 export const normalizeRipDeck = (
   data: unknown,
@@ -79,7 +88,7 @@ export const normalizeRipDeck = (
         : []
     const posterUrl = optionalText(rip.poster)
     const problemText =
-      optionalText(record(bay.alert).message) ??
+      readProblem(bay.alert) ??
       optionalText(bay.quarantine_reason)
     return {
       id: textValue(bay.drive_id),
@@ -151,14 +160,18 @@ export const normalizeRipDeck = (
     .concat(tower.usb_alert ? [tower.usb_alert] : [])
     .map((raw) => {
       const alert = record(raw)
-      return {
-        message: textValue(alert.message),
-        ...(optionalText(alert.confidence)
-          ? { confidence: textValue(alert.confidence) }
-          : {}),
-        driveIds: stringList(alert.drive_ids),
-      }
+      const message = readProblem(alert)
+      return message
+        ? {
+            message,
+            ...(optionalText(alert.confidence)
+              ? { confidence: textValue(alert.confidence) }
+              : {}),
+            driveIds: stringList(alert.drive_ids),
+          }
+        : undefined
     })
+    .filter((alert) => alert !== undefined)
   return {
     bays,
     alerts,

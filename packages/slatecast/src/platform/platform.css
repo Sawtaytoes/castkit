@@ -2210,17 +2210,39 @@
   .printer-meta {
   display: none;
 }
-@container (max-width: 230px) {
+@container (max-width: 320px) {
+  .platform-printers .printer-head {
+    display: none;
+  }
+  .platform-printers .printer-job {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    margin: 0;
+  }
   .platform-printers .printer-progress-row {
-    flex-wrap: wrap;
+    display: contents;
   }
   .platform-printers .printer-progress-row > .printer-band {
-    flex-basis: 100%;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    inline-size: 100%;
   }
   .platform-printers
     .printer-progress-row
     > .printer-actions {
-    margin-inline-start: auto;
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .platform-printers .printer-problem,
+  .platform-printers .printer-control-status,
+  .platform-printers .printer-clear,
+  .platform-printers .printer-metrics {
+    grid-column: 1 / -1;
   }
 }
 
@@ -2232,6 +2254,11 @@
 
 .platform-printers .printer-body {
   container-type: inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.platform-printers :where(.printer-body) > :where(*) {
+  grid-column: 1 / -1;
 }
 
 .platform-rips[data-row-posters="true"]
@@ -2259,4 +2286,24 @@
   .platform-rip-title
   span {
   display: none;
+}
+
+/* A narrow quota rail keeps percentages whole and trims secondary labels. */
+.ai-usage-provider-head h3 {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-usage-plan {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-layout[data-priority-layout="true"]
+  > .platform-panel[data-spec="ai-usage"] {
+  padding: 10px;
 }

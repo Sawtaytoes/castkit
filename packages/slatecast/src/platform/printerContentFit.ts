@@ -1,4 +1,4 @@
-/** Printer details disappear before media; progress, identity and controls are required. */
+/** Printer details disappear before media; progress and controls remain required. */
 export type PrinterDetailLevel = 0 | 1 | 2 | 3
 
 /** Apply an explicit visibility tier to both measured probes and live cards. */
@@ -43,7 +43,8 @@ export const measurePrinterFacts = ({
   })
   probe.append(body.cloneNode(true))
   card.parentElement?.append(probe)
-  const height = probe.getBoundingClientRect().height
+  // Client dimensions and layout budgets use CSS pixels, even under browser zoom.
+  const height = probe.offsetHeight
   probe.remove()
   return height
 }

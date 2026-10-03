@@ -137,7 +137,11 @@ export const RipDeckView = ({
   const posterLayout = chooseRipPosterLayout({
     ...posterSize,
     count: focused.length,
-    isPosterRequested: settings.presentation === "posters",
+    isPosterRequested:
+      settings.presentation === "posters" &&
+      focused.some((bay) =>
+        Boolean(safeMediaUrl(bay.posterUrl)),
+      ),
   })
   const isPosterPresentation =
     posterLayout?.id === "posters"
@@ -155,9 +159,7 @@ export const RipDeckView = ({
             src={safeMediaUrl(bay.posterUrl)}
             alt={`Poster for ${bay.title}`}
           />
-        ) : (
-          <div class="platform-empty">No artwork</div>
-        )}
+        ) : null}
         <div>
           <p>
             {bay.state} · {Math.round(bay.percent)}%
@@ -332,16 +334,12 @@ export const RipDeckView = ({
               )}
               onClick={() => setSelectedId(bay.id)}
             >
-              {hasPosters ? (
+              {hasPosters && safeMediaUrl(bay.posterUrl) ? (
                 <span class="platform-rip-poster">
-                  {safeMediaUrl(bay.posterUrl) ? (
-                    <img
-                      src={safeMediaUrl(bay.posterUrl)}
-                      alt={`Poster for ${bay.title}`}
-                    />
-                  ) : (
-                    <span>No artwork</span>
-                  )}
+                  <img
+                    src={safeMediaUrl(bay.posterUrl)}
+                    alt={`Poster for ${bay.title}`}
+                  />
                 </span>
               ) : null}
               <span
