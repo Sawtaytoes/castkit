@@ -37,3 +37,5 @@ A real plate render is never a substitute: it can carry a name modeled into the 
 | `printer-plate-pods.png` | A second plate render, so three printer cards do not show one picture three times. |
 | `printer-plate-canisters.png` | A third plate render: fifteen canisters. |
 | `printer-camera-chamber.jpg` | A chamber-camera frame: toolhead, carbon rods, a textured plate and a part in progress, with sensor noise. For views that show a live printer camera. |
+
+`printer-camera-chamber.png` is a lossless decoding of the generated JPG camera fixture, used by the combined printer/usage story to avoid cached scaled JPEG decoding across captures at different panel sizes.

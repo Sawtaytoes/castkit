@@ -92,3 +92,44 @@ test("a newer scan replaces old expiry timers; refresh and disposal cancel pendi
   vi.advanceTimersByTime(30_000)
   expect(onExpire).toHaveBeenCalledOnce()
 })
+
+test("a countdown expires at its target even without another MQTT message", () => {
+  vi.useFakeTimers({ now: 1_000_000 })
+  const onExpire = vi.fn()
+  const activity = createScanActivity({
+    getViews: () => [view],
+    onExpire,
+  })
+  activity.observe({
+    ...scan(),
+    data: {
+      kids: [
+        {
+          id: "robin",
+          name: "Robin",
+          pointsToday: 20,
+          activeTask: {
+            name: "Sitting Still",
+            startedAtMs: Date.now(),
+            goalMinutes: 6,
+            isCountdown: true,
+          },
+        },
+      ],
+      lastScan: {
+        kidId: "robin",
+        atMs: Date.now(),
+        result: "started",
+        taskName: "Sitting Still",
+        points: 0,
+      },
+    },
+  })
+  vi.advanceTimersByTime(30_000)
+  expect(onExpire).toHaveBeenCalledOnce()
+  vi.advanceTimersByTime(329_999)
+  expect(onExpire).toHaveBeenCalledOnce()
+  vi.advanceTimersByTime(1)
+  expect(onExpire).toHaveBeenCalledTimes(2)
+  activity.dispose()
+})

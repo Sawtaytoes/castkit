@@ -344,3 +344,42 @@ test("points are active only during the selected panel's scan window", () => {
     vi.useRealTimers()
   }
 })
+
+test("an accepted countdown remains active between announcements and ends at its target", () => {
+  vi.useFakeTimers({ now: 1_000_000 })
+  try {
+    const startedAtMs = Date.now()
+    const kids = [
+      {
+        id: "robin",
+        name: "Robin",
+        pointsToday: 0,
+        activeTask: {
+          name: "Sitting Still",
+          startedAtMs,
+          goalMinutes: 6,
+          isCountdown: true,
+        },
+      },
+    ]
+    const snapshot = channel("kids-points.v1", {
+      kids,
+      lastScan: {
+        kidId: "robin",
+        result: "started",
+        taskName: "Sitting Still",
+        points: 0,
+        atMs: startedAtMs,
+      },
+    })
+    vi.advanceTimersByTime(31_000)
+    expect(isChannelActive(snapshot)).toBe(true)
+    expect(
+      isChannelActive(channel("kids-points.v1", { kids })),
+    ).toBe(false)
+    vi.advanceTimersByTime(329_000)
+    expect(isChannelActive(snapshot)).toBe(false)
+  } finally {
+    vi.useRealTimers()
+  }
+})

@@ -88,6 +88,7 @@ export const normalizeKidState = (
   const sessionStartedAtMs =
     finiteNumber(session.startedAtMs) ??
     finiteNumber(session.startedMs)
+  const goalMinutes = positiveNumber(session.goalMinutes)
   const goal = positiveNumber(raw.goal)
   const color = hexColor(raw.color ?? raw.kidColor)
   const lastTask = textValue(raw.lastTask)
@@ -104,6 +105,12 @@ export const normalizeKidState = (
           activeTask: {
             name: sessionName,
             startedAtMs: sessionStartedAtMs,
+            ...(goalMinutes === undefined
+              ? {}
+              : { goalMinutes }),
+            ...(typeof session.isCountdown === "boolean"
+              ? { isCountdown: session.isCountdown }
+              : {}),
           },
         }
       : {}),
@@ -117,12 +124,15 @@ const SCAN_RESULTS: Record<string, KidScan["result"]> = {
   started: "started",
   "session-stop": "stopped",
   stopped: "stopped",
+  "session-progress": "progress",
+  "session-milestone": "progress",
+  progress: "progress",
 }
 
 /**
  * One scan result, plus what it says about the child's day. The producer's
  * outcome vocabulary is wider than a display needs; everything that is not a
- * payment or a timer is a refusal ("too early", "already done", "busy"), and
+ * payment, timer or progress notification is a refusal ("too early", "already done", "busy"), and
  * the producer's own sentence explains which.
  */
 export const normalizeKidScan = (

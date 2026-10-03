@@ -287,3 +287,116 @@ test("no children yet says so instead of drawing an empty board", () => {
     screen.getByRole("heading", { name: "No points yet" }),
   ).toBeVisible()
 })
+
+const countdown: ContractData["kids-points.v1"] = {
+  kids: data.kids.map((kid) =>
+    kid.id === "robin"
+      ? {
+          ...kid,
+          activeTask: {
+            name: "Sitting Still",
+            startedAtMs: now - 204_000,
+            goalMinutes: 6,
+            isCountdown: true,
+          },
+        }
+      : kid,
+  ),
+  lastScan: {
+    kidId: "robin",
+    result: "started",
+    points: 0,
+    taskName: "Sitting Still",
+    atMs: now - 204_000,
+  },
+}
+
+test("a countdown stays focused past scan expiry with elapsed and remaining time", () => {
+  renderInPanel({
+    width: 440,
+    height: 280,
+    value: countdown,
+  })
+  expect(screen.getByText("3:24")).toBeVisible()
+  expect(screen.getByText("2:36")).toBeVisible()
+  expect(
+    screen.getByRole("progressbar", {
+      name: "Robin Sitting Still timed progress",
+    }),
+  ).toHaveAttribute("aria-valuenow", "204")
+  expect(screen.queryByText("Not counted")).toBe(null)
+  expect(screen.queryByText("130")).toBe(null)
+})
+
+test("a progress notification uses the saved countdown rather than a refusal banner", () => {
+  renderInPanel({
+    width: 1200,
+    height: 640,
+    value: {
+      ...countdown,
+      lastScan: {
+        ...countdown.lastScan!,
+        result: "progress",
+        atMs: now - 3000,
+      },
+    },
+  })
+  expect(screen.getByText("3:24")).toBeVisible()
+  expect(screen.queryByText("Not counted")).toBe(null)
+  expect(
+    screen.getByRole("heading", { name: "Sky" }),
+  ).toBeVisible()
+})
+
+test("a slow panel states the deadline instead of a ticking countdown", () => {
+  renderInPanel({
+    width: 440,
+    height: 280,
+    repaint: "slow",
+    value: countdown,
+  })
+  expect(screen.getByText(/^6 min · ends/)).toBeVisible()
+  expect(screen.queryByText("2:36")).toBe(null)
+})
+
+test("a canceled countdown returns to the scan result", () => {
+  renderInPanel({
+    width: 440,
+    height: 280,
+    value: {
+      ...countdown,
+      kids: countdown.kids.map((kid) => ({
+        ...kid,
+        activeTask: undefined,
+      })),
+      lastScan: {
+        ...countdown.lastScan!,
+        result: "stopped",
+        atMs: now - 3000,
+      },
+    },
+  })
+  expect(screen.getByText("Timer stopped")).toBeVisible()
+  expect(screen.queryByText("2:36")).toBe(null)
+})
+
+test("the live clock advances countdown metrics without a new producer payload", () => {
+  const rendered = renderInPanel({
+    width: 440,
+    height: 280,
+    value: countdown,
+  })
+  rendered.rerender(
+    <DisplayPropertiesContext.Provider
+      value={{ delivery: "browser", repaint: "instant" }}
+    >
+      <KidsPointsView data={countdown} now={now + 1000} />
+    </DisplayPropertiesContext.Provider>,
+  )
+  expect(screen.getByText("3:25")).toBeVisible()
+  expect(screen.getByText("2:35")).toBeVisible()
+  expect(screen.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuenow",
+    "205",
+  )
+})

@@ -50,3 +50,34 @@ export const getIsScanRecent = ({
     now < window.expiresAtMs
   )
 }
+
+/** The countdown belonging to this channel's accepted scan, until its target. */
+export const getCountdownKid = ({
+  data,
+  now,
+}: {
+  data: ContractData["kids-points.v1"]
+  now: number
+}) => {
+  const scan = data.lastScan
+  if (
+    !scan ||
+    (scan.result !== "started" &&
+      scan.result !== "progress")
+  ) {
+    return undefined
+  }
+  return data.kids.find((kid) => {
+    const task = kid.activeTask
+    return (
+      kid.id === scan.kidId &&
+      task?.isCountdown === true &&
+      task.goalMinutes !== undefined &&
+      task.name === scan.taskName &&
+      scan.atMs >=
+        task.startedAtMs - CLOCK_SKEW_MILLISECONDS &&
+      now >= task.startedAtMs - CLOCK_SKEW_MILLISECONDS &&
+      now < task.startedAtMs + task.goalMinutes * 60_000
+    )
+  })
+}

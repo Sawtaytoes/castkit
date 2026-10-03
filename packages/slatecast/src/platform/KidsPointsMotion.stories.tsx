@@ -228,3 +228,80 @@ export const SlowPanel: Story = {
     />
   ),
 }
+
+const CountdownStage = ({
+  width,
+  height,
+}: {
+  width: number
+  height: number
+}) => {
+  const [startedAtMs] = useState(() => Date.now() - 204_000)
+  const base = scanSnapshot({
+    kidId: "robin",
+    pointsToday: 140,
+    points: 0,
+    taskName: "Sitting Still",
+    atMs: startedAtMs,
+    repaint: "instant",
+  })
+  const points = base.channels.points!
+  const data = points.data as KidsPointsData
+  const snapshot = {
+    ...base,
+    channels: {
+      points: {
+        ...points,
+        data: {
+          ...data,
+          kids: data.kids.map((kid) =>
+            kid.id === "robin"
+              ? {
+                  ...kid,
+                  activeTask: {
+                    name: "Sitting Still",
+                    startedAtMs,
+                    goalMinutes: 6,
+                    isCountdown: true,
+                  },
+                }
+              : kid,
+          ),
+          lastScan: {
+            ...data.lastScan!,
+            result: "started" as const,
+          },
+        },
+      },
+    },
+  }
+  return (
+    <div
+      class="platform"
+      data-device="true"
+      style={{
+        inlineSize: `${width}px`,
+        blockSize: `${height}px`,
+        minBlockSize: 0,
+      }}
+    >
+      <DisplayComposition
+        snapshot={snapshot}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </div>
+  )
+}
+
+/** The saved timer continuously shows time done and time left between notifications. */
+export const Countdown: Story = {
+  render: () => <CountdownStage width={480} height={320} />,
+}
+
+/** The same timer on a board leaves the other children's cards visible. */
+export const CountdownBoard: Story = {
+  render: () => (
+    <CountdownStage width={1280} height={720} />
+  ),
+}

@@ -39,6 +39,12 @@ export const createScanActivity = ({
       !data?.kids.some((kid) => kid.id === scan.kidId)
     )
       return
+    const countdownBoundaries = data.kids.flatMap((kid) => {
+      const task = kid.activeTask
+      return task?.isCountdown && task.goalMinutes
+        ? [task.startedAtMs + task.goalMinutes * 60_000]
+        : []
+    })
     const boundaries = new Set(
       getViews()
         .flatMap((view) =>
@@ -73,6 +79,7 @@ export const createScanActivity = ({
             )
           }),
         )
+        .concat(countdownBoundaries)
         .filter((atMs) => atMs > now()),
     )
     const scheduled = new Set<

@@ -302,3 +302,37 @@ test("unrelated topics and cleared retained topics are ignored, bad JSON is repo
   })
   expect(context.publish).not.toHaveBeenCalled()
 })
+
+test("countdown state preserves the producer's target and progress is not a refusal", () => {
+  expect(
+    normalizeKidState({
+      kid: "robin",
+      pointsToday: 100,
+      runningSession: {
+        taskName: "Sitting Still",
+        startedMs: 5000,
+        goalMinutes: 6,
+        isCountdown: true,
+      },
+    })?.activeTask,
+  ).toEqual({
+    name: "Sitting Still",
+    startedAtMs: 5000,
+    goalMinutes: 6,
+    isCountdown: true,
+  })
+  expect(
+    normalizeKidScan({
+      kid: "robin",
+      outcome: "session-progress",
+      ts: 65000,
+    })?.scan.result,
+  ).toBe("progress")
+  expect(
+    normalizeKidScan({
+      kid: "robin",
+      outcome: "session-milestone",
+      ts: 65000,
+    })?.scan.result,
+  ).toBe("progress")
+})

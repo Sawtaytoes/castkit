@@ -251,7 +251,12 @@ const kidPoints = z.object({
   lastTask: z.string().optional(),
   /** A timed card that is running now, and when it started. */
   activeTask: z
-    .object({ name: z.string(), startedAtMs: finiteNumber })
+    .object({
+      name: z.string(),
+      startedAtMs: finiteNumber,
+      goalMinutes: finiteNumber.positive().optional(),
+      isCountdown: z.boolean().optional(),
+    })
     .optional(),
 })
 /**
@@ -266,6 +271,7 @@ const kidScan = z.object({
     "refused",
     "started",
     "stopped",
+    "progress",
   ]),
   points: finiteNumber,
   taskName: z.string().optional(),
