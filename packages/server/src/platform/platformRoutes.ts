@@ -907,7 +907,14 @@ export const attachPlatformRoutes = ({
           return context.json(
             {
               error:
-                "Remove this item's assignments before deleting it",
+                collection === "views"
+                  ? `Remove this view from these screens before deleting it: ${previous.screens
+                      .filter((screen) =>
+                        screen.viewIds.includes(id),
+                      )
+                      .map((screen) => screen.name)
+                      .join(", ")}.`
+                  : "Remove this item's assignments before deleting it",
             },
             409,
           )
