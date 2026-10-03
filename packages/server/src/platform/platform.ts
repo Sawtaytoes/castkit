@@ -18,6 +18,7 @@ import { createPlatformAccess } from "./platformAccess.ts"
 import { createPlatformStore } from "./platformStore.ts"
 import { createPluginRuntime } from "./pluginRuntime.ts"
 import type { createPluginPackageManager } from "./plugins/pluginPackages.ts"
+import { createScanActivity } from "./scanActivity.ts"
 import { createScreenController } from "./screenController.ts"
 import { createSourceRuntime } from "./sourceRuntime.ts"
 
@@ -92,6 +93,11 @@ export const createPlatform = async ({
     onExpire: () => notify(),
   })
   hub.subscribe(pausedMusic.observe)
+  const scanActivity = createScanActivity({
+    getViews: () => store.get().views,
+    onExpire: () => notify(),
+  })
+  hub.subscribe(scanActivity.observe)
   const renderKey = randomBytes(32).toString("hex")
   const access = createPlatformAccess({
     store,
@@ -176,6 +182,7 @@ export const createPlatform = async ({
       sources: store.get().sources,
       channels: store.get().channels,
     })
+    scanActivity.refresh(hub.list())
     notify()
     await announceScreens()
   }
@@ -464,6 +471,7 @@ export const createPlatform = async ({
       screens.dispose()
       deviceOverrides.dispose()
       pausedMusic.dispose()
+      scanActivity.dispose()
       hub.dispose()
       listeners.clear()
       return saved

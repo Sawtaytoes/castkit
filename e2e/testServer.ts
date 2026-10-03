@@ -150,6 +150,13 @@ export const startTestServer = async ({
     ],
     channels: [
       {
+        id: "points/fixture",
+        name: "Fixture points",
+        sourceId: "events",
+        type: "kids-points.v1",
+        settings: {},
+      },
+      {
         id: "printers/lab",
         name: "Lab printers",
         sourceId: "events",
@@ -158,6 +165,23 @@ export const startTestServer = async ({
       },
     ],
     views: [
+      {
+        id: "scan-monitor",
+        name: "Scan monitor",
+        layout: "single",
+        theme: "dark",
+        access: "public",
+        isControlEnabled: false,
+        isActiveOnly: true,
+        panels: [
+          {
+            id: "points",
+            specId: "kids-points",
+            bindings: { data: "points/fixture" },
+            settings: { scanSeconds: 3 },
+          },
+        ],
+      },
       {
         id: "lab",
         name: "Lab",
