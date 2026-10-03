@@ -317,6 +317,19 @@ class DisplaySession:
             await self.cdp.detach()
 
 
+async def create_browser_context(browser, config):
+    """Restore infrastructure credentials without changing panel rendering properties."""
+    return await browser.new_context(
+        viewport={"width": 480, "height": 320},
+        device_scale_factor=1,
+        has_touch=True,
+        is_mobile=True,
+        reduced_motion="reduce",
+        accept_downloads=False,
+        storage_state=config.get("browser_storage_state"),
+    )
+
+
 async def serve(config):
     stop = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -328,14 +341,7 @@ async def serve(config):
             **({"executable_path": config["chromium"]} if config.get("chromium") else {}),
             args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
-        context = await browser.new_context(
-            viewport={"width": 480, "height": 320},
-            device_scale_factor=1,
-            has_touch=True,
-            is_mobile=True,
-            reduced_motion="reduce",
-            accept_downloads=False,
-        )
+        context = await create_browser_context(browser, config)
         manifest_response = await context.request.get(config["manifest_url"], timeout=15000)
         same_origin_url(config["manifest_url"], manifest_response.url)
         if not manifest_response.ok:

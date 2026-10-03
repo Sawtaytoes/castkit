@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 from interaction import Target
 from playwright.async_api import async_playwright
 from preview import PreviewServer
-from worker import DisplaySession
+from worker import DisplaySession, create_browser_context
 
 
 class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
@@ -43,6 +43,41 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(self.task, return_exceptions=True)
         await self.browser.close()
         await self.playwright.stop()
+
+    async def test_saved_session_survives_context_recreation(self):
+        state = {
+            "cookies": [
+                {
+                    "name": "castkit-session",
+                    "value": "read-only-fixture",
+                    "domain": "panel.example",
+                    "path": "/",
+                    "expires": -1,
+                    "httpOnly": True,
+                    "secure": True,
+                    "sameSite": "Strict",
+                }
+            ],
+            "origins": [],
+        }
+        for _ in range(2):
+            context = await create_browser_context(self.browser, {"browser_storage_state": state})
+            cookies = await context.cookies("https://panel.example/d/example")
+            self.assertEqual(cookies[0]["value"], "read-only-fixture")
+            self.assertTrue(cookies[0]["httpOnly"])
+            page = await context.new_page()
+            await page.route(
+                "https://panel.example/**",
+                lambda route: route.fulfill(
+                    status=200, content_type="text/html", body="<p>Private panel</p>"
+                ),
+            )
+            await page.goto("https://panel.example/d/example")
+            self.assertEqual(await page.evaluate("document.cookie"), "")
+            await context.close()
+        context = await create_browser_context(self.browser, {})
+        self.assertEqual(await context.cookies(), [])
+        await context.close()
 
     async def event(self, sequence, phase, frame=42):
         await self.session.touches.put(
