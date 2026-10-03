@@ -157,9 +157,10 @@ class DisplaySession:
                 and abs(y - self.contact["start_y"]) >= 48
                 and abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
             ):
-                await self.cdp.send(
-                    "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
-                )
+                if not self.contact.get("is_tap_cancelled"):
+                    await self.cdp.send(
+                        "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
+                    )
                 self.contact["is_gesture"] = True
                 await self.page.evaluate(
                     """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",

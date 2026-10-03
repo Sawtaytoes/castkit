@@ -83,6 +83,8 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
             )
             async with asyncio.timeout(3):
                 while self.session.processed_touch != sequence:
+                    if self.task.done():
+                        self.task.result()
                     await asyncio.sleep(0.01)
         self.assertIsNone(await self.page.evaluate("window.wasClicked"))
         self.assertEqual((await self.page.evaluate("window.gestures"))[-1], ["pointerup", 150])
