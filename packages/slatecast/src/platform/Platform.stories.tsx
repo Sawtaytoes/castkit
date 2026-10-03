@@ -725,3 +725,149 @@ export const CombinedPrintersAndUsage: Story = {
     )
   },
 }
+
+const homeLights: ContractData["entities.v1"] = {
+  entities: [
+    {
+      id: "light.studio",
+      name: "Studio lights",
+      domain: "light",
+      state: "on",
+      attributes: {
+        brightness: 128,
+        supported_color_modes: ["rgb", "color_temp"],
+        rgb_color: [80, 160, 255],
+        min_color_temp_kelvin: 2000,
+        max_color_temp_kelvin: 6500,
+        color_temp_kelvin: 3500,
+      },
+      actions: ["turn_on", "turn_off"],
+    },
+    {
+      id: "light.strip",
+      name: "LED strip",
+      domain: "light",
+      state: "on",
+      attributes: {
+        brightness: 64,
+        supported_color_modes: ["rgb"],
+        rgb_color: [120, 80, 240],
+        effect_list: ["Solid", "Rainbow", "Pulse"],
+        effect: "Solid",
+      },
+      actions: ["turn_on", "turn_off"],
+    },
+    {
+      id: "input_boolean.presence",
+      name: "Automatic lighting",
+      domain: "input_boolean",
+      state: "on",
+      attributes: {},
+      actions: ["turn_on", "turn_off"],
+    },
+  ],
+}
+/** Brightness fills, real light capabilities, and child controls use native Preact. */
+export const HomeControls: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={{
+          ...storySnapshot,
+          view: {
+            ...storySnapshot.view,
+            id: "home-controls",
+            layout: "grid",
+            panels: [
+              {
+                id: "lighting",
+                specId: "entities",
+                bindings: { data: "lighting" },
+                settings: {
+                  title: "Studio",
+                  homeGroup: "studio",
+                  homeAccent: "purple",
+                  presentation: "home",
+                  entityIds: [
+                    "light.studio",
+                    "input_boolean.presence",
+                  ],
+                  relatedEntities: {
+                    "light.studio": ["light.strip"],
+                  },
+                },
+              },
+            ],
+          },
+          channels: {
+            lighting: {
+              id: "lighting",
+              type: "entities.v1",
+              status: "ready",
+              data: homeLights,
+            },
+          },
+        }}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+/** Camera tiles retain their image while expanding and remain usable on narrow displays. */
+export const CameraWall: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={{
+          ...storySnapshot,
+          view: {
+            ...storySnapshot.view,
+            id: "camera-wall",
+            layout: "grid",
+            panels: [
+              {
+                id: "cameras",
+                specId: "cameras",
+                bindings: { data: "cameras" },
+                settings: {
+                  homeGroup: "cameras",
+                  title: "Cameras",
+                },
+              },
+            ],
+          },
+          channels: {
+            cameras: {
+              id: "cameras",
+              type: "cameras.v1",
+              status: "ready",
+              data: {
+                cameras: [
+                  {
+                    id: "camera.studio",
+                    name: "Studio",
+                    url: staticPath(
+                      "sample-photos/printer-camera-chamber.jpg",
+                    ),
+                    isLive: false,
+                  },
+                  {
+                    id: "camera.workshop",
+                    name: "Workshop",
+                    url: staticPath(
+                      "sample-photos/printer-camera-chamber.jpg",
+                    ),
+                    isLive: false,
+                  },
+                ],
+              },
+            },
+          },
+        }}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}

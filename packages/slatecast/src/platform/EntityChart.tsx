@@ -1,4 +1,72 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import {
+  type ChartOptions,
+  renderChartSvg,
+} from "@charcuterie/logic/core"
+import type { ComponentType } from "preact"
+import { useEffect, useState } from "preact/hooks"
+
+const HomeNumericChart = ({
+  options,
+}: {
+  options: ChartOptions
+}) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [Chart, setChart] = useState<ComponentType<
+    ChartOptions & { isAnimated?: boolean }
+  > | null>(null)
+  const [hasFailed, setHasFailed] = useState(false)
+  useEffect(() => {
+    if (!isOpen || Chart) return
+    const state = { isDisposed: false }
+    void import("@charcuterie/logic/charts/preact")
+      .then((module) => {
+        if (!state.isDisposed)
+          setChart(() => module.ChartPlot)
+      })
+      .catch(() => {
+        if (!state.isDisposed) setHasFailed(true)
+      })
+    return () => {
+      state.isDisposed = true
+    }
+  }, [isOpen, Chart])
+  return (
+    <div>
+      {/* The portable shared renderer escapes every source label and color before emitting SVG. */}
+      <div
+        dangerouslySetInnerHTML={{
+          __html: renderChartSvg(options),
+        }}
+      />
+      <details
+        class="home-chart-details"
+        onToggle={(event) =>
+          setIsOpen(event.currentTarget.open)
+        }
+      >
+        <summary>Explore history</summary>
+        {isOpen ? (
+          <div data-chart-interactive>
+            {Chart ? (
+              <Chart
+                {...options}
+                height={280}
+                isAnimated={false}
+              />
+            ) : (
+              <p role="status">
+                {hasFailed
+                  ? "Chart unavailable · Summary remains above"
+                  : "Loading chart…"}
+              </p>
+            )}
+          </div>
+        ) : null}
+      </details>
+    </div>
+  )
+}
 
 type Entity =
   ContractData["entities.v1"]["entities"][number]
@@ -178,6 +246,57 @@ export const EntityChart = ({
           </span>
         </figcaption>
       </figure>
+    )
+  }
+  if (settings.presentation === "home") {
+    // Keep missing observations as gaps; never turn an unavailable value into zero.
+    const points = isDaily
+      ? samples
+      : objectSamples(entity.attributes.history)
+          .flatMap((point) => {
+            const time = timeValue(point.time)
+            return Number.isFinite(time)
+              ? [
+                  {
+                    time,
+                    value:
+                      typeof point.value === "number" &&
+                      Number.isFinite(point.value)
+                        ? point.value
+                        : null,
+                  },
+                ]
+              : []
+          })
+          .sort((left, right) => left.time - right.time)
+    return (
+      <HomeNumericChart
+        options={{
+          title: entity.name,
+          description: String(
+            entity.attributes.unit_of_measurement ?? "",
+          ),
+          labels: points.map((point) =>
+            labelTime(point.time, isDaily),
+          ),
+          series: [
+            {
+              id: entity.id,
+              label: String(
+                entity.attributes.unit_of_measurement ??
+                  entity.name,
+              ),
+              color: "currentColor",
+              values: points.map((point) => point.value),
+            },
+          ],
+          kind:
+            settings.chartType === "bar" ? "bar" : "line",
+          width: 400,
+          height: 180,
+          fontSize: 12,
+        }}
+      />
     )
   }
   const minimum = Math.min(

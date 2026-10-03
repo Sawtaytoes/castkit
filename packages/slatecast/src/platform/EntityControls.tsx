@@ -1,5 +1,6 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { useState } from "preact/hooks"
+import { DeferredHomeControl } from "./DeferredHomeControl.tsx"
 
 type Entity =
   ContractData["entities.v1"]["entities"][number]
@@ -13,12 +14,15 @@ const parameterActions = [
   "select_option",
   "set_hvac_mode",
   "set_fan_mode",
+  "set_preset_mode",
 ]
 /** Forms supply the typed parameters required by controls instead of sending empty services. */
 export const EntityControls = ({
   entity,
   request,
+  isHome = false,
 }: {
+  isHome?: boolean
   entity: Entity
   request: (request: {
     action: string
@@ -27,6 +31,28 @@ export const EntityControls = ({
 }) => {
   const [draftValue, setDraftValue] = useState(entity.state)
   const [duration, setDuration] = useState(5)
+  const temperature = Number(entity.attributes.temperature)
+  const temperatureStep = Number(
+    entity.attributes.target_temp_step ?? 1,
+  )
+  const minimumTemperature = Number(
+    entity.attributes.min_temp ?? 5,
+  )
+  const maximumTemperature = Number(
+    entity.attributes.max_temp ?? 35,
+  )
+  const setTemperature = (value: number) => {
+    if (Number.isFinite(value))
+      request({
+        action: "set_temperature",
+        payload: {
+          temperature: Math.max(
+            minimumTemperature,
+            Math.min(maximumTemperature, value),
+          ),
+        },
+      })
+  }
   const numberControl = ({
     action,
     label,
@@ -48,7 +74,16 @@ export const EntityControls = ({
       <label>
         {label}
         <input
-          type="number"
+          type={
+            isHome &&
+            [
+              "set_percentage",
+              "set_cover_position",
+              "volume_set",
+            ].includes(action)
+              ? "range"
+              : "number"
+          }
           min={minimum}
           max={maximum}
           step={step}
@@ -85,37 +120,63 @@ export const EntityControls = ({
   }) =>
     entity.actions.includes(action) &&
     Array.isArray(entity.attributes[optionsAttribute]) ? (
-      <label>
-        {label}
-        <select
+      isHome ? (
+        <DeferredHomeControl
+          kind="choice"
+          label={label}
           value={
             attribute
               ? String(entity.attributes[attribute] ?? "")
               : entity.state
           }
-          onChange={(event) =>
+          options={(
+            entity.attributes[optionsAttribute] as unknown[]
+          ).filter(
+            (option): option is string =>
+              typeof option === "string",
+          )}
+          onChange={(value) =>
             request({
               action,
-              payload: {
-                [parameter]: event.currentTarget.value,
-              },
+              payload: { [parameter]: value },
             })
           }
-        >
-          {(
-            entity.attributes[optionsAttribute] as unknown[]
-          )
-            .filter(
-              (option): option is string =>
-                typeof option === "string",
+        />
+      ) : (
+        <label>
+          {label}
+          <select
+            value={
+              attribute
+                ? String(entity.attributes[attribute] ?? "")
+                : entity.state
+            }
+            onChange={(event) =>
+              request({
+                action,
+                payload: {
+                  [parameter]: event.currentTarget.value,
+                },
+              })
+            }
+          >
+            {(
+              entity.attributes[
+                optionsAttribute
+              ] as unknown[]
             )
-            .map((option) => (
-              <option value={option} key={option}>
-                {option}
-              </option>
-            ))}
-        </select>
-      </label>
+              .filter(
+                (option): option is string =>
+                  typeof option === "string",
+              )
+              .map((option) => (
+                <option value={option} key={option}>
+                  {option}
+                </option>
+              ))}
+          </select>
+        </label>
+      )
     ) : null
   return (
     <div class="platform-actions">
@@ -135,7 +196,23 @@ export const EntityControls = ({
       ) : null}
       {entity.actions
         .filter(
-          (action) => !parameterActions.includes(action),
+          (action) =>
+            !parameterActions.includes(action) &&
+            (!isHome ||
+              !["turn_on", "turn_off", "toggle"].includes(
+                action,
+              ) ||
+              (["scene", "script"].includes(entity.domain)
+                ? action === "turn_on"
+                : entity.state === "on"
+                  ? action ===
+                    (entity.actions.includes("turn_off")
+                      ? "turn_off"
+                      : "toggle")
+                  : action ===
+                    (entity.actions.includes("turn_on")
+                      ? "turn_on"
+                      : "toggle"))),
         )
         .map((action) => (
           <button
@@ -171,26 +248,61 @@ export const EntityControls = ({
               })
             }
           >
-            {entity.domain === "timer" &&
-            action === "start" &&
-            entity.state === "paused"
-              ? "Resume"
-              : action
-                  .replaceAll("_", " ")
-                  .replace(/^./, (letter) =>
-                    letter.toUpperCase(),
-                  )}
+            {isHome &&
+            ["turn_on", "turn_off"].includes(action)
+              ? ["scene", "script"].includes(entity.domain)
+                ? "Run"
+                : action === "turn_on"
+                  ? "Turn on"
+                  : "Turn off"
+              : entity.domain === "timer" &&
+                  action === "start" &&
+                  entity.state === "paused"
+                ? "Resume"
+                : action
+                    .replaceAll("_", " ")
+                    .replace(/^./, (letter) =>
+                      letter.toUpperCase(),
+                    )}
           </button>
         ))}
-      {numberControl({
-        action: "set_temperature",
-        label: "Temperature",
-        attribute: "temperature",
-        parameter: "temperature",
-        minimum: Number(entity.attributes.min_temp ?? 5),
-        maximum: Number(entity.attributes.max_temp ?? 35),
-        step: 0.5,
-      })}
+      {isHome &&
+      entity.actions.includes("set_temperature") &&
+      Number.isFinite(temperature) ? (
+        <div class="home-temperature">
+          <button
+            type="button"
+            aria-label={`Decrease ${entity.name} temperature`}
+            disabled={temperature <= minimumTemperature}
+            onClick={() =>
+              setTemperature(temperature - temperatureStep)
+            }
+          >
+            −
+          </button>
+          <strong>{temperature}°</strong>
+          <button
+            type="button"
+            aria-label={`Increase ${entity.name} temperature`}
+            disabled={temperature >= maximumTemperature}
+            onClick={() =>
+              setTemperature(temperature + temperatureStep)
+            }
+          >
+            +
+          </button>
+        </div>
+      ) : (
+        numberControl({
+          action: "set_temperature",
+          label: "Temperature",
+          attribute: "temperature",
+          parameter: "temperature",
+          minimum: Number(entity.attributes.min_temp ?? 5),
+          maximum: Number(entity.attributes.max_temp ?? 35),
+          step: 0.5,
+        })
+      )}
       {numberControl({
         action: "set_percentage",
         label: "Fan speed",
@@ -232,27 +344,35 @@ export const EntityControls = ({
       ) : null}
       {entity.domain === "light" &&
       entity.actions.includes("turn_on") ? (
-        <label>
-          Brightness
-          <input
-            type="range"
-            min={1}
-            max={255}
-            value={Number(
-              entity.attributes.brightness ?? 255,
-            )}
-            onChange={(event) =>
-              request({
-                action: "turn_on",
-                payload: {
-                  brightness: Number(
-                    event.currentTarget.value,
-                  ),
-                },
-              })
-            }
+        isHome ? (
+          <DeferredHomeControl
+            kind="light"
+            entity={entity}
+            request={request}
           />
-        </label>
+        ) : (
+          <label>
+            Brightness
+            <input
+              type="range"
+              min={1}
+              max={255}
+              value={Number(
+                entity.attributes.brightness ?? 255,
+              )}
+              onChange={(event) =>
+                request({
+                  action: "turn_on",
+                  payload: {
+                    brightness: Number(
+                      event.currentTarget.value,
+                    ),
+                  },
+                })
+              }
+            />
+          </label>
+        )
       ) : null}
       {choiceControl({
         action: "select_option",
@@ -272,6 +392,13 @@ export const EntityControls = ({
         attribute: "fan_mode",
         optionsAttribute: "fan_modes",
         parameter: "fan_mode",
+      })}
+      {choiceControl({
+        action: "set_preset_mode",
+        label: "Preset",
+        attribute: "preset_mode",
+        optionsAttribute: "preset_modes",
+        parameter: "preset_mode",
       })}
       {entity.actions.includes("set_value") ? (
         <form
