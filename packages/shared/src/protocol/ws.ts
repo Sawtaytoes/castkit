@@ -144,6 +144,7 @@ export type BrowserDeviceProfile = {
 
 export type ViewDataState = {
   nowPlaying?: NowPlayingData
+  printQueue?: QueueData
   queue?: QueueData
   weather?: WeatherData
   agenda?: AgendaData
@@ -175,6 +176,7 @@ export type ServerToClientMessage =
   | { type: "view"; view: string }
   | { type: "now_playing"; data: NowPlayingData }
   | { type: "queue"; data: QueueData }
+  | { type: "print_queue"; data: QueueData }
   | { type: "weather"; data: WeatherData }
   | { type: "agenda"; data: AgendaData }
   | { type: "printers"; data: PrintersData }

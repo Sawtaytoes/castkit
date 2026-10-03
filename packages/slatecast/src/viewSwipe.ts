@@ -1,5 +1,11 @@
 import { signal } from "@preact/signals"
-import { sendCommand } from "./state.ts"
+import {
+  activeView,
+  agenda,
+  device,
+  nowMs,
+  sendCommand,
+} from "./state.ts"
 
 /**
  * A vertical swipe asks the house for a view.
@@ -68,8 +74,13 @@ export const trackViewSwipe = (event: PointerEvent) => {
   // double as a view change every time it went slightly off-axis.
   if (
     !swipe.isCommitted &&
-    Math.abs(distanceY) >= SWIPE_COMMIT_PIXELS &&
-    Math.abs(distanceY) > Math.abs(distanceX)
+    ((Math.abs(distanceY) >= SWIPE_COMMIT_PIXELS &&
+      Math.abs(distanceY) > Math.abs(distanceX)) ||
+      (distanceX >= SWIPE_COMMIT_PIXELS &&
+        Math.abs(distanceX) > Math.abs(distanceY) &&
+        device.value?.views.some(
+          (view) => view.clientId === "printer-status",
+        )))
   ) {
     swipe.isCommitted = true
     isViewSwipe.value = true
@@ -79,27 +90,47 @@ export const trackViewSwipe = (event: PointerEvent) => {
 /**
  * Ask for the revealed view, then forget the gesture.
  *
- * A swipe towards a view that is already up is still sent. It is how the owner
- * says "I am still looking at this", and Home Assistant restarts its hold on
- * the view when it arrives.
+ * The audio gesture cycles Now Playing and Queue. The printer gesture cycles
+ * Printer Status and Print Queue. The time gesture follows the remaining agenda.
  */
 export const endViewSwipe = (event: PointerEvent) => {
   if (!swipe || event.pointerId !== swipe.pointerId) {
     return
   }
-  const { isCommitted, startY } = swipe
+  const { isCommitted, startX, startY } = swipe
   swipe = null
   isViewSwipe.value = false
   if (!isCommitted) {
     return
   }
-  sendCommand({
-    action: "view",
-    value:
-      event.clientY > startY
-        ? SWIPE_DOWN_VIEW_ID
-        : SWIPE_UP_VIEW_ID,
-  })
+  const distanceX = event.clientX - startX
+  const distanceY = event.clientY - startY
+  const view = activeView.value
+  const hasAgenda = (agenda.value?.events ?? []).some(
+    (event) =>
+      event.isAllDay ||
+      event.startMs >= nowMs.value - 60 * 60 * 1000,
+  )
+  const requested =
+    Math.abs(distanceX) > Math.abs(distanceY)
+      ? view === "printer-status"
+        ? "print-queue"
+        : "printer-status"
+      : distanceY > 0
+        ? view === "now-playing"
+          ? "queue"
+          : "now-playing"
+        : hasAgenda
+          ? "calendar"
+          : "ambient"
+  if (
+    !device.value?.views.some(
+      (offered) => offered.clientId === requested,
+    )
+  ) {
+    return
+  }
+  sendCommand({ action: "view", value: requested })
 }
 
 /** A scroll or a lost pointer takes the gesture with it. */

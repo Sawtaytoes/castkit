@@ -593,6 +593,35 @@ const bambuddyPrinterFilaments = (
   return filaments
 }
 
+/** Pending and running jobs form a read-only queue, in scheduler order. */
+export const normalizeBambuddyQueue = (
+  value: unknown,
+): ContractData["queue.v1"] => ({
+  items: (Array.isArray(value) ? value : [])
+    .map(record)
+    .filter((item) =>
+      ["pending", "printing"].includes(
+        textValue(item.status),
+      ),
+    )
+    .sort(
+      (first, second) =>
+        (finiteNumber(first.position) ?? 0) -
+        (finiteNumber(second.position) ?? 0),
+    )
+    .map((item) => ({
+      title:
+        textValue(item.archive_name) ||
+        textValue(item.library_file_name) ||
+        "Untitled print",
+      artist: `${normalizeBambuddyPrinterName(textValue(item.printer_name)) || textValue(item.target_model) || "Any available printer"} · ${item.status === "printing" ? "Printing" : item.manual_start ? "Manual start" : "Pending"}${item.scheduled_time ? ` · ${textValue(item.scheduled_time)}` : ""}`,
+      durationSeconds: finiteNumber(
+        item.print_time_seconds,
+      ),
+      isCurrent: item.status === "printing",
+    })),
+})
+
 /** Bambuddy's printer state becomes the same contract as an MQTT printer source. */
 export const normalizeBambuddyPrinter = ({
   data,
@@ -1078,6 +1107,30 @@ export const createBambuddySource: SourceFactory = (
             `Bambuddy inventory: ${error instanceof Error ? error.message : String(error)}`,
         )
       : Promise.resolve(undefined))
+    const printQueueData = context.channels.some(
+      (channel) => channel.type === "queue.v1",
+    )
+      ? await sourceRequest({
+          context,
+          path: "/api/v1/queue/",
+          headers,
+        })
+          .then((response) => response.json())
+          .then(normalizeBambuddyQueue)
+          .catch((error: unknown) => {
+            context.channels
+              .filter(
+                (channel) => channel.type === "queue.v1",
+              )
+              .forEach((channel) => {
+                context.reportError({
+                  channelId: channel.id,
+                  error: String(error),
+                })
+              })
+            return undefined
+          })
+      : undefined
     context.channels.forEach((channel) => {
       const selection = selectedIds(channel.id)
       if (channel.type === "ams.v1") {
@@ -1090,6 +1143,13 @@ export const createBambuddySource: SourceFactory = (
           })
         } else {
           publishSpools(channel.id)
+        }
+      } else if (channel.type === "queue.v1") {
+        if (printQueueData) {
+          context.publish({
+            channelId: channel.id,
+            data: printQueueData,
+          })
         }
       } else if (channel.type === "cameras.v1") {
         context.publish({

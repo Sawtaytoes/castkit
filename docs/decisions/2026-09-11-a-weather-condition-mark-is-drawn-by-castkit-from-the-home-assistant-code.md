@@ -81,3 +81,5 @@ panel prints. The mark is the same mapping with a path instead of a string.
   [weather at 480×320](../images/2026-09-11-short-panel-weather-after-2d-printer-workbench-480x320.png),
   [calendar at 480×320](../images/2026-09-11-short-panel-calendar-after-2d-printer-workbench-480x320.png)
   (fixture data: partly cloudy).
+
+Superseded in part by [weather colors and queue gestures](2026-10-03-weather-colors-and-queue-gestures.md). Existing command ownership and mark geometry remain.

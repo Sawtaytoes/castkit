@@ -75,6 +75,7 @@ const adapters: AdapterDefinition[] = [
       "Printer jobs, camera snapshots, print controls, and the SpoolBuddy filament scale with the spool inventory.",
     channelTypes: [
       "printers.v1",
+      "queue.v1",
       "cameras.v1",
       "spools.v1",
       "ams.v1",
@@ -553,6 +554,11 @@ const viewSpecs: ViewSpec[] = [
     type: "now-playing.v1",
   }),
   view({ id: "queue", name: "Queue", type: "queue.v1" }),
+  view({
+    id: "print-queue",
+    name: "Print Queue",
+    type: "queue.v1",
+  }),
   view({ id: "clock", name: "Clock" }),
   {
     ...view({ id: "ambient", name: "Ambient clock" }),
@@ -1064,6 +1070,7 @@ const viewGroups = [
     name: "3D printers",
     specs: [
       "printer-status",
+      "print-queue",
       "filament-spool-scale",
       "ams",
     ],

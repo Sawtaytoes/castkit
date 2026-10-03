@@ -184,6 +184,11 @@ export const nowPlaying = computed(() => {
   }
   return { ...serverData, ...predicted }
 })
+/** The independent queue of pending printer jobs. */
+export const printQueue = signal<QueueData | null>(
+  inlineSnapshot?.data.printQueue ?? null,
+)
+
 export const queue = signal<QueueData | null>(
   inlineSnapshot?.data.queue ?? null,
 )
@@ -355,6 +360,7 @@ const applyMessage = (message: ServerToClientMessage) => {
     nowPlayingFromServer.value =
       message.data.nowPlaying ?? null
     queue.value = message.data.queue ?? null
+    printQueue.value = message.data.printQueue ?? null
     weather.value = message.data.weather ?? null
     agenda.value = message.data.agenda ?? null
     printers.value = message.data.printers ?? null
@@ -377,6 +383,10 @@ const applyMessage = (message: ServerToClientMessage) => {
     ) {
       clearOptimisticFields()
     }
+    return
+  }
+  if (message.type === "print_queue") {
+    printQueue.value = message.data
     return
   }
   if (message.type === "queue") {
@@ -798,6 +808,7 @@ export const __resetStateForTests = () => {
   nowPlayingFromServer.value =
     snapshot?.data.nowPlaying ?? null
   queue.value = snapshot?.data.queue ?? null
+  printQueue.value = snapshot?.data.printQueue ?? null
   weather.value = snapshot?.data.weather ?? null
   agenda.value = snapshot?.data.agenda ?? null
   printers.value = snapshot?.data.printers ?? null

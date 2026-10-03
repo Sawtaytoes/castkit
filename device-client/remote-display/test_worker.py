@@ -54,6 +54,30 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                     self.task.result()
                 await asyncio.sleep(0.01)
 
+    async def test_vertical_swipe_crosses_controls_without_clicking(self):
+        await self.page.set_content("""<div class="stage" data-castkit-target="view-gesture:ambient"
+          style="position:absolute;inset:0;touch-action:none">
+          <button data-castkit-target="button" style="width:100px;height:40px"
+          onclick="window.wasClicked=true">Tap</button></div>""")
+        await self.page.evaluate("""() => {
+          window.gestures = [];
+          const stage = document.querySelector('.stage');
+          ['pointerdown','pointermove','pointerup'].forEach(type => stage.addEventListener(type,
+            event => window.gestures.push([type,event.clientY])));
+        }""")
+        self.session.guard.remember(
+            50, [Target("view-gesture:ambient", 0, 0, 480, 320), Target("button", 0, 0, 100, 40)]
+        )
+        for sequence, phase, y in [(1, 0, 25), (2, 1, 100), (3, 2, 150)]:
+            await self.session.touches.put(
+                ["touch", str(sequence), str(phase), "30", str(y), "0", "50", "0"]
+            )
+            async with asyncio.timeout(3):
+                while self.session.processed_touch != sequence:
+                    await asyncio.sleep(0.01)
+        self.assertIsNone(await self.page.evaluate("window.wasClicked"))
+        self.assertEqual((await self.page.evaluate("window.gestures"))[-1], ["pointerup", 150])
+
     async def test_retained_release_does_not_break_the_next_tap(self):
         await self.event(100, 2)
         await self.event(101, 0)

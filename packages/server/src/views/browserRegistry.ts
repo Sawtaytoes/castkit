@@ -63,6 +63,11 @@ export const BROWSER_VIEWS: readonly BrowserViewDefinition[] =
       isTouchRequired: false,
     },
     {
+      name: "Print Queue",
+      clientId: "print-queue",
+      isTouchRequired: true,
+    },
+    {
       name: "Printer Status",
       clientId: "printer-status",
       // The card's Pause and Stop are the reason the view exists on the
