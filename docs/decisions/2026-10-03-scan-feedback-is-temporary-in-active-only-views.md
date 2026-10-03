@@ -4,7 +4,7 @@
 - **Date:** 2026-10-03
 - **Type:** View behavior
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [Continuous countdown progress](2026-10-03-countdowns-show-continuous-timed-progress.md), only for accepted running countdowns
 
 ## Decision
 
