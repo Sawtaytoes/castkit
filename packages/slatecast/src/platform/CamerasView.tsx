@@ -1,5 +1,6 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -17,6 +18,13 @@ const CameraCard = ({
   name: string
 }) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [hasSettled, setHasSettled] = useState(false)
+  const [isSlow, setIsSlow] = useState(false)
+  useEffect(() => {
+    if (hasSettled) return
+    const timer = setTimeout(() => setIsSlow(true), 15_000)
+    return () => clearTimeout(timer)
+  }, [hasSettled])
   const container = useRef<HTMLElement>(null)
   const opener = useRef<HTMLButtonElement>(null)
   const closer = useRef<HTMLButtonElement>(null)
@@ -84,13 +92,25 @@ const CameraCard = ({
           </button>
         ) : null}
       </header>
-      <div class="home-camera-frame">
+      <div
+        class="home-camera-frame"
+        onLoadCapture={() => setHasSettled(true)}
+        onLoadedDataCapture={() => setHasSettled(true)}
+        onErrorCapture={() => setHasSettled(true)}
+      >
         <CameraImage
           url={camera.url}
           name={name}
           isLive={camera.isLive}
           format={camera.format}
         />
+        {!hasSettled ? (
+          <p class="home-camera-loading" role="status">
+            {isSlow
+              ? "Camera is not responding · Retrying"
+              : "Loading camera…"}
+          </p>
+        ) : null}
         <button
           ref={opener}
           class="home-camera-expand"
