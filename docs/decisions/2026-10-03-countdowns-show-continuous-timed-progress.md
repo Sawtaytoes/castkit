@@ -4,7 +4,7 @@
 - **Date:** 2026-10-03
 - **Type:** View behavior / correction
 - **Supersedes:** [Scan feedback is temporary in active-only views](2026-10-03-scan-feedback-is-temporary-in-active-only-views.md), only for an accepted running countdown
-- **Superseded by:** —
+- **Superseded by:** [Countdowns show time left only](2026-10-04-countdowns-show-time-left-only.md), only the elapsed-time metric
 
 ## Decision
 

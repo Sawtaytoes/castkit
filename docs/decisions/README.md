@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-04 Countdowns show time left only](2026-10-04-countdowns-show-time-left-only.md)
+
 Append-only log of settled decisions (newest first). One decision per file,
 `YYYY-MM-DD-<kebab-slug>.md`. Never edit a past decision to change its meaning —
 supersede it with a new dated file and link both ways. Check this index before
