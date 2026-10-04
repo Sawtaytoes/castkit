@@ -285,16 +285,20 @@ const ScanBanner = ({ scan }: { scan: KidScan }) => {
 const KidTotal = ({
   kid,
   cardMotion,
+  isInline = false,
 }: {
   kid: KidEntry
   cardMotion?: CardMotion
+  isInline?: boolean
 }) => (
   <p class="kids-points-total">
     <TotalNumber kid={kid} cardMotion={cardMotion} />
     <span class="kids-points-total-label">
       {kid.goal === undefined
         ? "today"
-        : `of ${formatPoints(kid.goal)} today`}
+        : isInline
+          ? `/ ${formatPoints(kid.goal)}`
+          : `of ${formatPoints(kid.goal)} today`}
     </span>
   </p>
 )
@@ -323,9 +327,11 @@ const KidCard = ({
   isAnimated,
   now,
   isLive,
+  isStacked,
 }: {
   now: number
   isLive: boolean
+  isStacked: boolean
   kid: KidEntry
   scan: KidScan | undefined
   isDimmed: boolean
@@ -349,7 +355,18 @@ const KidCard = ({
           : "false"
       }
     >
-      <h3>{kid.name}</h3>
+      {isStacked ? (
+        <div class="kids-points-card-head">
+          <h3>{kid.name}</h3>
+          <KidTotal
+            kid={kid}
+            cardMotion={cardMotion}
+            isInline
+          />
+        </div>
+      ) : (
+        <h3>{kid.name}</h3>
+      )}
       {kid.activeTask?.isCountdown &&
       (!scan ||
         scan.result === "started" ||
@@ -362,7 +379,9 @@ const KidCard = ({
       ) : (
         <>
           {scan ? <ScanBanner scan={scan} /> : null}
-          <KidTotal kid={kid} cardMotion={cardMotion} />
+          {isStacked ? null : (
+            <KidTotal kid={kid} cardMotion={cardMotion} />
+          )}
           <GoalBar kid={kid} cardMotion={cardMotion} />
           <GoalReached kid={kid} cardMotion={cardMotion} />
           <KidFootnote kid={kid} />
@@ -417,10 +436,10 @@ const KidRow = ({ kid }: { kid: KidEntry }) => (
     <div class="kids-points-row-head">
       <h3>{kid.name}</h3>
       <span class="kids-points-row-total">
-        {formatPoints(kid.pointsToday)}
-        {kid.goal === undefined
-          ? ""
-          : ` / ${formatPoints(kid.goal)}`}
+        <strong>{formatPoints(kid.pointsToday)}</strong>
+        {kid.goal === undefined ? null : (
+          <span>{` / ${formatPoints(kid.goal)}`}</span>
+        )}
       </span>
     </div>
     <GoalBar kid={kid} />
@@ -501,8 +520,13 @@ export const KidsPointsView = ({
   const content = layout.isBoard ? (
     <div
       class="kids-points-board"
+      data-stacked={
+        layout.columnCount < data.kids.length
+          ? "true"
+          : "false"
+      }
       style={{
-        gridTemplateColumns: `repeat(${data.kids.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `repeat(${layout.columnCount}, minmax(0, 1fr))`,
       }}
     >
       {data.kids.map((kid) => (
@@ -519,6 +543,7 @@ export const KidsPointsView = ({
           isAnimated={isAnimated}
           now={now}
           isLive={isLive}
+          isStacked={layout.columnCount < data.kids.length}
         />
       ))}
     </div>

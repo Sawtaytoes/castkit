@@ -91,6 +91,33 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+test("a tall phone keeps every child's task and shows earned points before a smaller goal", () => {
+  const { container } = renderInPanel({
+    width: 348,
+    height: 802,
+    value: { kids: data.kids.slice(0, 3) },
+  })
+  expect(
+    container.querySelector(".kids-points-board"),
+  ).toHaveAttribute("data-stacked", "true")
+  expect(
+    container.querySelectorAll(".kids-points-card"),
+  ).toHaveLength(3)
+  expect(
+    screen.getByText("Last: Feed the Cat"),
+  ).toBeVisible()
+  expect(
+    container.querySelector(
+      ".kids-points-card-head .kids-points-total strong",
+    ),
+  ).toHaveTextContent("130")
+  expect(
+    container.querySelector(
+      ".kids-points-card-head .kids-points-total-label",
+    ),
+  ).toHaveTextContent("/ 500")
+})
+
 test("a large panel keeps every child on the board", () => {
   renderInPanel({ width: 1200, height: 640 })
   expect(
