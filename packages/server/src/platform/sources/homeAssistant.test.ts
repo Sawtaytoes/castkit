@@ -209,3 +209,48 @@ test("script actions send only channel-approved variables", async () => {
   })
   adapter.dispose()
 })
+
+test("light capability metadata survives normalization and LED effects use the narrow turn-on allowlist", async () => {
+  const attributes = {
+    supported_color_modes: ["rgbw", "color_temp"],
+    color_mode: "rgbw",
+    effect_list: ["Solid", "Rainbow"],
+    effect: "Solid",
+    brightness: 128,
+  }
+  expect(
+    normalizeHomeAssistantEntity({
+      entity_id: "light.desk",
+      state: "on",
+      attributes,
+    }).attributes,
+  ).toEqual(attributes)
+  const fetchRequest = vi.fn<typeof fetch>(
+    async () => new Response("[]"),
+  )
+  const adapter = createHomeAssistantSource(
+    sourceContext({ fetch: fetchRequest }),
+  )
+  await adapter.executeAction?.({
+    channelId: "channel",
+    action: "turn_on",
+    payload: {
+      entityId: "light.desk",
+      effect: "Rainbow",
+      rgb_color: [20, 40, 80],
+      color_temp_kelvin: 4000,
+      area_id: "all",
+    },
+  })
+  expect(
+    JSON.parse(
+      String(fetchRequest.mock.calls[0]?.[1]?.body),
+    ),
+  ).toEqual({
+    entity_id: "light.desk",
+    effect: "Rainbow",
+    rgb_color: [20, 40, 80],
+    color_temp_kelvin: 4000,
+  })
+  adapter.dispose()
+})

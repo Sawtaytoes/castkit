@@ -20,7 +20,13 @@ import {
 const domainActions: Record<string, string[]> = {
   light: ["turn_on", "turn_off", "toggle"],
   switch: ["turn_on", "turn_off", "toggle"],
-  fan: ["turn_on", "turn_off", "toggle", "set_percentage"],
+  fan: [
+    "turn_on",
+    "turn_off",
+    "toggle",
+    "set_percentage",
+    "set_preset_mode",
+  ],
   cover: [
     "open_cover",
     "close_cover",
@@ -65,11 +71,17 @@ const allowedAttributes = [
   "icon",
   "supported_features",
   "brightness",
+  "supported_color_modes",
+  "color_mode",
+  "effect_list",
+  "effect",
   "color_temp_kelvin",
   "min_color_temp_kelvin",
   "max_color_temp_kelvin",
   "rgb_color",
   "percentage",
+  "percentage_step",
+  "target_temp_step",
   "preset_modes",
   "preset_mode",
   "temperature",
@@ -106,6 +118,7 @@ const allowedAttributes = [
 ]
 const parameters: Record<string, string[]> = {
   set_percentage: ["percentage"],
+  set_preset_mode: ["preset_mode"],
   set_cover_position: ["position"],
   set_temperature: [
     "temperature",
@@ -120,7 +133,12 @@ const parameters: Record<string, string[]> = {
   volume_set: ["volume_level"],
   volume_mute: ["is_volume_muted"],
   start: ["duration"],
-  turn_on: ["brightness", "color_temp_kelvin", "rgb_color"],
+  turn_on: [
+    "brightness",
+    "color_temp_kelvin",
+    "rgb_color",
+    "effect",
+  ],
   unlock: ["code"],
   lock: ["code"],
 }

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { join } from "node:path"
 import { chromium } from "playwright"
+import sharp from "sharp"
 
 /**
  * Renders the Printer Status story pictures from `scene.html` into
@@ -65,6 +66,22 @@ await PICTURES.reduce(
         ? {}
         : { quality: 82, type: "jpeg" as const }),
     })
+    if (!isPlate) {
+      // Decode once for Storybook: JPEG decoder rounding can vary between GPU paths.
+      await sharp(
+        join(
+          OUTPUT_DIRECTORY,
+          "printer-camera-chamber.jpg",
+        ),
+      )
+        .png()
+        .toFile(
+          join(
+            OUTPUT_DIRECTORY,
+            "printer-camera-chamber.png",
+          ),
+        )
+    }
     await page.close()
   },
   Promise.resolve(),

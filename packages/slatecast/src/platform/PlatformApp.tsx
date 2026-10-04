@@ -3,6 +3,7 @@ import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { JSX } from "preact"
 import { useEffect } from "preact/hooks"
 import { viewAppearance } from "./appearance.ts"
+import { DeferredHomeDashboard } from "./DeferredHomeDashboard.tsx"
 import { DisplayContext } from "./DisplayContext.ts"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
 import { Panel } from "./Panel.tsx"
@@ -105,6 +106,59 @@ export const DisplayComposition = ({
     : snapshot.view.isActiveOnly && panels.length <= 1
       ? "single"
       : snapshot.view.layout
+  const isHome = panels.some(
+    (panel) => typeof panel.settings.homeGroup === "string",
+  )
+  const renderPanel = ({
+    key,
+    panel,
+  }: (typeof displayedPanels)[number]) => (
+    <Panel
+      key={key}
+      layoutStyle={
+        isCombined ? combined.layout?.cells[key] : undefined
+      }
+      panel={
+        isCombined && panel.specId === "printer-status"
+          ? {
+              ...panel,
+              settings: {
+                ...panel.settings,
+                minimumDetailLevel:
+                  combined.layout?.detailLevel ?? 0,
+              },
+            }
+          : panel
+      }
+      browserEntry={
+        snapshot.viewSpecs?.find(
+          (spec) => spec.id === panel.specId,
+        )?.browserEntry
+      }
+      inputs={
+        snapshot.viewSpecs?.find(
+          (spec) => spec.id === panel.specId,
+        )?.inputs
+      }
+      channels={snapshot.channels}
+      isControlEnabled={
+        snapshot.canControl && isConnected && !isPending
+      }
+      controlDisabledReason={
+        controlDisabledReason ??
+        (!isConnected
+          ? "Connection lost · Controls disabled"
+          : isPending
+            ? "Please wait · Action in progress"
+            : !snapshot.view.isControlEnabled
+              ? "Controls disabled for this view"
+              : !snapshot.canControl
+                ? "Sign in to control"
+                : undefined)
+      }
+      onAction={onAction}
+    />
+  )
   return (
     <DisplayPropertiesContext.Provider
       value={snapshot.displayProperties}
@@ -118,6 +172,7 @@ export const DisplayComposition = ({
             ...(isCombined ? combined.layout?.style : {}),
           }}
           data-layout={layout}
+          data-home-dashboard={String(isHome)}
           data-priority-layout={String(isCombined)}
         >
           {snapshot.view.isActiveOnly &&
@@ -129,58 +184,14 @@ export const DisplayComposition = ({
               <p role="status">Nothing active</p>
             </section>
           ) : null}
-          {displayedPanels.map(({ key, panel }) => (
-            <Panel
-              key={key}
-              layoutStyle={
-                isCombined
-                  ? combined.layout?.cells[key]
-                  : undefined
-              }
-              panel={
-                isCombined &&
-                panel.specId === "printer-status"
-                  ? {
-                      ...panel,
-                      settings: {
-                        ...panel.settings,
-                        minimumDetailLevel:
-                          combined.layout?.detailLevel ?? 0,
-                      },
-                    }
-                  : panel
-              }
-              browserEntry={
-                snapshot.viewSpecs?.find(
-                  (spec) => spec.id === panel.specId,
-                )?.browserEntry
-              }
-              inputs={
-                snapshot.viewSpecs?.find(
-                  (spec) => spec.id === panel.specId,
-                )?.inputs
-              }
-              channels={snapshot.channels}
-              isControlEnabled={
-                snapshot.canControl &&
-                isConnected &&
-                !isPending
-              }
-              controlDisabledReason={
-                controlDisabledReason ??
-                (!isConnected
-                  ? "Connection lost · Controls disabled"
-                  : isPending
-                    ? "Please wait · Action in progress"
-                    : !snapshot.view.isControlEnabled
-                      ? "Controls disabled for this view"
-                      : !snapshot.canControl
-                        ? "Sign in to control"
-                        : undefined)
-              }
-              onAction={onAction}
+          {isHome ? (
+            <DeferredHomeDashboard
+              panels={displayedPanels}
+              renderPanel={renderPanel}
             />
-          ))}
+          ) : (
+            displayedPanels.map(renderPanel)
+          )}
         </div>
       </DisplayContext.Provider>
     </DisplayPropertiesContext.Provider>
