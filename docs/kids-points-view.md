@@ -1,8 +1,9 @@
 # Tally Marks view
 
 Each child's points today against the day's goal, and the result of the card a
-child just scanned. A panel wide enough for every child side by side is a
-board; a smaller panel gives a scan to the child who scanned.
+child just scanned. A panel that fits complete cards is a board: cards can
+use columns, a grid, or a tall stack. A smaller panel gives a scan to the
+child who scanned.
 
 ![A scan on a 1280 x 720 panel: the child who scanned is outlined and the rest of the board dims](images/2026-09-29-kids-points-scan-1280x720.png)
 
@@ -190,3 +191,7 @@ leave `readers` empty and every scan in the house marks its child.
 ## Active-only monitoring
 
 A Kids Points panel in an active-only view appears during the most recent scan's feedback window (`scanSeconds`, default 15 seconds), then disappears. Retained totals and timed tasks alone keep it idle. The server pushes the expiry over the live socket even when the broker sends nothing else. Regular points views continue showing the totals between scans. Slow panels use the existing repaint minimum; super-slow panels do not show temporary feedback.
+
+## Adaptive cards
+
+Complete cards now fill a measured grid selected by Charcuterie’s shared priority policy. Tall portrait boxes stack the children over the full height, retaining last-task details and making earned points larger than the adjacent goal. Wide boxes can use columns. Every card must meet its minimum size; constrained boxes retain complete compact rows and an overflow count.
