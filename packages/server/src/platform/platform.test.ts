@@ -572,6 +572,99 @@ describe("platform access and saved compositions", () => {
       ).status,
     ).toBe(401)
   })
+  test("layout edits preserve an existing private view's management-PIN fallback without allowing new private targets to omit a PIN", async () => {
+    const fixture = await createFixture()
+    expect(
+      (
+        await fixture.save("views", {
+          ...fixture.view,
+          id: "new-private",
+          access: "pin",
+        })
+      ).status,
+    ).toBe(400)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/views/workbench",
+          "PUT",
+          { ...fixture.view, access: "pin" },
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(400)
+    fixture.platform.store.update((previous) => ({
+      ...previous,
+      views: previous.views.map((view) => ({
+        ...view,
+        access: "pin",
+      })),
+    }))
+    const protectedView =
+      fixture.platform.store.get().views[0]
+    const updated = {
+      ...protectedView,
+      panels: protectedView.panels.map((panel) => ({
+        ...panel,
+        settings: {
+          ...panel.settings,
+          homeGroup: "studio",
+        },
+      })),
+    }
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/views/workbench",
+          "PUT",
+          updated,
+        )
+      ).status,
+    ).toBe(401)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/views/workbench",
+          "PUT",
+          updated,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      fixture.platform.store.get().views[0].access,
+    ).toBe("pin")
+    expect(
+      fixture.platform.store.get().views[0].panels[0]
+        .settings.homeGroup,
+    ).toBe("studio")
+    expect(fixture.platform.store.get().pinHashes).toEqual(
+      {},
+    )
+    expect(
+      (await fixture.request("/api/display/view/workbench"))
+        .status,
+    ).toBe(401)
+    expect(
+      (
+        await fixture.request(
+          "/api/access/unlock",
+          "POST",
+          { kind: "view", id: "workbench", pin: "0000" },
+        )
+      ).status,
+    ).toBe(401)
+    expect(
+      (
+        await fixture.request(
+          "/api/access/unlock",
+          "POST",
+          { kind: "view", id: "workbench", pin: "123456" },
+        )
+      ).status,
+    ).toBe(200)
+  })
+
   test("the management PIN unlocks a private display, including one with no PIN of its own", async () => {
     const fixture = await createFixture()
     expect(
