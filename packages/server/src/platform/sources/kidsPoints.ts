@@ -91,12 +91,18 @@ export const normalizeKidState = (
   const goalMinutes = positiveNumber(session.goalMinutes)
   const goal = positiveNumber(raw.goal)
   const color = hexColor(raw.color ?? raw.kidColor)
+  const displayOrder = finiteNumber(raw.displayOrder)
   const lastTask = textValue(raw.lastTask)
   return {
     id,
     name:
       textValue(raw.name) || textValue(raw.kidName) || id,
     pointsToday,
+    ...(displayOrder !== undefined &&
+    Number.isInteger(displayOrder) &&
+    displayOrder >= 0
+      ? { displayOrder }
+      : {}),
     ...(goal === undefined ? {} : { goal }),
     ...(color ? { color } : {}),
     ...(lastTask ? { lastTask } : {}),
@@ -176,8 +182,8 @@ export const normalizeKidScan = (
 }
 
 /**
- * What one channel shows: the children it selects, alphabetically so the
- * board does not reorder with the broker's retained-message order, and the
+ * What one channel shows: children in the producer's manual order, with
+ * names as the stable fallback for older states without positions, and the
  * last scan it accepted.
  */
 export const buildKidsPointsData = ({
@@ -195,8 +201,11 @@ export const buildKidsPointsData = ({
       (kid) =>
         kidIds.length === 0 || kidIds.includes(kid.id),
     )
-    .toSorted((left, right) =>
-      left.name.localeCompare(right.name),
+    .toSorted(
+      (left, right) =>
+        (left.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+          (right.displayOrder ?? Number.MAX_SAFE_INTEGER) ||
+        left.name.localeCompare(right.name),
     )
   return {
     kids: selected,

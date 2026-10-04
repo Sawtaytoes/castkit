@@ -2,6 +2,7 @@ import type { ChannelDefinition } from "@castkit/sdk/contracts"
 import { expect, test, vi } from "vitest"
 import { sourceContext } from "./__fixtures__/sourceContext.ts"
 import {
+  buildKidsPointsData,
   createKidsPointsSource,
   isTopicMatch,
   normalizeKidScan,
@@ -335,4 +336,57 @@ test("countdown state preserves the producer's target and progress is not a refu
       ts: 65000,
     })?.scan.result,
   ).toBe("progress")
+})
+
+test("manual producer order survives shuffled retained messages and filtering", () => {
+  const kids = [
+    {
+      id: "avery",
+      name: "Avery",
+      pointsToday: 10,
+      displayOrder: 2,
+    },
+    {
+      id: "casey",
+      name: "Casey",
+      pointsToday: 20,
+      displayOrder: 0,
+    },
+    {
+      id: "blake",
+      name: "Blake",
+      pointsToday: 30,
+      displayOrder: 1,
+    },
+  ]
+  expect(
+    buildKidsPointsData({
+      kids,
+      channel: channel("house"),
+    }).kids.map((kid) => kid.id),
+  ).toEqual(["casey", "blake", "avery"])
+  expect(
+    buildKidsPointsData({
+      kids,
+      channel: channel("room", {
+        kidIds: ["avery", "casey"],
+      }),
+    }).kids.map((kid) => kid.id),
+  ).toEqual(["casey", "avery"])
+  expect(
+    normalizeKidState({
+      kid: "casey",
+      pointsToday: 20,
+      displayOrder: 0,
+    })?.displayOrder,
+  ).toBe(0)
+  for (const displayOrder of [-1, 1.5, "0"]) {
+    expect(
+      normalizeKidState({
+        kid: "casey",
+        pointsToday: 20,
+        displayOrder,
+      })?.displayOrder,
+    ).toBeUndefined()
+  }
 })
