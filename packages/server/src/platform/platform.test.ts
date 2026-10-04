@@ -115,6 +115,39 @@ const createFixture = async () => {
 }
 
 describe("platform access and saved compositions", () => {
+  test("changing the management PIN revokes persistent sessions", async () => {
+    const fixture = await createFixture()
+    const changed = await fixture.request(
+      "/api/access/change-pin",
+      "POST",
+      { currentPin: "123456", newPin: "654321" },
+      fixture.cookie,
+    )
+    expect(changed.status).toBe(200)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform",
+          "GET",
+          undefined,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(401)
+    const cookie = changed.headers
+      .get("set-cookie")
+      ?.split(";")[0]
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform",
+          "GET",
+          undefined,
+          cookie,
+        )
+      ).status,
+    ).toBe(200)
+  })
   test("keeps management private while public views need no API token", async () => {
     const fixture = await createFixture()
     expect(

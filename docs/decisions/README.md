@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-04 Management sign-in persists for one year](2026-10-04-management-sign-in-persists-for-one-year.md)
+
 - [2026-10-04 Countdowns show time left only](2026-10-04-countdowns-show-time-left-only.md)
 
 Append-only log of settled decisions (newest first). One decision per file,

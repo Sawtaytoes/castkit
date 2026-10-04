@@ -16,6 +16,7 @@ import {
 } from "./platformStore.ts"
 
 const cookieName = "castkit-session"
+const sessionLifetimeSeconds = 60 * 60 * 24 * 365
 const sessionDigest = (value: string) =>
   createHash("sha256").update(value).digest("hex")
 const isEqual = (left: string, right: string) =>
@@ -108,7 +109,7 @@ export const createPlatformAccess = ({
     const isAdminValue =
       isAdminSession || Boolean(oldSession?.isAdmin)
     const expiresAt = isAdminValue
-      ? now() + 12 * 60 * 60 * 1000
+      ? now() + sessionLifetimeSeconds * 1000
       : null
     const grants = [
       ...(oldSession?.grants ?? []).filter(
@@ -156,7 +157,7 @@ export const createPlatformAccess = ({
       secure:
         context.req.url.startsWith("https://") ||
         context.req.header("x-forwarded-proto") === "https",
-      maxAge: isAdminValue ? 43200 : 60 * 60 * 24 * 365,
+      maxAge: sessionLifetimeSeconds,
     })
   }
   const checkAttempt = (key: string) => {
