@@ -4,7 +4,7 @@
 - **Date:** 2026-09-30
 - **Type:** Access / interaction
 - **Supersedes:** —
-- **Superseded by:** [Browser views reserve space for content](2026-10-01-browser-views-reserve-space-for-content.md) (access chrome only)
+- **Superseded by:** [Browser views reserve space for content](2026-10-01-browser-views-reserve-space-for-content.md) (access chrome only); [Management sign-in persists for one year](2026-10-04-management-sign-in-persists-for-one-year.md) (management session lifetime only)
 
 ## Decision
 
