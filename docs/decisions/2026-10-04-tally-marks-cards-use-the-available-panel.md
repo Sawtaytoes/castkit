@@ -8,7 +8,7 @@
 
 ## Decision
 
-Use Charcuterie's shared priority layout selector to choose a card grid from the view's measured width, height, and child count. Score readable area rather than empty rectangle area. Every card must meet its minimum dimensions; retain the complete-row fallback and overflow count when full cards do not fit. Compact rows also share the available height, treating 64 pixels as their minimum instead of their fixed height.
+Use Charcuterie's shared priority layout selector to choose a card grid from the view's measured width, height, and child count. Score readable area rather than empty rectangle area. Break equal-area ties in favor of complete grids with fewer unused cells. Every card must meet its minimum dimensions; retain the complete-row fallback and overflow count when full cards do not fit. Compact rows also share the available height, treating 64 pixels as their minimum instead of their fixed height.
 
 A tall portrait panel stacks cards across the full height. Earned points are larger than the goal, with both beside the child's name. Keep task details and existing scan feedback, animation, and countdown behavior. A board that fits all children continues showing all children during a scan.
 

@@ -70,6 +70,16 @@ test("a landscape panel uses columns while an intermediate box uses a grid", () 
   ).toBe(2)
 })
 
+test("equally readable grids prefer complete rows rather than empty cells", () => {
+  expect(
+    getKidsPointsLayout({
+      width: 1200,
+      height: 640,
+      kidCount: 4,
+    }).columnCount,
+  ).toBe(2)
+})
+
 test("rows are drawn only when they finish, with room kept to say what was dropped", () => {
   expect(
     getKidsPointsLayout({

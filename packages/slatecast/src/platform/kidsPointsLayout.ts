@@ -203,6 +203,7 @@ export const getKidsPointsLayout = ({
       return {
         id: String(columnCount),
         columnCount,
+        emptyCellCount: rowCount * columnCount - kidCount,
         isBoard:
           cardWidth >= KID_CARD_MIN_WIDTH &&
           cardHeight >= KID_CARD_MIN_HEIGHT,
@@ -213,7 +214,11 @@ export const getKidsPointsLayout = ({
         }),
       }
     },
+  ).sort(
+    (first, second) =>
+      first.emptyCellCount - second.emptyCellCount,
   )
+  // Equal readable areas prefer complete grids rather than unused cells.
   const chosen = selectPriorityLayout(candidates)
   const isBoard = chosen?.isBoard ?? false
   const columnCount = chosen?.columnCount ?? 1

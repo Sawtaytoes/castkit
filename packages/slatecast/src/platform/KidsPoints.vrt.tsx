@@ -97,6 +97,13 @@ test("a scan on a wide panel marks that child on the board", async () => {
       '.kids-points-card[data-scanned="true"]',
     ),
   ).not.toBeNull()
+  document
+    .querySelectorAll(".kids-points-card")
+    .forEach((card) => {
+      expect(card.scrollHeight).toBeLessThanOrEqual(
+        card.clientHeight + 1,
+      )
+    })
   await capture("kids-points-scan-1280x720")
 })
 

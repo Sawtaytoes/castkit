@@ -1313,7 +1313,7 @@
   border-block-start: 0;
   border-inline-start: 6px solid
     var(--kid-color, var(--accent));
-  gap: clamp(8px, 4cqmin, 24px);
+  gap: clamp(6px, 1.2cqh, 16px);
 }
 .kids-points-card-head {
   display: flex;
@@ -1338,6 +1338,11 @@
   .kids-points-total
   .kids-points-number {
   font-size: clamp(28px, 22cqmin, 80px);
+}
+.kids-points-card-head
+  .kids-points-total
+  .kids-points-number {
+  align-self: baseline;
 }
 .kids-points-card-head .kids-points-total-label {
   font-size: clamp(14px, 8cqmin, 28px);
