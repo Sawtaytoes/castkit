@@ -733,13 +733,21 @@ export const attachPlatformRoutes = ({
         throw new Error(
           "Use four to 32 digits for a kiosk PIN",
         )
+      // Existing private targets support the management PIN even without their own hash.
+      // Editing their layout preserves that protection; new private targets still need a PIN.
       if (
         (collection === "views" ||
           collection === "screens") &&
         "access" in record &&
         record.access === "pin" &&
         !hasPinInput &&
-        !previous.pinHashes[pinKey]
+        !previous.pinHashes[pinKey] &&
+        !previous[collection].some(
+          (item) =>
+            item.id === record.id &&
+            "access" in item &&
+            item.access === "pin",
+        )
       )
         throw new Error(
           "Set a PIN for this private display",
