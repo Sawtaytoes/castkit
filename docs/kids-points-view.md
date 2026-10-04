@@ -116,7 +116,7 @@ only when a child's day changes, and a quiet afternoon is not an outage. Set
 
 **A board is every child side by side.** The view measures its own box. When
 every child fits on a card at least 220 px wide and 200 px tall, it draws a
-board, one column per child, in name order so a card does not move when the
+board, one column per child, in the producer’s manual `displayOrder` (with name order as the fallback) so a card does not move when the
 totals change. Otherwise it draws rows, and it draws only the rows that finish
 on the glass, with the rest counted underneath.
 
