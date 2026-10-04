@@ -1,5 +1,6 @@
 # CastKit decision records
 
+- [2026-10-04 Kids Points follows the producer’s manual order](2026-10-04-kids-points-follows-the-producers-manual-order.md)
 - [2026-10-04 Tally Marks cards use the available panel](2026-10-04-tally-marks-cards-use-the-available-panel.md)
 
 - [2026-10-04 Management sign-in persists for one year](2026-10-04-management-sign-in-persists-for-one-year.md)

@@ -241,6 +241,8 @@ const usageProvider = z.object({
  */
 const kidPoints = z.object({
   id: z.string(),
+  /** Zero-based manual order supplied by the points producer. */
+  displayOrder: finiteNumber.int().nonnegative().optional(),
   name: z.string(),
   pointsToday: finiteNumber,
   goal: finiteNumber.positive().optional(),
