@@ -100,6 +100,79 @@ test("a scan on a wide panel marks that child on the board", async () => {
   await capture("kids-points-scan-1280x720")
 })
 
+test("a portrait phone fills the panel with stacked cards", async () => {
+  await page.viewport(390, 844)
+  const snapshot = kidsPointsFixture({ hasScan: false })
+  const channel = snapshot.channels.points!
+  const data =
+    channel.data as import("@castkit/sdk/contracts").ContractData["kids-points.v1"]
+  renderDevicePage({
+    ...snapshot,
+    channels: {
+      points: {
+        ...channel,
+        data: { ...data, kids: data.kids.slice(0, 3) },
+      },
+    },
+  })
+  const board = document.querySelector(
+    ".kids-points-board",
+  )!
+  expect(board.getAttribute("data-stacked")).toBe("true")
+  const cards = Array.from(
+    board.querySelectorAll(".kids-points-card"),
+  )
+  expect(cards).toHaveLength(3)
+  const boardBounds = board.getBoundingClientRect()
+  const firstCard = cards.at(0)
+  const lastCard = cards.at(-1)
+  if (!firstCard || !lastCard) {
+    throw new Error("The phone must show complete cards")
+  }
+  const lastBounds = lastCard.getBoundingClientRect()
+  expect(
+    Math.abs(lastBounds.bottom - boardBounds.bottom),
+  ).toBeLessThan(1)
+  const total = firstCard.querySelector(
+    ".kids-points-total strong",
+  )
+  const goal = firstCard.querySelector(
+    ".kids-points-total-label",
+  )
+  if (!total || !goal) {
+    throw new Error(
+      "The card must show earned points and a goal",
+    )
+  }
+  expect(
+    Number.parseFloat(getComputedStyle(total).fontSize),
+  ).toBeGreaterThan(
+    Number.parseFloat(getComputedStyle(goal).fontSize),
+  )
+  await capture("kids-points-stacked-390x844")
+})
+
+test("compact phone rows also use the full height", async () => {
+  await page.viewport(320, 568)
+  renderDevicePage(kidsPointsFixture({ hasScan: false }))
+  const rows = document.querySelector(".kids-points-rows")
+  const lastRow = rows?.querySelector(
+    ".kids-points-row:last-child",
+  )
+  if (!rows || !lastRow) {
+    throw new Error(
+      "The compact phone must show complete rows",
+    )
+  }
+  expect(
+    Math.abs(
+      rows.getBoundingClientRect().bottom -
+        lastRow.getBoundingClientRect().bottom,
+    ),
+  ).toBeLessThan(1)
+  await capture("kids-points-rows-320x568")
+})
+
 const countdownSnapshot = (): DisplaySnapshot => {
   const snapshot = kidsPointsFixture({ hasScan: true })
   const points = snapshot.channels.points!

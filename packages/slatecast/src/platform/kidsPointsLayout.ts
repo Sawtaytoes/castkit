@@ -1,5 +1,6 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { getIsScanRecent } from "@castkit/sdk/kidsPointsScan"
+import { selectPriorityLayout } from "@charcuterie/logic/core"
 
 export {
   DEFAULT_SCAN_SECONDS,
@@ -153,11 +154,30 @@ export const getStarBurst = (count: number) =>
     }
   })
 
+const dataSections = ({
+  kidCount,
+  cardWidth,
+  cardHeight,
+}: {
+  kidCount: number
+  cardWidth: number
+  cardHeight: number
+}) =>
+  Array.from({ length: kidCount }, () => ({
+    priority: 1,
+    width: cardWidth,
+    height: cardHeight,
+    minimumWidth: KID_CARD_MIN_WIDTH,
+    minimumHeight: KID_CARD_MIN_HEIGHT,
+    // Score the area that can enlarge both text axes, rather than empty space.
+    aspectRatio: KID_CARD_MIN_WIDTH / KID_CARD_MIN_HEIGHT,
+  }))
+
 /**
  * Board or rows, decided from the view's own box.
  *
- * A board is every child side by side, each on a card of at least the
- * legible size; a larger panel is one that can hold that. Anything smaller
+ * The shared priority policy chooses columns or stacked cards from each
+ * candidate's readable area. Every card must meet its minimum size. Anything smaller
  * gets one row per child and draws only the rows that finish on the glass.
  */
 export const getKidsPointsLayout = ({
@@ -169,12 +189,34 @@ export const getKidsPointsLayout = ({
   height: number
   kidCount: number
 }) => {
-  const isBoard =
-    kidCount > 0 &&
-    width >=
-      kidCount * KID_CARD_MIN_WIDTH +
-        (kidCount - 1) * KIDS_POINTS_GAP &&
-    height >= KID_CARD_MIN_HEIGHT
+  const candidates = Array.from(
+    { length: kidCount },
+    (_, index) => {
+      const columnCount = kidCount - index
+      const rowCount = Math.ceil(kidCount / columnCount)
+      const cardWidth =
+        (width - (columnCount - 1) * KIDS_POINTS_GAP) /
+        columnCount
+      const cardHeight =
+        (height - (rowCount - 1) * KIDS_POINTS_GAP) /
+        rowCount
+      return {
+        id: String(columnCount),
+        columnCount,
+        isBoard:
+          cardWidth >= KID_CARD_MIN_WIDTH &&
+          cardHeight >= KID_CARD_MIN_HEIGHT,
+        sections: dataSections({
+          kidCount,
+          cardWidth,
+          cardHeight,
+        }),
+      }
+    },
+  )
+  const chosen = selectPriorityLayout(candidates)
+  const isBoard = chosen?.isBoard ?? false
+  const columnCount = chosen?.columnCount ?? 1
   const rowsThatFit = (available: number) =>
     Math.max(
       0,
@@ -187,7 +229,7 @@ export const getKidsPointsLayout = ({
     rowsThatFit(height) >= kidCount
       ? kidCount
       : rowsThatFit(height - OVERFLOW_LINE_HEIGHT)
-  return { isBoard, rowCount }
+  return { isBoard, rowCount, columnCount }
 }
 
 /** How far toward today's goal, in percent; no goal means no bar. */

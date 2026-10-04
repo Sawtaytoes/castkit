@@ -43,6 +43,33 @@ test("a panel wide enough for every child side by side is a board", () => {
   ).toBe(false)
 })
 
+test("a phone stacks complete cards across its available height", () => {
+  const layout = getKidsPointsLayout({
+    width: 348,
+    height: 802,
+    kidCount: 3,
+  })
+  expect(layout.isBoard).toBe(true)
+  expect(layout.columnCount).toBe(1)
+})
+
+test("a landscape panel uses columns while an intermediate box uses a grid", () => {
+  expect(
+    getKidsPointsLayout({
+      width: 1200,
+      height: 640,
+      kidCount: 3,
+    }).columnCount,
+  ).toBe(3)
+  expect(
+    getKidsPointsLayout({
+      width: 700,
+      height: 640,
+      kidCount: 4,
+    }).columnCount,
+  ).toBe(2)
+})
+
 test("rows are drawn only when they finish, with room kept to say what was dropped", () => {
   expect(
     getKidsPointsLayout({

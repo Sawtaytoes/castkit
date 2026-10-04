@@ -1307,6 +1307,52 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* A tall box uses complete cards across the height, with earned points leading the goal. */
+.kids-points-board[data-stacked="true"] .kids-points-card {
+  justify-content: center;
+  border-block-start: 0;
+  border-inline-start: 6px solid
+    var(--kid-color, var(--accent));
+  gap: clamp(8px, 4cqmin, 24px);
+}
+.kids-points-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-inline-size: 0;
+}
+.kids-points-card-head h3 {
+  font-size: clamp(20px, 13cqmin, 48px);
+  min-inline-size: 0;
+}
+.kids-points-card-head .kids-points-total {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  flex: none;
+}
+.kids-points-card-head .kids-points-total strong,
+.kids-points-card-head
+  .kids-points-total
+  .kids-points-number {
+  font-size: clamp(28px, 22cqmin, 80px);
+}
+.kids-points-card-head .kids-points-total-label {
+  font-size: clamp(14px, 8cqmin, 28px);
+  margin: 0;
+  white-space: nowrap;
+}
+.kids-points-board[data-stacked="true"]
+  .kids-points-footnote,
+.kids-points-board[data-stacked="true"]
+  .kids-points-goal-reached {
+  font-size: clamp(14px, 7cqmin, 28px);
+}
+.kids-points-board[data-stacked="true"] .kids-points-bar {
+  flex: none;
+}
 .kids-points-card[data-scanned="true"] {
   outline: 4px solid var(--kid-color, var(--accent));
   outline-offset: -4px;
@@ -1381,6 +1427,8 @@
 }
 .kids-points-rows {
   display: flex;
+  flex: 1;
+  min-block-size: 0;
   flex-direction: column;
   gap: 12px;
 }
@@ -1389,8 +1437,9 @@
   flex-direction: column;
   justify-content: center;
   gap: 8px;
-  block-size: 64px;
-  flex: none;
+  min-block-size: 64px;
+  flex: 1;
+  container-type: size;
   padding-inline-start: 12px;
   border-inline-start: 6px solid
     var(--kid-color, var(--accent));
@@ -1402,19 +1451,28 @@
   gap: 12px;
 }
 .kids-points-row h3 {
-  font-size: 20px;
+  min-inline-size: 0;
+  font-size: clamp(20px, 10cqmin, 36px);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .kids-points-row-total {
-  font-size: 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: none;
+  font-size: clamp(14px, 6cqmin, 24px);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.kids-points-row-total strong {
+  font-size: clamp(20px, 15cqmin, 64px);
+}
 .kids-points-row .kids-points-bar {
-  block-size: 10px;
+  block-size: clamp(10px, 5cqmin, 20px);
+  flex: none;
 }
 .kids-points-overflow {
   block-size: 28px;
