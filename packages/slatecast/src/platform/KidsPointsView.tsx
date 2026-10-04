@@ -226,12 +226,6 @@ const CountdownProgress = ({
           <div class="kids-points-countdown-times">
             <p>
               <strong>
-                {formatDuration(elapsedSeconds)}
-              </strong>
-              <span>done</span>
-            </p>
-            <p>
-              <strong>
                 {formatDuration(
                   Math.ceil(remainingSeconds),
                 )}
@@ -246,7 +240,7 @@ const CountdownProgress = ({
             aria-valuemin={0}
             aria-valuemax={totalSeconds}
             aria-valuenow={Math.floor(elapsedSeconds)}
-            aria-valuetext={`${formatDuration(elapsedSeconds)} done, ${formatDuration(Math.ceil(remainingSeconds))} left`}
+            aria-valuetext={`${formatDuration(Math.ceil(remainingSeconds))} left`}
           >
             <div
               class="kids-points-bar-fill"

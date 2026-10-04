@@ -311,13 +311,13 @@ const countdown: ContractData["kids-points.v1"] = {
   },
 }
 
-test("a countdown stays focused past scan expiry with elapsed and remaining time", () => {
+test("a countdown stays focused past scan expiry with only remaining time", () => {
   renderInPanel({
     width: 440,
     height: 280,
     value: countdown,
   })
-  expect(screen.getByText("3:24")).toBeVisible()
+  expect(screen.queryByText("3:24")).toBe(null)
   expect(screen.getByText("2:36")).toBeVisible()
   expect(
     screen.getByRole("progressbar", {
@@ -341,7 +341,7 @@ test("a progress notification uses the saved countdown rather than a refusal ban
       },
     },
   })
-  expect(screen.getByText("3:24")).toBeVisible()
+  expect(screen.queryByText("3:24")).toBe(null)
   expect(screen.queryByText("Not counted")).toBe(null)
   expect(
     screen.getByRole("heading", { name: "Sky" }),
@@ -393,10 +393,10 @@ test("the live clock advances countdown metrics without a new producer payload",
       <KidsPointsView data={countdown} now={now + 1000} />
     </DisplayPropertiesContext.Provider>,
   )
-  expect(screen.getByText("3:25")).toBeVisible()
+  expect(screen.queryByText("done")).toBe(null)
   expect(screen.getByText("2:35")).toBeVisible()
   expect(screen.getByRole("progressbar")).toHaveAttribute(
-    "aria-valuenow",
-    "205",
+    "aria-valuetext",
+    "2:35 left",
   )
 })

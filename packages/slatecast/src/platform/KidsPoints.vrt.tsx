@@ -144,7 +144,7 @@ test("a countdown fits a short panel and a small square", async () => {
   expect(
     document.querySelector(".kids-points-countdown-times")
       ?.textContent,
-  ).toContain("3:24")
+  ).toContain("2:36")
   await capture("kids-points-countdown-480x320")
   short.unmount()
   await page.viewport(480, 480)
