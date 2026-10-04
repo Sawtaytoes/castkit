@@ -775,6 +775,13 @@ const clockSettings: SettingField[] = [
 ]
 const entitySettings: SettingField[] = [
   {
+    key: "relatedEntitiesJson",
+    label: "Individual controls",
+    type: "text",
+    description:
+      "JSON mapping group entity IDs to bound child entity IDs. Children retain their own permission and visibility gates.",
+  },
+  {
     key: "actionVisibilityJson",
     label: "Visibility by action",
     type: "text",
@@ -830,10 +837,84 @@ const entitySettings: SettingField[] = [
   },
 ]
 viewSpecs.forEach((spec) => {
+  spec.settings = spec.settings.concat([
+    {
+      key: "homeGroupSpan",
+      label: "Group width",
+      type: "select",
+      defaultValue: "auto",
+      options: [
+        { value: "auto", label: "One column" },
+        { value: "full", label: "Full width" },
+      ],
+    },
+    {
+      key: "homeGroup",
+      label: "Dashboard group",
+      type: "text",
+      description:
+        "Panels with the same group share a content-sized dashboard card.",
+    },
+    {
+      key: "homeGroupTitle",
+      label: "Dashboard group title",
+      type: "text",
+    },
+    {
+      key: "homeAccent",
+      label: "Group color",
+      type: "select",
+      options: [
+        "blue",
+        "green",
+        "amber",
+        "purple",
+        "rose",
+        "cyan",
+      ].map((value) => ({ value, label: value })),
+    },
+  ])
+  if (["entities", "charts", "map"].includes(spec.id))
+    spec.settings = spec.settings.concat([
+      {
+        key: "presentation",
+        label: "Presentation",
+        type: "select",
+        defaultValue: "standard",
+        options: [
+          { value: "standard", label: "Standard" },
+          { value: "home", label: "Home dashboard" },
+        ],
+      },
+    ])
+  if (spec.id === "cameras")
+    spec.settings = spec.settings.concat([
+      {
+        key: "aliasesJson",
+        label: "Camera labels",
+        type: "text",
+        description:
+          "JSON object mapping camera IDs to short display labels.",
+      },
+    ])
+
   if (["clock", "ambient"].includes(spec.id)) {
-    spec.settings = clockSettings
+    spec.settings = spec.settings.concat(clockSettings)
     spec.valueLifetimeMilliseconds = 60000
   }
+  if (spec.id === "weather")
+    spec.settings = spec.settings.concat([
+      {
+        key: "forecastType",
+        label: "Forecast labels",
+        type: "select",
+        defaultValue: "hourly",
+        options: [
+          { value: "hourly", label: "Hourly" },
+          { value: "daily", label: "Daily" },
+        ],
+      },
+    ])
   if (spec.id === "now-playing") {
     spec.valueLifetimeMilliseconds = 180000
   }

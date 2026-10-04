@@ -16,7 +16,7 @@ import { CalendarFace } from "../views/Calendar.tsx"
 import { ClockFace } from "../views/Clock.tsx"
 import { AgendaView } from "./AgendaView.tsx"
 import { AiUsageView } from "./AiUsageView.tsx"
-import { CameraImage } from "./CameraImage.tsx"
+import { DeferredCamerasView } from "./DeferredCamerasView.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { EntitiesView } from "./EntitiesView.tsx"
 import { KidsPointsView } from "./KidsPointsView.tsx"
@@ -183,6 +183,7 @@ export const BuiltinView = ({
       return (
         <WeatherView
           data={data as ContractData["weather.v1"]}
+          forecastType={panel.settings.forecastType}
         />
       )
     case "calendar":
@@ -311,27 +312,13 @@ export const BuiltinView = ({
         </div>
       )
     }
-    case "cameras": {
-      const cameras = data as ContractData["cameras.v1"]
+    case "cameras":
       return (
-        <div class="platform-camera-grid">
-          {cameras.cameras.map((camera) => (
-            <figure key={camera.id}>
-              <CameraImage
-                url={camera.url}
-                name={camera.name}
-                isLive={camera.isLive}
-                format={camera.format}
-              />
-              <figcaption>
-                {camera.name}
-                {camera.isLive ? " · Live" : ""}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
+        <DeferredCamerasView
+          data={data as ContractData["cameras.v1"]}
+          settings={panel.settings}
+        />
       )
-    }
     case "ai-usage":
       return (
         <AiUsageView

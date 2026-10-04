@@ -123,7 +123,10 @@ const MjpegCameraImage = ({
       ? `${source}${source.includes("?") ? "&" : "?"}frame=${frame}`
       : source
   return (
-    <div class="platform-camera">
+    <div
+      class="platform-camera"
+      data-failed={String(hasFailed)}
+    >
       {isRestarting ? (
         <p role="status">Reconnecting {name} camera…</p>
       ) : (

@@ -1,4 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { DeferredHomeNumericChart } from "./DeferredHomeNumericChart.tsx"
 
 type Entity =
   ContractData["entities.v1"]["entities"][number]
@@ -178,6 +179,57 @@ export const EntityChart = ({
           </span>
         </figcaption>
       </figure>
+    )
+  }
+  if (settings.presentation === "home") {
+    // Keep missing observations as gaps; never turn an unavailable value into zero.
+    const points = isDaily
+      ? samples
+      : objectSamples(entity.attributes.history)
+          .flatMap((point) => {
+            const time = timeValue(point.time)
+            return Number.isFinite(time)
+              ? [
+                  {
+                    time,
+                    value:
+                      typeof point.value === "number" &&
+                      Number.isFinite(point.value)
+                        ? point.value
+                        : null,
+                  },
+                ]
+              : []
+          })
+          .sort((left, right) => left.time - right.time)
+    return (
+      <DeferredHomeNumericChart
+        options={{
+          title: entity.name,
+          description: String(
+            entity.attributes.unit_of_measurement ?? "",
+          ),
+          labels: points.map((point) =>
+            labelTime(point.time, isDaily),
+          ),
+          series: [
+            {
+              id: entity.id,
+              label: String(
+                entity.attributes.unit_of_measurement ??
+                  entity.name,
+              ),
+              color: "currentColor",
+              values: points.map((point) => point.value),
+            },
+          ],
+          kind:
+            settings.chartType === "bar" ? "bar" : "line",
+          width: 400,
+          height: 180,
+          fontSize: 12,
+        }}
+      />
     )
   }
   const minimum = Math.min(

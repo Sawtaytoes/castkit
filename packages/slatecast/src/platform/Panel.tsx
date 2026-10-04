@@ -16,6 +16,7 @@ import { PluginView } from "./PluginView.tsx"
 import { PrintersView } from "./PrintersView.tsx"
 import type { PanelAction } from "./protocol.ts"
 import { RipDeckView } from "./RipDeckView.tsx"
+import { structuredSetting } from "./viewSettings.ts"
 
 /** Resolve each panel's own bindings; no shared mutable view data crosses panels. */
 export const Panel = ({
@@ -114,6 +115,48 @@ export const Panel = ({
       channels[panel.bindings[input.key] ?? ""]?.status ===
       "ready",
   )
+  if (
+    isSourceReady &&
+    panel.settings.presentation === "home" &&
+    ["entities", "charts"].includes(panel.specId)
+  ) {
+    const data = selectedData as
+      | ContractData["entities.v1"]
+      | undefined
+    const entityIds = structuredSetting({
+      settings: panel.settings,
+      key: "entityIds",
+    })
+    const conditions = structuredSetting({
+      settings: panel.settings,
+      key: "entityVisibility",
+    }) as Record<string, unknown> | undefined
+    const hasEntities = data?.entities.some(
+      (entity) =>
+        (!Array.isArray(entityIds) ||
+          entityIds.includes(entity.id)) &&
+        isVisible({
+          condition: conditions?.[entity.id],
+          entities: data.entities,
+          matchMedia: (query) =>
+            window.matchMedia(query).matches,
+        }),
+    )
+    const fields = structuredSetting({
+      settings: panel.settings,
+      key: "attributeFields",
+    })
+    const actions = structuredSetting({
+      settings: panel.settings,
+      key: "actionButtons",
+    })
+    if (
+      !hasEntities &&
+      !(Array.isArray(fields) && fields.length) &&
+      !(Array.isArray(actions) && actions.length)
+    )
+      return null
+  }
   const isWaiting =
     !source ||
     source.data === null ||
