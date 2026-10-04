@@ -114,11 +114,12 @@ only when a child's day changes, and a quiet afternoon is not an outage. Set
 
 ## What the view decides
 
-**A board is every child side by side.** The view measures its own box. When
-every child fits on a card at least 220 px wide and 200 px tall, it draws a
-board, one column per child, in name order so a card does not move when the
-totals change. Otherwise it draws rows, and it draws only the rows that finish
-on the glass, with the rest counted underneath.
+**A board uses the available panel.** The shared layout fitter chooses a grid
+and scales the cards to the view's measured box. Portrait panels stack the
+cards through the full height. When cards cannot fit legibly, the view draws
+rows through the available height and counts any children that do not fit.
+Children follow the producer's manual `displayOrder`, with name order as the
+fallback, so changing point totals does not move a child.
 
 **A scan holds the panel for `scanSeconds`** (default 15, the same length as
 the screen override that shows a scan in a room). On a board the child who
