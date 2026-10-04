@@ -1,4 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { getCountdownKid } from "@castkit/sdk/kidsPointsScan"
 import {
   useLayoutEffect,
   useRef,
@@ -189,6 +190,84 @@ const KidFootnote = ({ kid }: { kid: KidEntry }) =>
     <p class="kids-points-footnote">Last: {kid.lastTask}</p>
   ) : null
 
+/** A live countdown uses its saved start and target, never the minute announcement. */
+const CountdownProgress = ({
+  kid,
+  now,
+  isLive,
+}: {
+  kid: KidEntry
+  now: number
+  isLive: boolean
+}) => {
+  const task = kid.activeTask
+  if (
+    !task?.isCountdown ||
+    task.goalMinutes === undefined
+  ) {
+    return null
+  }
+  const totalSeconds = task.goalMinutes * 60
+  const elapsedSeconds = Math.min(
+    totalSeconds,
+    Math.max(0, (now - task.startedAtMs) / 1000),
+  )
+  const remainingSeconds = Math.max(
+    0,
+    totalSeconds - elapsedSeconds,
+  )
+  const formatDuration = (seconds: number) =>
+    `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`
+  return (
+    <div class="kids-points-countdown">
+      <p class="kids-points-countdown-name">{task.name}</p>
+      {isLive ? (
+        <>
+          <div class="kids-points-countdown-times">
+            <p>
+              <strong>
+                {formatDuration(elapsedSeconds)}
+              </strong>
+              <span>done</span>
+            </p>
+            <p>
+              <strong>
+                {formatDuration(
+                  Math.ceil(remainingSeconds),
+                )}
+              </strong>
+              <span>left</span>
+            </p>
+          </div>
+          <div
+            class="kids-points-bar"
+            role="progressbar"
+            aria-label={`${kid.name} ${task.name} timed progress`}
+            aria-valuemin={0}
+            aria-valuemax={totalSeconds}
+            aria-valuenow={Math.floor(elapsedSeconds)}
+            aria-valuetext={`${formatDuration(elapsedSeconds)} done, ${formatDuration(Math.ceil(remainingSeconds))} left`}
+          >
+            <div
+              class="kids-points-bar-fill"
+              style={{
+                width: `${(elapsedSeconds / totalSeconds) * 100}%`,
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        <p class="kids-points-footnote">
+          {task.goalMinutes} min · ends{" "}
+          {formatClockTime(
+            task.startedAtMs + totalSeconds * 1000,
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
 const ScanBanner = ({ scan }: { scan: KidScan }) => {
   const text = getScanText(scan)
   return (
@@ -248,7 +327,11 @@ const KidCard = ({
   scan,
   isDimmed,
   isAnimated,
+  now,
+  isLive,
 }: {
+  now: number
+  isLive: boolean
   kid: KidEntry
   scan: KidScan | undefined
   isDimmed: boolean
@@ -273,11 +356,24 @@ const KidCard = ({
       }
     >
       <h3>{kid.name}</h3>
-      {scan ? <ScanBanner scan={scan} /> : null}
-      <KidTotal kid={kid} cardMotion={cardMotion} />
-      <GoalBar kid={kid} cardMotion={cardMotion} />
-      <GoalReached kid={kid} cardMotion={cardMotion} />
-      <KidFootnote kid={kid} />
+      {kid.activeTask?.isCountdown &&
+      (!scan ||
+        scan.result === "started" ||
+        scan.result === "progress") ? (
+        <CountdownProgress
+          kid={kid}
+          now={now}
+          isLive={isLive}
+        />
+      ) : (
+        <>
+          {scan ? <ScanBanner scan={scan} /> : null}
+          <KidTotal kid={kid} cardMotion={cardMotion} />
+          <GoalBar kid={kid} cardMotion={cardMotion} />
+          <GoalReached kid={kid} cardMotion={cardMotion} />
+          <KidFootnote kid={kid} />
+        </>
+      )}
     </article>
   )
 }
@@ -395,7 +491,12 @@ export const KidsPointsView = ({
     repaint: properties.repaint,
   })
   const isAnimated = properties.repaint === "instant"
-  const scan = isScanShowing ? data.lastScan : undefined
+  const isLive = properties.repaint === "instant"
+  const countdownKid = getCountdownKid({ data, now })
+  const scan =
+    isScanShowing || countdownKid
+      ? data.lastScan
+      : undefined
   const scannedKid = scan
     ? data.kids.find((kid) => kid.id === scan.kidId)
     : undefined
@@ -422,9 +523,23 @@ export const KidsPointsView = ({
             kid.id !== scannedKid.id
           }
           isAnimated={isAnimated}
+          now={now}
+          isLive={isLive}
         />
       ))}
     </div>
+  ) : countdownKid ? (
+    <article
+      class="kids-points-focus"
+      style={kidStyle(countdownKid)}
+    >
+      <h3>{countdownKid.name}</h3>
+      <CountdownProgress
+        kid={countdownKid}
+        now={now}
+        isLive={isLive}
+      />
+    </article>
   ) : scan && scannedKid ? (
     <KidFocus
       kid={scannedKid}

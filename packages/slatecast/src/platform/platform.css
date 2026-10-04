@@ -2869,3 +2869,39 @@
   .platform-source-status {
   grid-column: 1 / -1;
 }
+
+/* Countdown metrics share the existing bar and identity palette. */
+.kids-points-countdown {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 3cqmin, 24px);
+  min-inline-size: 0;
+}
+.kids-points-countdown-name {
+  font-size: clamp(16px, 8cqmin, 48px);
+  line-height: 1.15;
+}
+.kids-points-countdown-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4cqmin;
+}
+.kids-points-countdown-times p {
+  display: flex;
+  flex-direction: column;
+  gap: 1cqmin;
+}
+.kids-points-countdown-times strong {
+  font-size: clamp(24px, 16cqmin, 100px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.kids-points-countdown-times span {
+  font-size: clamp(14px, 6cqmin, 32px);
+  color: var(--fg-dim);
+}
+html[data-repaint="instant"]
+  .kids-points-countdown
+  .kids-points-bar-fill {
+  transition: width 1s linear;
+}

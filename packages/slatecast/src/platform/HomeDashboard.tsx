@@ -2,6 +2,10 @@ import type { ViewPanel } from "@castkit/sdk/contracts"
 import type { ComponentChildren } from "preact"
 
 type Item = { key: string; panel: ViewPanel; data: unknown }
+export type HomeDashboardProps = {
+  panels: Item[]
+  renderPanel: (item: Item) => ComponentChildren
+}
 /** Configured groups retain panel order and bindings; no installation IDs enter the renderer. */
 export const homePanelGroups = (panels: Item[]) =>
   panels.reduce<
@@ -40,10 +44,7 @@ export const homePanelGroups = (panels: Item[]) =>
 export const HomeDashboard = ({
   panels,
   renderPanel,
-}: {
-  panels: Item[]
-  renderPanel: (item: Item) => ComponentChildren
-}) => (
+}: HomeDashboardProps) => (
   <div
     class="home-dashboard"
     data-camera-wall={String(

@@ -706,7 +706,35 @@ export const CombinedPrinterStates: Story = {
 /** Three printers keep progress and controls whole while lower-priority usage shrinks. */
 export const CombinedPrintersAndUsage: Story = {
   render: () => {
-    const snapshot = combinedSnapshot(3)
+    const base = combinedSnapshot(3)
+    const prints = base.channels.prints
+    if (!prints) {
+      throw new Error(
+        "The combined fixture lost its printer channel.",
+      )
+    }
+    const printers =
+      prints.data as ContractData["printers.v1"]
+    // PNG fixes this story's camera at one decoded resolution. A shared JPEG
+    // can use a cached scaled decode from a previously captured panel size.
+    const snapshot = {
+      ...base,
+      channels: {
+        ...base.channels,
+        prints: {
+          ...prints,
+          data: {
+            ...printers,
+            printers: printers.printers.map((printer) => ({
+              ...printer,
+              cameraPath: staticPath(
+                "sample-photos/printer-camera-chamber.png",
+              ),
+            })),
+          },
+        },
+      },
+    }
     return (
       <main class="platform">
         <DisplayComposition

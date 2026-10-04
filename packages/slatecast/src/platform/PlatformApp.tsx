@@ -3,9 +3,9 @@ import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { JSX } from "preact"
 import { useEffect } from "preact/hooks"
 import { viewAppearance } from "./appearance.ts"
+import { DeferredHomeDashboard } from "./DeferredHomeDashboard.tsx"
 import { DisplayContext } from "./DisplayContext.ts"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
-import { HomeDashboard } from "./HomeDashboard.tsx"
 import { Panel } from "./Panel.tsx"
 import { PinKeypad } from "./PinKeypad.tsx"
 import type {
@@ -185,7 +185,7 @@ export const DisplayComposition = ({
             </section>
           ) : null}
           {isHome ? (
-            <HomeDashboard
+            <DeferredHomeDashboard
               panels={displayedPanels}
               renderPanel={renderPanel}
             />
