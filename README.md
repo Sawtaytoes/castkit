@@ -65,6 +65,9 @@ server during development.
   now, with Pause, Resume and Stop
 - [AMS Filaments](docs/ams-filaments-view.md) — public read-only fleet cards or
   spacious spool rows, with reported temperatures, humidity and K values
+- [Cutter Status](docs/cutter-status-view.md) — a vinyl or paper cutter on a
+  Cuttero server: its connection, the job it is cutting with an estimated
+  finish and its cut lines, and its recent jobs
 - [Filament Spool Scale](docs/filament-spool-scale-view.md) — the spool on the
   scale, its one-tap weight save, every AMS slot, and a three-tap assign
 

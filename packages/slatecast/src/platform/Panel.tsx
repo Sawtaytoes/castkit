@@ -8,6 +8,7 @@ import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { ViewInput } from "@castkit/sdk/plugin"
 import type { JSX } from "preact"
 import { AmsFilaments } from "../views/AmsFilaments.tsx"
+import { CutterStatus } from "../views/CutterStatus.tsx"
 import { FilamentSpoolScale } from "../views/FilamentSpoolScale.tsx"
 import { TouchTest } from "../views/TouchTest.tsx"
 import { BuiltinView } from "./BuiltinView.tsx"
@@ -85,6 +86,7 @@ export const Panel = ({
     panel.specId === "text"
   const isLocalView =
     panel.specId === "ams" ||
+    panel.specId === "cutter-status" ||
     panel.specId === "filament-spool-scale" ||
     panel.specId === "touch-test"
   const declaredInputs =
@@ -232,6 +234,14 @@ export const Panel = ({
               typeof panel.settings.layout === "string"
                 ? panel.settings.layout
                 : "cards"
+            }
+          />
+        ) : panel.specId === "cutter-status" ? (
+          <CutterStatus
+            data={
+              (source?.data as
+                | ContractData["cutters.v1"]
+                | undefined) ?? null
             }
           />
         ) : panel.specId === "filament-spool-scale" ? (

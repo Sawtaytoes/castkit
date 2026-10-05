@@ -51,6 +51,39 @@ test("a printer channel is active while it lists a printer", () => {
   ).toBe(true)
 })
 
+test("a cutter channel is active only while a cutter has a current job", () => {
+  const idleCutter = {
+    id: "cutter-1",
+    name: "Example Cutter",
+    isOnline: true,
+    isCutterConnected: true,
+    recentJobs: [],
+  }
+  expect(
+    isChannelActive(
+      channel("cutters.v1", { cutters: [idleCutter] }),
+    ),
+  ).toBe(false)
+  expect(
+    isChannelActive(
+      channel("cutters.v1", {
+        cutters: [
+          {
+            ...idleCutter,
+            currentJob: {
+              id: "job-1",
+              name: "Sample decal",
+              status: "cutting",
+              isTrace: false,
+              createdAtMs: 0,
+            },
+          },
+        ],
+      }),
+    ),
+  ).toBe(true)
+})
+
 test("a rip deck is active only when the tower is present with a job", () => {
   const idle = {
     bays: [{ id: "1" }],
