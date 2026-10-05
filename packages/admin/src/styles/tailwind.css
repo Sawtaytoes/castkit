@@ -252,9 +252,6 @@
     min-inline-size: 12rem;
     max-inline-size: 15rem;
   }
-  .management-rail > button {
-    display: none;
-  }
   .device-heading {
     flex-wrap: wrap;
     margin-block-end: 0;
