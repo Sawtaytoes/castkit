@@ -248,6 +248,15 @@ which is the thing to read before touching any of this.
 - `yarn e2e` — Playwright specs against the real server (`e2e/testServer.ts`,
   MQTT swapped for a recording stub). Run when you touch the browser-mode
   server, the page shell, or the WebSocket protocol.
+- **Every browser test runs in four windows** — `narrow` 384x824 (a phone),
+  `tall` 1080x1920, `wide` 1920x1080, `ultrawide` 3440x1440 — as the
+  `slatecast-<window>` Vitest instances and the `chromium-<window>` Playwright
+  projects, each window with its own e2e test server
+  ([decision](https://github.com/Sawtaytoes/charcuterie/blob/master/docs/decisions/2026-10-04-every-browser-test-runs-in-four-named-windows.md)).
+  A test that sizes the page to a PANEL with `page.viewport()` is window-independent
+  and stays that way; a claim true in only some windows is split with
+  `test.skip(...)` on `inject("viewport")` / `windowOf(testInfo)` (`e2e/windows.ts`),
+  never pinned back to one window.
 
 ### Touched a `.py` or a `.cpp`? Those are linted too, as of 2026-09-14
 

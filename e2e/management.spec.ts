@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { showDeviceList, windowOf } from "./windows.ts"
 
 const IMAGE_DEVICE = {
   id: "sample-image",
@@ -199,10 +200,20 @@ test("failed saves leave edits and restore the save control", async ({
   ).not.toBeEmpty()
 })
 
+/*
+ * The category cards sit in Charcuterie's `AdaptiveGrid`, which spends
+ * HEIGHT before width: it adds a column only when the cards will not stack
+ * inside the window. So the split is a claim about the 16:9 window, where two
+ * stacked cards would scroll — the 3440x1440 window and the portrait ones
+ * have the height to stack, and the next test holds them to that.
+ */
 test("wide screens split the active category without exposing unrelated controls", async ({
   page,
-}) => {
-  await page.setViewportSize({ width: 2048, height: 1000 })
+}, testInfo) => {
+  test.skip(
+    windowOf(testInfo) !== "wide",
+    "Only the 16:9 window is too short to stack the two cards",
+  )
   await page.goto(
     "/manage/devices/device?device=sample-image",
   )
@@ -251,16 +262,58 @@ test("wide screens split the active category without exposing unrelated controls
   ).toBeVisible()
 })
 
+test("a window with room to stack keeps the active category in one column", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    windowOf(testInfo) === "wide",
+    "The 16:9 window splits the category; the test above holds it to that",
+  )
+  await page.goto(
+    "/manage/devices/device?device=sample-image",
+  )
+  const identity = page.getByRole("region", {
+    name: "Identity",
+    exact: true,
+  })
+  await expect(identity).toBeVisible()
+  const identityBounds = await identity.boundingBox()
+  await expect
+    .poll(
+      async () =>
+        (
+          await page
+            .getByRole("region", {
+              name: "Display",
+              exact: true,
+            })
+            .boundingBox()
+        )?.y ?? 0,
+    )
+    .toBeGreaterThanOrEqual(
+      (identityBounds?.y ?? 0) +
+        (identityBounds?.height ?? 0),
+    )
+  await expect(
+    page.getByRole("textbox", {
+      name: "Photo query",
+      exact: true,
+    }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("img", {
+      name: "Desk display rendered output",
+    }),
+  ).toBeVisible()
+})
+
 test("search and phone layouts keep every setting reachable without page overflow", async ({
   page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+}, testInfo) => {
   await page.goto(
     "/manage/devices/image?device=sample-image",
   )
-  await page
-    .getByRole("button", { name: "Devices", exact: true })
-    .click()
+  await showDeviceList(page, testInfo)
   await page
     .getByRole("searchbox", { name: "Find a device" })
     .fill("Wall")
@@ -272,7 +325,10 @@ test("search and phone layouts keep every setting reachable without page overflo
   await page
     .getByRole("button", { name: /Wall display Browser/ })
     .click()
+  // The device's own tab — beside the Narrow View, management's section
+  // rail carries a "Views" link too.
   await page
+    .getByLabel("Device settings")
     .getByRole("link", { name: "Views", exact: true })
     .click()
   await expect(
@@ -351,7 +407,7 @@ test("browser previews get live data without making a panel online or publishing
 
 test("Reload devices recovers from a failed initial request", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.route(
     "**/api/manage/devices",
     (route) => route.abort(),
@@ -363,6 +419,7 @@ test("Reload devices recovers from a failed initial request", async ({
       name: "No device selected",
     }),
   ).toBeVisible()
+  await showDeviceList(page, testInfo)
   await page
     .getByRole("button", { name: "Reload devices" })
     .click()

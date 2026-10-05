@@ -44,7 +44,9 @@ test("composes independent channels and sends an action for the selected panel o
       onAction={onAction}
     />,
   )
-  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
   expect(screen.getByText("Sample movie")).toBeVisible()
   const user = userEvent.setup()
   await user.click(
@@ -134,7 +136,9 @@ test("an active-only view hides the idle panel, and says so when none is active"
       onAction={async () => undefined}
     />,
   )
-  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
   expect(screen.queryByText("Sample movie")).toBeNull()
   expect(
     document
@@ -165,7 +169,9 @@ test("an active-only view hides the idle panel, and says so when none is active"
       onAction={async () => undefined}
     />,
   )
-  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
   expect(screen.getByText("Sample movie")).toBeVisible()
 })
 
@@ -216,7 +222,9 @@ test("stale or failed sources keep their last value and disable controls", () =>
   expect(
     screen.getByText(/Provider disconnected/),
   ).toBeVisible()
-  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
   expect(
     screen.getByRole("button", { name: "Pause" }),
   ).toBeDisabled()
@@ -374,7 +382,9 @@ test("the page restores a server session and responds to a screen switch through
     view.unmount()
   })
   await waitFor(() =>
-    expect(screen.getByText("Printer One")).toBeVisible(),
+    expect(
+      screen.getByRole("article", { name: "Printer One" }),
+    ).toBeVisible(),
   )
   await waitFor(() =>
     expect(connections.client).toBeDefined(),
@@ -1025,7 +1035,9 @@ test("a browser view keeps content without access chrome and marks reconnect, di
       "reconnecting",
     ),
   )
-  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
   expect(
     screen.getByRole("button", { name: "Pause" }),
   ).toBeDisabled()
@@ -1080,7 +1092,9 @@ test("a browser view keeps content without access chrome and marks reconnect, di
       ),
     { timeout: 35000 },
   )
-  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
   expect(
     screen.getByRole("button", { name: "Pause" }),
   ).toBeDisabled()

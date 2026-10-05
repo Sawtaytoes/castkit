@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { showManagementNavigation } from "./windows.ts"
 
 test.describe.configure({ mode: "serial" })
 
@@ -114,7 +115,7 @@ test("a private bookmark unlocks on the touch keypad and locks server data again
 
 test("management uses the PIN session while the root and API reference remain public", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.goto("/")
   await expect(
     page.getByRole("heading", {
@@ -137,6 +138,7 @@ test("management uses the PIN session while the root and API reference remain pu
     .getByRole("button", { name: "Sign in", exact: true })
     .click()
   expect((await loginResponse).status()).toBe(200)
+  await showManagementNavigation(page, testInfo)
   await expect(
     page.getByRole("link", {
       name: "Sources",

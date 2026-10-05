@@ -13,6 +13,13 @@ import { compositionFixture } from "./fixtures.ts"
 import { RipDeckView } from "./RipDeckView.tsx"
 
 test("three rips retain their posters when every complete card fits", async () => {
+  /*
+   * The viewport IS the panel. Slatecast sizes its type in `vw`, so a
+   * 480x280 box inside a 1920px window lays out with a 1920px panel's type
+   * and no longer fits three posters — the window, not the panel, would be
+   * the answer.
+   */
+  await page.viewport(480, 280)
   const original = compositionFixture.channels.rips
     ?.data as ContractData["rip-deck.v1"]
   const data = {

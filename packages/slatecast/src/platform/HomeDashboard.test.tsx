@@ -30,6 +30,22 @@ const lamp = {
   },
   actions: ["turn_on", "turn_off", "toggle"],
 }
+/**
+ * The controls are a dynamic `import()` (`DeferredHomeControl`), which the
+ * test server transforms on first request. Four windows put four such
+ * requests on the runner at once, and the first one outran `waitFor`'s 1 s
+ * default in a full run while passing alone; 5 s is the chunk's budget, and
+ * a passing wait still resolves the moment the controls appear.
+ */
+const waitForDeferredControls = () =>
+  waitFor(
+    () =>
+      expect(
+        screen.queryByText("Loading controls…"),
+      ).toBeNull(),
+    { timeout: 5_000 },
+  )
+
 const renderLights = ({
   isControlEnabled = true,
   settings = {},
@@ -58,11 +74,7 @@ test("light brightness has a proportional indicator and dispatches percent, RGB,
   expect(
     screen.getByRole("progressbar").getAttribute("value"),
   ).toBe("50")
-  await waitFor(() =>
-    expect(
-      screen.queryByText("Loading controls…"),
-    ).toBeNull(),
-  )
+  await waitForDeferredControls()
   fireEvent.change(
     screen.getByRole("slider", {
       name: "Studio lamp brightness",
@@ -74,11 +86,7 @@ test("light brightness has a proportional indicator and dispatches percent, RGB,
     brightness: 191,
   })
   const user = userEvent.setup()
-  await waitFor(() =>
-    expect(
-      screen.queryByText("Loading controls…"),
-    ).toBeNull(),
-  )
+  await waitForDeferredControls()
   await user.click(screen.getByText("Color & effects"))
   fireEvent.change(
     screen.getByLabelText("Studio lamp color"),
@@ -136,11 +144,7 @@ test("off lights show zero regardless of retained brightness and monochrome ligh
 
 test("visible light controls cannot bypass unavailable or restricted actions", async () => {
   const onAction = renderLights({ isControlEnabled: false })
-  await waitFor(() =>
-    expect(
-      screen.queryByText("Loading controls…"),
-    ).toBeNull(),
-  )
+  await waitForDeferredControls()
   const user = userEvent.setup()
   await user.click(
     screen.getByRole("button", { name: "Turn off" }),

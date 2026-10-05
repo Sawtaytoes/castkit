@@ -33,6 +33,10 @@ export default defineConfig({
     provide: { vrtActualDir },
     browser: {
       ...baseConfig.test?.browser,
+      // One window, deliberately: the unit config runs in all four, but
+      // the capture's viewport is the baseline's, and widening it is its
+      // own change with its own reviewed images.
+      instances: [{ browser: "chromium" }],
       provider: playwright({
         contextOptions: {
           locale: "en-US",
