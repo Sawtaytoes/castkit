@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@charcuterie/server": "^0.5.1",
+    "@charcuterie/vitest-config": "^2.0.0",
     "@preact/preset-vite": "^2.10.2",
     "@storybook/addon-docs": "^10",
     "@storybook/preact-vite": "^10",

@@ -82,7 +82,6 @@ test("management uploads, reviews, installs, and removes a package with its reta
     })
   }
   try {
-    await page.setViewportSize({ width: 1280, height: 960 })
     await page.goto(`${origin}/manage/plugins`)
     await page.getByLabel("Management PIN").fill("2468")
     await page

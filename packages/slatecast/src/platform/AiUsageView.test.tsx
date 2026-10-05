@@ -57,15 +57,23 @@ const usageWithSpentSession = buildUsage(90)
 /**
  * The view measures its own panel, and jsdom reports every element as zero
  * high. Each test states the height it is testing against.
+ *
+ * The WIDTH is pinned too. The view picks its column count from the panel's
+ * width, and an unpinned width is the test window's: a 162px panel in a
+ * 1920px window fits both providers side by side, which is a different panel
+ * from the one a test names. 414 is the width every test here was written
+ * against.
  */
 const renderInPanel = ({
   data = usage,
   panelHeight,
+  panelWidth = 414,
   repaint,
   settings,
 }: {
   data?: Parameters<typeof AiUsageView>[0]["data"]
   panelHeight: number
+  panelWidth?: number
   repaint: "instant" | "slow" | "super-slow"
   settings?: Record<string, unknown>
 }) => {
@@ -74,6 +82,11 @@ const renderInPanel = ({
     "clientHeight",
     "get",
   ).mockReturnValue(panelHeight)
+  vi.spyOn(
+    HTMLElement.prototype,
+    "clientWidth",
+    "get",
+  ).mockReturnValue(panelWidth)
   return render(
     <DisplayPropertiesContext.Provider
       value={{
@@ -203,11 +216,6 @@ test("a live panel counts down only within the day, never in hundreds of hours",
 })
 
 test("a letterbox panel lays its providers out in columns and grows its type", () => {
-  vi.spyOn(
-    HTMLElement.prototype,
-    "clientWidth",
-    "get",
-  ).mockReturnValue(1360)
   const fiveProviders = {
     providers: [
       "Claude",
@@ -232,6 +240,7 @@ test("a letterbox panel lays its providers out in columns and grows its type", (
   const { container } = renderInPanel({
     data: fiveProviders,
     panelHeight: 480,
+    panelWidth: 1360,
     repaint: "slow",
   })
   expect(

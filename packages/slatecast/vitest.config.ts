@@ -1,3 +1,7 @@
+import {
+  createCiTimeouts,
+  createViewportInstances,
+} from "@charcuterie/vitest-config"
 import preact from "@preact/preset-vite"
 import { playwright } from "@vitest/browser-playwright"
 import { defineConfig } from "vitest/config"
@@ -10,6 +14,9 @@ export default defineConfig({
     // no components.
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["**/node_modules/**", "**/dist/**"],
+    // Four windows multiply the runner's load; this hand-rolled config
+    // never had the shared factory's CI budget, so it takes it here.
+    ...createCiTimeouts(),
     // Real Chromium, not jsdom: SeekBar divides by getBoundingClientRect()
     // width and calls setPointerCapture, and accentColor reads canvas pixels
     // via getImageData — all three are dead ends under jsdom. Mirrors
@@ -18,7 +25,14 @@ export default defineConfig({
       enabled: true,
       provider: playwright(),
       headless: true,
-      instances: [{ browser: "chromium" }],
+      // Every test runs once in each of the fleet's four windows
+      // (`slatecast-narrow`, `-tall`, `-wide`, `-ultrawide`). A test that
+      // sizes the page to a PANEL with `page.viewport()` is asserting on
+      // that panel's own canvas, which is window-independent; the four
+      // windows are the browser around it.
+      instances: createViewportInstances({
+        project: "slatecast",
+      }),
     },
     setupFiles: ["./vitest.setup.ts"],
   },
@@ -29,6 +43,7 @@ export default defineConfig({
   // run. Same fix, same reasoning as mux-magic's web project.
   optimizeDeps: {
     include: [
+      "@charcuterie/vitest-config/viewports.js",
       "@preact/signals",
       "@testing-library/jest-dom/vitest",
       "@testing-library/preact",
