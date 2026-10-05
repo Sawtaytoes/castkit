@@ -4107,3 +4107,292 @@ html[data-grayscale-text="true"] {
     padding: 7px;
   }
 }
+
+/*
+ * Cutter Status. The card is the printer card — same head, chip, band and
+ * metric blocks — so a cutter beside a printer reads as the same kind of
+ * thing. What differs is the picture: the job's own cut lines, drawn from
+ * path data, on the sheet they will be cut from.
+ */
+.cutter-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  padding: 18px 22px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+.cutter-cards {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 320px), 1fr)
+    );
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+.cutter-empty {
+  margin: auto;
+  color: var(--fg-dim);
+  font-size: 20px;
+}
+/* Each card answers to its OWN shape: two cutters side by side are two tall cards. */
+.cutter-card {
+  container: cutter-card / size;
+}
+.cutter-card .printer-head {
+  flex-wrap: nowrap;
+}
+.cutter-model-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+/*
+ * Stacked, the cut lines keep at least 40% of the height and the facts take
+ * what they need of the rest. The facts row can shrink below its content, so
+ * the recent jobs drop whole rows rather than pushing the picture to nothing.
+ */
+.cutter-main {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(40%, 1fr) minmax(
+      0,
+      max-content
+    );
+  gap: 12px;
+  min-height: 0;
+}
+.cutter-picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+.cutter-picture > * {
+  max-width: 100%;
+  max-height: 100%;
+}
+.cutter-picture .cutter-lines {
+  width: 100%;
+  height: 100%;
+}
+.cutter-model-image {
+  width: 70%;
+  height: 60%;
+  object-fit: contain;
+}
+.cutter-sheet {
+  fill: var(--color-surface-sunken);
+  stroke: var(--color-border-default);
+  stroke-width: 0.5;
+}
+.cutter-path {
+  fill: none;
+  stroke: var(--fg);
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.cutter-path.is-weedbox {
+  stroke: var(--color-intent-warning-content);
+  stroke-dasharray: 6 4;
+}
+.cutter-path.is-outline {
+  stroke: var(--accent);
+  stroke-dasharray: 6 4;
+}
+.cutter-facts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.cutter-card .printer-job {
+  margin-top: 0;
+  color: var(--fg);
+  font-size: 20px;
+  font-weight: 700;
+}
+.cutter-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-intent-warning-border);
+  border-radius: 10px;
+  color: var(--color-intent-warning-content);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.cutter-idle {
+  margin: 0;
+  color: var(--fg-dim);
+  font-size: 20px;
+  font-weight: 600;
+}
+.cutter-band {
+  height: 64px;
+}
+/* Two lines at the band's left: what is happening, then the clock time. */
+.cutter-band-text {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 16px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.cutter-band-text strong {
+  overflow: hidden;
+  font-size: 19px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cutter-band-text span {
+  overflow: hidden;
+  color: var(--fg-dim);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cutter-recent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  margin-top: 12px;
+}
+.cutter-recent h3 {
+  margin: 0;
+  color: var(--color-content-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+/*
+ * The rows wrap into a second column that the list clips. A row that would
+ * end below the panel's edge moves there whole, so the glass never shows a
+ * row cut in half and never needs a scrollbar it does not have.
+ *
+ * The first item is an empty spacer. A flex line always takes at least one
+ * item, so without it a list too short for even one row would still draw
+ * that row, cut off at the bottom.
+ */
+.cutter-recent-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0;
+  overflow: hidden;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cutter-recent-spacer {
+  width: 100%;
+  height: 0;
+}
+.cutter-recent-row {
+  margin-bottom: 6px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 9px;
+}
+.cutter-recent-thumb {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: var(--color-surface-sunken);
+}
+.cutter-recent-thumb .cutter-lines {
+  width: 100%;
+  height: 100%;
+}
+.cutter-recent-thumb .cutter-path {
+  stroke-width: 1px;
+}
+.cutter-recent-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cutter-recent-text > * {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cutter-recent-text strong {
+  font-size: 16px;
+}
+.cutter-recent-text span {
+  color: var(--fg-dim);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cutter-recent-text span[data-status="failed"] {
+  color: var(--color-intent-danger-content);
+}
+/*
+ * A landscape card puts the cut lines beside the facts: the picture keeps
+ * the height it needs to be read, and the recent jobs fill the column under
+ * the band.
+ */
+@container cutter-card (min-aspect-ratio: 4 / 3) {
+  .cutter-main {
+    grid-template-columns: minmax(0, 1fr) minmax(
+        0,
+        clamp(280px, 42cqw, 520px)
+      );
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+/* A small square or round panel has room for the job, not its history. */
+@container cutter-card (max-height: 520px) and (
+  max-aspect-ratio: 4 / 3
+) {
+  .cutter-recent {
+    display: none;
+  }
+}
+/* A short panel has no room for history; the job is the whole story. */
+@container cutter-card (max-height: 400px) {
+  .cutter-recent,
+  .cutter-card .printer-metrics {
+    display: none;
+  }
+  .cutter-card .printer-job {
+    font-size: 16px;
+  }
+  .cutter-band {
+    height: 54px;
+  }
+  .cutter-band-text strong {
+    font-size: 16px;
+  }
+  .cutter-band-text span {
+    font-size: 13px;
+  }
+}

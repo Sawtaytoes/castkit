@@ -78,6 +78,7 @@ The bundled adapters and view groups have separate plugin entries. You can disab
 - Immich: photo selections from people, albums, or search. Credentials stay on the server.
 - Rip Deck: normalized bays, job state, poster art, and supported drive controls.
 - Bambuddy: selected printers, progress, covers, camera snapshots, printer controls, and the `spools.v1` channel below.
+- Cuttero: vinyl and paper cutters, read-only. See [Cutter Status](cutter-status-view.md).
 - Clock: local time without a network service.
 
 An API source writes directly to the internal channel cache. It does not need to publish its results back to MQTT. A Home Assistant publisher can instead supply the same contracts through named MQTT channels.

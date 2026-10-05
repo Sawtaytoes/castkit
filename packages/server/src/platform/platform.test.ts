@@ -871,6 +871,18 @@ describe("platform access and saved compositions", () => {
       ).status,
     ).toBe(415)
     expect(media).toHaveBeenCalledOnce()
+    media.mockResolvedValue(
+      new Response("<svg/>", {
+        headers: { "content-type": "image/svg+xml" },
+      }),
+    )
+    const svg = await fixture.request(
+      "/api/display/view/workbench/media/printers%2Fworkbench/asset",
+    )
+    expect(svg.status).toBe(200)
+    expect(svg.headers.get("content-security-policy")).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    )
   })
   test("keeps source secrets out of management and viewer responses", async () => {
     const fixture = await createFixture()

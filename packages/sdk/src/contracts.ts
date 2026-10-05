@@ -18,6 +18,7 @@ export const CONTRACT_TYPES = [
   "time.v1",
   "spools.v1",
   "ams.v1",
+  "cutters.v1",
 ] as const
 /** An independently configured provider; secrets never belong in this DTO. */
 export type SourceDefinition = {
@@ -362,8 +363,83 @@ const spoolsPrinter = z.object({
   imagePath: safeUrl.optional(),
   ams: z.array(amsUnit),
 })
+/**
+ * SVG path data and nothing else: commands, numbers, separators. A cut
+ * preview is drawn as `<path d>` attributes, never as markup, so a source
+ * cannot smuggle an element or a script into the panel.
+ */
+const svgPathData = z
+  .string()
+  .max(200_000)
+  .regex(/^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\s-]*$/)
+/**
+ * One send to a vinyl or paper cutter. The cutter reports nothing back once
+ * the bytes are in its buffer, so `expectedDoneAtMs` is the source's ESTIMATE
+ * of when the blade stops, and a `done` job is finished by that estimate, not
+ * by anything the machine said. `isTrace` is a blade-up outline move.
+ */
+const cutterJob = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.enum([
+    "queued",
+    "sent",
+    "cutting",
+    "done",
+    "failed",
+    "canceled",
+  ]),
+  isTrace: z.boolean(),
+  createdAtMs: finiteNumber,
+  writtenAtMs: finiteNumber.optional(),
+  expectedDoneAtMs: finiteNumber.optional(),
+  finishedAtMs: finiteNumber.optional(),
+  estimateSeconds: finiteNumber.nonnegative().optional(),
+  cutLengthMm: finiteNumber.nonnegative().optional(),
+  problemText: z.string().optional(),
+  preview: z
+    .object({
+      sheet: z.object({
+        widthMm: finiteNumber.positive(),
+        heightMm: finiteNumber.positive(),
+      }),
+      boundsMm: z.object({
+        x: finiteNumber,
+        y: finiteNumber,
+        width: finiteNumber.nonnegative(),
+        height: finiteNumber.nonnegative(),
+      }),
+      paths: z
+        .array(
+          z.object({
+            d: svgPathData,
+            kind: z.enum(["cut", "weedbox", "outline"]),
+          }),
+        )
+        .max(4000),
+    })
+    .optional(),
+})
+/**
+ * One cutter on one USB cable. `isOnline` is the host that drives it;
+ * `isCutterConnected` is the machine itself answering on that cable, so a
+ * cutter that is switched off reads online and not connected.
+ */
+const cutter = z.object({
+  id: z.string(),
+  name: z.string(),
+  hostLabel: z.string().optional(),
+  firmwareVersion: z.string().optional(),
+  isOnline: z.boolean(),
+  isCutterConnected: z.boolean(),
+  updatedAtMs: finiteNumber.optional(),
+  imagePath: safeUrl.optional(),
+  currentJob: cutterJob.optional(),
+  recentJobs: z.array(cutterJob).max(10),
+})
 export const builtinContractSchemas = {
   "ams.v1": z.object({ printers: z.array(spoolsPrinter) }),
+  "cutters.v1": z.object({ cutters: z.array(cutter) }),
   "now-playing.v1": nowPlaying,
   "queue.v1": z.object({
     items: z.array(

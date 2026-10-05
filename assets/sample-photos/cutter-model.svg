@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120">
+  <title>A generic desktop cutter</title>
+  <rect x="8" y="34" width="224" height="62" rx="14" fill="#e8e8ec"/>
+  <rect x="8" y="34" width="224" height="20" rx="10" fill="#c8c8d0"/>
+  <rect x="24" y="58" width="192" height="8" rx="4" fill="#4a4a55"/>
+  <rect x="104" y="50" width="26" height="24" rx="5" fill="#2f6fd6"/>
+  <circle cx="40" cy="80" r="5" fill="#8a8a95"/>
+  <circle cx="200" cy="80" r="5" fill="#8a8a95"/>
+  <rect x="172" y="40" width="34" height="8" rx="4" fill="#5ab05a"/>
+  <rect x="20" y="96" width="200" height="8" rx="3" fill="#b0b0b8"/>
+</svg>

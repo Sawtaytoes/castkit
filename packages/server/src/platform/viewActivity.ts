@@ -91,6 +91,12 @@ export const isChannelActive = (
               }))),
       )
     }
+    case "cutters.v1":
+      return (
+        channel.data as ContractData["cutters.v1"]
+      ).cutters.some(
+        (cutter) => cutter.currentJob !== undefined,
+      )
     case "queue.v1":
       return (
         (channel.data as ContractData["queue.v1"]).items

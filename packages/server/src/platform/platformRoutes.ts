@@ -1368,7 +1368,7 @@ const sendMedia = async ({
         ? /^(application\/(vnd\.apple\.mpegurl|x-mpegurl)|video\/(mp4|iso\.segment))\b/i.test(
             contentType,
           )
-        : /^(image\/(jpeg|png|webp|gif|avif)|video\/(mp4|webm)|multipart\/x-mixed-replace)/i.test(
+        : /^(image\/(jpeg|png|webp|gif|avif|svg\+xml)|video\/(mp4|webm)|multipart\/x-mixed-replace)/i.test(
             contentType,
           ))
     )
@@ -1376,11 +1376,23 @@ const sendMedia = async ({
         { error: "Unsupported media format" },
         415,
       )
+    /*
+     * An SVG is a document as well as a picture. Inside an `<img>` it runs no
+     * script, but opened on its own at this URL it would run in CastKit's
+     * origin, so it is served sandboxed with nothing it may load.
+     */
+    const isSvg = /^image\/svg\+xml/i.test(contentType)
     return new Response(response.body, {
       headers: {
         "content-type": contentType,
         "cache-control": "private, no-store",
         "x-content-type-options": "nosniff",
+        ...(isSvg
+          ? {
+              "content-security-policy":
+                "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            }
+          : {}),
         ...(/^multipart\/x-mixed-replace/i.test(contentType)
           ? { "x-accel-buffering": "no" }
           : {}),

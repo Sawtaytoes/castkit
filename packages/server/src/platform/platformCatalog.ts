@@ -15,6 +15,7 @@ import {
 } from "@castkit/sdk/plugin"
 import { createAiUsageSource } from "./sources/aiUsage.ts"
 import { createBambuddySource } from "./sources/bambuddy.ts"
+import { createCutteroSource } from "./sources/cuttero.ts"
 import { createHomeAssistantSource } from "./sources/homeAssistant.ts"
 import { createImmichSource } from "./sources/immich.ts"
 import {
@@ -358,6 +359,24 @@ const adapters: AdapterDefinition[] = [
     actions: [],
   },
   {
+    id: "cuttero",
+    name: "Cuttero",
+    description:
+      "Vinyl and paper cutters driven by a Cuttero server: whether each cutter is connected, the job it is working through, and its recent jobs. Read-only.",
+    channelTypes: ["cutters.v1"],
+    settings: [urlField, pollingField],
+    channelSettings: [
+      {
+        key: "cutterIds",
+        label: "Cutters",
+        type: "string-list",
+        discoveryKey: "cutters",
+        description: "Leave empty to include every cutter.",
+      },
+    ],
+    actions: [],
+  },
+  {
     id: "points-history",
     name: "Tally Marks History",
     description:
@@ -624,6 +643,16 @@ const viewSpecs: ViewSpec[] = [
       type: "spools.v1",
     }),
     renderers: ["browser"],
+    minimumRepaint: "fast",
+  },
+  {
+    ...view({
+      id: "cutter-status",
+      name: "Cutter Status",
+      type: "cutters.v1",
+      description:
+        "Each cutter's connection, the job it is cutting with an estimated finish, its cut lines, and its recent jobs.",
+    }),
     minimumRepaint: "fast",
   },
   {
@@ -1115,6 +1144,7 @@ const sourceFactories: NonNullable<
   immich: createImmichSource,
   "rip-deck": createRipDeckSource,
   "ai-usage": createAiUsageSource,
+  cuttero: createCutteroSource,
   "kids-points": createKidsPointsSource,
   "points-history": createPointsHistorySource,
   clock: (context) => {
@@ -1155,6 +1185,11 @@ const viewGroups = [
       "filament-spool-scale",
       "ams",
     ],
+  },
+  {
+    id: "cutters",
+    name: "Vinyl and paper cutters",
+    specs: ["cutter-status"],
   },
   {
     id: "touch",
