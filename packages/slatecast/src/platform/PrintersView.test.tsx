@@ -45,12 +45,21 @@ const mount = async ({
     </main>,
   )
   await document.fonts.ready
-  await waitFor(() => {
-    const image = document.querySelector<HTMLImageElement>(
-      ".platform-printer-image",
-    )
-    expect(image?.naturalWidth).toBeGreaterThan(0)
-  })
+  /*
+   * A real image load. Four windows put four of them on the runner at once,
+   * and one outran `waitFor`'s 1 s default in a full run while passing
+   * alone, so the load gets 5 s.
+   */
+  await waitFor(
+    () => {
+      const image =
+        document.querySelector<HTMLImageElement>(
+          ".platform-printer-image",
+        )
+      expect(image?.naturalWidth).toBeGreaterThan(0)
+    },
+    { timeout: 5_000 },
+  )
   return onAction
 }
 
