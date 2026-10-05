@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
 import { managementPlatform } from "./__fixtures__/managementPlatform.ts"
+import { windowOf } from "./windows.ts"
 
 test.beforeEach(async ({ page }) => {
   const platform = managementPlatform()
@@ -126,10 +127,9 @@ test("compact selection searches names and tags, filters groups, and Add view fo
   expect(saved.id).toBe("new-dashboard")
 })
 
-test("tabs keep edits and the preview stays beside structured forms while unknown settings survive save", async ({
+test("tabs keep edits and unknown settings survive save", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1600, height: 1000 })
   await page.goto("/manage/views/panels?item=view-0")
   await page
     .getByRole("button", {
@@ -155,15 +155,6 @@ test("tabs keep edits and the preview stays beside structured forms while unknow
       exact: true,
     })
     .fill("Start scene")
-  const editor = await page
-    .locator(".collection-editor")
-    .boundingBox()
-  const preview = await page
-    .locator(".collection-preview")
-    .boundingBox()
-  expect(preview?.x).toBeGreaterThan(
-    (editor?.x ?? 0) + (editor?.width ?? 0),
-  )
   expect(await page.locator("textarea").count()).toBe(0)
   await page
     .getByRole("link", { name: "General", exact: true })
@@ -261,10 +252,67 @@ test("nested visibility rules remain editable, incomplete new rules block saving
   )
 })
 
+/*
+ * The workspace puts the preview beside the forms from a 68rem container
+ * (`.collection-workspace`), which the two landscape windows have and the
+ * phone and the portrait monitor do not. Each side of that line gets the
+ * claim that is true there.
+ */
+const openStructuredForms = async (page: Page) => {
+  await page.goto("/manage/views/panels?item=view-0")
+  await page
+    .getByRole("button", {
+      name: "Entity labels",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByRole("textbox", {
+      name: "Display label",
+      exact: true,
+    }),
+  ).toBeVisible()
+  return {
+    editor: await page
+      .locator(".collection-editor")
+      .boundingBox(),
+    preview: await page
+      .locator(".collection-preview")
+      .boundingBox(),
+  }
+}
+
+test("the preview stays beside structured forms in a landscape window", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    ["narrow", "tall"].includes(windowOf(testInfo)),
+    "Narrower than the 68rem the preview needs beside the forms",
+  )
+  const { editor, preview } =
+    await openStructuredForms(page)
+  expect(preview?.x).toBeGreaterThan(
+    (editor?.x ?? 0) + (editor?.width ?? 0),
+  )
+})
+
+test("the preview follows structured forms where the window is too narrow to share", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    ["wide", "ultrawide"].includes(windowOf(testInfo)),
+    "Wide enough to put the preview beside the forms",
+  )
+  const { editor, preview } =
+    await openStructuredForms(page)
+  expect(preview?.y).toBeGreaterThanOrEqual(
+    (editor?.y ?? 0) + (editor?.height ?? 0),
+  )
+})
+
 test("screen view lists are searchable and the editor fits a phone", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(
     "/manage/screens/views?item=browser-screen",
   )
@@ -383,7 +431,6 @@ test("duplicate mapping names block save and reveal the affected settings tab", 
 test("a screen preview scrolls without scrolling the settings page", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1600, height: 1000 })
   await page.route(/\/screen\/[^/]+\?preview=1$/, (route) =>
     route.fulfill({
       contentType: "text/html",
@@ -610,7 +657,6 @@ test("combined kiosk preset exposes per-view printer and account choices and sav
 test("a failed deletion stays visible beside the mobile save buttons and names its screen assignment", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 390, height: 660 })
   await page.route(
     "**/api/manage/platform/views/view-0",
     (route) =>

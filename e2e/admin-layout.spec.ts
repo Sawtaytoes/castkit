@@ -27,20 +27,17 @@ const platform = {
   deviceScreens: {},
 }
 
-const sizes = [
-  { width: 390, zoom: 1 },
-  { width: 1024, zoom: 1 },
-  { width: 1440, zoom: 1 },
-  { width: 2560, zoom: 1 },
-  { width: 1440, zoom: 2 },
-  { width: 2560, zoom: 2 },
-]
+/*
+ * The window comes from the project — each of the four is a real screen —
+ * and the page zoom is the axis this file adds on top of it.
+ */
+const zooms = [1, 2]
 
-sizes.forEach(({ width, zoom }) => {
-  test(`management layout stays within its column at ${width}px and ${zoom}x zoom`, async ({
+zooms.forEach((zoom) => {
+  test(`management layout stays within its column at ${zoom}x zoom`, async ({
     page,
   }) => {
-    await page.setViewportSize({ width, height: 1000 })
+    const width = page.viewportSize()?.width ?? 0
     await page.route("**/api/access/session", (route) =>
       route.fulfill({
         json: {
