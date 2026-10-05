@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/preact"
-import { afterEach, expect, test } from "vitest"
+import { expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import type { DisplaySnapshot } from "./protocol.ts"
@@ -79,8 +79,6 @@ const renderOnShortPanel = async (
     />,
   )
 }
-
-afterEach(() => page.viewport(414, 896))
 
 test("the ambient panel draws the short-panel face with its bound weather", async () => {
   await renderOnShortPanel(
