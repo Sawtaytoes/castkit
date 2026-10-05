@@ -39,3 +39,9 @@ A real plate render is never a substitute: it can carry a name modeled into the 
 | `printer-camera-chamber.jpg` | A chamber-camera frame: toolhead, carbon rods, a textured plate and a part in progress, with sensor noise. For views that show a live printer camera. |
 
 `printer-camera-chamber.png` is a lossless decoding of the generated JPG camera fixture, used by the combined printer/usage story to avoid cached scaled JPEG decoding across captures at different panel sizes.
+
+## Cutter picture — drawn for CastKit
+
+`cutter-model.svg` is a plain drawing of a generic desktop cutter, written by hand
+for the Cutter Status stories. It is not any vendor's product image. It is dedicated
+to the public domain under **CC0**, like the rest of this folder.
