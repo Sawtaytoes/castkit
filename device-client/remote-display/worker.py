@@ -14,16 +14,18 @@ from urllib.parse import urlsplit
 
 import yaml
 from aioesphomeapi import APIClient, TextSensorState
-from codec import encode_frame, encode_presto_frame
+from playwright.async_api import async_playwright
+
+from ambient_light import artwork_bounds
+from codec import encode_frame, encode_presto_frame, encode_presto_frame_with_palette
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
-from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v9-native-edges"
+BUILD_MARKER = "castkit-remote-display-v10-ambient-light"
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
@@ -348,11 +350,23 @@ class DisplaySession:
                 if before != after:
                     continue
                 self.preview.set_frame(png)
-                payload = (
-                    await asyncio.to_thread(encode_presto_frame, png)
-                    if isinstance(self.client, PrestoTransport)
-                    else await asyncio.to_thread(encode_frame, png)
+                needs_palette = (
+                    isinstance(self.client, PrestoTransport)
+                    and self.client.ambient_light is not None
+                    and self.client.ambient_light["on"]
+                    and self.client.ambient_light["mode"] in ("album-glow", "swipe-comet")
                 )
+                if needs_palette:
+                    payload, colors = await asyncio.to_thread(
+                        encode_presto_frame_with_palette, png, artwork_bounds(after)
+                    )
+                    self.client.set_ambient_palette(colors)
+                else:
+                    payload = (
+                        await asyncio.to_thread(encode_presto_frame, png)
+                        if isinstance(self.client, PrestoTransport)
+                        else await asyncio.to_thread(encode_frame, png)
+                    )
                 encoded_at = time.monotonic()
                 if isinstance(self.client, PrestoTransport):
                     self.client.capture_ms = round((capture_finished - capture_started) * 1000, 1)
@@ -411,9 +425,14 @@ async def poll_controls(context, config, transport, stop):
             same_origin_url(config["manifest_url"], response.url)
             if not response.ok:
                 raise ConnectionError("Controls unavailable")
-            transport.set_backlight((await response.json())["backlight_percent"])
+            controls = await response.json()
+            if "backlight_percent" in controls:
+                transport.set_backlight(controls["backlight_percent"])
+            transport.set_ambient_light(
+                controls.get("ambientLight"), controls.get("ambientLightData")
+            )
         except Exception as error:
-            LOG.warning("Backlight controls unavailable: %s", type(error).__name__)
+            LOG.warning("Display controls unavailable: %s", type(error).__name__)
         await asyncio.sleep(0.5)
 
 
