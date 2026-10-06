@@ -13,9 +13,15 @@ def load_firmware():
     path = pathlib.Path(__file__).parent.parent / "presto" / "main.py"
     specification = importlib.util.spec_from_file_location("presto_firmware_test", path)
     module = importlib.util.module_from_spec(specification)
+    ambient_specification = importlib.util.spec_from_file_location(
+        "ambient", path.parent / "ambient.py"
+    )
+    ambient = importlib.util.module_from_spec(ambient_specification)
+    ambient_specification.loader.exec_module(ambient)
     with patch.dict(
         sys.modules,
         {
+            "ambient": ambient,
             "deflate": types.SimpleNamespace(),
             "network": types.SimpleNamespace(),
             "pixels": types.SimpleNamespace(blit_patch=Mock(), decode_rle=Mock()),
@@ -46,6 +52,7 @@ class PrestoFirmwareTests(unittest.IsolatedAsyncioTestCase):
             touch_poll=Mock(),
             touch_a=self.contact,
         )
+        self.client.ambient_light = Mock()
         self.client.frame_id = 7
         self.client.last_frame_at = 1000
         self.client.is_presenting = False

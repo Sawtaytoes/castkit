@@ -107,6 +107,7 @@ class FirmwareWritesTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         self.client = Client.__new__(Client)
+        self.client.ambient_light = types.SimpleNamespace(apply_header=lambda encoded: False)
         self.client.connections = {}
         self.client.mac, self.client.boot_id = "020000000001", "boot"
 
@@ -356,6 +357,7 @@ class FirmwareRequestTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         self.client = Client.__new__(Client)
+        self.client.ambient_light = types.SimpleNamespace(apply_header=lambda encoded: False)
         self.client.connections = {}
         self.client.mac, self.client.boot_id = "020000000001", "boot"
 
