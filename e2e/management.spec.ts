@@ -631,7 +631,160 @@ test("the overview includes independent screens without duplicating assigned scr
   ).toHaveAttribute("src", "/screen/lab?preview=1")
 })
 
-test("direct backlight exposes brightness, power and room following in CastKit", async ({
+for (const isNative of [true, false]) {
+  test(`${isNative ? "Native" : "Agent"} backlight slider and power apply immediately and reflect external changes`, async ({
+    page,
+  }) => {
+    await page.route("**/api/manage/devices", (route) =>
+      route.fulfill({
+        json: {
+          devices: [
+            {
+              ...BROWSER_DEVICE,
+              hasMqttBacklight: !isNative,
+              hasRemoteBacklight: isNative,
+            },
+          ],
+        },
+      }),
+    )
+    const state: Record<string, string> = {
+      backlightLevel: "35",
+      backlightPower: "on",
+      backlightEffective: "35",
+      backlightRoomChannel: "",
+      backlightRoomEntity: "",
+    }
+    const writes: { kind: string; payload: string }[] = []
+    await page.route(
+      "**/api/manage/devices/*/settings",
+      async (route) => {
+        if (route.request().method() === "PUT") {
+          const body = route.request().postDataJSON() as {
+            settings: { kind: string; payload: string }[]
+          }
+          for (const setting of body.settings) {
+            state[setting.kind] = setting.payload
+            writes.push(setting)
+          }
+          state.backlightEffective =
+            state.backlightPower === "off"
+              ? "0"
+              : (state.backlightLevel ?? "35")
+          await route.fulfill({ json: { ok: true } })
+        } else
+          await route.fulfill({ json: { settings: state } })
+      },
+    )
+    await page.goto(
+      "/manage/devices/updates?device=e2e-square",
+    )
+    const slider = page.getByRole("slider", {
+      name: "Brightness",
+      exact: true,
+    })
+    await expect(slider).toHaveAttribute(
+      "aria-valuenow",
+      "35",
+    )
+    await slider.press("End")
+    await expect
+      .poll(() => writes)
+      .toEqual([{ kind: "backlightLevel", payload: "100" }])
+    await expect(
+      page.getByRole("button", {
+        name: "Save settings",
+        exact: true,
+      }),
+    ).toBeDisabled()
+    await page
+      .getByRole("button", { name: "Off", exact: true })
+      .click()
+    await expect(
+      page.getByText("Backlight off", { exact: true }),
+    ).toBeVisible()
+    expect(state.backlightLevel).toBe("100")
+    state.backlightLevel = "42"
+    state.backlightPower = "on"
+    state.backlightEffective = "42"
+    await expect(slider).toHaveAttribute(
+      "aria-valuenow",
+      "42",
+    )
+    await expect(
+      page.getByText("Backlight on · 42%", { exact: true }),
+    ).toBeVisible()
+    expect(writes).toHaveLength(2)
+    await page
+      .getByRole("button", { name: "Off", exact: true })
+      .click()
+    await expect(
+      page.getByText("Backlight off", { exact: true }),
+    ).toBeVisible()
+    await page
+      .getByRole("button", { name: "On", exact: true })
+      .click()
+    await expect(
+      page.getByText("Backlight on · 42%", { exact: true }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole("button", {
+        name: /Backlight control:/,
+      }),
+    ).toHaveCount(0)
+    if (isNative) {
+      await page
+        .getByText("Room following (optional)", {
+          exact: true,
+        })
+        .click()
+      await page
+        .getByLabel("Follow room lights", { exact: true })
+        .check()
+      await expect
+        .poll(() => state.backlightPower)
+        .toBe("follow-room")
+      await expect(
+        page.getByRole("button", {
+          name: /Room lights channel:/,
+        }),
+      ).toBeVisible()
+    } else
+      await expect(
+        page.getByText("Room following (optional)", {
+          exact: true,
+        }),
+      ).toHaveCount(0)
+    await page
+      .getByRole("link", { name: "Device", exact: true })
+      .click()
+    await expect(
+      page.getByRole("button", {
+        name: /Backlight control:/,
+      }),
+    ).toHaveCount(0)
+    if (isNative) {
+      await expect(
+        page.getByText("Backlight supported", {
+          exact: true,
+        }),
+      ).toBeVisible()
+      await expect(
+        page.getByLabel("Backlight available", {
+          exact: true,
+        }),
+      ).toHaveCount(0)
+    } else {
+      await expect(
+        page.getByLabel("Backlight available", {
+          exact: true,
+        }),
+      ).toBeChecked()
+    }
+  })
+}
+
+test("a rejected backlight change restores the displayed value and reports failure", async ({
   page,
 }) => {
   await page.route("**/api/manage/devices", (route) =>
@@ -640,8 +793,8 @@ test("direct backlight exposes brightness, power and room following in CastKit",
         devices: [
           {
             ...BROWSER_DEVICE,
-            hasMqttBacklight: false,
             hasRemoteBacklight: true,
+            hasMqttBacklight: false,
           },
         ],
       },
@@ -650,53 +803,96 @@ test("direct backlight exposes brightness, power and room following in CastKit",
   await page.route(
     "**/api/manage/devices/*/settings",
     (route) =>
-      route.fulfill({
-        json: {
-          settings: {
-            backlightLevel: "35",
-            backlightPower: "on",
-            backlightRoomChannel: "",
-            backlightRoomEntity: "",
-          },
-        },
-      }),
+      route.fulfill(
+        route.request().method() === "PUT"
+          ? { status: 503, json: { error: "unavailable" } }
+          : {
+              json: {
+                settings: {
+                  backlightLevel: "35",
+                  backlightPower: "on",
+                  backlightEffective: "35",
+                },
+              },
+            },
+      ),
   )
   await page.goto(
     "/manage/devices/updates?device=e2e-square",
   )
-  await expect(
-    page.getByRole("heading", {
-      name: "Backlight",
-      exact: true,
-    }),
-  ).toBeVisible()
-  await expect(
-    page.getByLabel("Backlight (%)", { exact: true }),
-  ).toHaveValue("35")
-  await page
-    .getByRole("button", {
-      name: "Backlight power: On",
-      exact: true,
-    })
-    .click()
-  await page
-    .getByRole("option", {
-      name: "Follow room light",
-      exact: true,
-    })
-    .click()
-  await expect(
-    page.getByRole("button", {
-      name: /Room lights channel:/,
-    }),
-  ).toBeVisible()
-  await page
-    .getByLabel("Room light entity", { exact: true })
-    .fill("light.room")
+  const slider = page.getByRole("slider", {
+    name: "Brightness",
+    exact: true,
+  })
+  await slider.press("End")
   await expect(
     page.getByText(
-      "CastKit saves these controls directly.",
-      { exact: false },
+      "Could not apply backlight. Try again.",
+      { exact: true },
     ),
   ).toBeVisible()
+  await expect(slider).toHaveAttribute(
+    "aria-valuenow",
+    "35",
+  )
+})
+
+test("a successful backlight write stays applied when readback is temporarily unavailable", async ({
+  page,
+}) => {
+  await page.route("**/api/manage/devices", (route) =>
+    route.fulfill({
+      json: {
+        devices: [
+          {
+            ...BROWSER_DEVICE,
+            hasRemoteBacklight: true,
+            hasMqttBacklight: false,
+          },
+        ],
+      },
+    }),
+  )
+  const state = { hasApplied: false }
+  await page.route(
+    "**/api/manage/devices/*/settings",
+    (route) => {
+      if (route.request().method() === "PUT") {
+        state.hasApplied = true
+        return route.fulfill({ json: { ok: true } })
+      }
+      return state.hasApplied
+        ? route.abort("failed")
+        : route.fulfill({
+            json: {
+              settings: {
+                backlightLevel: "35",
+                backlightPower: "on",
+                backlightEffective: "35",
+              },
+            },
+          })
+    },
+  )
+  await page.goto(
+    "/manage/devices/updates?device=e2e-square",
+  )
+  const slider = page.getByRole("slider", {
+    name: "Brightness",
+    exact: true,
+  })
+  await slider.press("End")
+  await expect(
+    page.getByText("Backlight updated.", { exact: true }),
+  ).toBeVisible()
+  await expect(slider).toHaveAttribute(
+    "aria-valuenow",
+    "100",
+  )
+  await expect(
+    page.getByRole("button", {
+      name: "Save settings",
+      exact: true,
+    }),
+  ).toBeDisabled()
 })
