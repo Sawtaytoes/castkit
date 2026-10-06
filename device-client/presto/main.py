@@ -17,7 +17,7 @@ import network
 from pixels import blit_patch, decode_rle
 from presto import Presto
 
-BUILD_MARKER = "castkit-presto-v6-control-ack"
+BUILD_MARKER = "castkit-presto-v7-buffered-touch"
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 MAX_FRAME_AGE_MS = 7000
 
@@ -40,6 +40,7 @@ class CastKitPresto:
         self.has_connection_notice = False
         self.frames_drawn = 0
         self.is_presenting = False
+        self.is_frame_ack_pending = False
         self.connections = {}
 
     def notice(self, message):
@@ -92,12 +93,16 @@ class CastKitPresto:
                 raise ValueError("Frame exceeds memory budget")
             data = bytearray(length)
             offset = 0
+            body_started = time.ticks_us()
             while offset < length:
                 chunk = await reader.read(min(8192, length - offset))
                 if not chunk:
                     raise OSError("Incomplete frame")
                 data[offset : offset + len(chunk)] = chunk
                 offset += len(chunk)
+            # Local telemetry, not a server-supplied HTTP header. This excludes
+            # waiting for the response headers (including an idle long poll).
+            headers["_body_read_us"] = time.ticks_diff(time.ticks_us(), body_started)
             complete = headers.get("connection", "").lower() != "close"
             return status, headers, data
         finally:
@@ -179,6 +184,11 @@ class CastKitPresto:
                     self.screen.update()
                     drawn = time.ticks_us()
                     self.last_frame_at = time.ticks_ms()
+                    # The new pixels are now visible. Keep sampling input while
+                    # the ACK travels, but queue it until the server knows this frame.
+                    self.frame_id = frame_id
+                    self.is_frame_ack_pending = True
+                    self.is_presenting = False
                     ack_status, _, _ = await asyncio.wait_for(
                         self.request(
                             "POST",
@@ -188,13 +198,13 @@ class CastKitPresto:
                                 "touch_id": touch_id,
                                 "decode_us": time.ticks_diff(decoded, fetched),
                                 "draw_us": time.ticks_diff(drawn, decoded),
+                                "body_read_us": headers.get("_body_read_us", 0),
                             },
                         ),
                         3,
                     )
                     if ack_status != 204:
                         raise OSError("Frame acknowledgement rejected")
-                    self.frame_id = frame_id
                     self.has_connection_notice = False
                     self.frames_drawn += 1
                     if self.frames_drawn == 1 or self.frames_drawn % 30 == 0:
@@ -217,10 +227,13 @@ class CastKitPresto:
                     raise OSError("Frame request rejected")
             except Exception as error:
                 self.frame_id = 0
+                self.events = []
+                self.is_touched = False
                 print("castkit reconnect", type(error).__name__)
                 await asyncio.sleep_ms(1000)
             finally:
                 self.is_presenting = False
+                self.is_frame_ack_pending = False
             await asyncio.sleep_ms(10)
 
     async def poll_touch(self):
@@ -273,7 +286,7 @@ class CastKitPresto:
 
     async def send_touches(self):
         while True:
-            if self.events:
+            if self.events and not self.is_frame_ack_pending:
                 batch, self.events = self.events, []
                 try:
                     status, _, _ = await asyncio.wait_for(self.request("POST", "/touch", batch), 3)
@@ -306,4 +319,5 @@ def main():
             time.sleep(2)
 
 
-main()
+if __name__ == "__main__":
+    main()
