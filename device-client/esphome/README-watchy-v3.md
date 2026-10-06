@@ -68,7 +68,9 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
   `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
 
 Clock and timer labels use bold type. The local pages show an estimated battery
-percentage and battery icon in the top right. The bolt follows the active-low
+number inside a filled battery icon in the top right, without a percent sign.
+Bold black digits have a white one-pixel outline for contrast against the fill.
+The charging bolt sits to the left of the icon and follows the active-low
 GPIO10 charger status, rather than the presence of USB power. The diagnostic Device Time and IP Address entities
 make synchronization and future OTA updates observable in Home Assistant.
 

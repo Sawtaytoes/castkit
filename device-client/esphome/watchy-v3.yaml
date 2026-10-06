@@ -611,19 +611,25 @@ display:
         const bool charging = id(usb_connected).state && id(charger_active).state;
         const int percent = id(usb_connected).state && !charging && id(battery_voltage).state > 4.0f
           ? 100 : int(clamp((id(battery_voltage).state - 3.35f) / 0.85f * 100.0f, 0.0f, charging ? 99.0f : 100.0f));
-        it.printf(142, 15, id(label_font), TextAlign::CENTER_RIGHT, "%d%%", percent);
-        it.rectangle(152, 5, 38, 20);
-        it.filled_rectangle(190, 11, 3, 8);
-        const int fill_width = 32 * percent / 100;
-        if (fill_width > 0) it.filled_rectangle(155, 8, fill_width, 14);
+        it.rectangle(146, 4, 44, 24);
+        it.filled_rectangle(190, 12, 3, 8);
+        const int fill_width = 38 * percent / 100;
+        if (fill_width > 0) it.filled_rectangle(149, 7, fill_width, 18);
+        // White halo keeps the black digits readable across the changing fill.
+        for (int offset_y = -1; offset_y <= 1; offset_y++) {
+          for (int offset_x = -1; offset_x <= 1; offset_x++) {
+            if (offset_x || offset_y) it.printf(168 + offset_x, 16 + offset_y,
+              id(label_font), COLOR_OFF, TextAlign::CENTER, "%d", percent);
+          }
+        }
+        it.printf(168, 16, id(label_font), TextAlign::CENTER, "%d", percent);
         if (charging) {
-          // Cut the charging bolt through the fill, with contrast at every percentage.
-          for (int pixel_y = 8; pixel_y < 22; pixel_y++) {
-            for (int pixel_x = 164; pixel_x <= 176; pixel_x++) {
-              const bool top = pixel_y <= 15 && pixel_x >= 172 - (pixel_y - 8) && pixel_x <= 172;
-              const bool bottom = pixel_y >= 14 && pixel_x >= 168 && pixel_x <= 176 - (pixel_y - 14);
-              if (top || bottom) it.draw_pixel_at(pixel_x, pixel_y,
-                pixel_x < 155 + fill_width ? COLOR_OFF : COLOR_ON);
+          // Keep the charging bolt beside the icon so it never obscures the number.
+          for (int pixel_y = 8; pixel_y < 24; pixel_y++) {
+            for (int pixel_x = 128; pixel_x <= 140; pixel_x++) {
+              const bool top = pixel_y <= 16 && pixel_x >= 136 - (pixel_y - 8) && pixel_x <= 136;
+              const bool bottom = pixel_y >= 15 && pixel_x >= 132 && pixel_x <= 140 - (pixel_y - 15);
+              if (top || bottom) it.draw_pixel_at(pixel_x, pixel_y, COLOR_ON);
             }
           }
         }
