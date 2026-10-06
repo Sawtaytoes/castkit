@@ -53,7 +53,11 @@ class_tree = [
     for node in ast.parse(source.read_text()).body
     if isinstance(node, (ast.ClassDef, ast.Assign))
 ]
-namespace = {"blit_patch": pixels.blit_patch, "decode_rle": pixels.decode_rle}
+namespace = {
+    "blit_patch": pixels.blit_patch,
+    "decode_rle": pixels.decode_rle,
+    "time": types.SimpleNamespace(ticks_us=lambda: 0, ticks_diff=lambda end, start: end - start),
+}
 exec(compile(ast.Module(body=class_tree, type_ignores=[]), str(source), "exec"), namespace)
 Client = namespace["CastKitPresto"]
 
