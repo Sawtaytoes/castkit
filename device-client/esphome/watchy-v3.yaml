@@ -66,12 +66,8 @@ esphome:
             }
     - priority: -100
       then:
-        - if:
-            condition:
-              lambda: return id(watch_time).now().is_valid();
-            then:
-              - mqtt.enable:
-                  id: mqtt_client
+        - component.update: wake_reason
+        - script.execute: connect_mqtt
         - script.execute: battery_cycle
         - delay: 2s
         - component.update: watch_display
@@ -120,8 +116,7 @@ api:
             if (timestamp < 1700000000) return;
             timeval value = {timestamp, 0};
             settimeofday(&value, nullptr);
-        - mqtt.enable:
-            id: mqtt_client
+        - script.execute: connect_mqtt
         - component.update: watch_display
         - script.execute: refresh_castkit
     - action: set_image
@@ -207,6 +202,9 @@ mqtt:
   log_topic: null
   reboot_timeout: 0s
   on_connect:
+    # The backend callback precedes the component's connected state.
+    - wait_until:
+        lambda: return id(mqtt_client).is_connected();
     # Publish during the short battery wake, not only on the 30-second poll.
     - component.update: battery_voltage
     - script.execute: refresh_castkit
@@ -321,8 +319,7 @@ time:
       - pool.ntp.org
     on_time_sync:
       - logger.log: Clock synchronized.
-      - mqtt.enable:
-          id: mqtt_client
+      - script.execute: connect_mqtt
       - if:
           condition:
             lambda: return !id(is_points_page);
@@ -343,8 +340,7 @@ time:
     timezone: ${timezone}
     on_time_sync:
       - logger.log: Clock synchronized from Home Assistant.
-      - mqtt.enable:
-          id: mqtt_client
+      - script.execute: connect_mqtt
       - component.update: watch_display
       - script.execute: refresh_castkit
 
@@ -489,6 +485,25 @@ button:
 
 text_sensor:
   - platform: template
+    id: wake_reason
+    name: Wake Reason
+    entity_category: diagnostic
+    update_interval: never
+    lambda: |-
+      const auto reason = esp_sleep_get_wakeup_cause();
+      if (reason == ESP_SLEEP_WAKEUP_TIMER) return std::string("Minute timer");
+      if (reason == ESP_SLEEP_WAKEUP_EXT0) return std::string("USB power");
+      if (reason == ESP_SLEEP_WAKEUP_EXT1) {
+        const auto buttons = esp_sleep_get_ext1_wakeup_status();
+        std::string text = "Button:";
+        if (buttons & (1ULL << 0)) text += " Up";
+        if (buttons & (1ULL << 6)) text += " Back";
+        if (buttons & (1ULL << 7)) text += " Menu";
+        if (buttons & (1ULL << 8)) text += " Down";
+        return text;
+      }
+      return std::string("Reset / power on");
+  - platform: template
     name: Saved Agenda
     entity_category: diagnostic
     update_interval: 30s
@@ -537,7 +552,9 @@ binary_sensor:
   - platform: gpio
     id: usb_connected
     internal: true
-    pin: GPIO21
+    pin:
+      number: GPIO21
+      allow_other_uses: true
     on_press:
       - deep_sleep.prevent: watch_sleep
     on_release:
@@ -643,6 +660,18 @@ binary_sensor:
       - component.update: watch_display
 
 script:
+  - id: connect_mqtt
+    mode: restart
+    then:
+      # DNS before association can waste the entire short wake on a failed lookup.
+      - wait_until:
+          condition:
+            and:
+              - wifi.connected:
+              - lambda: return id(watch_time).now().is_valid();
+      - delay: 200ms
+      - mqtt.enable:
+          id: mqtt_client
   - id: refresh_castkit
     mode: restart
     then:
@@ -724,6 +753,9 @@ interval:
 
 deep_sleep:
   id: watch_sleep
+  wakeup_pin:
+    number: GPIO21
+    allow_other_uses: true
   esp32_ext1_wakeup:
     pins:
       - number: GPIO7

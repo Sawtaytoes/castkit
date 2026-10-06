@@ -5,6 +5,8 @@
 #include "watchy_refresh.h"
 
 #include <esp_attr.h>
+#include <esp_sleep.h>
+#include "driver/rtc_io.h"
 #include <esp_system.h>
 
 namespace esphome::watchy_display {

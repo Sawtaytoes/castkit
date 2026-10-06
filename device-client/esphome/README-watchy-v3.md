@@ -93,8 +93,7 @@ persisted; the downloaded image is not, so a wake on the CastKit page requests
 a fresh URL. Other pages exchange only small retained MQTT state and telemetry.
 USB uses Wi-Fi light power saving, but does not disconnect. The bounded idle
 window is a connection allowance, not a measured battery life claim. Actual
-association time and battery runtime need an unplugged test. MQTT waits for
-valid local time before starting TLS, and automatic MQTT log forwarding is off;
+association time and battery runtime need an unplugged test. MQTT waits for Wi-Fi association and valid local time before DNS/TLS, and automatic MQTT log forwarding is off;
 native or serial logs remain available for diagnostics.
 
 With `timer_state_topic` configured, any new running session automatically opens
@@ -261,7 +260,15 @@ and [GxEPD2 SSD1681 driver](https://github.com/ZinggJM/GxEPD2/blob/master/src/ep
 The generic 1.54-inch driver previously used a different partial control byte,
 lost its refresh cadence at each wake and did not restore the previous plane.
 
-On MQTT connection the watch publishes battery telemetry during its short wake.
+On MQTT connection the watch waits for the component's connected state, then
+publishes battery telemetry during its short wake. The backend callback alone
+fires too early for publication.
 OTA start pauses the sleep deadline until completion or error, so an update
 cannot be interrupted by the normal idle battery schedule. Full and partial
 refreshes and skipped duplicate frames are observable in native/serial logs.
+
+
+The Up button's RTC pull-up is explicitly enabled during shutdown, as in the
+manufacturer firmware, preventing a floating low input from waking the watch
+again immediately. USB insertion also wakes the sleeping watch. The Wake Reason
+diagnostic reports timer, button, USB or reset to make unwanted wakes observable.
