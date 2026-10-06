@@ -874,6 +874,8 @@ script:
   - id: cycle_agenda
     then:
       - lambda: |-
+          auto now = id(watch_time).now();
+          if (now.is_valid()) watchy::expire_agenda(id(agenda_cache), now.timestamp, now.strftime("%Y-%m-%d"));
           const int last_page = std::max(0, (int(id(agenda_cache).count) - 1) / 2);
           if (id(is_agenda_page) && id(agenda_page) < last_page) id(agenda_page)++;
           else {
@@ -1022,6 +1024,10 @@ display:
     update_interval: never
     lambda: |-
       auto now = id(watch_time).now();
+      if (now.is_valid()) {
+        watchy::expire_agenda(id(agenda_cache), now.timestamp, now.strftime("%Y-%m-%d"));
+        id(agenda_page) = std::min(id(agenda_page), std::max(0, (int(id(agenda_cache).count) - 1) / 2));
+      }
       ESP_LOGI("watchy_view", "View: %s; agenda page: %d; scores page: %d",
         id(is_agenda_page) ? "agenda" : id(is_scores_page) ? "scores" : id(is_timer_page) ? "timer"
           : id(is_points_page) ? "image" : id(is_binary_clock) ? "binary" : "clock",
