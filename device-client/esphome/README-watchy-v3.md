@@ -138,9 +138,18 @@ Battery telemetry uses the v3 voltage-divider ratio and CastKit's existing `volt
 3.35 V on battery the display says `Battery low / Connect USB` and sleeps for
 an hour; it does not leave an apparently working frozen clock or stale points.
 
+The CPU boots and draws at 80 MHz. A network wake holds 160 MHz through an
+ESP-IDF power-management lock until Wi-Fi disconnects. The firmware uses no
+accelerometer, step counter, vibration or additional watch apps, so it turns that
+hardware off: each non-deep-sleep boot soft-resets the BMA423 into suspend mode
+(the stock firmware leaves it at 100 Hz continuous), and GPIO17 holds the
+vibration motor off through deep sleep. The diagnostic Accelerometer entity shows
+the result. Clock Wake Duration and Sync Wake Duration report the average awake
+time per battery wake, from application start to sleep entry; they publish on
+the next connected wake.
+
 Customize the watch face in the package's display lambda and font definitions.
-Customize the data page in CastKit's view/channel editor. The initial firmware
-has no accelerometer, step counter, vibration alarms or additional watch apps.
+Customize the data page in CastKit's view/channel editor.
 
 ## Verify and restore
 

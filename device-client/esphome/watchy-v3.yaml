@@ -28,10 +28,29 @@ esphome:
             id(boot_wake_cause) = esp_sleep_get_wakeup_cause();
             id(boot_button_mask) = esp_sleep_get_ext1_wakeup_status();
             id(boot_reset_reason) = esp_reset_reason();
-            if (id(boot_reset_reason) != ESP_RST_DEEPSLEEP) watchy::network_retry = {};
+            if (id(boot_reset_reason) != ESP_RST_DEEPSLEEP) {
+              watchy::network_retry = {};
+              watchy::hold_motor_off();
+            }
+            watchy::configure_cpu();
     - priority: 600
       then:
         - lambda: |-
+            // The accelerometer is unused. Its state survives deep sleep, so set it once.
+            if (id(boot_reset_reason) != ESP_RST_DEEPSLEEP) {
+              struct Bus {
+                i2c::I2CBus *bus;
+                bool read_register(uint8_t address, uint8_t reg, uint8_t &value) {
+                  return bus->write_readv(address, &reg, 1, &value, 1) == i2c::ERROR_OK;
+                }
+                bool write_register(uint8_t address, uint8_t reg, uint8_t value) {
+                  const uint8_t bytes[2] = {reg, value};
+                  return bus->write(address, bytes, 2) == i2c::ERROR_OK;
+                }
+              } bus{id(sensor_bus)};
+              watchy::accel_state = watchy::suspend_bma423(bus, [](uint32_t ms) { delay(ms); });
+              ESP_LOGI("watchy_power", "Accelerometer: %s", watchy::accel_state_text(watchy::accel_state));
+            }
             if (id(boot_reset_reason) == ESP_RST_DEEPSLEEP) {
               const auto &saved = watchy::runtime_cache;
               id(agenda_cache) = saved.agenda;
@@ -64,6 +83,9 @@ esphome:
     - priority: -100
       then:
         - component.update: wake_reason
+        - component.update: accelerometer_state
+        - component.update: clock_wake_duration
+        - component.update: sync_wake_duration
         - component.update: battery_voltage
         - lambda: |-
             auto now = id(watch_time).now();
@@ -85,6 +107,7 @@ esphome:
             condition:
               lambda: return id(network_this_wake);
             then:
+              - lambda: watchy::boost_cpu(true);
               - wifi.enable:
               - script.execute: connect_mqtt
               - script.execute: battery_cycle
@@ -110,9 +133,12 @@ esphome:
 esp32:
   board: esp32-s3-devkitc-1
   flash_size: 8MB
+  # Boot and draw at 80 MHz; network work holds 160 MHz through a power-management lock.
+  cpu_frequency: 80MHZ
   framework:
     type: esp-idf
     sdkconfig_options:
+      CONFIG_PM_ENABLE: y
       CONFIG_RTC_CLK_SRC_EXT_CRYS: y
       CONFIG_MBEDTLS_HARDWARE_MPI: y
       CONFIG_MBEDTLS_LARGE_KEY_SOFTWARE_MPI: y
@@ -143,6 +169,7 @@ wifi:
   on_disconnect:
     - mqtt.disable:
         id: mqtt_client
+    - lambda: watchy::boost_cpu(false);
   reboot_timeout: 0s
   ap:
     password: !secret ap_fallback_password
@@ -408,6 +435,13 @@ time:
       - component.update: watch_display
       - script.execute: refresh_castkit
 
+# Only used once per cold boot to suspend the unused BMA423 accelerometer.
+i2c:
+  id: sensor_bus
+  sda: GPIO12
+  scl: GPIO11
+  scan: false
+
 spi:
   clk_pin: GPIO47
   mosi_pin: GPIO48
@@ -572,6 +606,27 @@ sensor:
   - platform: wifi_signal
     name: Wi-Fi Signal
     update_interval: 60s
+  # Average awake time per battery wake (application start to sleep entry).
+  - platform: template
+    id: clock_wake_duration
+    name: Clock Wake Duration
+    entity_category: diagnostic
+    unit_of_measurement: ms
+    accuracy_decimals: 0
+    update_interval: never
+    lambda: |-
+      if (watchy::wake_stats.local_count == 0) return NAN;
+      return float(watchy::wake_stats.local_ms);
+  - platform: template
+    id: sync_wake_duration
+    name: Sync Wake Duration
+    entity_category: diagnostic
+    unit_of_measurement: ms
+    accuracy_decimals: 0
+    update_interval: never
+    lambda: |-
+      if (watchy::wake_stats.network_count == 0) return NAN;
+      return float(watchy::wake_stats.network_ms);
 
 button:
   - platform: restart
@@ -606,6 +661,12 @@ text_sensor:
         return text;
       }
       return std::string("Reset / power on; reset reason ") + std::to_string(id(boot_reset_reason));
+  - platform: template
+    id: accelerometer_state
+    name: Accelerometer
+    entity_category: diagnostic
+    update_interval: never
+    lambda: return std::string(watchy::accel_state_text(watchy::accel_state));
   - platform: template
     name: Saved Agenda
     entity_category: diagnostic
@@ -658,6 +719,7 @@ binary_sensor:
     pin: GPIO21
     on_press:
       - deep_sleep.prevent: watch_sleep
+      - lambda: watchy::boost_cpu(true);
       - wifi.enable:
       - lambda: esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
       - script.execute: connect_mqtt
@@ -739,7 +801,9 @@ script:
     then:
       - logger.log: "Manual request: synchronizing cached data."
       - script.stop: sleep_until_minute
-      - lambda: id(network_this_wake) = true;
+      - lambda: |-
+          id(network_this_wake) = true;
+          watchy::boost_cpu(true);
       - wifi.enable:
       - script.execute: connect_mqtt
       - script.execute: battery_cycle
@@ -847,6 +911,7 @@ script:
                 if (id(network_this_wake) && !id(mqtt_client).is_connected()) {
                   watchy::network_failed(watchy::network_retry, now.is_valid() ? now.timestamp : 0, ${battery_sync_minutes});
                 }
+                watchy::record_wake(watchy::wake_stats, id(network_this_wake), millis());
                 ESP_LOGI("watchy_power", "Sleeping after %u ms awake; network wake: %s; retry at %u",
                   unsigned(millis()), id(network_this_wake) ? "yes" : "no", unsigned(watchy::network_retry.next_attempt));
             - deep_sleep.enter:
