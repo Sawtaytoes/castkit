@@ -4,7 +4,7 @@
 - **Date:** 2026-09-11
 - **Type:** Device contract
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-10-06 shared backlight controls](2026-10-06-backlight-controls-share-native-and-mqtt-state.md) (native control and management power only; legacy brightness and reconnect contracts remain supported)
 
 ## Decision
 
