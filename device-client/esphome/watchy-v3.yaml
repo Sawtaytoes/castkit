@@ -66,6 +66,12 @@ esphome:
             }
     - priority: -100
       then:
+        - if:
+            condition:
+              lambda: return id(watch_time).now().is_valid();
+            then:
+              - mqtt.enable:
+                  id: mqtt_client
         - script.execute: battery_cycle
         - delay: 2s
         - component.update: watch_display
@@ -114,6 +120,8 @@ api:
             if (timestamp < 1700000000) return;
             timeval value = {timestamp, 0};
             settimeofday(&value, nullptr);
+        - mqtt.enable:
+            id: mqtt_client
         - component.update: watch_display
         - script.execute: refresh_castkit
     - action: set_image
@@ -195,6 +203,8 @@ mqtt:
   certificate_authority: !secret mqtt_certificate_authority
   discovery: false
   topic_prefix: ${node_name}/firmware
+  enable_on_boot: false
+  log_topic: null
   reboot_timeout: 0s
   on_connect:
     # Publish during the short battery wake, not only on the 30-second poll.
@@ -216,10 +226,12 @@ mqtt:
       then:
         - lambda: |-
             if (!${scores_enabled}) return;
+            id(has_received_scores) = true;
             auto now = id(watch_time).now();
             if (!watchy::parse_scores(x, id(scores_cache), now.is_valid() ? now.timestamp : 0)) {
               ESP_LOGW("watchy", "Invalid scores snapshot; keeping saved scores.");
             }
+        - script.execute: finish_battery_sync
         - if:
             condition:
               lambda: return id(is_scores_page);
@@ -228,6 +240,7 @@ mqtt:
     - topic: ${agenda_state_topic}
       then:
         - lambda: |-
+            id(has_received_agenda) = true;
             auto now = id(watch_time).now();
             const std::string day = x["date"] | "";
             // Reject an old retained snapshot once the local date is known.
@@ -237,6 +250,7 @@ mqtt:
               return;
             }
             id(agenda_page) = std::min(id(agenda_page), std::max(0, (int(id(agenda_cache).count) - 1) / 2));
+        - script.execute: finish_battery_sync
         - if:
             condition:
               lambda: return id(is_agenda_page);
@@ -245,6 +259,7 @@ mqtt:
     - topic: ${timer_state_topic}
       then:
         - lambda: |-
+            id(has_received_timer) = true;
             // Read-only Tally Marks retained state, or the equivalent canonical task.
             JsonObjectConst task = x["activeTask"].is<JsonObjectConst>()
               ? x["activeTask"].as<JsonObjectConst>() : x["runningSession"].as<JsonObjectConst>();
@@ -268,6 +283,7 @@ mqtt:
             id(timer_banked_minutes) = std::max(0, task["bankedMinutes"] | 0);
             id(is_countdown) = task["isCountdown"] | false;
         - component.update: watch_display
+        - script.execute: finish_battery_sync
         - script.execute: battery_cycle
 
 http_request:
@@ -284,6 +300,7 @@ image:
     update_interval: never
     on_download_finished:
       - lambda: id(has_castkit_image) = true;
+      - script.execute: finish_battery_sync
       - if:
           condition:
             lambda: return id(is_points_page);
@@ -304,6 +321,8 @@ time:
       - pool.ntp.org
     on_time_sync:
       - logger.log: Clock synchronized.
+      - mqtt.enable:
+          id: mqtt_client
       - if:
           condition:
             lambda: return !id(is_points_page);
@@ -324,6 +343,8 @@ time:
     timezone: ${timezone}
     on_time_sync:
       - logger.log: Clock synchronized from Home Assistant.
+      - mqtt.enable:
+          id: mqtt_client
       - component.update: watch_display
       - script.execute: refresh_castkit
 
@@ -371,6 +392,15 @@ font:
 
 # Only changes to the saved agenda and page choice write flash, not minute ticks.
 globals:
+  - id: has_received_agenda
+    type: bool
+    initial_value: 'false'
+  - id: has_received_timer
+    type: bool
+    initial_value: 'false'
+  - id: has_received_scores
+    type: bool
+    initial_value: 'false'
   - id: is_updating
     type: bool
     initial_value: 'false'
@@ -626,12 +656,40 @@ script:
             - mqtt.publish:
                 topic: ${topic_base}/${device_id}/refresh/set
                 payload: PRESS
+  - id: finish_battery_sync
+    mode: restart
+    then:
+      # Retained rows arrive together. Allow all children and telemetry to flush.
+      - delay: 1s
+      - if:
+          condition:
+            lambda: |-
+              const bool needs_timer = std::string("${timer_state_topic}") != "${topic_base}/${device_id}/timer/state";
+              return !id(usb_connected).state && !id(is_updating) && !id(has_running_task)
+                && id(battery_voltage).has_state() && id(battery_voltage).state >= 3.35f
+                && id(has_received_agenda) && (!needs_timer || id(has_received_timer))
+                && (!${scores_enabled} || id(has_received_scores))
+                && (!id(is_points_page) || id(has_castkit_image));
+          then:
+            - script.execute: sleep_until_minute
+  - id: sleep_until_minute
+    then:
+      - deep_sleep.enter:
+          id: watch_sleep
+          sleep_duration: !lambda |-
+            auto now = id(watch_time).now();
+            return now.is_valid() ? (60 - now.second) * 1000 : 60000;
   - id: battery_cycle
     # Repeated retained-state updates must not postpone an idle sleep deadline.
     mode: single
     then:
       - deep_sleep.prevent: watch_sleep
       - delay: 15s
+      - if:
+          condition:
+            lambda: return !id(usb_connected).state && !id(is_updating) && !id(mqtt_client).is_connected();
+          then:
+            - delay: 15s
       - if:
           condition:
             lambda: return !id(usb_connected).state && !id(is_updating);
@@ -652,11 +710,7 @@ script:
                       condition:
                         lambda: return !id(has_running_task) || !id(mqtt_client).is_connected();
                       then:
-                        - deep_sleep.enter:
-                            id: watch_sleep
-                            sleep_duration: !lambda |-
-                              auto now = id(watch_time).now();
-                              return now.is_valid() ? (60 - now.second) * 1000 : 60000;
+                        - script.execute: sleep_until_minute
 
 interval:
   - interval: 30s

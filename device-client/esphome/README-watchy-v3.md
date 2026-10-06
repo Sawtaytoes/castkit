@@ -82,16 +82,20 @@ The local clock still works without CastKit.
 A cold start without network time shows `Syncing time...` instead of a false date.
 
 USB detection is GPIO21, distinct from the active-low charge-status GPIO10. On USB the firmware
-stays awake for live updates and OTA. On battery it stays awake for 15 seconds,
+stays awake for live updates and OTA. On battery it sleeps after receiving its retained agenda, configured timer
+and optional scores, allowing one second for queued rows and telemetry.
+Otherwise it allows 15 seconds, plus at most 15 more if MQTT is still connecting,
 then sleeps until the next minute. Repeated state messages cannot extend that
 idle sleep deadline. A running task keeps it connected for updates;
 when the task ends or MQTT disconnects it resumes sleeping. Any of the four buttons can wake it. The
 clock survives deep sleep on the external 32 kHz crystal. The chosen page is
 persisted; the downloaded image is not, so a wake on the CastKit page requests
 a fresh URL. Other pages exchange only small retained MQTT state and telemetry.
-USB uses Wi-Fi light power saving, but does not disconnect. The 15-second idle
-battery window is a conservative connection allowance, not a measured battery
-life claim; actual association time and battery runtime need an unplugged test.
+USB uses Wi-Fi light power saving, but does not disconnect. The bounded idle
+window is a connection allowance, not a measured battery life claim. Actual
+association time and battery runtime need an unplugged test. MQTT waits for
+valid local time before starting TLS, and automatic MQTT log forwarding is off;
+native or serial logs remain available for diagnostics.
 
 With `timer_state_topic` configured, any new running session automatically opens
 a local timer with the task name and current whole minutes. Count-up tasks show
