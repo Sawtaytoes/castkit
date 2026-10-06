@@ -63,10 +63,10 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
 
 - Top-right (Up): open cached agenda page 1, advance through its pages, then return to the default clock. The agenda omits its heading, date and battery; larger bold times separate event rows.
 - Top-left (Back): return to the default clock.
-- Bottom-right (Down): open optional local scores outside the agenda; advance agenda/scores pages while viewing them.
-- Bottom-left (Menu): wake and synchronize while preserving the page. When already awake, a binary-enabled watch also toggles binary/digital clocks.
+- Bottom-right (Down): open optional local scores, advance their pages, then return to the default clock. On a scores-disabled watch it advances an already-open agenda.
+- Bottom-left (Menu): toggle binary/digital clocks on a binary-enabled watch and request an immediate synchronization; otherwise return to the digital clock and sync. Waking and already-awake presses have the same meaning.
 - View buttons wake and draw cached data without enabling Wi-Fi on battery. Bottom-left requests a connection immediately.
-- Native API actions: `show_clock`, `show_agenda`, `show_scores`, `show_binary_clock`, `show_castkit`, and `set_image`.
+- Native API actions: `show_clock`, `show_agenda`, `show_scores`, `show_binary_clock`, `show_castkit`, `set_image`, `cycle_agenda`, `cycle_scores`, and `toggle_clock`.
   `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
 
 Clock and timer labels use bold type. Local clock, timer and scores pages show
@@ -97,7 +97,7 @@ state and reconnects preserve the user's page choice.
 Set `battery_sync_minutes: '10'` for a calendar-only watch: the clock still
 wakes each minute, but Wi-Fi is enabled only on ten-minute boundaries. USB, manual
 sync, cold boot or an invalid clock bypass the cadence. Between scheduled connections
-it draws locally and sleeps immediately. A timed-card watch should keep `1` for its
+it draws locally, waits for the panel to finish and a brief button interaction window, then sleeps. A timed-card watch should keep `1` for its
 scan response time. Use intervals that divide 60 for evenly spaced checks.
 
 After a failed connection, a one-minute watch retries after five minutes, then
@@ -189,7 +189,7 @@ Publish a retained, QoS 1 snapshot on `castkit/<device_id>/agenda/set` (or overr
 additional local-date envelope:
 
 ```json
-{"date":"2026-10-05","events":[{"startMs":1791222000000,"summary":"Practice","isAllDay":false}]}
+{"date":"2026-10-05","events":[{"startMs":1791222000000,"endMs":1791225600000,"summary":"Practice","isAllDay":false}]}
 ```
 
 An empty `events` array means a successfully synced day with no events. A producer
@@ -204,6 +204,7 @@ the agenda asks to connect to Wi-Fi. A cold start still needs valid time.
 Two complete event rows fit each page; top-right reaches every stored event and returns to the clock. The
 cache holds up to 32 events and shows `+ more` if a day exceeds that capacity.
 Titles wrap to two lines and clip with an ellipsis. Its embedded font is ASCII;
+Curly apostrophes normalize to the ASCII apostrophe and é/É to e/E;
 other Unicode code points are displayed as `?`. Retained timer messages do not
 change the selected page unless a new session has started.
 
@@ -237,7 +238,7 @@ substitutions:
 
 The subscription reads Tally Marks' retained per-child state. Bottom-right opens scores
 from the clock, binary clock, timer or CastKit page. Top-left returns to the default clock.
-Top-right cycles the agenda and then returns to that clock. Bottom-right advances scores pages. `show_scores` is also
+Top-right cycles the agenda and then returns to that clock. Bottom-right advances scores pages and returns to the default clock after the last page. `show_scores` is also
 available through the encrypted native API.
 
 The cache accepts a child's `{kid, kidName, day, pointsToday, displayOrder, ts}`
@@ -260,8 +261,7 @@ Set `binary_clock_enabled: 'true'` in the private wrapper to use the local binar
 clock as the default face. Top-left and the end of a timed session return to it. Five hour positions
 represent the 12-hour value 1 through 12; six minute bits represent 0 through 59. Filled dots count
 toward their labelled weights (32, 16, 8, 4, 2, 1). Add the filled weights in
-each column. The small 12-hour digital time with a/p beneath the dots provides a learning
-reference that matches the hour dots. The redundant Binary heading is omitted. There is no seconds column, so the existing minute refresh and sleep
+each column. There is no duplicate digital time below the dots; bottom-left opens the digital clock. The redundant Binary heading is omitted. There is no seconds column, so the existing minute refresh and sleep
 cadence stays in place. `show_binary_clock` is available through the native API.
 This face works offline from the same local clock.
 
@@ -336,3 +336,24 @@ SRAM; the previous 5,000-byte pixel frame uses RTC SLOW SRAM. Neither cache writ
 flash. They survive deep sleep; a cold reset or complete power loss needs a fresh sync.
 Network retry state and the safe-mode boot counter also use RTC SRAM. This battery policy is scoped to Watchy;
 it does not change the connected behavior of mains-powered CastKit panels.
+
+## Next event and responsive navigation
+
+Both local clock faces show today's next timed event: a large bold `Next h:mma/p`
+line and its title. An ongoing event shows `Now`; after timed events, an all-day
+item is a fallback. Empty completed days say `No more today`, and an unsynced
+local date says `Agenda not synced`. This draws from the same retained snapshot
+without Wi-Fi or an image download. Optional `endMs` preserves ongoing events;
+older snapshots without it show an event only until its start time. Tomorrow's
+events require tomorrow's dated snapshot; yesterday's data never appears current.
+
+The SSD1681 waveform finishes asynchronously. GPIO handling continues while
+the panel is busy; repeated presses advance the selected page immediately,
+and the driver renders the latest selection after the current refresh finishes.
+It retains the in-flight frame in ordinary RAM, so queued draws cannot alter
+the controller's reference plane. Deep sleep waits for the final refresh,
+button release, and 800 ms since the last press. Initial GPIO values do not
+trigger actions; the boot wake mask handles the wake press exactly once.
+The prior extra wake-suppression flags are removed, including the Down flag
+that could swallow the next actual press. Native API cycle actions use the
+same scripts as the physical buttons.
