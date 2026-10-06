@@ -107,7 +107,14 @@ const renderInPanel = ({
 }
 
 test("each provider is represented by its weekly limit alone", () => {
-  renderInPanel({ panelHeight: 900, repaint: "instant" })
+  const { container } = renderInPanel({
+    panelHeight: 900,
+    repaint: "instant",
+  })
+  expect(
+    container.querySelectorAll(".ai-usage-provider-icon"),
+  ).toHaveLength(2)
+  expect(screen.queryByText("Max")).toBeNull()
   expect(screen.getByText("Claude")).toBeVisible()
   expect(screen.getByText("Codex")).toBeVisible()
   expect(screen.getAllByText("7-day limit")).toHaveLength(2)
@@ -245,6 +252,9 @@ test("a letterbox panel lays its providers out in columns and grows its type", (
   })
   expect(
     container.querySelectorAll(".ai-usage-column"),
+  ).toHaveLength(3)
+  expect(
+    container.querySelectorAll(".ai-usage-provider-icon"),
   ).toHaveLength(3)
   fiveProviders.providers.forEach((provider) => {
     expect(screen.getByText(provider.name)).toBeVisible()

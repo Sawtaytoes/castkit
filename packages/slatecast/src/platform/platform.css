@@ -926,11 +926,17 @@
   block-size: calc(34px * var(--ai-usage-scale));
   flex: none;
 }
+.ai-usage-provider-icon {
+  inline-size: calc(20px * var(--ai-usage-scale));
+  block-size: calc(20px * var(--ai-usage-scale));
+  flex: none;
+  align-self: flex-start;
+}
 .ai-usage-provider-head h3 {
   font-size: calc(18px * var(--ai-usage-scale));
   font-weight: 600;
 }
-.ai-usage-plan {
+.ai-usage-status {
   font-size: calc(13px * var(--ai-usage-scale));
   color: var(--fg-dim);
 }
@@ -2376,7 +2382,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ai-usage-plan {
+.ai-usage-status {
   flex: 0 1 auto;
   min-inline-size: 0;
   overflow: hidden;
