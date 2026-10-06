@@ -58,6 +58,10 @@ Both accept a `providerIds` channel setting. Leave it empty for every provider.
 
 ## What the view decides
 
+**Provider names carry their brand icons.** Claude uses its starburst and Codex
+accounts share the OpenAI mark. Subscription plan labels are omitted; cached
+data and provider errors remain visible.
+
 **One row per provider: its weekly limit.** A panel is read from across a desk,
 not scanned like a table, so the view answers one question — how much of the
 week is left — and stays quiet about the rest. The headline is the longest

@@ -14,6 +14,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-10-05 | [AI Usage shows provider icons and omits plans](2026-10-05-ai-usage-shows-provider-icons-and-omits-plans.md) | Accepted |
 | 2026-10-03 | [Countdowns show continuous timed progress](2026-10-03-countdowns-show-continuous-timed-progress.md) | Accepted |
 | 2026-10-03 | [Rip slots and return navigation fit small panels](2026-10-03-rip-slots-and-return-navigation-fit-small-panels.md) | Accepted |
 | 2026-10-03 | [Scan feedback is temporary in active-only views](2026-10-03-scan-feedback-is-temporary-in-active-only-views.md) | Accepted |
