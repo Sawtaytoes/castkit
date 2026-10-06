@@ -233,6 +233,7 @@ jobs:
       captureCommand: |
         yarn playwright install chromium
         yarn vrt:capture
+        node scripts/captureDitherComparison.mjs
         rm -f "$VRT_ACTUAL_DIR/slatecast/overview-all-screens--every-view-every-panel.png"
     secrets: inherit
 
