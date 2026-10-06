@@ -4,7 +4,7 @@
 **Date:** 2026-10-06
 **Type:** Presentation / owner choice
 **Supersedes:** [Clock hierarchy](2026-10-06-watchy-clock-and-points-emphasize-primary-values.md) for binary horizontal spacing
-**Superseded by:** None
+**Superseded by:** [Horizontal binary rows](2026-10-06-watchy-binary-rows-read-most-significant-bit-first.md), binary layout only
 
 ## Decision
 

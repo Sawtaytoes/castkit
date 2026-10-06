@@ -929,19 +929,19 @@ display:
       }
       if (id(is_binary_clock)) {
         if (now.is_valid()) {
-          it.print(100, 10, id(compact_font), TextAlign::TOP_CENTER, "h");
-          it.print(128, 10, id(compact_font), TextAlign::TOP_CENTER, "m");
+          it.print(7, 60, id(compact_font), TextAlign::CENTER_LEFT, "h");
+          it.print(7, 95, id(compact_font), TextAlign::CENTER_LEFT, "m");
           const int hour = (now.hour + 11) % 12 + 1;
           for (int bit = 5; bit >= 0; bit--) {
             const int value = 1 << bit;
-            const int y = 34 + (5 - bit) * 15;
-            it.printf(78, y, id(compact_font), TextAlign::CENTER_RIGHT, "%d", value);
-            if (bit < 5) {
-              it.circle(100, y, 6);
-              if (hour & value) it.filled_circle(100, y, 5);
+            const int x = 40 + (5 - bit) * 25;
+            if (bit == 5 || bit == 3 || bit == 1) {
+              it.printf(x, 27, id(compact_font), TextAlign::TOP_CENTER, "%d", value);
             }
-            it.circle(128, y, 6);
-            if (now.minute & value) it.filled_circle(128, y, 5);
+            it.circle(x, 60, 9);
+            if (hour & value) it.filled_circle(x, 60, 8);
+            it.circle(x, 95, 9);
+            if (now.minute & value) it.filled_circle(x, 95, 8);
           }
         } else it.print(100, 100, id(label_font), TextAlign::CENTER, "Syncing time...");
       } else if (id(is_scores_page)) {
