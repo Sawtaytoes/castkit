@@ -37,20 +37,51 @@ class PrestoTransportTests(unittest.IsolatedAsyncioTestCase):
         response = await asyncio.wait_for(waiting, timeout=0.5)
         self.assertEqual(response.status, 204)
         self.assertEqual(response.headers["X-CastKit-Backlight"], "35")
+        self.assertEqual(response.headers["X-CastKit-Backlight-Ack"], "1")
         self.assertIsNone(self.transport.reported_backlight_percent)
         response = await self.client.post(
             "/control-ack", headers=self.headers, json={"backlight_percent": 35}
         )
         self.assertEqual(response.status, 204)
         self.assertEqual(self.transport.reported_backlight_percent, 35)
+        self.assertNotIn("X-CastKit-Backlight-Ack", self.transport.control_headers())
         response = await self.client.post(
             "/control-ack", headers=self.headers, json={"backlight_percent": 101}
         )
         self.assertEqual(response.status, 400)
         self.transport.set_backlight(0)
         self.assertEqual(self.transport.control_headers()["X-CastKit-Backlight"], "0")
+        self.assertEqual(self.transport.control_headers()["X-CastKit-Backlight-Ack"], "1")
+
+    async def test_restarted_relay_requests_existing_brightness_until_confirmed(self):
+        self.transport.set_backlight(35)
+        await self.client.post("/control-ack", headers=self.headers, json={"backlight_percent": 35})
+        self.assertNotIn("X-CastKit-Backlight-Ack", self.transport.control_headers())
+        restarted = PrestoTransport({"mac": "02:00:00:00:00:01"}, "a" * 32)
+        restarted.set_backlight(35)
+        application = web.Application(middlewares=[restarted.authenticate])
+        application.router.add_get("/frame", restarted.get_frame)
+        application.router.add_post("/control-ack", restarted.acknowledge_controls)
+        async with TestClient(TestServer(application)) as client:
+            response = await client.get("/frame", headers=self.headers)
+            self.assertEqual(response.headers["X-CastKit-Backlight"], "35")
+            self.assertEqual(response.headers["X-CastKit-Backlight-Ack"], "1")
+            self.assertIsNone(restarted.reported_backlight_percent)
+            response = await client.post(
+                "/control-ack", headers=self.headers, json={"backlight_percent": 35}
+            )
+            self.assertEqual(response.status, 204)
+            self.assertEqual(restarted.reported_backlight_percent, 35)
+            response = await client.get("/frame", headers=self.headers)
+            self.assertNotIn("X-CastKit-Backlight-Ack", response.headers)
+            response = await client.get(
+                "/frame", headers={**self.headers, "X-CastKit-Boot": "second-boot"}
+            )
+            self.assertEqual(response.headers["X-CastKit-Backlight-Ack"], "1")
+            self.assertIsNone(restarted.reported_backlight_percent)
 
     async def test_frame_is_not_complete_until_matching_physical_ack(self):
+        self.transport.set_backlight(35)
         sending = asyncio.create_task(
             self.transport.send_frame(42, 5, zlib.compress(bytes(480 * 480 * 2)))
         )
@@ -65,6 +96,7 @@ class PrestoTransportTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.get("/frame", headers=self.headers)
         self.assertEqual(zlib.decompress(await response.read()), bytes(480 * 480 * 2))
         self.assertEqual(response.headers["X-CastKit-Frame"], "42")
+        self.assertEqual(response.headers["X-CastKit-Backlight-Ack"], "1")
         self.assertFalse(sending.done())
         unchanged = await self.client.get("/frame?after=42", headers=self.headers)
         self.assertEqual(unchanged.status, 204)
@@ -78,6 +110,8 @@ class PrestoTransportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 204)
         self.assertEqual((await sending)[1:3], ["42", "5"])
         self.assertEqual(self.transport.frames_drawn, 1)
+        self.assertIsNone(self.transport.reported_backlight_percent)
+        self.assertEqual(self.transport.control_headers()["X-CastKit-Backlight-Ack"], "1")
 
     async def test_input_validation_is_atomic_and_reboot_cancels_pending_frame(self):
         response = await self.client.post(
