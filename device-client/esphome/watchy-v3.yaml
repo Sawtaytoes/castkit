@@ -71,6 +71,7 @@ esphome:
             if (buttons & (1ULL << 0)) id(cycle_agenda).execute();
             if (buttons & (1ULL << 7)) id(cycle_clock).execute();
             if (buttons & (1ULL << 8)) id(cycle_scores).execute();
+            id(is_timer_sync_requested) = bool(buttons & (1ULL << 6));
             if (buttons & (1ULL << 6)) {
               id(is_binary_clock) = ${binary_clock_enabled};
               id(is_timer_page) = false;
@@ -354,17 +355,18 @@ mqtt:
       then:
         - lambda: |-
             id(has_received_timer) = true;
-            // Only a new session takes over the chosen page. Its snapshot survives sleep.
+            // New sessions and explicit refresh open the timer; routine sync preserves navigation.
             const uint64_t previous_start = id(timer_cache).started_ms;
             watchy::parse_timer(x, id(timer_cache));
             const bool is_active = watchy::timer_running(id(timer_cache));
-            if (is_active && id(timer_cache).started_ms != previous_start) {
+            if (watchy::should_open_timer(id(timer_cache), previous_start, id(is_timer_sync_requested))) {
               id(is_binary_clock) = false;
               id(is_scores_page) = false;
               id(is_timer_page) = true;
               id(is_points_page) = false;
               id(is_agenda_page) = false;
             }
+            id(is_timer_sync_requested) = false;
             if (!is_active && id(is_timer_page)) {
               id(is_timer_page) = false;
               id(is_binary_clock) = ${binary_clock_enabled};
@@ -538,6 +540,9 @@ globals:
     type: int
     initial_value: '0'
   - id: has_received_agenda
+    type: bool
+    initial_value: 'false'
+  - id: is_timer_sync_requested
     type: bool
     initial_value: 'false'
   - id: has_received_timer
@@ -802,8 +807,15 @@ script:
       - logger.log: "Manual request: synchronizing cached data."
       - script.stop: sleep_until_minute
       - lambda: |-
+          id(is_timer_sync_requested) = true;
+          id(has_received_agenda) = false;
+          id(has_received_timer) = false;
+          id(has_received_scores) = false;
           id(network_this_wake) = true;
           watchy::boost_cpu(true);
+      # Reconnect even if already online so the broker sends fresh retained snapshots.
+      - mqtt.disable:
+          id: mqtt_client
       - wifi.enable:
       - script.execute: connect_mqtt
       - script.execute: battery_cycle

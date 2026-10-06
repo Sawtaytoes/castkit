@@ -4,7 +4,7 @@
 - **Date:** 2026-10-06
 - **Type:** Device behavior / owner preference
 - **Supersedes:** [Short clock presses](2026-10-06-watchy-short-clock-presses-stay-offline.md), Back behavior only
-- **Superseded by:** None
+- **Superseded by:** [Explicit refresh reopens the active timer](2026-10-06-watchy-explicit-refresh-reopens-the-active-timer.md), active timer selection after explicit refresh only
 
 ## Decision
 

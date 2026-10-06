@@ -20,6 +20,12 @@ inline bool timer_running(const TimerCache &timer) {
   return timer.started_ms > 0 && timer.name[0];
 }
 
+// Explicit refresh reopens an existing session; ordinary snapshots preserve navigation.
+inline bool should_open_timer(const TimerCache &timer, uint64_t previous_start,
+                              bool is_manual_sync) {
+  return timer_running(timer) && (is_manual_sync || timer.started_ms != previous_start);
+}
+
 inline void parse_timer(JsonObjectConst json, TimerCache &timer) {
   JsonObjectConst task = json["activeTask"].is<JsonObjectConst>()
                              ? json["activeTask"].as<JsonObjectConst>()
