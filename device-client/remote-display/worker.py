@@ -14,21 +14,22 @@ from urllib.parse import urlsplit
 
 import yaml
 from aioesphomeapi import APIClient, TextSensorState
-from codec import encode_frame
+from codec import encode_frame, encode_presto_frame
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
 from playwright.async_api import async_playwright
+from presto_transport import PrestoTransport
 from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v3-gesture-release"
-TARGETS_SCRIPT = """({attribute, loadingSelector}) => {
+BUILD_MARKER = "castkit-remote-display-v4-presto"
+TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
-const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width:480,height:320,loading:false}] : [];
+const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
 return gestures.concat(Array.from(document.querySelectorAll(`[${attribute}]`)).filter(element => {
   const bounds = element.getBoundingClientRect();
-  return bounds.width && bounds.height && bounds.left >= 0 && bounds.top >= 0 && bounds.right <= 480 && bounds.bottom <= 320 && !element.matches(':disabled,[aria-disabled="true"]');
+  return bounds.width && bounds.height && bounds.left >= 0 && bounds.top >= 0 && bounds.right <= width && bounds.bottom <= height && !element.matches(':disabled,[aria-disabled="true"]');
 }).map(element => { const bounds = element.getBoundingClientRect(); return {
   identity: element.getAttribute(attribute), x: bounds.x, y: bounds.y,
   width: bounds.width, height: bounds.height, loading: loadingSelector ? element.matches(loadingSelector) : false
@@ -43,7 +44,8 @@ def read_config(path):
     config = yaml.safe_load(pathlib.Path(path).read_text())
     if not isinstance(config, dict):
         raise ValueError("Display configuration must be a mapping")
-    for key in ("manifest_url", "host", "mac", "secrets_path"):
+    is_presto = config.get("transport") == "presto"
+    for key in ("manifest_url", "mac", "secrets_path") + (() if is_presto else ("host",)):
         if not isinstance(config.get(key), str) or not config[key]:
             raise ValueError(f"Missing display configuration field: {key}")
     parsed = urlsplit(config["manifest_url"])
@@ -55,6 +57,11 @@ def read_config(path):
     ):
         raise ValueError("Display URL must be HTTP(S), without embedded credentials")
     validate_preview_port(config.get("preview_port"))
+    if is_presto:
+        port = config.get("listen_port")
+        if type(port) is not int or not 1024 <= port <= 65535:
+            raise ValueError("Presto requires a listen_port between 1024 and 65535")
+        config["viewport"] = {"width": 480, "height": 480}
     return config
 
 
@@ -75,6 +82,7 @@ class DisplaySession:
         self.target_options = {
             "attribute": self.target_attribute,
             "loadingSelector": config.get("loading_selector"),
+            **config.get("viewport", {"width": 480, "height": 320}),
         }
         self.processed_touch = 0
         self.last_sequence = 0
@@ -101,6 +109,12 @@ class DisplaySession:
                     self.is_reset_required = True
                 self.touches.put_nowait(parts)
             elif parts[0] == "error":
+                if parts[1] == "device-restarted":
+                    self.last_sequence = 0
+                    self.processed_touch = 0
+                    self.is_reset_required = True
+                    self.guard.frames.clear()
+                    self.force_frame.set()
                 for future in self.pending.values():
                     if not future.done():
                         future.set_exception(RuntimeError(parts[1]))
@@ -154,8 +168,7 @@ class DisplaySession:
             if (
                 phase == 1
                 and not self.contact["is_gesture"]
-                and abs(y - self.contact["start_y"]) >= 48
-                and abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
+                and max(abs(y - self.contact["start_y"]), abs(x - self.contact["start_x"])) >= 48
             ):
                 if not self.contact.get("is_tap_cancelled"):
                     await self.cdp.send(
@@ -222,6 +235,17 @@ class DisplaySession:
     async def send_frame(self, payload, touch_id, targets, format_id=2):
         self.frame_id += 1
         frame_id = self.frame_id
+        if isinstance(self.client, PrestoTransport):
+            # A touch can only use a frame that the physical panel acknowledged.
+            response = await self.client.send_frame(frame_id, touch_id, payload)
+            self.guard.remember(
+                frame_id,
+                [
+                    Target(**{key: value for key, value in target.items() if key != "loading"})
+                    for target in targets
+                ],
+            )
+            return response
         if format_id == 2:
             rectangles = ";".join(
                 ":".join(str(round(target[key])) for key in ("x", "y", "width", "height"))
@@ -283,7 +307,11 @@ class DisplaySession:
                 if before != after:
                     continue
                 self.preview.set_frame(png)
-                payload = await asyncio.to_thread(encode_frame, png)
+                payload = (
+                    await asyncio.to_thread(encode_presto_frame, png)
+                    if isinstance(self.client, PrestoTransport)
+                    else await asyncio.to_thread(encode_frame, png)
+                )
                 if (
                     payload != previous_payload
                     or touch_id != previous_touch
@@ -320,7 +348,7 @@ class DisplaySession:
 async def create_browser_context(browser, config):
     """Restore infrastructure credentials without changing panel rendering properties."""
     return await browser.new_context(
-        viewport={"width": 480, "height": 320},
+        viewport=config.get("viewport", {"width": 480, "height": 320}),
         device_scale_factor=1,
         has_touch=True,
         is_mobile=True,
@@ -335,7 +363,10 @@ async def serve(config):
     for sig in (signal.SIGINT, signal.SIGTERM):
         asyncio.get_running_loop().add_signal_handler(sig, stop.set)
     credentials = yaml.safe_load(pathlib.Path(config["secrets_path"]).read_text())
-    api_key = credentials[config.get("api_key_name", "api_encryption_key")]
+    is_presto = config.get("transport") == "presto"
+    api_key = credentials[
+        config.get("api_key_name", "presto_token" if is_presto else "api_encryption_key")
+    ]
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(
             **({"executable_path": config["chromium"]} if config.get("chromium") else {}),
@@ -348,8 +379,19 @@ async def serve(config):
             raise ConnectionError("CastKit manifest unavailable")
         config = {
             **config,
-            **parse_manifest(await manifest_response.json(), config["manifest_url"]),
+            **parse_manifest(
+                await manifest_response.json(),
+                config["manifest_url"],
+                config.get("viewport"),
+                max_cache_entries=0 if is_presto else 1,
+            ),
         }
+        # Refresh limits describe transport capability, not a user-facing view setting.
+        if is_presto:
+            config = {**config, "max_fps": min(config["max_fps"], 2)}
+        presto = PrestoTransport(config, api_key) if is_presto else None
+        if presto is not None:
+            await presto.start()
         page = await context.new_page()
         origin = urlsplit(config["url"])
 
@@ -384,7 +426,7 @@ async def serve(config):
         await preview.start()
         try:
             while not stop.is_set():
-                client = APIClient(config["host"], 6053, None, noise_psk=api_key)
+                client = presto or APIClient(config["host"], 6053, None, noise_psk=api_key)
                 try:
                     if page.is_closed():
                         page = await context.new_page()
@@ -401,19 +443,23 @@ async def serve(config):
                         if config["ready_selector"]:
                             await page.locator(config["ready_selector"]).wait_for(timeout=15000)
                     await client.connect(login=True)
-                    info = await client.device_info()
-                    if info.mac_address.lower().replace(":", "") != config["mac"].lower().replace(
-                        ":", ""
-                    ):
-                        raise ValueError("Device identity mismatch")
-                    entities, services = await client.list_entities_services()
-                    actions = {service.name: service for service in services}
-                    if not {"frame_chunk", "configure_touch_regions"} <= actions.keys():
-                        raise ValueError("The display needs CastKit remote-display firmware")
-                    event_key = next(
-                        entity.key for entity in entities if entity.name == "Display Events"
-                    )
-                    LOG.info("Display connected; firmware=%s", info.compilation_time)
+                    if is_presto:
+                        actions, event_key = {}, 1
+                        LOG.info("Presto connected; firmware=%s", client.build_marker)
+                    else:
+                        info = await client.device_info()
+                        if info.mac_address.lower().replace(":", "") != config[
+                            "mac"
+                        ].lower().replace(":", ""):
+                            raise ValueError("Device identity mismatch")
+                        entities, services = await client.list_entities_services()
+                        actions = {service.name: service for service in services}
+                        if not {"frame_chunk", "configure_touch_regions"} <= actions.keys():
+                            raise ValueError("The display needs CastKit remote-display firmware")
+                        event_key = next(
+                            entity.key for entity in entities if entity.name == "Display Events"
+                        )
+                        LOG.info("Display connected; firmware=%s", info.compilation_time)
                     session = DisplaySession(config, page, client, actions, stop, preview)
                     await session.run(event_key, loading_frame)
                 except Exception as error:
@@ -424,6 +470,8 @@ async def serve(config):
                     await asyncio.wait_for(stop.wait(), timeout=2)
         finally:
             await preview.stop()
+            if presto is not None:
+                await presto.stop()
             await browser.close()
 
 

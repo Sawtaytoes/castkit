@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 from interaction import Target
 from playwright.async_api import async_playwright
 from preview import PreviewServer
-from worker import DisplaySession, create_browser_context
+from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context
 
 
 class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
@@ -77,6 +77,28 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
             await context.close()
         context = await create_browser_context(self.browser, {})
         self.assertEqual(await context.cookies(), [])
+        await context.close()
+
+    async def test_square_panel_keeps_bottom_touch_targets_and_reboot_resets_sequence(self):
+        context = await create_browser_context(
+            self.browser, {"viewport": {"width": 480, "height": 480}}
+        )
+        page = await context.new_page()
+        await page.set_content("""<meta name="viewport" content="width=device-width,initial-scale=1">
+            <button data-castkit-target="bottom" style="position:absolute;left:20px;top:420px;width:80px;height:40px">Bottom</button>""")
+        targets = await page.evaluate(
+            TARGETS_SCRIPT, {"attribute": "data-castkit-target", "width": 480, "height": 480}
+        )
+        self.assertEqual(targets[0]["identity"], "bottom")
+        self.assertEqual(targets[0]["y"], 420)
+        self.session.last_sequence = 100
+        from aioesphomeapi import TextSensorState
+
+        self.session.event_key = 1
+        self.session.state_changed(TextSensorState(key=1, state="error,device-restarted"))
+        self.assertEqual(self.session.last_sequence, 0)
+        self.assertTrue(self.session.is_reset_required)
+        self.assertEqual(self.session.guard.frames, {})
         await context.close()
 
     async def event(self, sequence, phase, frame=42):

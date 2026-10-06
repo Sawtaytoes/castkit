@@ -4,6 +4,24 @@ from manifest import parse_manifest
 
 
 class ManifestTests(unittest.TestCase):
+    def test_presto_requires_its_own_full_resolution_viewport(self):
+        viewport = {"width": 480, "height": 480}
+        self.assertEqual(
+            parse_manifest(
+                self.document(viewport=viewport), "https://example.com/manifest.json", viewport
+            )["url"],
+            "https://example.com/panel",
+        )
+        with self.assertRaises(ValueError):
+            parse_manifest(self.document(), "https://example.com/manifest.json", viewport)
+        with self.assertRaises(ValueError):
+            parse_manifest(
+                self.document(viewport=viewport),
+                "https://example.com/manifest.json",
+                viewport,
+                max_cache_entries=0,
+            )
+
     def document(self, **changes):
         return {
             "version": 1,

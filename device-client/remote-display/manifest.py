@@ -19,11 +19,12 @@ def same_origin_url(base, relative):
     return resolved
 
 
-def parse_manifest(document, url):
+def parse_manifest(document, url, viewport=None, max_cache_entries=1):
     if not isinstance(document, dict) or document.get("version") != 1:
         raise ValueError("Unsupported CastKit manifest version")
-    if document.get("viewport") != {"width": 480, "height": 320}:
-        raise ValueError("This display requires a 480x320 viewport")
+    viewport = viewport or {"width": 480, "height": 320}
+    if document.get("viewport") != viewport:
+        raise ValueError("Manifest viewport does not match the display")
     inputs, refresh = document.get("input", {}), document.get("refresh", {})
     attribute = inputs.get("target_attribute", "data-castkit-target")
     if not isinstance(attribute, str) or not re.fullmatch(r"data-[a-z][a-z0-9-]*", attribute):
@@ -41,8 +42,8 @@ def parse_manifest(document, url):
         raise ValueError("Refresh requires 1–20fps and a 500–3000ms heartbeat")
     cache = document.get("cache", [])
     # The current WT32 firmware reserves one full-size PSRAM image for feedback.
-    if not isinstance(cache, list) or len(cache) > 1:
-        raise ValueError("This display supports at most one optimistic cache image")
+    if not isinstance(cache, list) or len(cache) > max_cache_entries:
+        raise ValueError("This display does not support the requested optimistic cache")
     cached = cache[0] if cache else None
     if cached is not None and (
         not isinstance(cached, dict)
