@@ -8,10 +8,9 @@ from unittest.mock import AsyncMock, patch
 
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
-from PIL import Image
-
 from ambient_light import artwork_bounds, control_state, metadata
 from codec import encode_presto_frame, encode_presto_frame_with_palette
+from PIL import Image
 from presto_transport import PrestoTransport
 from worker import poll_controls
 

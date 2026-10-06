@@ -13,7 +13,6 @@ import zlib
 
 from aioesphomeapi import TextSensorState
 from aiohttp import web
-
 from ambient_light import control_state, metadata
 from codec import encode_presto_patch
 

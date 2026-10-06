@@ -14,12 +14,11 @@ from urllib.parse import urlsplit
 
 import yaml
 from aioesphomeapi import APIClient, TextSensorState
-from playwright.async_api import async_playwright
-
 from ambient_light import artwork_bounds
 from codec import encode_frame, encode_presto_frame, encode_presto_frame_with_palette
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
+from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer, validate_preview_port
 
