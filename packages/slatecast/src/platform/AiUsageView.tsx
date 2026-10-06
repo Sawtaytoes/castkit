@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { AiUsageProviderIcon } from "./AiUsageProviderIcon.tsx"
 import { placeSections } from "./aiUsageLayout.ts"
 import {
   readAlertPercent,
@@ -290,12 +291,10 @@ export const AiUsageView = ({
             {sections.map(({ provider, rows }) => (
               <section key={provider.id}>
                 <div class="ai-usage-provider-head">
+                  <AiUsageProviderIcon
+                    providerId={provider.id}
+                  />
                   <h3>{provider.name}</h3>
-                  {provider.planText ? (
-                    <span class="ai-usage-plan">
-                      {provider.planText}
-                    </span>
-                  ) : null}
                   {provider.isOk ? null : (
                     <span class="ai-usage-problem">
                       {provider.problemText ??
@@ -303,7 +302,7 @@ export const AiUsageView = ({
                     </span>
                   )}
                   {provider.isOk && provider.isCached ? (
-                    <span class="ai-usage-plan">
+                    <span class="ai-usage-status">
                       Last known
                     </span>
                   ) : null}
