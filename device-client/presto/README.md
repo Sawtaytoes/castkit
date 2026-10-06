@@ -56,11 +56,19 @@ unless its excess over DEFLATE exceeds 10% of the rectangle's raw size
 for much faster native decoding. Bounded Viper routines decode into PicoGraphics'
 back buffer or a temporary rectangle buffer, then copy the rectangle into the
 back buffer. `update()` runs once per complete image; frames never reach flash.
-Touch sampling pauses during presentation until acknowledgement succeeds so
-contacts cannot name the previous image while a replacement is on the glass.
+Touch sampling pauses during decode and drawing. Once the new image is visible,
+sampling resumes with that image's frame id while its acknowledgement travels.
+Those contacts remain queued until acknowledgement succeeds, so the worker's
+acknowledged-frame guard remains authoritative. A failed acknowledgement discards
+the queued contacts and requests a full recovery frame.
 `POST /ack` confirms that decode and drawing finished. `POST /touch` sends bounded
 batches of sequence/phase/X/Y/displayed-frame-id samples. Every call carries the
 dedicated token, MAC and a new identity for each board boot.
+
+Acknowledgements include `body_read_us`: device time spent reading and copying
+the HTTP response body. It excludes waiting for response headers or an idle long
+poll, but includes TCP/Wi-Fi waits and device-side copies. It is not a measurement
+of radio throughput alone; decode and display update timings remain separate.
 
 The worker guards contacts against the **acknowledged** image: a stale frame
 cannot activate a replacement control at the same coordinates. Input is disabled
