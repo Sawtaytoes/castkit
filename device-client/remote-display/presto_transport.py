@@ -6,12 +6,14 @@ this relay's frame and touch endpoints, never CastKit management access.
 
 import asyncio
 import contextlib
+import json
 import secrets
 import time
 import zlib
 
 from aioesphomeapi import TextSensorState
 from aiohttp import web
+from ambient_light import control_state, metadata
 from codec import encode_presto_patch
 
 
@@ -39,6 +41,10 @@ class PrestoTransport:
         self.last_ack = None
         self.backlight_percent = 0 if config.get("controls_url") else None
         self.reported_backlight_percent = None
+        self.ambient_light = None
+        self.reported_ambient_light = None
+        self.ambient_metadata = metadata(None)
+        self.ambient_palette = [[0, 0, 0] for _ in range(7)]
         self.frames_drawn = 0
         self.touches_received = 0
         self.runner = None
@@ -62,6 +68,7 @@ class PrestoTransport:
             # browser contact/acknowledgement state before accepting that input.
             self.report("error,device-restarted")
             self.reported_backlight_percent = None
+            self.reported_ambient_light = None
             self.frame = None
             self.base_pixels, self.base_id = None, 0
             self.touch_received_at.clear()
@@ -118,8 +125,27 @@ class PrestoTransport:
         percent = document.get("backlight_percent") if isinstance(document, dict) else None
         if type(percent) is not int or not 0 <= percent <= 100:
             raise web.HTTPBadRequest(text="Invalid backlight acknowledgement")
+        ambient = document.get("ambient_light")
+        if ambient is not None:
+            try:
+                ambient = control_state(ambient)
+            except ValueError as error:
+                raise web.HTTPBadRequest(text="Invalid ambient acknowledgement") from error
+        self.reported_ambient_light = ambient
         self.reported_backlight_percent = percent
         return web.Response(status=204)
+
+    def set_ambient_light(self, controls, data=None):
+        state = control_state(controls) if controls is not None else None
+        data = metadata(data)
+        if state != self.ambient_light or data != self.ambient_metadata:
+            self.ambient_light, self.ambient_metadata = state, data
+            self.frame_ready.set()
+
+    def set_ambient_palette(self, colors):
+        if colors != self.ambient_palette:
+            self.ambient_palette = colors
+            self.frame_ready.set()
 
     async def get_frame(self, request):
         frame = self.frame
@@ -158,11 +184,21 @@ class PrestoTransport:
         return web.Response(body=body, content_type=content_type, headers=headers)
 
     def control_headers(self):
-        if self.backlight_percent is None:
-            return {}
-        headers = {"X-CastKit-Backlight": str(self.backlight_percent)}
-        if self.reported_backlight_percent != self.backlight_percent:
+        headers = {}
+        if self.backlight_percent is not None:
+            headers["X-CastKit-Backlight"] = str(self.backlight_percent)
+        if (
+            self.backlight_percent is not None
+            and self.reported_backlight_percent != self.backlight_percent
+        ):
             headers["X-CastKit-Backlight-Ack"] = "1"
+        if self.ambient_light is not None:
+            headers["X-CastKit-Ambient"] = json.dumps(
+                {**self.ambient_light, **self.ambient_metadata, "colors": self.ambient_palette},
+                separators=(",", ":"),
+            )
+            if self.reported_ambient_light != self.ambient_light:
+                headers["X-CastKit-Ambient-Ack"] = "1"
         return headers
 
     async def acknowledge(self, request):
@@ -250,7 +286,7 @@ class PrestoTransport:
     async def health(self, request):
         return web.json_response(
             {
-                "build": "castkit-presto-transport-v4-control-ack",
+                "build": "castkit-presto-transport-v5-ambient-light",
                 "firmware": self.build_marker,
                 "last_seen_seconds": round(time.monotonic() - self.last_seen, 1)
                 if self.last_seen
@@ -261,6 +297,8 @@ class PrestoTransport:
                 "last_delivery": self.last_delivery,
                 "backlight_percent": self.backlight_percent,
                 "reported_backlight_percent": self.reported_backlight_percent,
+                "ambient_light": self.ambient_light,
+                "reported_ambient_light": self.reported_ambient_light,
                 "capture_ms": self.capture_ms,
                 "encode_ms": self.encode_ms,
                 "last_touch_to_ack_ms": self.last_touch_latency_ms,
