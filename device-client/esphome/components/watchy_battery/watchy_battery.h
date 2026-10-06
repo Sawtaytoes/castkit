@@ -4,6 +4,7 @@
 #include "watchy_power.h"
 #include "watchy_timer.h"
 #include "watchy_cache.h"
+#include "watchy_hardware.h"
 
 #include "esphome/core/component.h"
 #include "esphome/core/log.h"
