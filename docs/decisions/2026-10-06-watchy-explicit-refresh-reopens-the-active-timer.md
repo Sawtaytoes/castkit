@@ -4,7 +4,7 @@
 - **Date:** 2026-10-06
 - **Type:** Bug fix / device behavior
 - **Supersedes:** [Back sync](2026-10-06-watchy-idle-scans-slow-down-and-back-syncs.md), active timer selection after explicit refresh only
-- **Superseded by:** None
+- **Superseded by:** [Keep MQTT open and await complete scores](2026-10-06-watchy-refresh-keeps-mqtt-open-and-waits-for-all-scores.md), forced MQTT reconnect only
 
 ## Decision
 
