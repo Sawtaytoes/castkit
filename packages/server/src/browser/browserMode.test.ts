@@ -207,7 +207,11 @@ describe("a brightness command from the Home Assistant light", () => {
     ])
     expect(
       browserMode.getDeviceSettings(BACKLIT_ID),
-    ).toEqual({ backlightLevel: "50" })
+    ).toEqual({
+      backlightLevel: "50",
+      backlightPower: "on",
+      backlightEffective: "50",
+    })
   })
 })
 
@@ -332,7 +336,11 @@ describe("the backlight agent's availability", () => {
 
     expect(
       browserMode.getDeviceSettings(BACKLIT_ID),
-    ).toEqual({ backlightLevel: "40" })
+    ).toEqual({
+      backlightLevel: "40",
+      backlightPower: "on",
+      backlightEffective: "40",
+    })
   })
 })
 
@@ -364,7 +372,11 @@ describe("the management-UI accessors", () => {
 
     expect(
       browserMode.getDeviceSettings(BACKLIT_ID),
-    ).toEqual({ backlightLevel: "100" })
+    ).toEqual({
+      backlightLevel: "100",
+      backlightPower: "on",
+      backlightEffective: "100",
+    })
     expect(
       browserMode.getDeviceSettings(EXTERNAL_ID),
     ).toEqual({})
@@ -406,4 +418,47 @@ describe("the management-UI accessors", () => {
       }),
     ).toBe(false)
   })
+})
+
+test("management power uses the legacy agent contract and tracks its reported state without changing brightness", async () => {
+  const { browserMode, receive, publishedTo } =
+    await startBrowserMode()
+  await receive({
+    topic: topicsFor(BACKLIT_ID).brightnessCommand,
+    payload: "89",
+  })
+  expect(
+    await browserMode.setDeviceSetting({
+      deviceId: BACKLIT_ID,
+      kind: "backlightPower",
+      payload: "off",
+    }),
+  ).toBe(true)
+  const powerTopic = `castkit/${BACKLIT_ID}/backlight/set`
+  expect(publishedTo(powerTopic)).toEqual([
+    {
+      topic: powerTopic,
+      payload: "OFF",
+      isRetained: false,
+    },
+  ])
+  await receive({
+    topic: `castkit/${BACKLIT_ID}/backlight`,
+    payload: "OFF",
+  })
+  expect(browserMode.getDeviceSettings(BACKLIT_ID)).toEqual(
+    {
+      backlightLevel: "35",
+      backlightPower: "off",
+      backlightEffective: "0",
+    },
+  )
+  await receive({ topic: powerTopic, payload: "ON" })
+  expect(browserMode.getDeviceSettings(BACKLIT_ID)).toEqual(
+    {
+      backlightLevel: "35",
+      backlightPower: "on",
+      backlightEffective: "35",
+    },
+  )
 })

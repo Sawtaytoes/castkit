@@ -70,6 +70,7 @@ import {
   resolveSlatecastDistDir,
 } from "./pages.ts"
 import { createRemoteBacklight } from "./remoteBacklight.ts"
+import { createRemoteBacklightMqtt } from "./remoteBacklightMqtt.ts"
 
 /**
  * Browser-mode (Slatecast) wiring: HA discovery + MQTT routes for the
@@ -193,6 +194,32 @@ export const createBrowserMode = ({
     store: platform?.store ?? createPlatformStore(),
     getChannel: (id) => platform?.hub.get(id),
   })
+  const remoteBacklightMqtt = createRemoteBacklightMqtt({
+    controller: remoteBacklight,
+    publisher,
+    baseTopic,
+  })
+  // Persist first and mirror asynchronously: a disconnected broker must never
+  // delay a direct hardware control or its management response.
+  const mirrorRemoteBacklight = (deviceId: string) => {
+    void remoteBacklightMqtt
+      .publish({ deviceId })
+      .catch(() => {})
+  }
+  const backlightSubscription = platform?.hub.subscribe(
+    (snapshot) => {
+      devices
+        .filter(
+          (device) =>
+            device.hasRemoteBacklight &&
+            remoteBacklight.get(device.id).channel ===
+              snapshot.id,
+        )
+        .forEach((device) => {
+          mirrorRemoteBacklight(device.id)
+        })
+    },
+  )
   // Devices whose backlight agent last reported `online`. A transition INTO
   // online (including the first one seen after server start) is when the
   // stored level is re-sent — that is what survives a panel reboot.
@@ -558,6 +585,8 @@ export const createBrowserMode = ({
     | "photoQueryRestore"
     | "photoInterval"
     | "photoIntervalRestore"
+    | "backlightPower"
+    | "backlightPowerState"
     | "backlightLevel"
     | "backlightLevelRestore"
     | "backlightBrightness"
@@ -578,7 +607,10 @@ export const createBrowserMode = ({
     if (!topics) {
       return
     }
-    const routeEntries: readonly [string, RouteKind][] = [
+    const routeEntries: readonly (readonly [
+      string,
+      RouteKind,
+    ])[] = [
       [topics.viewCommand, "view"],
       [topics.viewState, "viewRestore"],
       [topics.reloadCommand, "reload"],
@@ -599,28 +631,49 @@ export const createBrowserMode = ({
       [topics.printersDataCommand, "printersData"],
       [topics.viewHoldCommand, "viewHold"],
     ]
-    // The backlight level only means something when a backlight agent listens
-    // on the device's MQTT light topics.
-    const backlightRouteEntries: readonly [
+    // Both native controllers and external agents use the same light command
+    // topics. Only the external agent restores retained level/availability.
+    const backlightRouteEntries: readonly (readonly [
       string,
       RouteKind,
-    ][] = device.hasMqttBacklight
-      ? [
-          [topics.backlightLevelCommand, "backlightLevel"],
-          [
-            topics.backlightLevelState,
-            "backlightLevelRestore",
-          ],
-          [
-            topics.backlightBrightnessCommand,
-            "backlightBrightness",
-          ],
-          [
-            topics.backlightAvailability,
-            "backlightAvailability",
-          ],
-        ]
-      : []
+    ])[] =
+      device.hasMqttBacklight || device.hasRemoteBacklight
+        ? [
+            [topics.backlightCommand, "backlightPower"],
+            ...(!device.hasRemoteBacklight
+              ? [
+                  [
+                    topics.backlightState,
+                    "backlightPowerState",
+                  ] as const,
+                ]
+              : []),
+            [
+              topics.backlightLevelCommand,
+              "backlightLevel",
+            ],
+            ...(!device.hasRemoteBacklight
+              ? [
+                  [
+                    topics.backlightLevelState,
+                    "backlightLevelRestore",
+                  ] as const,
+                ]
+              : []),
+            [
+              topics.backlightBrightnessCommand,
+              "backlightBrightness",
+            ],
+            ...(!device.hasRemoteBacklight
+              ? [
+                  [
+                    topics.backlightAvailability,
+                    "backlightAvailability",
+                  ] as const,
+                ]
+              : []),
+          ]
+        : []
     routeEntries
       .concat(backlightRouteEntries)
       .forEach(([topic, kind]) => {
@@ -694,6 +747,38 @@ export const createBrowserMode = ({
       return
     }
 
+    if (
+      stateStore.deviceById.get(deviceId)
+        ?.hasRemoteBacklight &&
+      [
+        "backlightPower",
+        "backlightBrightness",
+        "backlightLevel",
+      ].includes(kind)
+    ) {
+      if (
+        remoteBacklightMqtt.command({
+          deviceId,
+          kind,
+          payload,
+        })
+      ) {
+        mirrorRemoteBacklight(deviceId)
+      }
+      return
+    }
+    if (
+      kind === "backlightPower" ||
+      kind === "backlightPowerState"
+    ) {
+      if (payload === "ON" || payload === "OFF") {
+        backlightStore.setPower({
+          deviceId,
+          isOn: payload === "ON",
+        })
+      }
+      return
+    }
     if (kind === "view" || kind === "viewRestore") {
       await applyView({
         deviceId,
@@ -1015,6 +1100,17 @@ export const createBrowserMode = ({
       handler: handleMessage,
     })
 
+    await Promise.all(
+      devices
+        .filter((device) => device.hasRemoteBacklight)
+        .map((device) =>
+          remoteBacklightMqtt.publish({
+            deviceId: device.id,
+            isForced: true,
+          }),
+        ),
+    )
+
     // Publish the URL diagnostic sensor + reset the connected flag (retained
     // ON from a previous run would lie until the first socket event).
     await Promise.all(
@@ -1074,7 +1170,8 @@ export const createBrowserMode = ({
               stateStore.getSettings(device.id).orientation,
             ),
           },
-          ...(device.hasMqttBacklight
+          ...(device.hasMqttBacklight &&
+          !device.hasRemoteBacklight
             ? [
                 {
                   topic: topics.backlightLevelState,
@@ -1450,6 +1547,14 @@ export const createBrowserMode = ({
           backlightLevel: String(
             backlightStore.getPercent(deviceId),
           ),
+          backlightPower: backlightStore.getIsOn(deviceId)
+            ? "on"
+            : "off",
+          backlightEffective: String(
+            backlightStore.getIsOn(deviceId)
+              ? backlightStore.getPercent(deviceId)
+              : 0,
+          ),
         }
       : {}
   }
@@ -1470,24 +1575,44 @@ export const createBrowserMode = ({
     const device = stateStore.deviceById.get(deviceId)
     const topics = topicsByDeviceId.get(deviceId)
     if (device?.hasRemoteBacklight) {
-      return remoteBacklight.set({
+      const isUpdated = remoteBacklight.set({
         deviceId,
         kind,
         payload,
       })
+      if (isUpdated) mirrorRemoteBacklight(deviceId)
+      return isUpdated
     }
     if (
       !device ||
       !topics ||
       !publisher.isEnabled ||
-      kind !== "backlightLevel" ||
+      !["backlightLevel", "backlightPower"].includes(
+        kind,
+      ) ||
       !device.hasMqttBacklight
     ) {
       return false
     }
+    if (
+      kind === "backlightPower" &&
+      !["on", "off"].includes(payload)
+    )
+      return false
+    if (
+      kind === "backlightLevel" &&
+      parseBacklightPercentPayload(payload) === null
+    )
+      return false
     await publisher.publish({
-      topic: topics.backlightLevelCommand,
-      payload,
+      topic:
+        kind === "backlightPower"
+          ? topics.backlightCommand
+          : topics.backlightLevelCommand,
+      payload:
+        kind === "backlightPower"
+          ? payload.toUpperCase()
+          : payload,
       isRetained: false,
     })
     return true
@@ -1504,6 +1629,7 @@ export const createBrowserMode = ({
     /** Stops the timers this mode owns, so a test (or shutdown) can settle. */
     stop: () => {
       spoolsSubscription.unsubscribe?.()
+      backlightSubscription?.()
       externalViewHealth.stop()
       hub.stop()
     },

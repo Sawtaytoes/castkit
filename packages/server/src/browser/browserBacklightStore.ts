@@ -61,11 +61,25 @@ export const parseBacklightBrightnessPayload = (
 
 export const createBrowserBacklightStore = () => {
   const percentByDeviceId = new Map<string, number>()
+  const powerByDeviceId = new Map<string, boolean>()
 
   return {
     getPercent: (deviceId: string) =>
       percentByDeviceId.get(deviceId) ??
       DEFAULT_BACKLIGHT_PERCENT,
+    getIsOn: (deviceId: string) =>
+      powerByDeviceId.get(deviceId) ??
+      (percentByDeviceId.get(deviceId) ??
+        DEFAULT_BACKLIGHT_PERCENT) > 0,
+    setPower: ({
+      deviceId,
+      isOn,
+    }: {
+      deviceId: string
+      isOn: boolean
+    }) => {
+      powerByDeviceId.set(deviceId, isOn)
+    },
     setPercent: ({
       deviceId,
       percent,
