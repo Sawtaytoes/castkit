@@ -247,7 +247,10 @@ export const buildBrowserDiscoveryMessages = ({
               brightness: true,
               brightness_scale: 100,
               effect: true,
-              effect_list: Array.from(AMBIENT_LIGHT_MODES),
+              effect_list: [
+                ...AMBIENT_LIGHT_MODES,
+                "follow-view",
+              ],
               supported_color_modes: ["brightness"],
               device: deviceBlock,
             },

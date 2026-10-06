@@ -1,4 +1,7 @@
-import { AMBIENT_LIGHT_MODES } from "@castkit/sdk/ambientLight"
+import {
+  AMBIENT_LIGHT_MODES,
+  DEFAULT_AMBIENT_LIGHT_VIEW_MODES,
+} from "@castkit/sdk/ambientLight"
 import {
   Button,
   Card,
@@ -17,6 +20,7 @@ const modeLabels = {
   "meeting-fuse": "Meeting fuse",
   "weather-aura": "Weather aura",
   "progress-bar": "Progress bar",
+  off: "Off",
 }
 /** Independent rear LEDs apply immediately, with the same state available to Home Assistant. */
 export const AmbientLightControls = ({
@@ -34,10 +38,23 @@ export const AmbientLightControls = ({
     settings.ambientLightBrightness ?? 5,
   )
   const isOn =
-    settings.ambientLightPower === "on" && brightness > 0
+    (settings.ambientLightEffectivePower ??
+      settings.ambientLightPower) === "on" && brightness > 0
   const isDemo = settings.ambientLightDemo === "true"
+  const isFollowing =
+    settings.ambientLightFollowView === "true"
+  const viewModes: Record<string, string> = JSON.parse(
+    settings.ambientLightViewModes ??
+      JSON.stringify(DEFAULT_AMBIENT_LIGHT_VIEW_MODES),
+  )
+  const views: { id: string; name: string }[] = JSON.parse(
+    settings.ambientLightViewOptions ?? "[]",
+  )
   return (
     <Card heading="Ambient light">
+      <span className="text-sm font-medium">
+        {isFollowing ? "Manual effect" : "Effect"}
+      </span>
       <Picker
         label="Effect"
         value={settings.ambientLightMode ?? "album-glow"}
@@ -47,7 +64,10 @@ export const AmbientLightControls = ({
           label: modeLabels[mode],
         }))}
         onChange={(mode) =>
-          void onApply({ ambientLightMode: mode })
+          void onApply({
+            ambientLightMode: mode,
+            ambientLightFollowView: "false",
+          })
         }
       />
       <Slider
@@ -70,6 +90,7 @@ export const AmbientLightControls = ({
         <Button
           type="button"
           aria-pressed={isOn}
+          appearance={isOn ? "solid" : "outline"}
           isDisabled={isSaving}
           onClick={() =>
             void onApply({ ambientLightPower: "on" })
@@ -80,7 +101,7 @@ export const AmbientLightControls = ({
         <Button
           type="button"
           aria-pressed={!isOn}
-          appearance="outline"
+          appearance={isOn ? "outline" : "solid"}
           isDisabled={isSaving}
           onClick={() =>
             void onApply({ ambientLightPower: "off" })
@@ -99,6 +120,75 @@ export const AmbientLightControls = ({
             ? `Ambient light on · ${brightness}%`
             : "Ambient light off"}
       </p>
+      <Checkbox
+        key={`${device.id}:follow:${isFollowing}`}
+        isChecked={isFollowing}
+        isDisabled={isSaving}
+        label="Follow current view"
+        onChange={(isEnabled) =>
+          void onApply({
+            ambientLightFollowView: String(isEnabled),
+          })
+        }
+      />
+      {isFollowing ? (
+        <>
+          <p className="text-content-secondary text-sm">
+            Current view:{" "}
+            {settings.ambientLightEffectiveView ??
+              "Unavailable view"}{" "}
+            ·{" "}
+            {settings.ambientLightEffectiveMode === "off"
+              ? "Off for this view"
+              : (modeLabels[
+                  settings.ambientLightEffectiveMode as keyof typeof modeLabels
+                ] ?? "Off for this view")}
+            .
+            {settings.ambientLightPower === "off"
+              ? " Ambient light is manually off."
+              : ""}
+          </p>
+          <div className="setting-fields">
+            {views.map((view) => (
+              <div key={view.id} className="grid gap-2">
+                <span className="text-sm font-medium">
+                  {view.name}
+                </span>
+                <Picker
+                  label={`${view.name} effect`}
+                  value={viewModes[view.id] ?? "off"}
+                  isDisabled={isSaving}
+                  options={[
+                    ...AMBIENT_LIGHT_MODES,
+                    "off",
+                  ].map((mode) => ({
+                    value: mode,
+                    label:
+                      modeLabels[
+                        mode as keyof typeof modeLabels
+                      ],
+                  }))}
+                  onChange={(mode) =>
+                    void onApply({
+                      ambientLightViewModes: JSON.stringify(
+                        {
+                          ...viewModes,
+                          [view.id]: mode,
+                        },
+                      ),
+                    })
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          <p className="text-content-secondary text-sm">
+            Views without a rule keep the LEDs off. Power,
+            brightness and demo preview remain independent.
+            Choosing a manual effect stops following views.
+          </p>
+        </>
+      ) : null}
       <Checkbox
         key={`${device.id}:${isDemo}`}
         isChecked={isDemo}

@@ -57,7 +57,8 @@ export const BacklightControls = ({
       />
       <div className="save-buttons">
         <Button
-          aria-pressed={isOn && !isFollowing}
+          aria-pressed={isOn}
+          appearance={isOn ? "solid" : "outline"}
           isDisabled={isSaving}
           onClick={() =>
             void onApply({ backlightPower: "on" })
@@ -67,8 +68,8 @@ export const BacklightControls = ({
           On
         </Button>
         <Button
-          aria-pressed={!isOn && !isFollowing}
-          appearance="outline"
+          aria-pressed={!isOn}
+          appearance={isOn ? "outline" : "solid"}
           isDisabled={isSaving}
           onClick={() =>
             void onApply({ backlightPower: "off" })

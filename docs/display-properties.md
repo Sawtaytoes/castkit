@@ -535,3 +535,25 @@ MQTT uses `<base>/<device>/ambient_light/set` and retained
 and `demo`. State is persisted locally, not restored from retained state topics.
 An OFF command or HA brightness zero retains the chosen positive brightness;
 ON restores it. Local brightness, effect and preview changes preserve power.
+
+### Optional ambient effects by view
+
+Devices with `hasRemoteAmbientLight` offer Follow current view and per-view effect rules
+in the Ambient light tab. Defaults use stable builtin client IDs: Now Playing → album
+glow, Queue → progress bar, Calendar → meeting fuse, Ambient/Clock/Weather → weather aura,
+Touch Test → swipe comet. Other builtin views, platform compositions and unavailable
+views default to Off. Rules can choose any of the five effects or Off.
+
+The persisted `followView` flag defaults to false; `viewModes` keys are
+`builtin:<clientId>` and `view:<platformViewId>`. Names and screen container IDs are not
+rules. A device override takes priority over its assigned screen's actual selected view.
+Manual Off remains authoritative, and brightness/demo/manual effect remain remembered.
+Management shows resolved view/effect/power separately. Both power buttons highlight the
+effective state.
+
+`controls.json` carries ordinary resolved `ambientLight` controls and separate persisted
+`ambientLightPolicy`. Optional MQTT discovery adds effect `follow-view`; choosing a
+manual effect disables following. Retained state includes the configured effect alias,
+resolved power, `resolved_effect`, `followView` and `viewModes`, with changes mirrored as
+the displayed view changes. No broker, Home Assistant automation or firmware policy is
+required. See [the decision](decisions/2026-10-06-ambient-leds-can-follow-current-view.md).

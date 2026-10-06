@@ -124,6 +124,7 @@ export type BrowserMode = ReturnType<
 
 /** The slice of the platform the device page reads channels and actions through. */
 export type BrowserModePlatform = {
+  subscribe?: (listener: () => void) => () => void
   getDeviceTarget?: (
     deviceId: string,
   ) => { kind: "view" | "screen"; id: string } | undefined
@@ -206,6 +207,29 @@ export const createBrowserMode = ({
     platform?.store ?? createPlatformStore()
   const remoteAmbientLight = createRemoteAmbientLight({
     store: controlStore,
+    getCurrentView: (deviceId) => {
+      const target = platform?.getDeviceTarget?.(deviceId)
+      if (target) {
+        const view = platform?.getTarget?.(target)?.view
+        return view
+          ? { id: `view:${view.id}`, name: view.name }
+          : undefined
+      }
+      const device = stateStore.deviceById.get(deviceId)
+      const view =
+        device &&
+        getBrowserViewByName({
+          device,
+          name: stateStore.getActiveView(deviceId),
+        })
+      return view &&
+        !view.clientId.startsWith("external-view:")
+        ? {
+            id: `builtin:${view.clientId}`,
+            name: view.name,
+          }
+        : undefined
+    },
   })
   const ambientLightMqtt = createRemoteAmbientLightMqtt({
     controller: remoteAmbientLight,
@@ -217,6 +241,15 @@ export const createBrowserMode = ({
       .publish({ deviceId })
       .catch(() => {})
   }
+  const ambientViewSubscription = platform?.subscribe?.(
+    () => {
+      devices
+        .filter((device) => device.hasRemoteAmbientLight)
+        .forEach((device) => {
+          mirrorAmbientLight(device.id)
+        })
+    },
+  )
   const remoteBacklight = createRemoteBacklight({
     store: controlStore,
     getChannel: (id) => platform?.hub.get(id),
@@ -617,6 +650,8 @@ export const createBrowserMode = ({
       viewName: view.name,
       isExplicit: !isRestore,
     })
+    if (device.hasRemoteAmbientLight)
+      mirrorAmbientLight(deviceId)
     if (!isRestore) {
       const topics = topicsByDeviceId.get(deviceId)
       if (topics) {
@@ -1416,7 +1451,17 @@ export const createBrowserMode = ({
           : {}),
         ...(device?.hasRemoteAmbientLight
           ? {
-              ambientLight:
+              ambientLight: (() => {
+                const state =
+                  remoteAmbientLight.resolve(deviceId)
+                return {
+                  isOn: state.isOn,
+                  brightness: state.brightness,
+                  mode: state.mode,
+                  demo: state.demo,
+                }
+              })(),
+              ambientLightPolicy:
                 remoteAmbientLight.get(deviceId),
               ambientLightData:
                 readAmbientLightData(deviceId),
@@ -1631,6 +1676,8 @@ export const createBrowserMode = ({
     const ambientSettings = device.hasRemoteAmbientLight
       ? (() => {
           const state = remoteAmbientLight.get(deviceId)
+          const resolved =
+            remoteAmbientLight.resolve(deviceId)
           return {
             ambientLightPower: state.isOn ? "on" : "off",
             ambientLightBrightness: String(
@@ -1638,6 +1685,41 @@ export const createBrowserMode = ({
             ),
             ambientLightMode: state.mode,
             ambientLightDemo: String(state.demo),
+            ambientLightFollowView: String(
+              state.followView,
+            ),
+            ambientLightViewModes: JSON.stringify(
+              state.viewModes,
+            ),
+            ambientLightEffectivePower:
+              resolved.isOn && state.brightness > 0
+                ? "on"
+                : "off",
+            ambientLightEffectiveMode:
+              resolved.effectiveMode,
+            ambientLightEffectiveView:
+              resolved.view?.name ?? "Unavailable view",
+            ambientLightEffectiveViewId:
+              resolved.view?.id ?? "",
+            ambientLightViewOptions: JSON.stringify([
+              ...getBrowserViewsForDevice(device)
+                .filter(
+                  (view) =>
+                    !view.clientId.startsWith(
+                      "external-view:",
+                    ),
+                )
+                .map((view) => ({
+                  id: `builtin:${view.clientId}`,
+                  name: view.name,
+                })),
+              ...(platform?.store?.get().views ?? []).map(
+                (view) => ({
+                  id: `view:${view.id}`,
+                  name: view.name,
+                }),
+              ),
+            ]),
           }
         })()
       : {}
@@ -1759,6 +1841,7 @@ export const createBrowserMode = ({
     stop: () => {
       spoolsSubscription.unsubscribe?.()
       backlightSubscription?.()
+      ambientViewSubscription?.()
       externalViewHealth.stop()
       hub.stop()
     },
