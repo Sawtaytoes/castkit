@@ -85,7 +85,7 @@ external_components:
   - source:
       type: local
       path: components
-    components: [watchy_battery]
+    components: [watchy_battery, watchy_display]
 
 logger:
   level: INFO
@@ -175,6 +175,16 @@ api:
 ota:
   - platform: esphome
     password: !secret ota_password
+    on_begin:
+      - lambda: id(is_updating) = true;
+      - script.stop: battery_cycle
+      - deep_sleep.prevent: watch_sleep
+    on_error:
+      - lambda: id(is_updating) = false;
+      - script.execute: battery_cycle
+    on_abort:
+      - lambda: id(is_updating) = false;
+      - script.execute: battery_cycle
 
 mqtt:
   id: mqtt_client
@@ -187,6 +197,8 @@ mqtt:
   topic_prefix: ${node_name}/firmware
   reboot_timeout: 0s
   on_connect:
+    # Publish during the short battery wake, not only on the 30-second poll.
+    - component.update: battery_voltage
     - script.execute: refresh_castkit
   on_message:
     - topic: ${topic_base}/${device_id}/image_url
@@ -359,6 +371,9 @@ font:
 
 # Only changes to the saved agenda and page choice write flash, not minute ticks.
 globals:
+  - id: is_updating
+    type: bool
+    initial_value: 'false'
   - id: is_binary_page
     type: bool
     restore_value: true
@@ -430,8 +445,7 @@ sensor:
           payload: |-
             root["volts"] = x;
             const bool charging = id(usb_connected).state && id(charger_active).state;
-            root["percent"] = id(usb_connected).state && !charging && x > 4.0f
-              ? 100.0f : clamp((x - 3.35f) / 0.85f * 100.0f, 0.0f, charging ? 99.0f : 100.0f);
+            root["percent"] = watchy::battery_percent(x, id(usb_connected).state, charging);
             root["isCharging"] = charging;
             root["isOnBattery"] = !id(usb_connected).state;
   - platform: wifi_signal
@@ -620,7 +634,7 @@ script:
       - delay: 15s
       - if:
           condition:
-            binary_sensor.is_off: usb_connected
+            lambda: return !id(usb_connected).state && !id(is_updating);
           then:
             # A low cell must not leave old points or a frozen clock on glass.
             - if:
@@ -669,9 +683,8 @@ deep_sleep:
     mode: ANY_LOW
 
 display:
-  - platform: waveshare_epaper
+  - platform: watchy_display
     id: watch_display
-    model: 1.54inv2
     cs_pin: GPIO33
     dc_pin: GPIO34
     reset_pin: GPIO35
@@ -808,8 +821,7 @@ display:
       }
       if (id(battery_voltage).has_state()) {
         const bool charging = id(usb_connected).state && id(charger_active).state;
-        const int percent = id(usb_connected).state && !charging && id(battery_voltage).state > 4.0f
-          ? 100 : int(clamp((id(battery_voltage).state - 3.35f) / 0.85f * 100.0f, 0.0f, charging ? 99.0f : 100.0f));
+        const int percent = watchy::battery_percent(id(battery_voltage).state, id(usb_connected).state, charging);
         // Solid inverse digits remain readable even at a low charge level.
         it.filled_rectangle(132, 2, 58, 28);
         it.filled_rectangle(190, 12, 3, 8);

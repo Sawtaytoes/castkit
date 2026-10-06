@@ -2,7 +2,7 @@
 
 `watchy-v3.yaml` is an ESPHome package for the SQFMI Watchy v3 only: ESP32-S3,
 8 MB flash, no PSRAM, and the 200 x 200 monochrome display. It uses mainline
-ESPHome components plus the local Watchy battery component. Earlier revisions have different processors, pins and RTCs.
+ESPHome components plus the local Watchy battery and SSD1681 display components. Earlier revisions have different processors, pins and RTCs.
 
 The watch keeps its clock locally, synchronized with SNTP and with Home Assistant
 as a fallback over its encrypted native API. Its other page draws
@@ -142,8 +142,12 @@ Copy that component directory beside the package when installing it; the sensor
 owns ADC1 channel 8 and must not share ADC1 with another sensor.
 
 The percentage is still an estimate from cell voltage, not a measurement of
-remaining capacity. USB present, charger inactive and voltage above 4.0 V is
-shown as full, using the stock face's full-battery threshold. While charging,
+remaining capacity. USB present, charger inactive and voltage at least 4.15 V is shown as full.
+The earlier stock-face 4.0 V bar threshold was too coarse to assert 100%.
+Eight ADC readings discard the highest and lowest samples; a smoothed voltage
+estimate survives deep sleep in RTC SRAM. Invalid reads preserve the prior
+measurement, and a true low-cell sample bypasses smoothing for safe sleep.
+The watch and Home Assistant use the same rounded percentage function. While charging,
 the estimate is capped at 99%; the bolt disappears when charging stops.
 The low-battery guard uses the measured cell voltage, independently of the
 percentage. A failed extended read is not published as a successful voltage.
@@ -235,3 +239,25 @@ This face works offline from the same local clock.
 Agenda and scores normalize curly apostrophes to the embedded straight-apostrophe
 glyph. Long text remains bounded; unsupported non-ASCII characters are replaced
 once per code point rather than splitting UTF-8 in flash.
+
+
+## Display refresh and radio efficiency
+
+Copy `components/watchy_display` beside the package as well. The local display
+adapter uses the Watchy SSD1681 controller's temperature-based waveform and
+partial-refresh sequence, with both previous and current image planes restored.
+It retains the last 5,000-byte monochrome frame and cleaning counter in RTC SRAM
+across deep sleep. Identical frames do not refresh. A cold reset starts with one
+full refresh; subsequent changed frames use partial refreshes, with a full clean
+after 29 partial updates. This prevents every minute wake from restarting the
+full-refresh cycle. No flash writes are made for the framebuffer or counter.
+
+Reference hardware protocol: [SQFMI display implementation](https://github.com/sqfmi/Watchy/blob/master/src/Display.cpp)
+and [GxEPD2 SSD1681 driver](https://github.com/ZinggJM/GxEPD2/blob/master/src/epd/GxEPD2_154_D67.cpp).
+The generic 1.54-inch driver previously used a different partial control byte,
+lost its refresh cadence at each wake and did not restore the previous plane.
+
+On MQTT connection the watch publishes battery telemetry during its short wake.
+OTA start pauses the sleep deadline until completion or error, so an update
+cannot be interrupted by the normal idle battery schedule. Full and partial
+refreshes and skipped duplicate frames are observable in native/serial logs.

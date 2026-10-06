@@ -58,11 +58,13 @@ const renderInPanel = ({
   height,
   repaint = "instant",
   value = data,
+  settings,
 }: {
   width: number
   height: number
   repaint?: "instant" | "slow" | "super-slow"
   value?: ContractData["kids-points.v1"]
+  settings?: Record<string, unknown>
 }) => {
   vi.spyOn(
     HTMLElement.prototype,
@@ -82,7 +84,11 @@ const renderInPanel = ({
         repaint,
       }}
     >
-      <KidsPointsView data={value} now={now} />
+      <KidsPointsView
+        data={value}
+        now={now}
+        settings={settings}
+      />
     </DisplayPropertiesContext.Provider>,
   )
 }
@@ -426,4 +432,49 @@ test("the live clock advances countdown metrics without a new producer payload",
     "aria-valuetext",
     "2:35 left",
   )
+})
+
+test("a 200px totals board keeps all initials and totals visible in source order during a scan", () => {
+  const { container } = renderInPanel({
+    width: 200,
+    height: 200,
+    value: { ...scanned, kids: scanned.kids.slice(0, 3) },
+    settings: { isTotalsOnly: true, nameStyle: "initial" },
+  })
+  const rows = Array.from(
+    container.querySelectorAll(".kids-points-simple-row"),
+  )
+  expect(
+    rows.map((row) => row.querySelector("h3")?.textContent),
+  ).toEqual(["R", "S", "Q"])
+  expect(
+    rows.map(
+      (row) => row.querySelector("strong")?.textContent,
+    ),
+  ).toEqual(["130", "520", "0"])
+  expect(
+    container.querySelector(".kids-points-focus"),
+  ).toBeNull()
+  expect(
+    container.querySelector(".kids-points-bar"),
+  ).toBeNull()
+})
+
+test("the totals board defaults to full names and preserves negative scores", () => {
+  const { container } = renderInPanel({
+    width: 200,
+    height: 200,
+    value: {
+      kids: [{ ...data.kids[0]!, pointsToday: -25 }],
+    },
+    settings: { isTotalsOnly: true },
+  })
+  expect(
+    screen.getByRole("heading", { name: "Robin" }),
+  ).toBeVisible()
+  expect(
+    container.querySelector(
+      ".kids-points-simple-row strong",
+    ),
+  ).toHaveTextContent("-25")
 })
