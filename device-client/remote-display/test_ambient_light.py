@@ -4,12 +4,18 @@ import asyncio
 import io
 import json
 import unittest
+import zlib
 from unittest.mock import AsyncMock, patch
 
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 from ambient_light import artwork_bounds, control_state, metadata
-from codec import encode_presto_frame, encode_presto_frame_with_palette
+from codec import (
+    encode_presto_frame,
+    encode_presto_frame_with_palette,
+    presto_frame_pixels,
+    presto_frame_pixels_with_palette,
+)
 from PIL import Image
 from presto_transport import PrestoTransport
 from worker import poll_controls
@@ -54,6 +60,12 @@ class AmbientLightTests(unittest.TestCase):
         )
         self.assertEqual(payload, encode_presto_frame(source.getvalue()))
         self.assertEqual(colors, [[255, 0, 0]] * 7)
+        pixels, raw_colors = presto_frame_pixels_with_palette(
+            source.getvalue(), artwork_bounds(targets)
+        )
+        self.assertEqual(pixels, presto_frame_pixels(source.getvalue()))
+        self.assertEqual(pixels, zlib.decompress(payload))
+        self.assertEqual(raw_colors, colors)
 
 
 class AmbientTransportTests(unittest.IsolatedAsyncioTestCase):

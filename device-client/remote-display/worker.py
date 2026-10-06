@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 import yaml
 from aioesphomeapi import APIClient, TextSensorState
 from ambient_light import artwork_bounds
-from codec import encode_frame, encode_presto_frame, encode_presto_frame_with_palette
+from codec import encode_frame, presto_frame_pixels, presto_frame_pixels_with_palette
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
 from playwright.async_api import async_playwright
@@ -24,7 +24,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v10-ambient-light"
+BUILD_MARKER = "castkit-remote-display-v11-raw-pixels"
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
@@ -357,12 +357,12 @@ class DisplaySession:
                 )
                 if needs_palette:
                     payload, colors = await asyncio.to_thread(
-                        encode_presto_frame_with_palette, png, artwork_bounds(after)
+                        presto_frame_pixels_with_palette, png, artwork_bounds(after)
                     )
                     self.client.set_ambient_palette(colors)
                 else:
                     payload = (
-                        await asyncio.to_thread(encode_presto_frame, png)
+                        await asyncio.to_thread(presto_frame_pixels, png)
                         if isinstance(self.client, PrestoTransport)
                         else await asyncio.to_thread(encode_frame, png)
                     )

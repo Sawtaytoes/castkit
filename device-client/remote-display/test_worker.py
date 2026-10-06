@@ -6,6 +6,7 @@ import os
 import unittest
 from unittest.mock import AsyncMock
 
+from codec import presto_frame_pixels
 from interaction import Target
 from PIL import Image
 from playwright.async_api import async_playwright
@@ -61,6 +62,8 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         )
 
         async def acknowledge(frame_id, touch_id, payload):
+            self.assertEqual(payload, presto_frame_pixels(session.preview.latest_png))
+            self.assertNotIn(frame_id, session.guard.frames)
             session.stop.set()
             return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
 
@@ -73,6 +76,35 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
     async def task_cancel_for_capture_test(self):
         self.task.cancel()
         await asyncio.gather(self.task, return_exceptions=True)
+
+    async def test_presto_palette_capture_reuses_pixels_and_preserves_artwork_colors(self):
+        await self.task_cancel_for_capture_test()
+        await self.page.set_viewport_size({"width": 480, "height": 480})
+        await self.page.set_content("""<div data-castkit-target="now-playing-artwork"
+          style="position:absolute;left:100px;top:100px;width:200px;height:200px;background:red"></div>""")
+        transport = PrestoTransport({"mac": "020000000001"}, "a" * 32)
+        transport.set_ambient_light(
+            {"isOn": True, "brightness": 5, "mode": "album-glow", "demo": False}
+        )
+        session = DisplaySession(
+            {"viewport": {"width": 480, "height": 480}, "max_fps": 8, "heartbeat_seconds": 2},
+            self.page,
+            transport,
+            {},
+            asyncio.Event(),
+            PreviewServer("test", 8),
+        )
+
+        async def acknowledge(frame_id, touch_id, payload):
+            self.assertEqual(payload, presto_frame_pixels(session.preview.latest_png))
+            self.assertEqual(transport.ambient_palette, [[255, 0, 0]] * 7)
+            self.assertNotIn(frame_id, session.guard.frames)
+            session.stop.set()
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
+
+        transport.send_frame = acknowledge
+        await asyncio.wait_for(session.run(1, None), timeout=3)
+        self.assertIn(session.frame_id, session.guard.frames)
 
     async def test_saved_session_survives_context_recreation(self):
         state = {

@@ -1,12 +1,32 @@
+import hashlib
 import io
 import unittest
 import zlib
 
-from codec import encode_frame, encode_presto_frame
+from codec import encode_frame, encode_presto_frame, presto_frame_pixels
 from PIL import Image
 
 
 class CodecTests(unittest.TestCase):
+    def test_raw_handoff_preserves_all_prior_dithered_and_flat_tile_pixels(self):
+        image = Image.frombytes(
+            "RGB",
+            (480, 480),
+            bytes((column * 17 + row * 31) % 256 for row in range(480) for column in range(1440)),
+        )
+        image.paste((20, 20, 20), (8, 8, 16, 16))
+        image.putpixel((16, 16), (21, 21, 21))
+        source = io.BytesIO()
+        image.save(source, format="PNG")
+        raw = presto_frame_pixels(source.getvalue())
+        self.assertEqual(len(raw), 460800)
+        # Frozen from the compressed-carrier encoder before the raw handoff.
+        self.assertEqual(
+            hashlib.sha256(raw).hexdigest(),
+            "2c82ed44e7f2bfcf67eade69b24125980c9818dcc068f4d65a6e4a9383c75c0b",
+        )
+        self.assertEqual(zlib.decompress(encode_presto_frame(source.getvalue())), raw)
+
     def test_presto_matches_measured_framebuffer_and_exact_pixel_count(self):
         image = Image.new("RGB", (480, 480), "black")
         for index, color in enumerate([(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)]):

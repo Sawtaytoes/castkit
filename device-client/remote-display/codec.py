@@ -27,6 +27,15 @@ def encode_presto_frame(png):
 
 
 def encode_presto_image(image):
+    return zlib.compress(presto_image_pixels(image), 6)
+
+
+def presto_frame_pixels(png):
+    """Return the exact framebuffer without an intermediate compressed carrier."""
+    return presto_image_pixels(Image.open(io.BytesIO(png)).convert("RGB"))
+
+
+def presto_image_pixels(image):
     if image.size != (480, 480):
         raise ValueError("The Presto frame must be 480 by 480 pixels")
     rgb = np.asarray(image, dtype=np.uint16)
@@ -46,15 +55,21 @@ def encode_presto_image(image):
     mask = varying.repeat(8, axis=0).repeat(8, axis=1)[:, :, None]
     quantized = np.where(mask, quantized, rgb >> np.array([3, 2, 3], dtype=np.uint16))
     pixels = (quantized[:, :, 0] << 11) | (quantized[:, :, 1] << 5) | quantized[:, :, 2]
-    return zlib.compress(pixels.astype(">u2").tobytes(), 6)
+    return pixels.astype(">u2").tobytes()
 
 
 def encode_presto_frame_with_palette(png, bounds):
     """Reuse the frame's PNG decode when ambient artwork colors are requested."""
+    pixels, colors = presto_frame_pixels_with_palette(png, bounds)
+    return zlib.compress(pixels, 6), colors
+
+
+def presto_frame_pixels_with_palette(png, bounds):
+    """Extract artwork colors and exact framebuffer pixels from one PNG decode."""
     from ambient_light import palette
 
     image = Image.open(io.BytesIO(png)).convert("RGB")
-    return encode_presto_image(image), palette(image, bounds)
+    return presto_image_pixels(image), palette(image, bounds)
 
 
 def encode_rle(raw):
