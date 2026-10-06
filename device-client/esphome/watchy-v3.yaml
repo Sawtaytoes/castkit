@@ -389,7 +389,7 @@ font:
       family: Roboto
       weight: 900
     id: battery_font
-    size: 20
+    size: 24
     glyphs: '0123456789'
 
 # Only changes to the saved agenda and page choice write flash, not minute ticks.
@@ -918,12 +918,10 @@ display:
       if (id(battery_voltage).has_state()) {
         const bool charging = id(usb_connected).state && id(charger_active).state;
         const int percent = watchy::battery_percent(id(battery_voltage).state, id(usb_connected).state, charging);
-        // Solid inverse digits remain readable even at a low charge level.
-        it.filled_rectangle(132, 2, 58, 28);
-        it.filled_rectangle(190, 12, 3, 8);
-        it.printf(161, 16, id(battery_font), COLOR_OFF, TextAlign::CENTER, "%d", percent);
+        // Plain dark digits avoid small inverse text on the monochrome panel.
+        it.printf(194, 4, id(battery_font), TextAlign::TOP_RIGHT, "%d", percent);
         if (charging) {
-          // Keep the charging bolt beside the icon so it never obscures the number.
+          // Keep the charging bolt separate from the battery number.
           for (int pixel_y = 8; pixel_y < 24; pixel_y++) {
             for (int pixel_x = 114; pixel_x <= 126; pixel_x++) {
               const bool top = pixel_y <= 16 && pixel_x >= 122 - (pixel_y - 8) && pixel_x <= 122;
