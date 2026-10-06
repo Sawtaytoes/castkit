@@ -158,6 +158,16 @@ export const DeviceFields = ({
               }
             />
           )}
+          <Checkbox
+            key={`${device.id}:${Boolean(device.hasRemoteAmbientLight)}`}
+            isChecked={Boolean(
+              device.hasRemoteAmbientLight,
+            )}
+            label="Ambient LEDs available"
+            onChange={(isEnabled) =>
+              onChange({ hasRemoteAmbientLight: isEnabled })
+            }
+          />
           <SettingField
             label="Print queue channel"
             description="A queue.v1 channel from the printer source."

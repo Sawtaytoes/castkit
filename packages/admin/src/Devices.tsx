@@ -17,6 +17,7 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router"
+import { AmbientLightControls } from "./AmbientLightControls.tsx"
 import { DeviceFields } from "./DeviceFields.tsx"
 import { DevicePreview } from "./DevicePreview.tsx"
 import { DeviceSettingsFields } from "./DeviceSettingsFields.tsx"
@@ -197,6 +198,9 @@ export const Devices = ({
     ? [
         "device",
         "views",
+        ...(selectedDevice.hasRemoteAmbientLight
+          ? ["ambient-light"]
+          : []),
         ...(selectedDevice.hasMqttBacklight ||
         selectedDevice.hasRemoteBacklight
           ? ["updates"]
@@ -348,6 +352,11 @@ export const Devices = ({
   ) => {
     if (!savedId || isNewDevice || backlightPending.current)
       return
+    const controlLabel = Object.keys(updates).some((kind) =>
+      kind.startsWith("ambientLight"),
+    )
+      ? "ambient light"
+      : "backlight"
     backlightPending.current = true
     backlightRevision.current += 1
     setIsBacklightSaving(true)
@@ -367,7 +376,7 @@ export const Devices = ({
       )
       if (!response.ok)
         throw new Error(
-          "Could not apply backlight. Try again.",
+          `Could not apply ${controlLabel}. Try again.`,
         )
       if (activeBacklightDevice.current !== savedId) return
       setSavedSettings((current) => ({
@@ -390,8 +399,10 @@ export const Devices = ({
             settings: AutomationSettings
           }
           const currentBacklight = Object.fromEntries(
-            Object.entries(body.settings).filter(([kind]) =>
-              kind.startsWith("backlight"),
+            Object.entries(body.settings).filter(
+              ([kind]) =>
+                kind.startsWith("backlight") ||
+                kind.startsWith("ambientLight"),
             ),
           )
           updateSettings(currentBacklight)
@@ -403,7 +414,9 @@ export const Devices = ({
       } catch {
         // The write succeeded; periodic readback will restore current state.
       }
-      setMessage("Backlight updated.")
+      setMessage(
+        `${controlLabel === "backlight" ? "Backlight" : "Ambient light"} updated.`,
+      )
     } catch (error) {
       if (activeBacklightDevice.current !== savedId) return
       const previous = Object.fromEntries(
@@ -416,7 +429,7 @@ export const Devices = ({
       setMessage(
         error instanceof Error
           ? error.message
-          : "Could not apply backlight.",
+          : `Could not apply ${controlLabel}.`,
       )
     } finally {
       backlightPending.current = false
@@ -427,7 +440,7 @@ export const Devices = ({
     if (
       !savedId ||
       isNewDevice ||
-      section !== "updates" ||
+      !["updates", "ambient-light"].includes(section) ||
       !isBrowser
     )
       return
@@ -455,8 +468,10 @@ export const Devices = ({
         )
           return
         const updates = Object.fromEntries(
-          Object.entries(body.settings).filter(([kind]) =>
-            kind.startsWith("backlight"),
+          Object.entries(body.settings).filter(
+            ([kind]) =>
+              kind.startsWith("backlight") ||
+              kind.startsWith("ambientLight"),
           ),
         )
         setAutomationSettings((current) => ({
@@ -933,10 +948,12 @@ export const Devices = ({
                 .map((name) => ({
                   href: `/devices/${name}${query}`,
                   label:
-                    isBrowser && name === "updates"
-                      ? "Backlight"
-                      : name[0]?.toUpperCase() +
-                        name.slice(1),
+                    name === "ambient-light"
+                      ? "Ambient light"
+                      : isBrowser && name === "updates"
+                        ? "Backlight"
+                        : name[0]?.toUpperCase() +
+                          name.slice(1),
                 }))}
             />
             <div className="settings-layout">
@@ -1018,6 +1035,13 @@ export const Devices = ({
                         available.
                       </p>
                     </Card>
+                  ) : section === "ambient-light" ? (
+                    <AmbientLightControls
+                      device={selectedDevice}
+                      settings={automationSettings}
+                      isSaving={isBacklightSaving}
+                      onApply={applyBacklight}
+                    />
                   ) : (
                     <DeviceSettingsFields
                       channels={platform.channels}

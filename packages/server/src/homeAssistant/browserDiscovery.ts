@@ -1,3 +1,4 @@
+import { AMBIENT_LIGHT_MODES } from "@castkit/sdk/ambientLight"
 import {
   buildAvailabilityTopic,
   type DiscoveryMessage,
@@ -37,6 +38,8 @@ export const buildBrowserDeviceTopics = ({
   const base = `${baseTopic}/${deviceId}`
 
   return {
+    ambientLightCommand: `${base}/ambient_light/set`,
+    ambientLightState: `${base}/ambient_light/state`,
     viewCommand: `${base}/view/set`,
     viewState: `${base}/view`,
     url: `${base}/url`,
@@ -223,6 +226,29 @@ export const buildBrowserDiscoveryMessages = ({
               retain: false,
               icon: "mdi:gesture-tap-hold",
               entity_category: "config",
+              device: deviceBlock,
+            },
+          },
+        ]
+      : []),
+    ...(device.hasRemoteAmbientLight
+      ? [
+          {
+            topic: discoveryTopic("light", "ambient_light"),
+            isRetained: true as const,
+            payload: {
+              ...availability,
+              name: "Ambient light",
+              unique_id: `castkit_${device.id}_ambient_light`,
+              schema: "json",
+              flash: false,
+              command_topic: topics.ambientLightCommand,
+              state_topic: topics.ambientLightState,
+              brightness: true,
+              brightness_scale: 100,
+              effect: true,
+              effect_list: Array.from(AMBIENT_LIGHT_MODES),
+              supported_color_modes: ["brightness"],
               device: deviceBlock,
             },
           },

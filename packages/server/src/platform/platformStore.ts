@@ -11,6 +11,10 @@ import {
   writeFileSync,
 } from "node:fs"
 import { dirname } from "node:path"
+import {
+  type AmbientLightState,
+  ambientLightSchema,
+} from "@castkit/sdk/ambientLight"
 import type {
   ChannelDefinition,
   ScreenDefinition,
@@ -140,6 +144,7 @@ export type PlatformState = {
   sessions: Session[]
   disabledPluginIds: string[]
   deviceScreens: Record<string, string>
+  deviceAmbientLights?: Record<string, AmbientLightState>
   deviceBacklights?: Record<
     string,
     {
@@ -208,6 +213,11 @@ export const createPlatformStore = ({
         )
       },
     )
+    if (loaded.deviceAmbientLights) {
+      z.record(z.string(), ambientLightSchema).parse(
+        loaded.deviceAmbientLights,
+      )
+    }
     if (loaded.deviceBacklights) {
       z.record(
         z.string(),

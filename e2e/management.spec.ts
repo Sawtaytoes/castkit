@@ -896,3 +896,125 @@ test("a successful backlight write stays applied when readback is temporarily un
     }),
   ).toBeDisabled()
 })
+
+test("Ambient LED effect, slider, power and demo apply immediately and reflect MQTT updates", async ({
+  page,
+}) => {
+  await page.route("**/api/manage/devices", (route) =>
+    route.fulfill({
+      json: {
+        devices: [
+          {
+            ...BROWSER_DEVICE,
+            hasMqttBacklight: false,
+            hasRemoteBacklight: true,
+            hasRemoteAmbientLight: true,
+          },
+        ],
+      },
+    }),
+  )
+  const state: Record<string, string> = {
+    ambientLightPower: "off",
+    ambientLightBrightness: "5",
+    ambientLightMode: "album-glow",
+    ambientLightDemo: "false",
+    backlightLevel: "35",
+    backlightPower: "on",
+    backlightEffective: "35",
+  }
+  const writes: { kind: string; payload: string }[] = []
+  await page.route(
+    "**/api/manage/devices/*/settings",
+    async (route) => {
+      if (route.request().method() === "PUT") {
+        const body = route.request().postDataJSON() as {
+          settings: { kind: string; payload: string }[]
+        }
+        body.settings.forEach((setting) => {
+          state[setting.kind] = setting.payload
+          writes.push(setting)
+        })
+        await route.fulfill({ json: { ok: true } })
+      } else
+        await route.fulfill({ json: { settings: state } })
+    },
+  )
+  await page.goto(
+    "/manage/devices/ambient-light?device=e2e-square",
+  )
+  await expect(
+    page.getByRole("heading", {
+      name: "Ambient light",
+      exact: true,
+    }),
+  ).toBeVisible()
+  const slider = page.getByRole("slider", {
+    name: "Ambient brightness",
+    exact: true,
+  })
+  await expect(slider).toHaveAttribute("aria-valuenow", "5")
+  await slider.press("End")
+  await expect
+    .poll(() => state.ambientLightBrightness)
+    .toBe("100")
+  expect(state.ambientLightPower).toBe("off")
+  await page
+    .getByRole("button", { name: "On", exact: true })
+    .click()
+  await expect(
+    page.getByText("Ambient light on · 100%", {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", {
+      name: "Effect: Album glow",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Meeting fuse",
+      exact: true,
+    })
+    .click()
+  await expect
+    .poll(() => state.ambientLightMode)
+    .toBe("meeting-fuse")
+  await page
+    .getByRole("checkbox", {
+      name: "Demo preview",
+      exact: true,
+    })
+    .check()
+  await expect
+    .poll(() => state.ambientLightDemo)
+    .toBe("true")
+  state.ambientLightBrightness = "12"
+  state.ambientLightPower = "off"
+  state.ambientLightDemo = "false"
+  await expect(slider).toHaveAttribute(
+    "aria-valuenow",
+    "12",
+  )
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Demo preview",
+      exact: true,
+    }),
+  ).not.toBeChecked()
+  await expect(
+    page.getByText("Ambient light off", { exact: true }),
+  ).toBeVisible()
+  expect(state.backlightLevel).toBe("35")
+  expect(state.backlightPower).toBe("on")
+  expect(
+    writes.every((write) =>
+      write.kind.startsWith("ambientLight"),
+    ),
+  ).toBe(true)
+  await expect(
+    page.getByText("No unsaved changes", { exact: true }),
+  ).toBeVisible()
+})
