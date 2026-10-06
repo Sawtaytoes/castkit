@@ -23,7 +23,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v5-presto-colors"
+BUILD_MARKER = "castkit-remote-display-v7-controls-swipes"
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
@@ -122,7 +122,7 @@ class DisplaySession:
             LOG.warning("Ignored malformed display telemetry")
 
     async def cancel_contact(self):
-        if self.contact is not None:
+        if self.contact is not None and self.contact.get("is_native_active"):
             await self.cdp.send(
                 "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
             )
@@ -157,6 +157,7 @@ class DisplaySession:
                     "start_y": y,
                     "started": time.monotonic(),
                     "is_gesture": False,
+                    "is_native_active": False,
                 }
             elif self.contact is None:
                 # ESPHome replays its retained sensor value after reconnect.
@@ -169,11 +170,16 @@ class DisplaySession:
                 phase == 1
                 and not self.contact["is_gesture"]
                 and max(abs(y - self.contact["start_y"]), abs(x - self.contact["start_x"])) >= 48
+                and (
+                    self.contact["identity"] != "now-playing-artwork"
+                    or abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
+                )
             ):
-                if not self.contact.get("is_tap_cancelled"):
+                if self.contact["is_native_active"]:
                     await self.cdp.send(
                         "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
                     )
+                self.contact["is_native_active"] = False
                 self.contact["is_gesture"] = True
                 await self.page.evaluate(
                     """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
@@ -199,18 +205,26 @@ class DisplaySession:
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue
-            if phase == 1 and current != self.contact["identity"]:
+            # Artwork captures its pointer: a horizontal drag can legitimately
+            # leave its rectangle and must still receive the release. Other
+            # controls retain the cross-control cancellation guard.
+            is_artwork_drag = self.contact["identity"] == "now-playing-artwork" and abs(
+                x - self.contact["start_x"]
+            ) > abs(y - self.contact["start_y"])
+            if phase == 1 and current != self.contact["identity"] and not is_artwork_drag:
                 # Cancel the tap but keep sampling the finger: it may cross a
                 # small control before travelling far enough to commit a swipe.
-                if not self.contact.get("is_tap_cancelled"):
+                if self.contact["is_native_active"]:
                     await self.cdp.send(
                         "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
                     )
-                self.contact.update(x=x, y=y, is_tap_cancelled=True)
+                self.contact.update(x=x, y=y, is_tap_cancelled=True, is_native_active=False)
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue
-            if self.contact.get("is_tap_cancelled") or current != self.contact["identity"]:
+            if self.contact.get("is_tap_cancelled") or (
+                current != self.contact["identity"] and not is_artwork_drag
+            ):
                 if phase == 2:
                     await self.cancel_contact()
                 else:
@@ -228,7 +242,7 @@ class DisplaySession:
             if phase == 2:
                 self.contact = None
             else:
-                self.contact.update(x=x, y=y)
+                self.contact.update(x=x, y=y, is_native_active=True)
             self.processed_touch = sequence
             self.force_frame.set()
 
@@ -302,7 +316,23 @@ class DisplaySession:
                 cycle = time.monotonic()
                 touch_id = self.processed_touch
                 before = await self.page.evaluate(TARGETS_SCRIPT, self.target_options)
-                png = await self.page.screenshot(type="png", animations="disabled", timeout=5000)
+                capture_started = time.monotonic()
+                if isinstance(self.client, PrestoTransport):
+                    shot = await self.cdp.send(
+                        "Page.captureScreenshot",
+                        {
+                            "format": "png",
+                            "fromSurface": True,
+                            "captureBeyondViewport": False,
+                            "optimizeForSpeed": True,
+                        },
+                    )
+                    png = base64.b64decode(shot["data"])
+                else:
+                    png = await self.page.screenshot(
+                        type="png", animations="disabled", timeout=5000
+                    )
+                capture_finished = time.monotonic()
                 after = await self.page.evaluate(TARGETS_SCRIPT, self.target_options)
                 if before != after:
                     continue
@@ -312,6 +342,10 @@ class DisplaySession:
                     if isinstance(self.client, PrestoTransport)
                     else await asyncio.to_thread(encode_frame, png)
                 )
+                encoded_at = time.monotonic()
+                if isinstance(self.client, PrestoTransport):
+                    self.client.capture_ms = round((capture_finished - capture_started) * 1000, 1)
+                    self.client.encode_ms = round((encoded_at - capture_finished) * 1000, 1)
                 if (
                     payload != previous_payload
                     or touch_id != previous_touch
@@ -358,6 +392,20 @@ async def create_browser_context(browser, config):
     )
 
 
+async def poll_controls(context, config, transport, stop):
+    """Read app-owned controls independently of capture and frame acknowledgements."""
+    while not stop.is_set():
+        try:
+            response = await context.request.get(config["controls_url"], timeout=5000)
+            same_origin_url(config["manifest_url"], response.url)
+            if not response.ok:
+                raise ConnectionError("Controls unavailable")
+            transport.set_backlight((await response.json())["backlight_percent"])
+        except Exception as error:
+            LOG.warning("Backlight controls unavailable: %s", type(error).__name__)
+        await asyncio.sleep(0.5)
+
+
 async def serve(config):
     stop = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -388,10 +436,13 @@ async def serve(config):
         }
         # Refresh limits describe transport capability, not a user-facing view setting.
         if is_presto:
-            config = {**config, "max_fps": min(config["max_fps"], 2)}
+            config = {**config, "max_fps": min(config["max_fps"], 8)}
         presto = PrestoTransport(config, api_key) if is_presto else None
+        controls_task = None
         if presto is not None:
             await presto.start()
+            if config.get("controls_url"):
+                controls_task = asyncio.create_task(poll_controls(context, config, presto, stop))
         page = await context.new_page()
         origin = urlsplit(config["url"])
 
@@ -469,6 +520,9 @@ async def serve(config):
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=2)
         finally:
+            if controls_task is not None:
+                controls_task.cancel()
+                await asyncio.gather(controls_task, return_exceptions=True)
             await preview.stop()
             if presto is not None:
                 await presto.stop()
