@@ -494,8 +494,12 @@ The order of work is in
 
 ## Backlight control transport
 
-Backlight routing is an installation setting; it does not change panel layout,
-color or repaint properties. The management device form selects one route.
+Backlight support is a device capability; it does not change panel layout,
+color or repaint properties. The management Backlight tab offers one brightness
+slider and immediate On/Off controls. Supported remote receivers register their
+capability; installations with a separate backlight agent enable Backlight available
+on the device form. MQTT synchronization remains available alongside native control,
+so Home Assistant automations can control the same backlight.
 
 | Setting | Consequence |
 | --- | --- |
@@ -506,4 +510,7 @@ color or repaint properties. The management device form selects one route.
 Room following reads a selected current `entities.v1` light/switch state. The
 source is optional and separate from manual control. An unavailable source holds
 the last known room state during the server process; after a restart, following
-starts off until valid data arrives. Manual On/Off overrides following.
+starts off until valid data arrives. Manual On/Off overrides following. Room following is optional and stays disabled
+when Home Assistant automations already coordinate the display with room lights.
+The Backlight tab reads current settings periodically so external power and
+brightness changes appear without reloading the management page.

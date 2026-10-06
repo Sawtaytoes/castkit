@@ -1,4 +1,8 @@
-import { AdaptiveGrid, Card } from "@charcuterie/ui"
+import {
+  AdaptiveGrid,
+  Card,
+  Checkbox,
+} from "@charcuterie/ui"
 import type { Device } from "./device.ts"
 import {
   BROWSER_COLOR_OPTIONS,
@@ -140,27 +144,20 @@ export const DeviceFields = ({
       </div>
       {device.renderer === "browser" ? (
         <>
-          <SettingField
-            label="Backlight control"
-            value={
-              device.hasRemoteBacklight
-                ? "direct"
-                : device.hasMqttBacklight
-                  ? "mqtt"
-                  : "none"
-            }
-            options={[
-              { label: "None", value: "none" },
-              { label: "Direct device", value: "direct" },
-              { label: "MQTT agent", value: "mqtt" },
-            ]}
-            onChange={(value) =>
-              onChange({
-                hasRemoteBacklight: value === "direct",
-                hasMqttBacklight: value === "mqtt",
-              })
-            }
-          />
+          {device.hasRemoteBacklight ? (
+            <p className="text-content-secondary text-sm">
+              Backlight supported
+            </p>
+          ) : (
+            <Checkbox
+              key={`${device.id}:${Boolean(device.hasMqttBacklight)}`}
+              isChecked={Boolean(device.hasMqttBacklight)}
+              label="Backlight available"
+              onChange={(isEnabled) =>
+                onChange({ hasMqttBacklight: isEnabled })
+              }
+            />
+          )}
           <SettingField
             label="Print queue channel"
             description="A queue.v1 channel from the printer source."

@@ -6,7 +6,12 @@ import {
   Picker,
   Tabs,
 } from "@charcuterie/ui"
-import { useCallback, useEffect, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 import {
   useLocation,
   useNavigate,
@@ -126,6 +131,10 @@ export const Devices = ({
   const [isSaving, setIsSaving] = useState(false)
   const [isSavingAutomation, setIsSavingAutomation] =
     useState(false)
+  const [isBacklightSaving, setIsBacklightSaving] =
+    useState(false)
+  const backlightPending = useRef(false)
+  const backlightRevision = useRef(0)
   const [reload, setReload] = useState(0)
   const [previewRevision, setPreviewRevision] = useState(0)
   const [hasRestartPending, setHasRestartPending] =
@@ -134,6 +143,10 @@ export const Devices = ({
     devices.find((device) => device.id === selectedId) ??
     (isNewDevice ? undefined : devices[0])
   const savedId = savedDevice?.id
+  const activeBacklightDevice = useRef(savedId)
+  useEffect(() => {
+    activeBacklightDevice.current = savedId
+  }, [savedId])
   const assignedScreenId =
     platform.deviceScreens?.[savedId ?? ""] ?? ""
   useEffect(
@@ -175,7 +188,10 @@ export const Devices = ({
   const hasChanges =
     hasDeviceChanges || pendingSettings.length > 0
   const isBusy =
-    isSaving || isSavingAutomation || isSavingScreen
+    isSaving ||
+    isSavingAutomation ||
+    isSavingScreen ||
+    isBacklightSaving
   const isBrowser = selectedDevice?.renderer === "browser"
   const sections = isBrowser
     ? [
@@ -327,6 +343,143 @@ export const Devices = ({
     },
     [],
   )
+  const applyBacklight = async (
+    updates: AutomationSettings,
+  ) => {
+    if (!savedId || isNewDevice || backlightPending.current)
+      return
+    backlightPending.current = true
+    backlightRevision.current += 1
+    setIsBacklightSaving(true)
+    updateSettings(updates)
+    try {
+      const response = await fetch(
+        `/api/manage/devices/${encodeURIComponent(savedId)}/settings`,
+        {
+          method: "PUT",
+          headers: getRequestHeaders(apiToken),
+          body: JSON.stringify({
+            settings: Object.entries(updates).map(
+              ([kind, payload]) => ({ kind, payload }),
+            ),
+          }),
+        },
+      )
+      if (!response.ok)
+        throw new Error(
+          "Could not apply backlight. Try again.",
+        )
+      if (activeBacklightDevice.current !== savedId) return
+      setSavedSettings((current) => ({
+        ...current,
+        ...updates,
+      }))
+      try {
+        const currentResponse = await fetch(
+          `/api/manage/devices/${encodeURIComponent(savedId)}/settings`,
+          {
+            headers: getRequestHeaders(apiToken),
+            cache: "no-store",
+          },
+        )
+        if (
+          currentResponse.ok &&
+          activeBacklightDevice.current === savedId
+        ) {
+          const body = (await currentResponse.json()) as {
+            settings: AutomationSettings
+          }
+          const currentBacklight = Object.fromEntries(
+            Object.entries(body.settings).filter(([kind]) =>
+              kind.startsWith("backlight"),
+            ),
+          )
+          updateSettings(currentBacklight)
+          setSavedSettings((current) => ({
+            ...current,
+            ...currentBacklight,
+          }))
+        }
+      } catch {
+        // The write succeeded; periodic readback will restore current state.
+      }
+      setMessage("Backlight updated.")
+    } catch (error) {
+      if (activeBacklightDevice.current !== savedId) return
+      const previous = Object.fromEntries(
+        Object.keys(updates).map((kind) => [
+          kind,
+          savedSettings[kind] ?? "",
+        ]),
+      )
+      updateSettings(previous)
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not apply backlight.",
+      )
+    } finally {
+      backlightPending.current = false
+      setIsBacklightSaving(false)
+    }
+  }
+  useEffect(() => {
+    if (
+      !savedId ||
+      isNewDevice ||
+      section !== "updates" ||
+      !isBrowser
+    )
+      return
+    const controller = new AbortController()
+    const refreshBacklight = async () => {
+      if (backlightPending.current) return
+      const revision = backlightRevision.current
+      try {
+        const response = await fetch(
+          `/api/manage/devices/${encodeURIComponent(savedId)}/settings`,
+          {
+            headers: getRequestHeaders(apiToken),
+            signal: controller.signal,
+            cache: "no-store",
+          },
+        )
+        if (!response.ok) return
+        const body = (await response.json()) as {
+          settings: AutomationSettings
+        }
+        if (
+          controller.signal.aborted ||
+          backlightPending.current ||
+          revision !== backlightRevision.current
+        )
+          return
+        const updates = Object.fromEntries(
+          Object.entries(body.settings).filter(([kind]) =>
+            kind.startsWith("backlight"),
+          ),
+        )
+        setAutomationSettings((current) => ({
+          ...current,
+          ...updates,
+        }))
+        setSavedSettings((current) => ({
+          ...current,
+          ...updates,
+        }))
+      } catch {
+        // Keep the last known control state during a temporary connection failure.
+      }
+    }
+    const timer = window.setInterval(
+      () => void refreshBacklight(),
+      2000,
+    )
+    return () => {
+      window.clearInterval(timer)
+      controller.abort()
+    }
+  }, [apiToken, isBrowser, isNewDevice, savedId, section])
   const selectDevice = (device: Device | null) => {
     if (
       hasChanges &&
@@ -870,6 +1023,8 @@ export const Devices = ({
                       channels={platform.channels}
                       channelStates={platform.channelStates}
                       device={selectedDevice}
+                      isBacklightSaving={isBacklightSaving}
+                      onApplyBacklight={applyBacklight}
                       onChange={updateSettings}
                       onDeviceChange={updateDevice}
                       section={section}
