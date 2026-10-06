@@ -1,0 +1,87 @@
+# Optional package, merged after watchy-v3.yaml. Supply per-device VPN address/key
+# and vpn_home_ssid substitutions in the private installation wrapper.
+substitutions:
+  vpn_dns_server: 1.1.1.1
+  vpn_endpoint: !secret wireguard_peer_endpoint
+  vpn_public_key: !secret wireguard_peer_public_key
+
+esphome:
+  includes:
+    - <lwip/dns.h>
+  on_boot:
+    - priority: 800
+      then:
+        # Do not establish a tunnel until the current Wi-Fi network is known.
+        - wireguard.disable:
+            id: watch_vpn
+
+wireguard:
+  id: watch_vpn
+  time_id: watch_time
+  address: ${vpn_address}
+  private_key: ${vpn_private_key}
+  peer_endpoint: ${vpn_endpoint}
+  peer_public_key: ${vpn_public_key}
+  peer_port: 51820
+  # On foreign Wi-Fi all watch traffic, including DNS and images, uses home.
+  # The tunnel is disabled at home to preserve direct native API and OTA routing.
+  netmask: 0.0.0.0
+  peer_allowed_ips:
+    - 0.0.0.0/0
+  peer_persistent_keepalive: 25s
+  require_connection_to_proceed: false
+  reboot_timeout: 0s
+  update_interval: 1s
+
+script:
+  - id: !extend prepare_network
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: |-
+              std::array<char, 33> ssid{};
+              return std::string(wifi::global_wifi_component->wifi_ssid_to(ssid)) == "${vpn_home_ssid}";
+          then:
+            - wireguard.disable:
+                id: watch_vpn
+          else:
+            # Resolve the public endpoint before the tunnel owns the default route.
+            - lambda: |-
+                LwIPLock lock;
+                ip_addr_t resolver;
+                ipaddr_aton("1.1.1.1", &resolver);
+                dns_setserver(0, &resolver);
+                dns_setserver(1, &resolver);
+            - wireguard.enable:
+                id: watch_vpn
+            - wait_until:
+                condition:
+                  wireguard.peer_online:
+                    id: watch_vpn
+                timeout: 10s
+            - if:
+                condition:
+                  wireguard.peer_online:
+                    id: watch_vpn
+                then:
+                  - lambda: |-
+                      LwIPLock lock;
+                      ip_addr_t resolver;
+                      ipaddr_aton("${vpn_dns_server}", &resolver);
+                      dns_setserver(0, &resolver);
+                      dns_setserver(1, &resolver);
+
+wifi:
+  on_disconnect:
+    - wireguard.disable:
+        id: watch_vpn
+
+binary_sensor:
+  - platform: wireguard
+    status:
+      name: VPN Connected
+      entity_category: diagnostic
+    enabled:
+      name: VPN Enabled
+      entity_category: diagnostic

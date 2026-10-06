@@ -61,10 +61,12 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
 
 ## Use
 
-- Menu: cycle clock, locally cached agenda, and CastKit page.
-- Back: show the local clock.
-- Up/Down: previous/next agenda page; outside the agenda, Up requests a fresh CastKit render and Down redraws.
-- Native API actions: `show_clock`, `show_agenda`, `show_castkit`, and `set_image`.
+- Top-right (Up): open cached agenda page 1, advance through its pages, then return to the default clock. The agenda omits its heading, date and battery; larger bold times separate event rows.
+- Top-left (Back): return to the default clock.
+- Bottom-right (Down): open optional local scores outside the agenda; advance agenda/scores pages while viewing them.
+- Bottom-left (Menu): wake and synchronize while preserving the page. When already awake, a binary-enabled watch also toggles binary/digital clocks.
+- View buttons wake and draw cached data without enabling Wi-Fi on battery. Bottom-left requests a connection immediately.
+- Native API actions: `show_clock`, `show_agenda`, `show_scores`, `show_binary_clock`, `show_castkit`, and `set_image`.
   `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
 
 Clock and timer labels use bold type. The local pages show an estimated battery
@@ -81,26 +83,47 @@ agenda, scores and binary pages need no image download or server render.
 The local clock still works without CastKit.
 A cold start without network time shows `Syncing time...` instead of a false date.
 
-USB detection is GPIO21, distinct from the active-low charge-status GPIO10. On USB the firmware
-stays awake for live updates and OTA. On battery it sleeps after receiving its retained agenda, configured timer
-and optional scores, allowing one second for queued rows and telemetry.
-Otherwise it allows 15 seconds, plus at most 15 more if MQTT is still connecting,
-then sleeps until the next minute. Repeated state messages cannot extend that
-idle sleep deadline. A running task keeps it connected for updates;
-when the task ends or MQTT disconnects it resumes sleeping. Any of the four buttons can wake it. The
-clock survives deep sleep on the external 32 kHz crystal. The chosen page is
-persisted; the downloaded image is not, so a wake on the CastKit page requests
-a fresh URL. Other pages exchange only small retained MQTT state and telemetry.
-USB uses Wi-Fi light power saving, but does not disconnect. The bounded idle
-window is a connection allowance, not a measured battery life claim. Actual
-association time and battery runtime need an unplugged test. MQTT waits for Wi-Fi association and valid local time before DNS/TLS, and automatic MQTT log forwarding is off;
-native or serial logs remain available for diagnostics.
+USB detection is GPIO21, distinct from the active-low charge-status GPIO10.
+On USB the firmware stays awake for live updates and OTA, using modem power saving.
+On battery it connects once each minute by default, receives its retained agenda,
+configured timer and optional scores, then sleeps after one second for queued rows
+and telemetry. A running timer also sleeps: its authoritative start time, name,
+banked minutes and selected page are cached in RTC SRAM across sleep, so elapsed
+minutes keep advancing locally between connections. A start or stop scan is noticed
+on the next successful connection. A new session selects the timer; ordinary repeated
+state and reconnects preserve the user's page choice.
+
+Set `battery_sync_minutes: '10'` for a calendar-only watch: the clock still
+wakes each minute, but Wi-Fi is enabled only on ten-minute boundaries. USB, manual
+sync, cold boot or an invalid clock bypass the cadence. Between scheduled connections
+it draws locally and sleeps immediately. A timed-card watch should keep `1` for its
+scan response time. Use intervals that divide 60 for evenly spaced checks.
+
+After a failed connection, a one-minute watch retries after five minutes, then
+15 minutes on further failures. Slower calendar watches retry every 15 minutes.
+Successful MQTT restores the normal cadence. Manual sync bypasses backoff; view
+buttons remain offline. Retry state lives in RTC SRAM without flash writes.
+
+Wi-Fi fast-connect remembers the last AP and channel in RTC memory, avoiding a full
+scan and a flash write each wake. Short battery connections disable modem sleep to
+finish their exchanges promptly, while USB uses modem sleep. Hardware MPI acceleration
+reduces RSA work in TLS without weakening certificate verification; large keys retain
+the software fallback. MQTT waits for association and valid local time before DNS/TLS.
+Automatic MQTT log forwarding is off; native and serial logs remain available.
+
+If retained state does not arrive, the battery window permits 15 seconds, plus at
+most 15 more when MQTT is still connecting. Repeated state messages cannot postpone
+that deadline. Any of the four buttons wakes it. The external 32 kHz crystal keeps the
+clock through deep sleep. The downloaded CastKit image is not persisted, so a wake on
+that page requests a new URL; local pages exchange no images. Logs report the awake
+duration at sleep entry. Connection timing is not a battery endurance measurement:
+current draw and runtime still require an unplugged test.
 
 With `timer_state_topic` configured, any new running session automatically opens
 a local timer with the task name and current whole minutes. Count-up tasks show
 today's total (banked minutes plus this run), with this run's elapsed minutes
-alongside it; countdown tasks show minutes left. The retained session's start
-time survives missed scans and reconnects. Ending the session returns to the clock.
+alongside it; countdown tasks show minutes left. The cached session's start
+time survives missed scans, deep sleep and reconnects. Ending the session returns to the clock.
 The watch computes display time only, never scoring, completing or stopping a task.
 Menu and Back remain available while a task is running.
 
@@ -171,11 +194,12 @@ An empty `events` array means a successfully synced day with no events. A produc
 must fetch the full local day, include past events, sort by start and publish the
 snapshot periodically, at local midnight, and after calendar changes. Do not
 publish an empty replacement after a failed fetch. The watch stores one dated
-snapshot in NVS, only when its contents change; it survives deep sleep and resets.
+snapshot in RTC SRAM; it survives deep sleep without flash writes. A cold reset
+or complete power loss clears it and requires a new sync.
 Yesterday's snapshot is never presented as today's agenda. Without today's data,
 the agenda asks to connect to Wi-Fi. A cold start still needs valid time.
 
-Two complete event rows fit each page; Up/Down reaches every stored event. The
+Two complete event rows fit each page; top-right reaches every stored event and returns to the clock. The
 cache holds up to 32 events and shows `+ more` if a day exceeds that capacity.
 Titles wrap to two lines and clip with an ellipsis. Its embedded font is ASCII;
 other Unicode code points are displayed as `?`. Retained timer messages do not
@@ -196,7 +220,7 @@ Compile the ESPHome wrapper to verify the full firmware and hardware component.
 ## Button scores and offline use
 
 The clock is local and continues without Wi-Fi or CastKit after synchronization.
-The dated agenda also remains in flash. A cold start after complete power loss
+The dated agenda remains in RTC SRAM during deep sleep. A cold start after complete power loss
 needs a time source again; the v3 crystal keeps time during deep sleep, rather
 than supplying an independently powered RTC.
 
@@ -209,16 +233,16 @@ substitutions:
   scores_state_topic: points/state/+
 ```
 
-The subscription reads Tally Marks' retained per-child state. Down opens scores
-from the clock, binary clock, timer or CastKit page. Back returns to the clock. Menu cycles
-clock, optional binary clock, agenda, optional scores and CastKit; disabled optional pages are skipped. Up/Down paginate agenda and scores. `show_scores` is also
+The subscription reads Tally Marks' retained per-child state. Bottom-right opens scores
+from the clock, binary clock, timer or CastKit page. Top-left returns to the default clock.
+Top-right cycles the agenda and then returns to that clock. Bottom-right advances scores pages. `show_scores` is also
 available through the encrypted native API.
 
 The cache accepts a child's `{kid, kidName, day, pointsToday, displayOrder, ts}`
 state, or a dated canonical `{date, kids: [{id, name, pointsToday, displayOrder}]}`
 snapshot on the configured topic. `ts` is optional epoch milliseconds. It stores
 up to six entries with bounded identities/names, orders them by the producer's
-manual order, supports negative scores and saves only changed data. Invalid,
+manual order, supports negative scores and retains data in RTC SRAM without NVS writes. Invalid,
 older or oversized snapshots preserve the previous cache. A new day clears old
 rows before collecting the new day's children.
 
@@ -230,8 +254,8 @@ changes. Agenda-only installations can leave scores disabled.
 
 ## Binary clock
 
-Set `binary_clock_enabled: 'true'` in the private wrapper to add a local binary
-clock immediately after the regular clock in the Menu cycle. Five hour bits
+Set `binary_clock_enabled: 'true'` in the private wrapper to use the local binary
+clock as the default face. Top-left and the end of a timed session return to it. Five hour bits
 represent 0 through 23; six minute bits represent 0 through 59. Filled dots count
 toward their labelled weights (32, 16, 8, 4, 2, 1). Add the filled weights in
 each column. The small 24-hour digital time beneath the dots provides a learning
@@ -241,7 +265,7 @@ This face works offline from the same local clock.
 
 Agenda and scores normalize curly apostrophes to the embedded straight-apostrophe
 glyph. Long text remains bounded; unsupported non-ASCII characters are replaced
-once per code point rather than splitting UTF-8 in flash.
+once per code point rather than splitting UTF-8 in the cache.
 
 
 ## Display refresh and radio efficiency
@@ -278,3 +302,35 @@ The adapter hibernates the controller once per draw. Shutdown skips an already
 hibernated panel; sending another power-off sequence to it previously waited
 for a busy signal until the five-second task watchdog reset the MCU. Panel busy
 waits now feed the watchdog and have a bounded error timeout.
+
+## Optional roaming VPN
+
+Include `watchy-v3-wireguard.yaml` after the base package. Supply substitutions
+`vpn_address`, `vpn_private_key` (a per-device secret) and `vpn_home_ssid` (the
+home SSID secret). Set `vpn_dns_server` to a resolver reachable through the VPN.
+The package reads shared `wireguard_endpoint` and `wireguard_public_key` secrets.
+Provision each watch as a distinct server peer; never reuse another device's key.
+Configure known roaming networks in the private wrapper's `wifi.networks` list.
+
+At home the VPN stays disabled. On another configured Wi-Fi network, the firmware
+bootstraps the endpoint with public DNS, starts a full-tunnel WireGuard connection,
+then selects the VPN DNS resolver after a handshake. MQTT waits up to ten seconds
+for that handshake within the existing battery deadline. A missing tunnel cannot
+stop the cached clock. USB keeps the tunnel alive; battery sleep shuts down the
+radio and tunnel. VPN and OTA do not make an unknown Wi-Fi network usable.
+
+## Agenda producer and storage
+
+The agenda data path is independent of server-rendered CastKit images. Home
+Assistant, a calendar bridge or another authorized producer can publish the small
+retained snapshot directly on `agenda_state_topic`. The watch draws from its RTC SRAM
+cache, including while paging offline; no HTTP request is needed. Producers
+must retain updates because a sleeping ESP32 cannot receive a live push. It receives
+the newest snapshot on the next scheduled or manual connection.
+
+No PSRAM is required or present on this board. The local agenda holds bounded data,
+not PNGs. Agenda, scores, timer and selected pages occupy under 4 KB in RTC FAST
+SRAM; the previous 5,000-byte pixel frame uses RTC SLOW SRAM. Neither cache writes
+flash. They survive deep sleep; a cold reset or complete power loss needs a fresh sync.
+Network retry state also uses RTC SRAM. This battery policy is scoped to Watchy;
+it does not change the connected behavior of mains-powered CastKit panels.

@@ -13,8 +13,7 @@ struct AgendaEvent {
   bool all_day{false};
   char summary[96]{};
 };
-// One bounded, trivially copyable NVS snapshot. Zero initialization keeps padding
-// stable for ESPHome's change detection, so reconnects do not rewrite flash.
+// One bounded, trivially copyable snapshot retained in RTC SRAM across sleep.
 struct AgendaCache {
   char day[11]{};
   uint16_t count{0};
