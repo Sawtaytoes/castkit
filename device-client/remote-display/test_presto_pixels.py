@@ -110,6 +110,39 @@ class FirmwareWritesTests(unittest.IsolatedAsyncioTestCase):
         self.client.connections = {}
         self.client.mac, self.client.boot_id = "020000000001", "boot"
 
+    async def test_body_timing_excludes_header_waits_and_uses_device_clock(self):
+        clock = {"microseconds": 0}
+
+        class DelayedReader(FakeReader):
+            async def readline(self):
+                clock["microseconds"] += 100000
+                return await super().readline()
+
+            async def read(self, length):
+                clock["microseconds"] += 500
+                return await super().read(length)
+
+        self.client.connections["frame"] = (
+            DelayedReader(
+                b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n_body_read_us: 999999\r\n\r\nframe"
+            ),
+            FakeWriter(),
+        )
+        with patch.dict(
+            namespace,
+            {
+                "time": types.SimpleNamespace(
+                    ticks_us=lambda: clock["microseconds"],
+                    ticks_diff=lambda end, start: end - start,
+                )
+            },
+        ):
+            status, headers, body = await self.client.request("GET", "/frame")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"frame")
+        self.assertEqual(headers["_body_read_us"], 500)
+        self.assertEqual(clock["microseconds"], 400500)
+
     async def test_json_headers_and_body_are_one_complete_http_write(self):
         writer = FakeWriter()
         self.client.connections["frame"] = (
