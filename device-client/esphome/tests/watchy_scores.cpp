@@ -20,6 +20,27 @@ int main() {
   assert(cache.count == 3);
   assert(std::string(cache.entries[0].name) == "First" && cache.entries[0].points == 300);
   assert(cache.entries[1].points == 200 && cache.entries[2].points == 75);
+  // An old cache containing all rows is not proof that this transfer received them.
+  watchy::ScoresReceipt receipt{};
+  assert(!watchy::scores_sync_complete(cache, receipt, 3));
+  assert(accept(
+      R"({"kid":"first","kidName":"First","day":"2026-10-05","pointsToday":300,"displayOrder":0})"));
+  watchy::record_scores_receipt(document.as<JsonObjectConst>(), receipt);
+  assert(!watchy::scores_sync_complete(cache, receipt, 3));
+  watchy::record_scores_receipt(document.as<JsonObjectConst>(), receipt);
+  assert(receipt.count == 1);
+  // The delayed second child must update before the transfer can finish.
+  assert(accept(
+      R"({"kid":"second","kidName":"Second","day":"2026-10-05","pointsToday":250,"displayOrder":1})"));
+  watchy::record_scores_receipt(document.as<JsonObjectConst>(), receipt);
+  assert(cache.entries[1].points == 250);
+  assert(!watchy::scores_sync_complete(cache, receipt, 3));
+  assert(accept(
+      R"({"kid":"third","kidName":"Third","day":"2026-10-05","pointsToday":75,"displayOrder":2})"));
+  watchy::record_scores_receipt(document.as<JsonObjectConst>(), receipt);
+  assert(watchy::scores_sync_complete(cache, receipt, 3));
+  receipt = {};
+  assert(!watchy::scores_sync_complete(cache, receipt, 3));
   const auto saved = cache;
   // Retained reconnects and producer heartbeats do not rewrite unchanged data.
   assert(accept(
@@ -64,4 +85,6 @@ int main() {
   assert(std::memcmp(&bounded, &cache, sizeof(cache)) == 0);
   assert(accept(R"({"date":"2026-10-06","kids":[]})"));
   assert(cache.count == 0);
+  watchy::record_scores_receipt(document.as<JsonObjectConst>(), receipt);
+  assert(watchy::scores_sync_complete(cache, receipt, 3));
 }

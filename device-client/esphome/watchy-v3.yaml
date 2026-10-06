@@ -13,6 +13,8 @@ substitutions:
   scores_state_topic: ${topic_base}/${device_id}/scores/set
   timer_state_topic: ${topic_base}/${device_id}/timer/state
   battery_sync_minutes: '1'
+  scores_expected_count: '0'
+  state_refresh_topic: ''
   active_timer_sync_minutes: '1'
 
 esphome:
@@ -321,11 +323,16 @@ mqtt:
       then:
         - lambda: |-
             if (!${scores_enabled}) return;
-            id(has_received_scores) = true;
             auto now = id(watch_time).now();
             if (!watchy::parse_scores(x, id(scores_cache), now.is_valid() ? now.timestamp : 0)) {
               ESP_LOGW("watchy", "Invalid scores snapshot; keeping saved scores.");
+              return;
             }
+            watchy::record_scores_receipt(x, id(scores_receipt));
+            id(has_received_scores) = watchy::scores_sync_complete(id(scores_cache), id(scores_receipt), ${scores_expected_count});
+            ESP_LOGI("watchy", "Scores received: %u unique rows; complete: %s", unsigned(id(scores_receipt).count),
+              id(has_received_scores) ? "yes" : "no");
+        - component.update: saved_scores
         - script.execute: finish_battery_sync
         - if:
             condition:
@@ -548,6 +555,9 @@ globals:
   - id: has_received_timer
     type: bool
     initial_value: 'false'
+  - id: scores_receipt
+    type: watchy::ScoresReceipt
+    initial_value: 'watchy::ScoresReceipt{}'
   - id: has_received_scores
     type: bool
     initial_value: 'false'
@@ -681,6 +691,7 @@ text_sensor:
       return agenda.day[0] ? std::string(agenda.day) + " (" + std::to_string(agenda.count) + " events)"
         : std::string("Not synced");
   - platform: template
+    id: saved_scores
     name: Saved Scores
     entity_category: diagnostic
     update_interval: 30s
@@ -808,17 +819,33 @@ script:
       - script.stop: sleep_until_minute
       - lambda: |-
           id(is_timer_sync_requested) = true;
-          id(has_received_agenda) = false;
+          if (!id(mqtt_client).is_connected()) id(has_received_agenda) = false;
           id(has_received_timer) = false;
           id(has_received_scores) = false;
+          id(scores_receipt) = {};
           id(network_this_wake) = true;
           watchy::boost_cpu(true);
-      # Reconnect even if already online so the broker sends fresh retained snapshots.
-      - mqtt.disable:
-          id: mqtt_client
       - wifi.enable:
       - script.execute: connect_mqtt
       - script.execute: battery_cycle
+      - script.execute: request_fresh_state
+  - id: request_fresh_state
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: return !std::string("${state_refresh_topic}").empty();
+          then:
+            - wait_until:
+                condition:
+                  mqtt.connected:
+            - mqtt.publish_json:
+                topic: !lambda return std::string("${state_refresh_topic}");
+                qos: 1
+                retain: false
+                payload: |-
+                  root["requestId"] = std::string("${node_name}") + "-" + std::to_string(id(watch_time).now().timestamp)
+                    + "-" + std::to_string(millis());
   - id: cycle_clock
     then:
       - lambda: |-
@@ -891,7 +918,7 @@ script:
   - id: finish_battery_sync
     mode: restart
     then:
-      # Retained rows arrive together. Allow all children and telemetry to flush.
+      # Wait for complete scores, then allow queued telemetry to flush.
       - delay: 1s
       - if:
           condition:

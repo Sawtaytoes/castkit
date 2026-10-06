@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-06: Watchy refresh keeps MQTT open and waits for all scores](2026-10-06-watchy-refresh-keeps-mqtt-open-and-waits-for-all-scores.md)
+
 - [2026-10-06: Explicit refresh reopens the active Watchy timer](2026-10-06-watchy-explicit-refresh-reopens-the-active-timer.md)
 
 - [2026-10-06: Watchy idles at 80 MHz and turns off unused hardware](2026-10-06-watchy-idles-at-80-mhz-and-turns-off-unused-hardware.md)

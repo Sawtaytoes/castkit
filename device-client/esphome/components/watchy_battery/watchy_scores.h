@@ -20,6 +20,53 @@ struct ScoresCache {
   uint32_t saved_at{0};
   std::array<ScoreEntry, 6> entries{};
 };
+// Per-transfer receipts are deliberately separate from the saved score cache.
+struct ScoresReceipt {
+  std::array<std::array<char, 32>, 6> identities{};
+  uint16_t count{0};
+  bool is_full_snapshot{false};
+};
+inline void record_scores_receipt(JsonObjectConst json, ScoresReceipt &receipt) {
+  if (json["kids"].is<JsonArrayConst>()) {
+    receipt.is_full_snapshot = true;
+    return;
+  }
+  const std::string identity = json["id"] | json["kid"] | "";
+  if (identity.empty() || identity.size() >= receipt.identities[0].size()) {
+    return;
+  }
+  for (uint16_t index = 0; index < receipt.count; index++) {
+    if (identity == receipt.identities[index].data()) {
+      return;
+    }
+  }
+  if (receipt.count < receipt.identities.size()) {
+    std::memcpy(receipt.identities[receipt.count++].data(), identity.c_str(), identity.size());
+  }
+}
+inline bool scores_sync_complete(const ScoresCache &cache, const ScoresReceipt &receipt,
+                                 uint16_t expected_count) {
+  if (receipt.is_full_snapshot) {
+    return true;
+  }
+  if (receipt.count == 0 || receipt.count < expected_count) {
+    return false;
+  }
+  for (uint16_t index = 0; index < cache.count; index++) {
+    bool is_received = false;
+    for (uint16_t received = 0; received < receipt.count; received++) {
+      if (std::strcmp(cache.entries[index].id, receipt.identities[received].data()) == 0) {
+        is_received = true;
+        break;
+      }
+    }
+    if (!is_received) {
+      return false;
+    }
+  }
+  return true;
+}
+
 inline bool parse_scores(JsonObjectConst json, ScoresCache &cache, uint32_t received_at) {
   const std::string day = json["day"] | json["date"] | "";
   if (day.size() != 10 || day[4] != '-' || day[7] != '-') {
