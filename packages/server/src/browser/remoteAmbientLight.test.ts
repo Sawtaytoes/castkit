@@ -333,6 +333,20 @@ test("startup publishes standard light state, commands mirror the device and Cas
   ).toMatchObject({ isOn: false, brightness: 18 })
   await fixture.receive(
     "ambient_light/set",
+    JSON.stringify({ state: "ON", brightness: 0 }),
+  )
+  expect(
+    (await fixture.controls()).ambientLight,
+  ).toMatchObject({ isOn: false, brightness: 18 })
+  await fixture.receive(
+    "ambient_light/set",
+    JSON.stringify({ state: "ON" }),
+  )
+  expect(
+    (await fixture.controls()).ambientLight,
+  ).toMatchObject({ isOn: true, brightness: 18 })
+  await fixture.receive(
+    "ambient_light/set",
     JSON.stringify({ state: "OFF", brightness: 22 }),
   )
   expect(

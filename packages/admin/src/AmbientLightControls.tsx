@@ -33,7 +33,8 @@ export const AmbientLightControls = ({
   const brightness = Number(
     settings.ambientLightBrightness ?? 5,
   )
-  const isOn = settings.ambientLightPower === "on"
+  const isOn =
+    settings.ambientLightPower === "on" && brightness > 0
   const isDemo = settings.ambientLightDemo === "true"
   return (
     <Card heading="Ambient light">

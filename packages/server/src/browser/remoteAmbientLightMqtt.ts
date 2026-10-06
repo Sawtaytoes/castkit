@@ -81,11 +81,13 @@ export const createRemoteAmbientLightMqtt = ({
     return controller.update({
       deviceId,
       updates: {
-        ...(value.state
-          ? { isOn: value.state === "ON" }
-          : value.brightness !== undefined
-            ? { isOn: value.brightness > 0 }
-            : {}),
+        ...(value.brightness === 0
+          ? { isOn: false }
+          : value.state
+            ? { isOn: value.state === "ON" }
+            : value.brightness !== undefined
+              ? { isOn: value.brightness > 0 }
+              : {}),
         ...(value.brightness !== undefined &&
         value.brightness > 0
           ? { brightness: value.brightness }
