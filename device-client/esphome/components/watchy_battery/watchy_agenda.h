@@ -72,6 +72,27 @@ inline bool parse_agenda(JsonObjectConst json, AgendaCache &cache) {
   return true;
 }
 
+// End times are exclusive. All-day rows without a duration last for their cached day.
+inline bool agenda_event_visible(const AgendaEvent &event, uint32_t now) {
+  return (event.all_day && event.end == event.start) || event.end > now;
+}
+
+// Compact the RTC cache locally, including minute wakes with no network connection.
+inline void expire_agenda(AgendaCache &cache, uint32_t now, const std::string &day) {
+  if (day != cache.day) {
+    cache.count = 0;
+    cache.omitted = 0;
+    return;
+  }
+  uint16_t remaining = 0;
+  for (uint16_t index = 0; index < cache.count; index++) {
+    if (agenda_event_visible(cache.events[index], now)) {
+      cache.events[remaining++] = cache.events[index];
+    }
+  }
+  cache.count = remaining;
+}
+
 // Ongoing timed events precede future ones; all-day items are a fallback.
 inline int next_agenda_event(const AgendaCache &cache, uint32_t now, const std::string &day) {
   if (day != cache.day) {
@@ -80,11 +101,14 @@ inline int next_agenda_event(const AgendaCache &cache, uint32_t now, const std::
   int all_day = -1;
   for (int index = 0; index < cache.count; index++) {
     const auto &event = cache.events[index];
+    if (!agenda_event_visible(event, now)) {
+      continue;
+    }
     if (event.all_day) {
       if (all_day < 0) {
         all_day = index;
       }
-    } else if (event.start >= now || event.end > now) {
+    } else {
       return index;
     }
   }

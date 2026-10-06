@@ -381,3 +381,8 @@ and needs no count. Invalid snapshots do not mark receipt. The bounded battery
 deadline still permits sleep when a producer or network is unavailable.
 Saved Scores updates immediately after accepted rows, so diagnostics reflect the
 actual current cache instead of the previous wake's pre-network value.
+
+Calendar events disappear at their end time on the next local minute repaint,
+including offline wakes. Agenda pagination compacts as rows expire; clock event
+summaries use the same expiry rule. All-day rows without an end last for their
+cached day, and timed rows without an end expire at their start.

@@ -40,6 +40,14 @@ int main() {
   assert(watchy::next_agenda_event(cache, 1791225600, "2026-10-05") == 1);
   assert(watchy::next_agenda_event(cache, 1791231000, "2026-10-05") == -1);
   assert(watchy::next_agenda_event(cache, 1791222000, "2026-10-06") == -1);
+  // An ongoing event remains until its exact end, even with no fresh snapshot.
+  auto offline = cache;
+  watchy::expire_agenda(offline, 1791225599, "2026-10-05");
+  assert(offline.count == 2);
+  watchy::expire_agenda(offline, 1791225600, "2026-10-05");
+  assert(offline.count == 1 && std::string(offline.events[0].summary) == "Meeting");
+  watchy::expire_agenda(offline, 1791231000, "2026-10-05");
+  assert(offline.count == 0);
   const auto with_ends = cache;
   assert(!accept(
       R"({"date":"2026-10-05","events":[{"startMs":1791222000000,"endMs":1791221999000,"summary":"Invalid","isAllDay":false}]})"));
@@ -50,6 +58,19 @@ int main() {
       R"({"date":"2026-10-05","events":[{"startMs":1791176400000,"summary":"All day","isAllDay":true},{"startMs":1791222000000,"summary":"Practice","isAllDay":false}]})"));
   assert(watchy::next_agenda_event(cache, 1791221999, "2026-10-05") == 1);
   assert(watchy::next_agenda_event(cache, 1791222001, "2026-10-05") == 0);
+
+  // All-day rows with no duration last for the day; timed rows without ends expire at start.
+  assert(watchy::next_agenda_event(cache, 1791222000, "2026-10-05") == 0);
+  watchy::expire_agenda(cache, 1791222000, "2026-10-05");
+  assert(cache.count == 1 && cache.events[0].all_day);
+  watchy::expire_agenda(cache, 1791222000, "2026-10-06");
+  assert(cache.count == 0);
+  assert(accept(
+      R"({"date":"2026-10-05","events":[{"startMs":1791176400000,"endMs":1791262800000,"summary":"All day","isAllDay":true}]})"));
+  watchy::expire_agenda(cache, 1791262799, "2026-10-05");
+  assert(cache.count == 1);
+  watchy::expire_agenda(cache, 1791262800, "2026-10-05");
+  assert(cache.count == 0);
 
   doc.clear();
   doc["date"] = "2026-10-05";
@@ -74,6 +95,11 @@ int main() {
   watchy::AgendaCache restored{};
   std::memcpy(&restored, retained.data(), sizeof(restored));
   assert(restored.count == 32);
+  auto aged = restored;
+  watchy::expire_agenda(aged, restored.events[3].end, "2026-10-05");
+  assert(aged.count == 28 && aged.events[0].start == restored.events[4].start);
+  watchy::expire_agenda(aged, restored.events[3].end, "2026-10-06");
+  assert(aged.count == 0 && aged.omitted == 0);
   assert(restored.events[31].start == cache.events[31].start);
   assert(std::string(restored.day) == "2026-10-05");
   assert(accept(R"({"date":"2026-10-06","events":[]})"));
