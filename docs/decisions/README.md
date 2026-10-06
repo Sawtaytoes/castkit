@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-06 Watchy short clock presses stay offline](2026-10-06-watchy-short-clock-presses-stay-offline.md)
+
 - [2026-10-06 Watchy view buttons cycle and clocks show cached next events](2026-10-06-watchy-view-buttons-cycle-and-clocks-show-cached-next-events.md)
 
 - [2026-10-04 Kids Points follows the producer’s manual order](2026-10-04-kids-points-follows-the-producers-manual-order.md)

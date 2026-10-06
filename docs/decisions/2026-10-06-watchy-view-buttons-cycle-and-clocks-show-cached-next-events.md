@@ -4,7 +4,7 @@
 - **Date:** 2026-10-06
 - **Type:** Device behavior / owner correction
 - **Supersedes:** None
-- **Superseded by:** None
+- **Superseded by:** [Short clock presses stay offline](2026-10-06-watchy-short-clock-presses-stay-offline.md) for manual sync activation
 
 ## Decision
 

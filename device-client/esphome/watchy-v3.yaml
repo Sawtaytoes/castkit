@@ -67,13 +67,18 @@ esphome:
         - lambda: |-
             auto now = id(watch_time).now();
             id(network_this_wake) = watchy::network_due({
-              id(usb_connected).state, bool(id(boot_button_mask) & (1ULL << 7)),
+              id(usb_connected).state, false,
               id(boot_reset_reason) != ESP_RST_DEEPSLEEP, now.is_valid(), now.minute,
               ${battery_sync_minutes}, now.timestamp}, watchy::network_retry);
             // View buttons draw cached data without starting the radio.
-            if (id(boot_wake_cause) == ESP_SLEEP_WAKEUP_EXT1 && !(id(boot_button_mask) & (1ULL << 7))
+            if (id(boot_wake_cause) == ESP_SLEEP_WAKEUP_EXT1
                 && !id(usb_connected).state && now.is_valid()) id(network_this_wake) = false;
         - component.update: watch_display
+        - if:
+            condition:
+              lambda: return bool(id(boot_button_mask) & (1ULL << 7));
+            then:
+              - script.execute: sync_if_menu_held
         - if:
             condition:
               lambda: return id(network_this_wake);
@@ -630,9 +635,8 @@ binary_sensor:
     on_press:
       - lambda: id(last_button_at) = millis();
       - script.execute: cycle_clock
-      - wifi.enable:
-      - script.execute: connect_mqtt
       - component.update: watch_display
+      - script.execute: sync_if_menu_held
   - platform: gpio
     id: back_button
     pin:
@@ -679,6 +683,20 @@ binary_sensor:
       - component.update: watch_display
 
 script:
+  - id: sync_if_menu_held
+    mode: restart
+    then:
+      - delay: 2s
+      - if:
+          condition:
+            binary_sensor.is_on: menu_button
+          then:
+            - logger.log: "Bottom-left held: synchronizing cached data."
+            - script.stop: sleep_until_minute
+            - lambda: id(network_this_wake) = true;
+            - wifi.enable:
+            - script.execute: connect_mqtt
+            - script.execute: battery_cycle
   - id: cycle_clock
     then:
       - lambda: |-
