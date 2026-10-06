@@ -7,6 +7,7 @@ substitutions:
   device_id: watchy
   topic_base: castkit
   timezone: UTC
+  agenda_state_topic: ${topic_base}/${device_id}/agenda/set
   timer_state_topic: ${topic_base}/${device_id}/timer/state
 
 esphome:
@@ -17,14 +18,31 @@ esphome:
     - priority: 600
       then:
         - lambda: |-
+            ESP_LOGI("watchy", "Restored agenda for %s: %u events", id(agenda_cache).day, id(agenda_cache).count);
             const uint64_t buttons = esp_sleep_get_ext1_wakeup_status();
-            if (buttons & (1ULL << 7)) id(is_points_page) = true;
-            if (buttons & (1ULL << 6)) id(is_points_page) = false;
+            if (buttons & (1ULL << 7)) {
+              if (id(is_agenda_page)) {
+                id(is_agenda_page) = false;
+                id(is_points_page) = true;
+              } else if (id(is_points_page)) {
+                id(is_points_page) = false;
+              } else {
+                id(is_agenda_page) = true;
+              }
+              id(menu_wake_handled) = true;
+            }
+            if (buttons & (1ULL << 6)) {
+              id(is_points_page) = false;
+              id(is_agenda_page) = false;
+            }
     - priority: -100
       then:
         - script.execute: battery_cycle
         - delay: 2s
         - component.update: watch_display
+
+preferences:
+  flash_write_interval: 0s
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -33,6 +51,12 @@ esp32:
     type: esp-idf
     sdkconfig_options:
       CONFIG_RTC_CLK_SRC_EXT_CRYS: y
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [watchy_battery]
 
 logger:
   level: INFO
@@ -71,14 +95,24 @@ api:
             id: castkit_image
             url: !lambda return image_url;
             update: true
+    - action: show_agenda
+      then:
+        - lambda: |-
+            id(is_agenda_page) = true;
+            id(is_points_page) = false;
+            id(is_timer_page) = false;
+            id(agenda_page) = 0;
+        - component.update: watch_display
     - action: show_clock
       then:
         - lambda: id(is_points_page) = false;
+        - lambda: id(is_agenda_page) = false;
         - lambda: id(is_timer_page) = false;
         - component.update: watch_display
     - action: show_castkit
       then:
         - lambda: id(is_points_page) = true;
+        - lambda: id(is_agenda_page) = false;
         - script.execute: refresh_castkit
         - component.update: watch_display
 
@@ -106,6 +140,23 @@ mqtt:
             url: !lambda return x;
             update: true
   on_json_message:
+    - topic: ${agenda_state_topic}
+      then:
+        - lambda: |-
+            auto now = id(watch_time).now();
+            const std::string day = x["date"] | "";
+            // Reject an old retained snapshot once the local date is known.
+            if (now.is_valid() && day != now.strftime("%Y-%m-%d")) return;
+            if (!watchy::parse_agenda(x, id(agenda_cache))) {
+              ESP_LOGW("watchy", "Invalid agenda snapshot; keeping the last saved agenda.");
+              return;
+            }
+            id(agenda_page) = std::min(id(agenda_page), std::max(0, (int(id(agenda_cache).count) - 1) / 2));
+        - if:
+            condition:
+              lambda: return id(is_agenda_page);
+            then:
+              - component.update: watch_display
     - topic: ${timer_state_topic}
       then:
         - lambda: |-
@@ -120,6 +171,7 @@ mqtt:
             if (is_active && started != id(timer_started_ms)) {
               id(is_timer_page) = true;
               id(is_points_page) = false;
+              id(is_agenda_page) = false;
             }
             if (!is_active) id(is_timer_page) = false;
             id(has_running_task) = is_active;
@@ -222,8 +274,22 @@ font:
     size: 28
     glyphs: 'ap'
 
-# These are persisted only when the user changes pages, not on minute ticks.
+# Only changes to the saved agenda and page choice write flash, not minute ticks.
 globals:
+  - id: agenda_cache
+    type: watchy::AgendaCache
+    restore_value: true
+    initial_value: 'watchy::AgendaCache{}'
+  - id: is_agenda_page
+    type: bool
+    restore_value: true
+    initial_value: 'false'
+  - id: agenda_page
+    type: int
+    initial_value: '0'
+  - id: menu_wake_handled
+    type: bool
+    initial_value: 'false'
   - id: is_points_page
     type: bool
     restore_value: true
@@ -253,27 +319,38 @@ globals:
     initial_value: 'false'
 
 sensor:
-  - platform: adc
-    pin: GPIO9
+  - platform: watchy_battery
     id: battery_voltage
     internal: true
-    attenuation: 12db
     update_interval: 30s
-    filters:
-      # Watchy v3's 360k / 100k divider, not the older board's ratio.
-      - multiply: 1.2777778
     on_value:
       - mqtt.publish_json:
           topic: ${topic_base}/${device_id}/battery
           payload: |-
             root["volts"] = x;
-            root["percent"] = clamp((x - 3.35f) / 0.85f * 100.0f, 0.0f, 100.0f);
+            const bool charging = id(usb_connected).state && id(charger_active).state;
+            root["percent"] = id(usb_connected).state && !charging && x > 4.0f
+              ? 100.0f : clamp((x - 3.35f) / 0.85f * 100.0f, 0.0f, charging ? 99.0f : 100.0f);
+            root["isCharging"] = charging;
             root["isOnBattery"] = !id(usb_connected).state;
   - platform: wifi_signal
     name: Wi-Fi Signal
     update_interval: 60s
 
+button:
+  - platform: restart
+    name: Restart
+    entity_category: diagnostic
+
 text_sensor:
+  - platform: template
+    name: Saved Agenda
+    entity_category: diagnostic
+    update_interval: 30s
+    lambda: |-
+      auto &agenda = id(agenda_cache);
+      return agenda.day[0] ? std::string(agenda.day) + " (" + std::to_string(agenda.count) + " events)"
+        : std::string("Not synced");
   - platform: wifi_info
     ip_address:
       name: IP Address
@@ -287,6 +364,20 @@ text_sensor:
       return now.is_valid() ? now.strftime("%Y-%m-%d %H:%M:%S %Z") : std::string("Not synchronized");
 
 binary_sensor:
+  - platform: gpio
+    id: charger_active
+    name: Charging
+    device_class: battery_charging
+    entity_category: diagnostic
+    pin:
+      number: GPIO10
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 2s
+    on_state:
+      - component.update: battery_voltage
+      - component.update: watch_display
   - platform: gpio
     id: usb_connected
     internal: true
@@ -304,7 +395,19 @@ binary_sensor:
       inverted: true
     on_press:
       - lambda: |-
-          id(is_points_page) = true;
+          if (id(menu_wake_handled)) {
+            id(menu_wake_handled) = false;
+            return;
+          }
+          if (id(is_agenda_page)) {
+            id(is_agenda_page) = false;
+            id(is_points_page) = true;
+          } else if (id(is_points_page)) {
+            id(is_points_page) = false;
+          } else {
+            id(is_agenda_page) = true;
+            id(agenda_page) = 0;
+          }
           id(is_timer_page) = false;
       - script.execute: refresh_castkit
       - component.update: watch_display
@@ -318,6 +421,7 @@ binary_sensor:
     on_press:
       - lambda: |-
           id(is_points_page) = false;
+          id(is_agenda_page) = false;
           id(is_timer_page) = false;
       - component.update: watch_display
   - platform: gpio
@@ -328,7 +432,14 @@ binary_sensor:
       mode: INPUT_PULLUP
       inverted: true
     on_press:
-      - script.execute: refresh_castkit
+      - if:
+          condition:
+            lambda: return id(is_agenda_page);
+          then:
+            - lambda: id(agenda_page) = std::max(0, id(agenda_page) - 1);
+            - component.update: watch_display
+          else:
+            - script.execute: refresh_castkit
   - platform: gpio
     id: down_button
     pin:
@@ -337,6 +448,8 @@ binary_sensor:
       mode: INPUT_PULLUP
       inverted: true
     on_press:
+      - lambda: |-
+          if (id(is_agenda_page)) id(agenda_page) = std::min(id(agenda_page) + 1, std::max(0, (int(id(agenda_cache).count) - 1) / 2));
       - component.update: watch_display
 
 script:
@@ -420,15 +533,64 @@ display:
         it.print(100, 100, id(label_font), TextAlign::CENTER, "Connect USB");
         return;
       }
-      if (id(is_timer_page) && id(has_running_task) && now.is_valid()) {
+      if (id(is_agenda_page)) {
+        it.print(6, 4, id(label_font), TextAlign::TOP_LEFT, "Agenda");
+        if (now.is_valid()) it.strftime(100, 30, id(label_font), TextAlign::TOP_CENTER, "%a, %b %d", now);
+        auto &agenda = id(agenda_cache);
+        const bool is_today = now.is_valid() && now.strftime("%Y-%m-%d") == agenda.day;
+        if (!is_today) {
+          it.print(100, 90, id(label_font), TextAlign::CENTER, "Agenda not synced");
+          it.print(100, 120, id(label_font), TextAlign::CENTER, "Connect to Wi-Fi");
+        } else if (agenda.count == 0) {
+          it.print(100, 100, id(label_font), TextAlign::CENTER, "No events today");
+        } else {
+          const int page = std::min(id(agenda_page), (int(agenda.count) - 1) / 2);
+          for (int row = 0; row < 2; row++) {
+            const int index = page * 2 + row;
+            if (index >= agenda.count) break;
+            const auto &event = agenda.events[index];
+            const int y = 55 + row * 62;
+            if (event.all_day) it.print(6, y, id(label_font), "All day");
+            else {
+              time_t timestamp = event.start;
+              struct tm local{};
+              localtime_r(&timestamp, &local);
+              it.printf(6, y, id(label_font), "%d:%02d%s", (local.tm_hour + 11) % 12 + 1,
+                local.tm_min, local.tm_hour < 12 ? "a" : "p");
+            }
+            std::string remaining = event.summary;
+            for (int line = 0; line < 2 && !remaining.empty(); line++) {
+              size_t length = remaining.size();
+              int x, bounds_y, width, height;
+              while (length > 0) {
+                const std::string candidate = remaining.substr(0, length);
+                it.get_text_bounds(0, 0, candidate.c_str(), id(label_font), TextAlign::TOP_LEFT, &x, &bounds_y, &width, &height);
+                if (width <= 188) break;
+                length--;
+              }
+              if (length < remaining.size() && line == 0) {
+                const size_t space = remaining.rfind(' ', length);
+                if (space != std::string::npos && space > 0) length = space;
+              }
+              std::string text = remaining.substr(0, length);
+              if (line == 1 && length < remaining.size() && length > 3) text = text.substr(0, length - 3) + "...";
+              it.print(6, y + 20 + line * 19, id(label_font), text.c_str());
+              remaining.erase(0, length);
+              while (!remaining.empty() && remaining.front() == ' ') remaining.erase(0, 1);
+            }
+          }
+          it.printf(100, 176, id(label_font), TextAlign::TOP_CENTER, "%d/%d%s", page + 1,
+            (int(agenda.count) + 1) / 2, agenda.omitted ? " + more" : "");
+        }
+      } else if (id(is_timer_page) && id(has_running_task) && now.is_valid()) {
         const double elapsed = std::max(0.0, (double(now.timestamp) - double(id(timer_started_ms)) / 1000.0) / 60.0);
         const bool countdown = id(is_countdown) && id(timer_goal_minutes) > 0;
         const int minutes = countdown ? std::max(0, int(ceilf(id(timer_goal_minutes) - elapsed)))
           : id(timer_banked_minutes) + int(elapsed);
-        it.print(100, 15, id(label_font), TextAlign::TOP_CENTER, id(timer_name).substr(0, 17).c_str());
-        it.printf(100, 43, id(clock_font), TextAlign::TOP_CENTER, "%d", minutes);
-        it.print(100, 107, id(label_font), TextAlign::TOP_CENTER, countdown ? "min left" : "min today");
-        it.printf(100, 137, id(label_font), TextAlign::TOP_CENTER, "This run: %d min", int(elapsed));
+        it.print(100, 32, id(label_font), TextAlign::TOP_CENTER, id(timer_name).substr(0, 17).c_str());
+        it.printf(100, 57, id(clock_font), TextAlign::TOP_CENTER, "%d", minutes);
+        it.print(100, 120, id(label_font), TextAlign::TOP_CENTER, countdown ? "min left" : "min today");
+        it.printf(100, 152, id(label_font), TextAlign::TOP_CENTER, "This run: %d min", int(elapsed));
       } else if (id(is_points_page) && id(has_castkit_image)) {
         it.image(0, 0, id(castkit_image));
         return;
@@ -446,20 +608,22 @@ display:
         it.print(100, 75, id(label_font), TextAlign::CENTER, "Syncing time...");
       }
       if (id(battery_voltage).has_state()) {
-        const int percent = int(clamp((id(battery_voltage).state - 3.35f) / 0.85f * 100.0f, 0.0f, 100.0f));
-        it.printf(104, 169, id(label_font), TextAlign::TOP_RIGHT, "%d%%", percent);
-        it.rectangle(114, 171, 38, 20);
-        it.filled_rectangle(152, 177, 3, 8);
+        const bool charging = id(usb_connected).state && id(charger_active).state;
+        const int percent = id(usb_connected).state && !charging && id(battery_voltage).state > 4.0f
+          ? 100 : int(clamp((id(battery_voltage).state - 3.35f) / 0.85f * 100.0f, 0.0f, charging ? 99.0f : 100.0f));
+        it.printf(142, 15, id(label_font), TextAlign::CENTER_RIGHT, "%d%%", percent);
+        it.rectangle(152, 5, 38, 20);
+        it.filled_rectangle(190, 11, 3, 8);
         const int fill_width = 32 * percent / 100;
-        if (fill_width > 0) it.filled_rectangle(117, 174, fill_width, 14);
-        if (id(usb_connected).state) {
+        if (fill_width > 0) it.filled_rectangle(155, 8, fill_width, 14);
+        if (charging) {
           // Cut the charging bolt through the fill, with contrast at every percentage.
-          for (int pixel_y = 174; pixel_y < 188; pixel_y++) {
-            for (int pixel_x = 126; pixel_x <= 138; pixel_x++) {
-              const bool top = pixel_y <= 181 && pixel_x >= 134 - (pixel_y - 174) && pixel_x <= 134;
-              const bool bottom = pixel_y >= 180 && pixel_x >= 130 && pixel_x <= 138 - (pixel_y - 180);
+          for (int pixel_y = 8; pixel_y < 22; pixel_y++) {
+            for (int pixel_x = 164; pixel_x <= 176; pixel_x++) {
+              const bool top = pixel_y <= 15 && pixel_x >= 172 - (pixel_y - 8) && pixel_x <= 172;
+              const bool bottom = pixel_y >= 14 && pixel_x >= 168 && pixel_x <= 176 - (pixel_y - 14);
               if (top || bottom) it.draw_pixel_at(pixel_x, pixel_y,
-                pixel_x < 117 + fill_width ? COLOR_OFF : COLOR_ON);
+                pixel_x < 155 + fill_width ? COLOR_OFF : COLOR_ON);
             }
           }
         }
