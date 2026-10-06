@@ -1,4 +1,7 @@
-import { AMBIENT_LIGHT_MODES } from "@castkit/sdk/ambientLight"
+import {
+  AMBIENT_LIGHT_MODES,
+  ambientLightViewModesSchema,
+} from "@castkit/sdk/ambientLight"
 import type { MqttPublisher } from "@castkit/shared/mqtt/publisher"
 import { z } from "zod"
 import { buildBrowserDeviceTopics } from "../homeAssistant/browserDiscovery.ts"
@@ -8,8 +11,12 @@ const commandSchema = z
   .object({
     state: z.enum(["ON", "OFF"]).optional(),
     brightness: z.number().int().min(0).max(100).optional(),
-    effect: z.enum(AMBIENT_LIGHT_MODES).optional(),
+    effect: z
+      .enum([...AMBIENT_LIGHT_MODES, "follow-view"])
+      .optional(),
     demo: z.boolean().optional(),
+    followView: z.boolean().optional(),
+    viewModes: ambientLightViewModesSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0)
 /** Optional standard JSON MQTT light, mirroring the native persisted controller. */
@@ -32,14 +39,20 @@ export const createRemoteAmbientLightMqtt = ({
   }) => {
     if (!publisher.isEnabled) return
     const settings = controller.get(deviceId)
+    const resolved = controller.resolve(deviceId)
     const payload = JSON.stringify({
       state:
-        settings.isOn && settings.brightness > 0
+        resolved.isOn && settings.brightness > 0
           ? "ON"
           : "OFF",
       brightness: settings.brightness,
-      effect: settings.mode,
+      effect: settings.followView
+        ? "follow-view"
+        : settings.mode,
       demo: settings.demo,
+      resolved_effect: resolved.effectiveMode,
+      followView: settings.followView,
+      viewModes: settings.viewModes,
     })
     if (
       !isForced &&
@@ -92,7 +105,16 @@ export const createRemoteAmbientLightMqtt = ({
         value.brightness > 0
           ? { brightness: value.brightness }
           : {}),
-        ...(value.effect ? { mode: value.effect } : {}),
+        ...(value.effect === "follow-view"
+          ? { followView: true }
+          : value.effect
+            ? { mode: value.effect, followView: false }
+            : value.followView !== undefined
+              ? { followView: value.followView }
+              : {}),
+        ...(value.viewModes
+          ? { viewModes: value.viewModes }
+          : {}),
         ...(value.demo !== undefined
           ? { demo: value.demo }
           : {}),
