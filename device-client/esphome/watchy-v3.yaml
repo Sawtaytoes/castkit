@@ -126,6 +126,7 @@ mqtt:
             id(timer_started_ms) = started;
             id(timer_name) = name;
             id(timer_goal_minutes) = task["goalMinutes"] | 0.0f;
+            id(timer_banked_minutes) = std::max(0, task["bankedMinutes"] | 0);
             id(is_countdown) = task["isCountdown"] | false;
         - component.update: watch_display
         - script.execute: battery_cycle
@@ -206,6 +207,20 @@ font:
     id: label_font
     size: 18
     glyphs: ' !"%()+,-./0123456789:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
+    id: date_font
+    size: 28
+    glyphs: ' ,0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
+    id: period_font
+    size: 28
+    glyphs: 'ap'
 
 # These are persisted only when the user changes pages, not on minute ticks.
 globals:
@@ -229,6 +244,9 @@ globals:
     type: std::string
   - id: timer_goal_minutes
     type: float
+    initial_value: '0'
+  - id: timer_banked_minutes
+    type: int
     initial_value: '0'
   - id: is_countdown
     type: bool
@@ -405,24 +423,44 @@ display:
       if (id(is_timer_page) && id(has_running_task) && now.is_valid()) {
         const double elapsed = std::max(0.0, (double(now.timestamp) - double(id(timer_started_ms)) / 1000.0) / 60.0);
         const bool countdown = id(is_countdown) && id(timer_goal_minutes) > 0;
-        const int minutes = countdown ? std::max(0, int(ceilf(id(timer_goal_minutes) - elapsed))) : int(elapsed);
-        it.print(100, 40, id(label_font), TextAlign::TOP_CENTER, id(timer_name).substr(0, 17).c_str());
-        it.printf(100, 70, id(clock_font), TextAlign::TOP_CENTER, "%d", minutes);
-        it.print(100, 137, id(label_font), TextAlign::TOP_CENTER, countdown ? "min left" : "min elapsed");
+        const int minutes = countdown ? std::max(0, int(ceilf(id(timer_goal_minutes) - elapsed)))
+          : id(timer_banked_minutes) + int(elapsed);
+        it.print(100, 15, id(label_font), TextAlign::TOP_CENTER, id(timer_name).substr(0, 17).c_str());
+        it.printf(100, 43, id(clock_font), TextAlign::TOP_CENTER, "%d", minutes);
+        it.print(100, 107, id(label_font), TextAlign::TOP_CENTER, countdown ? "min left" : "min today");
+        it.printf(100, 137, id(label_font), TextAlign::TOP_CENTER, "This run: %d min", int(elapsed));
       } else if (id(is_points_page) && id(has_castkit_image)) {
         it.image(0, 0, id(castkit_image));
         return;
       } else if (now.is_valid()) {
         auto clock = now.strftime("%I:%M");
         if (clock[0] == '0') clock.erase(0, 1);
-        it.print(100, 35, id(clock_font), TextAlign::TOP_CENTER, clock.c_str());
-        it.strftime(100, 105, id(label_font), TextAlign::TOP_CENTER, "%p", now);
-        it.strftime(100, 133, id(label_font), TextAlign::TOP_CENTER, "%a, %b %d", now);
+        int bounds_x, bounds_y, clock_width, clock_height;
+        it.get_text_bounds(0, 0, clock.c_str(), id(clock_font), TextAlign::TOP_LEFT,
+                           &bounds_x, &bounds_y, &clock_width, &clock_height);
+        const int clock_x = (200 - clock_width - 24) / 2;
+        it.print(clock_x, 35, id(clock_font), TextAlign::TOP_LEFT, clock.c_str());
+        it.print(clock_x + clock_width + 4, 67, id(period_font), TextAlign::TOP_LEFT, now.hour < 12 ? "a" : "p");
+        it.strftime(100, 124, id(date_font), TextAlign::TOP_CENTER, "%a, %b %d", now);
       } else {
         it.print(100, 75, id(label_font), TextAlign::CENTER, "Syncing time...");
       }
       if (id(battery_voltage).has_state()) {
         const int percent = int(clamp((id(battery_voltage).state - 3.35f) / 0.85f * 100.0f, 0.0f, 100.0f));
-        it.printf(100, 171, id(label_font), TextAlign::TOP_CENTER, "Battery %d%%%s", percent,
-                  id(usb_connected).state ? " USB" : "");
+        it.printf(104, 169, id(label_font), TextAlign::TOP_RIGHT, "%d%%", percent);
+        it.rectangle(114, 171, 38, 20);
+        it.filled_rectangle(152, 177, 3, 8);
+        const int fill_width = 32 * percent / 100;
+        if (fill_width > 0) it.filled_rectangle(117, 174, fill_width, 14);
+        if (id(usb_connected).state) {
+          // Cut the charging bolt through the fill, with contrast at every percentage.
+          for (int pixel_y = 174; pixel_y < 188; pixel_y++) {
+            for (int pixel_x = 126; pixel_x <= 138; pixel_x++) {
+              const bool top = pixel_y <= 181 && pixel_x >= 134 - (pixel_y - 174) && pixel_x <= 134;
+              const bool bottom = pixel_y >= 180 && pixel_x >= 130 && pixel_x <= 138 - (pixel_y - 180);
+              if (top || bottom) it.draw_pixel_at(pixel_x, pixel_y,
+                pixel_x < 117 + fill_width ? COLOR_OFF : COLOR_ON);
+            }
+          }
+        }
       }

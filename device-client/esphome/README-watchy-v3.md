@@ -86,7 +86,8 @@ persisted; the downloaded image is not, so every wake requests a fresh URL.
 
 With `timer_state_topic` configured, any new running session automatically opens
 a local timer with the task name and current whole minutes. Count-up tasks show
-minutes elapsed; countdown tasks show minutes left. The retained session's start
+today's total (banked minutes plus this run), with this run's elapsed minutes
+alongside it; countdown tasks show minutes left. The retained session's start
 time survives missed scans and reconnects. Ending the session returns to the clock.
 The watch computes display time only, never scoring, completing or stopping a task.
 Menu and Back remain available while a task is running.
