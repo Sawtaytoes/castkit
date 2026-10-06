@@ -5,11 +5,14 @@ this relay's frame and touch endpoints, never CastKit management access.
 """
 
 import asyncio
+import contextlib
 import secrets
 import time
+import zlib
 
 from aioesphomeapi import TextSensorState
 from aiohttp import web
+from codec import encode_presto_patch
 
 
 class PrestoTransport:
@@ -22,6 +25,14 @@ class PrestoTransport:
         self.callback = None
         self.frame = None
         self.pending = None
+        self.frame_ready = asyncio.Event()
+        self.base_pixels = None
+        self.base_id = 0
+        self.last_delivery = None
+        self.capture_ms = None
+        self.encode_ms = None
+        self.touch_received_at = {}
+        self.last_touch_latency_ms = None
         self.boot_id = None
         self.build_marker = "unknown"
         self.last_seen = 0
@@ -49,6 +60,8 @@ class PrestoTransport:
             # browser contact/acknowledgement state before accepting that input.
             self.report("error,device-restarted")
             self.frame = None
+            self.base_pixels, self.base_id = None, 0
+            self.touch_received_at.clear()
             if self.pending is not None and not self.pending.done():
                 self.pending.set_exception(ConnectionError("Presto restarted"))
         self.boot_id = boot_id
@@ -83,6 +96,7 @@ class PrestoTransport:
     async def disconnect(self):
         self.callback = None
         self.frame = None
+        self.base_pixels, self.base_id = None, 0
         self.connected.clear()
 
     def subscribe_states(self, callback):
@@ -90,19 +104,38 @@ class PrestoTransport:
 
     async def get_frame(self, request):
         frame = self.frame
-        if frame is None or time.monotonic() - frame["created"] > 7:
+        if frame is None or request.query.get("after") == str(frame["id"]):
+            # Wait for a capture instead of adding a fixed polling delay.
+            self.frame_ready.clear()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self.frame_ready.wait(), timeout=1)
+            frame = self.frame
+        if (
+            frame is None
+            or time.monotonic() - frame["created"] > 7
+            or request.query.get("after") == str(frame["id"])
+        ):
             return web.Response(status=204)
-        if request.query.get("after") == str(frame["id"]):
-            return web.Response(status=204)
-        return web.Response(
-            body=frame["png"],
-            content_type="application/vnd.castkit.rgb565+zlib",
-            headers={
-                "Cache-Control": "no-store",
-                "X-CastKit-Frame": str(frame["id"]),
-                "X-CastKit-Touch": str(frame["touch_id"]),
-            },
-        )
+        headers = {
+            "Cache-Control": "no-store",
+            "X-CastKit-Frame": str(frame["id"]),
+            "X-CastKit-Touch": str(frame["touch_id"]),
+        }
+        body, content_type = frame["png"], "application/vnd.castkit.rgb565+zlib"
+        if request.headers.get("X-CastKit-Accept") == "rgb565-patch-v1":
+            use_patch = frame["base_id"] > 0 and request.query.get("after") == str(frame["base_id"])
+            body, encoding, rectangle = frame["patch"] if use_patch else frame["full"]
+            headers["X-CastKit-Rect"] = ",".join(map(str, rectangle))
+            headers["X-CastKit-Base-Frame"] = str(frame["base_id"] if use_patch else 0)
+            content_type = f"application/vnd.castkit.rgb565-patch+{encoding}"
+            self.last_delivery = {
+                "bytes": len(body),
+                "encoding": encoding,
+                "rectangle": rectangle,
+                "base_id": frame["base_id"] if use_patch else 0,
+            }
+        frame["served_at"] = time.monotonic()
+        return web.Response(body=body, content_type=content_type, headers=headers)
 
     async def acknowledge(self, request):
         document = await self.read_json(request)
@@ -123,6 +156,20 @@ class PrestoTransport:
         ):
             raise web.HTTPConflict(text="Frame is no longer current")
         if self.pending is not None and not self.pending.done():
+            self.base_pixels, self.base_id = frame["pixels"], frame["id"]
+            if self.last_delivery is not None and "served_at" in frame:
+                self.last_delivery["ack_ms"] = round(
+                    (time.monotonic() - frame["served_at"]) * 1000, 1
+                )
+            eligible = [
+                sequence for sequence in self.touch_received_at if sequence <= frame["touch_id"]
+            ]
+            if eligible:
+                self.last_touch_latency_ms = round(
+                    (time.monotonic() - self.touch_received_at[max(eligible)]) * 1000, 1
+                )
+                for sequence in eligible:
+                    self.touch_received_at.pop(sequence)
             self.last_ack = document
             self.frames_drawn += 1
             self.pending.set_result(
@@ -159,6 +206,9 @@ class PrestoTransport:
             ):
                 raise web.HTTPBadRequest(text="Touch outside panel bounds")
         for sequence, phase, x, y, frame_id in document:
+            if len(self.touch_received_at) >= 128:
+                self.touch_received_at.clear()
+            self.touch_received_at[sequence] = time.monotonic()
             self.report(f"touch,{sequence},{phase},{x},{y},0,{frame_id},0")
         self.touches_received += len(document)
         return web.Response(status=204)
@@ -172,7 +222,7 @@ class PrestoTransport:
     async def health(self, request):
         return web.json_response(
             {
-                "build": "castkit-presto-transport-v1",
+                "build": "castkit-presto-transport-v2-patches",
                 "firmware": self.build_marker,
                 "last_seen_seconds": round(time.monotonic() - self.last_seen, 1)
                 if self.last_seen
@@ -180,12 +230,37 @@ class PrestoTransport:
                 "frames_drawn": self.frames_drawn,
                 "touches_received": self.touches_received,
                 "last_ack": self.last_ack,
+                "last_delivery": self.last_delivery,
+                "capture_ms": self.capture_ms,
+                "encode_ms": self.encode_ms,
+                "last_touch_to_ack_ms": self.last_touch_latency_ms,
             }
         )
 
     async def send_frame(self, frame_id, touch_id, png):
+        raw = zlib.decompress(png)
+        full = await asyncio.to_thread(encode_presto_patch, raw)
+        base_id, base_pixels = self.base_id, self.base_pixels
+        patch = (
+            await asyncio.to_thread(encode_presto_patch, raw, base_pixels)
+            if base_pixels is not None
+            else full
+        )
+        # A reboot while encoding invalidates the base. The full fallback remains valid.
+        if base_id != self.base_id:
+            base_id, patch = 0, full
         self.pending = asyncio.get_running_loop().create_future()
-        self.frame = {"id": frame_id, "touch_id": touch_id, "png": png, "created": time.monotonic()}
+        self.frame = {
+            "id": frame_id,
+            "touch_id": touch_id,
+            "png": png,
+            "pixels": raw,
+            "base_id": base_id,
+            "full": full,
+            "patch": patch,
+            "created": time.monotonic(),
+        }
+        self.frame_ready.set()
         try:
             return await asyncio.wait_for(self.pending, timeout=10)
         finally:

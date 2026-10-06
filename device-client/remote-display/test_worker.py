@@ -1,12 +1,15 @@
 """Real Chromium coverage for touch routing and retained-event recovery."""
 
 import asyncio
+import io
 import os
 import unittest
 from unittest.mock import AsyncMock
 
 from interaction import Target
+from PIL import Image
 from playwright.async_api import async_playwright
+from presto_transport import PrestoTransport
 from preview import PreviewServer
 from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context
 
@@ -43,6 +46,33 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(self.task, return_exceptions=True)
         await self.browser.close()
         await self.playwright.stop()
+
+    async def test_presto_fast_capture_preserves_square_viewport_and_ack_guard(self):
+        await self.task_cancel_for_capture_test()
+        await self.page.set_viewport_size({"width": 480, "height": 480})
+        transport = PrestoTransport({"mac": "020000000001"}, "a" * 32)
+        session = DisplaySession(
+            {"viewport": {"width": 480, "height": 480}, "max_fps": 8, "heartbeat_seconds": 2},
+            self.page,
+            transport,
+            {},
+            asyncio.Event(),
+            PreviewServer("test", 8),
+        )
+
+        async def acknowledge(frame_id, touch_id, payload):
+            session.stop.set()
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
+
+        transport.send_frame = acknowledge
+        await asyncio.wait_for(session.run(1, None), timeout=3)
+        self.assertEqual(Image.open(io.BytesIO(session.preview.latest_png)).size, (480, 480))
+        self.assertIn(session.frame_id, session.guard.frames)
+        self.assertIsNotNone(transport.capture_ms)
+
+    async def task_cancel_for_capture_test(self):
+        self.task.cancel()
+        await asyncio.gather(self.task, return_exceptions=True)
 
     async def test_saved_session_survives_context_recreation(self):
         state = {

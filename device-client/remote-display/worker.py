@@ -23,7 +23,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v5-presto-colors"
+BUILD_MARKER = "castkit-remote-display-v6-presto-patches"
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
@@ -302,7 +302,23 @@ class DisplaySession:
                 cycle = time.monotonic()
                 touch_id = self.processed_touch
                 before = await self.page.evaluate(TARGETS_SCRIPT, self.target_options)
-                png = await self.page.screenshot(type="png", animations="disabled", timeout=5000)
+                capture_started = time.monotonic()
+                if isinstance(self.client, PrestoTransport):
+                    shot = await self.cdp.send(
+                        "Page.captureScreenshot",
+                        {
+                            "format": "png",
+                            "fromSurface": True,
+                            "captureBeyondViewport": False,
+                            "optimizeForSpeed": True,
+                        },
+                    )
+                    png = base64.b64decode(shot["data"])
+                else:
+                    png = await self.page.screenshot(
+                        type="png", animations="disabled", timeout=5000
+                    )
+                capture_finished = time.monotonic()
                 after = await self.page.evaluate(TARGETS_SCRIPT, self.target_options)
                 if before != after:
                     continue
@@ -312,6 +328,10 @@ class DisplaySession:
                     if isinstance(self.client, PrestoTransport)
                     else await asyncio.to_thread(encode_frame, png)
                 )
+                encoded_at = time.monotonic()
+                if isinstance(self.client, PrestoTransport):
+                    self.client.capture_ms = round((capture_finished - capture_started) * 1000, 1)
+                    self.client.encode_ms = round((encoded_at - capture_finished) * 1000, 1)
                 if (
                     payload != previous_payload
                     or touch_id != previous_touch
@@ -388,7 +408,7 @@ async def serve(config):
         }
         # Refresh limits describe transport capability, not a user-facing view setting.
         if is_presto:
-            config = {**config, "max_fps": min(config["max_fps"], 2)}
+            config = {**config, "max_fps": min(config["max_fps"], 8)}
         presto = PrestoTransport(config, api_key) if is_presto else None
         if presto is not None:
             await presto.start()
