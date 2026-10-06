@@ -3,6 +3,14 @@
 #include <limits>
 
 int main() {
+  assert(watchy::battery_bars(3.2f) == 0);
+  assert(watchy::battery_bars(3.2001f) == 1);
+  assert(watchy::battery_bars(3.6f) == 1);
+  assert(watchy::battery_bars(3.6001f) == 2);
+  assert(watchy::battery_bars(4.0f) == 2);
+  assert(watchy::battery_bars(4.0001f) == 3);
+  assert(watchy::battery_bars(NAN) == 0);
+
   watchy::BatteryEstimate state{};
   assert(watchy::smooth_battery(state, 4.17f));
   assert(watchy::battery_percent(state.voltage, true, false) == 100);

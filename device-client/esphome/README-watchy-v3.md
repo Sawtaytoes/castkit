@@ -69,10 +69,11 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
 - Native API actions: `show_clock`, `show_agenda`, `show_scores`, `show_binary_clock`, `show_castkit`, and `set_image`.
   `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
 
-Clock and timer labels use bold type. The local pages show an estimated battery
-number as plain 24 px bold black text in the top right, without a percent sign
-or a battery icon.
-The charging bolt remains separate from the number and follows the active-low
+Clock and timer labels use bold type. Local clock, timer and scores pages show
+SQFMI's three battery bars in the top right, without a numeric percentage.
+The thresholds are strictly above 3.2, 3.6 and 4.0 V. They are coarse voltage
+levels, not a calibrated remaining-capacity or runtime estimate. Agenda has no battery.
+The charging bolt remains separate from the bars and follows the active-low
 GPIO10 charger status, rather than the presence of USB power. The diagnostic Device Time and IP Address entities
 make synchronization and future OTA updates observable in Home Assistant.
 
@@ -173,7 +174,8 @@ The earlier stock-face 4.0 V bar threshold was too coarse to assert 100%.
 Eight ADC readings discard the highest and lowest samples; a smoothed voltage
 estimate survives deep sleep in RTC SRAM. Invalid reads preserve the prior
 measurement, and a true low-cell sample bypasses smoothing for safe sleep.
-The watch and Home Assistant use the same rounded percentage function. While charging,
+Home Assistant percentage telemetry remains an approximate voltage-derived estimate;
+the watch face uses bars instead. Raw voltage remains available for diagnosis. While charging,
 the estimate is capped at 99%; the bolt disappears when charging stops.
 The low-battery guard uses the measured cell voltage, independently of the
 percentage. A failed extended read is not published as a successful voltage.
@@ -255,11 +257,11 @@ changes. Agenda-only installations can leave scores disabled.
 ## Binary clock
 
 Set `binary_clock_enabled: 'true'` in the private wrapper to use the local binary
-clock as the default face. Top-left and the end of a timed session return to it. Five hour bits
-represent 0 through 23; six minute bits represent 0 through 59. Filled dots count
+clock as the default face. Top-left and the end of a timed session return to it. Five hour positions
+represent the 12-hour value 1 through 12; six minute bits represent 0 through 59. Filled dots count
 toward their labelled weights (32, 16, 8, 4, 2, 1). Add the filled weights in
-each column. The small 24-hour digital time beneath the dots provides a learning
-reference. There is no seconds column, so the existing minute refresh and sleep
+each column. The small 12-hour digital time with a/p beneath the dots provides a learning
+reference that matches the hour dots. The redundant Binary heading is omitted. There is no seconds column, so the existing minute refresh and sleep
 cadence stays in place. `show_binary_clock` is available through the native API.
 This face works offline from the same local clock.
 
@@ -332,5 +334,5 @@ No PSRAM is required or present on this board. The local agenda holds bounded da
 not PNGs. Agenda, scores, timer and selected pages occupy under 4 KB in RTC FAST
 SRAM; the previous 5,000-byte pixel frame uses RTC SLOW SRAM. Neither cache writes
 flash. They survive deep sleep; a cold reset or complete power loss needs a fresh sync.
-Network retry state also uses RTC SRAM. This battery policy is scoped to Watchy;
+Network retry state and the safe-mode boot counter also use RTC SRAM. This battery policy is scoped to Watchy;
 it does not change the connected behavior of mains-powered CastKit panels.
