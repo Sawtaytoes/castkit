@@ -7,6 +7,7 @@ substitutions:
   device_id: watchy
   topic_base: castkit
   timezone: UTC
+  timer_state_topic: ${topic_base}/${device_id}/timer/state
 
 esphome:
   name: ${node_name}
@@ -52,6 +53,16 @@ api:
   encryption:
     key: !secret api_encryption_key
   actions:
+    - action: set_time
+      variables:
+        timestamp: int
+      then:
+        - lambda: |-
+            if (timestamp < 1700000000) return;
+            timeval value = {timestamp, 0};
+            settimeofday(&value, nullptr);
+        - component.update: watch_display
+        - script.execute: refresh_castkit
     - action: set_image
       variables:
         image_url: string
@@ -63,6 +74,7 @@ api:
     - action: show_clock
       then:
         - lambda: id(is_points_page) = false;
+        - lambda: id(is_timer_page) = false;
         - component.update: watch_display
     - action: show_castkit
       then:
@@ -75,6 +87,7 @@ ota:
     password: !secret ota_password
 
 mqtt:
+  id: mqtt_client
   broker: !secret mqtt_broker
   port: 8883
   username: !secret mqtt_username
@@ -92,6 +105,30 @@ mqtt:
             id: castkit_image
             url: !lambda return x;
             update: true
+  on_json_message:
+    - topic: ${timer_state_topic}
+      then:
+        - lambda: |-
+            // Read-only Tally Marks retained state, or the equivalent canonical task.
+            JsonObjectConst task = x["activeTask"].is<JsonObjectConst>()
+              ? x["activeTask"].as<JsonObjectConst>() : x["runningSession"].as<JsonObjectConst>();
+            uint64_t started = task["startedAtMs"] | uint64_t(0);
+            if (!started) started = task["startedMs"] | uint64_t(0);
+            std::string name = task["name"] | "";
+            if (name.empty()) name = task["taskName"] | "";
+            const bool is_active = !name.empty() && started > 0;
+            if (is_active && started != id(timer_started_ms)) {
+              id(is_timer_page) = true;
+              id(is_points_page) = false;
+            }
+            if (!is_active) id(is_timer_page) = false;
+            id(has_running_task) = is_active;
+            id(timer_started_ms) = started;
+            id(timer_name) = name;
+            id(timer_goal_minutes) = task["goalMinutes"] | 0.0f;
+            id(is_countdown) = task["isCountdown"] | false;
+        - component.update: watch_display
+        - script.execute: battery_cycle
 
 http_request:
   timeout: 10s
@@ -121,6 +158,10 @@ time:
   - platform: sntp
     id: watch_time
     timezone: ${timezone}
+    servers:
+      - time.cloudflare.com
+      - time.google.com
+      - pool.ntp.org
     on_time_sync:
       - logger.log: Clock synchronized.
       - if:
@@ -128,6 +169,7 @@ time:
             lambda: return !id(is_points_page);
           then:
             - component.update: watch_display
+      - script.execute: refresh_castkit
     on_time:
       - seconds: 0
         minutes: '*'
@@ -137,19 +179,32 @@ time:
                 lambda: return !id(is_points_page);
               then:
                 - component.update: watch_display
+  - platform: homeassistant
+    id: ha_time
+    timezone: ${timezone}
+    on_time_sync:
+      - logger.log: Clock synchronized from Home Assistant.
+      - component.update: watch_display
+      - script.execute: refresh_castkit
 
 spi:
   clk_pin: GPIO47
   mosi_pin: GPIO48
 
 font:
-  - file: gfonts://Roboto
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 900
     id: clock_font
     size: 56
     glyphs: '0123456789:'
-  - file: gfonts://Roboto
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
     id: label_font
-    size: 16
+    size: 18
     glyphs: ' !"%()+,-./0123456789:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 
 # These are persisted only when the user changes pages, not on minute ticks.
@@ -161,6 +216,23 @@ globals:
   - id: has_castkit_image
     type: bool
     initial_value: 'false'
+  - id: is_timer_page
+    type: bool
+    initial_value: 'false'
+  - id: has_running_task
+    type: bool
+    initial_value: 'false'
+  - id: timer_started_ms
+    type: uint64_t
+    initial_value: '0'
+  - id: timer_name
+    type: std::string
+  - id: timer_goal_minutes
+    type: float
+    initial_value: '0'
+  - id: is_countdown
+    type: bool
+    initial_value: 'false'
 
 sensor:
   - platform: adc
@@ -170,7 +242,8 @@ sensor:
     attenuation: 12db
     update_interval: 30s
     filters:
-      - multiply: 4.6
+      # Watchy v3's 360k / 100k divider, not the older board's ratio.
+      - multiply: 1.2777778
     on_value:
       - mqtt.publish_json:
           topic: ${topic_base}/${device_id}/battery
@@ -181,6 +254,19 @@ sensor:
   - platform: wifi_signal
     name: Wi-Fi Signal
     update_interval: 60s
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+      entity_category: diagnostic
+  - platform: template
+    name: Device Time
+    entity_category: diagnostic
+    update_interval: 60s
+    lambda: |-
+      auto now = id(watch_time).now();
+      return now.is_valid() ? now.strftime("%Y-%m-%d %H:%M:%S %Z") : std::string("Not synchronized");
 
 binary_sensor:
   - platform: gpio
@@ -199,7 +285,9 @@ binary_sensor:
       mode: INPUT_PULLUP
       inverted: true
     on_press:
-      - lambda: id(is_points_page) = true;
+      - lambda: |-
+          id(is_points_page) = true;
+          id(is_timer_page) = false;
       - script.execute: refresh_castkit
       - component.update: watch_display
   - platform: gpio
@@ -210,7 +298,9 @@ binary_sensor:
       mode: INPUT_PULLUP
       inverted: true
     on_press:
-      - lambda: id(is_points_page) = false;
+      - lambda: |-
+          id(is_points_page) = false;
+          id(is_timer_page) = false;
       - component.update: watch_display
   - platform: gpio
     id: up_button
@@ -261,11 +351,25 @@ script:
                       id: watch_sleep
                       sleep_duration: 1h
                 else:
-                  - deep_sleep.enter:
-                      id: watch_sleep
-                      sleep_duration: !lambda |-
-                        auto now = id(watch_time).now();
-                        return now.is_valid() ? (60 - now.second) * 1000 : 60000;
+                  - if:
+                      condition:
+                        lambda: return !id(has_running_task) || !id(mqtt_client).is_connected();
+                      then:
+                        - deep_sleep.enter:
+                            id: watch_sleep
+                            sleep_duration: !lambda |-
+                              auto now = id(watch_time).now();
+                              return now.is_valid() ? (60 - now.second) * 1000 : 60000;
+
+interval:
+  - interval: 30s
+    then:
+      - script.execute: battery_cycle
+      - if:
+          condition:
+            lambda: return id(is_points_page) && !id(has_castkit_image);
+          then:
+            - script.execute: refresh_castkit
 
 deep_sleep:
   id: watch_sleep
@@ -298,11 +402,17 @@ display:
         it.print(100, 100, id(label_font), TextAlign::CENTER, "Connect USB");
         return;
       }
-      if (id(is_points_page) && id(has_castkit_image)) {
+      if (id(is_timer_page) && id(has_running_task) && now.is_valid()) {
+        const double elapsed = std::max(0.0, (double(now.timestamp) - double(id(timer_started_ms)) / 1000.0) / 60.0);
+        const bool countdown = id(is_countdown) && id(timer_goal_minutes) > 0;
+        const int minutes = countdown ? std::max(0, int(ceilf(id(timer_goal_minutes) - elapsed))) : int(elapsed);
+        it.print(100, 40, id(label_font), TextAlign::TOP_CENTER, id(timer_name).substr(0, 17).c_str());
+        it.printf(100, 70, id(clock_font), TextAlign::TOP_CENTER, "%d", minutes);
+        it.print(100, 137, id(label_font), TextAlign::TOP_CENTER, countdown ? "min left" : "min elapsed");
+      } else if (id(is_points_page) && id(has_castkit_image)) {
         it.image(0, 0, id(castkit_image));
         return;
-      }
-      if (now.is_valid()) {
+      } else if (now.is_valid()) {
         auto clock = now.strftime("%I:%M");
         if (clock[0] == '0') clock.erase(0, 1);
         it.print(100, 35, id(clock_font), TextAlign::TOP_CENTER, clock.c_str());
@@ -311,5 +421,8 @@ display:
       } else {
         it.print(100, 75, id(label_font), TextAlign::CENTER, "Syncing time...");
       }
-      it.print(100, 171, id(label_font), TextAlign::TOP_CENTER,
-               id(is_points_page) ? "Connecting to CastKit" : "Menu: Tally Marks");
+      if (id(battery_voltage).has_state()) {
+        const int percent = int(clamp((id(battery_voltage).state - 3.35f) / 0.85f * 100.0f, 0.0f, 100.0f));
+        it.printf(100, 171, id(label_font), TextAlign::TOP_CENTER, "Battery %d%%%s", percent,
+                  id(usb_connected).state ? " USB" : "");
+      }

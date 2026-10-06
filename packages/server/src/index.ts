@@ -1661,7 +1661,10 @@ const main = async () => {
         }
 
         if (route.kind === "refresh") {
-          await pushController.pushDevice(route.deviceId)
+          // A sleeping client lost its RAM image and any previous single-use URL.
+          await pushController.pushDevice(route.deviceId, {
+            isForced: true,
+          })
           return
         }
         if (route.kind === "globalKnob") {

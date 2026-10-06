@@ -4,10 +4,13 @@
 8 MB flash, no PSRAM, and the 200 x 200 monochrome display. It uses mainline
 ESPHome components. Earlier revisions have different processors, pins and RTCs.
 
-The watch keeps its clock locally, synchronized with SNTP. Its other page draws
+The watch keeps its clock locally, synchronized with SNTP and with Home Assistant
+as a fallback over its encrypted native API. Its other page draws
 the CastKit image assigned to this display. A Tally Marks source and a filtered
 `kids-points.v1` channel can supply a child's total, goal, running task and scan
-feedback. Configure the child filter and view in CastKit, not in firmware.
+feedback. Configure the child filter and view in CastKit. An optional private
+`timer_state_topic` substitution can point at that child's retained Tally Marks
+state topic for automatic timer selection; the public package contains no child ID.
 The watch never awards points or changes the ledger.
 
 ## Install
@@ -63,6 +66,11 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
 - Up: request a fresh CastKit render.
 - Down: redraw the current page.
 - Native API actions: `show_clock`, `show_castkit`, and `set_image`.
+  `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
+
+Clock and timer labels use bold type. The local pages show an estimated battery
+percentage and mark USB power. The diagnostic Device Time and IP Address entities
+make synchronization and future OTA updates observable in Home Assistant.
 
 The device subscribes to `castkit/<device_id>/image_url` and downloads the
 single-use PNG. On MQTT connection, it requests a new image on
@@ -71,16 +79,24 @@ A cold start without network time shows `Syncing time...` instead of a false dat
 
 USB detection is GPIO21, not the charge-status GPIO10. On USB the firmware
 stays awake for live updates and OTA. On battery it stays awake for 15 seconds,
-then sleeps until the next minute. Any of the four buttons can wake it. The
+then sleeps until the next minute. A running task keeps it connected for updates;
+when the task ends or MQTT disconnects it resumes sleeping. Any of the four buttons can wake it. The
 clock survives deep sleep on the external 32 kHz crystal. The chosen page is
 persisted; the downloaded image is not, so every wake requests a fresh URL.
+
+With `timer_state_topic` configured, any new running session automatically opens
+a local timer with the task name and current whole minutes. Count-up tasks show
+minutes elapsed; countdown tasks show minutes left. The retained session's start
+time survives missed scans and reconnects. Ending the session returns to the clock.
+The watch computes display time only, never scoring, completing or stopping a task.
+Menu and Back remain available while a task is running.
 
 Scan feedback is immediate while connected, subject to CastKit's repaint
 budget. A sleeping watch cannot receive a scan: totals update on its next
 successful connection and short feedback may already have expired. Battery
 runtime and actual refresh latency need measurement on the physical unit.
 
-Battery telemetry uses CastKit's existing `volts`, `percent`, and
+Battery telemetry uses the v3 voltage-divider ratio and CastKit's existing `volts`, `percent`, and
 `isOnBattery` fields. Percentage is an uncalibrated linear estimate. Below
 3.35 V on battery the display says `Battery low / Connect USB` and sleeps for
 an hour; it does not leave an apparently working frozen clock or stale points.
