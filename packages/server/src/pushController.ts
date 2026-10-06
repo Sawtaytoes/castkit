@@ -29,7 +29,10 @@ import type { ClockConfig } from "./views/registry.ts"
 export type PushController = {
   deviceById: Map<string, ConfiguredDevice>
   renderDevice: (deviceId: string) => Promise<Buffer | null>
-  pushDevice: (deviceId: string) => Promise<boolean>
+  pushDevice: (
+    deviceId: string,
+    options?: { isForced?: boolean },
+  ) => Promise<boolean>
   setView: (params: {
     deviceId: string
     viewName: ViewName
@@ -207,7 +210,10 @@ export const createPushController = ({
     })
   }
 
-  const pushDevice = async (deviceId: string) => {
+  const pushDevice = async (
+    deviceId: string,
+    { isForced = false }: { isForced?: boolean } = {},
+  ) => {
     // Paused (HA "Updates" switch off) — hold the last frame. Checked here
     // because every push path funnels through pushDevice: the clock tick, the
     // photo rotation, view selects, the Refresh button, and the HA data
@@ -297,8 +303,9 @@ export const createPushController = ({
         .update(image)
         .digest("hex")
       if (
+        !isForced &&
         lastPublishedHashByDevice.get(deviceId) ===
-        renderHash
+          renderHash
       ) {
         console.log(
           `[inkcast] skip ${deviceId} image_url (unchanged render)`,
