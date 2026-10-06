@@ -158,15 +158,7 @@ export const App = () => {
   return (
     <Shell
       contentWidth={
-        session?.isAuthenticated &&
-        [
-          "devices",
-          "all-screens",
-          "views",
-          "screens",
-        ].includes(section)
-          ? "full"
-          : "xl"
+        session?.isAuthenticated ? "full" : "xl"
       }
     >
       <Header isSticky>
