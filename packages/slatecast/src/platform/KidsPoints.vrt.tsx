@@ -21,7 +21,7 @@ import "./platform.css"
  *
  * The view picks a board or rows from its own box, and Storybook stages only
  * the canvas it is given, so the small panel's single-child result and its
- * rows are shot here. Run by `yarn vrt:capture` only. The clock is fixed and
+ * rows are shot here. Run by `pnpm vrt:capture` only. The clock is fixed and
  * the fixture's times are relative to it, so a shot changes only when the
  * rendering does. The file names are the baseline keys.
  */

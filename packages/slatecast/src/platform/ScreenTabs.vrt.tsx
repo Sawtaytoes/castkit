@@ -9,7 +9,7 @@ import "./platform.css"
 
 /**
  * Visual-regression shot of a browser screen's header with its views as tabs
- * (`ViewTabs`), above the composition fixture. Written by `yarn vrt:capture`
+ * (`ViewTabs`), above the composition fixture. Written by `pnpm vrt:capture`
  * like `ShortPanel.vrt.tsx`; the file name is the baseline key.
  */
 const shotPath = (name: string) =>

@@ -8,7 +8,7 @@ credentials.
 
 ## Requirements
 
-- Docker, or Node.js 26 with Corepack
+- Docker, or Node.js 26 with pnpm 12.9.1
 - an MQTT broker for display data, commands, and Home Assistant Discovery
 - a static device file based on [`inkcast.config.example.json`](../inkcast.config.example.json)
 - network access from each display to the server and broker
@@ -57,19 +57,20 @@ the MQTT topics for their matching device ID.
 ## Run from source
 
 ```sh
-corepack yarn install
-corepack yarn playwright install chromium
-corepack yarn build
-corepack yarn start:prod
+npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
+pnpm install
+pnpm playwright install chromium
+pnpm build
+pnpm start:prod
 ```
 
-For development, use `corepack yarn dev` for the browser preview and
-`corepack yarn dev:server` for the server. Use these checks before a change:
+For development, use `pnpm dev` for the browser preview and
+`pnpm dev:server` for the server. Use these checks before a change:
 
 ```sh
-corepack yarn lint
-corepack yarn typecheck
-corepack yarn test
+pnpm lint
+pnpm typecheck
+pnpm test
 ```
 
 The [architecture guide](architecture.md) explains the data flow. The
