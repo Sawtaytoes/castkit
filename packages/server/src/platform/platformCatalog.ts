@@ -725,6 +725,25 @@ const viewSpecs: ViewSpec[] = [
     }),
     settings: [
       {
+        key: "isTotalsOnly",
+        label: "Show only stacked totals",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "Keep every selected child visible during scans, without goal bars or identity stripes.",
+      },
+      {
+        key: "nameStyle",
+        label: "Child labels",
+        type: "select",
+        defaultValue: "full",
+        options: [
+          { value: "full", label: "Full names" },
+          { value: "initial", label: "First initial" },
+        ],
+        description: "Used by the stacked totals board.",
+      },
+      {
         key: "scanSeconds",
         label: "Show a scan for (seconds)",
         type: "number",

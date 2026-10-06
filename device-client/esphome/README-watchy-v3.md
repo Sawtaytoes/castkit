@@ -2,7 +2,7 @@
 
 `watchy-v3.yaml` is an ESPHome package for the SQFMI Watchy v3 only: ESP32-S3,
 8 MB flash, no PSRAM, and the 200 x 200 monochrome display. It uses mainline
-ESPHome components plus the local Watchy battery component. Earlier revisions have different processors, pins and RTCs.
+ESPHome components plus the local Watchy battery and SSD1681 display components. Earlier revisions have different processors, pins and RTCs.
 
 The watch keeps its clock locally, synchronized with SNTP and with Home Assistant
 as a fallback over its encrypted native API. Its other page draws
@@ -68,23 +68,33 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
   `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
 
 Clock and timer labels use bold type. The local pages show an estimated battery
-number inside a filled battery icon in the top right, without a percent sign.
-Bold black digits have a white one-pixel outline for contrast against the fill.
+number inside a solid black battery icon in the top right, without a percent sign.
+Solid 20 px bold white digits contrast against the black battery.
 The charging bolt sits to the left of the icon and follows the active-low
 GPIO10 charger status, rather than the presence of USB power. The diagnostic Device Time and IP Address entities
 make synchronization and future OTA updates observable in Home Assistant.
 
-The device subscribes to `castkit/<device_id>/image_url` and downloads the
-single-use PNG. On MQTT connection, it requests a new image on
-`castkit/<device_id>/refresh/set`. The local clock still works without CastKit.
+The device subscribes to `castkit/<device_id>/image_url`. Only while the CastKit
+page is selected does it request a fresh single-use PNG on
+`castkit/<device_id>/refresh/set` and download image updates. Local clock, timer,
+agenda, scores and binary pages need no image download or server render.
+The local clock still works without CastKit.
 A cold start without network time shows `Syncing time...` instead of a false date.
 
 USB detection is GPIO21, distinct from the active-low charge-status GPIO10. On USB the firmware
-stays awake for live updates and OTA. On battery it stays awake for 15 seconds,
-then sleeps until the next minute. A running task keeps it connected for updates;
+stays awake for live updates and OTA. On battery it sleeps after receiving its retained agenda, configured timer
+and optional scores, allowing one second for queued rows and telemetry.
+Otherwise it allows 15 seconds, plus at most 15 more if MQTT is still connecting,
+then sleeps until the next minute. Repeated state messages cannot extend that
+idle sleep deadline. A running task keeps it connected for updates;
 when the task ends or MQTT disconnects it resumes sleeping. Any of the four buttons can wake it. The
 clock survives deep sleep on the external 32 kHz crystal. The chosen page is
-persisted; the downloaded image is not, so every wake requests a fresh URL.
+persisted; the downloaded image is not, so a wake on the CastKit page requests
+a fresh URL. Other pages exchange only small retained MQTT state and telemetry.
+USB uses Wi-Fi light power saving, but does not disconnect. The bounded idle
+window is a connection allowance, not a measured battery life claim. Actual
+association time and battery runtime need an unplugged test. MQTT waits for Wi-Fi association and valid local time before DNS/TLS, and automatic MQTT log forwarding is off;
+native or serial logs remain available for diagnostics.
 
 With `timer_state_topic` configured, any new running session automatically opens
 a local timer with the task name and current whole minutes. Count-up tasks show
@@ -135,8 +145,12 @@ Copy that component directory beside the package when installing it; the sensor
 owns ADC1 channel 8 and must not share ADC1 with another sensor.
 
 The percentage is still an estimate from cell voltage, not a measurement of
-remaining capacity. USB present, charger inactive and voltage above 4.0 V is
-shown as full, using the stock face's full-battery threshold. While charging,
+remaining capacity. USB present, charger inactive and voltage at least 4.15 V is shown as full.
+The earlier stock-face 4.0 V bar threshold was too coarse to assert 100%.
+Eight ADC readings discard the highest and lowest samples; a smoothed voltage
+estimate survives deep sleep in RTC SRAM. Invalid reads preserve the prior
+measurement, and a true low-cell sample bypasses smoothing for safe sleep.
+The watch and Home Assistant use the same rounded percentage function. While charging,
 the estimate is capped at 99%; the bolt disappears when charging stops.
 The low-battery guard uses the measured cell voltage, independently of the
 percentage. A failed extended read is not published as a successful voltage.
@@ -177,3 +191,90 @@ c++ -std=c++17 -I/path/to/ArduinoJson/src device-client/esphome/tests/watchy_age
 ```
 
 Compile the ESPHome wrapper to verify the full firmware and hardware component.
+
+
+## Button scores and offline use
+
+The clock is local and continues without Wi-Fi or CastKit after synchronization.
+The dated agenda also remains in flash. A cold start after complete power loss
+needs a time source again; the v3 crystal keeps time during deep sleep, rather
+than supplying an independently powered RTC.
+
+An optional local scores page shows three children per page using bold names
+and totals. Enable it in the private wrapper:
+
+```yaml
+substitutions:
+  scores_enabled: 'true'
+  scores_state_topic: points/state/+
+```
+
+The subscription reads Tally Marks' retained per-child state. Down opens scores
+from the clock, binary clock, timer or CastKit page. Back returns to the clock. Menu cycles
+clock, optional binary clock, agenda, optional scores and CastKit; disabled optional pages are skipped. Up/Down paginate agenda and scores. `show_scores` is also
+available through the encrypted native API.
+
+The cache accepts a child's `{kid, kidName, day, pointsToday, displayOrder, ts}`
+state, or a dated canonical `{date, kids: [{id, name, pointsToday, displayOrder}]}`
+snapshot on the configured topic. `ts` is optional epoch milliseconds. It stores
+up to six entries with bounded identities/names, orders them by the producer's
+manual order, supports negative scores and saves only changed data. Invalid,
+older or oversized snapshots preserve the previous cache. A new day clears old
+rows before collecting the new day's children.
+
+Away from Wi-Fi, the page shows the last received scores with their date and an
+`Offline / saved` label. It never labels another day's totals as today's score.
+Points update only when the watch reconnects; viewing scores makes no ledger
+changes. Agenda-only installations can leave scores disabled.
+
+
+## Binary clock
+
+Set `binary_clock_enabled: 'true'` in the private wrapper to add a local binary
+clock immediately after the regular clock in the Menu cycle. Five hour bits
+represent 0 through 23; six minute bits represent 0 through 59. Filled dots count
+toward their labelled weights (32, 16, 8, 4, 2, 1). Add the filled weights in
+each column. The small 24-hour digital time beneath the dots provides a learning
+reference. There is no seconds column, so the existing minute refresh and sleep
+cadence stays in place. `show_binary_clock` is available through the native API.
+This face works offline from the same local clock.
+
+Agenda and scores normalize curly apostrophes to the embedded straight-apostrophe
+glyph. Long text remains bounded; unsupported non-ASCII characters are replaced
+once per code point rather than splitting UTF-8 in flash.
+
+
+## Display refresh and radio efficiency
+
+Copy `components/watchy_display` beside the package as well. The local display
+adapter uses the Watchy SSD1681 controller's temperature-based waveform and
+partial-refresh sequence, with both previous and current image planes restored.
+It retains the last 5,000-byte monochrome frame and cleaning counter in RTC SRAM
+across deep sleep. Identical frames do not refresh. A cold reset starts with one
+full refresh; subsequent changed frames use partial refreshes, with a full clean
+after 29 partial updates. This prevents every minute wake from restarting the
+full-refresh cycle. No flash writes are made for the framebuffer or counter.
+
+Reference hardware protocol: [SQFMI display implementation](https://github.com/sqfmi/Watchy/blob/master/src/Display.cpp)
+and [GxEPD2 SSD1681 driver](https://github.com/ZinggJM/GxEPD2/blob/master/src/epd/GxEPD2_154_D67.cpp).
+The generic 1.54-inch driver previously used a different partial control byte,
+lost its refresh cadence at each wake and did not restore the previous plane.
+
+On MQTT connection the watch waits for the component's connected state, then
+publishes battery telemetry during its short wake. The backend callback alone
+fires too early for publication.
+OTA start pauses the sleep deadline until completion or error, so an update
+cannot be interrupted by the normal idle battery schedule. Full and partial
+refreshes and skipped duplicate frames are observable in native/serial logs.
+
+
+The Up button's RTC pull-up is explicitly enabled during shutdown, as in the
+manufacturer firmware, preventing a floating low input from waking the watch
+again immediately. The Wake Reason diagnostic reports timer, button or reset
+(including the SDK reset reason) to make unwanted wakes observable. A sleeping
+watch detects USB at its next wake.
+
+The adapter hibernates the controller once per draw. Shutdown skips an already
+hibernated panel; sending another power-off sequence to it previously waited
+for a busy signal until the five-second task watchdog reset the MCU. Panel busy
+waits now feed the watchdog and have a bounded error timeout.
