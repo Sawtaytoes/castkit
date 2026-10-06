@@ -1,9 +1,9 @@
-import { builtinContractSchemas } from "@castkit/sdk/contracts"
 import {
   AdaptiveGrid,
   Card,
   Checkbox,
 } from "@charcuterie/ui"
+import { BacklightControls } from "./BacklightControls.tsx"
 import type {
   AutomationSettings,
   Device,
@@ -29,8 +29,14 @@ export const DeviceSettingsFields = ({
   onDeviceChange,
   channels = [],
   channelStates = {},
+  isBacklightSaving = false,
+  onApplyBacklight,
 }: {
   device: Device
+  isBacklightSaving?: boolean
+  onApplyBacklight: (
+    updates: AutomationSettings,
+  ) => Promise<void>
   channels?: Platform["channels"]
   channelStates?: Platform["channelStates"]
   section: string
@@ -38,11 +44,6 @@ export const DeviceSettingsFields = ({
   onChange: (updates: AutomationSettings) => void
   onDeviceChange: (updates: Partial<Device>) => void
 }) => {
-  const roomEntities =
-    builtinContractSchemas["entities.v1"].safeParse(
-      channelStates[settings.backlightRoomChannel ?? ""]
-        ?.data,
-    ).data?.entities ?? []
   const field = ({
     label,
     kind,
@@ -271,111 +272,29 @@ export const DeviceSettingsFields = ({
       </Card>
     )
   }
+  if (device.renderer === "browser")
+    return (
+      <BacklightControls
+        channels={channels}
+        channelStates={channelStates}
+        device={device}
+        isSaving={isBacklightSaving}
+        onApply={onApplyBacklight}
+        settings={settings}
+      />
+    )
   return (
-    <Card
-      heading={
-        device.renderer === "browser"
-          ? "Backlight"
-          : "Updates"
-      }
-    >
-      {device.renderer === "browser" ? (
-        <div className="setting-fields">
-          {field({
-            label: "Backlight (%)",
-            kind: "backlightLevel",
-            type: "number",
-            width: "short",
-          })}
-          {device.hasRemoteBacklight ? (
-            <>
-              {field({
-                label: "Backlight power",
-                kind: "backlightPower",
-                options: [
-                  { label: "On", value: "on" },
-                  { label: "Off", value: "off" },
-                  {
-                    label: "Follow room light",
-                    value: "follow-room",
-                  },
-                ],
-              })}
-              {settings.backlightPower === "follow-room" ? (
-                <>
-                  {field({
-                    label: "Room lights channel",
-                    kind: "backlightRoomChannel",
-                    options: [
-                      {
-                        label: "Choose a lights channel",
-                        value: "",
-                      },
-                      ...channels
-                        .filter(
-                          (channel) =>
-                            channel.type === "entities.v1",
-                        )
-                        .map((channel) => ({
-                          label: channel.name,
-                          value: channel.id,
-                        })),
-                    ],
-                    width: "wide",
-                  })}
-                  {field({
-                    label: "Room light entity",
-                    kind: "backlightRoomEntity",
-                    options: roomEntities.length
-                      ? [
-                          {
-                            label: "Choose a room light",
-                            value: "",
-                          },
-                          ...roomEntities
-                            .filter((entity) =>
-                              ["light", "switch"].includes(
-                                entity.domain,
-                              ),
-                            )
-                            .map((entity) => ({
-                              label: entity.name,
-                              value: entity.id,
-                            })),
-                        ]
-                      : undefined,
-                    width: "wide",
-                  })}
-                  <p className="text-content-secondary text-sm">
-                    Select the channel and room light. Room
-                    state:{" "}
-                    {settings.backlightRoomStatus ??
-                      "unavailable"}
-                    . If the source is unavailable, the last
-                    known power is held; after a restart the
-                    backlight stays off until the room state
-                    arrives.
-                  </p>
-                </>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-      ) : (
-        <Checkbox
-          isChecked={settings.updates !== "OFF"}
-          key={`${device.id}-updates`}
-          label="Accept updates"
-          onChange={(isEnabled) =>
-            onChange({ updates: isEnabled ? "ON" : "OFF" })
-          }
-        />
-      )}
+    <Card heading="Updates">
+      <Checkbox
+        isChecked={settings.updates !== "OFF"}
+        key={`${device.id}-updates`}
+        label="Accept updates"
+        onChange={(isEnabled) =>
+          onChange({ updates: isEnabled ? "ON" : "OFF" })
+        }
+      />
       <p className="text-content-secondary text-sm">
-        {device.hasRemoteBacklight
-          ? "CastKit saves these controls directly. Brightness and power work without Home Assistant or MQTT; only following a room light needs its source."
-          : "These settings also appear in Home Assistant."}{" "}
-        Saved changes apply without a restart.
+        Setting changes apply without a restart.
       </p>
     </Card>
   )
