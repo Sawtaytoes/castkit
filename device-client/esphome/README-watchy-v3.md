@@ -74,17 +74,24 @@ The charging bolt sits to the left of the icon and follows the active-low
 GPIO10 charger status, rather than the presence of USB power. The diagnostic Device Time and IP Address entities
 make synchronization and future OTA updates observable in Home Assistant.
 
-The device subscribes to `castkit/<device_id>/image_url` and downloads the
-single-use PNG. On MQTT connection, it requests a new image on
-`castkit/<device_id>/refresh/set`. The local clock still works without CastKit.
+The device subscribes to `castkit/<device_id>/image_url`. Only while the CastKit
+page is selected does it request a fresh single-use PNG on
+`castkit/<device_id>/refresh/set` and download image updates. Local clock, timer,
+agenda, scores and binary pages need no image download or server render.
+The local clock still works without CastKit.
 A cold start without network time shows `Syncing time...` instead of a false date.
 
 USB detection is GPIO21, distinct from the active-low charge-status GPIO10. On USB the firmware
 stays awake for live updates and OTA. On battery it stays awake for 15 seconds,
-then sleeps until the next minute. A running task keeps it connected for updates;
+then sleeps until the next minute. Repeated state messages cannot extend that
+idle sleep deadline. A running task keeps it connected for updates;
 when the task ends or MQTT disconnects it resumes sleeping. Any of the four buttons can wake it. The
 clock survives deep sleep on the external 32 kHz crystal. The chosen page is
-persisted; the downloaded image is not, so every wake requests a fresh URL.
+persisted; the downloaded image is not, so a wake on the CastKit page requests
+a fresh URL. Other pages exchange only small retained MQTT state and telemetry.
+USB uses Wi-Fi light power saving, but does not disconnect. The 15-second idle
+battery window is a conservative connection allowance, not a measured battery
+life claim; actual association time and battery runtime need an unplugged test.
 
 With `timer_state_topic` configured, any new running session automatically opens
 a local timer with the task name and current whole minutes. Count-up tasks show

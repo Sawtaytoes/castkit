@@ -191,10 +191,14 @@ mqtt:
   on_message:
     - topic: ${topic_base}/${device_id}/image_url
       then:
-        - online_image.set_url:
-            id: castkit_image
-            url: !lambda return x;
-            update: true
+        - if:
+            condition:
+              lambda: return id(is_points_page);
+            then:
+              - online_image.set_url:
+                  id: castkit_image
+                  url: !lambda return x;
+                  update: true
   on_json_message:
     - topic: ${scores_state_topic}
       then:
@@ -598,13 +602,19 @@ script:
   - id: refresh_castkit
     mode: restart
     then:
-      # Subscribe before asking for a new single-use URL after each wake.
-      - delay: 1s
-      - mqtt.publish:
-          topic: ${topic_base}/${device_id}/refresh/set
-          payload: PRESS
+      # Local pages need only retained state, never a server-rendered image.
+      - if:
+          condition:
+            lambda: return id(is_points_page);
+          then:
+            # Subscribe before asking for a new single-use URL after each wake.
+            - delay: 1s
+            - mqtt.publish:
+                topic: ${topic_base}/${device_id}/refresh/set
+                payload: PRESS
   - id: battery_cycle
-    mode: restart
+    # Repeated retained-state updates must not postpone an idle sleep deadline.
+    mode: single
     then:
       - deep_sleep.prevent: watch_sleep
       - delay: 15s
