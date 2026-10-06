@@ -14,6 +14,10 @@ int main() {
   watchy::parse_timer(document.as<JsonObjectConst>(), timer);
   assert(watchy::timer_running(timer));
   assert(timer.started_ms == 1791258900123ULL);
+  assert(watchy::should_open_timer(timer, 0, false));
+  assert(!watchy::should_open_timer(timer, timer.started_ms, false));
+  assert(watchy::should_open_timer(timer, timer.started_ms, true));
+  assert(watchy::should_open_timer(timer, timer.started_ms - 1000, false));
   assert(std::strcmp(timer.name, "Practice") == 0);
   assert(watchy::timer_minutes(timer, 1791258960) == 32);
   assert(watchy::timer_minutes(timer, 1791258961) == 33);
@@ -35,5 +39,7 @@ int main() {
   deserializeJson(document, R"({"runningSession":null})");
   watchy::parse_timer(document.as<JsonObjectConst>(), timer);
   assert(!watchy::timer_running(timer));
+  assert(!watchy::should_open_timer(timer, 1791258900123ULL, true));
+  assert(!watchy::should_open_timer(timer, 0, false));
   assert(timer.started_ms == 0 && timer.name[0] == '\0');
 }
