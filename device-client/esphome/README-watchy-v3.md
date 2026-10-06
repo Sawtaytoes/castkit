@@ -2,7 +2,7 @@
 
 `watchy-v3.yaml` is an ESPHome package for the SQFMI Watchy v3 only: ESP32-S3,
 8 MB flash, no PSRAM, and the 200 x 200 monochrome display. It uses mainline
-ESPHome components. Earlier revisions have different processors, pins and RTCs.
+ESPHome components plus the local Watchy battery component. Earlier revisions have different processors, pins and RTCs.
 
 The watch keeps its clock locally, synchronized with SNTP and with Home Assistant
 as a fallback over its encrypted native API. Its other page draws
@@ -61,15 +61,17 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
 
 ## Use
 
-- Menu: show the CastKit page and request a fresh render.
+- Menu: cycle clock, locally cached agenda, and CastKit page.
 - Back: show the local clock.
-- Up: request a fresh CastKit render.
-- Down: redraw the current page.
-- Native API actions: `show_clock`, `show_castkit`, and `set_image`.
+- Up/Down: previous/next agenda page; outside the agenda, Up requests a fresh CastKit render and Down redraws.
+- Native API actions: `show_clock`, `show_agenda`, `show_castkit`, and `set_image`.
   `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
 
 Clock and timer labels use bold type. The local pages show an estimated battery
-percentage and mark USB power. The diagnostic Device Time and IP Address entities
+number inside a filled battery icon in the top right, without a percent sign.
+Bold black digits have a white one-pixel outline for contrast against the fill.
+The charging bolt sits to the left of the icon and follows the active-low
+GPIO10 charger status, rather than the presence of USB power. The diagnostic Device Time and IP Address entities
 make synchronization and future OTA updates observable in Home Assistant.
 
 The device subscribes to `castkit/<device_id>/image_url` and downloads the
@@ -77,7 +79,7 @@ single-use PNG. On MQTT connection, it requests a new image on
 `castkit/<device_id>/refresh/set`. The local clock still works without CastKit.
 A cold start without network time shows `Syncing time...` instead of a false date.
 
-USB detection is GPIO21, not the charge-status GPIO10. On USB the firmware
+USB detection is GPIO21, distinct from the active-low charge-status GPIO10. On USB the firmware
 stays awake for live updates and OTA. On battery it stays awake for 15 seconds,
 then sleeps until the next minute. A running task keeps it connected for updates;
 when the task ends or MQTT disconnects it resumes sleeping. Any of the four buttons can wake it. The
@@ -117,3 +119,61 @@ Check Home Assistant's display entities and battery telemetry.
 A compiled or server-rendered image is not proof of what the glass shows.
 If the new firmware cannot be made functional, restore `stock.bin` at offset
 zero and reset using the buttons. Later updates can use encrypted ESPHome OTA.
+
+## Battery measurement
+
+SQFMI's v3 library reads calibrated GPIO9 voltage and multiplies it by
+`(360 + 100) / 360`. Its example face uses bars at 3.2, 3.6 and 4.0 V, not a
+fuel-gauge percentage. This package keeps that hardware mapping and divider.
+However, a full 4.2 V cell supplies about 3.287 V to the ADC, above the standard
+ESP32-S3 range. A saturated read can otherwise appear as roughly 3.97 V and 73%.
+The local `components/watchy_battery` sensor applies
+[Espressif's official range-extension algorithm](https://docs.espressif.com/projects/esp-iot-solution/en/release-v2.0/others/adc_range.html)
+to a second reading above 2.9 V. It restores the calibration offset before
+releasing the ADC lock and leaves the shared ESP-IDF framework unchanged.
+Copy that component directory beside the package when installing it; the sensor
+owns ADC1 channel 8 and must not share ADC1 with another sensor.
+
+The percentage is still an estimate from cell voltage, not a measurement of
+remaining capacity. USB present, charger inactive and voltage above 4.0 V is
+shown as full, using the stock face's full-battery threshold. While charging,
+the estimate is capped at 99%; the bolt disappears when charging stops.
+The low-battery guard uses the measured cell voltage, independently of the
+percentage. A failed extended read is not published as a successful voltage.
+References: [SQFMI battery divider](https://github.com/sqfmi/Watchy/blob/master/src/Watchy.h)
+and [v3 schematic](https://github.com/sqfmi/watchy-hardware/blob/v3.0/WatchySchematic.pdf).
+
+## Offline agenda
+
+Publish a retained, QoS 1 snapshot on `castkit/<device_id>/agenda/set` (or override
+`agenda_state_topic`). It uses the existing CastKit agenda contract with an
+additional local-date envelope:
+
+```json
+{"date":"2026-10-05","events":[{"startMs":1791222000000,"summary":"Practice","isAllDay":false}]}
+```
+
+An empty `events` array means a successfully synced day with no events. A producer
+must fetch the full local day, include past events, sort by start and publish the
+snapshot periodically, at local midnight, and after calendar changes. Do not
+publish an empty replacement after a failed fetch. The watch stores one dated
+snapshot in NVS, only when its contents change; it survives deep sleep and resets.
+Yesterday's snapshot is never presented as today's agenda. Without today's data,
+the agenda asks to connect to Wi-Fi. A cold start still needs valid time.
+
+Two complete event rows fit each page; Up/Down reaches every stored event. The
+cache holds up to 32 events and shows `+ more` if a day exceeds that capacity.
+Titles wrap to two lines and clip with an ellipsis. Its embedded font is ASCII;
+other Unicode code points are displayed as `?`. Retained timer messages do not
+change the selected page unless a new session has started.
+
+The standalone cache test exercises malformed snapshots, timestamp bounds,
+all-day ordering, title bounds, overflow reporting, identical snapshot stability,
+empty days and serialization. With an ArduinoJson include directory available:
+
+```sh
+c++ -std=c++17 -I/path/to/ArduinoJson/src device-client/esphome/tests/watchy_agenda.cpp -o /tmp/watchy-agenda-test
+/tmp/watchy-agenda-test
+```
+
+Compile the ESPHome wrapper to verify the full firmware and hardware component.
