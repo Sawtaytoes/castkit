@@ -4,7 +4,7 @@
 - **Date:** 2026-10-06
 - **Type:** Device behavior / owner preference
 - **Supersedes:** [Cached next-event clocks](2026-10-06-watchy-view-buttons-cycle-and-clocks-show-cached-next-events.md), presentation only
-- **Superseded by:** None
+- **Superseded by:** [Compact binary grid](2026-10-06-watchy-binary-grid-is-compact.md) for binary horizontal spacing only
 
 ## Decision
 
