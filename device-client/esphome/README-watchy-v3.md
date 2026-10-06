@@ -308,7 +308,7 @@ waits now feed the watchdog and have a bounded error timeout.
 Include `watchy-v3-wireguard.yaml` after the base package. Supply substitutions
 `vpn_address`, `vpn_private_key` (a per-device secret) and `vpn_home_ssid` (the
 home SSID secret). Set `vpn_dns_server` to a resolver reachable through the VPN.
-The package reads shared `wireguard_endpoint` and `wireguard_public_key` secrets.
+The package reads shared `wireguard_peer_endpoint` and `wireguard_peer_public_key` secrets.
 Provision each watch as a distinct server peer; never reuse another device's key.
 Configure known roaming networks in the private wrapper's `wifi.networks` list.
 
