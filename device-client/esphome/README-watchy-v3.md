@@ -92,7 +92,7 @@ and telemetry. A running timer also sleeps: its authoritative start time, name,
 banked minutes and selected page are cached in RTC SRAM across sleep, so elapsed
 minutes keep advancing locally between connections. A start or stop scan is noticed
 on the next successful connection. A new session selects the timer; ordinary repeated
-state and scheduled reconnects preserve the user's page choice. Explicit Back, held Menu or native `sync_now` reopens an active timer even when its start time is unchanged. Manual sync reconnects MQTT to obtain retained state immediately and clears receipt flags so old data cannot complete the new transfer.
+state and scheduled reconnects preserve the user's page choice. Explicit Back, held Menu or native `sync_now` reopens an active timer even when its start time is unchanged. Manual sync keeps an existing MQTT connection open and clears receipt flags so old data cannot complete the new transfer. An optional `state_refresh_topic` publishes a non-retained JSON `{requestId}` challenge after connection; its producer must reply with current state on the configured subscriptions. Without a producer refresh topic, a connected refresh waits for the next published snapshot.
 
 Set `battery_sync_minutes: '10'` for a calendar-only watch: the clock still
 wakes each minute, but Wi-Fi is enabled only on ten-minute boundaries. USB, manual
@@ -243,6 +243,8 @@ and totals. Enable it in the private wrapper:
 substitutions:
   scores_enabled: 'true'
   scores_state_topic: points/state/+
+  scores_expected_count: '3'
+  state_refresh_topic: points/cmd/health
 ```
 
 The subscription reads Tally Marks' retained per-child state. Bottom-right opens scores
@@ -366,3 +368,16 @@ trigger actions; the boot wake mask handles the wake press exactly once.
 The prior extra wake-suppression flags are removed, including the Down flag
 that could swallow the next actual press. Native API cycle actions use the
 same scripts as the physical buttons.
+
+
+## Complete score synchronization
+
+For a wildcard per-child feed, set `scores_expected_count` to its child count
+(up to six). Each transfer tracks distinct valid identities separately from the
+saved cache; duplicate rows and old cached rows cannot complete a transfer. The
+watch waits for the expected count and for every cached identity to be refreshed
+before its normal early sleep. A complete canonical `kids` snapshot is atomic
+and needs no count. Invalid snapshots do not mark receipt. The bounded battery
+deadline still permits sleep when a producer or network is unavailable.
+Saved Scores updates immediately after accepted rows, so diagnostics reflect the
+actual current cache instead of the previous wake's pre-network value.
