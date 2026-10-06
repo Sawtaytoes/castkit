@@ -1,3 +1,4 @@
+import { builtinContractSchemas } from "@castkit/sdk/contracts"
 import {
   AdaptiveGrid,
   Card,
@@ -16,6 +17,7 @@ import {
   SHAPE_OPTIONS,
   TIME_FORMAT_OPTIONS,
 } from "./deviceOptions.ts"
+import type { Platform } from "./platformApi.ts"
 import { SettingField } from "./SettingField.tsx"
 
 /** Only the chosen category is mounted; drafts are owned above the tabs. */
@@ -25,13 +27,22 @@ export const DeviceSettingsFields = ({
   settings,
   onChange,
   onDeviceChange,
+  channels = [],
+  channelStates = {},
 }: {
   device: Device
+  channels?: Platform["channels"]
+  channelStates?: Platform["channelStates"]
   section: string
   settings: AutomationSettings
   onChange: (updates: AutomationSettings) => void
   onDeviceChange: (updates: Partial<Device>) => void
 }) => {
+  const roomEntities =
+    builtinContractSchemas["entities.v1"].safeParse(
+      channelStates[settings.backlightRoomChannel ?? ""]
+        ?.data,
+    ).data?.entities ?? []
   const field = ({
     label,
     kind,
@@ -261,7 +272,13 @@ export const DeviceSettingsFields = ({
     )
   }
   return (
-    <Card heading="Updates">
+    <Card
+      heading={
+        device.renderer === "browser"
+          ? "Backlight"
+          : "Updates"
+      }
+    >
       {device.renderer === "browser" ? (
         <div className="setting-fields">
           {field({
@@ -270,6 +287,79 @@ export const DeviceSettingsFields = ({
             type: "number",
             width: "short",
           })}
+          {device.hasRemoteBacklight ? (
+            <>
+              {field({
+                label: "Backlight power",
+                kind: "backlightPower",
+                options: [
+                  { label: "On", value: "on" },
+                  { label: "Off", value: "off" },
+                  {
+                    label: "Follow room light",
+                    value: "follow-room",
+                  },
+                ],
+              })}
+              {settings.backlightPower === "follow-room" ? (
+                <>
+                  {field({
+                    label: "Room lights channel",
+                    kind: "backlightRoomChannel",
+                    options: [
+                      {
+                        label: "Choose a lights channel",
+                        value: "",
+                      },
+                      ...channels
+                        .filter(
+                          (channel) =>
+                            channel.type === "entities.v1",
+                        )
+                        .map((channel) => ({
+                          label: channel.name,
+                          value: channel.id,
+                        })),
+                    ],
+                    width: "wide",
+                  })}
+                  {field({
+                    label: "Room light entity",
+                    kind: "backlightRoomEntity",
+                    options: roomEntities.length
+                      ? [
+                          {
+                            label: "Choose a room light",
+                            value: "",
+                          },
+                          ...roomEntities
+                            .filter((entity) =>
+                              ["light", "switch"].includes(
+                                entity.domain,
+                              ),
+                            )
+                            .map((entity) => ({
+                              label: entity.name,
+                              value: entity.id,
+                            })),
+                        ]
+                      : undefined,
+                    width: "wide",
+                  })}
+                  <p className="text-content-secondary text-sm">
+                    Select the channel and room light. Room
+                    state:{" "}
+                    {settings.backlightRoomStatus ??
+                      "unavailable"}
+                    . If the source is unavailable, the last
+                    known power is held; after a restart the
+                    backlight stays off until the room state
+                    arrives.
+                  </p>
+                </>
+              ) : null}
+            </>
+          ) : null}
         </div>
       ) : (
         <Checkbox
@@ -282,8 +372,10 @@ export const DeviceSettingsFields = ({
         />
       )}
       <p className="text-content-secondary text-sm">
-        These settings also appear in Home Assistant. Saved
-        changes apply without a restart.
+        {device.hasRemoteBacklight
+          ? "CastKit saves these controls directly. Brightness and power work without Home Assistant or MQTT; only following a room light needs its source."
+          : "These settings also appear in Home Assistant."}{" "}
+        Saved changes apply without a restart.
       </p>
     </Card>
   )

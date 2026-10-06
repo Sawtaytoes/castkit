@@ -491,3 +491,19 @@ Views that a panel's size or shape cannot carry are listed in
 
 The order of work is in
 [the unification plan](2026-09-12-unify-one-view-vocabulary-plan.md).
+
+## Backlight control transport
+
+Backlight routing is an installation setting; it does not change panel layout,
+color or repaint properties. The management device form selects one route.
+
+| Setting | Consequence |
+| --- | --- |
+| Neither backlight flag | No backlight controls or commands are offered. |
+| `hasMqttBacklight` | Brightness is sent to the installation's MQTT backlight agent. |
+| `hasRemoteBacklight` | Brightness, power and optional room following are persisted by CastKit and delivered directly by a supporting remote-display receiver. The Presto receiver applies its hardware PWM and suppresses touch while off; neither manual control nor persistence requires MQTT or Home Assistant. |
+
+Room following reads a selected current `entities.v1` light/switch state. The
+source is optional and separate from manual control. An unavailable source holds
+the last known room state during the server process; after a restart, following
+starts off until valid data arrives. Manual On/Off overrides following.

@@ -17,6 +17,7 @@ const TEST_DEVICE: BrowserDeviceConfig = {
   hasViewDrawer: false,
   color: "full",
   hasMqttBacklight: true,
+  hasRemoteBacklight: false,
   rotation: 0,
   externalViews: [
     { name: "Disc App", url: "https://example.com/kiosk" },

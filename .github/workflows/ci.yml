@@ -226,13 +226,14 @@ jobs:
     permissions: { contents: read, statuses: write, pull-requests: write }
     uses: Sawtaytoes/charcuterie/.github/workflows/shared-vrt.yml@workflows-v1
     with:
-      buildCommand: yarn build:storybook && yarn build:storybook:slatecast
+      buildCommand: yarn build:storybook && yarn build:storybook:slatecast && node scripts/excludeIframeOverview.mjs
       storybookStaticDirs: |
         web=packages/web/storybook-static
         slatecast=packages/slatecast/storybook-static
       captureCommand: |
         yarn playwright install chromium
         yarn vrt:capture
+        node scripts/captureDitherComparison.mjs
         rm -f "$VRT_ACTUAL_DIR/slatecast/overview-all-screens--every-view-every-panel.png"
     secrets: inherit
 

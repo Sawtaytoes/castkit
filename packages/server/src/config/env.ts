@@ -209,6 +209,7 @@ const BrowserDeviceConfigSchema = z.object({
     "full",
   ),
   hasMqttBacklight: z._default(z.boolean(), true),
+  hasRemoteBacklight: z._default(z.boolean(), false),
   /*
    * Axis A panel facts. All three are OPTIONAL and all three are derived when
    * absent — see `resolveBrowserPanelProperties`. A devices file written

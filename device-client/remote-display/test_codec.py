@@ -19,6 +19,19 @@ class CodecTests(unittest.TestCase):
         self.assertEqual(decoded[:8], bytes.fromhex("f80007e0001fffff"))
         self.assertEqual(decoded[8:], bytes(len(decoded) - 8))
 
+    def test_presto_dither_is_stable_and_distributes_gray_between_adjacent_levels(self):
+        source = io.BytesIO()
+        image = Image.new("RGB", (480, 480), (20, 20, 20))
+        image.putpixel((0, 0), (21, 21, 21))
+        image.save(source, format="PNG")
+        first = encode_presto_frame(source.getvalue())
+        self.assertEqual(first, encode_presto_frame(source.getvalue()))
+        raw = zlib.decompress(first)
+        red_levels = {
+            int.from_bytes(raw[offset : offset + 2], "big") >> 11 for offset in range(0, 32, 2)
+        }
+        self.assertEqual(red_levels, {2, 3})
+
     def test_rgb565_exact_color_and_size(self):
         image = Image.new("RGB", (480, 320), "black")
         for index, color in enumerate([(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)]):

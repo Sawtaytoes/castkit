@@ -58,6 +58,9 @@ def parse_manifest(document, url, viewport=None, max_cache_entries=1):
         raise ValueError("ready_selector must be a CSS selector")
     return {
         "url": same_origin_url(url, document.get("page_url")),
+        "controls_url": same_origin_url(url, document["controls_url"])
+        if document.get("controls_url")
+        else None,
         "cache_url": same_origin_url(url, cached.get("url")) if cached else None,
         "loading_selector": cached["on_tap"] if cached else None,
         "ready_selector": ready,

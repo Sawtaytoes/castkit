@@ -181,7 +181,8 @@ export const Devices = ({
     ? [
         "device",
         "views",
-        ...(selectedDevice.hasMqttBacklight
+        ...(selectedDevice.hasMqttBacklight ||
+        selectedDevice.hasRemoteBacklight
           ? ["updates"]
           : []),
       ]
@@ -779,7 +780,10 @@ export const Devices = ({
                 .map((name) => ({
                   href: `/devices/${name}${query}`,
                   label:
-                    name[0]?.toUpperCase() + name.slice(1),
+                    isBrowser && name === "updates"
+                      ? "Backlight"
+                      : name[0]?.toUpperCase() +
+                        name.slice(1),
                 }))}
             />
             <div className="settings-layout">
@@ -863,6 +867,8 @@ export const Devices = ({
                     </Card>
                   ) : (
                     <DeviceSettingsFields
+                      channels={platform.channels}
+                      channelStates={platform.channelStates}
                       device={selectedDevice}
                       onChange={updateSettings}
                       onDeviceChange={updateDevice}
@@ -890,6 +896,7 @@ export const Devices = ({
                   <div className="save-buttons">
                     {(!isBrowser ||
                       selectedDevice.hasMqttBacklight ||
+                      selectedDevice.hasRemoteBacklight ||
                       pendingSettings.length > 0) &&
                     !isNewDevice ? (
                       <Button

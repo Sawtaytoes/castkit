@@ -140,6 +140,15 @@ export type PlatformState = {
   sessions: Session[]
   disabledPluginIds: string[]
   deviceScreens: Record<string, string>
+  deviceBacklights?: Record<
+    string,
+    {
+      level: number
+      power: "on" | "off" | "follow-room"
+      channel: string
+      entity: string
+    }
+  >
 }
 /** Salted PIN digest; the original PIN is never persisted. */
 export const hashPin = (pin: string) => {
@@ -199,6 +208,17 @@ export const createPlatformStore = ({
         )
       },
     )
+    if (loaded.deviceBacklights) {
+      z.record(
+        z.string(),
+        z.object({
+          level: z.number().min(0).max(100),
+          power: z.enum(["on", "off", "follow-room"]),
+          channel: z.string(),
+          entity: z.string(),
+        }),
+      ).parse(loaded.deviceBacklights)
+    }
     state.value = { ...state.value, ...loaded }
   }
   const update = (

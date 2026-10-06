@@ -630,3 +630,73 @@ test("the overview includes independent screens without duplicating assigned scr
     page.getByTitle("Independent screen browser preview"),
   ).toHaveAttribute("src", "/screen/lab?preview=1")
 })
+
+test("direct backlight exposes brightness, power and room following in CastKit", async ({
+  page,
+}) => {
+  await page.route("**/api/manage/devices", (route) =>
+    route.fulfill({
+      json: {
+        devices: [
+          {
+            ...BROWSER_DEVICE,
+            hasMqttBacklight: false,
+            hasRemoteBacklight: true,
+          },
+        ],
+      },
+    }),
+  )
+  await page.route(
+    "**/api/manage/devices/*/settings",
+    (route) =>
+      route.fulfill({
+        json: {
+          settings: {
+            backlightLevel: "35",
+            backlightPower: "on",
+            backlightRoomChannel: "",
+            backlightRoomEntity: "",
+          },
+        },
+      }),
+  )
+  await page.goto(
+    "/manage/devices/updates?device=e2e-square",
+  )
+  await expect(
+    page.getByRole("heading", {
+      name: "Backlight",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByLabel("Backlight (%)", { exact: true }),
+  ).toHaveValue("35")
+  await page
+    .getByRole("button", {
+      name: "Backlight power: On",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Follow room light",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: /Room lights channel:/,
+    }),
+  ).toBeVisible()
+  await page
+    .getByLabel("Room light entity", { exact: true })
+    .fill("light.room")
+  await expect(
+    page.getByText(
+      "CastKit saves these controls directly.",
+      { exact: false },
+    ),
+  ).toBeVisible()
+})
