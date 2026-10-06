@@ -20,6 +20,9 @@ int main() {
   assert(accept(
       R"({"date":"2026-10-05","events":[{"startMs":1791222000000,"summary":"Tutor\u2019s practice","isAllDay":false}]})"));
   assert(std::string(cache.events[0].summary) == "Tutor's practice");
+  assert(accept(
+      R"({"date":"2026-10-05","events":[{"startMs":1791222000000,"summary":"Pok\u00e9mon","isAllDay":false}]})"));
+  assert(std::string(cache.events[0].summary) == "Pokemon");
   const auto saved = cache;
   assert(!accept(
       R"({"date":"2026-10-05","events":[{"startMs":12,"summary":"Bad timestamp","isAllDay":false}]})"));
@@ -28,6 +31,25 @@ int main() {
       R"({"date":"2026-10-05","events":[{"startMs":1791222000000,"summary":"Missing flag"}]})"));
   assert(!accept(R"({"date":"2026-xx-05","events":[]})"));
   assert(!accept(R"({"date":"2026-10-05"})"));
+
+  assert(accept(
+      R"({"date":"2026-10-05","events":[{"startMs":1791222000000,"endMs":1791225600000,"summary":"Practice","isAllDay":false},{"startMs":1791229200000,"endMs":1791231000000,"summary":"Meeting","isAllDay":false}]})"));
+  assert(watchy::next_agenda_event(cache, 1791221999, "2026-10-05") == 0);
+  assert(watchy::next_agenda_event(cache, 1791222000, "2026-10-05") == 0);
+  assert(watchy::next_agenda_event(cache, 1791225599, "2026-10-05") == 0);
+  assert(watchy::next_agenda_event(cache, 1791225600, "2026-10-05") == 1);
+  assert(watchy::next_agenda_event(cache, 1791231000, "2026-10-05") == -1);
+  assert(watchy::next_agenda_event(cache, 1791222000, "2026-10-06") == -1);
+  const auto with_ends = cache;
+  assert(!accept(
+      R"({"date":"2026-10-05","events":[{"startMs":1791222000000,"endMs":1791221999000,"summary":"Invalid","isAllDay":false}]})"));
+  assert(!accept(
+      R"({"date":"2026-10-05","events":[{"startMs":1791222000000,"endMs":"invalid","summary":"Invalid","isAllDay":false}]})"));
+  assert(std::memcmp(&with_ends, &cache, sizeof(cache)) == 0);
+  assert(accept(
+      R"({"date":"2026-10-05","events":[{"startMs":1791176400000,"summary":"All day","isAllDay":true},{"startMs":1791222000000,"summary":"Practice","isAllDay":false}]})"));
+  assert(watchy::next_agenda_event(cache, 1791221999, "2026-10-05") == 1);
+  assert(watchy::next_agenda_event(cache, 1791222001, "2026-10-05") == 0);
 
   doc.clear();
   doc["date"] = "2026-10-05";
@@ -46,11 +68,11 @@ int main() {
   assert(watchy::parse_agenda(doc.as<JsonObjectConst>(), cache));
   assert(std::memcmp(&bounded, &cache, sizeof(cache)) == 0);
 
-  // Model the exact blob persistence used by ESPHome preferences.
-  std::array<unsigned char, sizeof(cache)> flash{};
-  std::memcpy(flash.data(), &cache, sizeof(cache));
+  // Model the exact snapshot retained in RTC SRAM across deep sleep.
+  std::array<unsigned char, sizeof(cache)> retained{};
+  std::memcpy(retained.data(), &cache, sizeof(cache));
   watchy::AgendaCache restored{};
-  std::memcpy(&restored, flash.data(), sizeof(restored));
+  std::memcpy(&restored, retained.data(), sizeof(restored));
   assert(restored.count == 32);
   assert(restored.events[31].start == cache.events[31].start);
   assert(std::string(restored.day) == "2026-10-05");

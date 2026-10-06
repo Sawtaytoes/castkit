@@ -10,6 +10,7 @@
 namespace watchy {
 struct AgendaEvent {
   uint32_t start{0};
+  uint32_t end{0};
   bool all_day{false};
   char summary[96]{};
 };
@@ -49,6 +50,18 @@ inline bool parse_agenda(JsonObjectConst json, AgendaCache &cache) {
     }
     auto &row = next.events[next.count++];
     row.start = start;
+    if (!event["endMs"].isNull()) {
+      if (!event["endMs"].is<uint64_t>()) {
+        return false;
+      }
+      const uint64_t end = event["endMs"].as<uint64_t>() / 1000;
+      if (end < start || end > UINT32_MAX) {
+        return false;
+      }
+      row.end = end;
+    } else {
+      row.end = start;
+    }
     row.all_day = event["isAllDay"].as<bool>();
     // Normalize curly apostrophes to the embedded ASCII apostrophe glyph.
     ascii_text(row.summary, event["summary"].as<std::string>());
@@ -57,5 +70,24 @@ inline bool parse_agenda(JsonObjectConst json, AgendaCache &cache) {
             [](const AgendaEvent &a, const AgendaEvent &b) { return a.start < b.start; });
   cache = next;
   return true;
+}
+
+// Ongoing timed events precede future ones; all-day items are a fallback.
+inline int next_agenda_event(const AgendaCache &cache, uint32_t now, const std::string &day) {
+  if (day != cache.day) {
+    return -1;
+  }
+  int all_day = -1;
+  for (int index = 0; index < cache.count; index++) {
+    const auto &event = cache.events[index];
+    if (event.all_day) {
+      if (all_day < 0) {
+        all_day = index;
+      }
+    } else if (event.start >= now || event.end > now) {
+      return index;
+    }
+  }
+  return all_day;
 }
 } // namespace watchy
