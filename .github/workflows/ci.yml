@@ -226,7 +226,7 @@ jobs:
     permissions: { contents: read, statuses: write, pull-requests: write }
     uses: Sawtaytoes/charcuterie/.github/workflows/shared-vrt.yml@workflows-v1
     with:
-      buildCommand: yarn build:storybook && yarn build:storybook:slatecast
+      buildCommand: yarn build:storybook && yarn build:storybook:slatecast && node scripts/excludeIframeOverview.mjs
       storybookStaticDirs: |
         web=packages/web/storybook-static
         slatecast=packages/slatecast/storybook-static
