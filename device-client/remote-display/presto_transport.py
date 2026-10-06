@@ -188,6 +188,8 @@ class PrestoTransport:
             headers["X-CastKit-Base-Frame"] = str(frame["base_id"] if use_patch else 0)
             content_type = f"application/vnd.castkit.rgb565-patch+{encoding}"
             self.last_delivery = {
+                "frame_id": frame["id"],
+                "touch_id": frame["touch_id"],
                 "bytes": len(body),
                 "encoding": encoding,
                 "rectangle": rectangle,

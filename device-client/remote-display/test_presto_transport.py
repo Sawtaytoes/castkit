@@ -238,6 +238,8 @@ class PrestoTransportTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.headers["X-CastKit-Rect"], "0,0,2,1")
             self.assertEqual(response.headers["X-CastKit-Base-Frame"], "10")
             self.assertEqual(encoder.call_count, 1)
+            self.assertEqual(self.transport.last_delivery["frame_id"], 11)
+            self.assertEqual(self.transport.last_delivery["touch_id"], 5)
             self.assertIsNotNone(self.transport.last_delivery["patch_prepare_ms"])
             responses = await asyncio.gather(
                 self.client.get("/frame?after=0", headers=headers),
