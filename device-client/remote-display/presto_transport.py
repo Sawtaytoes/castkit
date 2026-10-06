@@ -33,6 +33,7 @@ class PrestoTransport:
         self.last_delivery = None
         self.capture_ms = None
         self.encode_ms = None
+        self.patch_prepare_ms = None
         self.touch_received_at = {}
         self.last_touch_latency_ms = None
         self.boot_id = None
@@ -161,16 +162,28 @@ class PrestoTransport:
             or request.query.get("after") == str(frame["id"])
         ):
             return web.Response(status=204, headers=self.control_headers())
+        is_patch = request.headers.get("X-CastKit-Accept") == "rgb565-patch-v1"
+        use_patch = (
+            is_patch
+            and frame["base_id"] > 0
+            and request.query.get("after") == str(frame["base_id"])
+        )
+        recovery_started = time.monotonic()
+        payload = frame["patch"] if use_patch else await self.recovery_payload(frame, is_patch)
+        recovery_ms = round((time.monotonic() - recovery_started) * 1000, 1)
+        # Encoding a recovery body can yield to a boot, disconnect, newer frame,
+        # or expiry. Never return that old frame after its identity is invalidated.
+        if self.frame is not frame or time.monotonic() - frame["created"] > 7:
+            return web.Response(status=204, headers=self.control_headers())
         headers = {
             **self.control_headers(),
             "Cache-Control": "no-store",
             "X-CastKit-Frame": str(frame["id"]),
             "X-CastKit-Touch": str(frame["touch_id"]),
         }
-        body, content_type = frame["png"], "application/vnd.castkit.rgb565+zlib"
-        if request.headers.get("X-CastKit-Accept") == "rgb565-patch-v1":
-            use_patch = frame["base_id"] > 0 and request.query.get("after") == str(frame["base_id"])
-            body, encoding, rectangle = frame["patch"] if use_patch else frame["full"]
+        body, content_type = payload, "application/vnd.castkit.rgb565+zlib"
+        if is_patch:
+            body, encoding, rectangle = payload
             headers["X-CastKit-Rect"] = ",".join(map(str, rectangle))
             headers["X-CastKit-Base-Frame"] = str(frame["base_id"] if use_patch else 0)
             content_type = f"application/vnd.castkit.rgb565-patch+{encoding}"
@@ -179,9 +192,22 @@ class PrestoTransport:
                 "encoding": encoding,
                 "rectangle": rectangle,
                 "base_id": frame["base_id"] if use_patch else 0,
+                "patch_prepare_ms": frame["patch_prepare_ms"],
+                "recovery_prepare_ms": recovery_ms,
             }
         frame["served_at"] = time.monotonic()
         return web.Response(body=body, content_type=content_type, headers=headers)
+
+    async def recovery_payload(self, frame, is_patch):
+        """Cache a full fallback only when a receiver cannot use the delta."""
+        async with frame["recovery_lock"]:
+            if is_patch:
+                if frame["full"] is None:
+                    frame["full"] = await asyncio.to_thread(encode_presto_patch, frame["pixels"])
+                return frame["full"]
+            if frame["png"] is None:
+                frame["png"] = await asyncio.to_thread(zlib.compress, frame["pixels"], 6)
+            return frame["png"]
 
     def control_headers(self):
         headers = {}
@@ -286,7 +312,7 @@ class PrestoTransport:
     async def health(self, request):
         return web.json_response(
             {
-                "build": "castkit-presto-transport-v5-ambient-light",
+                "build": "castkit-presto-transport-v6-raw-pixels",
                 "firmware": self.build_marker,
                 "last_seen_seconds": round(time.monotonic() - self.last_seen, 1)
                 if self.last_seen
@@ -301,31 +327,32 @@ class PrestoTransport:
                 "reported_ambient_light": self.reported_ambient_light,
                 "capture_ms": self.capture_ms,
                 "encode_ms": self.encode_ms,
+                "patch_prepare_ms": self.patch_prepare_ms,
                 "last_touch_to_ack_ms": self.last_touch_latency_ms,
             }
         )
 
-    async def send_frame(self, frame_id, touch_id, png):
-        raw = zlib.decompress(png)
-        full = await asyncio.to_thread(encode_presto_patch, raw)
+    async def send_frame(self, frame_id, touch_id, raw):
+        preparation_started = time.monotonic()
         base_id, base_pixels = self.base_id, self.base_pixels
-        patch = (
-            await asyncio.to_thread(encode_presto_patch, raw, base_pixels)
-            if base_pixels is not None
-            else full
-        )
+        patch = await asyncio.to_thread(encode_presto_patch, raw, base_pixels)
+        full = patch if base_pixels is None else None
         # A reboot while encoding invalidates the base. The full fallback remains valid.
         if base_id != self.base_id:
+            full = await asyncio.to_thread(encode_presto_patch, raw)
             base_id, patch = 0, full
+        self.patch_prepare_ms = round((time.monotonic() - preparation_started) * 1000, 1)
         self.pending = asyncio.get_running_loop().create_future()
         self.frame = {
             "id": frame_id,
             "touch_id": touch_id,
-            "png": png,
+            "png": None,
             "pixels": raw,
             "base_id": base_id,
             "full": full,
             "patch": patch,
+            "patch_prepare_ms": self.patch_prepare_ms,
+            "recovery_lock": asyncio.Lock(),
             "created": time.monotonic(),
         }
         self.frame_ready.set()
