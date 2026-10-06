@@ -270,5 +270,11 @@ refreshes and skipped duplicate frames are observable in native/serial logs.
 
 The Up button's RTC pull-up is explicitly enabled during shutdown, as in the
 manufacturer firmware, preventing a floating low input from waking the watch
-again immediately. USB insertion also wakes the sleeping watch. The Wake Reason
-diagnostic reports timer, button, USB or reset to make unwanted wakes observable.
+again immediately. The Wake Reason diagnostic reports timer, button or reset
+(including the SDK reset reason) to make unwanted wakes observable. A sleeping
+watch detects USB at its next wake.
+
+The adapter hibernates the controller once per draw. Shutdown skips an already
+hibernated panel; sending another power-off sequence to it previously waited
+for a busy signal until the five-second task watchdog reset the MCU. Panel busy
+waits now feed the watchdog and have a bounded error timeout.

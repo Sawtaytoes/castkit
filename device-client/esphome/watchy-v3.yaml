@@ -18,12 +18,18 @@ esphome:
   friendly_name: ${friendly_name}
   min_version: 2026.9.0
   on_boot:
+    - priority: 1000
+      then:
+        - lambda: |-
+            id(boot_wake_cause) = esp_sleep_get_wakeup_cause();
+            id(boot_button_mask) = esp_sleep_get_ext1_wakeup_status();
+            id(boot_reset_reason) = esp_reset_reason();
     - priority: 600
       then:
         - lambda: |-
             ESP_LOGI("watchy", "Restored scores for %s: %u entries", id(scores_cache).day, id(scores_cache).count);
             ESP_LOGI("watchy", "Restored agenda for %s: %u events", id(agenda_cache).day, id(agenda_cache).count);
-            const uint64_t buttons = esp_sleep_get_ext1_wakeup_status();
+            const uint64_t buttons = id(boot_button_mask);
             if (buttons & (1ULL << 7)) {
               if (id(is_agenda_page)) {
                 id(is_agenda_page) = false;
@@ -388,6 +394,15 @@ font:
 
 # Only changes to the saved agenda and page choice write flash, not minute ticks.
 globals:
+  - id: boot_wake_cause
+    type: int
+    initial_value: '0'
+  - id: boot_button_mask
+    type: uint64_t
+    initial_value: '0'
+  - id: boot_reset_reason
+    type: int
+    initial_value: '0'
   - id: has_received_agenda
     type: bool
     initial_value: 'false'
@@ -490,11 +505,11 @@ text_sensor:
     entity_category: diagnostic
     update_interval: never
     lambda: |-
-      const auto reason = esp_sleep_get_wakeup_cause();
+      const auto reason = id(boot_wake_cause);
       if (reason == ESP_SLEEP_WAKEUP_TIMER) return std::string("Minute timer");
       if (reason == ESP_SLEEP_WAKEUP_EXT0) return std::string("USB power");
       if (reason == ESP_SLEEP_WAKEUP_EXT1) {
-        const auto buttons = esp_sleep_get_ext1_wakeup_status();
+        const auto buttons = id(boot_button_mask);
         std::string text = "Button:";
         if (buttons & (1ULL << 0)) text += " Up";
         if (buttons & (1ULL << 6)) text += " Back";
@@ -502,7 +517,7 @@ text_sensor:
         if (buttons & (1ULL << 8)) text += " Down";
         return text;
       }
-      return std::string("Reset / power on");
+      return std::string("Reset / power on; reset reason ") + std::to_string(id(boot_reset_reason));
   - platform: template
     name: Saved Agenda
     entity_category: diagnostic
@@ -552,9 +567,7 @@ binary_sensor:
   - platform: gpio
     id: usb_connected
     internal: true
-    pin:
-      number: GPIO21
-      allow_other_uses: true
+    pin: GPIO21
     on_press:
       - deep_sleep.prevent: watch_sleep
     on_release:
@@ -753,9 +766,6 @@ interval:
 
 deep_sleep:
   id: watch_sleep
-  wakeup_pin:
-    number: GPIO21
-    allow_other_uses: true
   esp32_ext1_wakeup:
     pins:
       - number: GPIO7

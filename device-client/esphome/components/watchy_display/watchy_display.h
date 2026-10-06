@@ -18,6 +18,7 @@ class WatchyDisplay : public waveshare_epaper::WaveshareEPaper {
   void set_full_update_every(uint32_t count) { full_update_every_ = count; }
 
   void initialize() override {
+    rtc_gpio_deinit(GPIO_NUM_0);
     if (esp_reset_reason() != ESP_RST_DEEPSLEEP) {
       saved_frame.magic = 0;
     }
@@ -36,13 +37,14 @@ class WatchyDisplay : public waveshare_epaper::WaveshareEPaper {
       return;
     }
     this->reset_();
-    if (!this->wait_until_idle_()) {
+    panel_awake_ = true;
+    if (!this->wait_panel_idle_()) {
       return;
     }
     // SSD1681's own temperature-driven waveform, as in SQFMI's Watchy driver.
     this->command(0x12);
     delay(10);
-    if (!this->wait_until_idle_()) {
+    if (!this->wait_panel_idle_()) {
       return;
     }
     this->send_({0x01, 0xC7, 0x00, 0x00});
@@ -54,7 +56,7 @@ class WatchyDisplay : public waveshare_epaper::WaveshareEPaper {
     this->data(mode == watchy::RefreshMode::FULL ? 0xF7 : 0xFC);
     this->command(0x20);
     delay(10);
-    if (!this->wait_until_idle_()) {
+    if (!this->wait_panel_idle_()) {
       saved_frame.magic = 0;
       this->status_set_warning();
       return;
@@ -68,14 +70,27 @@ class WatchyDisplay : public waveshare_epaper::WaveshareEPaper {
              mode == watchy::RefreshMode::FULL ? "Full" : "Partial", saved_frame.partial_count);
   }
 
+  void on_safe_shutdown() override {
+    this->deep_sleep();
+    // Up has no external pull-up; retain the manufacturer's RTC bias in sleep.
+    rtc_gpio_init(GPIO_NUM_0);
+    rtc_gpio_set_direction(GPIO_NUM_0, RTC_GPIO_MODE_INPUT_ONLY);
+    rtc_gpio_pullup_en(GPIO_NUM_0);
+    rtc_gpio_pulldown_dis(GPIO_NUM_0);
+  }
+
   void deep_sleep() override {
+    if (!panel_awake_) {
+      return;
+    }
     this->command(0x22);
     this->data(0x83);
     this->command(0x20);
     delay(10);
-    this->wait_until_idle_();
+    this->wait_panel_idle_();
     this->command(0x10);
     this->data(0x01);
+    panel_awake_ = false;
   }
 
  protected:
@@ -83,6 +98,20 @@ class WatchyDisplay : public waveshare_epaper::WaveshareEPaper {
   int get_height_internal() override { return 200; }
   uint32_t idle_timeout_() override { return 5000; }
   uint32_t full_update_every_{30};
+  bool panel_awake_{false};
+
+  bool wait_panel_idle_() {
+    const uint32_t started = millis();
+    while (this->busy_pin_ != nullptr && this->busy_pin_->digital_read()) {
+      App.feed_wdt();
+      if (millis() - started > this->idle_timeout_()) {
+        ESP_LOGE("watchy_display", "Panel busy timeout");
+        return false;
+      }
+      delay(1);
+    }
+    return true;
+  }
 
   template <size_t Count> void send_(const uint8_t (&bytes)[Count]) {
     this->cmd_data(bytes, Count);
