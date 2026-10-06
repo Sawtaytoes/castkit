@@ -169,6 +169,10 @@ class DisplaySession:
                 phase == 1
                 and not self.contact["is_gesture"]
                 and max(abs(y - self.contact["start_y"]), abs(x - self.contact["start_x"])) >= 48
+                and (
+                    self.contact["identity"] != "now-playing-artwork"
+                    or abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
+                )
             ):
                 if not self.contact.get("is_tap_cancelled"):
                     await self.cdp.send(

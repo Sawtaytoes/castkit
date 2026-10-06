@@ -176,6 +176,43 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(await self.page.evaluate("window.wasClicked"))
         self.assertEqual((await self.page.evaluate("window.gestures"))[-1], ["pointerup", 150])
 
+    async def test_horizontal_artwork_drag_reaches_control_without_becoming_view_swipe(self):
+        await self.page.set_content("""<div class="stage" data-castkit-target="view-gesture:now-playing"
+          style="position:absolute;inset:0;touch-action:none">
+          <button data-castkit-target="now-playing-artwork"
+          style="position:absolute;left:100px;top:20px;width:250px;height:250px;touch-action:none">Art</button></div>""")
+        await self.page.evaluate("""() => {
+          window.actions = [];
+          const artwork = document.querySelector('button');
+          let start;
+          artwork.onpointerdown = event => {
+            start = event.clientX;
+            artwork.setPointerCapture(event.pointerId);
+          };
+          artwork.onpointerup = event => window.actions.push(
+            event.clientX - start < -80 ? 'next' : 'pause');
+          document.querySelector('.stage').onpointerdown = event => {
+            if (event.target.className === 'stage') window.actions.push('view-swipe');
+          };
+        }""")
+        self.session.guard.remember(
+            50,
+            [
+                Target("view-gesture:now-playing", 0, 0, 480, 320),
+                Target("now-playing-artwork", 100, 20, 250, 250),
+            ],
+        )
+        for sequence, phase, x in [(1, 0, 300), (2, 1, 270), (3, 1, 230), (4, 1, 140), (5, 2, 0)]:
+            await self.session.touches.put(
+                ["touch", str(sequence), str(phase), str(x), "100", "0", "50", "0"]
+            )
+            async with asyncio.timeout(3):
+                while self.session.processed_touch != sequence:
+                    if self.task.done():
+                        self.task.result()
+                    await asyncio.sleep(0.01)
+        self.assertEqual(await self.page.evaluate("window.actions"), ["next"])
+
     async def test_retained_release_does_not_break_the_next_tap(self):
         await self.event(100, 2)
         await self.event(101, 0)
