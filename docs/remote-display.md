@@ -1,6 +1,6 @@
 # Remote browser display client
 
-The remote-display renderer runs Chromium for a constrained ESPHome display. The application owns its UI and serves a JSON manifest. CastKit reads the manifest, pre-renders its cache URLs, sends compressed RGB565 frames, and returns physical touches to the same browser session. It does not fetch application data or issue application commands itself.
+The remote-display renderer runs Chromium for a constrained display. The application owns its UI and serves a JSON manifest. CastKit reads the manifest, pre-renders its cache URLs, sends compressed RGB565 frames, and returns physical touches to the same browser session. It does not fetch application data or issue application commands itself.
 
 A receiver can also be a normal Slatecast device. Register it as a 480×320
 browser device, then point the worker at `/d/<device-id>/castkit.json`. CastKit
@@ -10,7 +10,7 @@ weather, agenda, and Home Assistant automation policy. Deployment-configured
 `externalViews` appear in the same View select and fill the panel through the
 Slatecast client.
 
-This is a renderer worker under `device-client/remote-display`, packaged separately to isolate Python/Chromium dependencies from the CastKit server. It exposes no public HTTP API and no command surface. Its one optional listener is the read-only Home Assistant preview below, which is off unless `preview_port` is set. It can load either an application's manifest directly or the manifest of a browser device in CastKit's central registry. Existing Inkcast and direct-browser Slatecast clients retain their current paths.
+This is a renderer worker under `device-client/remote-display`, packaged separately to isolate Python/Chromium dependencies from the CastKit server. The default ESPHome transport has only the optional read-only Home Assistant preview listener below. `transport: presto` adds a private, token-authenticated frame/acknowledgement/touch listener for one physical 480×480 unit. See [Presto provisioning and measured limits](../device-client/presto/README.md). It can load either an application's manifest directly or the manifest of a browser device in CastKit's central registry. Existing Inkcast and direct-browser Slatecast clients retain their current paths.
 
 ## Application manifest, version 1
 
@@ -37,7 +37,7 @@ This is a renderer worker under `device-client/remote-display`, packaged separat
 
 URLs resolve relative to the manifest and must remain on its origin. `ready_selector` optionally waits for the application shell. Every actionable element needs a unique, stable value for the named `data-*` attribute. Include object/job identity in destructive controls so a new object at the same coordinates cannot inherit a stale tap. Disabled controls must use native `disabled` or `aria-disabled="true"`. The cache's `on_tap` CSS selector identifies actionable elements that should show the cached bitmap on a completed tap. It must be a subset of the elements with the target attribute.
 
-Version 1 requires the WT32's 480×320 viewport and supports **zero or one** full-frame optimistic cache entry. Extra entries and incompatible versions fail explicitly. The array leaves room for receivers with more cache slots later; this receiver does not silently discard requested entries. Cache pages may contain any application-owned image or HTML UI. They load once at worker startup, after fonts and initial network activity settle. Restart the worker after changing the manifest or cache page. Actual application pages remain live; identical frames are skipped except after touches and for the heartbeat.
+Version 1 requires the selected receiver's viewport (480×320 for WT32, 480×480 for Presto) and supports **zero or one** full-frame optimistic cache entry. Presto supports no optimistic cache images; its acknowledgement-based receiver uses the live frame only. Extra entries and incompatible versions fail explicitly. The array leaves room for receivers with more cache slots later; this receiver does not silently discard requested entries. Cache pages may contain any application-owned image or HTML UI. They load once at worker startup, after fonts and initial network activity settle. Restart the worker after changing the manifest or cache page. Actual application pages remain live; identical frames are skipped except after touches and for the heartbeat.
 
 `max_fps` bounds capture at 1–20; it is not a promised network frame rate. `heartbeat_ms` must be 500–3000. Frame age must be 500–7000ms. The receiver disables touches after seven seconds without a displayed frame and adds a red border. Recovery replaces the stale image and restores input. The contact circle is drawn on the panel immediately. The skeleton only acknowledges navigation, never successful execution of an application command.
 
