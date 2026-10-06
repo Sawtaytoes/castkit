@@ -17,7 +17,7 @@ import network
 from pixels import blit_patch, decode_rle
 from presto import Presto
 
-BUILD_MARKER = "castkit-presto-v5-http-writes"
+BUILD_MARKER = "castkit-presto-v6-control-ack"
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 MAX_FRAME_AGE_MS = 7000
 
@@ -143,11 +143,13 @@ class CastKitPresto:
         percent = int(headers.get("x-castkit-backlight", "100"))
         if not 0 <= percent <= 100:
             raise ValueError("Invalid backlight level")
-        if percent != self.backlight_percent:
+        has_changed = percent != self.backlight_percent
+        if has_changed:
             self.screen.set_backlight(percent / 100)
             self.backlight_percent = percent
-            if "x-castkit-backlight" not in headers:
-                return
+        if "x-castkit-backlight" in headers and (
+            has_changed or headers.get("x-castkit-backlight-ack") == "1"
+        ):
             status, _, _ = await self.request(
                 "POST", "/control-ack", {"backlight_percent": percent}
             )

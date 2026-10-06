@@ -170,6 +170,40 @@ class FirmwareWritesTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(recovered[1].writes), 1)
         self.assertFalse(touch[1].is_closed)
 
+    async def test_relay_confirmation_request_acknowledges_unchanged_brightness_once(self):
+        applied = []
+        self.client.screen = types.SimpleNamespace(set_backlight=applied.append)
+        self.client.backlight_percent = 35
+        self.client.request = AsyncMock(return_value=(204, {}, b""))
+        await self.client.apply_controls(
+            {"x-castkit-backlight": "35", "x-castkit-backlight-ack": "1"}
+        )
+        self.client.request.assert_awaited_once_with(
+            "POST", "/control-ack", {"backlight_percent": 35}
+        )
+        await self.client.apply_controls({"x-castkit-backlight": "35"})
+        self.assertEqual(self.client.request.await_count, 1)
+        self.assertEqual(applied, [])
+        await self.client.apply_controls({"x-castkit-backlight-ack": "1"})
+        self.assertEqual(self.client.request.await_count, 1)
+        self.assertEqual(applied, [1.0])
+
+    async def test_rejected_confirmation_retries_until_accepted(self):
+        applied = []
+        self.client.screen = types.SimpleNamespace(set_backlight=applied.append)
+        self.client.backlight_percent = 35
+        self.client.request = AsyncMock(side_effect=[(409, {}, b""), (204, {}, b"")])
+        headers = {"x-castkit-backlight": "35", "x-castkit-backlight-ack": "1"}
+        with self.assertRaisesRegex(OSError, "Backlight acknowledgement rejected"):
+            await self.client.apply_controls(headers)
+        self.assertIsNone(self.client.backlight_percent)
+        await self.client.apply_controls(headers)
+        self.assertEqual(self.client.backlight_percent, 35)
+        self.assertEqual(applied, [0.35])
+        self.assertEqual(self.client.request.await_count, 2)
+        await self.client.apply_controls({"x-castkit-backlight": "35"})
+        self.assertEqual(self.client.request.await_count, 2)
+
 
 class PrestoPixelsTests(unittest.TestCase):
     def test_firmware_rejects_wrong_patch_base_bounds_and_partial_recovery(self):

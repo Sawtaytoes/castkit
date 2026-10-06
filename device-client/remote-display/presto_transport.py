@@ -158,11 +158,12 @@ class PrestoTransport:
         return web.Response(body=body, content_type=content_type, headers=headers)
 
     def control_headers(self):
-        return (
-            {"X-CastKit-Backlight": str(self.backlight_percent)}
-            if self.backlight_percent is not None
-            else {}
-        )
+        if self.backlight_percent is None:
+            return {}
+        headers = {"X-CastKit-Backlight": str(self.backlight_percent)}
+        if self.reported_backlight_percent != self.backlight_percent:
+            headers["X-CastKit-Backlight-Ack"] = "1"
+        return headers
 
     async def acknowledge(self, request):
         document = await self.read_json(request)
@@ -249,7 +250,7 @@ class PrestoTransport:
     async def health(self, request):
         return web.json_response(
             {
-                "build": "castkit-presto-transport-v3-controls",
+                "build": "castkit-presto-transport-v4-control-ack",
                 "firmware": self.build_marker,
                 "last_seen_seconds": round(time.monotonic() - self.last_seen, 1)
                 if self.last_seen
