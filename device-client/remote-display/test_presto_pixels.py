@@ -7,13 +7,14 @@ physical Viper compilation/timings also need verification on a Presto.
 import ast
 import asyncio
 import importlib.util
+import io
 import json
 import random
 import sys
 import types
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 from aiohttp import web
@@ -55,6 +56,119 @@ class_tree = [
 namespace = {"blit_patch": pixels.blit_patch, "decode_rle": pixels.decode_rle}
 exec(compile(ast.Module(body=class_tree, type_ignores=[]), str(source), "exec"), namespace)
 Client = namespace["CastKitPresto"]
+
+
+class FakeReader:
+    def __init__(self, response):
+        self.response = io.BytesIO(response)
+
+    async def readline(self):
+        return self.response.readline()
+
+    async def read(self, length):
+        return self.response.read(length)
+
+
+class FakeWriter:
+    def __init__(self):
+        self.writes = []
+        self.drains = 0
+        self.is_closed = False
+
+    def write(self, data):
+        self.writes.append(data)
+
+    async def drain(self):
+        self.drains += 1
+
+    def close(self):
+        self.is_closed = True
+
+    async def wait_closed(self):
+        pass
+
+
+class FirmwareWritesTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        namespace.update(
+            {
+                "asyncio": asyncio,
+                "json": json,
+                "BUILD_MARKER": "test",
+                "secrets": types.SimpleNamespace(
+                    CASTKIT_HOST="display.example.test",
+                    CASTKIT_PORT=8791,
+                    CASTKIT_TOKEN="a" * 32,
+                ),
+            }
+        )
+        self.client = Client.__new__(Client)
+        self.client.connections = {}
+        self.client.mac, self.client.boot_id = "020000000001", "boot"
+
+    async def test_json_headers_and_body_are_one_complete_http_write(self):
+        writer = FakeWriter()
+        self.client.connections["frame"] = (
+            FakeReader(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n"),
+            writer,
+        )
+        payload = {"frame_id": 42, "caption": "caf\u00e9"}
+        self.assertEqual((await self.client.request("POST", "/ack", payload))[0], 204)
+        self.assertEqual(len(writer.writes), 1)
+        head, body = writer.writes[0].split(b"\r\n\r\n", 1)
+        lines = head.decode().split("\r\n")
+        self.assertEqual(lines[0], "POST /ack HTTP/1.1")
+        headers = dict(line.split(": ", 1) for line in lines[1:])
+        self.assertEqual(body, json.dumps(payload).encode())
+        self.assertEqual(int(headers["Content-Length"]), len(body))
+        self.assertEqual(headers["Content-Type"], "application/json")
+        self.assertEqual(headers["Connection"], "keep-alive")
+        self.assertEqual(headers["Host"], "display.example.test")
+        self.assertEqual(headers["Authorization"], "Bearer " + "a" * 32)
+        self.assertEqual(headers["X-CastKit-Device"], "020000000001")
+        self.assertEqual(headers["X-CastKit-Boot"], "boot")
+        self.assertEqual(headers["X-CastKit-Accept"], "rgb565-patch-v1")
+        self.assertEqual(writer.drains, 1)
+
+    async def test_empty_get_and_json_touch_batch_each_use_one_write(self):
+        response = b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n"
+        for channel, method, path, payload, expected in (
+            ("frame", "GET", "/frame?after=42", None, b""),
+            ("touch", "POST", "/touch", [], b"[]"),
+        ):
+            writer = FakeWriter()
+            self.client.connections[channel] = (FakeReader(response), writer)
+            await self.client.request(method, path, payload)
+            self.assertEqual(len(writer.writes), 1)
+            head, body = writer.writes[0].split(b"\r\n\r\n", 1)
+            self.assertEqual(body, expected)
+            self.assertIn(f"Content-Length: {len(expected)}\r\n".encode(), head)
+
+    async def test_broken_frame_connection_recovers_without_closing_touch_channel(self):
+        broken = FakeWriter()
+        touch = (FakeReader(b""), FakeWriter())
+        self.client.connections = {
+            "frame": (
+                FakeReader(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nbad"),
+                broken,
+            ),
+            "touch": touch,
+        }
+        with self.assertRaisesRegex(OSError, "Incomplete frame"):
+            await self.client.request("GET", "/frame?after=42")
+        self.assertTrue(broken.is_closed)
+        self.assertNotIn("frame", self.client.connections)
+        self.assertIs(self.client.connections["touch"], touch)
+        recovered = (
+            FakeReader(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nframe"),
+            FakeWriter(),
+        )
+        with patch.object(asyncio, "open_connection", AsyncMock(return_value=recovered)) as connect:
+            self.assertEqual((await self.client.request("GET", "/frame?after=42"))[2], b"frame")
+        connect.assert_awaited_once_with("display.example.test", 8791)
+        self.assertIs(self.client.connections["frame"], recovered)
+        self.assertEqual(len(recovered[1].writes), 1)
+        self.assertFalse(touch[1].is_closed)
 
 
 class PrestoPixelsTests(unittest.TestCase):

@@ -17,7 +17,7 @@ import network
 from pixels import blit_patch, decode_rle
 from presto import Presto
 
-BUILD_MARKER = "castkit-presto-v4-backlight"
+BUILD_MARKER = "castkit-presto-v5-http-writes"
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 MAX_FRAME_AGE_MS = 7000
 
@@ -62,6 +62,8 @@ class CastKitPresto:
         reader, writer = connection
         complete = False
         try:
+            # Stream.write can send immediately. Keep small JSON requests in
+            # one write so their body does not wait behind a separate header packet.
             writer.write(
                 (
                     f"{method} {path} HTTP/1.1\r\nHost: {secrets.CASTKIT_HOST}\r\n"
@@ -71,9 +73,8 @@ class CastKitPresto:
                     "X-CastKit-Accept: rgb565-patch-v1\r\nContent-Type: application/json\r\n"
                     f"Content-Length: {len(encoded)}\r\nConnection: keep-alive\r\n\r\n"
                 ).encode()
+                + encoded
             )
-            if encoded:
-                writer.write(encoded)
             await writer.drain()
             status_line = await reader.readline()
             status = int(status_line.split(b" ")[1])
