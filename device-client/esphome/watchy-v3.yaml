@@ -13,6 +13,7 @@ substitutions:
   scores_state_topic: ${topic_base}/${device_id}/scores/set
   timer_state_topic: ${topic_base}/${device_id}/timer/state
   battery_sync_minutes: '1'
+  active_timer_sync_minutes: '1'
 
 esphome:
   name: ${node_name}
@@ -67,11 +68,12 @@ esphome:
         - lambda: |-
             auto now = id(watch_time).now();
             id(network_this_wake) = watchy::network_due({
-              id(usb_connected).state, false,
+              id(usb_connected).state, bool(id(boot_button_mask) & (1ULL << 6)),
               id(boot_reset_reason) != ESP_RST_DEEPSLEEP, now.is_valid(), now.minute,
-              ${battery_sync_minutes}, now.timestamp}, watchy::network_retry);
+              ${battery_sync_minutes}, now.timestamp, watchy::timer_running(id(timer_cache)),
+              ${active_timer_sync_minutes}}, watchy::network_retry);
             // View buttons draw cached data without starting the radio.
-            if (id(boot_wake_cause) == ESP_SLEEP_WAKEUP_EXT1
+            if (id(boot_wake_cause) == ESP_SLEEP_WAKEUP_EXT1 && !(id(boot_button_mask) & (1ULL << 6))
                 && !id(usb_connected).state && now.is_valid()) id(network_this_wake) = false;
         - component.update: watch_display
         - if:
@@ -220,6 +222,9 @@ api:
         - lambda: id(last_button_at) = millis();
         - script.execute: cycle_scores
         - component.update: watch_display
+    - action: sync_now
+      then:
+        - script.execute: request_sync
     - action: toggle_clock
       then:
         - lambda: id(last_button_at) = millis();
@@ -448,8 +453,44 @@ font:
       family: Roboto
       weight: 700
     id: period_font
-    size: 28
+    size: 22
     glyphs: 'ap'
+
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
+    id: clock_date_font
+    size: 20
+    glyphs: ' ,0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+    id: score_initial_font
+    size: 42
+    glyphs: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz?'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+    id: score_value_font
+    size: 46
+    glyphs: '-0123456789'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
+    id: compact_font
+    size: 16
+    glyphs: ' !"''%()+,-./0123456789:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 400
+    id: next_title_font
+    size: 18
+    glyphs: ' !"''%()+,-./0123456789:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 
 # Data and page choices survive deep sleep in RTC FAST SRAM, never NVS.
 globals:
@@ -655,6 +696,7 @@ binary_sensor:
           id(is_agenda_page) = false;
           id(is_timer_page) = false;
       - component.update: watch_display
+      - script.execute: request_sync
   - platform: gpio
     id: up_button
     pin:
@@ -691,12 +733,16 @@ script:
           condition:
             binary_sensor.is_on: menu_button
           then:
-            - logger.log: "Bottom-left held: synchronizing cached data."
-            - script.stop: sleep_until_minute
-            - lambda: id(network_this_wake) = true;
-            - wifi.enable:
-            - script.execute: connect_mqtt
-            - script.execute: battery_cycle
+            - script.execute: request_sync
+  - id: request_sync
+    mode: restart
+    then:
+      - logger.log: "Manual request: synchronizing cached data."
+      - script.stop: sleep_until_minute
+      - lambda: id(network_this_wake) = true;
+      - wifi.enable:
+      - script.execute: connect_mqtt
+      - script.execute: battery_cycle
   - id: cycle_clock
     then:
       - lambda: |-
@@ -883,50 +929,60 @@ display:
       }
       if (id(is_binary_clock)) {
         if (now.is_valid()) {
-          it.print(88, 35, id(label_font), TextAlign::CENTER, "Hour");
-          it.print(155, 35, id(label_font), TextAlign::CENTER, "Min");
+          it.print(90, 10, id(compact_font), TextAlign::TOP_CENTER, "h");
+          it.print(153, 10, id(compact_font), TextAlign::TOP_CENTER, "m");
           const int hour = (now.hour + 11) % 12 + 1;
           for (int bit = 5; bit >= 0; bit--) {
             const int value = 1 << bit;
-            const int y = 53 + (5 - bit) * 17;
-            it.printf(47, y, id(label_font), TextAlign::CENTER_RIGHT, "%d", value);
+            const int y = 34 + (5 - bit) * 15;
+            it.printf(50, y, id(compact_font), TextAlign::CENTER_RIGHT, "%d", value);
             if (bit < 5) {
-              it.circle(88, y, 7);
-              if (hour & value) it.filled_circle(88, y, 6);
+              it.circle(90, y, 6);
+              if (hour & value) it.filled_circle(90, y, 5);
             }
-            it.circle(155, y, 7);
-            if (now.minute & value) it.filled_circle(155, y, 6);
+            it.circle(153, y, 6);
+            if (now.minute & value) it.filled_circle(153, y, 5);
           }
         } else it.print(100, 100, id(label_font), TextAlign::CENTER, "Syncing time...");
       } else if (id(is_scores_page)) {
-        it.print(6, 4, id(label_font), "Points");
         auto &scores = id(scores_cache);
         if (!scores.day[0]) {
           it.print(100, 90, id(label_font), TextAlign::CENTER, "Scores not synced");
-          it.print(100, 120, id(label_font), TextAlign::CENTER, "Connect to Wi-Fi");
+          it.print(100, 120, id(label_font), TextAlign::CENTER, "Press Back to sync");
         } else {
-          it.print(100, 30, id(label_font), TextAlign::TOP_CENTER, scores.day);
           const int page = std::min(id(scores_page), std::max(0, (int(scores.count) - 1) / 3));
           for (int row = 0; row < 3; row++) {
             const int index = page * 3 + row;
             if (index >= scores.count) break;
             const auto &entry = scores.entries[index];
-            std::string name = entry.name;
-            int bx, by, width, height;
-            while (name.size() > 1) {
-              it.get_text_bounds(0, 0, name.c_str(), id(label_font), TextAlign::TOP_LEFT,
-                &bx, &by, &width, &height);
-              if (width <= 106) break;
-              name.pop_back();
+            const std::string name = entry.name;
+            const std::string initial = name.empty() ? "?" : name.substr(0, 1);
+            std::string ending = name.size() > 1 ? name.substr(1) : "";
+            const auto points = std::to_string(entry.points);
+            int bounds_x, bounds_y, initial_width, height, value_width, ending_width;
+            it.get_text_bounds(0, 0, initial.c_str(), id(score_initial_font), TextAlign::TOP_LEFT,
+              &bounds_x, &bounds_y, &initial_width, &height);
+            it.get_text_bounds(0, 0, points.c_str(), id(score_value_font), TextAlign::TOP_LEFT,
+              &bounds_x, &bounds_y, &value_width, &height);
+            const int ending_x = 8 + initial_width;
+            const int available = 193 - value_width - 7 - ending_x;
+            while (!ending.empty()) {
+              it.get_text_bounds(0, 0, ending.c_str(), id(compact_font), TextAlign::TOP_LEFT,
+                &bounds_x, &bounds_y, &ending_width, &height);
+              if (ending_width <= available) break;
+              ending.pop_back();
             }
-            const int y = 66 + row * 40;
-            it.print(6, y, id(label_font), TextAlign::CENTER_LEFT, name.c_str());
-            it.printf(194, y, id(date_font), TextAlign::CENTER_RIGHT, "%d", int(entry.points));
+            const int y = 38 + row * 62;
+            it.print(7, y, id(score_initial_font), TextAlign::CENTER_LEFT, initial.c_str());
+            it.print(ending_x, y + 9, id(compact_font), TextAlign::CENTER_LEFT, ending.c_str());
+            // Very large totals must still fit the numeric column.
+            auto *const value_font = value_width <= 110 ? id(score_value_font) : id(date_font);
+            it.print(193, y, value_font, TextAlign::CENTER_RIGHT, points.c_str());
           }
-          const bool current_day = now.is_valid() && now.strftime("%Y-%m-%d") == scores.day;
-          it.print(100, 182, id(label_font), TextAlign::CENTER,
-            !id(mqtt_client).is_connected() ? "Offline / saved" : current_day ? "Points today" : "Saved day / old");
+          if (!now.is_valid() || now.strftime("%Y-%m-%d") != scores.day)
+            it.printf(100, 182, id(compact_font), TextAlign::TOP_CENTER, "Saved %s", scores.day);
         }
+        return;
       } else if (id(is_agenda_page)) {
         auto &agenda = id(agenda_cache);
         const bool is_today = now.is_valid() && now.strftime("%Y-%m-%d") == agenda.day;
@@ -992,57 +1048,63 @@ display:
         int bounds_x, bounds_y, clock_width, clock_height;
         it.get_text_bounds(0, 0, clock.c_str(), id(clock_font), TextAlign::TOP_LEFT,
                            &bounds_x, &bounds_y, &clock_width, &clock_height);
-        const int clock_x = (200 - clock_width - 24) / 2;
-        it.print(clock_x, 35, id(clock_font), TextAlign::TOP_LEFT, clock.c_str());
-        it.print(clock_x + clock_width + 4, 67, id(period_font), TextAlign::TOP_LEFT, now.hour < 12 ? "a" : "p");
-        it.strftime(100, 104, id(date_font), TextAlign::TOP_CENTER, "%a, %b %d", now);
+        it.print(7, 31, id(clock_font), TextAlign::TOP_LEFT, clock.c_str());
+        it.print(7 + clock_width + 4, 59, id(period_font), TextAlign::TOP_LEFT, now.hour < 12 ? "a" : "p");
+        it.strftime(7, 91, id(clock_date_font), TextAlign::TOP_LEFT, "%a, %b %d", now);
       } else {
         it.print(100, 75, id(label_font), TextAlign::CENTER, "Syncing time...");
       }
       if (now.is_valid() && !id(is_scores_page) && !id(is_timer_page) && !id(is_points_page)) {
         const auto &agenda = id(agenda_cache);
         const auto day = now.strftime("%Y-%m-%d");
+        const int divider_y = 120;
+        it.line(7, divider_y, 193, divider_y);
         const int index = watchy::next_agenda_event(agenda, now.timestamp, day);
         if (index >= 0) {
           const auto &event = agenda.events[index];
-          if (event.all_day) it.print(6, 148, id(agenda_time_font), "Today");
-          else {
+          it.print(7, divider_y + 14, id(compact_font), event.all_day ? "Today"
+            : event.start <= now.timestamp ? "Now" : "Next");
+          if (!event.all_day) {
             time_t timestamp = event.start;
             struct tm local{};
             localtime_r(&timestamp, &local);
-            it.printf(6, 148, id(agenda_time_font), "%s %d:%02d%s",
-              event.start <= now.timestamp ? "Now" : "Next",
+            it.printf(193, divider_y + 10, id(agenda_time_font), TextAlign::TOP_RIGHT, "%d:%02d%s",
               (local.tm_hour + 11) % 12 + 1, local.tm_min, local.tm_hour < 12 ? "a" : "p");
           }
-          std::string title = event.summary;
-          int x, y, width, height;
-          it.get_text_bounds(0, 0, title.c_str(), id(agenda_title_font), TextAlign::TOP_LEFT, &x, &y, &width, &height);
-          if (width > 188) {
-            do {
-              title.pop_back();
-              const auto truncated = title + "...";
-              it.get_text_bounds(0, 0, truncated.c_str(), id(agenda_title_font), TextAlign::TOP_LEFT, &x, &y, &width, &height);
-            } while (!title.empty() && width > 188);
-            title += "...";
+          std::string remaining = event.summary;
+          for (int line = 0; line < 2 && !remaining.empty(); line++) {
+            size_t length = remaining.size();
+            int bounds_x, bounds_y, width, height;
+            while (length > 0) {
+              const auto candidate = remaining.substr(0, length);
+              it.get_text_bounds(0, 0, candidate.c_str(), id(next_title_font), TextAlign::TOP_LEFT,
+                &bounds_x, &bounds_y, &width, &height);
+              if (width <= 186) break;
+              length--;
+            }
+            if (length < remaining.size() && line == 0) {
+              const auto space = remaining.rfind(' ', length);
+              if (space != std::string::npos && space > 0) length = space;
+            }
+            std::string text = remaining.substr(0, length);
+            if (line == 1 && length < remaining.size() && length > 3) text = text.substr(0, length - 3) + "...";
+            it.print(7, divider_y + 37 + line * 21, id(next_title_font), text.c_str());
+            remaining.erase(0, length);
+            while (!remaining.empty() && remaining.front() == ' ') remaining.erase(0, 1);
           }
-          it.print(6, 177, id(agenda_title_font), title.c_str());
-        } else it.print(100, 165, id(agenda_title_font), TextAlign::TOP_CENTER,
+        } else it.print(7, divider_y + 18, id(next_title_font),
           day != agenda.day ? "Agenda not synced" : "No more today");
       }
       if (id(battery_voltage).has_state()) {
         const bool charging = id(usb_connected).state && id(charger_active).state;
         const int level = watchy::battery_bars(id(battery_voltage).state);
-        it.rectangle(154, 6, 36, 20);
-        it.filled_rectangle(190, 12, 4, 8);
-        for (int bar = 0; bar < level; bar++) it.filled_rectangle(158 + bar * 10, 10, 7, 12);
+        it.rectangle(172, 5, 20, 11);
+        it.filled_rectangle(192, 8, 3, 5);
+        for (int bar = 0; bar < level; bar++) it.filled_rectangle(175 + bar * 5, 8, 3, 5);
         if (charging) {
-          // Keep the charge-status bolt separate from the battery bars.
-          for (int pixel_y = 8; pixel_y < 24; pixel_y++) {
-            for (int pixel_x = 138; pixel_x <= 150; pixel_x++) {
-              const bool top = pixel_y <= 16 && pixel_x >= 146 - (pixel_y - 8) && pixel_x <= 146;
-              const bool bottom = pixel_y >= 15 && pixel_x >= 142 && pixel_x <= 150 - (pixel_y - 15);
-              if (top || bottom) it.draw_pixel_at(pixel_x, pixel_y, COLOR_ON);
-            }
-          }
+          // The bolt sits beside the compact bars, never over them.
+          it.line(167, 4, 162, 10);
+          it.line(162, 10, 168, 10);
+          it.line(168, 10, 163, 16);
         }
       }
