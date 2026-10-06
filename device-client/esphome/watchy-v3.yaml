@@ -232,6 +232,10 @@ api:
         - script.execute: refresh_castkit
         - component.update: watch_display
 
+# Keep the boot recovery counter out of NVS during frequent sleep wakes.
+safe_mode:
+  storage: rtc
+
 ota:
   - platform: esphome
     password: !secret ota_password
@@ -444,14 +448,6 @@ font:
     id: period_font
     size: 28
     glyphs: 'ap'
-
-  - file:
-      type: gfonts
-      family: Roboto
-      weight: 900
-    id: battery_font
-    size: 24
-    glyphs: '0123456789'
 
 # Data and page choices survive deep sleep in RTC FAST SRAM, never NVS.
 globals:
@@ -857,22 +853,22 @@ display:
         return;
       }
       if (id(is_binary_clock)) {
-        it.print(6, 4, id(label_font), "Binary");
         if (now.is_valid()) {
           it.print(88, 43, id(label_font), TextAlign::CENTER, "Hour");
           it.print(155, 43, id(label_font), TextAlign::CENTER, "Min");
+          const int hour = (now.hour + 11) % 12 + 1;
           for (int bit = 5; bit >= 0; bit--) {
             const int value = 1 << bit;
             const int y = 65 + (5 - bit) * 18;
             it.printf(47, y, id(label_font), TextAlign::CENTER_RIGHT, "%d", value);
             if (bit < 5) {
               it.circle(88, y, 7);
-              if (now.hour & value) it.filled_circle(88, y, 6);
+              if (hour & value) it.filled_circle(88, y, 6);
             }
             it.circle(155, y, 7);
             if (now.minute & value) it.filled_circle(155, y, 6);
           }
-          it.strftime(100, 182, id(label_font), TextAlign::CENTER, "%H:%M", now);
+          it.printf(100, 182, id(label_font), TextAlign::CENTER, "%d:%02d%s", hour, now.minute, now.hour < 12 ? "a" : "p");
         } else it.print(100, 100, id(label_font), TextAlign::CENTER, "Syncing time...");
       } else if (id(is_scores_page)) {
         it.print(6, 4, id(label_font), "Points");
@@ -977,15 +973,16 @@ display:
       }
       if (id(battery_voltage).has_state()) {
         const bool charging = id(usb_connected).state && id(charger_active).state;
-        const int percent = watchy::battery_percent(id(battery_voltage).state, id(usb_connected).state, charging);
-        // Plain dark digits avoid small inverse text on the monochrome panel.
-        it.printf(194, 4, id(battery_font), TextAlign::TOP_RIGHT, "%d", percent);
+        const int level = watchy::battery_bars(id(battery_voltage).state);
+        it.rectangle(154, 6, 36, 20);
+        it.filled_rectangle(190, 12, 4, 8);
+        for (int bar = 0; bar < level; bar++) it.filled_rectangle(158 + bar * 10, 10, 7, 12);
         if (charging) {
-          // Keep the charging bolt separate from the battery number.
+          // Keep the charge-status bolt separate from the battery bars.
           for (int pixel_y = 8; pixel_y < 24; pixel_y++) {
-            for (int pixel_x = 114; pixel_x <= 126; pixel_x++) {
-              const bool top = pixel_y <= 16 && pixel_x >= 122 - (pixel_y - 8) && pixel_x <= 122;
-              const bool bottom = pixel_y >= 15 && pixel_x >= 118 && pixel_x <= 126 - (pixel_y - 15);
+            for (int pixel_x = 138; pixel_x <= 150; pixel_x++) {
+              const bool top = pixel_y <= 16 && pixel_x >= 146 - (pixel_y - 8) && pixel_x <= 146;
+              const bool bottom = pixel_y >= 15 && pixel_x >= 142 && pixel_x <= 150 - (pixel_y - 15);
               if (top || bottom) it.draw_pixel_at(pixel_x, pixel_y, COLOR_ON);
             }
           }
