@@ -7,7 +7,7 @@ from PIL import Image
 
 
 class CodecTests(unittest.TestCase):
-    def test_presto_matches_little_endian_framebuffer_and_exact_pixel_count(self):
+    def test_presto_matches_measured_framebuffer_and_exact_pixel_count(self):
         image = Image.new("RGB", (480, 480), "black")
         for index, color in enumerate([(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)]):
             image.putpixel((index, 0), color)
@@ -15,7 +15,8 @@ class CodecTests(unittest.TestCase):
         image.save(source, format="PNG")
         decoded = zlib.decompress(encode_presto_frame(source.getvalue()))
         self.assertEqual(len(decoded), 480 * 480 * 2)
-        self.assertEqual(decoded[:8], bytes.fromhex("00f8e0071f00ffff"))
+        # Presto v2.0.0: create_pen + pixel + memoryview yields these bytes.
+        self.assertEqual(decoded[:8], bytes.fromhex("f80007e0001fffff"))
         self.assertEqual(decoded[8:], bytes(len(decoded) - 8))
 
     def test_rgb565_exact_color_and_size(self):
