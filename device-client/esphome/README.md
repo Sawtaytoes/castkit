@@ -253,3 +253,7 @@ are included but **commented out** in `m5paper.yaml` — enable them only after
 confirming the external component exposes a partial/fast refresh (a full flash
 every second would strobe and wear the panel). This is the capability that lets a
 black-and-white ePaper panel behave a little like a live display.
+
+Watchy bottom-left: short presses select the local clock; hold for two seconds
+to request an immediate Wi-Fi synchronization. Short view presses stay offline
+on battery, including a wake from deep sleep. Scheduled checks remain unchanged.

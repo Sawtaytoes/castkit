@@ -4,6 +4,7 @@
 #include "esphome/core/log.h"
 #include "watchy_refresh.h"
 
+#include <array>
 #include <esp_attr.h>
 #include <esp_sleep.h>
 #include "driver/rtc_io.h"
@@ -15,7 +16,9 @@ inline RTC_DATA_ATTR watchy::RefreshState saved_frame;
 
 class WatchyDisplay : public waveshare_epaper::WaveshareEPaper {
  public:
+  WatchyDisplay() { this->reset_duration_ = 10; }
   void set_full_update_every(uint32_t count) { full_update_every_ = count; }
+  bool is_refreshing() const { return refreshing_ || pending_; }
 
   void initialize() override {
     rtc_gpio_deinit(GPIO_NUM_0);
@@ -31,11 +34,17 @@ class WatchyDisplay : public waveshare_epaper::WaveshareEPaper {
   }
 
   void display() override {
+    if (refreshing_) {
+      pending_ = true;
+      return;
+    }
     const auto mode = watchy::refresh_mode(saved_frame, this->buffer_, full_update_every_);
     if (mode == watchy::RefreshMode::SKIP) {
       ESP_LOGI("watchy_display", "Unchanged frame; skipping refresh");
       return;
     }
+    std::memcpy(active_frame_.data(), this->buffer_, watchy::FRAME_BYTES);
+    active_mode_ = mode;
     this->reset_();
     panel_awake_ = true;
     if (!this->wait_panel_idle_()) {
@@ -50,24 +59,46 @@ class WatchyDisplay : public waveshare_epaper::WaveshareEPaper {
     this->send_({0x01, 0xC7, 0x00, 0x00});
     this->send_({0x3C, 0x05});
     this->send_({0x18, 0x80});
-    write_frame_(0x26, mode == watchy::RefreshMode::FULL ? this->buffer_ : saved_frame.frame);
-    write_frame_(0x24, this->buffer_);
+    write_frame_(0x26,
+                 mode == watchy::RefreshMode::FULL ? active_frame_.data() : saved_frame.frame);
+    write_frame_(0x24, active_frame_.data());
     this->command(0x22);
     this->data(mode == watchy::RefreshMode::FULL ? 0xF7 : 0xFC);
     this->command(0x20);
-    delay(10);
-    if (!this->wait_panel_idle_()) {
+    refresh_started_ = millis();
+    refreshing_ = true;
+    // The waveform takes seconds. Let GPIO processing continue while it runs.
+  }
+
+  void loop() override {
+    if (!refreshing_ || millis() - refresh_started_ < 10) {
+      return;
+    }
+    if (this->busy_pin_ != nullptr && this->busy_pin_->digital_read()) {
+      if (millis() - refresh_started_ <= this->idle_timeout_()) {
+        return;
+      }
+      ESP_LOGE("watchy_display", "Panel refresh timeout");
       saved_frame.magic = 0;
       this->status_set_warning();
+      refreshing_ = false;
+      pending_ = false;
+      this->deep_sleep();
       return;
     }
     // Keep both controller planes synchronized with the final physical image.
-    write_frame_(0x26, this->buffer_);
+    write_frame_(0x26, active_frame_.data());
     this->deep_sleep();
-    watchy::remember_frame(saved_frame, this->buffer_, mode);
+    watchy::remember_frame(saved_frame, active_frame_.data(), active_mode_);
+    refreshing_ = false;
     this->status_clear_warning();
     ESP_LOGI("watchy_display", "%s refresh; partial count: %u",
-             mode == watchy::RefreshMode::FULL ? "Full" : "Partial", saved_frame.partial_count);
+             active_mode_ == watchy::RefreshMode::FULL ? "Full" : "Partial",
+             saved_frame.partial_count);
+    if (pending_) {
+      pending_ = false;
+      this->display();
+    }
   }
 
   void on_safe_shutdown() override {
@@ -99,6 +130,11 @@ class WatchyDisplay : public waveshare_epaper::WaveshareEPaper {
   uint32_t idle_timeout_() override { return 5000; }
   uint32_t full_update_every_{30};
   bool panel_awake_{false};
+  bool refreshing_{false};
+  bool pending_{false};
+  uint32_t refresh_started_{0};
+  watchy::RefreshMode active_mode_{watchy::RefreshMode::FULL};
+  std::array<uint8_t, watchy::FRAME_BYTES> active_frame_{};
 
   bool wait_panel_idle_() {
     const uint32_t started = millis();
