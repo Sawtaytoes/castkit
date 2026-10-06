@@ -23,6 +23,10 @@ def encode_presto_frame(png):
     and paint every pixel. The panel still receives a complete atomic frame.
     """
     image = Image.open(io.BytesIO(png)).convert("RGB")
+    return encode_presto_image(image)
+
+
+def encode_presto_image(image):
     if image.size != (480, 480):
         raise ValueError("The Presto frame must be 480 by 480 pixels")
     rgb = np.asarray(image, dtype=np.uint16)
@@ -43,6 +47,14 @@ def encode_presto_frame(png):
     quantized = np.where(mask, quantized, rgb >> np.array([3, 2, 3], dtype=np.uint16))
     pixels = (quantized[:, :, 0] << 11) | (quantized[:, :, 1] << 5) | quantized[:, :, 2]
     return zlib.compress(pixels.astype(">u2").tobytes(), 6)
+
+
+def encode_presto_frame_with_palette(png, bounds):
+    """Reuse the frame's PNG decode when ambient artwork colors are requested."""
+    from ambient_light import palette
+
+    image = Image.open(io.BytesIO(png)).convert("RGB")
+    return encode_presto_image(image), palette(image, bounds)
 
 
 def encode_rle(raw):
