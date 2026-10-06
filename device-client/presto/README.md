@@ -21,7 +21,8 @@ provisioning. It does not run Linux, JavaScript, Chromium or ESPHome.
    a broker is configured; no transport choice is needed in the management form.
 3. Copy `secrets.example.py` to a private `secrets.py`; configure Wi-Fi, the relay
    host/port and a dedicated random token of at least 32 characters. Upload that
-   file, `main.py` and `pixels.py` to the board root, then reset it. `main.py` starts at boot.
+   file, `main.py`, `pixels.py` and `ambient.py` to the board root, then reset it.
+   `main.py` starts at boot.
 4. Run the existing `castkit-remote-display` image with `relay.example.yaml` as
    `/config/display.yaml`. Mount a private YAML containing `presto_token` at the
    configured `secrets_path`. Its value must match the board's `CASTKIT_TOKEN`.
@@ -141,3 +142,65 @@ Horizontal artwork drags remain on the original Now Playing control, so a left
 drag past its threshold skips forward and a right drag skips backward. Vertical
 swipes still cancel taps before dispatching view navigation. Both remote-display
 transports share this routing fix.
+
+## Rear ambient LEDs
+
+`ambient.py` controls the seven rear LEDs through Pimoroni's documented
+[`Presto.set_led_rgb`](https://github.com/pimoroni/presto/blob/main/docs/presto.md)
+API. Automatic ambient sampling stays disabled. The module never writes LCD pixels
+or calls `update()`, and uses no Plasma driver. LCD brightness and ambient LED
+power/brightness are independent. LEDs start off with a brightness default
+of 5%; a missing or invalid ambient header turns them off.
+
+The authenticated worker supplies `X-CastKit-Ambient`, a JSON object:
+
+```json
+{
+  "on": true,
+  "brightness": 5,
+  "mode": "album-glow",
+  "colors": [[80, 100, 180], [80, 100, 180], [80, 100, 180], [80, 100, 180], [80, 100, 180], [80, 100, 180], [80, 100, 180]],
+  "progress": 0.25,
+  "seconds_until_event": null,
+  "weather": "",
+  "is_playing": false,
+  "duration_seconds": null,
+  "demo": false
+}
+```
+
+Brightness is an integer from 0 to 100. There must be exactly seven integer RGB
+triplets, each channel 0–255. Progress is finite and 0–1; optional event seconds
+are finite and between -86,400 and 31,622,400; optional duration is finite and
+0–604,800 seconds. Weather is a condition code up to 48 characters. Malformed
+JSON, excessive header length, incorrect types or out-of-range values clear the
+LEDs without rejecting the LCD frame.
+
+| Mode | Local behavior |
+| --- | --- |
+| `album-glow` | Each LED displays its supplied artwork color at the chosen brightness. |
+| `swipe-comet` | Physical drag distance/direction moves a short blue tail across the LEDs. Retreat fades it back to black; a release beyond 48 px fades over 450 ms. This is gesture feedback, not confirmation a server action succeeded. |
+| `meeting-fuse` | A five-minute green fuse burns down to amber in the last minute and red in the last ten seconds. At the event it fades for thirty seconds, then goes dark. Missing event metadata leaves it dark. |
+| `weather-aura` | Clear, rain, storm, snow and cloudy codes select a gently varying color; storms add a slow violet pulse. Absent or unknown conditions leave it dark. |
+| `progress-bar` | Seven teal segments show progress, including a partially filled segment. Playing media with a known duration advances locally; paused/unknown-duration media holds its reported position. |
+
+When all supplied album colors are black, a preview uses a fixed colorful palette;
+real Album Glow always uses the supplied colors.
+
+`demo: true` previews the selected mode without claiming there is a real event or
+playing track: a short comet repeats, a sample fuse counts down, unknown weather uses
+rain colors, and the progress bar loops. Album Glow uses supplied colors or its black-palette fallback. A brief
+magenta first LED every eight seconds marks preview mode; CastKit's control state
+also reports `demo`. Explicit Off or zero brightness clears all seven LEDs immediately.
+
+The local cooperative task runs at most 20 Hz and reuses three 21-byte pixel
+buffers. Only changed RGB outputs reach the hardware. Touch polling still obeys
+the displayed-frame ACK fence; the comet observes those samples locally and is
+cancelled when a contact is discarded during recovery or queue overflow.
+
+`X-CastKit-Ambient-Ack: 1` requests confirmation. Changes to `on`, `brightness`,
+`mode` or `demo` also acknowledge through the existing `POST /control-ack`, with
+required `backlight_percent` plus `ambient_light: {on, brightness, mode, demo}`.
+When backlight and LED controls change together, they share one request. Colors,
+weather, event countdown and progress changes do not create extra ACK traffic.
+A worker without the ambient header retains the existing backlight ACK behavior.

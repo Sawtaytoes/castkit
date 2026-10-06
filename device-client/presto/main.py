@@ -14,10 +14,11 @@ import time
 
 import deflate
 import network
+from ambient import AmbientLight
 from pixels import blit_patch, decode_rle
 from presto import Presto
 
-BUILD_MARKER = "castkit-presto-v7-buffered-touch"
+BUILD_MARKER = "castkit-presto-v8-ambient-modes"
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 MAX_FRAME_AGE_MS = 7000
 
@@ -25,6 +26,7 @@ MAX_FRAME_AGE_MS = 7000
 class CastKitPresto:
     def __init__(self):
         self.screen = Presto(full_res=True, ambient_light=False)
+        self.ambient_light = AmbientLight(self.screen)
         self.backlight_percent = None
         self.screen.set_backlight(0)
         self.display = self.screen.display
@@ -52,6 +54,7 @@ class CastKitPresto:
         self.screen.update()
         self.frame_id = 0
         self.events = []
+        self.ambient_light.cancel_touch()
 
     async def request(self, method, path, body=None):
         encoded = json.dumps(body).encode() if body is not None else b""
@@ -152,12 +155,18 @@ class CastKitPresto:
         if has_changed:
             self.screen.set_backlight(percent / 100)
             self.backlight_percent = percent
-        if "x-castkit-backlight" in headers and (
+        has_ambient_changed = self.ambient_light.apply_header(headers.get("x-castkit-ambient"))
+        needs_backlight_ack = "x-castkit-backlight" in headers and (
             has_changed or headers.get("x-castkit-backlight-ack") == "1"
-        ):
-            status, _, _ = await self.request(
-                "POST", "/control-ack", {"backlight_percent": percent}
-            )
+        )
+        needs_ambient_ack = "x-castkit-ambient" in headers and (
+            has_ambient_changed or headers.get("x-castkit-ambient-ack") == "1"
+        )
+        if needs_backlight_ack or needs_ambient_ack:
+            document = {"backlight_percent": percent}
+            if "x-castkit-ambient" in headers:
+                document["ambient_light"] = self.ambient_light.control_state()
+            status, _, _ = await self.request("POST", "/control-ack", document)
             if status != 204:
                 self.backlight_percent = None
                 raise OSError("Backlight acknowledgement rejected")
@@ -229,6 +238,7 @@ class CastKitPresto:
                 self.frame_id = 0
                 self.events = []
                 self.is_touched = False
+                self.ambient_light.cancel_touch()
                 print("castkit reconnect", type(error).__name__)
                 await asyncio.sleep_ms(1000)
             finally:
@@ -241,6 +251,7 @@ class CastKitPresto:
             if self.backlight_percent == 0:
                 self.events = []
                 self.is_touched = False
+                self.ambient_light.cancel_touch()
                 await asyncio.sleep_ms(20)
                 continue
             if self.is_presenting:
@@ -274,10 +285,12 @@ class CastKitPresto:
                     self.events = []
                     self.frame_id = 0
                     self.is_touched = False
+                    self.ambient_light.cancel_touch()
                     await asyncio.sleep_ms(20)
                     continue
                 self.sequence += 1
                 self.events.append([self.sequence, phase, position[0], position[1], self.frame_id])
+                self.ambient_light.touch_event(phase, position[0], position[1])
                 if phase in (0, 2):
                     print("castkit touch", self.sequence, phase, position)
             self.is_touched = is_touched
@@ -305,7 +318,9 @@ class CastKitPresto:
         network.WLAN().config(pm=network.WLAN.PM_NONE)
         self.notice("Waiting for the first frame...")
         print("castkit network", self.screen.wifi.ipv4())
-        await asyncio.gather(self.fetch_frames(), self.poll_touch(), self.send_touches())
+        await asyncio.gather(
+            self.fetch_frames(), self.poll_touch(), self.send_touches(), self.ambient_light.run()
+        )
 
 
 def main():
