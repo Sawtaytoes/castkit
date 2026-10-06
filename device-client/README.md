@@ -15,6 +15,8 @@ This receiver is a *dumb sink*: decode the bytes, `set_image()`, `show()`. No
 extra image processing, and **no extra rotation** (the server already applied
 it — adding rotation here would double it).
 
+Pimoroni Presto receivers use [the MicroPython client and remote-browser relay](presto/README.md).
+
 ## Files
 
 | File | Purpose |
