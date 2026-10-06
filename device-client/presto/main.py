@@ -17,7 +17,7 @@ import network
 from pixels import blit_patch, decode_rle
 from presto import Presto
 
-BUILD_MARKER = "castkit-presto-v3-patches"
+BUILD_MARKER = "castkit-presto-v4-backlight"
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 MAX_FRAME_AGE_MS = 7000
 
@@ -25,6 +25,8 @@ MAX_FRAME_AGE_MS = 7000
 class CastKitPresto:
     def __init__(self):
         self.screen = Presto(full_res=True, ambient_light=False)
+        self.backlight_percent = None
+        self.screen.set_backlight(0)
         self.display = self.screen.display
         self.framebuffer = memoryview(self.display)
         self.mac = network.WLAN().config("mac").hex()
@@ -136,6 +138,22 @@ class CastKitPresto:
         if not full and blit_patch(destination, self.framebuffer, x, y, width, height) != 0:
             raise ValueError("Invalid patch copy")
 
+    async def apply_controls(self, headers):
+        percent = int(headers.get("x-castkit-backlight", "100"))
+        if not 0 <= percent <= 100:
+            raise ValueError("Invalid backlight level")
+        if percent != self.backlight_percent:
+            self.screen.set_backlight(percent / 100)
+            self.backlight_percent = percent
+            if "x-castkit-backlight" not in headers:
+                return
+            status, _, _ = await self.request(
+                "POST", "/control-ack", {"backlight_percent": percent}
+            )
+            if status != 204:
+                self.backlight_percent = None
+                raise OSError("Backlight acknowledgement rejected")
+
     async def fetch_frames(self):
         while True:
             try:
@@ -146,6 +164,8 @@ class CastKitPresto:
                 status, headers, image = await asyncio.wait_for(
                     self.request("GET", f"/frame?after={self.frame_id}"), 8
                 )
+                if status in (200, 204):
+                    await self.apply_controls(headers)
                 if status == 200:
                     frame_id = int(headers["x-castkit-frame"])
                     touch_id = int(headers["x-castkit-touch"])
@@ -202,6 +222,11 @@ class CastKitPresto:
 
     async def poll_touch(self):
         while True:
+            if self.backlight_percent == 0:
+                self.events = []
+                self.is_touched = False
+                await asyncio.sleep_ms(20)
+                continue
             if self.is_presenting:
                 await asyncio.sleep_ms(10)
                 continue

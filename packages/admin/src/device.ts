@@ -14,6 +14,8 @@ export type Device = {
   printQueueChannel?: string
   /** A backlight agent listens on the device's MQTT light topics. */
   hasMqttBacklight?: boolean
+  /** Backlight commands travel directly with remote display frames. */
+  hasRemoteBacklight?: boolean
   /** Ordered allow-list. Absent means every compatible view. */
   views?: string[]
   externalViews?: {

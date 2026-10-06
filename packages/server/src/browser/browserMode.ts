@@ -43,6 +43,10 @@ import {
 } from "../immich/immichClient.ts"
 import { preparePhotoFrameImage } from "../immich/photoFrameImage.ts"
 import { buildPlatformPage } from "../platform/platformPages.ts"
+import {
+  createPlatformStore,
+  type PlatformStore,
+} from "../platform/platformStore.ts"
 import { createViewDataStore } from "../state/viewDataStore.ts"
 import {
   getBrowserViewByName,
@@ -65,6 +69,7 @@ import {
   resolveSlatecastBuildId,
   resolveSlatecastDistDir,
 } from "./pages.ts"
+import { createRemoteBacklight } from "./remoteBacklight.ts"
 
 /**
  * Browser-mode (Slatecast) wiring: HA discovery + MQTT routes for the
@@ -115,6 +120,7 @@ export type BrowserMode = ReturnType<
 
 /** The slice of the platform the device page reads channels and actions through. */
 export type BrowserModePlatform = {
+  store?: PlatformStore
   hub: {
     get: (id: string) => ChannelSnapshot | undefined
     subscribe: (
@@ -183,6 +189,10 @@ export const createBrowserMode = ({
   const viewDataStore = createViewDataStore()
   const photoConfigStore = createBrowserPhotoConfigStore()
   const backlightStore = createBrowserBacklightStore()
+  const remoteBacklight = createRemoteBacklight({
+    store: platform?.store ?? createPlatformStore(),
+    getChannel: (id) => platform?.hub.get(id),
+  })
   // Devices whose backlight agent last reported `online`. A transition INTO
   // online (including the first one seen after server start) is when the
   // stored level is re-sent — that is what survives a panel reboot.
@@ -1186,6 +1196,11 @@ export const createBrowserMode = ({
           height: device.height,
         },
         page_url: `/d/${device.id}`,
+        ...(device.hasRemoteBacklight
+          ? {
+              controls_url: `/d/${device.id}/controls.json`,
+            }
+          : {}),
         ready_selector: "[data-castkit-ready]",
         input: {
           target_attribute: "data-castkit-target",
@@ -1194,6 +1209,21 @@ export const createBrowserMode = ({
         cache: [],
         refresh: { max_fps: 10, heartbeat_ms: 2000 },
       })
+    })
+
+    app.get("/d/:id/controls.json", (context) => {
+      const deviceId = context.req.param("id") ?? ""
+      if (
+        !stateStore.deviceById.get(deviceId)
+          ?.hasRemoteBacklight
+      ) {
+        return context.json(
+          { error: "no direct backlight" },
+          404,
+        )
+      }
+      context.header("Cache-Control", "no-store")
+      return context.json(remoteBacklight.resolve(deviceId))
     })
 
     // A fresh, face-cropped Immich photo sized to this browser panel. The SPA
@@ -1399,6 +1429,22 @@ export const createBrowserMode = ({
     if (!device) {
       return null
     }
+    if (device.hasRemoteBacklight) {
+      const settings = remoteBacklight.get(deviceId)
+      return {
+        backlightLevel: String(settings.level),
+        backlightPower: settings.power,
+        backlightRoomChannel: settings.channel,
+        backlightRoomEntity: settings.entity,
+        backlightEffective: String(
+          remoteBacklight.resolve(deviceId)
+            .backlight_percent,
+        ),
+        backlightRoomStatus: String(
+          remoteBacklight.resolve(deviceId).room_status,
+        ),
+      }
+    }
     return device.hasMqttBacklight
       ? {
           backlightLevel: String(
@@ -1423,6 +1469,13 @@ export const createBrowserMode = ({
   }) => {
     const device = stateStore.deviceById.get(deviceId)
     const topics = topicsByDeviceId.get(deviceId)
+    if (device?.hasRemoteBacklight) {
+      return remoteBacklight.set({
+        deviceId,
+        kind,
+        payload,
+      })
+    }
     if (
       !device ||
       !topics ||

@@ -15,6 +15,7 @@ class PrestoTransportTests(unittest.IsolatedAsyncioTestCase):
         application = web.Application(middlewares=[self.transport.authenticate])
         application.router.add_get("/frame", self.transport.get_frame)
         application.router.add_post("/ack", self.transport.acknowledge)
+        application.router.add_post("/control-ack", self.transport.acknowledge_controls)
         application.router.add_post("/touch", self.transport.receive_touch)
         self.client = TestClient(TestServer(application))
         await self.client.start_server()
@@ -28,6 +29,26 @@ class PrestoTransportTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await self.client.close()
+
+    async def test_backlight_changes_arrive_without_a_new_frame_and_require_physical_ack(self):
+        waiting = asyncio.create_task(self.client.get("/frame", headers=self.headers))
+        await asyncio.sleep(0.02)
+        self.transport.set_backlight(35)
+        response = await asyncio.wait_for(waiting, timeout=0.5)
+        self.assertEqual(response.status, 204)
+        self.assertEqual(response.headers["X-CastKit-Backlight"], "35")
+        self.assertIsNone(self.transport.reported_backlight_percent)
+        response = await self.client.post(
+            "/control-ack", headers=self.headers, json={"backlight_percent": 35}
+        )
+        self.assertEqual(response.status, 204)
+        self.assertEqual(self.transport.reported_backlight_percent, 35)
+        response = await self.client.post(
+            "/control-ack", headers=self.headers, json={"backlight_percent": 101}
+        )
+        self.assertEqual(response.status, 400)
+        self.transport.set_backlight(0)
+        self.assertEqual(self.transport.control_headers()["X-CastKit-Backlight"], "0")
 
     async def test_frame_is_not_complete_until_matching_physical_ack(self):
         sending = asyncio.create_task(

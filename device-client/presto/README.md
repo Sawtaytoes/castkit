@@ -15,8 +15,8 @@ provisioning. It does not run Linux, JavaScript, Chromium or ESPHome.
    MAC, 480×480, square, full color and touch. The remote worker uses the browser
    device registry because it renders the standard `/d/<id>` client. Set repaint
    to `fast` so views respect the transport's actual refresh budget. Enable the
-   view drawer if wanted. Do not advertise an MQTT backlight until the firmware
-   supports it.
+   view drawer if wanted. Choose **Direct device** backlight control in CastKit
+   (`hasRemoteBacklight: true`, `hasMqttBacklight: false`).
 3. Copy `secrets.example.py` to a private `secrets.py`; configure Wi-Fi, the relay
    host/port and a dedicated random token of at least 32 characters. Upload that
    file, `main.py` and `pixels.py` to the board root, then reset it. `main.py` starts at boot.
@@ -101,3 +101,26 @@ requires ESP32/ESP-IDF, so it is not a drop-in Presto driver. An ESPHome experim
 would need Presto's RGB/PIO scanout, PSRAM and CYW43439 wiring plus touch support.
 MicroPython remains the tested receiver; ESPHome on this board has not been flashed
 or verified.
+
+## Backlight and room following
+
+In CastKit management, open the device's **Backlight** tab. Brightness (0–100%)
+and On/Off are saved to the platform configuration, survive server/board restarts,
+and travel over the authenticated frame connection. They require no MQTT broker
+or Home Assistant automation. The worker reads the manifest's same-origin
+`controls_url` every 500 ms; `X-CastKit-Backlight` is delivered on both image and
+unchanged-image responses. Firmware applies `Presto.set_backlight(percent / 100)`
+and acknowledges the applied value. Relay health separates requested and reported
+percentages. Touch input is suppressed while the light is off.
+
+**Follow room light** selects an `entities.v1` channel and a light or switch. Any
+CastKit source can supply it. A current `on` state restores the saved brightness;
+`off` extinguishes the backlight. An unavailable/stale source holds the last known
+power during the current server process; after a server restart it starts off
+until a valid room state arrives. Manual On/Off overrides room following. The
+optional room rule needs its source; manual controls continue to work without it.
+
+Horizontal artwork drags remain on the original Now Playing control, so a left
+drag past its threshold skips forward and a right drag skips backward. Vertical
+swipes still cancel taps before dispatching view navigation. Both remote-display
+transports share this routing fix.

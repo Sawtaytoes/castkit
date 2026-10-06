@@ -23,7 +23,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v6-presto-patches"
+BUILD_MARKER = "castkit-remote-display-v7-controls-swipes"
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
@@ -382,6 +382,20 @@ async def create_browser_context(browser, config):
     )
 
 
+async def poll_controls(context, config, transport, stop):
+    """Read app-owned controls independently of capture and frame acknowledgements."""
+    while not stop.is_set():
+        try:
+            response = await context.request.get(config["controls_url"], timeout=5000)
+            same_origin_url(config["manifest_url"], response.url)
+            if not response.ok:
+                raise ConnectionError("Controls unavailable")
+            transport.set_backlight((await response.json())["backlight_percent"])
+        except Exception as error:
+            LOG.warning("Backlight controls unavailable: %s", type(error).__name__)
+        await asyncio.sleep(0.5)
+
+
 async def serve(config):
     stop = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -414,8 +428,11 @@ async def serve(config):
         if is_presto:
             config = {**config, "max_fps": min(config["max_fps"], 8)}
         presto = PrestoTransport(config, api_key) if is_presto else None
+        controls_task = None
         if presto is not None:
             await presto.start()
+            if config.get("controls_url"):
+                controls_task = asyncio.create_task(poll_controls(context, config, presto, stop))
         page = await context.new_page()
         origin = urlsplit(config["url"])
 
@@ -493,6 +510,9 @@ async def serve(config):
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=2)
         finally:
+            if controls_task is not None:
+                controls_task.cancel()
+                await asyncio.gather(controls_task, return_exceptions=True)
             await preview.stop()
             if presto is not None:
                 await presto.stop()

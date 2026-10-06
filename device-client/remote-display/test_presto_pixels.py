@@ -189,6 +189,19 @@ class FirmwareRequestTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNot(self.served[0][1], self.served[2][1])
         self.assertEqual(self.served[0][2], "rgb565-patch-v1")
 
+    async def test_backlight_uses_hardware_api_and_acknowledges_changes_only(self):
+        self.client.backlight_percent = None
+        applied = []
+        self.client.screen = types.SimpleNamespace(set_backlight=applied.append)
+        await self.client.apply_controls({"x-castkit-backlight": "35"})
+        await self.client.apply_controls({"x-castkit-backlight": "35"})
+        await self.client.apply_controls({"x-castkit-backlight": "0"})
+        self.assertEqual(applied, [0.35, 0])
+        self.assertEqual([request[0] for request in self.served], ["/control-ack", "/control-ack"])
+        with self.assertRaises(ValueError):
+            await self.client.apply_controls({"x-castkit-backlight": "101"})
+        self.assertEqual(self.client.backlight_percent, 0)
+
     async def test_server_close_or_cancel_discards_connection_before_retry(self):
         await self.client.request("GET", "/close")
         self.assertEqual(self.client.connections, {})

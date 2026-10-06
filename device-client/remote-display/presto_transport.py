@@ -37,6 +37,8 @@ class PrestoTransport:
         self.build_marker = "unknown"
         self.last_seen = 0
         self.last_ack = None
+        self.backlight_percent = 0 if config.get("controls_url") else None
+        self.reported_backlight_percent = None
         self.frames_drawn = 0
         self.touches_received = 0
         self.runner = None
@@ -78,6 +80,7 @@ class PrestoTransport:
         application = web.Application(middlewares=[self.authenticate], client_max_size=16384)
         application.router.add_get("/frame", self.get_frame)
         application.router.add_post("/ack", self.acknowledge)
+        application.router.add_post("/control-ack", self.acknowledge_controls)
         application.router.add_post("/touch", self.receive_touch)
         application.router.add_get("/healthz", self.health)
         self.runner = web.AppRunner(application)
@@ -102,6 +105,21 @@ class PrestoTransport:
     def subscribe_states(self, callback):
         self.callback = callback
 
+    def set_backlight(self, percent):
+        if type(percent) is not int or not 0 <= percent <= 100:
+            raise ValueError("Backlight requires an integer percentage")
+        if percent != self.backlight_percent:
+            self.backlight_percent = percent
+            self.frame_ready.set()
+
+    async def acknowledge_controls(self, request):
+        document = await self.read_json(request)
+        percent = document.get("backlight_percent") if isinstance(document, dict) else None
+        if type(percent) is not int or not 0 <= percent <= 100:
+            raise web.HTTPBadRequest(text="Invalid backlight acknowledgement")
+        self.reported_backlight_percent = percent
+        return web.Response(status=204)
+
     async def get_frame(self, request):
         frame = self.frame
         if frame is None or request.query.get("after") == str(frame["id"]):
@@ -115,8 +133,9 @@ class PrestoTransport:
             or time.monotonic() - frame["created"] > 7
             or request.query.get("after") == str(frame["id"])
         ):
-            return web.Response(status=204)
+            return web.Response(status=204, headers=self.control_headers())
         headers = {
+            **self.control_headers(),
             "Cache-Control": "no-store",
             "X-CastKit-Frame": str(frame["id"]),
             "X-CastKit-Touch": str(frame["touch_id"]),
@@ -136,6 +155,13 @@ class PrestoTransport:
             }
         frame["served_at"] = time.monotonic()
         return web.Response(body=body, content_type=content_type, headers=headers)
+
+    def control_headers(self):
+        return (
+            {"X-CastKit-Backlight": str(self.backlight_percent)}
+            if self.backlight_percent is not None
+            else {}
+        )
 
     async def acknowledge(self, request):
         document = await self.read_json(request)
@@ -222,7 +248,7 @@ class PrestoTransport:
     async def health(self, request):
         return web.json_response(
             {
-                "build": "castkit-presto-transport-v2-patches",
+                "build": "castkit-presto-transport-v3-controls",
                 "firmware": self.build_marker,
                 "last_seen_seconds": round(time.monotonic() - self.last_seen, 1)
                 if self.last_seen
@@ -231,6 +257,8 @@ class PrestoTransport:
                 "touches_received": self.touches_received,
                 "last_ack": self.last_ack,
                 "last_delivery": self.last_delivery,
+                "backlight_percent": self.backlight_percent,
+                "reported_backlight_percent": self.reported_backlight_percent,
                 "capture_ms": self.capture_ms,
                 "encode_ms": self.encode_ms,
                 "last_touch_to_ack_ms": self.last_touch_latency_ms,
