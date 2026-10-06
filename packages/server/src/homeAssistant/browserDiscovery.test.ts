@@ -196,3 +196,32 @@ describe("buildBrowserDiscoveryMessages", () => {
     ).toContain("Disc App")
   })
 })
+
+test("native backlights reuse the standard MQTT light and number with server availability", () => {
+  const messages = buildBrowserDiscoveryMessages({
+    device: {
+      ...TEST_DEVICE,
+      hasMqttBacklight: false,
+      hasRemoteBacklight: true,
+    },
+  })
+  const light = messages.find((message) =>
+    message.topic.includes("/light/"),
+  )
+  expect(light?.payload).toMatchObject({
+    unique_id: "castkit_dev-square_backlight",
+    command_topic: "castkit/dev-square/backlight/set",
+    state_topic: "castkit/dev-square/backlight",
+    brightness_command_topic:
+      "castkit/dev-square/backlight/brightness/set",
+    brightness_state_topic:
+      "castkit/dev-square/backlight/brightness",
+    availability_topic: "castkit/availability",
+    brightness_scale: 255,
+  })
+  expect(
+    messages.filter((message) =>
+      message.topic.includes("_backlight_level/"),
+    ),
+  ).toHaveLength(1)
+})

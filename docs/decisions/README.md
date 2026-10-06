@@ -14,6 +14,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-10-06 | [Backlight controls share native and MQTT state](2026-10-06-backlight-controls-share-native-and-mqtt-state.md) | Accepted |
 | 2026-10-06 | [Management uses available screen width](2026-10-06-management-uses-available-screen-width.md) | Accepted |
 | 2026-10-05 | [AI Usage shows provider icons and omits plans](2026-10-05-ai-usage-shows-provider-icons-and-omits-plans.md) | Accepted |
 | 2026-10-03 | [Countdowns show continuous timed progress](2026-10-03-countdowns-show-continuous-timed-progress.md) | Accepted |
