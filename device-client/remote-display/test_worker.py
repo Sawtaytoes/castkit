@@ -202,7 +202,7 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                 Target("now-playing-artwork", 100, 20, 250, 250),
             ],
         )
-        for sequence, phase, x in [(1, 0, 300), (2, 1, 270), (3, 1, 230), (4, 1, 140), (5, 2, 0)]:
+        for sequence, phase, x in [(1, 0, 300), (2, 1, 270), (3, 1, 230), (4, 1, 30), (5, 2, 0)]:
             await self.session.touches.put(
                 ["touch", str(sequence), str(phase), str(x), "100", "0", "50", "0"]
             )
@@ -212,6 +212,20 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                         self.task.result()
                     await asyncio.sleep(0.01)
         self.assertEqual(await self.page.evaluate("window.actions"), ["next"])
+
+    async def test_cancelled_control_contact_does_not_cancel_native_touch_twice(self):
+        await self.event(1, 0)
+        await self.session.touches.put(["touch", "2", "1", "30", "55", "0", "42", "0"])
+        async with asyncio.timeout(3):
+            while self.session.processed_touch != 2:
+                if self.task.done():
+                    self.task.result()
+                await asyncio.sleep(0.01)
+        await self.event(3, 2)
+        self.assertEqual(await self.page.locator("button").inner_text(), "Slot 1")
+        await self.event(4, 0)
+        await self.event(5, 2)
+        self.assertEqual(await self.page.locator("button").inner_text(), "Disc details")
 
     async def test_retained_release_does_not_break_the_next_tap(self):
         await self.event(100, 2)

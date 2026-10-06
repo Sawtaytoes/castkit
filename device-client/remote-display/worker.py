@@ -122,7 +122,7 @@ class DisplaySession:
             LOG.warning("Ignored malformed display telemetry")
 
     async def cancel_contact(self):
-        if self.contact is not None:
+        if self.contact is not None and self.contact.get("is_native_active"):
             await self.cdp.send(
                 "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
             )
@@ -157,6 +157,7 @@ class DisplaySession:
                     "start_y": y,
                     "started": time.monotonic(),
                     "is_gesture": False,
+                    "is_native_active": False,
                 }
             elif self.contact is None:
                 # ESPHome replays its retained sensor value after reconnect.
@@ -174,10 +175,11 @@ class DisplaySession:
                     or abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
                 )
             ):
-                if not self.contact.get("is_tap_cancelled"):
+                if self.contact["is_native_active"]:
                     await self.cdp.send(
                         "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
                     )
+                self.contact["is_native_active"] = False
                 self.contact["is_gesture"] = True
                 await self.page.evaluate(
                     """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
@@ -203,18 +205,26 @@ class DisplaySession:
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue
-            if phase == 1 and current != self.contact["identity"]:
+            # Artwork captures its pointer: a horizontal drag can legitimately
+            # leave its rectangle and must still receive the release. Other
+            # controls retain the cross-control cancellation guard.
+            is_artwork_drag = self.contact["identity"] == "now-playing-artwork" and abs(
+                x - self.contact["start_x"]
+            ) > abs(y - self.contact["start_y"])
+            if phase == 1 and current != self.contact["identity"] and not is_artwork_drag:
                 # Cancel the tap but keep sampling the finger: it may cross a
                 # small control before travelling far enough to commit a swipe.
-                if not self.contact.get("is_tap_cancelled"):
+                if self.contact["is_native_active"]:
                     await self.cdp.send(
                         "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
                     )
-                self.contact.update(x=x, y=y, is_tap_cancelled=True)
+                self.contact.update(x=x, y=y, is_tap_cancelled=True, is_native_active=False)
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue
-            if self.contact.get("is_tap_cancelled") or current != self.contact["identity"]:
+            if self.contact.get("is_tap_cancelled") or (
+                current != self.contact["identity"] and not is_artwork_drag
+            ):
                 if phase == 2:
                     await self.cancel_contact()
                 else:
@@ -232,7 +242,7 @@ class DisplaySession:
             if phase == 2:
                 self.contact = None
             else:
-                self.contact.update(x=x, y=y)
+                self.contact.update(x=x, y=y, is_native_active=True)
             self.processed_touch = sequence
             self.force_frame.set()
 
