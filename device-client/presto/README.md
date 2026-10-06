@@ -37,10 +37,11 @@ binding authorize only this unit's frame/touch exchange, never CastKit managemen
 The worker's connection to CastKit can use HTTPS and optional read-only browser
 storage state. Source-service and management credentials never reach the board.
 
-`GET /frame?after=<id>` returns a complete zlib-compressed **little-endian RGB565**
+`GET /frame?after=<id>` returns a complete zlib-compressed **big-endian RGB565**
 frame (`application/vnd.castkit.rgb565+zlib`), or 204 while unchanged. The decoded
 size must be exactly 460,800 bytes. MicroPython inflates directly into PicoGraphics'
-back buffer, then calls `update()` once; frames are never written to flash.
+back buffer (PicoGraphics stores byte-swapped colors even on this little-endian
+CPU), then calls `update()` once; frames are never written to flash.
 `POST /ack` confirms that decode and drawing finished. `POST /touch` sends bounded
 batches of sequence/phase/X/Y/displayed-frame-id samples. Every call carries the
 dedicated token, MAC and a new identity for each board boot.
