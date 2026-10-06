@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-06: Watchy idles at 80 MHz and turns off unused hardware](2026-10-06-watchy-idles-at-80-mhz-and-turns-off-unused-hardware.md)
+
 - [2026-10-06: Ambient LEDs can follow the current view](2026-10-06-ambient-leds-can-follow-current-view.md)
 
 - [2026-10-06: Ambient LEDs have independent shared controls](2026-10-06-ambient-leds-have-independent-shared-controls.md)
