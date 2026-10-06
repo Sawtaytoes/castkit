@@ -2981,3 +2981,36 @@ html[data-repaint="instant"]
   .kids-points-bar-fill {
   transition: width 1s linear;
 }
+
+/* A compact totals board keeps all selected children visible, including during scans. */
+.kids-points-simple-totals {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+}
+.kids-points-simple-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-block-size: 0;
+  container-type: size;
+}
+.kids-points-simple-row h3 {
+  min-inline-size: 0;
+  font-size: clamp(18px, 52cqmin, 64px);
+  font-weight: 900;
+  line-height: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.kids-points-simple-row strong {
+  flex: none;
+  font-size: clamp(24px, 66cqmin, 96px);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}

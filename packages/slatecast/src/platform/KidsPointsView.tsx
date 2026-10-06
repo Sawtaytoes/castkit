@@ -517,66 +517,87 @@ export const KidsPointsView = ({
     ...size,
     kidCount: data.kids.length,
   })
-  const content = layout.isBoard ? (
-    <div
-      class="kids-points-board"
-      data-stacked={
-        layout.columnCount < data.kids.length
-          ? "true"
-          : "false"
-      }
-      style={{
-        gridTemplateColumns: `repeat(${layout.columnCount}, minmax(0, 1fr))`,
-      }}
-    >
-      {data.kids.map((kid) => (
-        <KidCard
-          key={kid.id}
-          kid={kid}
-          scan={
-            scan && kid.id === scan.kidId ? scan : undefined
-          }
-          isDimmed={
-            scannedKid !== undefined &&
-            kid.id !== scannedKid.id
-          }
-          isAnimated={isAnimated}
+  const content =
+    settings?.isTotalsOnly === true ? (
+      <div class="kids-points-simple-totals">
+        {data.kids.map((kid) => (
+          <article
+            key={kid.id}
+            class="kids-points-simple-row"
+          >
+            <h3 title={kid.name}>
+              {settings.nameStyle === "initial"
+                ? Array.from(kid.name)[0]
+                : kid.name}
+            </h3>
+            <strong>{formatPoints(kid.pointsToday)}</strong>
+          </article>
+        ))}
+      </div>
+    ) : layout.isBoard ? (
+      <div
+        class="kids-points-board"
+        data-stacked={
+          layout.columnCount < data.kids.length
+            ? "true"
+            : "false"
+        }
+        style={{
+          gridTemplateColumns: `repeat(${layout.columnCount}, minmax(0, 1fr))`,
+        }}
+      >
+        {data.kids.map((kid) => (
+          <KidCard
+            key={kid.id}
+            kid={kid}
+            scan={
+              scan && kid.id === scan.kidId
+                ? scan
+                : undefined
+            }
+            isDimmed={
+              scannedKid !== undefined &&
+              kid.id !== scannedKid.id
+            }
+            isAnimated={isAnimated}
+            now={now}
+            isLive={isLive}
+            isStacked={
+              layout.columnCount < data.kids.length
+            }
+          />
+        ))}
+      </div>
+    ) : countdownKid ? (
+      <article
+        class="kids-points-focus"
+        style={kidStyle(countdownKid)}
+      >
+        <h3>{countdownKid.name}</h3>
+        <CountdownProgress
+          kid={countdownKid}
           now={now}
           isLive={isLive}
-          isStacked={layout.columnCount < data.kids.length}
         />
-      ))}
-    </div>
-  ) : countdownKid ? (
-    <article
-      class="kids-points-focus"
-      style={kidStyle(countdownKid)}
-    >
-      <h3>{countdownKid.name}</h3>
-      <CountdownProgress
-        kid={countdownKid}
-        now={now}
-        isLive={isLive}
+      </article>
+    ) : scan && scannedKid ? (
+      <KidFocus
+        kid={scannedKid}
+        scan={scan}
+        isAnimated={isAnimated}
       />
-    </article>
-  ) : scan && scannedKid ? (
-    <KidFocus
-      kid={scannedKid}
-      scan={scan}
-      isAnimated={isAnimated}
-    />
-  ) : (
-    <div class="kids-points-rows">
-      {data.kids.slice(0, layout.rowCount).map((kid) => (
-        <KidRow key={kid.id} kid={kid} />
-      ))}
-      {layout.rowCount < data.kids.length ? (
-        <p class="kids-points-overflow">
-          {data.kids.length - layout.rowCount} more
-        </p>
-      ) : null}
-    </div>
-  )
+    ) : (
+      <div class="kids-points-rows">
+        {data.kids.slice(0, layout.rowCount).map((kid) => (
+          <KidRow key={kid.id} kid={kid} />
+        ))}
+        {layout.rowCount < data.kids.length ? (
+          <p class="kids-points-overflow">
+            {data.kids.length - layout.rowCount} more
+          </p>
+        ) : null}
+      </div>
+    )
   return (
     <div
       class="kids-points"

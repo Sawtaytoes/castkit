@@ -1,5 +1,6 @@
 #pragma once
 #include "watchy_agenda.h"
+#include "watchy_scores.h"
 
 #include "esphome/core/component.h"
 #include "esphome/core/log.h"
@@ -9,12 +10,17 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_efuse_rtc_calib.h"
 #include <cmath>
+#include <esp_attr.h>
+#include <esp_system.h>
+#include "watchy_battery_estimate.h"
 
 extern "C" esp_err_t watchy_adc_voltage(adc_oneshot_unit_handle_t handle,
                                         adc_cali_handle_t calibration, uint32_t init_code,
                                         int *millivolts);
 
 namespace esphome::watchy_battery {
+
+inline RTC_DATA_ATTR watchy::BatteryEstimate battery_estimate;
 
 // Watchy v3 GPIO9 is ADC1 channel 8, behind a (360 + 100) / 360 divider.
 // Its full battery exceeds the standard S3 ADC range. The second measurement
@@ -23,6 +29,9 @@ namespace esphome::watchy_battery {
 class WatchyBattery : public sensor::Sensor, public PollingComponent {
  public:
   void setup() override {
+    if (esp_reset_reason() != ESP_RST_DEEPSLEEP) {
+      battery_estimate = {};
+    }
     adc_oneshot_unit_init_cfg_t unit{};
     unit.unit_id = ADC_UNIT_1;
     adc_oneshot_chan_cfg_t channel{};
@@ -48,6 +57,8 @@ class WatchyBattery : public sensor::Sensor, public PollingComponent {
       return;
     }
     float total = 0;
+    float minimum = INFINITY;
+    float maximum = -INFINITY;
     for (int sample = 0; sample < 8; sample++) {
       int millivolts = 0;
       if (watchy_adc_voltage(this->handle_, this->calibration_, this->init_code_, &millivolts) !=
@@ -56,9 +67,17 @@ class WatchyBattery : public sensor::Sensor, public PollingComponent {
         return;
       }
       total += millivolts;
+      minimum = std::min(minimum, float(millivolts));
+      maximum = std::max(maximum, float(millivolts));
+    }
+    const float measured =
+        (total - minimum - maximum) / 6.0f / 1000.0f * ((360.0f + 100.0f) / 360.0f);
+    if (!watchy::smooth_battery(battery_estimate, measured)) {
+      this->status_set_warning();
+      return;
     }
     this->status_clear_warning();
-    this->publish_state(total / 8.0f / 1000.0f * ((360.0f + 100.0f) / 360.0f));
+    this->publish_state(battery_estimate.voltage);
   }
 
  protected:
