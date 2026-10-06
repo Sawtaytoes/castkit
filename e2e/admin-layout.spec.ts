@@ -144,3 +144,66 @@ zooms.forEach((zoom) => {
     ).toBe(true)
   })
 })
+
+const plugins = Array.from({ length: 18 }, (_, index) => ({
+  id: `example-plugin-${index}`,
+  name: `Example source ${index + 1}`,
+  version: "0.1.0",
+  isEnabled: true,
+}))
+
+test("plugin management spends available width before scrolling", async ({
+  page,
+}) => {
+  await page.route("**/api/access/session", (route) =>
+    route.fulfill({
+      json: {
+        isAuthenticated: true,
+        isSetupRequired: false,
+      },
+    }),
+  )
+  await page.route("**/api/manage/platform", (route) =>
+    route.fulfill({ json: { ...platform, plugins } }),
+  )
+  await page.goto("/manage/plugins")
+  const cards = page.getByRole("region", {
+    name: /^Example source /,
+  })
+  await expect(cards).toHaveCount(plugins.length)
+  const viewport = page.viewportSize()
+  if (!viewport) throw new Error("Window size is missing")
+  await expect
+    .poll(async () => {
+      const main = await page
+        .getByRole("main")
+        .boundingBox()
+      return main
+        ? main.width / (viewport.width - main.x)
+        : 0
+    })
+    .toBeGreaterThan(0.9)
+  if (viewport.width >= 1920) {
+    await expect
+      .poll(async () => {
+        const first = await cards.nth(0).boundingBox()
+        const third = await cards.nth(2).boundingBox()
+        return Boolean(
+          first && third && first.y === third.y,
+        )
+      })
+      .toBe(true)
+    await expect
+      .poll(async () => {
+        const last = await cards.last().boundingBox()
+        return last ? last.y + last.height : Infinity
+      })
+      .toBeLessThan(viewport.height)
+  }
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true)
+})
