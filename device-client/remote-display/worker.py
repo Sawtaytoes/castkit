@@ -23,7 +23,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v8-backlight-ack"
+BUILD_MARKER = "castkit-remote-display-v9-native-edges"
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
@@ -169,6 +169,7 @@ class DisplaySession:
             if (
                 phase == 1
                 and not self.contact["is_gesture"]
+                and not self.contact["identity"].startswith("navigation-edge:")
                 and max(abs(y - self.contact["start_y"]), abs(x - self.contact["start_x"])) >= 48
                 and (
                     self.contact["identity"] != "now-playing-artwork"
@@ -211,7 +212,15 @@ class DisplaySession:
             is_artwork_drag = self.contact["identity"] == "now-playing-artwork" and abs(
                 x - self.contact["start_x"]
             ) > abs(y - self.contact["start_y"])
-            if phase == 1 and current != self.contact["identity"] and not is_artwork_drag:
+            # Shell edges capture their pointer above native and external views.
+            # Their acknowledged starting hitbox owns the whole inward pull.
+            is_navigation_drag = self.contact["identity"].startswith("navigation-edge:")
+            if (
+                phase == 1
+                and current != self.contact["identity"]
+                and not is_artwork_drag
+                and not is_navigation_drag
+            ):
                 # Cancel the tap but keep sampling the finger: it may cross a
                 # small control before travelling far enough to commit a swipe.
                 if self.contact["is_native_active"]:
@@ -223,7 +232,9 @@ class DisplaySession:
                 self.force_frame.set()
                 continue
             if self.contact.get("is_tap_cancelled") or (
-                current != self.contact["identity"] and not is_artwork_drag
+                current != self.contact["identity"]
+                and not is_artwork_drag
+                and not is_navigation_drag
             ):
                 if phase == 2:
                     await self.cancel_contact()

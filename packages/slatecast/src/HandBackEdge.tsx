@@ -128,6 +128,7 @@ export const HandBackEdge = () => {
           key={edge}
           type="button"
           class={`hand-back-edge is-${edge}`}
+          data-castkit-target={`navigation-edge:hand-back-${edge}`}
           aria-label="Return to the automatic view"
           onPointerDown={(event) => beginPull(edge, event)}
           onPointerMove={trackPull}

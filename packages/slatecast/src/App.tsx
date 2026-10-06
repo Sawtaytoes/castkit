@@ -3,6 +3,7 @@ import type { ComponentType } from "preact"
 import { useEffect } from "preact/hooks"
 import { HandBackEdge } from "./HandBackEdge.tsx"
 import { activeView, device, settings } from "./state.ts"
+import { ViewSwipeEdges } from "./ViewSwipeEdges.tsx"
 import { ViewSwitcher } from "./ViewSwitcher.tsx"
 import {
   beginViewSwipe,
@@ -220,6 +221,7 @@ export const App = () => {
       }}
     >
       <ActiveView />
+      <ViewSwipeEdges />
       <ViewSwitcher />
       <HandBackEdge />
     </div>

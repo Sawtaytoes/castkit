@@ -203,5 +203,9 @@ test("print queue uses its own feed and never shows music or print controls", as
     screen.getByText("Printer · Manual start"),
   ).toBeVisible()
   expect(screen.queryByText("Roygbiv")).toBeNull()
-  expect(screen.queryByRole("button")).toBeNull()
+  const queue = document.querySelector(".queue")
+  expect(queue).not.toBeNull()
+  expect(
+    within(queue as HTMLElement).queryByRole("button"),
+  ).toBeNull()
 })

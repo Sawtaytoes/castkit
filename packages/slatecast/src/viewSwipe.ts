@@ -106,6 +106,18 @@ export const endViewSwipe = (event: PointerEvent) => {
   }
   const distanceX = event.clientX - startX
   const distanceY = event.clientY - startY
+  // Returning inside the threshold cancels the gesture. Re-check the allowed
+  // direction on release so a committed pull cannot become a short tap.
+  const isVertical =
+    Math.abs(distanceY) >= SWIPE_COMMIT_PIXELS &&
+    Math.abs(distanceY) > Math.abs(distanceX)
+  const isPrinterPull =
+    distanceX >= SWIPE_COMMIT_PIXELS &&
+    Math.abs(distanceX) > Math.abs(distanceY) &&
+    device.value?.hasPrinterNavigation
+  if (!isVertical && !isPrinterPull) {
+    return
+  }
   const view = activeView.value
   const hasAgenda = (agenda.value?.events ?? []).some(
     (event) =>

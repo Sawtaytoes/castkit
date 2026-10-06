@@ -213,6 +213,77 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                     await asyncio.sleep(0.01)
         self.assertEqual(await self.page.evaluate("window.actions"), ["next"])
 
+    async def test_all_shell_edges_keep_native_capture_outside_their_acknowledged_strip(self):
+        edges = [
+            ("left", 0, 0, 32, 320, 10, 80, 100, 80),
+            ("right", 448, 0, 32, 320, 470, 80, 380, 80),
+            ("top", 32, 0, 416, 24, 240, 10, 240, 100),
+            ("bottom", 32, 296, 416, 24, 240, 310, 240, 220),
+        ]
+        for index, (edge, left, top, width, height, start_x, start_y, end_x, end_y) in enumerate(
+            edges
+        ):
+            with self.subTest(edge=edge):
+                await self.page.set_content(f"""<div class="stage" data-view="external-view:0"
+                  style="position:absolute;inset:0;touch-action:none">
+                  <iframe src="about:blank" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
+                  <button data-castkit-target="navigation-edge:{edge}"
+                  style="position:absolute;left:{left}px;top:{top}px;width:{width}px;height:{height}px;touch-action:none">Edge</button></div>""")
+                await self.page.evaluate("""() => {
+                  window.actions = [];
+                  const edge = document.querySelector('button');
+                  edge.onpointerdown = event => {
+                    event.stopPropagation();
+                    edge.setPointerCapture(event.pointerId);
+                  };
+                  edge.onpointermove = event => event.stopPropagation();
+                  edge.onpointerup = event => {
+                    event.stopPropagation();
+                    window.actions.push(['release', event.clientX, event.clientY]);
+                  };
+                  edge.onpointercancel = () => window.actions.push(['cancel']);
+                  document.querySelector('.stage').onpointerdown = () => window.actions.push(['stage']);
+                }""")
+                targets = await self.page.evaluate(
+                    TARGETS_SCRIPT,
+                    {"attribute": "data-castkit-target", "width": 480, "height": 320},
+                )
+                self.session.guard.remember(
+                    60 + index,
+                    [
+                        Target(**{key: value for key, value in target.items() if key != "loading"})
+                        for target in targets
+                    ],
+                )
+                steps = [
+                    (0, start_x, start_y),
+                    (1, start_x + (end_x - start_x) // 3, start_y + (end_y - start_y) // 3),
+                    (1, end_x, end_y),
+                    (2, 0, 0),
+                ]
+                for offset, (phase, x, y) in enumerate(steps):
+                    sequence = index * 4 + offset + 1
+                    await self.session.touches.put(
+                        [
+                            "touch",
+                            str(sequence),
+                            str(phase),
+                            str(x),
+                            str(y),
+                            "0",
+                            str(60 + index),
+                            "0",
+                        ]
+                    )
+                    async with asyncio.timeout(3):
+                        while self.session.processed_touch != sequence:
+                            if self.task.done():
+                                self.task.result()
+                            await asyncio.sleep(0.01)
+                self.assertEqual(
+                    await self.page.evaluate("window.actions"), [["release", end_x, end_y]]
+                )
+
     async def test_cancelled_control_contact_does_not_cancel_native_touch_twice(self):
         await self.event(1, 0)
         await self.session.touches.put(["touch", "2", "1", "30", "55", "0", "42", "0"])
