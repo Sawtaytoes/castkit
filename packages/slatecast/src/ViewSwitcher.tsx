@@ -16,7 +16,7 @@ type EdgePull = {
 /**
  * Panel navigation that remains above every view, including external iframes.
  *
- * Either narrow edge handle can be tapped or pulled inward. The drawer then
+ * Either undrawn, full-height edge can be tapped or pulled inward. The drawer then
  * presents the views CastKit offered for this device as large direct targets.
  */
 export const ViewSwitcher = () => {
@@ -89,6 +89,7 @@ export const ViewSwitcher = () => {
             key={edge}
             type="button"
             class={`view-edge-handle is-${edge}`}
+            data-castkit-target={`navigation-edge:${edge}`}
             aria-label={`Open views from ${edge} edge`}
             onClick={() => setOpenEdge(edge)}
             onPointerDown={(event) =>
@@ -97,22 +98,20 @@ export const ViewSwitcher = () => {
             onPointerMove={trackPull}
             onPointerUp={endPull}
             onPointerCancel={endPull}
-          >
-            <span aria-hidden="true">
-              {edge === "left" ? "›" : "‹"}
-            </span>
-          </button>
+          />
         ))
       ) : (
         <>
           <button
             type="button"
             class="view-drawer-scrim"
+            data-castkit-target="view-drawer:scrim"
             aria-label="Close views"
             onClick={() => setOpenEdge(null)}
           />
           <section
             class={`view-drawer is-${openEdge}`}
+            data-castkit-target="view-drawer:panel"
             role="dialog"
             aria-label="Views"
           >
@@ -121,6 +120,7 @@ export const ViewSwitcher = () => {
               <button
                 type="button"
                 class="view-drawer-close"
+                data-castkit-target="view-drawer:close"
                 aria-label="Close views"
                 onClick={() => setOpenEdge(null)}
               >
@@ -133,6 +133,7 @@ export const ViewSwitcher = () => {
                   key={view.clientId}
                   type="button"
                   class="view-drawer-option"
+                  data-castkit-target={`view-drawer:select:${view.clientId}`}
                   aria-pressed={
                     activeView.value === view.clientId
                   }

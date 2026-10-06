@@ -189,35 +189,51 @@ html[data-grayscale-text="true"] {
   pointer-events: auto;
 }
 
+/* Undrawn edge regions keep navigation above external iframes. */
 .view-edge-handle {
   position: absolute;
-  top: 35%;
-  width: 34px;
-  height: 30%;
-  min-height: 112px;
+  top: 0;
+  bottom: 0;
+  width: 32px;
   padding: 0;
-  border: 1px solid
-    color-mix(in srgb, var(--fg) 28%, transparent);
-  background: color-mix(
-    in srgb,
-    var(--surface) 88%,
-    transparent
-  );
-  color: var(--fg);
-  font: 800 30px / 1 var(--font-sans);
+  border: 0;
+  background: none;
   touch-action: none;
 }
 
 .view-edge-handle.is-left {
   left: 0;
-  border-left: 0;
-  border-radius: 0 14px 14px 0;
 }
 
 .view-edge-handle.is-right {
   right: 0;
-  border-right: 0;
-  border-radius: 14px 0 0 14px;
+}
+
+.view-swipe-edges {
+  position: absolute;
+  inset: 0;
+  z-index: 19;
+  pointer-events: none;
+}
+
+.view-swipe-edge {
+  position: absolute;
+  left: 32px;
+  right: 32px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.view-swipe-edge.is-top {
+  top: 0;
+}
+
+.view-swipe-edge.is-bottom {
+  bottom: 0;
 }
 
 .view-drawer-scrim {

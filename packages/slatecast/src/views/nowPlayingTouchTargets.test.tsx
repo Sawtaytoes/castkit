@@ -110,6 +110,18 @@ const targetAt = (
   pointX: number,
   pointY: number,
 ) => {
+  // Exact boxes take priority. Slack must never expand a shell strip across
+  // its integer boundary and steal an adjacent control's valid landing.
+  const exact = targets.findLast(
+    (target) =>
+      target.x <= pointX &&
+      pointX < target.x + target.width &&
+      target.y <= pointY &&
+      pointY < target.y + target.height,
+  )
+  if (exact) {
+    return exact.identity
+  }
   for (
     let index = targets.length - 1;
     index >= 0;
@@ -190,6 +202,8 @@ describe.each([
     expect(
       targets.map((target) => target.identity).sort(),
     ).toEqual([
+      "navigation-edge:bottom",
+      "navigation-edge:top",
       "now-playing-artwork",
       "now-playing-mute",
       "now-playing-seek",
