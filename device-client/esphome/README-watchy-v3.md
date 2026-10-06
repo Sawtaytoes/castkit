@@ -62,10 +62,10 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
 ## Use
 
 - Top-right (Up): open cached agenda page 1, advance through its pages, then return to the default clock. The agenda omits its heading, date and battery; larger bold times separate event rows.
-- Top-left (Back): return to the default clock.
+- Top-left (Back): return to the default clock and synchronize immediately. A running task reopens its timer when the authoritative snapshot arrives.
 - Bottom-right (Down): open optional local scores, advance their pages, then return to the default clock. On a scores-disabled watch it advances an already-open agenda.
-- Bottom-left (Menu): toggle binary/digital clocks on a binary-enabled watch and request an immediate synchronization; otherwise return to the digital clock and sync. Waking and already-awake presses have the same meaning.
-- View buttons wake and draw cached data without enabling Wi-Fi on battery. Bottom-left requests a connection immediately.
+- Bottom-left (Menu): toggle binary/digital clocks locally; hold for two seconds to synchronize and reopen a running task. Waking and already-awake presses have the same meaning.
+- View buttons wake and draw cached data without enabling Wi-Fi on battery. Back and held Menu request a connection immediately.
 - Native API actions: `show_clock`, `show_agenda`, `show_scores`, `show_binary_clock`, `show_castkit`, `set_image`, `cycle_agenda`, `cycle_scores`, and `toggle_clock`.
   `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
 
@@ -92,7 +92,7 @@ and telemetry. A running timer also sleeps: its authoritative start time, name,
 banked minutes and selected page are cached in RTC SRAM across sleep, so elapsed
 minutes keep advancing locally between connections. A start or stop scan is noticed
 on the next successful connection. A new session selects the timer; ordinary repeated
-state and reconnects preserve the user's page choice.
+state and scheduled reconnects preserve the user's page choice. Explicit Back, held Menu or native `sync_now` reopens an active timer even when its start time is unchanged. Manual sync reconnects MQTT to obtain retained state immediately and clears receipt flags so old data cannot complete the new transfer.
 
 Set `battery_sync_minutes: '10'` for a calendar-only watch: the clock still
 wakes each minute, but Wi-Fi is enabled only on ten-minute boundaries. USB, manual
