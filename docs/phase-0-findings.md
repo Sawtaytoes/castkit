@@ -4,7 +4,7 @@ The Phase-0 proof-of-concept "spine" is built and runs end-to-end: a React
 now-playing view → rendered by two engines → per-panel supersample/downscale/
 dither → comparison contact sheets, plus a browser dev-preview. This doc records
 what the bake-offs showed so the engine + dither choices can be made from
-evidence. Regenerate the sheets any time with `yarn bakeoff` (output under
+evidence. Regenerate the sheets any time with `pnpm bakeoff` (output under
 `render-output/`, which is gitignored).
 
 ## What's built
@@ -17,9 +17,9 @@ evidence. Regenerate the sheets any time with `yarn bakeoff` (output under
   identically under both engines).
 - **`@inkcast/render`** — Chromium (Playwright) and Satori (SVG→resvg) engines.
 - **`@inkcast/web`** — Vite dev-preview: live-edit the track, see every panel at
-  native size (`yarn dev`).
-- **bake-off scripts** — `yarn bakeoff:render` (Decision 1) and
-  `yarn bakeoff:dither` (Decision 2).
+  native size (`pnpm dev`).
+- **bake-off scripts** — `pnpm bakeoff:render` (Decision 1) and
+  `pnpm bakeoff:dither` (Decision 2).
 
 ## Decision 1 — render engine (Chromium vs Satori)
 
@@ -101,8 +101,8 @@ review the sheets. (The mono default is currently atkinson; the sheets suggest
 ## Regenerate
 
 ```bash
-yarn install
-yarn playwright install chromium
-yarn bakeoff            # both sheets → render-output/
-yarn dev                # browser dev-preview
+pnpm install
+pnpm playwright install chromium
+pnpm bakeoff            # both sheets → render-output/
+pnpm dev                # browser dev-preview
 ```

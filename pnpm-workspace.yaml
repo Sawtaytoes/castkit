@@ -1,0 +1,11 @@
+packages:
+  - packages/*
+autoInstallPeers: false
+strictPeerDependencies: false
+minimumReleaseAge: 0
+enableGlobalVirtualStore: false
+enablePrePostScripts: false
+verifyDepsBeforeRun: error
+allowBuilds:
+  esbuild: true
+  msw: true

@@ -33,7 +33,7 @@ import "./platform.css"
  * write the picture; `ShortPanelClockFaces.test.tsx` and
  * `AmbientShortPanel.test.tsx` keep the assertions.
  *
- * Run by `yarn vrt:capture` only (see `vitest.vrt.config.ts`). The clock,
+ * Run by `pnpm vrt:capture` only (see `vitest.vrt.config.ts`). The clock,
  * the weather and the agenda are fixed, so a shot changes only when the
  * rendering does. The file names are the baseline keys: renaming one is a
  * deleted shot plus a new one.

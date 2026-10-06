@@ -9,7 +9,7 @@ import sharp from "sharp"
  * `assets/sample-photos/`. three.js loads from jsDelivr, pinned, so this needs
  * the network and nothing in `package.json`.
  *
- *   yarn tsx scripts/printer-fixture-images/render.ts
+ *   pnpm tsx scripts/printer-fixture-images/render.ts
  */
 
 const SCRIPT_DIRECTORY = import.meta.dirname

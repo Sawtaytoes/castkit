@@ -26,7 +26,7 @@ re-encoded as JPEG (mozjpeg) to keep the repo light; the originals are larger.
 ## Printer pictures — rendered for CastKit
 
 These four are not photographs. They are rendered by
-`scripts/printer-fixture-images/` (`yarn tsx scripts/printer-fixture-images/render.ts`)
+`scripts/printer-fixture-images/` (`pnpm tsx scripts/printer-fixture-images/render.ts`)
 from invented shapes, so no real print, printer or household detail is in them.
 They are dedicated to the public domain under **CC0**, like the rest of this folder.
 A real plate render is never a substitute: it can carry a name modeled into the part.

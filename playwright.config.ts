@@ -43,7 +43,7 @@ const windowProjects = createViewportProjects().map(
  * only serve it.
  */
 const buildCommand =
-  "yarn workspace @castkit/slatecast build && yarn workspace @castkit/admin build"
+  "pnpm --filter @castkit/slatecast build && pnpm --filter @castkit/admin build"
 
 export default createPlaywrightConfig({
   testDir: "./e2e",
@@ -54,8 +54,8 @@ export default createPlaywrightConfig({
     return {
       command:
         index === 0
-          ? `${buildCommand} && yarn tsx e2e/serve.ts`
-          : "yarn tsx e2e/serve.ts",
+          ? `${buildCommand} && pnpm tsx e2e/serve.ts`
+          : "pnpm tsx e2e/serve.ts",
       url: `http://localhost:${port}/d/e2e-square`,
       reuseExistingServer: !process.env.CI,
       stdout: "pipe" as const,

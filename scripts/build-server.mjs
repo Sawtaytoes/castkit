@@ -45,7 +45,7 @@ cpSync(
 
 // The Slatecast SPA is served by the server; build it and put the dist where
 // pages.ts resolves it in prod (next to the server bundle).
-execSync("yarn workspace @castkit/slatecast build", {
+execSync("pnpm --filter @castkit/slatecast build", {
   stdio: "inherit",
 })
 cpSync(
@@ -56,7 +56,7 @@ cpSync(
 
 // The management SPA lives in the same container as the device API. Its
 // SPA fallback is mounted at `/manage`, so links use real path URLs.
-execSync("yarn workspace @castkit/admin build", {
+execSync("pnpm --filter @castkit/admin build", {
   stdio: "inherit",
 })
 cpSync(

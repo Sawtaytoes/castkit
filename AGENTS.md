@@ -115,7 +115,7 @@ non-trivial task. Highlights:
   fix the vocabulary.
   ([decision](docs/decisions/2026-09-12-home-assistant-only-switches-views-and-castkit-owns-interactivity-and-delivery.md))
 - **Develop on a local disk (node-modules linker).** A mapped network share
-  can't host the Yarn-workspace symlinks (both `node-modules` and PnP fail over
+  can't host dependency symlinks (both `node-modules` and PnP fail over
   SMB) — keep the working tree on a local drive.
 - **Views use inline style objects** (Satori-safe flexbox), not Emotion/Tailwind.
 - **⛔ A repeating list in a view draws only the rows that FINISH on the panel.**
@@ -128,13 +128,13 @@ non-trivial task. Highlights:
   which is how a cap of four landed on a panel that held two
   ([decision](docs/decisions/2026-09-14-an-agenda-view-draws-only-the-rows-that-finish-on-the-panel.md)).
 - **Latest dependencies**, never scaffold with old ones.
-- **Prod = esbuild bundle + `node`**, never `tsx` (RAM). `yarn build` → `node
+- **Prod = esbuild bundle + `node`**, never `tsx` (RAM). `pnpm build` → `node
   dist/index.js`.
 - **No redundant arrow return-type annotations** — let TS infer (see code-rules).
 
 ## Project
 
-A TypeScript monorepo (Yarn 4 workspaces). The server renders a per-device HTML
+A TypeScript monorepo (pnpm workspaces). The server renders a per-device HTML
 view with headless Chromium (or Satori), quantizes/dithers it to the panel's
 palette, and pushes it over MQTT; devices surface in Home Assistant via MQTT
 discovery. Architecture + phase plan are in the README and
@@ -155,9 +155,9 @@ discovery. Architecture + phase plan are in the README and
 
 ### Bake-offs (Phase 0)
 
-- `yarn bakeoff:render` — Decision 1: renders the now-playing card through
+- `pnpm bakeoff:render` — Decision 1: renders the now-playing card through
   Chromium AND Satori at both panels → `render-output/render/`.
-- `yarn bakeoff:dither` — Decision 2: dithers card/gradient/photo with every
+- `pnpm bakeoff:dither` — Decision 2: dithers card/gradient/photo with every
   algorithm × supersample factor, one contact sheet per (panel, image), mono and
   E Ink Spectra 6 separate → `render-output/dither/`.
 
@@ -196,7 +196,7 @@ return a shared interface).
 ## Mirror the sibling app repos — don't regress their settled conventions
 
 Inkcast deliberately mirrors the maintainer's other TypeScript app repos (the
-`mux-magic` family): Yarn 4, TS 6 NodeNext, Biome + ESLint, Vitest, esbuild-bundle
+`mux-magic` family): pnpm 12.9.1, TS 6 NodeNext, Biome + ESLint, Vitest, esbuild-bundle
 prod, the code rules above. Those repos carry a `docs/decisions/` log of **locked**
 toolchain/convention decisions. Before changing any toolchain, build, lint, test,
 or code-style choice here, assume the sibling repos already settled it — match
@@ -240,12 +240,12 @@ which is the thing to read before touching any of this.
 
 ## Before every commit
 
-- `yarn lint` — Biome (`--write --unsafe`) then ESLint (`--fix`); re-stage changed files.
-- `yarn typecheck` — full monorepo type check.
-- `yarn test` — Vitest. Four node projects plus `slatecast`, which runs in
+- `pnpm lint` — Biome (`--write --unsafe`) then ESLint (`--fix`); re-stage changed files.
+- `pnpm typecheck` — full monorepo type check.
+- `pnpm test` — Vitest. Four node projects plus `slatecast`, which runs in
   **real Chromium** (browser mode, Playwright provider) with MSW's `ws.link`
-  standing in for the server socket. `yarn vitest run` for one-shot/CI.
-- `yarn e2e` — Playwright specs against the real server (`e2e/testServer.ts`,
+  standing in for the server socket. `pnpm vitest run` for one-shot/CI.
+- `pnpm e2e` — Playwright specs against the real server (`e2e/testServer.ts`,
   MQTT swapped for a recording stub). Run when you touch the browser-mode
   server, the page shell, or the WebSocket protocol.
 - **Every browser test runs in four windows** — `narrow` 384x824 (a phone),
@@ -260,7 +260,7 @@ which is the thing to read before touching any of this.
 
 ### Touched a `.py` or a `.cpp`? Those are linted too, as of 2026-09-14
 
-`yarn lint` reads TypeScript only. The Python under `device-client/` and the C++ in
+`pnpm lint` reads TypeScript only. The Python under `device-client/` and the C++ in
 `device-client/esphome/components/` are gated by CI's `nativeLint` job, which imports
 Charcuterie's `shared-native-lint.yml@workflows-v1`
 ([decision](https://github.com/Sawtaytoes/charcuterie/blob/master/docs/decisions/2026-09-14-shared-python-and-c-lint-config-lives-in-charcuterie-ci.md)).
@@ -290,9 +290,9 @@ one caught both vendored `.py` files.
 an unpinned run disagrees with the gate. The npm package carries the binary; the version CI
 uses is the workflow's `clangFormatVersion` default.
 
-> ### `yarn test` and `yarn e2e` will not start in an agent sandbox — that is the container
+> ### `pnpm test` and `pnpm e2e` will not start in an agent sandbox — that is the container
 >
-> Both need a Playwright chromium build: `slatecast` runs in browser mode and `yarn e2e`
+> Both need a Playwright chromium build: `slatecast` runs in browser mode and `pnpm e2e`
 > launches a real browser. `@castkit/render`'s headless engine wants one too. The agent
 > container ships browsers for its **own** globally-installed Playwright at a root-owned
 > `/opt/pw-browsers` and points `PLAYWRIGHT_BROWSERS_PATH` there. This repo pins its own
@@ -303,12 +303,12 @@ uses is the workflow's `clangFormatVersion` default.
 > Install this repo's build somewhere writable and point the run at it:
 >
 > ```sh
-> PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers yarn playwright install chromium
-> PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers yarn test
-> PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers yarn e2e
+> PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers pnpm playwright install chromium
+> PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers pnpm test
+> PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers pnpm e2e
 > ```
 >
-> Install the full `chromium` here rather than `chromium-headless-shell`: `yarn e2e` and
+> Install the full `chromium` here rather than `chromium-headless-shell`: `pnpm e2e` and
 > `@castkit/render` both want a real browser, and the headless shell cannot serve them.
 > `--dry-run` on the install prints the exact revision and path without downloading.
 >
@@ -327,13 +327,13 @@ uses is the workflow's `clangFormatVersion` default.
 
 There are **two**, composed side by side on `storybook.octen.dev`:
 
-- **ePaper** (`@castkit/web`, `yarn storybook` / `yarn build:storybook`) — the
+- **ePaper** (`@castkit/web`, `pnpm storybook` / `pnpm build:storybook`) — the
   static React views, every one on every example panel, with **live in-browser
   dithering** (the shared quantizer in `@castkit/core/pipeline/quantize`, the same
   code the server dithers with) and crop-inset controls (the shared
   `@castkit/core/panels/safeArea`).
-- **browser** (`@castkit/slatecast`, `yarn storybook:slatecast` /
-  `yarn build:storybook:slatecast`) — the Preact kiosk views. Separate because
+- **browser** (`@castkit/slatecast`, `pnpm storybook:slatecast` /
+  `pnpm build:storybook:slatecast`) — the Preact kiosk views. Separate because
   slatecast is Preact under a gz budget and lays out in `vw`/`vh`/`vmin`, which
   only resolve when the viewport *is* the panel; do **not** try to fold these into
   the React Storybook (and `preact/compat` is ruled out — see the M5b handoff).
@@ -353,7 +353,7 @@ interactions with `@testing-library/user-event`. Tests are colocated
 
 **Pictures are the `vrt` check's job, not a test's.** CI's `vrt` job
 (Charcuterie's `shared-vrt.yml`) shoots every story of both Storybooks plus the
-`*.vrt.tsx` files, which run only under `yarn vrt:capture`
+`*.vrt.tsx` files, which run only under `pnpm vrt:capture`
 (`packages/slatecast/vitest.vrt.config.ts`) and write PNGs into
 `VRT_ACTUAL_DIR`; reg-suit compares them against the baseline. A change to what a
 panel shows turns `vrt` red on purpose — diagnose it in that pull request and
@@ -393,8 +393,8 @@ Wayland, so `grim` reads the real framebuffer:
 
 ## Package manager
 
-Always `yarn`, never `npm`/`npx`. One-off executables use `yarn dlx <pkg>`.
-Add deps at latest: `yarn workspace @castkit/<pkg> add <dep>@latest`.
+Use pinned pnpm 12.9.1. Bootstrap its native binary with `npm install --global --force --allow-scripts=pnpm pnpm@12.9.1`; use pnpm for dependency commands. One-off executables use `pnpm dlx <pkg>`.
+Add deps at latest: `pnpm --filter @castkit/<pkg> add <dep>@latest`.
 
 ## Environment / secrets
 
