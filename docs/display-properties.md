@@ -514,3 +514,24 @@ starts off until valid data arrives. Manual On/Off overrides following. Room fol
 when Home Assistant automations already coordinate the display with room lights.
 The Backlight tab reads current settings periodically so external power and
 brightness changes appear without reloading the management page.
+
+
+## Ambient LED capability
+
+| Panel capability | Consequence |
+| --- | --- |
+| `hasRemoteAmbientLight: false` (default) | No ambient-light controls, frame controls or MQTT light are offered. |
+| `hasRemoteAmbientLight: true` | Independent ambient LED power, remembered brightness (0–100%), effect and demo preview are persisted by CastKit. The Ambient light tab applies them immediately; supporting receivers read `ambientLight` from `controls.json`. MQTT optionally mirrors the same state as a JSON light with five effects. The LEDs default off at 5%, independently of the display backlight. |
+
+Effects are `album-glow`, `swipe-comet`, `meeting-fuse`, `weather-aura` and
+`progress-bar`. Demo preview supplies effect demonstrations on a supporting
+receiver; turning it off uses current display data. `ambientLightData` supplies
+clamped track progress, playback state, duration, next timed event countdown and
+weather from the device's feeds or its assigned composition's channel bindings.
+Missing data stays empty; CastKit does not invent live progress or an event.
+
+MQTT uses `<base>/<device>/ambient_light/set` and retained
+`<base>/<device>/ambient_light/state` JSON with `state`, `brightness`, `effect`
+and `demo`. State is persisted locally, not restored from retained state topics.
+An OFF command or HA brightness zero retains the chosen positive brightness;
+ON restores it. Local brightness, effect and preview changes preserve power.

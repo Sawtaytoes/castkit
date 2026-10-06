@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-06: Ambient LEDs have independent shared controls](2026-10-06-ambient-leds-have-independent-shared-controls.md)
+
 - [2026-10-06: Horizontal Watchy binary rows](2026-10-06-watchy-binary-rows-read-most-significant-bit-first.md)
 
 - [2026-10-06: Compact Watchy binary grid](2026-10-06-watchy-binary-grid-is-compact.md)

@@ -52,6 +52,7 @@ import {
   getBrowserViewByName,
   getBrowserViewsForDevice,
 } from "../views/browserRegistry.ts"
+import { buildAmbientLightData } from "./ambientLightData.ts"
 import {
   brightnessToPercent,
   createBrowserBacklightStore,
@@ -69,6 +70,8 @@ import {
   resolveSlatecastBuildId,
   resolveSlatecastDistDir,
 } from "./pages.ts"
+import { createRemoteAmbientLight } from "./remoteAmbientLight.ts"
+import { createRemoteAmbientLightMqtt } from "./remoteAmbientLightMqtt.ts"
 import { createRemoteBacklight } from "./remoteBacklight.ts"
 import { createRemoteBacklightMqtt } from "./remoteBacklightMqtt.ts"
 
@@ -121,6 +124,15 @@ export type BrowserMode = ReturnType<
 
 /** The slice of the platform the device page reads channels and actions through. */
 export type BrowserModePlatform = {
+  getDeviceTarget?: (
+    deviceId: string,
+  ) => { kind: "view" | "screen"; id: string } | undefined
+  getTarget?: (target: {
+    kind: "view" | "screen"
+    id: string
+  }) => {
+    view: import("@castkit/sdk/contracts").ViewDefinition
+  } | null
   store?: PlatformStore
   hub: {
     get: (id: string) => ChannelSnapshot | undefined
@@ -190,8 +202,23 @@ export const createBrowserMode = ({
   const viewDataStore = createViewDataStore()
   const photoConfigStore = createBrowserPhotoConfigStore()
   const backlightStore = createBrowserBacklightStore()
+  const controlStore =
+    platform?.store ?? createPlatformStore()
+  const remoteAmbientLight = createRemoteAmbientLight({
+    store: controlStore,
+  })
+  const ambientLightMqtt = createRemoteAmbientLightMqtt({
+    controller: remoteAmbientLight,
+    publisher,
+    baseTopic,
+  })
+  const mirrorAmbientLight = (deviceId: string) => {
+    void ambientLightMqtt
+      .publish({ deviceId })
+      .catch(() => {})
+  }
   const remoteBacklight = createRemoteBacklight({
-    store: platform?.store ?? createPlatformStore(),
+    store: controlStore,
     getChannel: (id) => platform?.hub.get(id),
   })
   const remoteBacklightMqtt = createRemoteBacklightMqtt({
@@ -309,6 +336,41 @@ export const createBrowserMode = ({
         })
     },
   })
+
+  const readAmbientLightData = (deviceId: string) => {
+    const target = platform?.getDeviceTarget?.(deviceId)
+    if (!target)
+      return buildAmbientLightData({
+        data: buildViewDataState(deviceId),
+      })
+    const view = platform?.getTarget?.(target)?.view
+    const snapshots =
+      view?.panels
+        .flatMap((panel) =>
+          Object.values(panel.bindings).map((channelId) =>
+            platform?.hub.get(channelId),
+          ),
+        )
+        .filter(
+          (snapshot) => snapshot?.status === "ready",
+        ) ?? []
+    const read = (type: string) =>
+      snapshots.find((snapshot) => snapshot?.type === type)
+        ?.data
+    return buildAmbientLightData({
+      data: {
+        nowPlaying: read(
+          "now-playing.v1",
+        ) as ViewDataState["nowPlaying"],
+        agenda: read(
+          "agenda.v1",
+        ) as ViewDataState["agenda"],
+        weather: read("weather.v1") as
+          | { condition?: string }
+          | undefined,
+      },
+    })
+  }
 
   const buildViewDataState = (
     deviceId: string,
@@ -572,6 +634,7 @@ export const createBrowserMode = ({
   }
 
   type RouteKind =
+    | "ambientLight"
     | "view"
     | "viewRestore"
     | "reload"
@@ -676,6 +739,11 @@ export const createBrowserMode = ({
         : []
     routeEntries
       .concat(backlightRouteEntries)
+      .concat(
+        device.hasRemoteAmbientLight
+          ? [[topics.ambientLightCommand, "ambientLight"]]
+          : [],
+      )
       .forEach(([topic, kind]) => {
         routes.set(topic, { deviceId: device.id, kind })
       })
@@ -747,6 +815,15 @@ export const createBrowserMode = ({
       return
     }
 
+    if (
+      kind === "ambientLight" &&
+      stateStore.deviceById.get(deviceId)
+        ?.hasRemoteAmbientLight
+    ) {
+      if (ambientLightMqtt.command({ deviceId, payload }))
+        mirrorAmbientLight(deviceId)
+      return
+    }
     if (
       stateStore.deviceById.get(deviceId)
         ?.hasRemoteBacklight &&
@@ -1111,6 +1188,17 @@ export const createBrowserMode = ({
         ),
     )
 
+    await Promise.all(
+      devices
+        .filter((device) => device.hasRemoteAmbientLight)
+        .map((device) =>
+          ambientLightMqtt.publish({
+            deviceId: device.id,
+            isForced: true,
+          }),
+        ),
+    )
+
     // Publish the URL diagnostic sensor + reset the connected flag (retained
     // ON from a previous run would lie until the first socket event).
     await Promise.all(
@@ -1293,7 +1381,8 @@ export const createBrowserMode = ({
           height: device.height,
         },
         page_url: `/d/${device.id}`,
-        ...(device.hasRemoteBacklight
+        ...(device.hasRemoteBacklight ||
+        device.hasRemoteAmbientLight
           ? {
               controls_url: `/d/${device.id}/controls.json`,
             }
@@ -1310,9 +1399,10 @@ export const createBrowserMode = ({
 
     app.get("/d/:id/controls.json", (context) => {
       const deviceId = context.req.param("id") ?? ""
+      const device = stateStore.deviceById.get(deviceId)
       if (
-        !stateStore.deviceById.get(deviceId)
-          ?.hasRemoteBacklight
+        !device?.hasRemoteBacklight &&
+        !device?.hasRemoteAmbientLight
       ) {
         return context.json(
           { error: "no direct backlight" },
@@ -1320,7 +1410,19 @@ export const createBrowserMode = ({
         )
       }
       context.header("Cache-Control", "no-store")
-      return context.json(remoteBacklight.resolve(deviceId))
+      return context.json({
+        ...(device?.hasRemoteBacklight
+          ? remoteBacklight.resolve(deviceId)
+          : {}),
+        ...(device?.hasRemoteAmbientLight
+          ? {
+              ambientLight:
+                remoteAmbientLight.get(deviceId),
+              ambientLightData:
+                readAmbientLightData(deviceId),
+            }
+          : {}),
+      })
     })
 
     // A fresh, face-cropped Immich photo sized to this browser panel. The SPA
@@ -1526,9 +1628,23 @@ export const createBrowserMode = ({
     if (!device) {
       return null
     }
+    const ambientSettings = device.hasRemoteAmbientLight
+      ? (() => {
+          const state = remoteAmbientLight.get(deviceId)
+          return {
+            ambientLightPower: state.isOn ? "on" : "off",
+            ambientLightBrightness: String(
+              state.brightness,
+            ),
+            ambientLightMode: state.mode,
+            ambientLightDemo: String(state.demo),
+          }
+        })()
+      : {}
     if (device.hasRemoteBacklight) {
       const settings = remoteBacklight.get(deviceId)
       return {
+        ...ambientSettings,
         backlightLevel: String(settings.level),
         backlightPower: settings.power,
         backlightRoomChannel: settings.channel,
@@ -1544,6 +1660,7 @@ export const createBrowserMode = ({
     }
     return device.hasMqttBacklight
       ? {
+          ...ambientSettings,
           backlightLevel: String(
             backlightStore.getPercent(deviceId),
           ),
@@ -1556,7 +1673,7 @@ export const createBrowserMode = ({
               : 0,
           ),
         }
-      : {}
+      : ambientSettings
   }
 
   /**
@@ -1574,6 +1691,18 @@ export const createBrowserMode = ({
   }) => {
     const device = stateStore.deviceById.get(deviceId)
     const topics = topicsByDeviceId.get(deviceId)
+    if (
+      device?.hasRemoteAmbientLight &&
+      kind.startsWith("ambientLight")
+    ) {
+      const isUpdated = remoteAmbientLight.set({
+        deviceId,
+        kind,
+        payload,
+      })
+      if (isUpdated) mirrorAmbientLight(deviceId)
+      return isUpdated
+    }
     if (device?.hasRemoteBacklight) {
       const isUpdated = remoteBacklight.set({
         deviceId,

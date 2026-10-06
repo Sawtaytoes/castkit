@@ -16,6 +16,8 @@ export type Device = {
   hasMqttBacklight?: boolean
   /** Backlight commands travel directly with remote display frames. */
   hasRemoteBacklight?: boolean
+  /** Independent ambient LEDs receive persisted controls alongside remote frames. */
+  hasRemoteAmbientLight?: boolean
   /** Ordered allow-list. Absent means every compatible view. */
   views?: string[]
   externalViews?: {
