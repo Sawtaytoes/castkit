@@ -160,7 +160,7 @@ setting only starts mattering when a photo, a gradient or album art appears.
 | Value | Example panels | What it changes |
 | --- | --- | --- |
 | `none` | Inky pHAT, Inky Impression, HyperPixel Round | No control may be the only way to reach a function. Every state the display can be in must be reachable from Home Assistant or the admin panel. A view may still show a control-shaped thing only if it is labeled as status. |
-| `touch` | M5Paper, WT32-SC01, HyperPixel Square, Pi Touch 2 | Targets are sized for a finger. ⚠️ On a frame-pushed panel **a target's bounding box IS its touch area** — a hit-area pad drawn on a `::before`, or a part that overflows its box, is discarded silently ([decision](decisions/2026-09-13-a-touch-targets-bounding-box-is-its-touch-area.md)). |
+| `touch` | M5Paper, WT32-SC01, HyperPixel Square, Pi Touch 2 | Targets are sized for a finger. Undrawn top/bottom edge strips preserve audio/time swipes above external views; an enabled view drawer opens from either full-height side edge. Held views retain the existing side hand-back gesture. ⚠️ On a frame-pushed panel **a target's bounding box IS its touch area** — a hit-area pad drawn on a `::before`, or a part that overflows its box, is discarded silently ([decision](decisions/2026-09-13-a-touch-targets-bounding-box-is-its-touch-area.md)). |
 | `pointer` | none today | Hover exists, so a hover affordance is allowed. Nothing in the fleet is here. |
 
 `input` is independent of everything else. The M5Paper is ePaper with touch.
