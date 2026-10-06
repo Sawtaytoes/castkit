@@ -17,6 +17,9 @@ int main() {
   assert(cache.events[0].all_day);
   assert(cache.events[1].start == 1791222000);
   assert(std::string(cache.events[1].summary) == "Practice");
+  assert(accept(
+      R"({"date":"2026-10-05","events":[{"startMs":1791222000000,"summary":"Tutor\u2019s practice","isAllDay":false}]})"));
+  assert(std::string(cache.events[0].summary) == "Tutor's practice");
   const auto saved = cache;
   assert(!accept(
       R"({"date":"2026-10-05","events":[{"startMs":12,"summary":"Bad timestamp","isAllDay":false}]})"));

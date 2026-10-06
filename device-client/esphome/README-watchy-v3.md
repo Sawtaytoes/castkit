@@ -68,8 +68,8 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
   `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
 
 Clock and timer labels use bold type. The local pages show an estimated battery
-number inside a filled battery icon in the top right, without a percent sign.
-Bold black digits have a white one-pixel outline for contrast against the fill.
+number inside a solid black battery icon in the top right, without a percent sign.
+Solid 20 px bold white digits contrast against the black battery.
 The charging bolt sits to the left of the icon and follows the active-low
 GPIO10 charger status, rather than the presence of USB power. The diagnostic Device Time and IP Address entities
 make synchronization and future OTA updates observable in Home Assistant.
@@ -177,3 +177,54 @@ c++ -std=c++17 -I/path/to/ArduinoJson/src device-client/esphome/tests/watchy_age
 ```
 
 Compile the ESPHome wrapper to verify the full firmware and hardware component.
+
+
+## Button scores and offline use
+
+The clock is local and continues without Wi-Fi or CastKit after synchronization.
+The dated agenda also remains in flash. A cold start after complete power loss
+needs a time source again; the v3 crystal keeps time during deep sleep, rather
+than supplying an independently powered RTC.
+
+An optional local scores page shows three children per page using bold names
+and totals. Enable it in the private wrapper:
+
+```yaml
+substitutions:
+  scores_enabled: 'true'
+  scores_state_topic: points/state/+
+```
+
+The subscription reads Tally Marks' retained per-child state. Down opens scores
+from the clock, binary clock, timer or CastKit page. Back returns to the clock. Menu cycles
+clock, optional binary clock, agenda, optional scores and CastKit; disabled optional pages are skipped. Up/Down paginate agenda and scores. `show_scores` is also
+available through the encrypted native API.
+
+The cache accepts a child's `{kid, kidName, day, pointsToday, displayOrder, ts}`
+state, or a dated canonical `{date, kids: [{id, name, pointsToday, displayOrder}]}`
+snapshot on the configured topic. `ts` is optional epoch milliseconds. It stores
+up to six entries with bounded identities/names, orders them by the producer's
+manual order, supports negative scores and saves only changed data. Invalid,
+older or oversized snapshots preserve the previous cache. A new day clears old
+rows before collecting the new day's children.
+
+Away from Wi-Fi, the page shows the last received scores with their date and an
+`Offline / saved` label. It never labels another day's totals as today's score.
+Points update only when the watch reconnects; viewing scores makes no ledger
+changes. Agenda-only installations can leave scores disabled.
+
+
+## Binary clock
+
+Set `binary_clock_enabled: 'true'` in the private wrapper to add a local binary
+clock immediately after the regular clock in the Menu cycle. Five hour bits
+represent 0 through 23; six minute bits represent 0 through 59. Filled dots count
+toward their labelled weights (32, 16, 8, 4, 2, 1). Add the filled weights in
+each column. The small 24-hour digital time beneath the dots provides a learning
+reference. There is no seconds column, so the existing minute refresh and sleep
+cadence stays in place. `show_binary_clock` is available through the native API.
+This face works offline from the same local clock.
+
+Agenda and scores normalize curly apostrophes to the embedded straight-apostrophe
+glyph. Long text remains bounded; unsupported non-ASCII characters are replaced
+once per code point rather than splitting UTF-8 in flash.

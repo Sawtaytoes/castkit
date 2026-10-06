@@ -1,5 +1,6 @@
 #pragma once
 #include "watchy_agenda.h"
+#include "watchy_scores.h"
 
 #include "esphome/core/component.h"
 #include "esphome/core/log.h"

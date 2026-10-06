@@ -1,4 +1,5 @@
 #pragma once
+#include "watchy_text.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -50,18 +51,8 @@ inline bool parse_agenda(JsonObjectConst json, AgendaCache &cache) {
     auto &row = next.events[next.count++];
     row.start = start;
     row.all_day = event["isAllDay"].as<bool>();
-    // This face embeds ASCII glyphs. Replace non-ASCII
-    // Unicode once per code point, never leave half a UTF-8 sequence in flash.
-    const std::string title = event["summary"].as<std::string>();
-    size_t written = 0;
-    for (size_t i = 0; i < title.size() && written < sizeof(row.summary) - 1; i++) {
-      const auto ch = static_cast<unsigned char>(title[i]);
-      if (ch < 128) {
-        row.summary[written++] = ch >= 32 ? ch : ' ';
-      } else if ((ch & 0xc0) != 0x80) {
-        row.summary[written++] = '?';
-      }
-    }
+    // Normalize curly apostrophes to the embedded ASCII apostrophe glyph.
+    ascii_text(row.summary, event["summary"].as<std::string>());
   }
   std::sort(next.events.begin(), next.events.begin() + next.count,
             [](const AgendaEvent &a, const AgendaEvent &b) { return a.start < b.start; });
