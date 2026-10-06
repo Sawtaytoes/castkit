@@ -27,13 +27,14 @@ docker run --rm --env-file .env -p 8788:8788 \
 ## Run from source
 
 ```sh
-corepack yarn install
-corepack yarn playwright install chromium
-corepack yarn build
-corepack yarn start:prod
+npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
+pnpm install
+pnpm playwright install chromium
+pnpm build
+pnpm start:prod
 ```
 
-Use `corepack yarn dev` for the browser preview and `corepack yarn dev:server` for the
+Use `pnpm dev` for the browser preview and `pnpm dev:server` for the
 server during development.
 
 ## Documentation

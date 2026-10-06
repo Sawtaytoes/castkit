@@ -40,7 +40,7 @@ The [example clock package](../examples/clock-plugin/README.md) includes a build
 
 ### Build-installed packages
 
-The existing deployment path remains supported: install an exact version with Yarn, list its package name in `castkit.plugins.json`, and run `yarn build`. Those packages are part of the application image and cannot be removed through management. Their `browserEntry` is a package export such as `@example/castkit-extension/browser`; the build bundles it into `/assets/plugins/...js`.
+The existing deployment path remains supported: install an exact version with Yarn, list its package name in `castkit.plugins.json`, and run `pnpm build`. Those packages are part of the application image and cannot be removed through management. Their `browserEntry` is a package export such as `@example/castkit-extension/browser`; the build bundles it into `/assets/plugins/...js`.
 
 ## Package contract
 

@@ -75,7 +75,7 @@ import {
  */
 /**
  * Load a local `.env` if present (gitignored) — from the working directory
- * or the repo root (so `yarn workspace @castkit/server dev`, whose cwd is
+ * or the repo root (so `pnpm --filter @castkit/server dev`, whose cwd is
  * `packages/server`, finds it too). In containers, env is usually passed
  * directly, so a missing file is fine.
  */

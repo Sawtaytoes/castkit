@@ -1,8 +1,9 @@
+# syntax=docker/dockerfile:1
 # CastKit server (Inkcast image mode + Slatecast browser mode).
 #
 # The server renders with headless Chromium (Playwright), so the image bundles a
 # Chromium build. Runtime is the esbuild bundle run with plain `node` (never tsx
-# in prod — locked decision); `yarn build` also copies the font TTFs next to the
+# in prod — locked decision); `pnpm build` also copies the font TTFs next to the
 # bundle, where the render engine resolves them by path.
 
 FROM node:26-slim AS base
@@ -15,11 +16,10 @@ ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 ENV NODE_ENV=production
 ENV TZ=America/Chicago
 
-RUN npm install -g corepack@latest && corepack enable yarn
+RUN npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
 
 # --- Dependency layer (only manifests, so source edits don't bust the install) ---
-COPY .yarnrc.yml package.json yarn.lock ./
-COPY .yarn .yarn
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/sdk/package.json packages/sdk/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/slatecast/package.json packages/slatecast/package.json
@@ -30,19 +30,19 @@ COPY packages/server/package.json packages/server/package.json
 COPY packages/web/package.json packages/web/package.json
 COPY packages/admin/package.json packages/admin/package.json
 
-RUN yarn install --immutable
+RUN --mount=type=cache,id=castkit-pnpm,target=/pnpm/store,sharing=locked pnpm install --prod=false --frozen-lockfile --store-dir /pnpm/store
 
 # Chromium + its system libraries for the render engine.
-RUN yarn playwright install --with-deps chromium
+RUN pnpm exec playwright install --with-deps chromium
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # --- Source + bundle ---
 COPY . .
-RUN yarn build
+RUN pnpm build
 
 # HTTP API port (override with PORT).
 EXPOSE 8788
 
 # Config comes from the environment (see .env.example). Mount a .env or pass
 # -e vars; nothing house-specific is baked into the image.
-CMD ["yarn", "workspace", "@castkit/server", "start:prod"]
+CMD ["pnpm", "--filter", "@castkit/server", "start:prod"]
