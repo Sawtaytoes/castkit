@@ -61,6 +61,7 @@ class PrestoTransport:
             # Sequence numbers restart after a physical reboot; rebuild the
             # browser contact/acknowledgement state before accepting that input.
             self.report("error,device-restarted")
+            self.reported_backlight_percent = None
             self.frame = None
             self.base_pixels, self.base_id = None, 0
             self.touch_received_at.clear()

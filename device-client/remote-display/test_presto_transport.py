@@ -97,9 +97,11 @@ class PrestoTransportTests(unittest.IsolatedAsyncioTestCase):
         )
         while self.transport.frame is None:
             await asyncio.sleep(0.001)
+        self.transport.reported_backlight_percent = 35
         response = await self.client.get(
             "/frame", headers={**self.headers, "X-CastKit-Boot": "second-boot"}
         )
+        self.assertIsNone(self.transport.reported_backlight_percent)
         self.assertEqual(response.status, 204)
         with self.assertRaises(ConnectionError):
             await sending
