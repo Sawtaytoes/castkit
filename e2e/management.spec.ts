@@ -1,5 +1,39 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
 import { showDeviceList, windowOf } from "./windows.ts"
+
+const expectPowerButtons = async ({
+  page,
+  isOn,
+}: {
+  page: Page
+  isOn: boolean
+}) => {
+  await page.mouse.move(0, 0)
+  const active = page.getByRole("button", {
+    name: isOn ? "On" : "Off",
+    exact: true,
+  })
+  const inactive = page.getByRole("button", {
+    name: isOn ? "Off" : "On",
+    exact: true,
+  })
+  await expect(active).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await expect(inactive).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  )
+  await expect(active).not.toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  )
+  await expect(inactive).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  )
+}
 
 const IMAGE_DEVICE = {
   id: "sample-image",
@@ -687,6 +721,7 @@ for (const isNative of [true, false]) {
       "aria-valuenow",
       "35",
     )
+    await expectPowerButtons({ page, isOn: true })
     await slider.press("End")
     await expect
       .poll(() => writes)
@@ -704,6 +739,7 @@ for (const isNative of [true, false]) {
       page.getByText("Backlight off", { exact: true }),
     ).toBeVisible()
     expect(state.backlightLevel).toBe("100")
+    await expectPowerButtons({ page, isOn: false })
     state.backlightLevel = "42"
     state.backlightPower = "on"
     state.backlightEffective = "42"
@@ -715,6 +751,7 @@ for (const isNative of [true, false]) {
       page.getByText("Backlight on · 42%", { exact: true }),
     ).toBeVisible()
     expect(writes).toHaveLength(2)
+    await expectPowerButtons({ page, isOn: true })
     await page
       .getByRole("button", { name: "Off", exact: true })
       .click()
@@ -919,6 +956,19 @@ test("Ambient LED effect, slider, power and demo apply immediately and reflect M
     ambientLightBrightness: "5",
     ambientLightMode: "album-glow",
     ambientLightDemo: "false",
+    ambientLightFollowView: "false",
+    ambientLightViewModes: JSON.stringify({
+      "builtin:now-playing": "album-glow",
+      "builtin:calendar": "meeting-fuse",
+      "view:custom": "off",
+    }),
+    ambientLightEffectiveView: "Now Playing",
+    ambientLightEffectiveViewId: "builtin:now-playing",
+    ambientLightViewOptions: JSON.stringify([
+      { id: "builtin:now-playing", name: "Now Playing" },
+      { id: "builtin:calendar", name: "Calendar" },
+      { id: "view:custom", name: "Custom view" },
+    ]),
     backlightLevel: "35",
     backlightPower: "on",
     backlightEffective: "35",
@@ -936,8 +986,22 @@ test("Ambient LED effect, slider, power and demo apply immediately and reflect M
           writes.push(setting)
         })
         await route.fulfill({ json: { ok: true } })
-      } else
+      } else {
+        state.ambientLightEffectiveMode =
+          state.ambientLightFollowView === "true"
+            ? (JSON.parse(
+                state.ambientLightViewModes ?? "{}",
+              )[state.ambientLightEffectiveViewId ?? ""] ??
+              "off")
+            : (state.ambientLightMode ?? "album-glow")
+        state.ambientLightEffectivePower =
+          state.ambientLightPower === "on" &&
+          state.ambientLightEffectiveMode !== "off" &&
+          Number(state.ambientLightBrightness) > 0
+            ? "on"
+            : "off"
         await route.fulfill({ json: { settings: state } })
+      }
     },
   )
   await page.goto(
@@ -954,6 +1018,7 @@ test("Ambient LED effect, slider, power and demo apply immediately and reflect M
     exact: true,
   })
   await expect(slider).toHaveAttribute("aria-valuenow", "5")
+  await expectPowerButtons({ page, isOn: false })
   await slider.press("End")
   await expect
     .poll(() => state.ambientLightBrightness)
@@ -967,6 +1032,7 @@ test("Ambient LED effect, slider, power and demo apply immediately and reflect M
       exact: true,
     }),
   ).toBeVisible()
+  await expectPowerButtons({ page, isOn: true })
   await page
     .getByRole("button", {
       name: "Effect: Album glow",
@@ -991,6 +1057,72 @@ test("Ambient LED effect, slider, power and demo apply immediately and reflect M
   await expect
     .poll(() => state.ambientLightDemo)
     .toBe("true")
+  await page
+    .getByRole("checkbox", {
+      name: "Follow current view",
+      exact: true,
+    })
+    .check()
+  await expect(
+    page.getByText(
+      "Current view: Now Playing · Album glow.",
+      { exact: true },
+    ),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Custom view", { exact: true }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", {
+      name: "Now Playing effect: Album glow",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("option", { name: "Off", exact: true })
+    .click()
+  await expect(
+    page.getByText(
+      "Current view: Now Playing · Off for this view.",
+      { exact: true },
+    ),
+  ).toBeVisible()
+  await expectPowerButtons({ page, isOn: false })
+  expect(state.ambientLightPower).toBe("on")
+  expect(state.ambientLightBrightness).toBe("100")
+  expect(state.ambientLightMode).toBe("meeting-fuse")
+  await page
+    .getByRole("button", {
+      name: "Custom view effect: Off",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Weather aura",
+      exact: true,
+    })
+    .click()
+  await expect
+    .poll(() =>
+      JSON.parse(state.ambientLightViewModes ?? "{}"),
+    )
+    .toMatchObject({
+      "builtin:now-playing": "off",
+      "view:custom": "weather-aura",
+    })
+  await page
+    .getByRole("checkbox", {
+      name: "Follow current view",
+      exact: true,
+    })
+    .uncheck()
+  await expect(
+    page.getByText("Ambient light on · 100%", {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expectPowerButtons({ page, isOn: true })
   state.ambientLightBrightness = "12"
   state.ambientLightPower = "off"
   state.ambientLightDemo = "false"
@@ -1008,6 +1140,7 @@ test("Ambient LED effect, slider, power and demo apply immediately and reflect M
     page.getByText("Ambient light off", { exact: true }),
   ).toBeVisible()
   expect(state.backlightLevel).toBe("35")
+  await expectPowerButtons({ page, isOn: false })
   expect(state.backlightPower).toBe("on")
   expect(
     writes.every((write) =>
