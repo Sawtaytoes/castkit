@@ -257,3 +257,9 @@ black-and-white ePaper panel behave a little like a live display.
 Watchy bottom-left: short presses select the local clock; hold for two seconds
 to request an immediate Wi-Fi synchronization. Short view presses stay offline
 on battery, including a wake from deep sleep. Scheduled checks remain unchanged.
+
+Watchy top-left Back returns to the configured clock and requests immediate sync,
+including a wake from sleep and when retry backoff is pending. An installation may
+set `battery_sync_minutes: '2'` with `active_timer_sync_minutes: '1'` for slower idle
+scan checks and one-minute active-timer updates. Calendar-only profiles keep their
+own longer interval. Clock, agenda and Points render cached data locally.

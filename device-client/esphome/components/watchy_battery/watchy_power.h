@@ -21,6 +21,8 @@ struct WakeContext {
   uint8_t minute;
   uint8_t sync_minutes;
   uint32_t timestamp{0};
+  bool has_active_timer{false};
+  uint8_t active_sync_minutes{1};
 };
 
 inline bool network_due(const WakeContext &wake, const RetryState &retry = {}) {
@@ -30,11 +32,12 @@ inline bool network_due(const WakeContext &wake, const RetryState &retry = {}) {
   if (retry.failures > 0) {
     return wake.timestamp >= retry.next_attempt;
   }
-  const uint8_t interval = wake.sync_minutes > 0 && wake.sync_minutes <= 60 ? wake.sync_minutes : 1;
+  const uint8_t configured = wake.has_active_timer ? wake.active_sync_minutes : wake.sync_minutes;
+  const uint8_t interval = configured > 0 && configured <= 60 ? configured : 1;
   return wake.minute % interval == 0;
 }
 inline uint8_t retry_minutes(const RetryState &retry, uint8_t sync_minutes) {
-  return retry.failures == 0 ? 1 : retry.failures == 1 && sync_minutes == 1 ? 5 : 15;
+  return retry.failures == 0 ? 1 : retry.failures == 1 && sync_minutes <= 2 ? 5 : 15;
 }
 
 inline void network_failed(RetryState &retry, uint32_t timestamp, uint8_t sync_minutes) {

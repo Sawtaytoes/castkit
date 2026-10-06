@@ -4,7 +4,7 @@
 - **Date:** 2026-10-06
 - **Type:** Device behavior / performance correction
 - **Supersedes:** The manual-sync press behavior in [view-button cycles](2026-10-06-watchy-view-buttons-cycle-and-clocks-show-cached-next-events.md)
-- **Superseded by:** None
+- **Superseded by:** [Idle scans and Back sync](2026-10-06-watchy-idle-scans-slow-down-and-back-syncs.md), Back activation only
 
 ## Decision
 

@@ -1,5 +1,8 @@
 # CastKit decision records
 
+- [2026-10-06 Watchy clock and Points emphasize primary values](2026-10-06-watchy-clock-and-points-emphasize-primary-values.md)
+- [2026-10-06 Watchy idle scans slow down and Back syncs](2026-10-06-watchy-idle-scans-slow-down-and-back-syncs.md)
+
 - [2026-10-06 Watchy short clock presses stay offline](2026-10-06-watchy-short-clock-presses-stay-offline.md)
 
 - [2026-10-06 Watchy view buttons cycle and clocks show cached next events](2026-10-06-watchy-view-buttons-cycle-and-clocks-show-cached-next-events.md)
