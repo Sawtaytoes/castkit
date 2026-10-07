@@ -570,6 +570,10 @@ export const KidsPointsView = ({
   const layout = getKidsPointsLayout({
     ...size,
     kidCount: data.kids.length,
+    minimumRowHeight:
+      settings?.isAllChildrenVisible === true
+        ? 128
+        : undefined,
   })
   const content =
     settings?.isTotalsOnly === true ? (

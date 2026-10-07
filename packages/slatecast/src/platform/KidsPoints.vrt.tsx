@@ -467,3 +467,31 @@ test("large initials preserve complete longer names and totals on a compact boar
     "kids-points-all-children-long-names-480x480",
   )
 })
+
+test("a shorter all-child panel omits rows before shrinking primary values", async () => {
+  await page.viewport(480, 320)
+  renderDevicePage(
+    compactBoardSnapshot({
+      isAllChildrenVisible: true,
+      hasScan: false,
+    }),
+  )
+  await document.fonts.ready
+  const rows = Array.from(
+    document.querySelectorAll(".kids-points-row"),
+  )
+  expect(rows).toHaveLength(1)
+  expect(
+    document.querySelector(".kids-points-overflow")
+      ?.textContent,
+  ).toBe("2 more")
+  rows.forEach((row) => {
+    expect(row.scrollHeight).toBeLessThanOrEqual(
+      row.clientHeight + 1,
+    )
+    expect(
+      row.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(320)
+  })
+  await capture("kids-points-all-children-rows-480x320")
+})
