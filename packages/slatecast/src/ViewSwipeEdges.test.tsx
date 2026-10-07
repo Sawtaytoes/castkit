@@ -64,8 +64,18 @@ const drag = ({
 
 describe("shell navigation from all four edges", () => {
   test.each([
-    ["top", "Swipe down for audio", "now-playing", 80],
-    ["bottom", "Swipe up for time", "ambient", -80],
+    [
+      "top",
+      "Pull inward from the top for audio",
+      "now-playing",
+      80,
+    ],
+    [
+      "bottom",
+      "Pull inward from the bottom for time",
+      "ambient",
+      -80,
+    ],
   ])("the %s edge requests %s above an external iframe", async (edge, label, view, distance) => {
     const { server } = await mountExternal()
     const target = screen.getByRole("button", {
@@ -146,7 +156,7 @@ describe("shell navigation from all four edges", () => {
   test("a cancelled edge pull sends no view request and the next pull still works", async () => {
     const { server } = await mountExternal()
     const target = screen.getByRole("button", {
-      name: "Swipe down for audio",
+      name: "Pull inward from the top for audio",
     })
     drag({
       target,
@@ -166,7 +176,7 @@ describe("shell navigation from all four edges", () => {
   test("returning an edge drag to its start cancels navigation", async () => {
     const { server } = await mountExternal()
     const target = screen.getByRole("button", {
-      name: "Swipe down for audio",
+      name: "Pull inward from the top for audio",
     })
     fireEvent.pointerDown(target, {
       pointerId: 7,

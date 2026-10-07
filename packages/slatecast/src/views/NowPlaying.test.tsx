@@ -102,6 +102,43 @@ describe("artwork", () => {
     expect(image).toBeVisible()
   })
 
+  test("returning to the same album preserves its accent in the first rendered music frame", async () => {
+    const image = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#ed6094"/></svg>')}`
+    const { server } = await mountNowPlaying({
+      nowPlaying: buildNowPlaying({ artworkPath: image }),
+      device: buildDeviceProfile({ color: "full" }),
+    })
+    const accent = () =>
+      document
+        .querySelector<HTMLElement>(".now-playing")
+        ?.style.getPropertyValue("--accent")
+    await waitUntil(() => Boolean(accent()))
+    const expected = accent()
+    server.push({ type: "view", view: "calendar" })
+    await waitUntil(
+      () => !document.querySelector(".now-playing"),
+    )
+    const observed: (string | undefined)[] = []
+    const observer = new MutationObserver(() => {
+      if (document.querySelector(".now-playing"))
+        observed.push(accent())
+    })
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    })
+    try {
+      server.push({ type: "view", view: "now-playing" })
+      await waitUntil(() => observed.length > 0)
+      expect(
+        observed.every((color) => color === expected),
+      ).toBe(true)
+    } finally {
+      observer.disconnect()
+    }
+  })
+
   test("falls back to the note placeholder with no artwork", async () => {
     await mountNowPlaying()
 

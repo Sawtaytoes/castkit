@@ -562,6 +562,6 @@ resolved power, `resolved_effect`, `followView` and `viewModes`, with changes mi
 the displayed view changes. No broker, Home Assistant automation or firmware policy is
 required. See [the decision](decisions/2026-10-06-ambient-leds-can-follow-current-view.md).
 
-### Left swipe view
+### Right edge view
 
-`leftSwipeViewId` is an optional installation setting for touch navigation. A leftward gesture requests that view ID through the normal device command contract. Empty preserves the unassigned gesture. It also supplies an undrawn right-edge region above external views, so the gesture remains reachable there. Set it in the device editor; Home Assistant can apply the installation's interruption and return policy. It does not change the hardware profile or enable the drawer.
+`leftSwipeViewId` is an optional installation setting for touch navigation. Pulling inward from the right edge requests that view ID through the normal device command contract. A sideways drag that starts in the middle does not request it. Empty preserves the unassigned gesture. It also supplies an undrawn right-edge region above external views, so the gesture remains reachable there. Set it in the device editor; Home Assistant can apply the installation's interruption and return policy. It does not change the hardware profile or enable the drawer.

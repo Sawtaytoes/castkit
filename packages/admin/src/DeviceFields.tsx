@@ -169,8 +169,8 @@ export const DeviceFields = ({
             }
           />
           <SettingField
-            label="Left swipe view"
-            description="The view ID to request from your display automation when swiping left. Leave empty to keep it unassigned."
+            label="Right edge view"
+            description="The view ID to request from your display automation when pulling inward from the right edge. Leave empty to keep it unassigned."
             value={device.leftSwipeViewId ?? ""}
             onChange={(leftSwipeViewId) =>
               onChange({
