@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-07: Camera and progress precede the secondary plate preview](2026-10-07-camera-and-progress-precede-the-secondary-plate-preview.md)
+
 - [2026-10-06: Display targets document viewing context and purpose](2026-10-06-display-targets-document-viewing-context-and-purpose.md)
 
 - [2026-10-06: Watchy Points navigation requests fresh data](2026-10-06-watchy-points-navigation-requests-fresh-data.md)

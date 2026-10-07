@@ -67,12 +67,15 @@ const PrinterCard = ({
     properties.hasLiveCamera
       ? safeMediaUrl(camera?.url ?? printer.cameraPath)
       : null
-  const imageUrl =
-    cameraUrl ?? safeMediaUrl(printer.thumbnailPath)
+  const printPreviewUrl = safeMediaUrl(
+    printer.thumbnailPath,
+  )
+  const imageUrl = cameraUrl ?? printPreviewUrl
   const isCamera = Boolean(cameraUrl)
   const cardRef = usePrinterLayout({
     isCamera,
     hasImage: Boolean(imageUrl),
+    hasPlatePreview: Boolean(cameraUrl && printPreviewUrl),
     minimumDetailLevel: Number(
       settings.minimumDetailLevel ?? 0,
     ),
@@ -168,182 +171,202 @@ const PrinterCard = ({
             {printer.problemText}
           </p>
         ) : null}
-        <div
-          class="printer-progress-row"
-          data-icons={String(
-            settings.isCompactControls !== false,
-          )}
-        >
-          <div class="printer-band">
+        <div class="printer-secondary-details">
+          {isCamera && printPreviewUrl ? (
+            <ExpandableMedia
+              className="platform-printer-plate-preview"
+              name={`${printer.name} plate preview`}
+            >
+              <img
+                src={printPreviewUrl}
+                alt={`${printer.name} plate preview`}
+              />
+            </ExpandableMedia>
+          ) : null}
+          <div class="printer-facts">
             <div
-              class="printer-band-fill"
-              style={{
-                width: properties.hasProgress
-                  ? `${printer.percent}%`
-                  : "0%",
-              }}
-            />
-            <div class="printer-band-text">
-              {properties.hasRelativeTimes &&
-              !isSettled &&
-              printer.state !== "paused" &&
-              printer.remainingMinutes !== undefined ? (
-                <span class="printer-band-remaining">
-                  {formatRemaining(
-                    printer.remainingMinutes,
-                  )}{" "}
-                  left
-                </span>
-              ) : null}
-              {isSettled ? (
-                <strong>
-                  {printer.state === "finished"
-                    ? "Finished · Clear plate"
-                    : "Failed · Clear plate"}
-                </strong>
-              ) : properties.hasProgress ? (
-                <strong class="printer-percent">
-                  {Math.round(printer.percent)}%
-                </strong>
-              ) : (
-                <span>Print in progress</span>
-              )}
-            </div>
-          </div>
-          {!isSettled ? (
-            <div
-              class="platform-actions printer-actions"
+              class="printer-progress-row"
               data-icons={String(
                 settings.isCompactControls !== false,
               )}
             >
-              {[
-                printer.state === "paused"
-                  ? "resume"
-                  : "pause",
-                "stop",
-              ].map((action) => (
-                <button
-                  key={action}
-                  class={`printer-action ${action === "stop" ? "is-stop" : "is-pause"}`}
-                  data-castkit-target={`printer:${printer.id}:${printer.jobName}:${printer.state}:${action}`}
-                  type="button"
-                  aria-label={
-                    action === "resume"
-                      ? "Resume"
-                      : action === "pause"
-                        ? "Pause"
-                        : "Stop"
-                  }
-                  disabled={!isControlEnabled}
-                  title={
-                    !isControlEnabled
-                      ? (controlDisabledReason ??
-                        "Controls disabled")
-                      : action === "resume"
-                        ? "Resume"
-                        : action === "pause"
-                          ? "Pause"
-                          : "Stop"
-                  }
-                  onClick={() =>
-                    setConfirmation({
-                      id: printer.id,
-                      state: printer.state,
-                      jobName: printer.jobName,
-                      action,
-                    })
-                  }
-                >
-                  {settings.isCompactControls !== false ? (
-                    <Icon
-                      path={
-                        action === "resume"
-                          ? ICON_PATHS.play
-                          : action === "pause"
-                            ? ICON_PATHS.pause
-                            : ICON_PATHS.stop
-                      }
-                      size="24px"
-                    />
-                  ) : action === "resume" ? (
-                    "Resume"
-                  ) : action === "pause" ? (
-                    "Pause"
+              <div class="printer-band">
+                <div
+                  class="printer-band-fill"
+                  style={{
+                    width: properties.hasProgress
+                      ? `${printer.percent}%`
+                      : "0%",
+                  }}
+                />
+                <div class="printer-band-text">
+                  {properties.hasRelativeTimes &&
+                  !isSettled &&
+                  printer.state !== "paused" &&
+                  printer.remainingMinutes !== undefined ? (
+                    <span class="printer-band-remaining">
+                      {formatRemaining(
+                        printer.remainingMinutes,
+                      )}{" "}
+                      left
+                    </span>
+                  ) : null}
+                  {isSettled ? (
+                    <strong>
+                      {printer.state === "finished"
+                        ? "Finished · Clear plate"
+                        : "Failed · Clear plate"}
+                    </strong>
+                  ) : properties.hasProgress ? (
+                    <strong class="printer-percent">
+                      {Math.round(printer.percent)}%
+                    </strong>
                   ) : (
-                    "Stop"
+                    <span>Print in progress</span>
                   )}
-                </button>
-              ))}
+                </div>
+              </div>
+              {!isSettled ? (
+                <div
+                  class="platform-actions printer-actions"
+                  data-icons={String(
+                    settings.isCompactControls !== false,
+                  )}
+                >
+                  {[
+                    printer.state === "paused"
+                      ? "resume"
+                      : "pause",
+                    "stop",
+                  ].map((action) => (
+                    <button
+                      key={action}
+                      class={`printer-action ${action === "stop" ? "is-stop" : "is-pause"}`}
+                      data-castkit-target={`printer:${printer.id}:${printer.jobName}:${printer.state}:${action}`}
+                      type="button"
+                      aria-label={
+                        action === "resume"
+                          ? "Resume"
+                          : action === "pause"
+                            ? "Pause"
+                            : "Stop"
+                      }
+                      disabled={!isControlEnabled}
+                      title={
+                        !isControlEnabled
+                          ? (controlDisabledReason ??
+                            "Controls disabled")
+                          : action === "resume"
+                            ? "Resume"
+                            : action === "pause"
+                              ? "Pause"
+                              : "Stop"
+                      }
+                      onClick={() =>
+                        setConfirmation({
+                          id: printer.id,
+                          state: printer.state,
+                          jobName: printer.jobName,
+                          action,
+                        })
+                      }
+                    >
+                      {settings.isCompactControls !==
+                      false ? (
+                        <Icon
+                          path={
+                            action === "resume"
+                              ? ICON_PATHS.play
+                              : action === "pause"
+                                ? ICON_PATHS.pause
+                                : ICON_PATHS.stop
+                          }
+                          size="24px"
+                        />
+                      ) : action === "resume" ? (
+                        "Resume"
+                      ) : action === "pause" ? (
+                        "Pause"
+                      ) : (
+                        "Stop"
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
-        {!isControlEnabled ? (
-          <p class="printer-control-status" role="status">
-            {controlDisabledReason ?? "Controls disabled"}
-          </p>
-        ) : null}
-        {isSettled ? (
-          <>
-            {clearError ? (
-              <p class="printer-problem" role="alert">
-                {clearError}
+            {!isControlEnabled ? (
+              <p
+                class="printer-control-status"
+                role="status"
+              >
+                {controlDisabledReason ??
+                  "Controls disabled"}
               </p>
             ) : null}
-            <button
-              class="printer-clear"
-              type="button"
-              disabled={!isControlEnabled || isClearing}
-              data-castkit-target={`printer-clear-plate:${printer.id}`}
-              onClick={onClear}
-            >
-              {isClearing ? "Clearing…" : "Clear plate"}
-            </button>
-          </>
-        ) : (
-          <dl class="printer-metrics">
-            <div class="printer-metric">
-              <dt>Layer</dt>
-              <dd>
-                {printer.currentLayer ?? "—"}
-                {printer.totalLayers
-                  ? ` / ${printer.totalLayers}`
-                  : ""}
-              </dd>
-            </div>
-            <div class="printer-metric">
-              <dt>Finishes</dt>
-              <dd>
-                {printer.state !== "paused" &&
-                printer.finishAtMs
-                  ? formatFinishTime({
-                      finishAtMs: printer.finishAtMs,
-                      nowMillis: Date.now(),
-                    })
-                  : "—"}
-              </dd>
-            </div>
-            {printer.filamentText ||
-            printer.filaments?.length ? (
-              <div class="printer-metric is-filament">
-                <dt>Filament</dt>
-                <dd>
-                  <FilamentControl
-                    color={printer.filamentColor}
-                    isExpanded={
-                      filamentDetailsId === printer.id
-                    }
-                    filaments={printer.filaments}
-                    onClick={() =>
-                      setFilamentDetailsId(printer.id)
-                    }
-                    text={printer.filamentText}
-                  />
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-        )}
+            {isSettled ? (
+              <>
+                {clearError ? (
+                  <p class="printer-problem" role="alert">
+                    {clearError}
+                  </p>
+                ) : null}
+                <button
+                  class="printer-clear"
+                  type="button"
+                  disabled={!isControlEnabled || isClearing}
+                  data-castkit-target={`printer-clear-plate:${printer.id}`}
+                  onClick={onClear}
+                >
+                  {isClearing ? "Clearing…" : "Clear plate"}
+                </button>
+              </>
+            ) : (
+              <dl class="printer-metrics">
+                <div class="printer-metric">
+                  <dt>Layer</dt>
+                  <dd>
+                    {printer.currentLayer ?? "—"}
+                    {printer.totalLayers
+                      ? ` / ${printer.totalLayers}`
+                      : ""}
+                  </dd>
+                </div>
+                <div class="printer-metric">
+                  <dt>Finishes</dt>
+                  <dd>
+                    {printer.state !== "paused" &&
+                    printer.finishAtMs
+                      ? formatFinishTime({
+                          finishAtMs: printer.finishAtMs,
+                          nowMillis: Date.now(),
+                        })
+                      : "—"}
+                  </dd>
+                </div>
+                {printer.filamentText ||
+                printer.filaments?.length ? (
+                  <div class="printer-metric is-filament">
+                    <dt>Filament</dt>
+                    <dd>
+                      <FilamentControl
+                        color={printer.filamentColor}
+                        isExpanded={
+                          filamentDetailsId === printer.id
+                        }
+                        filaments={printer.filaments}
+                        onClick={() =>
+                          setFilamentDetailsId(printer.id)
+                        }
+                        text={printer.filamentText}
+                      />
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+            )}
+          </div>
+        </div>
       </div>
     </article>
   )
