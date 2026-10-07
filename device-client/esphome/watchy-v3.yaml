@@ -75,11 +75,7 @@ esphome:
             if (buttons & (1ULL << 8)) id(cycle_scores).execute();
             id(is_timer_sync_requested) = bool(buttons & (1ULL << 6));
             if (buttons & (1ULL << 6)) {
-              id(is_binary_clock) = ${binary_clock_enabled};
-              id(is_timer_page) = false;
-              id(is_scores_page) = false;
-              id(is_points_page) = false;
-              id(is_agenda_page) = false;
+              id(return_to_timer_or_clock).execute();
             }
             if (id(is_agenda_page) || id(is_scores_page) || id(is_points_page) || id(is_timer_page))
               id(is_binary_clock) = false;
@@ -813,12 +809,6 @@ binary_sensor:
     on_press:
       - lambda: |-
           id(last_button_at) = millis();
-          id(is_binary_clock) = ${binary_clock_enabled};
-          id(is_scores_page) = false;
-          id(is_points_page) = false;
-          id(is_agenda_page) = false;
-          id(is_timer_page) = false;
-      - component.update: watch_display
       - script.execute: request_sync
   - platform: gpio
     id: up_button
@@ -858,8 +848,19 @@ script:
             binary_sensor.is_on: menu_button
           then:
             - script.execute: request_sync
+  - id: return_to_timer_or_clock
+    then:
+      - lambda: |-
+          // A cached start is enough to keep counting through sleep or a failed sync.
+          id(is_timer_page) = watchy::timer_running(id(timer_cache));
+          id(is_binary_clock) = !id(is_timer_page) && ${binary_clock_enabled};
+          id(is_scores_page) = false;
+          id(is_points_page) = false;
+          id(is_agenda_page) = false;
   - id: request_sync
     then:
+      - script.execute: return_to_timer_or_clock
+      - component.update: watch_display
       - script.execute:
           id: request_cached_sync
           is_timer_requested: true
@@ -929,10 +930,13 @@ script:
             id(is_scores_page) = !id(is_scores_page);
             id(scores_page) = 0;
           }
-          id(is_binary_clock) = !id(is_scores_page) && ${binary_clock_enabled};
-          id(is_agenda_page) = false;
-          id(is_points_page) = false;
-          id(is_timer_page) = false;
+          if (!id(is_scores_page)) id(return_to_timer_or_clock).execute();
+          else {
+            id(is_binary_clock) = false;
+            id(is_agenda_page) = false;
+            id(is_points_page) = false;
+            id(is_timer_page) = false;
+          }
   - id: cycle_agenda
     then:
       - lambda: |-
