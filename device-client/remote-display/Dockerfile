@@ -5,6 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PLAYWRIGHT_BROWSERS_PATH=/opt/b
 COPY device-client/remote-display/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt && python -m playwright install --with-deps chromium && rm -rf /var/lib/apt/lists/*
 COPY device-client/remote-display/ ./
+COPY device-client/presto/ambient.py /presto/ambient.py
 RUN useradd --uid 10001 --create-home display && chmod -R a+rX /opt/browsers
 USER display
 ENTRYPOINT ["python", "/app/worker.py"]
