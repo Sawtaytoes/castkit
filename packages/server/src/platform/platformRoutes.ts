@@ -1037,6 +1037,35 @@ export const attachPlatformRoutes = ({
       }
     },
   )
+  app.delete(
+    "/api/manage/platform/devices/:id/show",
+    async (context) => {
+      const parsed = z
+        .object({ viewId: z.string() })
+        .safeParse(
+          await context.req.json().catch(() => null),
+        )
+      if (!parsed.success)
+        return context.json(
+          { error: "Invalid display override view" },
+          400,
+        )
+      if (
+        !platform.getDeviceProperties(
+          context.req.param("id"),
+        )
+      )
+        return context.json(
+          { error: "Unknown display" },
+          404,
+        )
+      platform.deviceOverrides.clear({
+        deviceId: context.req.param("id"),
+        viewId: parsed.data.viewId,
+      })
+      return context.json({ ok: true })
+    },
+  )
   app.put(
     "/api/manage/platform/device-screens/:id",
     async (context) => {
