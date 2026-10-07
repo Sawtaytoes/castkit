@@ -14,7 +14,6 @@ import {
 import {
   Cpu,
   KeyRound,
-  LayoutGrid,
   LayoutTemplate,
   Menu,
   Monitor,
@@ -44,23 +43,16 @@ import {
  * navigates (`NavRailItem` makes the type checker say so).
  */
 const destinations: NavRailItem[] = [
-  {
-    label: "Device overview",
-    href: "/all-screens",
-    icon: <LayoutGrid />,
-  },
-  { label: "Sources", icon: <Plug /> },
-  { label: "Channels", icon: <Radio /> },
   { label: "Views", icon: <LayoutTemplate /> },
   { label: "Screens", icon: <Monitor /> },
   { label: "Devices", icon: <Cpu /> },
+  { label: "Channels", icon: <Radio /> },
+  { label: "Sources", icon: <Plug /> },
   { label: "Plugins", icon: <Puzzle /> },
   { label: "Access", icon: <KeyRound /> },
 ].map((item) => ({
   ...item,
-  href:
-    item.href ??
-    `/${item.label.toLowerCase().replaceAll(" ", "-")}`,
+  href: `/${item.label.toLowerCase().replaceAll(" ", "-")}`,
 }))
 
 export const App = () => {
@@ -72,6 +64,7 @@ export const App = () => {
   const routeSection =
     location.pathname.split("/")[1] || "views"
   const section = [
+    "all-screens",
     "device",
     "photos",
     "clock",
