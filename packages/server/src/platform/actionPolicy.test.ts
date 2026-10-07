@@ -70,3 +70,35 @@ test("now-playing controls are restricted to the player shown by the channel", (
     assertActionAllowed({ ...request, payload: {} }),
   ).toThrow(/current player/)
 })
+
+test("printer commands cannot target a printer excluded by this view", () => {
+  const request = {
+    panel: {
+      id: "printers",
+      specId: "printer-status",
+      bindings: { data: "prints" },
+      settings: {
+        isPrinterSelectionEnabled: true,
+        printerIds: ["one"],
+      },
+    },
+    channels: {
+      prints: {
+        id: "prints",
+        type: "printers.v1",
+        status: "ready" as const,
+        data: { printers: [{ id: "one" }, { id: "two" }] },
+      },
+    },
+    channelId: "prints",
+    action: "pause",
+    payload: { printerId: "one" },
+  }
+  expect(() => assertActionAllowed(request)).not.toThrow()
+  expect(() =>
+    assertActionAllowed({
+      ...request,
+      payload: { printerId: "two" },
+    }),
+  ).toThrow(/not part/)
+})

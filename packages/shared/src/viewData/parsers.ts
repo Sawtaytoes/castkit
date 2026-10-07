@@ -3,6 +3,7 @@ import {
   type AgendaEvent,
   type NowPlayingData,
   PRINTER_JOB_STATES,
+  type PrinterFilamentAssignment,
   type PrinterJob,
   type PrinterJobState,
   type PrintersData,
@@ -402,12 +403,73 @@ const toHexColor = (value: unknown): string | undefined => {
   if (!text) {
     return undefined
   }
-  // Bambu reports filament color as 8 hex digits (RGBA); the alpha is always
-  // opaque and CSS would read `#RRGGBBAA` differently, so it is dropped.
+  // Eight digits are RGBA. Keep non-opaque alpha for the shared swatch;
+  // normalize opaque legacy colors to the usual six-digit spelling.
   const hex = text.startsWith("#") ? text.slice(1) : text
   return /^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(hex)
-    ? `#${hex.slice(0, 6).toLowerCase()}`
+    ? `#${(hex.length === 8 && !/ff$/i.test(hex) ? hex : hex.slice(0, 6)).toLowerCase()}`
     : undefined
+}
+
+const MAX_PRINTER_FILAMENTS = 32
+
+/** Keep inventory alpha and reject malformed swatch colors at the boundary. */
+const toRgba = (value: unknown) => {
+  const hex = toTrimmedText(value)?.replace(/^#/, "")
+  return hex &&
+    /^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(hex)
+    ? hex.toLowerCase()
+    : undefined
+}
+
+const toPrinterFilaments = (
+  value: unknown,
+): readonly PrinterFilamentAssignment[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+  const filaments = value
+    .slice(0, MAX_PRINTER_FILAMENTS)
+    .map(
+      (rawFilament): PrinterFilamentAssignment | null => {
+        if (
+          typeof rawFilament !== "object" ||
+          rawFilament === null
+        ) {
+          return null
+        }
+        const filament = rawFilament as Record<
+          string,
+          unknown
+        >
+        const location = toTrimmedText(filament.location)
+        if (!location) {
+          return null
+        }
+        return dropUndefined({
+          name: toTrimmedText(filament.name),
+          color: toHexColor(filament.color),
+          colorName: toTrimmedText(filament.colorName),
+          rgba: toRgba(filament.rgba),
+          extraColors: Array.isArray(filament.extraColors)
+            ? filament.extraColors
+                .map(toRgba)
+                .filter(
+                  (color): color is string =>
+                    color !== undefined,
+                )
+            : undefined,
+          effectType: toTrimmedText(filament.effectType),
+          brand: toTrimmedText(filament.brand),
+          location,
+        })
+      },
+    )
+    .filter(
+      (filament): filament is PrinterFilamentAssignment =>
+        filament !== null,
+    )
+  return filaments.length ? filaments : undefined
 }
 
 const toPrinterJobState = (
@@ -491,6 +553,9 @@ export const parsePrintersPayload = (
         ),
         filamentColor: toHexColor(
           printerRecord.filamentColor,
+        ),
+        filaments: toPrinterFilaments(
+          printerRecord.filaments,
         ),
         nozzleText: toTrimmedText(printerRecord.nozzleText),
         problemText: toTrimmedText(

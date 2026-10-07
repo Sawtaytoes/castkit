@@ -1,3 +1,4 @@
+import { AMBIENT_LIGHT_MODES } from "@castkit/sdk/ambientLight"
 import {
   buildAvailabilityTopic,
   type DiscoveryMessage,
@@ -15,8 +16,9 @@ import { ROTATION_OPTIONS } from "./discovery.ts"
  *   - a diagnostic **Sensor** (the page URL this device shows),
  *   - a diagnostic **Binary sensor** (a browser is connected over WS),
  *   - config **Selects** (theme, rotation — retained state = persistence),
- *   - for `hasMqttBacklight` devices, the agent's **Light** plus a config
- *     **Number** (the backlight level CastKit owns and restores on reconnect).
+ *   - for configured backlights, one **Light** plus a config **Number**:
+ *     native controllers mirror persisted state; external agents retain their
+ *     own availability and brightness/reconnect contracts.
  */
 
 export const THEME_OPTIONS = [
@@ -36,6 +38,8 @@ export const buildBrowserDeviceTopics = ({
   const base = `${baseTopic}/${deviceId}`
 
   return {
+    ambientLightCommand: `${base}/ambient_light/set`,
+    ambientLightState: `${base}/ambient_light/state`,
     viewCommand: `${base}/view/set`,
     viewState: `${base}/view`,
     url: `${base}/url`,
@@ -53,9 +57,9 @@ export const buildBrowserDeviceTopics = ({
     photoQueryState: `${base}/photo_query`,
     photoIntervalCommand: `${base}/photo_interval/set`,
     photoIntervalState: `${base}/photo_interval`,
-    // Panel backlight — handled by a tiny MQTT agent ON THE KIOSK PI
-    // (castkit-backlight service), not by the server or the SPA: a browser
-    // can't reach sysfs. The agent carries its own LWT availability so the
+    // Backlight topics shared by native server-controlled hardware and
+    // external MQTT agents (castkit-backlight service on a kiosk Pi). A browser
+    // cannot reach the panel's backlight hardware. The agent carries its own LWT availability so the
     // light reflects the Pi agent, not the render server. Brightness is real
     // 0–255 dimming on the PWM-backlight overlay, and collapses to on/off on
     // a stock gpio-backlight (the agent auto-detects and scales).
@@ -227,19 +231,47 @@ export const buildBrowserDiscoveryMessages = ({
           },
         ]
       : []),
-    ...(device.hasMqttBacklight
+    ...(device.hasRemoteAmbientLight
       ? [
           {
-            // Panel backlight as a dimmable light — commands are consumed by the
-            // per-Pi castkit-backlight agent (pure-MQTT peer, same contract style
-            // as the tap commands). Brightness is the panel's real PWM backlight
-            // (0–255); on a stock gpio-backlight the agent collapses it to on/off.
-            // Availability = the agent's LWT, not the server's.
+            topic: discoveryTopic("light", "ambient_light"),
+            isRetained: true as const,
+            payload: {
+              ...availability,
+              name: "Ambient light",
+              unique_id: `castkit_${device.id}_ambient_light`,
+              schema: "json",
+              flash: false,
+              command_topic: topics.ambientLightCommand,
+              state_topic: topics.ambientLightState,
+              brightness: true,
+              brightness_scale: 100,
+              effect: true,
+              effect_list: [
+                ...AMBIENT_LIGHT_MODES,
+                "follow-view",
+              ],
+              supported_color_modes: ["brightness"],
+              device: deviceBlock,
+            },
+          },
+        ]
+      : []),
+    ...(device.hasMqttBacklight || device.hasRemoteBacklight
+      ? [
+          {
+            // One dimmable light contract. Native controllers consume commands
+            // in CastKit and use server availability; an external agent consumes
+            // the same topics and carries its own availability. Brightness is
+            // 0–255; a stock GPIO backlight collapses it to on/off.
             topic: discoveryTopic("light", "backlight"),
             isRetained: true as const,
             payload: {
-              availability_topic:
-                topics.backlightAvailability,
+              availability_topic: device.hasRemoteBacklight
+                ? buildAvailabilityTopic(
+                    config.baseTopic ?? "castkit",
+                  )
+                : topics.backlightAvailability,
               payload_available: "online",
               payload_not_available: "offline",
               name: "Backlight",

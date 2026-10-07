@@ -8,11 +8,22 @@ import { WeatherMark } from "../WeatherMark.tsx"
 /** Current weather and normalized hourly or daily forecasts share one source contract. */
 export const WeatherView = ({
   data,
+  forecastType,
 }: {
+  forecastType?: unknown
   data: ContractData["weather.v1"]
 }) => (
   <div class="platform-weather">
     <header>
+      {data.condition &&
+      (
+        WEATHER_CONDITION_CODES as readonly string[]
+      ).includes(data.condition) ? (
+        <WeatherMark
+          condition={data.condition as WeatherConditionCode}
+          class="platform-weather-mark"
+        />
+      ) : null}
       <strong>{data.temperatureText}</strong>
       <p>{data.conditionText}</p>
     </header>
@@ -22,8 +33,9 @@ export const WeatherView = ({
           <article key={`${entry.datetime}:${index}`}>
             <time dateTime={entry.datetime}>
               {new Date(entry.datetime).toLocaleString([], {
-                weekday: "short",
-                hour: "numeric",
+                ...(forecastType === "daily"
+                  ? { weekday: "short" as const }
+                  : { hour: "numeric" as const }),
               })}
             </time>
             {entry.condition &&

@@ -10,17 +10,16 @@ import {
 } from "./http.ts"
 
 /**
- * Titles the AI Usage producer does not spell out for itself.
+ * Account titles the AI Usage snapshot does not spell out for itself.
  *
  * The producer sends a stable machine id, because its Home Assistant entities
- * and its usage history are keyed on it. A display needs the product name, and
- * capitalising the id gets "Codex 2" right but not "OpenAI" — so the names it
- * cannot derive are listed here and everything else falls back to the id with
- * its first letter raised.
+ * and its usage history are keyed on it. Its first Codex account keeps the
+ * legacy `codex` id but is titled "Codex 1" in the producer UI. Match those
+ * visible titles here; unknown ids fall back to capitalized words.
  */
 const PROVIDER_TITLES: Record<string, string> = {
   claude: "Claude",
-  codex: "Codex",
+  codex: "Codex 1",
   codex_2: "Codex 2",
   cursor: "Cursor",
   grok: "Grok",

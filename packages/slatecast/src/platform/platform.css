@@ -55,6 +55,14 @@
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+.platform .printer-filament-button {
+  min-block-size: 54px;
+  padding: 0 9px 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+}
 .platform input,
 .platform-lock input {
   font: inherit;
@@ -180,65 +188,45 @@
       auto-fit,
       minmax(min(100%, 260px), 1fr)
     );
-  gap: 20px;
+  /* The row is the panel's height, never the tallest picture's: a card
+     shrinks its picture to fit, so three plate covers on a 1400x800 window
+     do not push the facts under the fold (owner's screenshot, 2026-09-28). */
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 8px;
   flex: 1;
+  min-block-size: 0;
 }
-.platform-printers[data-count="4"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-}
+/*
+ * A card on the face has no chrome of its own: its background is the panel's
+ * and its border is gone. It KEEPS its padding, because a failed or finished
+ * card tints its whole surface, and a tint with the job box hard against its
+ * edge read as a bleed rather than a card. The grid gap is smaller by the
+ * same amount, so the columns sit where they did.
+ */
 .platform-printers .printer-card {
   min-block-size: 0;
-  padding: 0;
+  padding: 12px;
   background: transparent;
   border: 0;
 }
-.platform-printers .platform-printer-camera {
-  position: relative;
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  min-block-size: 0;
+.platform-printers .printer-card[data-intent="danger"] {
+  background: var(--color-intent-danger-surface);
 }
+.platform-printers .printer-card[data-intent="success"] {
+  background: var(--color-intent-success-surface);
+}
+/*
+ * The picture takes the slack and the facts sit at the bottom, as on the
+ * workbench panel's plate: every card in the row is the row's height, so the
+ * heads, bands and metric rows line up whatever each picture's aspect ratio.
+ * Sizing the picture by its own ratio put Foopie's square plate cover 70 px
+ * taller than Magi's camera frame and its head 70 px lower.
+ */
 .platform-printers .platform-camera {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-block-size: 0;
-}
-.platform-camera-label {
-  position: absolute;
-  inset-block-start: 10px;
-  inset-inline-start: 10px;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border: 1px solid rgb(255 255 255 / 18%);
-  border-radius: 999px;
-  color: #fff;
-  background: rgb(12 16 22 / 76%);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.platform-camera-label > span {
-  inline-size: 7px;
-  block-size: 7px;
-  border-radius: 50%;
-  background: #70d292;
-}
-.platform-camera-placeholder {
-  display: grid;
-  flex: 1;
-  min-block-size: 0;
-  place-items: center;
-  border: 1px dashed var(--color-border-subtle);
-  border-radius: 10px;
-  color: var(--fg-dim);
-  font-size: 14px;
 }
 .platform-printer-image {
   flex: 1 1 0;
@@ -247,58 +235,89 @@
   object-fit: contain;
   border-radius: 10px;
 }
-.platform-printer-details {
-  display: grid;
-  flex: none;
-  min-inline-size: 0;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(8px, 1vw, 16px);
-  align-items: stretch;
-}
-.platform-printers[data-count="4"] .platform-printer-image {
-  block-size: 100%;
-  max-block-size: none;
-}
-.platform-printers[data-count="1"]
-  .platform-printer-details,
-.platform-printers[data-count="2"]
-  .platform-printer-details,
-.platform-printers[data-count="3"]
-  .platform-printer-details {
-  display: contents;
-}
-.platform-printer-details[data-has-preview="true"] {
-  grid-template-columns: minmax(112px, 18%) minmax(0, 1fr);
-}
-.platform-printer-preview {
-  display: flex;
-  min-inline-size: 0;
-  min-block-size: 0;
-  flex-direction: column;
-  gap: 6px;
-}
-.platform-printer-preview > span {
-  flex: none;
-  color: var(--fg-dim);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.platform-printer-preview img {
-  display: block;
-  flex: 1 1 auto;
-  inline-size: 100%;
-  min-inline-size: 0;
-  min-block-size: 0;
-  aspect-ratio: 1;
-  border-radius: 10px;
-  object-fit: contain;
-}
 .platform-printers .printer-body {
   flex: none;
   gap: 6px;
+}
+/* The shared priority policy compares actual card dimensions and facts. */
+.platform-printers .printer-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* Loaded images may shrink below their intrinsic height to leave facts room. */
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+/* A failed camera still reserves enough room for its status notice. */
+.platform-printers
+.printer-card:has(.platform-camera p):not(
+  [data-orientation="horizontal"]
+) {
+  grid-template-rows: minmax(min-content, 1fr) auto;
+}
+.platform-printers .platform-printer-media {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  min-block-size: 0;
+}
+.platform-printer-media .platform-camera {
+  inline-size: 100%;
+}
+.platform-printers .printer-card > .printer-body {
+  grid-column: 1;
+  grid-row: 2;
   min-inline-size: 0;
+}
+.platform-printers
+  .printer-card[data-orientation="horizontal"] {
+  grid-template-columns: minmax(0, 1fr) var(
+      --printer-facts-width
+    );
+  grid-template-rows: minmax(0, 1fr);
+}
+.platform-printers
+  .printer-card[data-orientation="horizontal"]
+  > .printer-body {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+}
+.platform-printers .printer-card[data-orientation="facts"] {
+  grid-template-rows: minmax(0, 1fr);
+}
+.platform-printers
+  .printer-card[data-orientation="facts"]
+  > .printer-body {
+  grid-row: 1;
+  align-self: center;
+}
+.platform .printer-clear {
+  background: var(--color-intent-success-solid);
+  color: var(--color-intent-success-on-solid);
+  min-block-size: max(48px, 8.9vmin);
+  font-size: max(15px, 3.2vmin);
+}
+.platform
+  .printer-card[data-state="failed"]
+  .printer-clear {
+  background: var(--color-intent-danger-solid);
+  color: var(--color-intent-danger-on-solid);
+}
+.platform .printer-action {
+  flex: 1 1 0;
+  block-size: clamp(48px, 8.9vmin, 56px);
+  min-block-size: 48px;
+  max-block-size: 56px;
+  font-size: clamp(15px, 3.2vmin, 22px);
+  background: transparent;
+}
+.platform .printer-action.is-pause {
+  border-color: var(--color-intent-warning-border);
+  color: var(--color-intent-warning-content);
+}
+.platform .printer-action.is-stop {
+  border-color: var(--color-intent-danger-border);
+  color: var(--color-intent-danger-content);
 }
 .platform-printers .printer-band {
   block-size: 80px;
@@ -402,15 +421,56 @@
 .platform-rip-details {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 6px;
   flex: 1;
+  min-block-size: 0;
+}
+.platform-rip-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.platform-rip-detail-head h2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-inline-size: 0;
+  font-size: clamp(16px, 4cqi, 24px);
+  overflow-wrap: anywhere;
+}
+.platform .platform-rip-detail-head button {
+  flex: none;
+  padding: 8px 12px;
+  min-block-size: 44px;
+  font-size: 16px;
+}
+.platform-rip-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+}
+.platform-rip-detail-content .platform-actions {
+  margin-block-start: 0;
+  flex: none;
+}
+.platform
+  .platform-rip-detail-content
+  .platform-actions
+  button {
+  padding: 8px 12px;
+  font-size: 16px;
+  min-block-size: 44px;
 }
 .platform-rip-disc {
   display: flex;
   align-items: center;
-  gap: 20px;
-  flex: 1;
-  min-block-size: 0;
+  gap: 12px;
+  flex: 1 0 auto;
 }
 .platform-rip-disc img {
   inline-size: 35%;
@@ -419,8 +479,14 @@
 }
 .platform-rip-disc > div {
   flex: 1;
+  min-inline-size: 0;
   display: grid;
-  gap: 12px;
+  gap: 6px;
+  font-size: clamp(16px, 3cqi, 22px);
+}
+.platform .platform-rip-disc progress {
+  block-size: 12px;
+  margin-block-start: 4px;
 }
 .platform progress {
   accent-color: var(--accent);
@@ -496,7 +562,8 @@
     );
   gap: 20px;
 }
-.platform-camera-grid img {
+.platform-camera-grid img,
+.platform-camera-grid video {
   inline-size: 100%;
   object-fit: contain;
 }
@@ -577,7 +644,8 @@
   color: var(--fg-dim);
   font-size: 13px;
 }
-.platform-camera img {
+.platform-camera img,
+.platform-camera video {
   inline-size: 100%;
   object-fit: contain;
 }
@@ -619,6 +687,89 @@
     grid-template-rows: minmax(0, 1fr);
   }
 }
+/* Compact facts depend on the card height, including short split panels. */
+.platform-printers .printer-card[data-compact="true"]
+  .printer-name {
+  font-size: 16px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-state {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-head {
+  gap: 5px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-job {
+  font-size: 13px;
+  padding: 0;
+  min-block-size: 24px;
+  margin-block-start: 4px;
+  border: 0;
+  background: transparent;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-band {
+  block-size: 48px;
+  margin-block-start: 4px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-band-text {
+  padding: 0 10px;
+  gap: 4px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-percent {
+  font-size: 30px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-band-remaining {
+  font-size: 12px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-metrics {
+  margin-block-start: 4px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-metric {
+  padding: 4px 6px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-metric
+  dd {
+  font-size: 14px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-body
+  > p {
+  font-size: 12px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .platform-actions {
+  gap: 5px;
+  margin-block-start: 4px;
+}
+.platform-printers
+  .printer-card[data-compact="true"]
+  .platform-actions
+  button {
+  font-size: 12px;
+  padding: 8px 12px;
+}
 @media (max-height: 420px) {
   .platform {
     gap: 6px;
@@ -631,83 +782,12 @@
     padding: 10px;
     border-radius: 10px;
   }
-  .platform-printers .printer-card {
-    gap: 0;
-  }
-  .platform-printers .printer-name {
-    font-size: 16px;
-  }
-  .platform-printers .printer-state {
-    font-size: 11px;
-    padding: 3px 8px;
-  }
-  .platform-printers .printer-head {
-    gap: 5px;
-  }
-  .platform-printers .printer-job {
-    font-size: 13px;
-    padding: 0;
-    min-block-size: 24px;
-    margin-block-start: 4px;
-    border: 0;
-    background: transparent;
-  }
-  .platform-printers .printer-band {
-    block-size: 48px;
-    margin-block-start: 4px;
-  }
-  .platform-printers .printer-band-text {
-    padding: 0 10px;
-    gap: 4px;
-  }
-  .platform-printers .printer-percent {
-    font-size: 30px;
-  }
-  .platform-printers .printer-band-remaining {
-    font-size: 12px;
-  }
-  .platform-printers .printer-metrics {
-    margin-block-start: 4px;
-  }
-  .platform-printers .printer-metric {
-    padding: 4px 6px;
-  }
-  .platform-printers .printer-metric dd {
-    font-size: 14px;
-  }
-  .platform-printers .printer-body > p {
-    font-size: 12px;
-  }
-  .platform-printers .platform-actions {
-    gap: 5px;
-    margin-block-start: 4px;
-  }
-  .platform-printers .platform-actions button {
-    font-size: 12px;
-    padding: 8px 12px;
-  }
   .platform button.platform-rip-row {
     gap: 8px;
     padding: 10px;
   }
   .platform-rip-number {
     padding: 6px 8px;
-  }
-  .platform-printer-image {
-    max-block-size: 25vh;
-  }
-  .platform-printers[data-count="4"]
-    .platform-printer-camera {
-    flex: 1 1 0;
-    max-block-size: none;
-  }
-  .platform-printer-details[data-has-preview="true"] {
-    grid-template-columns: minmax(80px, 20%) minmax(0, 1fr);
-    gap: 8px;
-  }
-  .platform-printer-preview > span,
-  .platform-camera-label {
-    font-size: 8px;
   }
   .platform[data-device="true"][data-screen-navigation="false"]
     > .platform-header {
@@ -723,35 +803,6 @@
   padding: 10px;
 }
 @media (max-width: 650px) and (max-height: 420px) {
-  .platform-rip-details {
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    padding: 12px;
-    background: var(--bg);
-    gap: 8px;
-  }
-  .platform-rip-details h2 {
-    font-size: 22px;
-  }
-  .platform-rip-details .platform-rip-disc {
-    flex: 1;
-    max-block-size: 160px;
-  }
-  .platform-rip-details .platform-rip-disc img {
-    max-block-size: 140px;
-  }
-  .platform-rip-details .platform-actions {
-    margin-block-start: 0;
-    gap: 6px;
-  }
-  .platform-rip-details .platform-actions button {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-  .platform-rip-details > p {
-    font-size: 12px;
-  }
   .platform-dialog > div {
     padding: 16px;
     max-block-size: 95vh;
@@ -823,16 +874,45 @@
  * view's arithmetic and the glass disagreeing by one gap per row, which is how
  * a row ends up half-drawn on a panel that cannot scroll.
  */
+/*
+ * Every length in this block is a base number times `--ai-usage-scale`, and
+ * the view sets that variable from the panel it measured. The same base
+ * numbers live in `aiUsageLayout.ts` as the row budget, so a panel that is
+ * told its type is 1.5x taller is also told it holds two thirds as many rows.
+ * ⚠️ Change a base height here and there together, or the last row on every
+ * panel is cut in half.
+ *
+ * Why a variable and not `cqi`: the budget is arithmetic in the view, and a
+ * `clamp()` the stylesheet resolves on its own is a number the view cannot
+ * read back. One measured height, two readers, one scale.
+ */
 .ai-usage {
+  --ai-usage-scale: 1;
+  --ai-usage-columns: 1;
   display: flex;
   flex-direction: column;
   gap: 0;
   overflow: hidden;
 }
 .ai-usage > h2 {
-  block-size: 40px;
+  block-size: calc(40px * var(--ai-usage-scale));
   flex: none;
-  font-size: 22px;
+  font-size: calc(22px * var(--ai-usage-scale));
+}
+.ai-usage-columns {
+  display: grid;
+  grid-template-columns: repeat(
+      var(--ai-usage-columns),
+      minmax(0, 1fr)
+    );
+  column-gap: calc(34px * var(--ai-usage-scale));
+  align-content: start;
+  flex: none;
+}
+.ai-usage-column {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
 }
 .ai-usage section {
   display: flex;
@@ -842,20 +922,26 @@
 .ai-usage-provider-head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  block-size: 34px;
+  gap: calc(8px * var(--ai-usage-scale));
+  block-size: calc(34px * var(--ai-usage-scale));
   flex: none;
 }
+.ai-usage-provider-icon {
+  inline-size: calc(20px * var(--ai-usage-scale));
+  block-size: calc(20px * var(--ai-usage-scale));
+  flex: none;
+  align-self: flex-start;
+}
 .ai-usage-provider-head h3 {
-  font-size: 18px;
+  font-size: calc(18px * var(--ai-usage-scale));
   font-weight: 600;
 }
-.ai-usage-plan {
-  font-size: 13px;
+.ai-usage-status {
+  font-size: calc(13px * var(--ai-usage-scale));
   color: var(--fg-dim);
 }
 .ai-usage-problem {
-  font-size: 13px;
+  font-size: calc(13px * var(--ai-usage-scale));
   font-weight: 600;
   color: var(--color-intent-danger-content);
 }
@@ -863,33 +949,33 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 5px;
-  block-size: 70px;
+  gap: calc(5px * var(--ai-usage-scale));
+  block-size: calc(70px * var(--ai-usage-scale));
   flex: none;
-  padding-block-end: 16px;
+  padding-block-end: calc(16px * var(--ai-usage-scale));
 }
 .ai-usage-window-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(12px * var(--ai-usage-scale));
 }
 .ai-usage-window-label {
-  font-size: 15px;
+  font-size: calc(15px * var(--ai-usage-scale));
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .ai-usage-window-percent {
-  font-size: 17px;
+  font-size: calc(17px * var(--ai-usage-scale));
   font-weight: 700;
   white-space: nowrap;
 }
 .ai-usage-bar {
   position: relative;
   overflow: hidden;
-  block-size: 10px;
-  border-radius: 5px;
+  block-size: calc(10px * var(--ai-usage-scale));
+  border-radius: calc(5px * var(--ai-usage-scale));
   background: var(--color-surface-sunken);
 }
 .ai-usage-bar-fill {
@@ -930,8 +1016,9 @@
  * marker that changed the row's height would have to be taught to the view.
  */
 .ai-usage-window[data-escalated="true"] {
-  padding-inline-start: 10px;
-  border-inline-start: 3px solid var(--fg);
+  padding-inline-start: calc(10px * var(--ai-usage-scale));
+  border-inline-start: calc(3px * var(--ai-usage-scale))
+    solid var(--fg);
 }
 .ai-usage-window[data-escalated="true"]
   .ai-usage-window-label {
@@ -940,8 +1027,8 @@
 .ai-usage-window-foot {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 13px;
+  gap: calc(12px * var(--ai-usage-scale));
+  font-size: calc(13px * var(--ai-usage-scale));
   color: var(--fg-dim);
   white-space: nowrap;
 }
@@ -954,8 +1041,8 @@
   line-height: 1.1;
 }
 .ai-usage-more {
-  block-size: 16px;
-  font-size: 13px;
+  block-size: calc(16px * var(--ai-usage-scale));
+  font-size: calc(13px * var(--ai-usage-scale));
   color: var(--fg-dim);
 }
 .platform-panel-title {
@@ -1073,13 +1160,1902 @@
   border-radius: 0.15rem;
 }
 
-.platform-view-picker {
+/*
+ * A screen's views are tabs across the header, every one visible, the way
+ * Home Assistant's dashboard views are. The row takes the header's slack and
+ * scrolls sideways when the views outrun it; the active tab is underlined in
+ * the accent and scrolled into view. Tabs go quiet while a switch is pending
+ * or the socket is down, but they never disappear.
+ */
+.platform-view-tabs {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.platform-view-tabs > div {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-block-end: 2px;
+}
+.platform-view-tabs > div::-webkit-scrollbar {
+  display: none;
+}
+.platform-view-tabs a {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border-block-end: 2px solid transparent;
+  color: var(--fg-dim);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.platform-view-tabs a:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+.platform-view-tabs a[aria-current="page"] {
+  color: var(--fg);
+  border-block-end-color: var(--accent-content);
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+.platform-view-tabs[data-disabled="true"] a {
+  opacity: 0.6;
+  cursor: default;
+}
+/* The dot on a tab whose view has something going on right now. */
+.platform-view-tab-dot {
+  display: inline-block;
+  inline-size: 8px;
+  block-size: 8px;
+  margin-inline-start: 8px;
+  border-radius: 50%;
+  background: var(--color-intent-success-content);
+  vertical-align: 1px;
+}
+/* An active-only view with nothing to show says so in one line. */
+.platform-nothing-active {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+}
+.platform-nothing-active p {
+  margin: 0;
+  color: var(--fg-dim);
+  font-size: 20px;
+}
+/*
+ * Tally Marks. The view measures its own box to choose a board or rows
+ * (`kidsPointsLayout.ts`), so the root fills the panel and never scrolls. A
+ * card is its own size container: the same card is 245 px wide on an
+ * 800 x 480 panel and 500 px on a 13-inch one, and its type follows the card,
+ * not the window.
+ */
+.kids-points {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: hidden;
+  container-type: size;
+}
+.kids-points-board {
+  display: grid;
+  flex: 1;
+  gap: 12px;
+  grid-auto-rows: minmax(0, 1fr);
+  min-block-size: 0;
+}
+.kids-points-card {
+  display: flex;
+  flex-direction: column;
+  /* Top, so the names and totals line up across the board. */
+  justify-content: flex-start;
+  gap: clamp(6px, 1.2cqh, 20px);
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+  /* In the view's units, not the card's: a card's own padding resolves
+     against its parent container, and 6cqi of a 1280 px view is 77 px. */
+  padding: clamp(14px, 1.8cqi, 36px);
+  border-radius: 12px;
+  border-block-start: 10px solid
+    var(--kid-color, var(--accent));
+  background: var(--bg);
+  container-type: size;
+}
+.kids-points-card h3,
+.kids-points-focus h3 {
+  font-size: clamp(18px, 13cqi, 72px);
+  line-height: 1.1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.kids-points-total {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.kids-points-total strong {
+  font-size: clamp(36px, 32cqmin, 220px);
+  font-variant-numeric: tabular-nums;
+}
+.kids-points-total-label {
+  font-size: clamp(14px, 7cqi, 40px);
+  color: var(--fg-dim);
+  margin-block-start: 1cqi;
+}
+.kids-points-bar {
+  position: relative;
+  overflow: hidden;
+  block-size: clamp(10px, 4cqi, 24px);
+  border-radius: 999px;
+  background: var(--color-surface-sunken);
+}
+.kids-points-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--kid-color, var(--accent));
+}
+.kids-points-goal-reached {
+  font-size: clamp(14px, 7cqi, 40px);
+  font-weight: 700;
+  color: var(--color-intent-success-content);
+}
+.kids-points-footnote {
+  font-size: clamp(13px, 6cqi, 34px);
+  color: var(--fg-dim);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* A tall box uses complete cards across the height, with earned points leading the goal. */
+.kids-points-board[data-stacked="true"] .kids-points-card {
+  justify-content: center;
+  border-block-start: 0;
+  border-inline-start: 6px solid
+    var(--kid-color, var(--accent));
+  gap: clamp(6px, 1.2cqh, 16px);
+}
+.kids-points-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-inline-size: 0;
+}
+.kids-points-card-head h3 {
+  font-size: clamp(20px, 13cqmin, 48px);
+  min-inline-size: 0;
+}
+.kids-points-card-head .kids-points-total {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  flex: none;
+}
+.kids-points-card-head .kids-points-total strong,
+.kids-points-card-head
+  .kids-points-total
+  .kids-points-number {
+  font-size: clamp(28px, 22cqmin, 80px);
+}
+.kids-points-card-head
+  .kids-points-total
+  .kids-points-number {
+  align-self: baseline;
+}
+.kids-points-card-head .kids-points-total-label {
+  font-size: clamp(14px, 8cqmin, 28px);
+  margin: 0;
+  white-space: nowrap;
+}
+.kids-points-board[data-stacked="true"]
+  .kids-points-footnote,
+.kids-points-board[data-stacked="true"]
+  .kids-points-goal-reached {
+  font-size: clamp(14px, 7cqmin, 28px);
+}
+.kids-points-board[data-stacked="true"] .kids-points-bar {
+  flex: none;
+}
+.kids-points-card[data-scanned="true"] {
+  outline: 4px solid var(--kid-color, var(--accent));
+  outline-offset: -4px;
+}
+.kids-points-card[data-dimmed="true"] {
+  opacity: 0.45;
+}
+.kids-points-scan {
+  display: flex;
+  flex-direction: column;
+  gap: 1cqi;
+  min-inline-size: 0;
+}
+.kids-points-scan-headline {
+  font-size: clamp(24px, 22cqmin, 150px);
+  line-height: 1;
+  color: var(--color-intent-success-content);
+}
+.kids-points-scan[data-result="refused"]
+  .kids-points-scan-headline {
+  color: var(--color-intent-danger-content);
+}
+.kids-points-scan[data-result="started"]
+  .kids-points-scan-headline {
+  color: var(--accent-content);
+}
+.kids-points-scan-detail {
+  font-size: clamp(14px, 7cqi, 44px);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+/*
+ * The whole panel for the child who just scanned: the view's own box is the
+ * size container here, so a 480 px porthole and a 480 x 320 strip both scale
+ * from their shorter side.
+ */
+.kids-points-focus {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3cqmin;
+  min-block-size: 0;
+  padding-inline-start: 4cqmin;
+  border-inline-start: 10px solid
+    var(--kid-color, var(--accent));
+}
+.kids-points-focus h3 {
+  font-size: clamp(18px, 11cqmin, 80px);
+}
+.kids-points-focus .kids-points-scan-headline {
+  font-size: clamp(32px, 24cqmin, 180px);
+}
+.kids-points-focus .kids-points-scan-detail {
+  font-size: clamp(14px, 6cqmin, 40px);
+}
+.kids-points-focus .kids-points-total {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 2cqmin;
+}
+.kids-points-focus .kids-points-total strong {
+  font-size: clamp(20px, 10cqmin, 72px);
+}
+.kids-points-focus .kids-points-total-label {
+  font-size: clamp(14px, 5cqmin, 36px);
+}
+.kids-points-focus .kids-points-bar {
+  block-size: clamp(10px, 3cqmin, 24px);
+}
+.kids-points-rows {
+  display: flex;
+  flex: 1;
+  min-block-size: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+.kids-points-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-block-size: 64px;
+  flex: 1;
+  container-type: size;
+  padding-inline-start: 12px;
+  border-inline-start: 6px solid
+    var(--kid-color, var(--accent));
+}
+.kids-points-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.kids-points-row h3 {
+  min-inline-size: 0;
+  font-size: clamp(20px, 10cqmin, 36px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.kids-points-row-total {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: none;
+  font-size: clamp(14px, 6cqmin, 24px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.kids-points-row-total strong {
+  font-size: clamp(20px, 15cqmin, 64px);
+}
+.kids-points-row .kids-points-bar {
+  block-size: clamp(10px, 5cqmin, 20px);
+  flex: none;
+}
+.kids-points-overflow {
+  block-size: 28px;
+  flex: none;
+  font-size: 15px;
+  color: var(--fg-dim);
+}
+/*
+ * A 1-bit panel has ink and paper. An identity color quantizes to a hatch
+ * that differs per child for no reason the reader can see, so every stripe
+ * and bar becomes the body ink. The color arrives as an inline custom
+ * property on each card, which no stylesheet rule can override, so the
+ * properties that use it are overridden instead.
+ */
+.kids-points[data-color-mode="monochrome"]
+.kids-points-bar-fill {
+  background: var(--fg);
+}
+.kids-points[data-color-mode="monochrome"]
+  .kids-points-card {
+  border-block-start-color: var(--fg);
+  outline-color: var(--fg);
+}
+.kids-points[data-color-mode="monochrome"] .kids-points-row,
+.kids-points[data-color-mode="monochrome"]
+  .kids-points-focus {
+  border-inline-start-color: var(--fg);
+}
+/*
+ * A scan's motion on an instant panel. The elements exist only there, and
+ * every rule's resting state is the END of its motion, so a panel with
+ * motion switched off still reads the new total.
+ *
+ * The before and after totals share one grid cell, so the number keeps the
+ * width of the wider one and nothing beside it jumps.
+ */
+.kids-points-number {
+  position: relative;
+  display: inline-grid;
+  justify-items: start;
+  align-self: flex-start;
+}
+.kids-points-card .kids-points-number {
+  font-size: clamp(36px, 32cqmin, 220px);
+}
+.kids-points-focus .kids-points-number {
+  align-self: baseline;
+  font-size: clamp(48px, 34cqmin, 240px);
+}
+.kids-points-total .kids-points-number > strong {
+  grid-area: 1 / 1;
+  /* The bounce grows from the baseline, clear of the card's left edge. */
+  transform-origin: 0 85%;
+  font-size: 1em;
+  font-variant-numeric: tabular-nums;
+}
+.kids-points-number-before,
+.kids-points-chip,
+.kids-points-confetti,
+.kids-points-stars {
+  opacity: 0;
+}
+/* Above the total, where the scan line sits on a board card. */
+.kids-points-chip {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 50%;
+  translate: -50% -110%;
+  padding: 0.08em 0.3em;
+  border-radius: 999px;
+  font-size: 0.42em;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--bg);
+  background: var(--kid-color, var(--accent));
+  white-space: nowrap;
+  pointer-events: none;
+}
+.kids-points-confetti,
+.kids-points-stars {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  pointer-events: none;
+}
+.kids-points-confetti i,
+.kids-points-stars i {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+}
+.kids-points-confetti i {
+  inline-size: 1.4cqmin;
+  block-size: 2.6cqmin;
+  min-inline-size: 5px;
+  min-block-size: 9px;
+  background: var(--color);
+}
+.kids-points-confetti i[data-round="true"] {
+  block-size: 1.4cqmin;
+  min-block-size: 5px;
+  border-radius: 50%;
+}
+.kids-points-stars i {
+  inline-size: 5cqmin;
+  block-size: 5cqmin;
+  min-inline-size: 14px;
+  min-block-size: 14px;
+  background: #f5c518;
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+}
+.kids-points-goal-reached[data-motion="goal"] {
+  transform-origin: 0 50%;
+}
+/* A flip turns about the number's own middle, or it folds into its edge. */
+.kids-points-number[data-motion="bonus"]
+.kids-points-number-after {
+  transform-origin: 50% 85%;
+}
+.kids-points-focus[data-motion] .kids-points-scan-headline {
+  font-size: clamp(20px, 9cqmin, 64px);
+}
+
+/*
+ * The timeline, 1.1 s to the merge: the chip pops in over the old total and
+ * drops into it, the old total squashes out as the new one bounces in, and
+ * the bar grows from where it was. The goal line and the scan line arrive
+ * after the number settles.
+ *
+ * Every selector names `data-repaint="instant"` itself: the blanket
+ * no-animation rule in styles.css is less specific than these.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-repaint="instant"] .kids-points-chip {
+    animation: kids-points-chip-drop 1.2s
+      cubic-bezier(0.5, 0, 0.75, 0) both;
+  }
+
+  html[data-repaint="instant"] .kids-points-number-before {
+    animation: kids-points-number-out 1.3s ease-in both;
+  }
+
+  html[data-repaint="instant"] .kids-points-number-after {
+    animation: kids-points-number-in 0.8s 1.1s
+      cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  html[data-repaint="instant"]
+    .kids-points-number[data-motion="bonus"]
+    .kids-points-number-after {
+    animation: kids-points-number-flip 1s 1.1s
+      cubic-bezier(0.34, 1.3, 0.64, 1) both;
+  }
+
+  html[data-repaint="instant"]
+    .kids-points-bar-fill[data-motion="grow"] {
+    animation: kids-points-bar-grow 0.9s 1.1s
+      cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  html[data-repaint="instant"] .kids-points-confetti {
+    animation: kids-points-show 4s step-end both;
+  }
+
+  html[data-repaint="instant"] .kids-points-confetti i {
+    animation: kids-points-confetti 2.6s
+      calc(1.1s + var(--delay))
+      cubic-bezier(0.2, 0.6, 0.4, 1) both;
+  }
+
+  html[data-repaint="instant"] .kids-points-stars {
+    animation: kids-points-show 3s step-end both;
+  }
+
+  html[data-repaint="instant"] .kids-points-stars i {
+    animation: kids-points-star 1.6s
+      calc(1.1s + var(--delay))
+      cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  html[data-repaint="instant"]
+    .kids-points-goal-reached[data-motion="goal"] {
+    animation: kids-points-pop 0.6s 1.5s
+      cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  html[data-repaint="instant"]
+    .kids-points-focus[data-motion]
+    .kids-points-scan {
+    animation: kids-points-rise 0.5s 1.7s ease-out both;
+  }
+}
+
+@keyframes kids-points-chip-drop {
+  0% {
+    opacity: 0;
+    scale: 0.4;
+    translate: calc(-50% + 1em) -110%;
+  }
+  18% {
+    opacity: 1;
+    scale: 1.15;
+    translate: calc(-50% + 1em) -110%;
+  }
+  32% {
+    scale: 1;
+    translate: calc(-50% + 1em) -110%;
+  }
+  88% {
+    opacity: 1;
+    scale: 0.55;
+    translate: -50% 10%;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.2;
+    translate: -50% 25%;
+  }
+}
+
+@keyframes kids-points-number-out {
+  0%,
+  80% {
+    opacity: 1;
+    scale: 1;
+  }
+  88% {
+    opacity: 1;
+    scale: 1.08 0.8;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+@keyframes kids-points-number-in {
+  0% {
+    opacity: 0;
+    scale: 0.3;
+  }
+  45% {
+    opacity: 1;
+    scale: 1.3;
+  }
+  65% {
+    scale: 0.9;
+  }
+  82% {
+    scale: 1.06;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes kids-points-number-flip {
+  0% {
+    opacity: 0;
+    scale: 0.5;
+    rotate: y 0deg;
+    text-shadow: none;
+  }
+  40% {
+    opacity: 1;
+    scale: 1.2;
+    text-shadow: 0 0 0.25em #f5c518;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+    rotate: y 720deg;
+    text-shadow: none;
+  }
+}
+
+@keyframes kids-points-bar-grow {
+  from {
+    width: var(--bar-from);
+  }
+}
+
+/* Keeps a burst's container visible for as long as its pieces fly. */
+@keyframes kids-points-show {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes kids-points-confetti {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  6% {
+    opacity: 1;
+  }
+  35% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--x)),
+        calc(-50% + var(--y))
+      )
+      rotate(calc(var(--spin) * 0.4));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--x) * 1.3),
+        calc(-50% + var(--y) + var(--fall))
+      )
+      rotate(var(--spin));
+  }
+}
+
+@keyframes kids-points-star {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--x)),
+        calc(-50% + var(--y))
+      )
+      scale(1.2) rotate(144deg);
+  }
+  70% {
+    opacity: 0.5;
+    transform: translate(
+        calc(-50% + var(--x)),
+        calc(-50% + var(--y))
+      )
+      scale(0.8) rotate(200deg);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--x)),
+        calc(-50% + var(--y))
+      )
+      scale(1.1) rotate(240deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--x) * 1.15),
+        calc(-50% + var(--y) * 1.15)
+      )
+      scale(0.4) rotate(288deg);
+  }
+}
+
+@keyframes kids-points-pop {
+  0% {
+    opacity: 0;
+    scale: 0.4;
+  }
+  60% {
+    opacity: 1;
+    scale: 1.2;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes kids-points-rise {
+  from {
+    opacity: 0;
+    translate: 0 0.6em;
+  }
+}
+
+.platform-access-status[data-authenticated="true"] {
+  color: var(--color-intent-success-content);
+}
+.printer-control-status {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.platform-sign-in {
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 16px;
+  max-inline-size: min(95vw, 440px);
+  max-block-size: 95dvh;
+  background: var(--surface);
+}
+.platform-sign-in::backdrop {
+  background: rgb(0 0 0 / 75%);
+}
+.platform-sign-in .platform-lock {
+  block-size: auto;
+  min-block-size: 0;
+  padding: 24px;
+}
+@media (max-width: 600px) {
+  .platform-header {
+    flex-wrap: wrap;
+  }
+  .platform-header > div {
+    flex-wrap: wrap;
+  }
+}
+
+.platform-points-history {
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-inline-size: 0;
+  block-size: 100%;
+  overflow: hidden;
+}
+.platform-points-history h2 {
+  font-size: clamp(20px, 3vw, 40px);
+  font-weight: 600;
+  margin: 0;
+}
+.platform-points-history header p,
+.platform-points-history footer {
+  font-size: clamp(12px, 1.6vw, 20px);
+  margin: 0;
+}
+.points-history-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  font-size: clamp(14px, 2vw, 28px);
+}
+.points-history-plot {
+  flex: 1;
+  min-block-size: 120px;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+.points-history-legend {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: clamp(12px, 1.6vw, 22px);
+  max-block-size: 3em;
+  overflow: hidden;
+}
+.points-history-legend span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.points-history-legend i {
+  display: inline-block;
+  inline-size: 24px;
+}
+
+.points-history-compact {
+  display: none;
+}
+@container (max-height: 220px) {
+  .points-history-full {
+    display: none;
+  }
+  .points-history-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+  }
+  .points-history-compact strong {
+    font-size: 22px;
+  }
+  .platform-points-history footer {
+    font-size: 10px;
+  }
+}
+/* Compositions allocate space first; each contained view then budgets its own content. */
+.platform-layout[data-priority-layout="true"] {
+  gap: 12px;
+}
+.platform-layout[data-priority-layout="true"]
+  > .platform-panel {
+  padding: 12px;
+  overflow: hidden;
+}
+.platform-layout[data-priority-layout="true"]
+  .platform-printers
+  .printer-card {
+  padding: 0;
+}
+/* The composition panel owns the surface and padding of each printer. */
+.platform-layout[data-priority-layout="true"]
+> .platform-panel[data-spec="printer-status"]:has(
+  > .platform-printers > .printer-card[data-intent="danger"]
+) {
+  background: var(--color-intent-danger-surface);
+  border-color: var(--color-intent-danger-border);
+}
+.platform-layout[data-priority-layout="true"]
+  > .platform-panel[data-spec="printer-status"]:has(
+    > .platform-printers
+      > .printer-card[data-intent="warning"]
+  ) {
+  background: var(--color-intent-warning-surface);
+  border-color: var(--color-intent-warning-border);
+}
+.platform-layout[data-priority-layout="true"]
+  > .platform-panel[data-spec="printer-status"]:has(
+    > .platform-printers
+      > .printer-card[data-intent="success"]
+  ) {
+  background: var(--color-intent-success-surface);
+  border-color: var(--color-intent-success-border);
+}
+.platform-layout[data-priority-layout="true"]
+  .platform-printers
+  .printer-card {
+  background: transparent;
+}
+.printer-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+}
+.printer-progress-row > .printer-band {
+  flex: 1;
+  min-inline-size: 0;
+}
+.platform .printer-progress-row .printer-actions {
+  align-self: center;
+  flex: 0 0 auto;
+  inline-size: auto;
+  margin: 0;
+  gap: 6px;
+}
+.platform
+  .printer-actions[data-icons="true"]
+  .printer-action {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex: 0 0 48px;
+  inline-size: 48px;
+  min-inline-size: 48px;
+  block-size: 48px;
+  min-block-size: 48px;
+  max-block-size: 48px;
+}
+.platform
+  .printer-progress-row[data-icons="true"]
+  > .printer-band {
+  block-size: 48px;
+  min-block-size: 48px;
+  max-block-size: 48px;
+  margin-block-start: 0;
+}
+.platform
+  .printer-progress-row[data-icons="true"]
+  .printer-band-text {
+  padding-inline: 12px;
+  gap: 8px;
+}
+.platform
+  .printer-progress-row[data-icons="true"]
+  .printer-percent {
+  flex: none;
+  font-size: clamp(22px, 2.5vmin, 30px);
+  line-height: 1;
+}
+.platform
+  .printer-progress-row[data-icons="true"]
+  .printer-band-remaining {
+  font-size: clamp(14px, 1.5vmin, 18px);
+}
+.printer-progress-row[data-icons="false"] {
+  flex-wrap: wrap;
+}
+.platform
+  .printer-progress-row[data-icons="false"]
+  .printer-actions {
+  inline-size: min(100%, 320px);
+}
+.platform-rips[data-presentation="posters"] {
+  min-block-size: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-rows {
+  display: grid;
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 140px), 1fr)
+    );
+  grid-auto-rows: minmax(0, 1fr);
+  flex: 1;
+  min-block-size: 0;
+  gap: 10px;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-block-size: 0;
+  padding: 8px;
+  overflow: hidden;
+  text-align: start;
+}
+.platform-rip-poster {
+  min-block-size: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.platform-rip-poster img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-title
+  strong {
+  font-size: clamp(16px, 2cqi, 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-fill {
+  inset: auto 0 0;
+  block-size: 5px;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-meta {
+  display: none;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-job {
+  background: transparent;
+  border: 0;
+  min-block-size: 32px;
+  padding: 0;
+  text-align: start;
+  font-size: clamp(16px, 3cqi, 26px);
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metric {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metric
+  :is(dt, dd) {
+  font-size: clamp(14px, 2.7cqi, 19px);
+  white-space: nowrap;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metric
+  dt {
+  text-transform: none;
+  letter-spacing: normal;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-metric.is-filament {
+  flex: 1 1 100%;
+  min-inline-size: 0;
+  min-block-size: 44px;
+  margin-block-start: 0;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .is-filament
+  dt {
+  display: none;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .printer-filament-button {
+  position: static;
+  inset: auto;
+  inline-size: 100%;
+  align-items: center;
+  min-block-size: 44px;
+  padding: 0;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-title {
+  flex: none;
+  gap: 2px;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-number {
+  align-self: start;
+  font-size: 14px;
+  padding: 2px 6px;
+}
+.platform-rips[data-presentation="posters"]
+  .platform-rip-row
+  > strong {
+  font-size: 20px;
+}
+.platform-rip-more {
+  font-size: 14px;
+  color: var(--fg-dim);
+}
+
+/* Status surrounds the viewport without taking room from its content. */
+:is(
+  .platform,
+  .platform-lock
+)[data-connection="reconnecting"]::after,
+:is(
+  .platform,
+  .platform-lock
+)[data-connection="disconnected"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  border: 4px solid var(--color-intent-warning-solid);
+}
+:is(
+  .platform,
+  .platform-lock
+)[data-connection="disconnected"]::after {
+  border-color: var(--color-intent-danger-solid);
+}
+.platform-connection-status {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.platform
+  .printer-card[data-compact-facts="true"]
+  .is-filament
+  dd {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+/* Measured visibility tiers preserve essential facts and actions before optional details. */
+.platform-printers .printer-card[data-detail-level="1"]
+  .printer-metric.is-filament,
+.platform-printers
+  .printer-card[data-detail-level="2"]
+  .printer-metrics,
+.platform-printers
+  .printer-card[data-detail-level="3"]
+  .printer-metrics,
+.platform-printers
+  .printer-card[data-detail-level="3"]
+  > .platform-printer-media {
+  display: none;
+}
+.platform-printers
+  .printer-card[data-detail-level="2"]
+  .printer-meta,
+.platform-printers
+  .printer-card[data-detail-level="3"]
+  .printer-meta {
+  display: none;
+}
+@container (max-width: 320px) {
+  .platform-printers .printer-head {
+    display: none;
+  }
+  .platform-printers .printer-job {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    margin: 0;
+  }
+  .platform-printers .printer-progress-row {
+    display: contents;
+  }
+  .platform-printers .printer-progress-row > .printer-band {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    inline-size: 100%;
+  }
+  .platform-printers
+    .printer-progress-row
+    > .printer-actions {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .platform-printers .printer-problem,
+  .platform-printers .printer-control-status,
+  .platform-printers .printer-clear,
+  .platform-printers .printer-metrics {
+    grid-column: 1 / -1;
+  }
+}
+
+.platform-printers
+  .printer-card[data-compact="true"]
+  .printer-names {
+  flex: 1 1 64px;
+}
+
+.platform-printers .printer-body {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.platform-printers :where(.printer-body) > :where(*) {
+  grid-column: 1 / -1;
+}
+
+.platform-rips[data-row-posters="true"]
+  .platform-rip-poster {
+  flex: 0 0 44px;
+  inline-size: 44px;
+  block-size: calc(100% - 16px);
+  min-block-size: 64px;
+}
+.platform-rip-rows[data-density="compact"] {
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 4px;
   font-size: 14px;
 }
-.platform-view-picker select {
-  max-inline-size: min(32vw, 360px);
-  min-inline-size: 100px;
+.platform-rip-rows[data-density="compact"]
+  .platform-rip-row {
+  gap: 6px;
+  padding: 4px;
+}
+.platform-rip-rows[data-density="compact"]
+  .platform-rip-number {
+  padding: 2px 4px;
+}
+.platform-rip-rows[data-density="compact"]
+  .platform-rip-title
+  span {
+  display: none;
+}
+
+/* A narrow quota rail keeps percentages whole and trims secondary labels. */
+.ai-usage-provider-head h3 {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-usage-status {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-layout[data-priority-layout="true"]
+  > .platform-panel[data-spec="ai-usage"] {
+  padding: 10px;
+}
+
+/* Slot badges leave the rip title, phase and percentage readable in a rail. */
+@container (max-width: 360px) {
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster)) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster))
+    .platform-rip-number {
+    grid-column: 1;
+    grid-row: 1;
+    inline-size: fit-content;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    overflow: hidden;
+    padding: 4px 8px;
+    font-size: 0.75em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster))
+    > strong {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .platform-rips[data-presentation="rows"]
+    .platform-rip-row:not(:has(.platform-rip-poster))
+    .platform-rip-title {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 4px;
+  }
+}
+/* Home dashboards retain a single scroll surface instead of clipping nested rows. */
+.platform-layout[data-home-dashboard="true"] {
+  display: block;
+  overflow: auto;
+  padding: 2px;
+}
+.home-dashboard {
+  display: grid;
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 340px), 1fr)
+    );
+  align-items: start;
+  gap: 18px;
+}
+.home-group {
+  --home-tint: var(--accent);
+  min-inline-size: 0;
+  padding: 14px;
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--home-tint) 30%,
+      var(--color-border-subtle)
+    );
+  border-radius: 20px;
+  background: color-mix(
+    in srgb,
+    var(--home-tint) 9%,
+    var(--surface)
+  );
+}
+.home-group[data-accent="green"] {
+  --home-tint: var(--color-intent-success-content);
+}
+.home-group[data-accent="amber"] {
+  --home-tint: var(--color-intent-warning-content);
+}
+.home-group[data-accent="rose"] {
+  --home-tint: var(--color-intent-danger-content);
+}
+.home-group[data-accent="purple"] {
+  --home-tint: var(--color-intent-accent-content);
+}
+.home-group[data-accent="cyan"] {
+  --home-tint: var(--color-intent-info-content);
+}
+.home-group-title {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 650;
+}
+.home-group > .platform-panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  padding: 0;
+  margin-block-end: 12px;
+}
+.home-group > .platform-panel:last-child {
+  margin-block-end: 0;
+}
+.home-group .platform-panel-title {
+  font-size: 14px;
+  color: var(--fg-dim);
+  margin-block: 8px;
+}
+.platform-entities[data-home="true"] {
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 145px), 1fr)
+    );
+  gap: 9px;
+}
+.platform-entities[data-home="true"] .platform-entity {
+  position: relative;
+  min-inline-size: 0;
+  border: 1px solid var(--color-border-subtle);
+  padding: 12px;
+  border-radius: 14px;
+  background: color-mix(
+    in srgb,
+    var(--surface) 78%,
+    var(--home-tint, var(--accent))
+  );
+}
+.platform-entities[data-home="true"] .platform-entity h2 {
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  margin: 0 0 5px;
+}
+.platform-entities[data-home="true"]
+  .platform-entity-value {
+  font-size: 22px;
+  line-height: 1.2;
+  margin: 6px 0 10px;
+}
+.platform-entities[data-home="true"]
+  .platform-entity:is(
+    [data-domain="light"],
+    [data-domain="climate"],
+    [data-domain="input_select"],
+    [data-domain="select"],
+    [data-domain="input_number"]
+  ) {
+  grid-column: 1 / -1;
+}
+.platform-entities[data-home="true"]
+  .platform-entity[data-state="on"] {
+  border-color: color-mix(
+    in srgb,
+    var(--home-tint, var(--accent)) 55%,
+    var(--color-border-subtle)
+  );
+}
+.home-control-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+.home-control-fieldset:disabled {
+  opacity: 0.65;
+}
+.platform-entities[data-home="true"] .platform-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.platform-entities[data-home="true"]
+  .platform-actions
+  > button {
+  flex: 1;
+  padding: 8px 10px;
+  min-block-size: 44px;
+  font-size: 13px;
+}
+.platform-entities[data-home="true"]
+  .platform-actions
+  > label {
+  min-inline-size: 0;
+  flex: 1 1 100%;
+  font-size: 13px;
+}
+.platform-entities[data-home="true"] input {
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+.platform-entities[data-home="true"] input[type="range"] {
+  padding: 0;
+  min-block-size: 44px;
+  accent-color: var(--home-tint, var(--accent));
+}
+.platform-entities[data-home="true"] input[type="color"] {
+  min-block-size: 48px;
+  padding: 4px;
+}
+.home-light-progress {
+  appearance: none;
+  display: block;
+  inline-size: 100%;
+  block-size: 8px;
+  border: 0;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.home-light-progress::-webkit-progress-bar {
+  background: var(--bg);
+}
+.home-light-progress::-webkit-progress-value {
+  background: var(--color-intent-warning-content);
+  border-radius: 99px;
+}
+.home-light-progress::-moz-progress-bar {
+  background: var(--color-intent-warning-content);
+  border-radius: 99px;
+}
+.home-light-controls {
+  flex: 1 1 100%;
+  min-inline-size: 0;
+}
+.home-light-controls label {
+  display: block;
+  font-size: 13px;
+}
+.home-light-controls output {
+  float: inline-end;
+  color: var(--fg-dim);
+}
+.home-light-details {
+  margin-block-start: 4px;
+}
+.home-light-details summary,
+.home-picker summary,
+.home-chart-details summary {
+  cursor: pointer;
+  min-block-size: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--surface);
+}
+.home-light-details summary::after,
+.home-picker summary::after,
+.home-chart-details summary::after {
+  content: "⌄";
+  margin-inline-start: auto;
+}
+.home-light-details[open] summary::after,
+.home-picker[open] summary::after,
+.home-chart-details[open] summary::after {
+  content: "⌃";
+}
+.home-light-details[open] > label {
+  margin-block-start: 12px;
+}
+.home-picker {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.home-picker summary strong {
+  margin-inline-start: auto;
+  overflow-wrap: anywhere;
+}
+.home-picker [role="listbox"] {
+  max-block-size: 240px;
+  overflow: auto;
+  padding: 5px;
+  background: var(--bg);
+  border-radius: 9px;
+}
+.home-picker [role="option"] {
+  display: block;
+  inline-size: 100%;
+  text-align: start;
+  margin-block: 3px;
+}
+.home-picker [aria-selected="true"] {
+  border-color: var(--accent);
+  background: color-mix(
+    in srgb,
+    var(--accent) 18%,
+    var(--surface)
+  );
+}
+.home-camera-grid {
+  display: grid;
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 280px), 1fr)
+    );
+  gap: 14px;
+}
+.home-camera-card {
+  position: relative;
+  background: var(--bg);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 16px;
+  overflow: hidden;
+  min-inline-size: 0;
+}
+.home-camera-card > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 10px;
+  padding: 12px;
+}
+.home-camera-card header strong {
+  font-size: 15px;
+}
+.home-camera-card header span {
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+.home-camera-frame {
+  position: relative;
+}
+.home-camera-card .platform-camera {
+  aspect-ratio: 16 / 9;
+  position: relative;
+  min-inline-size: 0;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.home-camera-card .platform-camera img,
+.home-camera-card .platform-camera video {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+.home-camera-card .platform-camera p {
+  position: absolute;
+  inset: auto 8px 8px;
+  padding: 8px;
+  background: var(--surface);
+  font-size: 13px;
+}
+.home-camera-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+.platform .home-camera-expand {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.home-camera-expand > span {
+  position: absolute;
+  inset: auto 10px 10px auto;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12px;
+}
+.home-camera-card[data-expanded="true"] {
+  position: fixed;
+  inset: 12px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 0 100vmax
+    color-mix(in srgb, var(--bg) 88%, transparent);
+}
+.home-camera-card[data-expanded="true"] header {
+  flex-shrink: 0;
+}
+.home-camera-card[data-expanded="true"] header button {
+  margin-inline-start: auto;
+}
+.home-camera-card[data-expanded="true"] .home-camera-frame {
+  min-block-size: 0;
+  flex: 1;
+  display: flex;
+}
+.home-camera-card[data-expanded="true"] .platform-camera {
+  min-block-size: 0;
+  flex: 1;
+}
+.home-dashboard[data-camera-wall="true"] {
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 360px), 1fr)
+    );
+}
+.home-dashboard[data-camera-wall="true"] .home-group,
+.home-dashboard[data-camera-wall="true"] .platform-panel,
+.home-dashboard[data-camera-wall="true"] .home-camera-grid {
+  display: contents;
+  container-type: normal;
+}
+.home-dashboard[data-camera-wall="true"] .home-group-title,
+.home-dashboard[data-camera-wall="true"]
+  .platform-panel-title {
+  display: none;
+}
+.home-group .platform-photo {
+  margin: 0 0 12px;
+}
+.home-group .platform-photo img {
+  inline-size: 100%;
+  max-block-size: 250px;
+}
+.home-group .platform-forecast {
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(66px, 1fr)
+    );
+  gap: 6px;
+}
+.home-group .platform-forecast article {
+  padding: 8px 5px;
+  font-size: 12px;
+}
+.home-group .platform-forecast strong {
+  font-size: 14px;
+}
+.home-group .platform-weather header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-block-end: 14px;
+}
+.home-group .platform-weather header > strong {
+  font-size: 36px;
+}
+.home-chart-details {
+  margin-block-start: 8px;
+}
+.home-chart-details [data-chart-interactive] {
+  color: var(--fg);
+  background: var(--bg);
+  border-radius: 10px;
+  overflow: hidden;
+}
+@media (max-width: 600px) {
+  .home-dashboard {
+    gap: 12px;
+  }
+  .home-group {
+    padding: 12px;
+  }
+  .home-camera-card[data-expanded="true"] {
+    inset: 5px;
+  }
+}
+
+.home-light-members {
+  margin-block-start: 8px;
+}
+.home-light-members > summary {
+  cursor: pointer;
+  padding: 12px 6px;
+  min-block-size: 44px;
+  font-size: 13px;
+}
+.home-light-members > div {
+  display: grid;
+  gap: 10px;
+  padding-block: 8px;
+}
+.platform-entities[data-home="true"]
+  .home-light-members
+  .platform-entity {
+  background: var(--bg);
+}
+
+.home-group[data-span="full"] {
+  grid-column: 1 / -1;
+}
+.home-group[data-span="full"] .platform-entity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.home-group[data-span="full"] .platform-entity-value {
+  display: none;
+}
+.home-group[data-span="full"] .home-control-fieldset {
+  flex: 1;
+}
+.platform-entities[data-home="true"]
+  .platform-entity[data-domain="light"]
+  > h2 {
+  min-block-size: 32px;
+  padding-inline-end: 90px;
+}
+.platform-entities[data-home="true"]
+  .platform-entity[data-domain="light"]
+  > .platform-entity-value {
+  font-size: 16px;
+  margin-block: 4px 6px;
+}
+.platform-entities[data-home="true"]
+  .platform-entity[data-domain="light"]
+  .home-control-fieldset
+  > .platform-actions
+  > button {
+  position: absolute;
+  inset: 8px 10px auto auto;
+  padding: 8px;
+  inline-size: 80px;
+}
+.platform-entities[data-home="true"]
+  .platform-entity[data-domain="light"]
+  .home-light-controls
+  input[type="range"] {
+  min-block-size: 32px;
+}
+.home-light-members > summary {
+  min-block-size: 38px;
+  padding-block: 8px;
+}
+.home-temperature {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.home-temperature strong {
+  font-size: 24px;
+}
+.home-temperature button {
+  min-inline-size: 52px;
+}
+.home-group:not(:has(.platform-panel)) {
+  display: none;
+}
+
+.home-camera-card .platform-camera[data-failed="true"] img {
+  visibility: hidden;
+}
+
+.home-dashboard[data-camera-wall="true"]
+  .platform-source-status {
+  grid-column: 1 / -1;
+}
+
+/* Countdown metrics share the existing bar and identity palette. */
+.kids-points-countdown {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 3cqmin, 24px);
+  min-inline-size: 0;
+}
+.kids-points-countdown-name {
+  font-size: clamp(16px, 8cqmin, 48px);
+  line-height: 1.15;
+}
+.kids-points-countdown-times {
+  display: flex;
+}
+.kids-points-countdown-times p {
+  display: flex;
+  flex-direction: column;
+  gap: 1cqmin;
+}
+.kids-points-countdown-times strong {
+  font-size: clamp(24px, 16cqmin, 100px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.kids-points-countdown-times span {
+  font-size: clamp(14px, 6cqmin, 32px);
+  color: var(--fg-dim);
+}
+html[data-repaint="instant"]
+  .kids-points-countdown
+  .kids-points-bar-fill {
+  transition: width 1s linear;
+}
+
+/* A compact totals board keeps all selected children visible, including during scans. */
+.kids-points-simple-totals {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+}
+.kids-points-simple-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-block-size: 0;
+  container-type: size;
+}
+.kids-points-simple-row h3 {
+  min-inline-size: 0;
+  font-size: clamp(18px, 52cqmin, 64px);
+  font-weight: 900;
+  line-height: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.kids-points-simple-row strong {
+  flex: none;
+  font-size: clamp(24px, 66cqmin, 96px);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Compact panels keep simultaneous countdowns in separate readable cells. */
+.kids-points-countdowns {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  grid-auto-rows: minmax(0, 1fr);
+  min-block-size: 0;
+}
+.kids-points-timer-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 8px;
+  border-block-start: 4px solid
+    var(--kid-color, var(--accent));
+  background: var(--bg);
+  container-type: size;
+}
+.kids-points-timer-card h3 {
+  font-size: clamp(14px, 12cqmin, 48px);
+  line-height: 1.1;
+}
+.kids-points-timer-card .kids-points-countdown {
+  gap: 4px;
+}
+.kids-points-timer-card .kids-points-countdown-name {
+  font-size: clamp(12px, 7cqmin, 32px);
+}
+.kids-points-timer-card .kids-points-countdown-times p {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 4px;
+}
+.kids-points-timer-card
+  .kids-points-countdown-times
+  strong {
+  font-size: clamp(22px, 20cqmin, 80px);
+}
+.kids-points-timer-card .kids-points-countdown-times span {
+  font-size: clamp(12px, 7cqmin, 24px);
 }

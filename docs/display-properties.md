@@ -3,6 +3,10 @@
 **Date:** 2026-09-13 · **Rule:**
 [a display is a panel model plus an installation](decisions/2026-09-13-a-display-is-a-panel-model-plus-an-installation.md)
 
+For physical size/PPI, viewing distance, purpose and information density, also read
+[Display targets](display-targets.md). Its profiles are design records, not current
+runtime settings.
+
 A registered display is a **panel model** plus an **installation**. The panel
 model is what the hardware is. The installation is how this unit is hung, how it
 is powered, and what the owner wants hidden. Both change the final render, and
@@ -94,6 +98,10 @@ it.
 - **Which fields inside a view render.** Now Playing on a `slow` panel prints
   the track, the artist and the album, and prints no position bar. The same view
   on an `instant` panel prints the bar and the running position.
+- **How long a temporary view stays, and whether it is allowed.** A view
+  sent to a display for a while lasts at least ten repaints: thirty seconds on
+  a `slow` panel. A `super-slow` panel refuses one. See
+  [a temporary view on one display](display-platform.md#a-temporary-view-on-one-display).
 - **Whether an animation is allowed at all.** Only `instant` may animate. On
   `fast` an animation is a stutter; below that it is a flicker. Enforced since
   2026-09-14 by a blanket rule on `html:not([data-repaint="instant"])`, so a
@@ -156,7 +164,7 @@ setting only starts mattering when a photo, a gradient or album art appears.
 | Value | Example panels | What it changes |
 | --- | --- | --- |
 | `none` | Inky pHAT, Inky Impression, HyperPixel Round | No control may be the only way to reach a function. Every state the display can be in must be reachable from Home Assistant or the admin panel. A view may still show a control-shaped thing only if it is labeled as status. |
-| `touch` | M5Paper, WT32-SC01, HyperPixel Square, Pi Touch 2 | Targets are sized for a finger. ⚠️ On a frame-pushed panel **a target's bounding box IS its touch area** — a hit-area pad drawn on a `::before`, or a part that overflows its box, is discarded silently ([decision](decisions/2026-09-13-a-touch-targets-bounding-box-is-its-touch-area.md)). |
+| `touch` | M5Paper, WT32-SC01, HyperPixel Square, Pi Touch 2 | Targets are sized for a finger. Undrawn top/bottom edge strips preserve audio/time swipes above external views; an enabled view drawer opens from either full-height side edge. Held views retain the existing side hand-back gesture. ⚠️ On a frame-pushed panel **a target's bounding box IS its touch area** — a hit-area pad drawn on a `::before`, or a part that overflows its box, is discarded silently ([decision](decisions/2026-09-13-a-touch-targets-bounding-box-is-its-touch-area.md)). |
 | `pointer` | none today | Hover exists, so a hover affordance is allowed. Nothing in the fleet is here. |
 
 `input` is independent of everything else. The M5Paper is ePaper with touch.
@@ -426,6 +434,9 @@ argument for keying behavior on properties instead of on panel technology.
 
 This file is the rule. The code does not follow all of it.
 
+Views that a panel's size or shape cannot carry are listed in
+[panel limits](panel-limits.md). None of those limits is enforced yet.
+
 1. ~~Every image-mode device is offered all nine view names.~~ **Done
    2026-09-14.** `getViewsForDevice` runs the freshness rule over every view
    and the discovery `select` carries only what the panel can draw. A
@@ -484,3 +495,69 @@ This file is the rule. The code does not follow all of it.
 
 The order of work is in
 [the unification plan](2026-09-12-unify-one-view-vocabulary-plan.md).
+
+## Backlight control transport
+
+Backlight support is a device capability; it does not change panel layout,
+color or repaint properties. The management Backlight tab offers one brightness
+slider and immediate On/Off controls. Supported remote receivers register their
+capability; installations with a separate backlight agent enable Backlight available
+on the device form. MQTT synchronization remains available alongside native control,
+so Home Assistant automations can control the same backlight.
+
+| Setting | Consequence |
+| --- | --- |
+| Neither backlight flag | No backlight controls or commands are offered. |
+| `hasMqttBacklight` | Brightness is sent to the installation's MQTT backlight agent. |
+| `hasRemoteBacklight` | Brightness, power and optional room following are persisted by CastKit and delivered directly by a supporting remote-display receiver. The Presto receiver applies its hardware PWM and suppresses touch while off; neither manual control nor persistence requires MQTT or Home Assistant. |
+
+Room following reads a selected current `entities.v1` light/switch state. The
+source is optional and separate from manual control. An unavailable source holds
+the last known room state during the server process; after a restart, following
+starts off until valid data arrives. Manual On/Off overrides following. Room following is optional and stays disabled
+when Home Assistant automations already coordinate the display with room lights.
+The Backlight tab reads current settings periodically so external power and
+brightness changes appear without reloading the management page.
+
+
+## Ambient LED capability
+
+| Panel capability | Consequence |
+| --- | --- |
+| `hasRemoteAmbientLight: false` (default) | No ambient-light controls, frame controls or MQTT light are offered. |
+| `hasRemoteAmbientLight: true` | Independent ambient LED power, remembered brightness (0–100%), effect and demo preview are persisted by CastKit. The Ambient light tab applies them immediately; supporting receivers read `ambientLight` from `controls.json`. MQTT optionally mirrors the same state as a JSON light with five effects. The LEDs default off at 5%, independently of the display backlight. |
+
+Effects are `album-glow`, `swipe-comet`, `meeting-fuse`, `weather-aura` and
+`progress-bar`. Demo preview supplies effect demonstrations on a supporting
+receiver; turning it off uses current display data. `ambientLightData` supplies
+clamped track progress, playback state, duration, next timed event countdown and
+weather from the device's feeds or its assigned composition's channel bindings.
+Missing data stays empty; CastKit does not invent live progress or an event.
+
+MQTT uses `<base>/<device>/ambient_light/set` and retained
+`<base>/<device>/ambient_light/state` JSON with `state`, `brightness`, `effect`
+and `demo`. State is persisted locally, not restored from retained state topics.
+An OFF command or HA brightness zero retains the chosen positive brightness;
+ON restores it. Local brightness, effect and preview changes preserve power.
+
+### Optional ambient effects by view
+
+Devices with `hasRemoteAmbientLight` offer Follow current view and per-view effect rules
+in the Ambient light tab. Defaults use stable builtin client IDs: Now Playing → album
+glow, Queue → progress bar, Calendar → meeting fuse, Ambient/Clock/Weather → weather aura,
+Touch Test → swipe comet. Other builtin views, platform compositions and unavailable
+views default to Off. Rules can choose any of the five effects or Off.
+
+The persisted `followView` flag defaults to false; `viewModes` keys are
+`builtin:<clientId>` and `view:<platformViewId>`. Names and screen container IDs are not
+rules. A device override takes priority over its assigned screen's actual selected view.
+Manual Off remains authoritative, and brightness/demo/manual effect remain remembered.
+Management shows resolved view/effect/power separately. Both power buttons highlight the
+effective state.
+
+`controls.json` carries ordinary resolved `ambientLight` controls and separate persisted
+`ambientLightPolicy`. Optional MQTT discovery adds effect `follow-view`; choosing a
+manual effect disables following. Retained state includes the configured effect alias,
+resolved power, `resolved_effect`, `followView` and `viewModes`, with changes mirrored as
+the displayed view changes. No broker, Home Assistant automation or firmware policy is
+required. See [the decision](decisions/2026-10-06-ambient-leds-can-follow-current-view.md).

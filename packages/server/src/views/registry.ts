@@ -1,4 +1,5 @@
 import type { DeviceMetadata } from "@castkit/core/devices/device"
+import { compactClockTime } from "@castkit/shared/compactClockTime"
 import type { ViewName } from "@castkit/shared/views/viewNames"
 import { getIsPhotoView } from "@castkit/shared/views/viewNames"
 import { AgendaView } from "@castkit/views/AgendaView"
@@ -72,19 +73,21 @@ export const getIsClockBearingView = (viewName: ViewName) =>
 export type ClockConfig = {
   /** IANA timezone name, or undefined = the process default (`TZ`). */
   timeZone: string | undefined
-  /** 12-hour clock (`2:30 PM`) when true, 24-hour (`14:30`) when false. */
+  /** 12-hour clock (`2:30p`) when true, 24-hour (`14:30`) when false. */
   isTwelveHour: boolean
   /** Numeric date (`7/5/2026`) when true, long (`Sunday, July 5`) when false. */
   isNumericDate: boolean
 }
 
 const formatTime = (now: Date, clock: ClockConfig) =>
-  new Intl.DateTimeFormat("en-US", {
-    timeZone: clock.timeZone,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: clock.isTwelveHour,
-  }).format(now)
+  compactClockTime(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: clock.timeZone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: clock.isTwelveHour,
+    }).format(now),
+  )
 
 const formatDate = (now: Date, clock: ClockConfig) =>
   new Intl.DateTimeFormat(
@@ -106,15 +109,7 @@ const formatDate = (now: Date, clock: ClockConfig) =>
 
 /** `11:50p` — every character earns its place on a 250px panel. */
 const formatCompactTime = (now: Date, clock: ClockConfig) =>
-  new Intl.DateTimeFormat("en-US", {
-    timeZone: clock.timeZone,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: clock.isTwelveHour,
-  })
-    .format(now)
-    .replace(" AM", "a")
-    .replace(" PM", "p")
+  formatTime(now, clock)
 
 /**
  * `Tu-02` — two-letter weekday plus the day (month is obvious in person).
@@ -139,7 +134,7 @@ const formatCompactDate = (
   return `${weekday}-${day}`
 }
 
-/** `2:30 PM` on the large panel, `2:30p` on the compact one; all-day → label. */
+/** Compact 12-hour suffixes on every panel; all-day → label. */
 const formatEventTime = ({
   startMs,
   isAllDay,

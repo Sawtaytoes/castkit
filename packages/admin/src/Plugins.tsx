@@ -1,4 +1,4 @@
-import { Button, Card } from "@charcuterie/ui"
+import { AdaptiveGrid, Button, Card } from "@charcuterie/ui"
 import { useState } from "react"
 import { PluginInstaller } from "./PluginInstaller.tsx"
 import { mutate, type Platform } from "./platformApi.ts"
@@ -115,7 +115,12 @@ export const Plugins = ({
           {message}
         </p>
       ) : null}
-      <div className="grid gap-4 md:grid-cols-2">
+      <AdaptiveGrid
+        itemBlockSize={208}
+        chromeBlockSize={224}
+        maxColumns={6}
+        minColumnInlineSize={320}
+      >
         {platform.plugins.map((plugin) => (
           <Card key={plugin.id} heading={plugin.name}>
             <p className="text-content-secondary">
@@ -160,7 +165,7 @@ export const Plugins = ({
             </div>
           </Card>
         ))}
-      </div>
+      </AdaptiveGrid>
       <a
         className="underline"
         href="https://github.com/Sawtaytoes/castkit/blob/master/docs/plugins.md"

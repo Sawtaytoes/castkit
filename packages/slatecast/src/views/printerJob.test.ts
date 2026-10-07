@@ -140,7 +140,7 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("5:47 PM")
+    ).toBe("5:47p")
   })
 
   test("a finish the next day names tomorrow", () => {
@@ -152,10 +152,10 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("Tomorrow 3:47 PM")
+    ).toBe("T 3:47p")
   })
 
-  test("an overnight finish names tomorrow after eight hours", () => {
+  test("an overnight finish keeps the bare time within twenty-four hours", () => {
     expect(
       withPlainSpaces(
         formatFinishTime({
@@ -164,7 +164,43 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("Tomorrow 1:00 AM")
+    ).toBe("1:00a")
+  })
+
+  test.each([
+    {
+      elapsedMillis: 24 * 60 * 60 * 1_000,
+      expected: "3:05p",
+    },
+    {
+      elapsedMillis: 24 * 60 * 60 * 1_000 + 1,
+      expected: "T 3:05p",
+    },
+  ])("the twenty-four-hour boundary: $elapsedMillis ms", ({
+    elapsedMillis,
+    expected,
+  }) => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          finishAtMs: nowMillis + elapsedMillis,
+          nowMillis,
+        }),
+      ),
+    ).toBe(expected)
+  })
+
+  test("two calendar days within twenty-four hours across daylight saving keep the bare time", () => {
+    expect(
+      withPlainSpaces(
+        formatFinishTime({
+          clock,
+          nowMillis: Date.UTC(2026, 2, 8, 5, 30),
+          finishAtMs: Date.UTC(2026, 2, 9, 5, 15),
+        }),
+      ),
+    ).toBe("12:15a")
   })
 
   test("a finish further out names its weekday", () => {
@@ -176,7 +212,7 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("Sun 2:30 PM")
+    ).toBe("Sun 2:30p")
   })
 
   test("a week or more out names the date instead", () => {
@@ -188,7 +224,7 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("Aug 1 2:30 PM")
+    ).toBe("Aug 1 2:30p")
   })
 
   test("a finish already past keeps the bare time", () => {
@@ -200,6 +236,6 @@ describe("formatFinishTime", () => {
           nowMillis,
         }),
       ),
-    ).toBe("3:05 PM")
+    ).toBe("3:05p")
   })
 })

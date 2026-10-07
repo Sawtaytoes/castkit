@@ -3,13 +3,29 @@ import {
   Card,
   EmptyState,
   Header,
+  IconButton,
   Main,
   Nav,
+  type NavRailItem,
+  Rail,
   Shell,
+  useNavLayout,
 } from "@charcuterie/ui"
+import {
+  Cpu,
+  KeyRound,
+  LayoutGrid,
+  LayoutTemplate,
+  Menu,
+  Monitor,
+  Plug,
+  Puzzle,
+  Radio,
+} from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useLocation } from "react-router"
 import { Access, type AccessSession } from "./Access.tsx"
+import { Brand } from "./Brand.tsx"
 import { CollectionPage } from "./CollectionPage.tsx"
 import { Devices } from "./Devices.tsx"
 import { Plugins } from "./Plugins.tsx"
@@ -20,22 +36,31 @@ import {
   type Platform,
 } from "./platformApi.ts"
 
-const destinations = [
-  "All screens",
-  "Sources",
-  "Channels",
-  "Views",
-  "Screens",
-  "Devices",
-  "Plugins",
-  "Access",
-].map((label) => ({
-  label,
-  href: `/${label.toLowerCase().replaceAll(" ", "-")}`,
+/**
+ * The destinations, with a glyph each: the rail's icon-only state shows
+ * nothing else, so an item with no glyph would be a blank square that still
+ * navigates (`NavRailItem` makes the type checker say so).
+ */
+const destinations: NavRailItem[] = [
+  { label: "All screens", icon: <LayoutGrid /> },
+  { label: "Sources", icon: <Plug /> },
+  { label: "Channels", icon: <Radio /> },
+  { label: "Views", icon: <LayoutTemplate /> },
+  { label: "Screens", icon: <Monitor /> },
+  { label: "Devices", icon: <Cpu /> },
+  { label: "Plugins", icon: <Puzzle /> },
+  { label: "Access", icon: <KeyRound /> },
+].map((item) => ({
+  ...item,
+  href: `/${item.label.toLowerCase().replaceAll(" ", "-")}`,
 }))
 
 export const App = () => {
   const location = useLocation()
+  const navLayout = useNavLayout({
+    storageKey: "castkit-management-navigation",
+  })
+  const [isNavVisible, setIsNavVisible] = useState(false)
   const routeSection =
     location.pathname.split("/")[1] || "views"
   const section = [
@@ -133,35 +158,69 @@ export const App = () => {
   return (
     <Shell
       contentWidth={
-        session?.isAuthenticated &&
-        [
-          "devices",
-          "all-screens",
-          "views",
-          "screens",
-        ].includes(section)
-          ? "full"
-          : "xl"
+        session?.isAuthenticated ? "full" : "xl"
       }
     >
-      <Header
-        heading="CastKit"
-        isSticky
-        actions={
-          <a className="underline" href="/">
-            Home
-          </a>
-        }
-      />
+      <Header isSticky>
+        {session?.isAuthenticated &&
+        navLayout.layout === "menu" ? (
+          <Nav
+            activeHref={`/${section}`}
+            isVisible={isNavVisible}
+            items={destinations}
+            label="CastKit management"
+            layout="menu"
+            onDismiss={() => setIsNavVisible(false)}
+            trigger={
+              <IconButton
+                appearance="outline"
+                label="Open navigation"
+                onClick={() =>
+                  setIsNavVisible((isVisible) => !isVisible)
+                }
+              >
+                <Menu
+                  aria-hidden="true"
+                  className="size-5"
+                />
+              </IconButton>
+            }
+          />
+        ) : null}
+        <Brand />
+      </Header>
+      {session?.isAuthenticated &&
+      navLayout.layout !== "menu" ? (
+        <Rail
+          label="CastKit management"
+          landmark="navigation"
+          style={{
+            width: navLayout.isCollapsed
+              ? "5rem"
+              : undefined,
+          }}
+        >
+          <Nav
+            activeHref={`/${section}`}
+            items={destinations}
+            label="Sections"
+            layout={navLayout.layout}
+          />
+          <div className="mt-auto hidden justify-end md:flex">
+            <Button
+              appearance="ghost"
+              size="sm"
+              onClick={navLayout.toggle}
+            >
+              {navLayout.isCollapsed
+                ? "Expand"
+                : "Collapse"}
+            </Button>
+          </div>
+        </Rail>
+      ) : null}
       <Main>
         <div className="grid min-w-0 gap-6">
-          {session?.isAuthenticated ? (
-            <Nav
-              activeHref={`/${section}`}
-              items={destinations}
-              label="CastKit management"
-            />
-          ) : null}
           {!session?.isAuthenticated ||
           (section !== "devices" &&
             section !== "all-screens") ? (

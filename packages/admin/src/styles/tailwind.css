@@ -2,7 +2,7 @@
 @import "@charcuterie/tokens/theme.css";
 @import "@charcuterie/tokens/fonts.css";
 @import "@charcuterie/ui/styles.css";
-@source "../../../../node_modules/@charcuterie/ui/dist";
+@source "../../node_modules/@charcuterie/ui/dist";
 
 /* App data layout; controls, tokens, tabs, rails and card shapes are Charcuterie. */
 .management-rail {
@@ -251,9 +251,6 @@
   .device-list-item {
     min-inline-size: 12rem;
     max-inline-size: 15rem;
-  }
-  .management-rail > button {
-    display: none;
   }
   .device-heading {
     flex-wrap: wrap;

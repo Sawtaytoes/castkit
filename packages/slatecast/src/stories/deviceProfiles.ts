@@ -132,6 +132,10 @@ export const PI_TOUCH_LANDSCAPE_PROFILE: BrowserDeviceProfile =
         name: "Printer Status",
         clientId: "printer-status",
       },
+      {
+        name: "Filament Spool Scale",
+        clientId: "filament-spool-scale",
+      },
       ...TOUCH_VIEWS,
       { name: "SpoolBuddy", clientId: "external-view:0" },
     ],

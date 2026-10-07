@@ -8,6 +8,7 @@ import {
 } from "@charcuterie/ui"
 import { useEffect, useState } from "react"
 import { AccessIndicator } from "./AccessIndicator.tsx"
+import { Brand } from "./Brand.tsx"
 import { api, inputClass } from "./platformApi.ts"
 
 type PublicItem = {
@@ -42,25 +43,21 @@ export const PublicPages = () => {
   return (
     <Shell contentWidth="xl">
       <Header
-        heading="CastKit"
         actions={
           <a href="/manage" className="underline">
             Manage CastKit
           </a>
         }
-      />
+      >
+        <Brand />
+      </Header>
       <Main>
         <div className="grid min-w-0 gap-6">
           {isLibrary ? (
             <>
-              <div>
-                <a href="/" className="text-sm underline">
-                  Home
-                </a>
-                <h1 className="mt-4 font-semibold text-3xl">
-                  Views and screens
-                </h1>
-              </div>
+              <h1 className="font-semibold text-3xl">
+                Views and screens
+              </h1>
               <Field label="Find a view or screen">
                 <input
                   className={inputClass}

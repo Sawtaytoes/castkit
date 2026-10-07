@@ -1,14 +1,18 @@
 """Real Chromium coverage for touch routing and retained-event recovery."""
 
 import asyncio
+import io
 import os
 import unittest
 from unittest.mock import AsyncMock
 
+from codec import presto_frame_pixels
 from interaction import Target
+from PIL import Image
 from playwright.async_api import async_playwright
+from presto_transport import PrestoTransport
 from preview import PreviewServer
-from worker import DisplaySession
+from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context
 
 
 class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
@@ -44,6 +48,121 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         await self.browser.close()
         await self.playwright.stop()
 
+    async def test_presto_fast_capture_preserves_square_viewport_and_ack_guard(self):
+        await self.task_cancel_for_capture_test()
+        await self.page.set_viewport_size({"width": 480, "height": 480})
+        transport = PrestoTransport({"mac": "020000000001"}, "a" * 32)
+        session = DisplaySession(
+            {"viewport": {"width": 480, "height": 480}, "max_fps": 8, "heartbeat_seconds": 2},
+            self.page,
+            transport,
+            {},
+            asyncio.Event(),
+            PreviewServer("test", 8),
+        )
+
+        async def acknowledge(frame_id, touch_id, payload):
+            self.assertEqual(payload, presto_frame_pixels(session.preview.latest_png))
+            self.assertNotIn(frame_id, session.guard.frames)
+            session.stop.set()
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
+
+        transport.send_frame = acknowledge
+        await asyncio.wait_for(session.run(1, None), timeout=3)
+        self.assertEqual(Image.open(io.BytesIO(session.preview.latest_png)).size, (480, 480))
+        self.assertIn(session.frame_id, session.guard.frames)
+        self.assertIsNotNone(transport.capture_ms)
+
+    async def task_cancel_for_capture_test(self):
+        self.task.cancel()
+        await asyncio.gather(self.task, return_exceptions=True)
+
+    async def test_presto_palette_capture_reuses_pixels_and_preserves_artwork_colors(self):
+        await self.task_cancel_for_capture_test()
+        await self.page.set_viewport_size({"width": 480, "height": 480})
+        await self.page.set_content("""<div data-castkit-target="now-playing-artwork"
+          style="position:absolute;left:100px;top:100px;width:200px;height:200px;background:red"></div>""")
+        transport = PrestoTransport({"mac": "020000000001"}, "a" * 32)
+        transport.set_ambient_light(
+            {"isOn": True, "brightness": 5, "mode": "album-glow", "demo": False}
+        )
+        session = DisplaySession(
+            {"viewport": {"width": 480, "height": 480}, "max_fps": 8, "heartbeat_seconds": 2},
+            self.page,
+            transport,
+            {},
+            asyncio.Event(),
+            PreviewServer("test", 8),
+        )
+
+        async def acknowledge(frame_id, touch_id, payload):
+            self.assertEqual(payload, presto_frame_pixels(session.preview.latest_png))
+            self.assertEqual(transport.ambient_palette, [[255, 0, 0]] * 7)
+            self.assertNotIn(frame_id, session.guard.frames)
+            session.stop.set()
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
+
+        transport.send_frame = acknowledge
+        await asyncio.wait_for(session.run(1, None), timeout=3)
+        self.assertIn(session.frame_id, session.guard.frames)
+
+    async def test_saved_session_survives_context_recreation(self):
+        state = {
+            "cookies": [
+                {
+                    "name": "castkit-session",
+                    "value": "read-only-fixture",
+                    "domain": "panel.example",
+                    "path": "/",
+                    "expires": -1,
+                    "httpOnly": True,
+                    "secure": True,
+                    "sameSite": "Strict",
+                }
+            ],
+            "origins": [],
+        }
+        for _ in range(2):
+            context = await create_browser_context(self.browser, {"browser_storage_state": state})
+            cookies = await context.cookies("https://panel.example/d/example")
+            self.assertEqual(cookies[0]["value"], "read-only-fixture")
+            self.assertTrue(cookies[0]["httpOnly"])
+            page = await context.new_page()
+            await page.route(
+                "https://panel.example/**",
+                lambda route: route.fulfill(
+                    status=200, content_type="text/html", body="<p>Private panel</p>"
+                ),
+            )
+            await page.goto("https://panel.example/d/example")
+            self.assertEqual(await page.evaluate("document.cookie"), "")
+            await context.close()
+        context = await create_browser_context(self.browser, {})
+        self.assertEqual(await context.cookies(), [])
+        await context.close()
+
+    async def test_square_panel_keeps_bottom_touch_targets_and_reboot_resets_sequence(self):
+        context = await create_browser_context(
+            self.browser, {"viewport": {"width": 480, "height": 480}}
+        )
+        page = await context.new_page()
+        await page.set_content("""<meta name="viewport" content="width=device-width,initial-scale=1">
+            <button data-castkit-target="bottom" style="position:absolute;left:20px;top:420px;width:80px;height:40px">Bottom</button>""")
+        targets = await page.evaluate(
+            TARGETS_SCRIPT, {"attribute": "data-castkit-target", "width": 480, "height": 480}
+        )
+        self.assertEqual(targets[0]["identity"], "bottom")
+        self.assertEqual(targets[0]["y"], 420)
+        self.session.last_sequence = 100
+        from aioesphomeapi import TextSensorState
+
+        self.session.event_key = 1
+        self.session.state_changed(TextSensorState(key=1, state="error,device-restarted"))
+        self.assertEqual(self.session.last_sequence, 0)
+        self.assertTrue(self.session.is_reset_required)
+        self.assertEqual(self.session.guard.frames, {})
+        await context.close()
+
     async def event(self, sequence, phase, frame=42):
         await self.session.touches.put(
             ["touch", str(sequence), str(phase), "30", "25", "0", str(frame), "0"]
@@ -53,6 +172,163 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                 if self.task.done():
                     self.task.result()
                 await asyncio.sleep(0.01)
+
+    async def test_vertical_swipe_crosses_controls_without_clicking(self):
+        await self.page.set_content("""<div class="stage" data-castkit-target="view-gesture:ambient"
+          style="position:absolute;inset:0;touch-action:none">
+          <button data-castkit-target="button" style="width:100px;height:40px"
+          onclick="window.wasClicked=true">Tap</button></div>""")
+        await self.page.evaluate("""() => {
+          window.gestures = [];
+          const stage = document.querySelector('.stage');
+          ['pointerdown','pointermove','pointerup'].forEach(type => stage.addEventListener(type,
+            event => window.gestures.push([type,event.clientY])));
+        }""")
+        self.session.guard.remember(
+            50, [Target("view-gesture:ambient", 0, 0, 480, 320), Target("button", 0, 0, 100, 40)]
+        )
+        for sequence, phase, y in [(1, 0, 25), (2, 1, 45), (3, 1, 100), (4, 1, 150), (5, 2, 0)]:
+            await self.session.touches.put(
+                [
+                    "touch",
+                    str(sequence),
+                    str(phase),
+                    "0" if phase == 2 else "30",
+                    str(y),
+                    "0",
+                    "50",
+                    "0",
+                ]
+            )
+            async with asyncio.timeout(3):
+                while self.session.processed_touch != sequence:
+                    if self.task.done():
+                        self.task.result()
+                    await asyncio.sleep(0.01)
+        self.assertIsNone(await self.page.evaluate("window.wasClicked"))
+        self.assertEqual((await self.page.evaluate("window.gestures"))[-1], ["pointerup", 150])
+
+    async def test_horizontal_artwork_drag_reaches_control_without_becoming_view_swipe(self):
+        await self.page.set_content("""<div class="stage" data-castkit-target="view-gesture:now-playing"
+          style="position:absolute;inset:0;touch-action:none">
+          <button data-castkit-target="now-playing-artwork"
+          style="position:absolute;left:100px;top:20px;width:250px;height:250px;touch-action:none">Art</button></div>""")
+        await self.page.evaluate("""() => {
+          window.actions = [];
+          const artwork = document.querySelector('button');
+          let start;
+          artwork.onpointerdown = event => {
+            start = event.clientX;
+            artwork.setPointerCapture(event.pointerId);
+          };
+          artwork.onpointerup = event => window.actions.push(
+            event.clientX - start < -80 ? 'next' : 'pause');
+          document.querySelector('.stage').onpointerdown = event => {
+            if (event.target.className === 'stage') window.actions.push('view-swipe');
+          };
+        }""")
+        self.session.guard.remember(
+            50,
+            [
+                Target("view-gesture:now-playing", 0, 0, 480, 320),
+                Target("now-playing-artwork", 100, 20, 250, 250),
+            ],
+        )
+        for sequence, phase, x in [(1, 0, 300), (2, 1, 270), (3, 1, 230), (4, 1, 30), (5, 2, 0)]:
+            await self.session.touches.put(
+                ["touch", str(sequence), str(phase), str(x), "100", "0", "50", "0"]
+            )
+            async with asyncio.timeout(3):
+                while self.session.processed_touch != sequence:
+                    if self.task.done():
+                        self.task.result()
+                    await asyncio.sleep(0.01)
+        self.assertEqual(await self.page.evaluate("window.actions"), ["next"])
+
+    async def test_all_shell_edges_keep_native_capture_outside_their_acknowledged_strip(self):
+        edges = [
+            ("left", 0, 0, 32, 320, 10, 80, 100, 80),
+            ("right", 448, 0, 32, 320, 470, 80, 380, 80),
+            ("top", 32, 0, 416, 24, 240, 10, 240, 100),
+            ("bottom", 32, 296, 416, 24, 240, 310, 240, 220),
+        ]
+        for index, (edge, left, top, width, height, start_x, start_y, end_x, end_y) in enumerate(
+            edges
+        ):
+            with self.subTest(edge=edge):
+                await self.page.set_content(f"""<div class="stage" data-view="external-view:0"
+                  style="position:absolute;inset:0;touch-action:none">
+                  <iframe src="about:blank" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
+                  <button data-castkit-target="navigation-edge:{edge}"
+                  style="position:absolute;left:{left}px;top:{top}px;width:{width}px;height:{height}px;touch-action:none">Edge</button></div>""")
+                await self.page.evaluate("""() => {
+                  window.actions = [];
+                  const edge = document.querySelector('button');
+                  edge.onpointerdown = event => {
+                    event.stopPropagation();
+                    edge.setPointerCapture(event.pointerId);
+                  };
+                  edge.onpointermove = event => event.stopPropagation();
+                  edge.onpointerup = event => {
+                    event.stopPropagation();
+                    window.actions.push(['release', event.clientX, event.clientY]);
+                  };
+                  edge.onpointercancel = () => window.actions.push(['cancel']);
+                  document.querySelector('.stage').onpointerdown = () => window.actions.push(['stage']);
+                }""")
+                targets = await self.page.evaluate(
+                    TARGETS_SCRIPT,
+                    {"attribute": "data-castkit-target", "width": 480, "height": 320},
+                )
+                self.session.guard.remember(
+                    60 + index,
+                    [
+                        Target(**{key: value for key, value in target.items() if key != "loading"})
+                        for target in targets
+                    ],
+                )
+                steps = [
+                    (0, start_x, start_y),
+                    (1, start_x + (end_x - start_x) // 3, start_y + (end_y - start_y) // 3),
+                    (1, end_x, end_y),
+                    (2, 0, 0),
+                ]
+                for offset, (phase, x, y) in enumerate(steps):
+                    sequence = index * 4 + offset + 1
+                    await self.session.touches.put(
+                        [
+                            "touch",
+                            str(sequence),
+                            str(phase),
+                            str(x),
+                            str(y),
+                            "0",
+                            str(60 + index),
+                            "0",
+                        ]
+                    )
+                    async with asyncio.timeout(3):
+                        while self.session.processed_touch != sequence:
+                            if self.task.done():
+                                self.task.result()
+                            await asyncio.sleep(0.01)
+                self.assertEqual(
+                    await self.page.evaluate("window.actions"), [["release", end_x, end_y]]
+                )
+
+    async def test_cancelled_control_contact_does_not_cancel_native_touch_twice(self):
+        await self.event(1, 0)
+        await self.session.touches.put(["touch", "2", "1", "30", "55", "0", "42", "0"])
+        async with asyncio.timeout(3):
+            while self.session.processed_touch != 2:
+                if self.task.done():
+                    self.task.result()
+                await asyncio.sleep(0.01)
+        await self.event(3, 2)
+        self.assertEqual(await self.page.locator("button").inner_text(), "Slot 1")
+        await self.event(4, 0)
+        await self.event(5, 2)
+        self.assertEqual(await self.page.locator("button").inner_text(), "Disc details")
 
     async def test_retained_release_does_not_break_the_next_tap(self):
         await self.event(100, 2)

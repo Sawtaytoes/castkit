@@ -117,7 +117,7 @@ export const CalendarFace = ({
       </div>
       {weatherData ? (
         <div class="calendar-weather">
-          {isShortPanel && weatherData.condition ? (
+          {weatherData.condition ? (
             <WeatherMark
               condition={weatherData.condition}
             />

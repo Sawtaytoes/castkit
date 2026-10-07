@@ -11,6 +11,10 @@ import {
   writeFileSync,
 } from "node:fs"
 import { dirname } from "node:path"
+import {
+  type AmbientLightState,
+  ambientLightSchema,
+} from "@castkit/sdk/ambientLight"
 import type {
   ChannelDefinition,
   ScreenDefinition,
@@ -61,7 +65,14 @@ export const platformSchemas = {
       .array(z.string().trim().min(1).max(40))
       .max(30)
       .optional(),
-    layout: z.enum(["single", "split", "grid"]),
+    layout: z.enum([
+      "single",
+      "split",
+      "grid",
+      "cards",
+      "rail",
+      "adaptive",
+    ]),
     panels: z
       .array(
         z.object({
@@ -76,6 +87,7 @@ export const platformSchemas = {
     theme: z.enum(["auto", "light", "dark"]),
     access: z.enum(["public", "pin"]),
     isControlEnabled: z.boolean(),
+    isActiveOnly: z.boolean().optional(),
     appearance: z
       .object({
         fontFamily: z.string().max(160).optional(),
@@ -132,6 +144,16 @@ export type PlatformState = {
   sessions: Session[]
   disabledPluginIds: string[]
   deviceScreens: Record<string, string>
+  deviceAmbientLights?: Record<string, AmbientLightState>
+  deviceBacklights?: Record<
+    string,
+    {
+      level: number
+      power: "on" | "off" | "follow-room"
+      channel: string
+      entity: string
+    }
+  >
 }
 /** Salted PIN digest; the original PIN is never persisted. */
 export const hashPin = (pin: string) => {
@@ -191,6 +213,22 @@ export const createPlatformStore = ({
         )
       },
     )
+    if (loaded.deviceAmbientLights) {
+      z.record(z.string(), ambientLightSchema).parse(
+        loaded.deviceAmbientLights,
+      )
+    }
+    if (loaded.deviceBacklights) {
+      z.record(
+        z.string(),
+        z.object({
+          level: z.number().min(0).max(100),
+          power: z.enum(["on", "off", "follow-room"]),
+          channel: z.string(),
+          entity: z.string(),
+        }),
+      ).parse(loaded.deviceBacklights)
+    }
     state.value = { ...state.value, ...loaded }
   }
   const update = (

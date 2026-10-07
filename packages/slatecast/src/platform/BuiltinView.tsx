@@ -9,15 +9,18 @@ import {
   type WeatherData,
 } from "@castkit/shared/viewData/types"
 import { useEffect, useState } from "preact/hooks"
+import { formatClockTime } from "../time.ts"
 import { useIsShortPanel } from "../useIsShortPanel.ts"
 import { AmbientFace } from "../views/Ambient.tsx"
 import { CalendarFace } from "../views/Calendar.tsx"
 import { ClockFace } from "../views/Clock.tsx"
 import { AgendaView } from "./AgendaView.tsx"
 import { AiUsageView } from "./AiUsageView.tsx"
-import { CameraImage } from "./CameraImage.tsx"
+import { DeferredCamerasView } from "./DeferredCamerasView.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { EntitiesView } from "./EntitiesView.tsx"
+import { KidsPointsView } from "./KidsPointsView.tsx"
+import { PointsHistoryView } from "./PointsHistoryView.tsx"
 import { safeMediaUrl } from "./protocol.ts"
 import { ReportContent } from "./ReportContent.tsx"
 import { TimersView } from "./TimersView.tsx"
@@ -161,15 +164,9 @@ export const BuiltinView = ({
         <div class="platform-clock">
           {properties.hasClockMinutes ? (
             <time dateTime={new Date(now).toISOString()}>
-              {new Date(now).toLocaleTimeString(
-                typeof panel.settings.locale === "string"
-                  ? panel.settings.locale
-                  : undefined,
-                {
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: panel.settings.hour12 !== false,
-                },
+              {formatClockTime(
+                now,
+                readClockConfig(panel.settings),
               )}
             </time>
           ) : null}
@@ -186,6 +183,7 @@ export const BuiltinView = ({
       return (
         <WeatherView
           data={data as ContractData["weather.v1"]}
+          forecastType={panel.settings.forecastType}
         />
       )
     case "calendar":
@@ -290,6 +288,7 @@ export const BuiltinView = ({
         </div>
       )
     }
+    case "print-queue":
     case "queue": {
       const queue = data as ContractData["queue.v1"]
       return (
@@ -298,7 +297,11 @@ export const BuiltinView = ({
           {queue.items.map((item, index) => (
             <article key={`${item.title}:${index}`}>
               <span>
-                {item.isCurrent ? "Playing" : index + 1}
+                {item.isCurrent
+                  ? panel.specId === "print-queue"
+                    ? "Printing"
+                    : "Playing"
+                  : index + 1}
               </span>
               <div>
                 <h3>{item.title}</h3>
@@ -309,30 +312,32 @@ export const BuiltinView = ({
         </div>
       )
     }
-    case "cameras": {
-      const cameras = data as ContractData["cameras.v1"]
+    case "cameras":
       return (
-        <div class="platform-camera-grid">
-          {cameras.cameras.map((camera) => (
-            <figure key={camera.id}>
-              <CameraImage
-                url={camera.url}
-                name={camera.name}
-                isLive={camera.isLive}
-              />
-              <figcaption>
-                {camera.name}
-                {camera.isLive ? " · Live" : ""}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
+        <DeferredCamerasView
+          data={data as ContractData["cameras.v1"]}
+          settings={panel.settings}
+        />
       )
-    }
     case "ai-usage":
       return (
         <AiUsageView
           data={data as ContractData["ai-usage.v1"]}
+          now={now}
+          settings={panel.settings}
+        />
+      )
+    case "points-history":
+      return (
+        <PointsHistoryView
+          data={data as ContractData["points-history.v1"]}
+          settings={panel.settings}
+        />
+      )
+    case "kids-points":
+      return (
+        <KidsPointsView
+          data={data as ContractData["kids-points.v1"]}
           now={now}
           settings={panel.settings}
         />

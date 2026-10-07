@@ -17,6 +17,8 @@ const TEST_DEVICE: BrowserDeviceConfig = {
   hasViewDrawer: false,
   color: "full",
   hasMqttBacklight: true,
+  hasRemoteBacklight: false,
+  hasRemoteAmbientLight: false,
   rotation: 0,
   externalViews: [
     { name: "Disc App", url: "https://example.com/kiosk" },
@@ -152,7 +154,9 @@ describe("buildBrowserDiscoveryMessages", () => {
       "Weather",
       "Calendar",
       "Photo Frame",
+      "Print Queue",
       "Printer Status",
+      "Filament Spool Scale",
       "Touch Test",
       "Disc App",
     ])
@@ -192,4 +196,33 @@ describe("buildBrowserDiscoveryMessages", () => {
       externalBacklightMessages[0]?.payload.options,
     ).toContain("Disc App")
   })
+})
+
+test("native backlights reuse the standard MQTT light and number with server availability", () => {
+  const messages = buildBrowserDiscoveryMessages({
+    device: {
+      ...TEST_DEVICE,
+      hasMqttBacklight: false,
+      hasRemoteBacklight: true,
+    },
+  })
+  const light = messages.find((message) =>
+    message.topic.includes("/light/"),
+  )
+  expect(light?.payload).toMatchObject({
+    unique_id: "castkit_dev-square_backlight",
+    command_topic: "castkit/dev-square/backlight/set",
+    state_topic: "castkit/dev-square/backlight",
+    brightness_command_topic:
+      "castkit/dev-square/backlight/brightness/set",
+    brightness_state_topic:
+      "castkit/dev-square/backlight/brightness",
+    availability_topic: "castkit/availability",
+    brightness_scale: 255,
+  })
+  expect(
+    messages.filter((message) =>
+      message.topic.includes("_backlight_level/"),
+    ),
+  ).toHaveLength(1)
 })

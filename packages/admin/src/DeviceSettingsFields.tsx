@@ -3,6 +3,7 @@ import {
   Card,
   Checkbox,
 } from "@charcuterie/ui"
+import { BacklightControls } from "./BacklightControls.tsx"
 import type {
   AutomationSettings,
   Device,
@@ -16,6 +17,7 @@ import {
   SHAPE_OPTIONS,
   TIME_FORMAT_OPTIONS,
 } from "./deviceOptions.ts"
+import type { Platform } from "./platformApi.ts"
 import { SettingField } from "./SettingField.tsx"
 
 /** Only the chosen category is mounted; drafts are owned above the tabs. */
@@ -25,8 +27,18 @@ export const DeviceSettingsFields = ({
   settings,
   onChange,
   onDeviceChange,
+  channels = [],
+  channelStates = {},
+  isBacklightSaving = false,
+  onApplyBacklight,
 }: {
   device: Device
+  isBacklightSaving?: boolean
+  onApplyBacklight: (
+    updates: AutomationSettings,
+  ) => Promise<void>
+  channels?: Platform["channels"]
+  channelStates?: Platform["channelStates"]
   section: string
   settings: AutomationSettings
   onChange: (updates: AutomationSettings) => void
@@ -260,30 +272,29 @@ export const DeviceSettingsFields = ({
       </Card>
     )
   }
+  if (device.renderer === "browser")
+    return (
+      <BacklightControls
+        channels={channels}
+        channelStates={channelStates}
+        device={device}
+        isSaving={isBacklightSaving}
+        onApply={onApplyBacklight}
+        settings={settings}
+      />
+    )
   return (
     <Card heading="Updates">
-      {device.renderer === "browser" ? (
-        <div className="setting-fields">
-          {field({
-            label: "Backlight (%)",
-            kind: "backlightLevel",
-            type: "number",
-            width: "short",
-          })}
-        </div>
-      ) : (
-        <Checkbox
-          isChecked={settings.updates !== "OFF"}
-          key={`${device.id}-updates`}
-          label="Accept updates"
-          onChange={(isEnabled) =>
-            onChange({ updates: isEnabled ? "ON" : "OFF" })
-          }
-        />
-      )}
+      <Checkbox
+        isChecked={settings.updates !== "OFF"}
+        key={`${device.id}-updates`}
+        label="Accept updates"
+        onChange={(isEnabled) =>
+          onChange({ updates: isEnabled ? "ON" : "OFF" })
+        }
+      />
       <p className="text-content-secondary text-sm">
-        These settings also appear in Home Assistant. Saved
-        changes apply without a restart.
+        Setting changes apply without a restart.
       </p>
     </Card>
   )

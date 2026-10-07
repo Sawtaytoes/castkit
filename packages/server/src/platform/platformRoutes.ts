@@ -21,6 +21,10 @@ import {
   verifyPin,
 } from "./platformStore.ts"
 import { attachPluginRoutes } from "./pluginRoutes.ts"
+import {
+  getPanelActivity,
+  isViewActive,
+} from "./viewActivity.ts"
 
 const targetKind = z.enum(["view", "screen"])
 const pinSchema = z.string().min(4).max(128)
@@ -49,10 +53,12 @@ export const getDisplay = ({
   id: string
 }) => {
   const deviceId = context.req.query("device")
+  const deviceTarget = deviceId
+    ? platform.getDeviceTarget(deviceId)
+    : undefined
   if (
     deviceId &&
-    (kind !== "screen" ||
-      platform.store.get().deviceScreens[deviceId] !== id)
+    (deviceTarget?.kind !== kind || deviceTarget.id !== id)
   )
     return {
       error: "device-assignment-changed",
@@ -120,17 +126,44 @@ export const getDisplay = ({
               .get()
               .views.find((item) => item.id === viewId)
             return candidate
-              ? [{ id: candidate.id, name: candidate.name }]
+              ? [
+                  {
+                    id: candidate.id,
+                    name: candidate.name,
+                    isActive: isViewActive({
+                      repaint: displayProperties?.repaint,
+                      view: candidate,
+                      channels:
+                        platform.channelsForView(candidate),
+                      isRecentlyPaused:
+                        platform.pausedMusic
+                          .isRecentlyPaused,
+                    }),
+                  },
+                ]
               : []
           })
         : undefined,
       channels: rewriteMedia(channels),
+      panelActivity: getPanelActivity({
+        repaint: displayProperties?.repaint,
+        view,
+        channels,
+        isRecentlyPaused:
+          platform.pausedMusic.isRecentlyPaused,
+      }),
       viewSpecs: platform.catalog.viewSpecs.filter((spec) =>
         view.panels.some(
           (panel) => panel.specId === spec.id,
         ),
       ),
-      canControl: view.isControlEnabled,
+      isAuthenticated: platform.access.isAdmin(context),
+      canControl:
+        view.isControlEnabled &&
+        (!view.panels.some(
+          (panel) => panel.specId === "printer-status",
+        ) ||
+          platform.access.isAdmin(context)),
       buildId: resolveSlatecastBuildId(),
     },
   }
@@ -242,6 +275,7 @@ export const attachPlatformRoutes = ({
         403,
       )
     access.issue({ context, isAdminSession: true })
+    platform.notify()
     return context.json({ isAuthenticated: true })
   })
   app.post("/api/access/login", async (context) => {
@@ -260,6 +294,7 @@ export const attachPlatformRoutes = ({
     )
       return context.json({ error: "Incorrect PIN" }, 401)
     access.issue({ context, isAdminSession: true })
+    platform.notify()
     return context.json({ isAuthenticated: true })
   })
   app.post("/api/access/change-pin", async (context) => {
@@ -331,15 +366,33 @@ export const attachPlatformRoutes = ({
         },
         429,
       )
-    if (
-      !verifyPin({
-        pin,
-        hash: store.get().pinHashes[`${kind}:${id}`],
-      })
-    )
+    /*
+     * The management PIN opens every locked display. A screen or view can
+     * carry no PIN of its own (a record edited outside the admin form, or a
+     * rename that dropped its hash) and would otherwise be locked for good,
+     * and the person who knows the management PIN is the one who set the
+     * display's PIN in the first place.
+     */
+    const isViewPin = verifyPin({
+      pin,
+      hash: store.get().pinHashes[`${kind}:${id}`],
+    })
+    if (!isViewPin && !access.checkAttempt("admin-login")) {
+      return context.json(
+        {
+          error:
+            "Please wait one minute before another attempt",
+        },
+        429,
+      )
+    }
+    const isManagementPin = access.verifyAdmin(pin)
+    const isAccepted = isViewPin || isManagementPin
+    if (!isAccepted)
       return context.json({ error: "Incorrect PIN" }, 401)
     access.issue({
       context,
+      isAdminSession: isManagementPin,
       grant: {
         kind,
         id,
@@ -347,6 +400,7 @@ export const attachPlatformRoutes = ({
           .sessionMinutes,
       },
     })
+    platform.notify()
     return context.json({ ok: true })
   })
   app.post("/api/access/lock", async (context) => {
@@ -363,16 +417,14 @@ export const attachPlatformRoutes = ({
     return context.json({ ok: true })
   })
   app.use("/api/devices/:id/*", async (context, next) => {
-    const screenId =
-      store.get().deviceScreens[
-        context.req.param("id") ?? ""
-      ]
-    if (screenId) {
+    const target = platform.getDeviceTarget(
+      context.req.param("id") ?? "",
+    )
+    if (target) {
       const result = getDisplay({
         platform,
         context,
-        kind: "screen",
-        id: screenId,
+        ...target,
       })
       if (!result.snapshot)
         return context.json(result, result.status)
@@ -681,13 +733,21 @@ export const attachPlatformRoutes = ({
         throw new Error(
           "Use four to 32 digits for a kiosk PIN",
         )
+      // Existing private targets support the management PIN even without their own hash.
+      // Editing their layout preserves that protection; new private targets still need a PIN.
       if (
         (collection === "views" ||
           collection === "screens") &&
         "access" in record &&
         record.access === "pin" &&
         !hasPinInput &&
-        !previous.pinHashes[pinKey]
+        !previous.pinHashes[pinKey] &&
+        !previous[collection].some(
+          (item) =>
+            item.id === record.id &&
+            "access" in item &&
+            item.access === "pin",
+        )
       )
         throw new Error(
           "Set a PIN for this private display",
@@ -857,7 +917,14 @@ export const attachPlatformRoutes = ({
           return context.json(
             {
               error:
-                "Remove this item's assignments before deleting it",
+                collection === "views"
+                  ? `Remove this view from these screens before deleting it: ${previous.screens
+                      .filter((screen) =>
+                        screen.viewIds.includes(id),
+                      )
+                      .map((screen) => screen.name)
+                      .join(", ")}.`
+                  : "Remove this item's assignments before deleting it",
             },
             409,
           )
@@ -935,6 +1002,36 @@ export const attachPlatformRoutes = ({
           ...parsed.data,
         })
         return context.json({ ok: true })
+      } catch (error) {
+        return context.json({ error: getError(error) }, 400)
+      }
+    },
+  )
+  app.post(
+    "/api/manage/platform/devices/:id/show",
+    async (context) => {
+      const parsed = z
+        .object({
+          viewId: z.string(),
+          durationSeconds: z.number().positive(),
+          priority: z.number().optional(),
+        })
+        .safeParse(
+          await context.req.json().catch(() => null),
+        )
+      if (!parsed.success)
+        return context.json(
+          { error: "Invalid display override" },
+          400,
+        )
+      try {
+        return context.json({
+          ok: true,
+          durationSeconds: platform.showOnDevice({
+            deviceId: context.req.param("id"),
+            ...parsed.data,
+          }),
+        })
       } catch (error) {
         return context.json({ error: getError(error) }, 400)
       }
@@ -1255,6 +1352,7 @@ const sendMedia = async ({
       channelId: context.req.param("channelId") ?? "",
       assetId: context.req.param("assetId") ?? "",
       kind: context.req.query("kind"),
+      query: context.req.query(),
     })
     if (!response.ok)
       return context.json(
@@ -1264,20 +1362,37 @@ const sendMedia = async ({
     const contentType =
       response.headers.get("content-type") ??
       "application/octet-stream"
+    const isHls = context.req.query("kind") === "hls"
     if (
-      !/^(image\/(jpeg|png|webp|gif|avif)|video\/(mp4|webm)|multipart\/x-mixed-replace)/i.test(
-        contentType,
-      )
+      !(isHls
+        ? /^(application\/(vnd\.apple\.mpegurl|x-mpegurl)|video\/(mp4|iso\.segment))\b/i.test(
+            contentType,
+          )
+        : /^(image\/(jpeg|png|webp|gif|avif|svg\+xml)|video\/(mp4|webm)|multipart\/x-mixed-replace)/i.test(
+            contentType,
+          ))
     )
       return context.json(
         { error: "Unsupported media format" },
         415,
       )
+    /*
+     * An SVG is a document as well as a picture. Inside an `<img>` it runs no
+     * script, but opened on its own at this URL it would run in CastKit's
+     * origin, so it is served sandboxed with nothing it may load.
+     */
+    const isSvg = /^image\/svg\+xml/i.test(contentType)
     return new Response(response.body, {
       headers: {
         "content-type": contentType,
         "cache-control": "private, no-store",
         "x-content-type-options": "nosniff",
+        ...(isSvg
+          ? {
+              "content-security-policy":
+                "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            }
+          : {}),
         ...(/^multipart\/x-mixed-replace/i.test(contentType)
           ? { "x-accel-buffering": "no" }
           : {}),

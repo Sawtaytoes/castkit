@@ -173,7 +173,7 @@ describe("weather on a short landscape panel", () => {
     expect(
       document.querySelector(".weather-side .weather-time")
         ?.textContent,
-    ).toMatch(/^\d{1,2}:\d{2}\s(AM|PM)$/)
+    ).toMatch(/^\d{1,2}:\d{2}[ap]$/)
   })
 
   test("keeps the stacked column, with no mark, on the square", async () => {

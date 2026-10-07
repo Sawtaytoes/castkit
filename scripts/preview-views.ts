@@ -17,7 +17,7 @@ import sharp from "sharp"
  * changes can be eyeballed as PNGs before touching a physical panel. Writes
  * `render-output/preview/<scenario>--<panel>.png` (gitignored).
  *
- * Run: `yarn tsx scripts/preview-views.ts`
+ * Run: `pnpm tsx scripts/preview-views.ts`
  */
 
 const SUPERSAMPLE_FACTOR = 2

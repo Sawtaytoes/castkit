@@ -57,15 +57,23 @@ const usageWithSpentSession = buildUsage(90)
 /**
  * The view measures its own panel, and jsdom reports every element as zero
  * high. Each test states the height it is testing against.
+ *
+ * The WIDTH is pinned too. The view picks its column count from the panel's
+ * width, and an unpinned width is the test window's: a 162px panel in a
+ * 1920px window fits both providers side by side, which is a different panel
+ * from the one a test names. 414 is the width every test here was written
+ * against.
  */
 const renderInPanel = ({
   data = usage,
   panelHeight,
+  panelWidth = 414,
   repaint,
   settings,
 }: {
-  data?: ReturnType<typeof buildUsage>
+  data?: Parameters<typeof AiUsageView>[0]["data"]
   panelHeight: number
+  panelWidth?: number
   repaint: "instant" | "slow" | "super-slow"
   settings?: Record<string, unknown>
 }) => {
@@ -74,6 +82,11 @@ const renderInPanel = ({
     "clientHeight",
     "get",
   ).mockReturnValue(panelHeight)
+  vi.spyOn(
+    HTMLElement.prototype,
+    "clientWidth",
+    "get",
+  ).mockReturnValue(panelWidth)
   return render(
     <DisplayPropertiesContext.Provider
       value={{
@@ -94,7 +107,14 @@ const renderInPanel = ({
 }
 
 test("each provider is represented by its weekly limit alone", () => {
-  renderInPanel({ panelHeight: 900, repaint: "instant" })
+  const { container } = renderInPanel({
+    panelHeight: 900,
+    repaint: "instant",
+  })
+  expect(
+    container.querySelectorAll(".ai-usage-provider-icon"),
+  ).toHaveLength(2)
+  expect(screen.queryByText("Max")).toBeNull()
   expect(screen.getByText("Claude")).toBeVisible()
   expect(screen.getByText("Codex")).toBeVisible()
   expect(screen.getAllByText("7-day limit")).toHaveLength(2)
@@ -152,13 +172,14 @@ test("a threshold outside 0-100 falls back to the default", () => {
 test("a short panel drops the rows it cannot finish and counts them", () => {
   /*
    * 58 for the heading and its reserved overflow line, 34 for a provider
-   * heading and 70 for a limit: this panel holds Claude's heading and its
-   * one row, no more.
+   * heading and 70 for a limit: this panel holds the fullest provider's
+   * heading and one row, no more.
    */
   renderInPanel({ panelHeight: 162, repaint: "instant" })
-  expect(screen.getByText("Claude")).toBeVisible()
+  expect(screen.getByText("Codex")).toBeVisible()
+  expect(screen.getByText("7% left")).toBeVisible()
   expect(screen.getByText("7-day limit")).toBeVisible()
-  expect(screen.queryByText("Codex")).toBeNull()
+  expect(screen.queryByText("Claude")).toBeNull()
   /*
    * One, not two. The five-hour limit was withheld by the rule, not lost to
    * the glass, so counting it here would send the reader looking for a row
@@ -201,6 +222,53 @@ test("a live panel counts down only within the day, never in hundreds of hours",
   expect(screen.getAllByText(/Resets in/)).toHaveLength(1)
 })
 
+test("a letterbox panel lays its providers out in columns and grows its type", () => {
+  const fiveProviders = {
+    providers: [
+      "Claude",
+      "Codex",
+      "Codex 2",
+      "Grok",
+      "Cursor",
+    ].map((name) => ({
+      id: name.toLowerCase().replace(" ", "_"),
+      name,
+      isOk: true,
+      windows: [
+        {
+          id: "weekly",
+          label: "Weekly",
+          periodHours: 168,
+          percentUsed: 40,
+        },
+      ],
+    })),
+  }
+  const { container } = renderInPanel({
+    data: fiveProviders,
+    panelHeight: 480,
+    panelWidth: 1360,
+    repaint: "slow",
+  })
+  expect(
+    container.querySelectorAll(".ai-usage-column"),
+  ).toHaveLength(3)
+  expect(
+    container.querySelectorAll(".ai-usage-provider-icon"),
+  ).toHaveLength(3)
+  fiveProviders.providers.forEach((provider) => {
+    expect(screen.getByText(provider.name)).toBeVisible()
+  })
+  expect(screen.queryByText(/more limits?/)).toBeNull()
+  const root =
+    container.querySelector<HTMLElement>(".ai-usage")
+  expect(
+    Number(
+      root?.style.getPropertyValue("--ai-usage-scale"),
+    ),
+  ).toBeGreaterThan(1.5)
+})
+
 test("an unavailable provider keeps its row and says why", () => {
   vi.spyOn(
     HTMLElement.prototype,
@@ -238,4 +306,22 @@ test("an unavailable provider keeps its row and says why", () => {
    * provider has, so it leads rather than being ruled out for being too long.
    */
   expect(screen.getByText("Monthly limit")).toBeVisible()
+})
+
+test("a combined usage panel starts with account names without a redundant view heading", () => {
+  renderInPanel({
+    panelHeight: 900,
+    repaint: "instant",
+    settings: { isAdaptiveLayout: true },
+  })
+  expect(
+    screen.queryByRole("heading", { name: "AI Usage" }),
+  ).toBeNull()
+  expect(
+    screen.getByRole("heading", { name: "Claude" }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("heading", { name: "Codex" }),
+  ).toBeVisible()
+  expect(screen.getByText("46% left")).toBeVisible()
 })

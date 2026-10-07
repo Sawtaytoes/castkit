@@ -27,20 +27,17 @@ const platform = {
   deviceScreens: {},
 }
 
-const sizes = [
-  { width: 390, zoom: 1 },
-  { width: 1024, zoom: 1 },
-  { width: 1440, zoom: 1 },
-  { width: 2560, zoom: 1 },
-  { width: 1440, zoom: 2 },
-  { width: 2560, zoom: 2 },
-]
+/*
+ * The window comes from the project — each of the four is a real screen —
+ * and the page zoom is the axis this file adds on top of it.
+ */
+const zooms = [1, 2]
 
-sizes.forEach(({ width, zoom }) => {
-  test(`management layout stays within its column at ${width}px and ${zoom}x zoom`, async ({
+zooms.forEach((zoom) => {
+  test(`management layout stays within its column at ${zoom}x zoom`, async ({
     page,
   }) => {
-    await page.setViewportSize({ width, height: 1000 })
+    const width = page.viewportSize()?.width ?? 0
     await page.route("**/api/access/session", (route) =>
       route.fulfill({
         json: {
@@ -146,4 +143,67 @@ sizes.forEach(({ width, zoom }) => {
       ),
     ).toBe(true)
   })
+})
+
+const plugins = Array.from({ length: 18 }, (_, index) => ({
+  id: `example-plugin-${index}`,
+  name: `Example source ${index + 1}`,
+  version: "0.1.0",
+  isEnabled: true,
+}))
+
+test("plugin management spends available width before scrolling", async ({
+  page,
+}) => {
+  await page.route("**/api/access/session", (route) =>
+    route.fulfill({
+      json: {
+        isAuthenticated: true,
+        isSetupRequired: false,
+      },
+    }),
+  )
+  await page.route("**/api/manage/platform", (route) =>
+    route.fulfill({ json: { ...platform, plugins } }),
+  )
+  await page.goto("/manage/plugins")
+  const cards = page.getByRole("region", {
+    name: /^Example source /,
+  })
+  await expect(cards).toHaveCount(plugins.length)
+  const viewport = page.viewportSize()
+  if (!viewport) throw new Error("Window size is missing")
+  await expect
+    .poll(async () => {
+      const main = await page
+        .getByRole("main")
+        .boundingBox()
+      return main
+        ? main.width / (viewport.width - main.x)
+        : 0
+    })
+    .toBeGreaterThan(0.9)
+  if (viewport.width >= 1920) {
+    await expect
+      .poll(async () => {
+        const first = await cards.nth(0).boundingBox()
+        const third = await cards.nth(2).boundingBox()
+        return Boolean(
+          first && third && first.y === third.y,
+        )
+      })
+      .toBe(true)
+    await expect
+      .poll(async () => {
+        const last = await cards.last().boundingBox()
+        return last ? last.y + last.height : Infinity
+      })
+      .toBeLessThan(viewport.height)
+  }
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true)
 })

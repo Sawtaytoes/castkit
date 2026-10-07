@@ -1,4 +1,7 @@
-import { createPlaywrightConfig } from "@charcuterie/playwright-config"
+import {
+  createPlaywrightConfig,
+  createViewportProjects,
+} from "@charcuterie/playwright-config"
 
 /**
  * E2E layer. The Vitest browser suite covers the SPA against a mocked socket;
@@ -9,30 +12,59 @@ import { createPlaywrightConfig } from "@charcuterie/playwright-config"
  * `.spec.ts` is Playwright, `.test.ts(x)` is Vitest; the root vitest config
  * excludes `e2e/**` because @playwright/test's globals aren't compatible.
  *
- * The chromium project, CI-aware retries/workers and trace-on-first-retry come
- * from `@charcuterie/playwright-config`; what stays here is CastKit's own —
- * where the specs live, and the server they drive.
+ * The four window projects (`chromium-narrow`, `-tall`, `-wide`,
+ * `-ultrawide`), CI-aware retries/workers and trace-on-first-retry come from
+ * `@charcuterie/playwright-config`; what stays here is CastKit's own — where
+ * the specs live, and the servers they drive.
+ *
+ * ⚠️ ONE SERVER PER WINDOW. The test server is stateful — the recording MQTT
+ * stub, the published Home Assistant state the serial specs build up, and the
+ * management PIN's five-attempts-a-minute limit. Four windows against one
+ * server ran the same specs four times over shared state: the fifth sign-in
+ * in a minute answered 429, and one window's published track landed in
+ * another window's page. Each window gets its own server on its own port.
  */
-const port = Number(process.env.PORT ?? 3100)
+const basePort = Number(process.env.PORT ?? 3100)
+
+const windowProjects = createViewportProjects().map(
+  (project, index) => ({
+    ...project,
+    use: {
+      ...project.use,
+      baseURL: `http://localhost:${basePort + index}`,
+    },
+  }),
+)
+
+/**
+ * The server serves the built SPA from SLATECAST_DIST_DIR, so the FIRST
+ * server builds it. Playwright starts `webServer` entries one after another
+ * and waits for each `url`, so the others start after the build is done and
+ * only serve it.
+ */
+const buildCommand =
+  "pnpm --filter @castkit/slatecast build && pnpm --filter @castkit/admin build"
 
 export default createPlaywrightConfig({
   testDir: "./e2e",
   reporter: process.env.CI ? "github" : "list",
-  use: {
-    baseURL: `http://localhost:${port}`,
-  },
-  webServer: {
-    // The server serves the built SPA from SLATECAST_DIST_DIR, so build first.
-    command:
-      "yarn workspace @castkit/slatecast build && yarn workspace @castkit/admin build && yarn tsx e2e/serve.ts",
-    url: `http://localhost:${port}/d/e2e-square`,
-    reuseExistingServer: !process.env.CI,
-    stdout: "pipe",
-    stderr: "pipe",
-    timeout: 120 * 1000,
-    env: {
-      SLATECAST_DIST_DIR: "packages/slatecast/dist",
-      PORT: String(port),
-    },
-  },
+  projects: windowProjects,
+  webServer: windowProjects.map((_project, index) => {
+    const port = basePort + index
+    return {
+      command:
+        index === 0
+          ? `${buildCommand} && pnpm tsx e2e/serve.ts`
+          : "pnpm tsx e2e/serve.ts",
+      url: `http://localhost:${port}/d/e2e-square`,
+      reuseExistingServer: !process.env.CI,
+      stdout: "pipe" as const,
+      stderr: "pipe" as const,
+      timeout: 120 * 1000,
+      env: {
+        SLATECAST_DIST_DIR: "packages/slatecast/dist",
+        PORT: String(port),
+      },
+    }
+  }),
 })

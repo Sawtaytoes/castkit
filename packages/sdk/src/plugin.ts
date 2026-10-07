@@ -68,7 +68,14 @@ export type CompositionPreset = {
   id: string
   name: string
   description: string
-  layout: "single" | "split" | "grid"
+  layout:
+    | "single"
+    | "split"
+    | "grid"
+    | "cards"
+    | "rail"
+    | "adaptive"
+  isActiveOnly?: boolean
   panels: {
     id: string
     specId: string
@@ -141,6 +148,7 @@ export type SourceInstance = {
     channelId: string
     assetId: string
     kind?: string
+    query?: Record<string, string>
   }) => Promise<Response>
 }
 /** A factory is run only for an explicitly configured, enabled source. */

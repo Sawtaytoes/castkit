@@ -100,3 +100,5 @@ non-empty string, rejects a number, rejects an empty string, and `seek` /
 The Home Assistant half — the ten-minute hold and the thirty-second hold after a
 swipe — is recorded in the `home-assistant` workspace repo under
 `docs/decisions/2026-09-11-a-paused-queue-gives-the-panel-back-after-ten-minutes.md`.
+
+Superseded in part by [weather colors and queue gestures](2026-10-03-weather-colors-and-queue-gestures.md). Existing command ownership and mark geometry remain.

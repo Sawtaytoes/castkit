@@ -155,7 +155,7 @@ export const DitherPreview = ({
   }, [width, height, palette, algorithm, supersampleFactor])
 
   return (
-    <div>
+    <div data-dither-preview aria-busy={isRendering}>
       {/*
         The raster source: a real 1:1 mount, off-screen. It must not be the
         zoomed node — scaling it would bake the zoom into the pixels.

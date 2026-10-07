@@ -18,11 +18,23 @@ export type DisplaySnapshot = {
   target: DisplayTarget
   view: ViewDefinition
   channels: Record<string, ChannelSnapshot>
-  availableViews?: { id: string; name: string }[]
+  availableViews?: {
+    id: string
+    name: string
+    /** The server's answer to "is anything going on in this view". */
+    isActive?: boolean
+  }[]
+  /**
+   * Activity per panel id of the current view. Read only when the view
+   * `isActiveOnly`; a panel missing from the map counts as active.
+   */
+  panelActivity?: Record<string, boolean>
   screen?: ScreenDefinition
   // Wire field shared with the display API.
   // eslint-disable-next-line @typescript-eslint/naming-convention
   canControl: boolean
+  /** A shared management session, checked by the server on every update. */
+  isAuthenticated?: boolean
   viewSpecs?: {
     id: string
     browserEntry?: string

@@ -1,6 +1,13 @@
 import { Button, Card, Field } from "@charcuterie/ui"
 import { useState } from "react"
 import { inputClass, mutate } from "./platformApi.ts"
+
+const notifyDisplays = () => {
+  const channel = new BroadcastChannel("castkit-access")
+  channel.postMessage("changed")
+  channel.close()
+}
+
 export type AccessSession = {
   isAuthenticated: boolean
   isSetupRequired: boolean
@@ -58,6 +65,7 @@ export const Access = ({
       setPin("")
       setConfirmation("")
       setSetupToken("")
+      notifyDisplays()
       await onChange()
     } catch (error) {
       setMessage(
@@ -86,6 +94,7 @@ export const Access = ({
       setCurrentPin("")
       setPin("")
       setConfirmation("")
+      notifyDisplays()
       await onChange()
       setIsSuccess(true)
       setMessage(
@@ -104,6 +113,7 @@ export const Access = ({
   const logout = async () => {
     try {
       await mutate("/api/access/logout", {})
+      notifyDisplays()
       await onChange()
     } catch (error) {
       setMessage(String(error))
@@ -125,7 +135,9 @@ export const Access = ({
           <div className="grid gap-4">
             <p>
               You can manage sources, views, screens, and
-              devices from this browser.
+              devices from this browser. Enabled printer
+              controls are unlocked across views for this
+              session.
             </p>
             <form
               className="grid gap-4 border-t border-border-subtle pt-4"
@@ -198,7 +210,7 @@ export const Access = ({
             <p className="text-content-secondary">
               {session.isSetupRequired
                 ? "Choose a PIN to protect CastKit management. Each private view or screen can use its own PIN."
-                : "Enter the management PIN. Unlock private views from their own pages."}
+                : "Enter the management PIN. This also unlocks enabled printer controls across views in this browser."}
             </p>
             <Field
               label={

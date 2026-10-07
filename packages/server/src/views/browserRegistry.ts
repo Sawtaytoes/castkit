@@ -63,11 +63,23 @@ export const BROWSER_VIEWS: readonly BrowserViewDefinition[] =
       isTouchRequired: false,
     },
     {
+      name: "Print Queue",
+      clientId: "print-queue",
+      isTouchRequired: true,
+    },
+    {
       name: "Printer Status",
       clientId: "printer-status",
       // The card's Pause and Stop are the reason the view exists on the
       // workbench panel. A display-only screen would show controls nobody can
       // press, so the view is offered to touch panels only.
+      isTouchRequired: true,
+    },
+    {
+      name: "Filament Spool Scale",
+      clientId: "filament-spool-scale",
+      // A scale beside the printers: every screen of it is something to tap —
+      // save a weight, assign a slot, copy a spool to a new tag.
       isTouchRequired: true,
     },
     {

@@ -27,13 +27,14 @@ docker run --rm --env-file .env -p 8788:8788 \
 ## Run from source
 
 ```sh
-corepack yarn install
-corepack yarn playwright install chromium
-corepack yarn build
-corepack yarn start:prod
+npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
+pnpm install
+pnpm playwright install chromium
+pnpm build
+pnpm start:prod
 ```
 
-Use `corepack yarn dev` for the browser preview and `corepack yarn dev:server` for the
+Use `pnpm dev` for the browser preview and `pnpm dev:server` for the
 server during development.
 
 ## Documentation
@@ -45,6 +46,10 @@ server during development.
 - [Architecture](docs/architecture.md) — how the pieces fit together
 
 **The display model**
+
+- [Display targets: viewing context, purpose, and presentation](docs/display-targets.md) —
+  physical size/PPI, viewing distance, four starting profiles, purpose and interruption
+  orders, and a target record template; design guidance with implementation boundaries.
 
 - [Display properties, and what each one changes](docs/display-properties.md) —
   the reference. A display is a **panel model** plus an **installation**, and
@@ -59,8 +64,17 @@ server during development.
 
 - [AI Usage](docs/ai-usage-view.md) — remaining subscription quota per AI
   provider, on an `ai-usage.v1` channel
+- [Tally Marks](docs/kids-points-view.md) — each child's points today and the
+  card they just scanned, on a `kids-points.v1` channel
 - [Printer Status](docs/printer-status-view.md) — the 3D prints running right
   now, with Pause, Resume and Stop
+- [AMS Filaments](docs/ams-filaments-view.md) — public read-only fleet cards or
+  spacious spool rows, with reported temperatures, humidity and K values
+- [Cutter Status](docs/cutter-status-view.md) — a vinyl or paper cutter on a
+  Cuttero server: its connection, the job it is cutting with an estimated
+  finish and its cut lines, and its recent jobs
+- [Filament Spool Scale](docs/filament-spool-scale-view.md) — the spool on the
+  scale, its one-tap weight save, every AMS slot, and a three-tap assign
 
 **Reference**
 

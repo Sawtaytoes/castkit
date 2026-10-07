@@ -115,6 +115,39 @@ const createFixture = async () => {
 }
 
 describe("platform access and saved compositions", () => {
+  test("changing the management PIN revokes persistent sessions", async () => {
+    const fixture = await createFixture()
+    const changed = await fixture.request(
+      "/api/access/change-pin",
+      "POST",
+      { currentPin: "123456", newPin: "654321" },
+      fixture.cookie,
+    )
+    expect(changed.status).toBe(200)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform",
+          "GET",
+          undefined,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(401)
+    const cookie = changed.headers
+      .get("set-cookie")
+      ?.split(";")[0]
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform",
+          "GET",
+          undefined,
+          cookie,
+        )
+      ).status,
+    ).toBe(200)
+  })
   test("keeps management private while public views need no API token", async () => {
     const fixture = await createFixture()
     expect(
@@ -136,6 +169,203 @@ describe("platform access and saved compositions", () => {
     expect(state).not.toHaveProperty("setupToken")
     expect(state).not.toHaveProperty("sessions")
     expect(state).not.toHaveProperty("pinHashes")
+  })
+  test("one management sign-in enables public printer controls across views and sign-out revokes them", async () => {
+    const fixture = await createFixture()
+    await fixture.request(
+      "/api/manage/platform/views/workbench",
+      "PUT",
+      { ...fixture.view, isControlEnabled: true },
+      fixture.cookie,
+    )
+    await fixture.save("views", {
+      ...fixture.view,
+      id: "camera",
+      isControlEnabled: true,
+    })
+    fixture.platform.hub.publish({
+      channelId: "printers/workbench",
+      data: {
+        printers: [
+          {
+            id: "printer-a",
+            name: "Printer",
+            jobName: "Bracket",
+            percent: 20,
+            state: "printing",
+          },
+        ],
+      },
+    })
+    const execute = vi
+      .spyOn(fixture.platform.runtime, "executeAction")
+      .mockResolvedValue({ ok: true })
+    const action = {
+      panelId: "printers",
+      action: "pause",
+      payload: { printerId: "printer-a" },
+    }
+    const publicSnapshot = await (
+      await fixture.request("/api/display/view/workbench")
+    ).json()
+    expect(publicSnapshot.isAuthenticated).toBe(false)
+    expect(publicSnapshot.canControl).toBe(false)
+    expect(
+      (
+        await fixture.request(
+          "/api/display/view/workbench/actions",
+          "POST",
+          action,
+        )
+      ).status,
+    ).toBe(403)
+    expect(execute).not.toHaveBeenCalled()
+    const login = await fixture.request(
+      "/api/access/login",
+      "POST",
+      { pin: "123456" },
+    )
+    const cookie = login.headers
+      .get("set-cookie")
+      ?.split(";")[0]
+    await Promise.all(
+      ["workbench", "camera"].map(async (id) => {
+        const snapshot = await (
+          await fixture.request(
+            `/api/display/view/${id}`,
+            "GET",
+            undefined,
+            cookie,
+          )
+        ).json()
+        expect(snapshot.isAuthenticated).toBe(true)
+        expect(snapshot.canControl).toBe(true)
+        expect(
+          (
+            await fixture.request(
+              `/api/display/view/${id}/actions`,
+              "POST",
+              action,
+              cookie,
+            )
+          ).status,
+        ).toBe(200)
+      }),
+    )
+    expect(execute).toHaveBeenCalledTimes(2)
+    await fixture.request(
+      "/api/access/logout",
+      "POST",
+      {},
+      cookie,
+    )
+    expect(
+      (
+        await fixture.request(
+          "/api/display/view/camera/actions",
+          "POST",
+          action,
+          cookie,
+        )
+      ).status,
+    ).toBe(403)
+    expect(
+      (
+        await fixture.request(
+          "/api/display/view/camera",
+          "GET",
+          undefined,
+          cookie,
+        )
+      ).status,
+    ).toBe(200)
+    expect(execute).toHaveBeenCalledTimes(2)
+  })
+  test("view-specific PINs and expired management sessions cannot operate printers", async () => {
+    const fixture = await createFixture()
+    await fixture.request(
+      "/api/manage/platform/views/workbench",
+      "PUT",
+      {
+        ...fixture.view,
+        access: "pin",
+        pin: "4477",
+        isControlEnabled: true,
+      },
+      fixture.cookie,
+    )
+    const unlock = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "workbench", pin: "4477" },
+    )
+    const viewerCookie = unlock.headers
+      .get("set-cookie")
+      ?.split(";")[0]
+    const viewer = await (
+      await fixture.request(
+        "/api/display/view/workbench",
+        "GET",
+        undefined,
+        viewerCookie,
+      )
+    ).json()
+    expect(viewer.isAuthenticated).toBe(false)
+    expect(viewer.canControl).toBe(false)
+    const management = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "workbench", pin: "123456" },
+    )
+    const managementCookie = management.headers
+      .get("set-cookie")
+      ?.split(";")[0]
+    expect(
+      (
+        await (
+          await fixture.request(
+            "/api/access/session",
+            "GET",
+            undefined,
+            managementCookie,
+          )
+        ).json()
+      ).isAuthenticated,
+    ).toBe(true)
+    await fixture.request(
+      "/api/manage/platform/views/workbench",
+      "PUT",
+      { ...fixture.view, isControlEnabled: true },
+      fixture.cookie,
+    )
+    fixture.platform.store.update((previous) => ({
+      ...previous,
+      sessions: previous.sessions.map((session) =>
+        session.isAdmin
+          ? { ...session, expiresAt: Date.now() - 1 }
+          : session,
+      ),
+    }))
+    const expired = await (
+      await fixture.request(
+        "/api/display/view/workbench",
+        "GET",
+        undefined,
+        managementCookie,
+      )
+    ).json()
+    expect(expired.canControl).toBe(false)
+    expect(expired.isAuthenticated).toBe(false)
+    expect(
+      (
+        await fixture.request(
+          "/api/display/view/workbench/actions",
+          "POST",
+          { panelId: "printers", action: "stop" },
+          managementCookie,
+        )
+      ).status,
+    ).toBe(403)
   })
   test("requires the one-time setup token and rejects a second setup", async () => {
     const fixture = await createFixture()
@@ -164,6 +394,157 @@ describe("platform access and saved compositions", () => {
     expect(
       readFileSync(fixture.file, "utf8"),
     ).not.toContain('"123456"')
+  })
+  test("a screen's snapshot answers activity per view and per panel", async () => {
+    const fixture = await createFixture()
+    await fixture.save("channels", {
+      id: "rip-deck/live",
+      name: "Rip deck",
+      sourceId: "events",
+      type: "rip-deck.v1",
+      settings: {},
+    })
+    await fixture.save("views", {
+      ...fixture.view,
+      id: "now",
+      name: "Now",
+      layout: "split",
+      isActiveOnly: true,
+      panels: [
+        ...fixture.view.panels,
+        {
+          id: "rips",
+          specId: "rip-deck",
+          bindings: { data: "rip-deck/live" },
+          settings: {},
+        },
+      ],
+    })
+    expect(
+      (
+        await fixture.save("screens", {
+          id: "working",
+          name: "Working",
+          defaultViewId: "now",
+          viewIds: ["now", "workbench"],
+          access: "public",
+        })
+      ).status,
+    ).toBe(201)
+    fixture.platform.hub.publish({
+      channelId: "printers/workbench",
+      data: { printers: [] },
+    })
+    fixture.platform.hub.publish({
+      channelId: "rip-deck/live",
+      data: {
+        bays: [],
+        alerts: [],
+        isPresent: true,
+        activeCount: 1,
+        loadedDiscCount: 1,
+      },
+    })
+    const idle = await (
+      await fixture.request("/api/display/screen/working")
+    ).json()
+    expect(idle.view.isActiveOnly).toBe(true)
+    expect(idle.panelActivity).toEqual({
+      printers: false,
+      rips: true,
+    })
+    expect(idle.availableViews).toEqual([
+      { id: "now", name: "Now", isActive: true },
+      {
+        id: "workbench",
+        name: "Workbench",
+        isActive: false,
+      },
+    ])
+    fixture.platform.hub.publish({
+      channelId: "printers/workbench",
+      data: {
+        printers: [
+          {
+            id: "one",
+            name: "Printer One",
+            jobName: "Desk stand",
+            percent: 40,
+            state: "printing",
+          },
+        ],
+      },
+    })
+    const printing = await (
+      await fixture.request("/api/display/screen/working")
+    ).json()
+    expect(printing.panelActivity).toEqual({
+      printers: true,
+      rips: true,
+    })
+    expect(printing.availableViews[1].isActive).toBe(true)
+  })
+  test("a paused track keeps its panel in an active-only view for ten minutes", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    try {
+      const fixture = await createFixture()
+      await fixture.save("channels", {
+        id: "music/now-playing",
+        name: "Music",
+        sourceId: "events",
+        type: "now-playing.v1",
+        settings: {},
+      })
+      await fixture.save("views", {
+        ...fixture.view,
+        id: "now",
+        name: "Now",
+        layout: "split",
+        isActiveOnly: true,
+        panels: [
+          ...fixture.view.panels,
+          {
+            id: "music",
+            specId: "now-playing",
+            bindings: { data: "music/now-playing" },
+            settings: {},
+          },
+        ],
+      })
+      fixture.platform.hub.publish({
+        channelId: "printers/workbench",
+        data: { printers: [] },
+      })
+      const track = {
+        title: "Track One",
+        artist: "Artist One",
+      }
+      const musicActivity = async () =>
+        (
+          await (
+            await fixture.request("/api/display/view/now")
+          ).json()
+        ).panelActivity.music
+      fixture.platform.hub.publish({
+        channelId: "music/now-playing",
+        data: { ...track, isPlaying: true },
+      })
+      expect(await musicActivity()).toBe(true)
+      vi.advanceTimersByTime(5 * 60 * 1000)
+      // Music Assistant turns a sync-group pause into a stop: the payload
+      // only says the track is not playing.
+      fixture.platform.hub.publish({
+        channelId: "music/now-playing",
+        data: { ...track, isPlaying: false },
+      })
+      expect(await musicActivity()).toBe(true)
+      vi.advanceTimersByTime(9 * 60 * 1000)
+      expect(await musicActivity()).toBe(true)
+      vi.advanceTimersByTime(60 * 1000)
+      expect(await musicActivity()).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
   })
   test("persists definitions and a kiosk grant without storing the PIN", async () => {
     const fixture = await createFixture()
@@ -224,6 +605,140 @@ describe("platform access and saved compositions", () => {
       ).status,
     ).toBe(401)
   })
+  test("layout edits preserve an existing private view's management-PIN fallback without allowing new private targets to omit a PIN", async () => {
+    const fixture = await createFixture()
+    expect(
+      (
+        await fixture.save("views", {
+          ...fixture.view,
+          id: "new-private",
+          access: "pin",
+        })
+      ).status,
+    ).toBe(400)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/views/workbench",
+          "PUT",
+          { ...fixture.view, access: "pin" },
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(400)
+    fixture.platform.store.update((previous) => ({
+      ...previous,
+      views: previous.views.map((view) => ({
+        ...view,
+        access: "pin",
+      })),
+    }))
+    const protectedView =
+      fixture.platform.store.get().views[0]
+    const updated = {
+      ...protectedView,
+      panels: protectedView.panels.map((panel) => ({
+        ...panel,
+        settings: {
+          ...panel.settings,
+          homeGroup: "studio",
+        },
+      })),
+    }
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/views/workbench",
+          "PUT",
+          updated,
+        )
+      ).status,
+    ).toBe(401)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/views/workbench",
+          "PUT",
+          updated,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      fixture.platform.store.get().views[0].access,
+    ).toBe("pin")
+    expect(
+      fixture.platform.store.get().views[0].panels[0]
+        .settings.homeGroup,
+    ).toBe("studio")
+    expect(fixture.platform.store.get().pinHashes).toEqual(
+      {},
+    )
+    expect(
+      (await fixture.request("/api/display/view/workbench"))
+        .status,
+    ).toBe(401)
+    expect(
+      (
+        await fixture.request(
+          "/api/access/unlock",
+          "POST",
+          { kind: "view", id: "workbench", pin: "0000" },
+        )
+      ).status,
+    ).toBe(401)
+    expect(
+      (
+        await fixture.request(
+          "/api/access/unlock",
+          "POST",
+          { kind: "view", id: "workbench", pin: "123456" },
+        )
+      ).status,
+    ).toBe(200)
+  })
+
+  test("the management PIN unlocks a private display, including one with no PIN of its own", async () => {
+    const fixture = await createFixture()
+    expect(
+      (
+        await fixture.save("views", {
+          ...fixture.view,
+          id: "keyed",
+          access: "pin",
+          pin: "4477",
+        })
+      ).status,
+    ).toBe(201)
+    const wrong = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "keyed", pin: "0000" },
+    )
+    expect(wrong.status).toBe(401)
+    const byMaster = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "keyed", pin: "123456" },
+    )
+    expect(byMaster.status).toBe(200)
+    fixture.platform.store.update((previous) => ({
+      ...previous,
+      views: [
+        ...previous.views,
+        ...previous.views
+          .filter((view) => view.id === "keyed")
+          .map((view) => ({ ...view, id: "orphan" })),
+      ],
+    }))
+    const orphan = await fixture.request(
+      "/api/access/unlock",
+      "POST",
+      { kind: "view", id: "orphan", pin: "123456" },
+    )
+    expect(orphan.status).toBe(200)
+  })
+
   test("rejects incompatible bindings and changes which would break an existing view", async () => {
     const fixture = await createFixture()
     const invalid = {
@@ -356,6 +871,18 @@ describe("platform access and saved compositions", () => {
       ).status,
     ).toBe(415)
     expect(media).toHaveBeenCalledOnce()
+    media.mockResolvedValue(
+      new Response("<svg/>", {
+        headers: { "content-type": "image/svg+xml" },
+      }),
+    )
+    const svg = await fixture.request(
+      "/api/display/view/workbench/media/printers%2Fworkbench/asset",
+    )
+    expect(svg.status).toBe(200)
+    expect(svg.headers.get("content-security-policy")).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    )
   })
   test("keeps source secrets out of management and viewer responses", async () => {
     const fixture = await createFixture()
@@ -443,6 +970,62 @@ describe("platform access and saved compositions", () => {
       fixture.cookie,
     )
     expect(inUse.status).toBe(409)
+  })
+  test("deleting an assigned view names its screens and succeeds after removing its assignments", async () => {
+    const fixture = await createFixture()
+    await fixture.save("screens", {
+      id: "desktop",
+      name: "Desktop",
+      defaultViewId: "workbench",
+      viewIds: ["workbench"],
+      access: "public",
+    })
+    const blocked = await fixture.request(
+      "/api/manage/platform/views/workbench",
+      "DELETE",
+      undefined,
+      fixture.cookie,
+    )
+    expect(blocked.status).toBe(409)
+    expect(await blocked.json()).toEqual({
+      error:
+        "Remove this view from these screens before deleting it: Desktop.",
+    })
+    expect(
+      fixture.platform.store
+        .get()
+        .views.some((view) => view.id === "workbench"),
+    ).toBe(true)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/screens/desktop",
+          "DELETE",
+          undefined,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/views/workbench",
+          "DELETE",
+          undefined,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      fixture.platform.store
+        .get()
+        .views.some((view) => view.id === "workbench"),
+    ).toBe(false)
+    expect(
+      createPlatformStore({ file: fixture.file })
+        .get()
+        .views.some((view) => view.id === "workbench"),
+    ).toBe(false)
   })
   test("editing a screen preserves its persistent selection", async () => {
     const fixture = await createFixture()

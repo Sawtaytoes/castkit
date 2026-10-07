@@ -1,3 +1,4 @@
+import { builtinContractSchemas } from "@castkit/sdk/contracts"
 import { describe, expect, test } from "vitest"
 import { parsePrintersPayload } from "./parsers.ts"
 
@@ -148,4 +149,54 @@ describe("parsePrintersPayload", () => {
       ).printers[0],
     ).toMatchObject({ percent: 41, remainingMinutes: 128 })
   })
+})
+
+test("inventory alpha, bands, finish, and brand survive the printer contract and browser parser", () => {
+  const filament = {
+    name: "PLA Translucent",
+    color: "#f74e02",
+    rgba: "F74E0280",
+    extraColors: ["11AABB80"],
+    effectType: "dual-color",
+    colorName: "Orange",
+    brand: "Sample Brand",
+    location: "AMS 1, slot 3",
+  }
+  const data = builtinContractSchemas["printers.v1"].parse(
+    buildPayload({
+      filamentColor: "F74E0280",
+      filaments: [filament],
+    }),
+  )
+  const printer = parsePrintersPayload(data).printers[0]
+  expect(printer?.filamentColor).toBe("#f74e0280")
+  expect(printer?.filaments).toEqual([
+    {
+      ...filament,
+      rgba: "f74e0280",
+      extraColors: ["11aabb80"],
+    },
+  ])
+})
+
+test("malformed inventory colors are dropped without losing the filament's readable details", () => {
+  const printer = parsePrintersPayload(
+    buildPayload({
+      filaments: [
+        {
+          name: "PLA",
+          rgba: "oops",
+          extraColors: ["AABBCC80", "bad", null],
+          location: "Filament 1",
+        },
+      ],
+    }),
+  ).printers[0]
+  expect(printer?.filaments).toEqual([
+    {
+      name: "PLA",
+      extraColors: ["aabbcc80"],
+      location: "Filament 1",
+    },
+  ])
 })

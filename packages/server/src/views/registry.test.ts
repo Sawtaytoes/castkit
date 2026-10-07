@@ -181,7 +181,7 @@ describe("renderViewElement — clock config", () => {
         clock: CHICAGO_CLOCK,
       }),
     )
-    expect(time).toBe("10:00 PM")
+    expect(time).toBe("10:00p")
     expect(date).toBe("Friday, July 3")
   })
 
@@ -216,6 +216,6 @@ describe("renderViewElement — clock config", () => {
       }),
     )
     // 22:00 Chicago is 23:00 in New York.
-    expect(time).toBe("11:00 PM")
+    expect(time).toBe("11:00p")
   })
 })

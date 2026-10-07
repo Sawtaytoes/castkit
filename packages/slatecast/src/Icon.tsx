@@ -16,6 +16,7 @@ export const ICON_PATHS = {
   previous: "M6 6h2v12H6V6zm12 0v12l-8.5-6L18 6z",
   play: "M8 5v14l11-7L8 5z",
   pause: "M6 5h4v14H6V5zm8 0h4v14h-4V5z",
+  stop: "M5 5h14v14H5z",
   next: "M16 6h2v12h-2V6zM6 6l8.5 6L6 18V6z",
   volume:
     "M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z",

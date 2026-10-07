@@ -1,4 +1,10 @@
+import {
+  type ConnectionStatus,
+  connectionTransitions,
+  createStatus,
+} from "@charcuterie/logic/core"
 import { useEffect, useRef, useState } from "preact/hooks"
+import { reloadPage } from "../reloadPage.ts"
 import type {
   DisplaySnapshot,
   DisplayTarget,
@@ -14,12 +20,43 @@ export const useDisplay = (target: DisplayTarget) => {
   const [snapshot, setSnapshot] =
     useState<DisplaySnapshot | null>(null)
   const [isLocked, setIsLocked] = useState(false)
-  const [isConnected, setIsConnected] = useState(false)
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("connecting")
+  const isConnected = connectionStatus === "connected"
   const [error, setError] = useState("")
   const [name, setName] = useState("Private view")
   const [revision, setRevision] = useState(0)
   const [isPending, setIsPending] = useState(false)
   const actionPending = useRef(false)
+  const authChannel = useRef<BroadcastChannel | null>(null)
+  useEffect(() => {
+    if (isPreview) {
+      return
+    }
+    const refresh = () =>
+      setRevision((current) => current + 1)
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refresh()
+      }
+    }
+    const channel = new BroadcastChannel("castkit-access")
+    authChannel.current = channel
+    channel.onmessage = refresh
+    window.addEventListener("focus", refresh)
+    document.addEventListener(
+      "visibilitychange",
+      onVisibility,
+    )
+    return () => {
+      channel.close()
+      window.removeEventListener("focus", refresh)
+      document.removeEventListener(
+        "visibilitychange",
+        onVisibility,
+      )
+    }
+  }, [isPreview])
   const deviceQuery = target.deviceId
     ? `?device=${encodeURIComponent(target.deviceId)}`
     : ""
@@ -27,16 +64,38 @@ export const useDisplay = (target: DisplayTarget) => {
   const lockState = () => {
     setSnapshot(null)
     setIsLocked(true)
-    setIsConnected(false)
+    setConnectionStatus("disconnected")
   }
   useEffect(() => {
     const lifecycle: {
       isDisposed: boolean
       timer?: number
+      outageTimer?: number
       socket?: WebSocket
       failures: number
       buildId?: string
     } = { isDisposed: false, failures: 0 }
+    const connection = createStatus<ConnectionStatus>({
+      initialState: "connecting",
+      transitions: connectionTransitions,
+      onChange: setConnectionStatus,
+    })
+    const connected = () => {
+      clearTimeout(lifecycle.outageTimer)
+      lifecycle.outageTimer = undefined
+      if (connection.is("disconnected")) {
+        connection.transitionTo("connecting")
+      }
+      if (connection.can("connected")) {
+        connection.transitionTo("connected")
+      }
+      lifecycle.failures = 0
+    }
+    const unavailable = () => {
+      if (connection.can("disconnected")) {
+        connection.transitionTo("disconnected")
+      }
+    }
     const controller = new AbortController()
     const isCapture =
       new URLSearchParams(window.location.search).get(
@@ -51,7 +110,7 @@ export const useDisplay = (target: DisplayTarget) => {
         value.buildId &&
         lifecycle.buildId !== value.buildId
       ) {
-        window.location.reload()
+        reloadPage()
         return
       }
       lifecycle.buildId = value.buildId
@@ -66,7 +125,17 @@ export const useDisplay = (target: DisplayTarget) => {
       if (lifecycle.isDisposed) {
         return
       }
-      setIsConnected(false)
+      if (connection.is("connected")) {
+        connection.transitionTo("reconnecting")
+      } else if (connection.is("connecting")) {
+        unavailable()
+      }
+      if (lifecycle.outageTimer === undefined) {
+        lifecycle.outageTimer = window.setTimeout(
+          unavailable,
+          30_000,
+        )
+      }
       lifecycle.failures += 1
       lifecycle.timer = window.setTimeout(
         () => void load(),
@@ -90,7 +159,7 @@ export const useDisplay = (target: DisplayTarget) => {
           return
         }
         if (response.status === 409) {
-          window.location.reload()
+          reloadPage()
           return
         }
         if (
@@ -105,6 +174,7 @@ export const useDisplay = (target: DisplayTarget) => {
           return
         }
         if (!response.ok) {
+          if (response.status === 404) unavailable()
           throw new Error(
             response.status === 404
               ? "This view is unavailable."
@@ -117,7 +187,7 @@ export const useDisplay = (target: DisplayTarget) => {
         }
         accept(value)
         if (isCapture) {
-          setIsConnected(true)
+          connected()
           return
         }
         const socket = new WebSocket(
@@ -125,14 +195,13 @@ export const useDisplay = (target: DisplayTarget) => {
         )
         lifecycle.socket = socket
         socket.onopen = () => {
-          lifecycle.failures = 0
-          setIsConnected(true)
+          connected()
         }
         socket.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data)
             if (message.type === "reload") {
-              window.location.reload()
+              reloadPage()
               return
             }
             if (message.type === "locked") {
@@ -173,6 +242,7 @@ export const useDisplay = (target: DisplayTarget) => {
       lifecycle.isDisposed = true
       controller.abort()
       clearTimeout(lifecycle.timer)
+      clearTimeout(lifecycle.outageTimer)
       lifecycle.socket?.close()
     }
   }, [
@@ -201,6 +271,7 @@ export const useDisplay = (target: DisplayTarget) => {
         )
       }
       setRevision((current) => current + 1)
+      authChannel.current?.postMessage("changed")
     } catch (failure) {
       setError(
         failure instanceof Error
@@ -209,28 +280,6 @@ export const useDisplay = (target: DisplayTarget) => {
       )
     } finally {
       setIsPending(false)
-    }
-  }
-  const lock = async () => {
-    if (isPreview) return
-    try {
-      const response = await fetch("/api/access/lock", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(target),
-      })
-      if (!response.ok) {
-        throw new Error("Could not lock this display.")
-      }
-      lockState()
-      setRevision((current) => current + 1)
-    } catch (failure) {
-      setError(
-        failure instanceof Error
-          ? failure.message
-          : "Lock failed.",
-      )
     }
   }
   const selectView = async (viewId: string) => {
@@ -258,7 +307,7 @@ export const useDisplay = (target: DisplayTarget) => {
         },
       )
       if (response.status === 409 && target.deviceId) {
-        window.location.reload()
+        reloadPage()
         return
       }
       if (response.status === 401) lockState()
@@ -327,11 +376,11 @@ export const useDisplay = (target: DisplayTarget) => {
     snapshot,
     isLocked,
     isConnected,
+    connectionStatus,
     isPending,
     error,
     name,
     unlock,
-    lock,
     requestAction,
     selectView,
   }

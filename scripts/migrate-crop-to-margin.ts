@@ -21,8 +21,8 @@
  * Both phases are idempotent. `copy` never overwrites a `margin_<edge>` that
  * already holds a value, so re-running it cannot clobber a hand-tuned mat.
  *
- *   yarn tsx scripts/migrate-crop-to-margin.ts copy
- *   yarn tsx scripts/migrate-crop-to-margin.ts cleanup
+ *   pnpm tsx scripts/migrate-crop-to-margin.ts copy
+ *   pnpm tsx scripts/migrate-crop-to-margin.ts cleanup
  */
 import mqtt from "mqtt"
 

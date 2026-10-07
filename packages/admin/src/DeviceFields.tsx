@@ -1,4 +1,8 @@
-import { AdaptiveGrid, Card } from "@charcuterie/ui"
+import {
+  AdaptiveGrid,
+  Card,
+  Checkbox,
+} from "@charcuterie/ui"
 import type { Device } from "./device.ts"
 import {
   BROWSER_COLOR_OPTIONS,
@@ -138,6 +142,46 @@ export const DeviceFields = ({
           }
         />
       </div>
+      {device.renderer === "browser" ? (
+        <>
+          {device.hasRemoteBacklight ? (
+            <p className="text-content-secondary text-sm">
+              Backlight supported
+            </p>
+          ) : (
+            <Checkbox
+              key={`${device.id}:${Boolean(device.hasMqttBacklight)}`}
+              isChecked={Boolean(device.hasMqttBacklight)}
+              label="Backlight available"
+              onChange={(isEnabled) =>
+                onChange({ hasMqttBacklight: isEnabled })
+              }
+            />
+          )}
+          <Checkbox
+            key={`${device.id}:${Boolean(device.hasRemoteAmbientLight)}`}
+            isChecked={Boolean(
+              device.hasRemoteAmbientLight,
+            )}
+            label="Ambient LEDs available"
+            onChange={(isEnabled) =>
+              onChange({ hasRemoteAmbientLight: isEnabled })
+            }
+          />
+          <SettingField
+            label="Print queue channel"
+            description="A queue.v1 channel from the printer source."
+            value={device.printQueueChannel ?? ""}
+            onChange={(printQueueChannel) =>
+              onChange({
+                printQueueChannel:
+                  printQueueChannel || undefined,
+              })
+            }
+            width="wide"
+          />
+        </>
+      ) : null}
       <p className="text-content-secondary text-sm">
         Save the device to apply these settings. CastKit
         restarts after the save.
