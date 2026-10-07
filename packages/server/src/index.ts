@@ -478,8 +478,10 @@ const main = async () => {
       device,
       margin,
       adjustments,
+      target: previewTarget,
     }) => {
-      const target = platform.getDeviceTarget(device.id)
+      const target =
+        previewTarget ?? platform.getDeviceTarget(device.id)
       if (!target) return null
       return renderService.renderPage({
         device,

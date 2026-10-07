@@ -129,6 +129,7 @@ export const ViewGallery = ({
                 url={`/view/${encodeURIComponent(view.id)}`}
                 name={view.name}
                 size={sizing.size}
+                profile={sizing.profile}
                 revision={revision}
                 isThumbnail
               />

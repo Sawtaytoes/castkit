@@ -17,6 +17,7 @@ const makeController = ({
   publicUrl = "",
   photoEncoding = { format: "png" },
   onRender,
+  renderPlatform,
 }: {
   activeView?: string
   imageDelivery?: "mqtt-image" | "http-pull"
@@ -26,6 +27,9 @@ const makeController = ({
    * Runs INSIDE the fake render, so a test can do what Home Assistant's
    * retained state does on a restart: arrive while the render is in flight.
    */
+  renderPlatform?: Parameters<
+    typeof createPushController
+  >[0]["renderPlatform"]
   onRender?: () => Promise<void> | void
 } = {}) => {
   const deviceConfigStore = createDeviceConfigStore()
@@ -44,6 +48,7 @@ const makeController = ({
   }
 
   const pushController = createPushController({
+    renderPlatform,
     devices: [device] as never,
     deviceStore: {
       getActiveView: () => currentView.value,
@@ -381,4 +386,73 @@ describe("pushDevice — state that changes DURING the render", () => {
       )?.payload,
     ).toBe("Clock")
   })
+})
+
+test("previews use delivery overrides without changing the selected view or publishing", async () => {
+  const captures: Parameters<
+    NonNullable<
+      Parameters<
+        typeof createPushController
+      >[0]["renderPlatform"]
+    >
+  >[0][] = []
+  const {
+    pushController,
+    deviceConfigStore,
+    currentView,
+    publishedTopics,
+  } = makeController({
+    renderPlatform: async (settings) => {
+      captures.push(settings)
+      return PNG
+    },
+  })
+  const deviceId = IMPRESSION_DEVICE.id
+  deviceConfigStore.setRotationOverride({
+    deviceId,
+    rotation: 90,
+  })
+  deviceConfigStore.setColorModeOverride({
+    deviceId,
+    colorMode: "bw",
+  })
+  deviceConfigStore.setDitherAlgorithm({
+    deviceId,
+    algorithm: "threshold",
+  })
+  deviceConfigStore.setBrightnessPercent({
+    deviceId,
+    percent: 125,
+  })
+  deviceConfigStore.setSaturationPercent({
+    deviceId,
+    percent: 80,
+  })
+  deviceConfigStore.setMarginEdge({
+    deviceId,
+    edge: "left",
+    pixels: 10,
+  })
+  await pushController.renderDevice(deviceId)
+  await pushController.renderPreview({
+    deviceId,
+    kind: "view",
+    id: "agenda",
+  })
+  expect(captures[1]).toEqual({
+    ...captures[0],
+    target: { kind: "view", id: "agenda" },
+  })
+  expect(captures[1]?.device).toMatchObject({
+    rotation: 90,
+    colorMode: "monochrome",
+    ditherProfile: { algorithm: "threshold" },
+  })
+  expect(captures[1]?.adjustments).toEqual({
+    brightness: 1.25,
+    saturation: 0.8,
+  })
+  expect(captures[1]?.margin).toMatchObject({ left: 10 })
+  expect(currentView.value).toBe("Clock")
+  expect(publishedTopics).toEqual([])
 })

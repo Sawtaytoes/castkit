@@ -47,6 +47,8 @@ test("management uploads, reviews, installs, and removes a package with its reta
     pushController: {
       deviceById: new Map(),
       renderDevice: async () => null,
+      getRenderSettings: () => null,
+      renderPreview: async () => null,
       pushDevice: async () => false,
       setView: async () => false,
     },
