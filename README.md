@@ -47,6 +47,10 @@ server during development.
 
 **The display model**
 
+- [Display targets: viewing context, purpose, and presentation](docs/display-targets.md) —
+  physical size/PPI, viewing distance, four starting profiles, purpose and interruption
+  orders, and a target record template; design guidance with implementation boundaries.
+
 - [Display properties, and what each one changes](docs/display-properties.md) —
   the reference. A display is a **panel model** plus an **installation**, and
   every property states what it changes. Read this before adding a panel kind,
