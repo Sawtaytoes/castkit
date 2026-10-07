@@ -4,6 +4,16 @@ import asyncio
 import json
 import time
 
+
+def clock_ms():
+    """Use wrap-aware device ticks or the host's monotonic clock."""
+    return time.ticks_ms() if hasattr(time, "ticks_ms") else int(time.monotonic() * 1000)
+
+
+def clock_diff(end, start):
+    return time.ticks_diff(end, start) if hasattr(time, "ticks_diff") else end - start
+
+
 LED_INDEXES = (0, 1, 2, 3, 4, 5, 6)
 CHANNEL_INDEXES = tuple(range(21))
 MODES = ("album-glow", "swipe-comet", "meeting-fuse", "weather-aura", "progress-bar")
@@ -61,7 +71,7 @@ class AmbientLight:
         self.progress_milli = 0
         self.event_ms = None
         self.duration_ms = 0
-        self.updated_at = time.ticks_ms()
+        self.updated_at = clock_ms()
         self.progress_updated_at = self.updated_at
         self.event_updated_at = self.updated_at
         self.mode_started_at = self.updated_at
@@ -137,7 +147,7 @@ class AmbientLight:
             self.stop()
             return previous_controls != (self.is_on, self.brightness, self.mode, self.is_demo)
 
-        now = time.ticks_ms()
+        now = clock_ms()
         has_progress_changed = (
             self.progress != progress
             or self.is_playing != is_playing
@@ -190,7 +200,7 @@ class AmbientLight:
         elif phase == 2 and self.is_swiping:
             self.is_swiping = False
             self.is_swipe_released = self.swipe_distance >= 48
-            self.swipe_released_at = time.ticks_ms()
+            self.swipe_released_at = clock_ms()
             if not self.is_swipe_released:
                 self.swipe_distance = 0
 
@@ -225,7 +235,7 @@ class AmbientLight:
         head = min(6, self.swipe_distance * 6 // 180)
         direction = self.swipe_direction
         if self.is_swipe_released:
-            released = max(0, time.ticks_diff(now, self.swipe_released_at))
+            released = max(0, clock_diff(now, self.swipe_released_at))
             gain = max(0, 100 - released * 100 // 450)
             head = min(6, head + released * 6 // 450)
             if released >= 450:
@@ -244,12 +254,12 @@ class AmbientLight:
 
     def tick(self, now=None):
         if now is None:
-            now = time.ticks_ms()
+            now = clock_ms()
         self.clear_output()
         if not self.is_on or self.brightness == 0:
             self.flush()
             return
-        elapsed = max(0, time.ticks_diff(now, self.mode_started_at))
+        elapsed = max(0, clock_diff(now, self.mode_started_at))
         if self.mode == "album-glow":
             needs_demo_palette = self.is_demo and not any(self.colors)
             for index in LED_INDEXES:
@@ -267,7 +277,7 @@ class AmbientLight:
             remaining = 45000 - elapsed % 45000 if self.is_demo else self.event_ms
             if remaining is not None:
                 if not self.is_demo:
-                    remaining -= max(0, time.ticks_diff(now, self.event_updated_at))
+                    remaining -= max(0, clock_diff(now, self.event_updated_at))
                 if remaining > 0:
                     count = min(7, (remaining * 7 + 299999) // 300000)
                     for index in LED_INDEXES:
@@ -297,7 +307,7 @@ class AmbientLight:
         elif self.mode == "progress-bar":
             progress = elapsed % 10000 * 1000 // 10000 if self.is_demo else self.progress_milli
             if not self.is_demo and self.is_playing and self.duration_ms > 0:
-                progress_elapsed = max(0, time.ticks_diff(now, self.progress_updated_at))
+                progress_elapsed = max(0, clock_diff(now, self.progress_updated_at))
                 progress = min(1000, progress + progress_elapsed * 1000 // self.duration_ms)
             for index in LED_INDEXES:
                 gain = max(0, min(100, progress * 7 * 100 // 1000 - index * 100))
