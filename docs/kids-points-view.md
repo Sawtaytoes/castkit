@@ -16,6 +16,24 @@ All names and numbers in these pictures are fixture data.
 CastKit never awards points. A points service decides every scan; CastKit only
 draws what that service already published.
 
+## Keep the board visible on a compact panel
+
+Enable **Keep the board visible during scans** (`isAllChildrenVisible`) to use
+compact rows rather than focusing on one child. A three-child board fits a
+480×480 panel: all totals stay visible for the configured scan duration,
+with feedback beside the child who scanned. Running activities remain on their
+own rows, including simultaneous count-up and countdown activities. Instant
+panels show seconds; slower panels use whole minutes. Larger panels keep their
+existing complete cards, and panels with more children than readable rows report
+the remaining count.
+
+![Three children stay visible during a scan on a 480×480 panel](images/kids-points-compact/after.png)
+
+![Two children run separate activities after scan feedback ends](images/kids-points-compact/timers.png)
+
+**Show only stacked totals** remains available for displays that need only
+names and points, without activities or feedback.
+
 ## Where the data comes from
 
 A channel of type `kids-points.v1`. Two adapters fill it.

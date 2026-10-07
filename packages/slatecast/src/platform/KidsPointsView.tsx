@@ -431,7 +431,52 @@ const KidFocus = ({
   )
 }
 
-const KidRow = ({ kid }: { kid: KidEntry }) => (
+const CompactActivity = ({
+  kid,
+  now,
+  isLive,
+}: {
+  kid: KidEntry
+  now: number
+  isLive: boolean
+}) => {
+  const task = kid.activeTask
+  if (!task) return null
+  const elapsed = Math.max(
+    0,
+    (now - task.startedAtMs) / 1000,
+  )
+  const isCountdown =
+    task.isCountdown === true &&
+    task.goalMinutes !== undefined
+  const seconds = isCountdown
+    ? Math.max(0, (task.goalMinutes ?? 0) * 60 - elapsed)
+    : elapsed
+  const rounded = isCountdown
+    ? Math.ceil(seconds)
+    : Math.floor(seconds)
+  const duration = isLive
+    ? `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, "0")}`
+    : `${isCountdown ? Math.ceil(seconds / 60) : Math.floor(seconds / 60)} min`
+  return (
+    <p class="kids-points-footnote">
+      {task.name} · {duration}{" "}
+      {isCountdown ? "left" : "elapsed"}
+    </p>
+  )
+}
+
+const KidRow = ({
+  kid,
+  now,
+  isLive = false,
+  scan,
+}: {
+  kid: KidEntry
+  now?: number
+  isLive?: boolean
+  scan?: KidScan
+}) => (
   <article class="kids-points-row" style={kidStyle(kid)}>
     <div class="kids-points-row-head">
       <h3>{kid.name}</h3>
@@ -443,6 +488,14 @@ const KidRow = ({ kid }: { kid: KidEntry }) => (
       </span>
     </div>
     <GoalBar kid={kid} />
+    {now === undefined ? null : (
+      <CompactActivity
+        kid={kid}
+        now={now}
+        isLive={isLive}
+      />
+    )}
+    {scan ? <ScanBanner scan={scan} /> : null}
   </article>
 )
 
@@ -571,6 +624,23 @@ export const KidsPointsView = ({
             }
           />
         ))}
+      </div>
+    ) : settings?.isAllChildrenVisible === true ? (
+      <div class="kids-points-rows">
+        {data.kids.slice(0, layout.rowCount).map((kid) => (
+          <KidRow
+            key={kid.id}
+            kid={kid}
+            now={now}
+            isLive={isLive}
+            scan={scan?.kidId === kid.id ? scan : undefined}
+          />
+        ))}
+        {layout.rowCount < data.kids.length ? (
+          <p class="kids-points-overflow">
+            {data.kids.length - layout.rowCount} more
+          </p>
+        ) : null}
       </div>
     ) : countdownKids.length > 1 ? (
       <div

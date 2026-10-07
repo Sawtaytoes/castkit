@@ -307,3 +307,98 @@ test.each([
     })
   await capture(`kids-points-two-timers-480x320-${theme}`)
 })
+
+const compactBoardSnapshot = ({
+  isAllChildrenVisible,
+  hasScan,
+}: {
+  isAllChildrenVisible: boolean
+  hasScan: boolean
+}): DisplaySnapshot => {
+  const snapshot = kidsPointsFixture({ hasScan })
+  const channel = snapshot.channels.points!
+  const data =
+    channel.data as ContractData["kids-points.v1"]
+  return {
+    ...snapshot,
+    view: {
+      ...snapshot.view,
+      panels: snapshot.view.panels.map((panel) => ({
+        ...panel,
+        settings: { isAllChildrenVisible, scanSeconds: 30 },
+      })),
+    },
+    channels: {
+      points: {
+        ...channel,
+        data: {
+          ...data,
+          kids: data.kids.slice(0, 3).map((kid, index) => ({
+            ...kid,
+            ...(index < 2
+              ? {
+                  activeTask: {
+                    name:
+                      index === 0 ? "Reading" : "Sitting",
+                    startedAtMs:
+                      Date.now() -
+                      (index === 0 ? 120_000 : 60_000),
+                    isCountdown: index === 1,
+                    ...(index === 1
+                      ? { goalMinutes: 5 }
+                      : {}),
+                  },
+                }
+              : {}),
+          })),
+        },
+      },
+    },
+  }
+}
+
+test("a compact scan board can keep three children and two activities visible", async () => {
+  await page.viewport(480, 480)
+  renderDevicePage(
+    compactBoardSnapshot({
+      isAllChildrenVisible: true,
+      hasScan: true,
+    }),
+  )
+  await document.fonts.ready
+  const rows = Array.from(
+    document.querySelectorAll(".kids-points-row"),
+  )
+  expect(rows).toHaveLength(3)
+  rows.forEach((row) => {
+    expect(row.scrollHeight).toBeLessThanOrEqual(
+      row.clientHeight + 1,
+    )
+    expect(
+      row.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(480)
+  })
+  await capture("kids-points-all-children-scan-480x480")
+})
+
+test("the compact board keeps both timers visible after scan feedback ends", async () => {
+  await page.viewport(480, 480)
+  renderDevicePage(
+    compactBoardSnapshot({
+      isAllChildrenVisible: true,
+      hasScan: false,
+    }),
+  )
+  await capture("kids-points-all-children-timers-480x480")
+})
+
+test("the default compact scan still focuses on one child", async () => {
+  await page.viewport(480, 480)
+  renderDevicePage(
+    compactBoardSnapshot({
+      isAllChildrenVisible: false,
+      hasScan: true,
+    }),
+  )
+  await capture("kids-points-default-scan-480x480")
+})

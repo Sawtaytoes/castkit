@@ -569,3 +569,70 @@ test("a slow compact panel shows both absolute timer deadlines", () => {
   expect(screen.getByText(/^10 min · ends/)).toBeVisible()
   expect(screen.queryByText("9:00")).toBe(null)
 })
+
+test("a compact board keeps three children visible through scan feedback", () => {
+  const value = {
+    ...scanned,
+    kids: scanned.kids.slice(0, 3),
+  }
+  const { container } = renderInPanel({
+    width: 440,
+    height: 440,
+    value,
+    settings: {
+      isAllChildrenVisible: true,
+      scanSeconds: 30,
+    },
+  })
+  expect(
+    container.querySelectorAll(".kids-points-row"),
+  ).toHaveLength(3)
+  for (const kid of value.kids)
+    expect(
+      screen.getByRole("heading", { name: kid.name }),
+    ).toBeVisible()
+  expect(
+    container.querySelector(".kids-points-focus"),
+  ).toBeNull()
+  expect(screen.getByText("Feed the Cat")).toBeVisible()
+})
+
+test("a compact board shows simultaneous countdown and count-up activities after feedback ends", () => {
+  const value: ContractData["kids-points.v1"] = {
+    kids: [
+      {
+        ...data.kids[0],
+        activeTask: {
+          name: "Reading",
+          startedAtMs: now - 120000,
+          isCountdown: false,
+        },
+      },
+      {
+        ...data.kids[1],
+        activeTask: {
+          name: "Sitting",
+          startedAtMs: now - 60000,
+          isCountdown: true,
+          goalMinutes: 5,
+        },
+      },
+      data.kids[2],
+    ],
+  }
+  const { container } = renderInPanel({
+    width: 440,
+    height: 440,
+    value,
+    settings: { isAllChildrenVisible: true },
+  })
+  expect(
+    container.querySelectorAll(".kids-points-row"),
+  ).toHaveLength(3)
+  expect(
+    screen.getByText("Reading · 2:00 elapsed"),
+  ).toBeVisible()
+  expect(
+    screen.getByText("Sitting · 4:00 left"),
+  ).toBeVisible()
+})
