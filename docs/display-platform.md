@@ -1,5 +1,9 @@
 # Views, channels, and screens
 
+Use [Display targets](display-targets.md) to document the viewing context, purposes
+and readable-fit requirements behind a composition. These design records complement
+existing layout priorities and screen overrides; they do not add runtime settings.
+
 ## Create a browser view
 
 1. Open `/manage`. On a new installation, use the one-time setup token from the private platform file and choose the management PIN. The setup link can carry the token in its `#setup=` fragment; the browser removes it from the address immediately.

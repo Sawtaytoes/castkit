@@ -3,6 +3,10 @@
 **Date:** 2026-09-13 · **Rule:**
 [a display is a panel model plus an installation](decisions/2026-09-13-a-display-is-a-panel-model-plus-an-installation.md)
 
+For physical size/PPI, viewing distance, purpose and information density, also read
+[Display targets](display-targets.md). Its profiles are design records, not current
+runtime settings.
+
 A registered display is a **panel model** plus an **installation**. The panel
 model is what the hardware is. The installation is how this unit is hung, how it
 is powered, and what the owner wants hidden. Both change the final render, and
