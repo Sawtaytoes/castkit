@@ -1,6 +1,7 @@
 import { Button, Card, Picker } from "@charcuterie/ui"
 import { useEffect, useRef, useState } from "react"
 import type { Device } from "./device.ts"
+import { usePreviewVisibility } from "./usePreviewVisibility.ts"
 
 /** Preview saved output at the panel's real layout size, then scale it into the inspector. */
 export const DevicePreview = ({
@@ -27,6 +28,7 @@ export const DevicePreview = ({
     height: 0,
   })
   const frameRef = useRef<HTMLDivElement>(null)
+  const isVisible = usePreviewVisibility(frameRef)
   const [frameWidth, setFrameWidth] = useState(0)
   const [refresh, setRefresh] = useState(0)
   const [imageUrl, setImageUrl] = useState<string | null>(
@@ -79,7 +81,7 @@ export const DevicePreview = ({
     setMessage("")
     setImageSize({ width: 0, height: 0 })
     setOutputRotation(device?.rotation ?? 0)
-    if (!deviceId || isBrowser) {
+    if (!deviceId || isBrowser || !isVisible) {
       setIsLoading(false)
       return
     }
@@ -148,6 +150,7 @@ export const DevicePreview = ({
     deviceId,
     device?.rotation,
     isBrowser,
+    isVisible,
     refresh,
     revision,
   ])
@@ -232,7 +235,7 @@ export const DevicePreview = ({
               inlineSize: displayWidth * scale,
             }}
           >
-            {isBrowser ? (
+            {isBrowser && isVisible ? (
               <iframe
                 ref={iframeRef}
                 className="preview-iframe"
@@ -249,6 +252,10 @@ export const DevicePreview = ({
                 title={`${device.label} browser preview`}
                 width={panelWidth}
               />
+            ) : isBrowser ? (
+              <p className="preview-message">
+                Preview paused
+              </p>
             ) : (
               <img
                 alt={`${device.label} rendered output`}
