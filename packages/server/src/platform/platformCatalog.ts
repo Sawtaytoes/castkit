@@ -470,6 +470,14 @@ const adapters: AdapterDefinition[] = [
         description:
           "Show scans from these readers only. Leave empty to show a scan from any reader. A reader appears here after its first scan.",
       },
+      {
+        key: "timerReaders",
+        label: "Timer card readers",
+        type: "string-list",
+        discoveryKey: "readers",
+        description:
+          "Show running activities started at these readers. Totals remain visible for every selected child. Leave empty to include timers from every reader.",
+      },
     ],
     actions: [],
   },

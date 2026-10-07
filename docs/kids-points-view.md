@@ -70,13 +70,28 @@ service's own `message`, because "Not counted" alone does not tell a child
 whether to try again later. The scan's `pointsToday` updates that child's
 total at once; the state document that follows confirms it.
 
-Two channel settings narrow what a channel shows:
+Channel settings narrow what a channel shows:
 
 - `kidIds` — the children on this board. Empty is every child.
 - `readers` — the card readers whose scans this channel shows. Empty is every
   reader. A room's display lists the room's own reader, so a scan in another
   room does not take it over. The picker offers each reader after its first
   scan.
+
+- `timerReaders` — readers where running activities must have started. Empty
+  includes every timer. This is separate from scan feedback: a display can show
+  scans from every reader while keeping only its own running activities. All
+  selected children keep their totals, including children whose timers are on
+  another display. With a filter configured, a legacy session without a reader
+  is hidden rather than assigned to a guessed location.
+
+The producer must include `reader` in its retained `runningSession` (or in the
+canonical `activeTask`). That origin survives a CastKit restart without needing
+another scan. For example, set `timerReaders: ["Hall Reader"]` on one channel and
+`timerReaders: ["Desk Reader"]` on another. Their totals match, while a reading
+session started in the hall and a sitting session started at the desk remain on
+their respective channels. One child has one active task in this contract;
+different children can have simultaneous activities.
 
 A `kids-points.v1` channel never goes stale on its own. The service publishes
 only when a child's day changes, and a quiet afternoon is not an outage. Set

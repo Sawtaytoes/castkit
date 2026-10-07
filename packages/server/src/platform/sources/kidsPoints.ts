@@ -111,6 +111,9 @@ export const normalizeKidState = (
           activeTask: {
             name: sessionName,
             startedAtMs: sessionStartedAtMs,
+            ...(textValue(session.reader)
+              ? { reader: textValue(session.reader) }
+              : {}),
             ...(goalMinutes === undefined
               ? {}
               : { goalMinutes }),
@@ -198,11 +201,26 @@ export const buildKidsPointsData = ({
   timerScans?: KidScan[]
 }): KidsPointsData => {
   const kidIds = stringList(channel.settings.kidIds)
+  const timerReaders = stringList(
+    channel.settings.timerReaders,
+  )
   const selected = kids
     .filter(
       (kid) =>
         kidIds.length === 0 || kidIds.includes(kid.id),
     )
+    .map((kid) => {
+      if (
+        timerReaders.length === 0 ||
+        !kid.activeTask ||
+        (kid.activeTask.reader &&
+          timerReaders.includes(kid.activeTask.reader))
+      ) {
+        return kid
+      }
+      const { activeTask: _activeTask, ...totals } = kid
+      return totals
+    })
     .toSorted(
       (left, right) =>
         (left.displayOrder ?? Number.MAX_SAFE_INTEGER) -

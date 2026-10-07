@@ -461,3 +461,89 @@ test("a room retains both accepted timers and excludes another room's start", ()
     ),
   ).toEqual(["robin"])
 })
+
+test("timers follow their starting readers while all children's totals remain", () => {
+  const kids = [
+    {
+      id: "robin",
+      name: "Robin",
+      pointsToday: 10,
+      activeTask: {
+        name: "Reading",
+        startedAtMs: 1000,
+        reader: "Hall Reader",
+        isCountdown: true,
+        goalMinutes: 10,
+      },
+    },
+    {
+      id: "alex",
+      name: "Alex",
+      pointsToday: 20,
+      activeTask: {
+        name: "Sitting",
+        startedAtMs: 2000,
+        reader: "Desk Reader",
+        isCountdown: false,
+      },
+    },
+    {
+      id: "casey",
+      name: "Casey",
+      pointsToday: 30,
+      activeTask: { name: "Reading", startedAtMs: 3000 },
+    },
+  ]
+  const hall = buildKidsPointsData({
+    kids,
+    channel: channel("hall", {
+      timerReaders: ["Hall Reader"],
+    }),
+  })
+  const desk = buildKidsPointsData({
+    kids,
+    channel: channel("desk", {
+      timerReaders: ["Desk Reader"],
+    }),
+  })
+  expect(hall.kids).toHaveLength(3)
+  expect(
+    hall.kids.find((kid) => kid.id === "robin")?.activeTask
+      ?.name,
+  ).toBe("Reading")
+  expect(
+    hall.kids.find((kid) => kid.id === "alex")?.activeTask,
+  ).toBeUndefined()
+  expect(
+    hall.kids.find((kid) => kid.id === "casey")?.activeTask,
+  ).toBeUndefined()
+  expect(
+    desk.kids.find((kid) => kid.id === "alex")?.activeTask
+      ?.name,
+  ).toBe("Sitting")
+  expect(
+    desk.kids.find((kid) => kid.id === "robin")
+      ?.pointsToday,
+  ).toBe(10)
+  expect(
+    buildKidsPointsData({
+      kids,
+      channel: channel("all"),
+    }).kids.filter((kid) => kid.activeTask),
+  ).toHaveLength(3)
+  expect(kids[1].activeTask.reader).toBe("Desk Reader")
+})
+
+test("retained timer origin survives normalization without a new scan", () => {
+  const kid = normalizeKidState({
+    kid: "robin",
+    pointsToday: 10,
+    runningSession: {
+      taskName: "Reading",
+      startedMs: 1000,
+      reader: "Hall Reader",
+      isCountdown: false,
+    },
+  })
+  expect(kid?.activeTask?.reader).toBe("Hall Reader")
+})
