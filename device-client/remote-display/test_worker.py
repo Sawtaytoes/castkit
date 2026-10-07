@@ -189,10 +189,14 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         from aioesphomeapi import TextSensorState
 
         self.session.event_key = 1
+        self.session.queued_touch = ["touch", "101", "1", "30", "25", "0", "42", "0"]
+        self.session.touches.put_nowait(["touch", "102", "2", "30", "25", "0", "42", "0"])
         self.session.state_changed(TextSensorState(key=1, state="error,device-restarted"))
         self.assertEqual(self.session.last_sequence, 0)
         self.assertTrue(self.session.is_reset_required)
         self.assertEqual(self.session.guard.frames, {})
+        self.assertTrue(self.session.touches.empty())
+        self.assertIsNone(self.session.queued_touch)
         await context.close()
 
     async def event(self, sequence, phase, frame=42):
@@ -204,6 +208,35 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                 if self.task.done():
                     self.task.result()
                 await asyncio.sleep(0.01)
+
+    async def test_burst_motion_keeps_down_release_and_reversal_without_replaying_every_sample(
+        self,
+    ):
+        await self.task_cancel_for_capture_test()
+
+        # A frame transfer may hold up replay while many finger samples arrive.
+        def event(sequence, phase, x):
+            return ["touch", str(sequence), str(phase), str(x), "25", "0", "42", "0"]
+
+        self.session.contact = {"x": 30, "y": 25}
+        for item in [
+            event(1, 0, 30),
+            *[event(x, 1, x) for x in range(32, 101, 2)],
+            *[event(201 - x, 1, x) for x in range(98, 29, -2)],
+            event(172, 2, 30),
+        ]:
+            await self.session.touches.put(item)
+        replay = []
+        for _ in range(4):
+            item = await self.session.next_touch()
+            replay.append(item)
+            # input_loop updates the contact after replaying each retained point.
+            self.session.contact = {"x": int(item[3]), "y": int(item[4])}
+        self.assertEqual(
+            [(int(item[2]), int(item[3])) for item in replay], [(0, 30), (1, 100), (1, 30), (2, 30)]
+        )
+        self.assertTrue(self.session.touches.empty())
+        self.assertIsNone(self.session.queued_touch)
 
     async def test_vertical_swipe_crosses_controls_without_clicking(self):
         await self.page.set_content("""<div class="stage" data-castkit-target="view-gesture:ambient"

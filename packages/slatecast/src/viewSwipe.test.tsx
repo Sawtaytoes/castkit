@@ -95,15 +95,27 @@ describe("a vertical swipe asks the house for a view", () => {
     ])
   })
 
-  test("a configured left swipe asks the house for that view", async () => {
+  test("pulling inward from the configured right edge asks the house for that view", async () => {
     const { server } = await mountView({
       leftSwipeViewId: "scores",
     })
-    await swipe({ distanceY: 0, distanceX: -80 })
+    await swipe({
+      selector: ".view-swipe-edge.is-right",
+      distanceY: 0,
+      distanceX: -80,
+    })
     await waitUntil(() => server.commands.length > 0)
     expect(server.commands).toEqual([
       { action: "view", value: "scores" },
     ])
+  })
+
+  test("a sideways drag in the middle does not open the configured edge view", async () => {
+    const { server } = await mountView({
+      leftSwipeViewId: "scores",
+    })
+    await swipe({ distanceY: 0, distanceX: -80 })
+    expect(server.commands).toEqual([])
   })
 
   test("a left artwork drag keeps track navigation instead of opening the configured view", async () => {

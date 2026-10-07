@@ -51,10 +51,10 @@ export const ViewSwipeEdges = () => {
           data-castkit-target={`navigation-edge:${edge}`}
           aria-label={
             edge === "top"
-              ? "Swipe down for audio"
+              ? "Pull inward from the top for audio"
               : edge === "bottom"
-                ? "Swipe up for time"
-                : "Swipe left for the configured view"
+                ? "Pull inward from the bottom for time"
+                : "Pull inward from the right for the configured view"
           }
           onPointerDown={(event) => beginPull(edge, event)}
           onPointerMove={(event) => {

@@ -5,7 +5,10 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
-import { extractAccentColor } from "../accentColor.ts"
+import {
+  extractAccentColor,
+  getCachedAccentColor,
+} from "../accentColor.ts"
 import { formatTime } from "../formatTime.ts"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
 import {
@@ -452,15 +455,18 @@ export const NowPlaying = () => {
   const isColorCapable =
     profile?.color === "full" ||
     profile?.color === "spectra6"
-  const [accent, setAccent] = useState<string | null>(null)
-
   const artworkUrl = data?.artworkPath
+  const [accent, setAccent] = useState<string | null>(() =>
+    artworkUrl && isColorCapable
+      ? getCachedAccentColor(artworkUrl)
+      : null,
+  )
   useEffect(() => {
     if (!artworkUrl || !isColorCapable) {
       setAccent(null)
       return
     }
-    setAccent(null)
+    setAccent(getCachedAccentColor(artworkUrl))
     let isStale = false
     extractAccentColor(artworkUrl).then((color) => {
       if (!isStale) {

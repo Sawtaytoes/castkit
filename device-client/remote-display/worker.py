@@ -25,7 +25,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v13-capture-recovery"
+BUILD_MARKER = "castkit-remote-display-v14-touch-coalescing"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -82,6 +82,7 @@ class DisplaySession:
         self.preview = preview
         self.pending = {}
         self.touches = asyncio.Queue(maxsize=128)
+        self.queued_touch = None
         self.guard = FrameGuard(config.get("max_frame_age", 7))
         self.target_attribute = config.get("target_attribute", "data-castkit-target")
         self.target_options = {
@@ -112,12 +113,16 @@ class DisplaySession:
                     while not self.touches.empty():
                         self.touches.get_nowait()
                     self.is_reset_required = True
+                    self.queued_touch = None
                 self.touches.put_nowait(parts)
             elif parts[0] == "error":
                 if parts[1] == "device-restarted":
                     self.last_sequence = 0
                     self.processed_touch = 0
                     self.is_reset_required = True
+                    self.queued_touch = None
+                    while not self.touches.empty():
+                        self.touches.get_nowait()
                     self.guard.frames.clear()
                     self.force_frame.set()
                 for future in self.pending.values():
@@ -140,9 +145,35 @@ class DisplaySession:
             self.cdp.send(method, parameters), timeout=BROWSER_TIMEOUT_SECONDS
         )
 
+    async def next_touch(self):
+        event = self.queued_touch
+        self.queued_touch = None
+        if event is None:
+            event = await self.touches.get()
+        if int(event[2]) != 1:
+            return event
+        origin = self.contact or {"x": int(event[3]), "y": int(event[4])}
+        direction_x = int(event[3]) - origin["x"]
+        direction_y = int(event[4]) - origin["y"]
+        while not self.touches.empty():
+            candidate = self.touches.get_nowait()
+            if int(candidate[2]) != 1:
+                self.queued_touch = candidate
+                break
+            dx = int(candidate[3]) - int(event[3])
+            dy = int(candidate[4]) - int(event[4])
+            if dx * direction_x < 0 or dy * direction_y < 0:
+                # Keep direction changes, so a pull-and-return cannot become a tap.
+                self.queued_touch = candidate
+                break
+            direction_x = direction_x or dx
+            direction_y = direction_y or dy
+            event = candidate
+        return event
+
     async def input_loop(self):
         while True:
-            event = await self.touches.get()
+            event = await self.next_touch()
             sequence, phase, x, y = map(int, event[1:5])
             shown_frame = int(event[6])
             if self.is_reset_required:

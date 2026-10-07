@@ -82,6 +82,23 @@ export const clampAccentToScheme = ({
   return `rgb(${destination} ${destination} ${destination})`
 }
 
+// Successful artwork hues survive view unmounts. Bound the cache for kiosks
+// that stay open for weeks, and reapply contrast for the current scheme.
+const artworkHues = new Map<string, string>()
+const MAXIMUM_CACHED_ARTWORK = 32
+
+export const getCachedAccentColor = (imageUrl: string) => {
+  const color = artworkHues.get(imageUrl)
+  return color
+    ? clampAccentToScheme({
+        color,
+        isDarkScheme:
+          document.documentElement.dataset.scheme ===
+          "dark",
+      })
+    : null
+}
+
 /**
  * Derive an accent color from album art, client-side: downscale to 16×16 on
  * a canvas, bucket pixels by hue, and pick the most saturated-populous
@@ -93,8 +110,10 @@ export const clampAccentToScheme = ({
  */
 export const extractAccentColor = (
   imageUrl: string,
-): Promise<string | null> =>
-  new Promise((resolvePromise) => {
+): Promise<string | null> => {
+  const cached = getCachedAccentColor(imageUrl)
+  if (cached) return Promise.resolve(cached)
+  return new Promise((resolvePromise) => {
     const image = new Image()
     image.crossOrigin = "anonymous"
     image.onerror = () => resolvePromise(null)
@@ -174,17 +193,17 @@ export const extractAccentColor = (
         }
         const toChannel = (value: number) =>
           Math.round((value / best.weight) * 255)
-        resolvePromise(
-          clampAccentToScheme({
-            color: `rgb(${toChannel(best.r)} ${toChannel(best.g)} ${toChannel(best.b)})`,
-            isDarkScheme:
-              document.documentElement.dataset.scheme ===
-              "dark",
-          }),
-        )
+        const color = `rgb(${toChannel(best.r)} ${toChannel(best.g)} ${toChannel(best.b)})`
+        if (artworkHues.size >= MAXIMUM_CACHED_ARTWORK) {
+          const oldest = artworkHues.keys().next().value
+          if (oldest) artworkHues.delete(oldest)
+        }
+        artworkHues.set(imageUrl, color)
+        resolvePromise(getCachedAccentColor(imageUrl))
       } catch {
         resolvePromise(null) // Tainted canvas (no CORS) or decode failure.
       }
     }
     image.src = imageUrl
   })
+}

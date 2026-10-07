@@ -51,6 +51,7 @@ type SwipeState = {
   startY: number
   isCommitted: boolean
   isArtwork: boolean
+  isRightEdge: boolean
 }
 
 let swipe: SwipeState | null = null
@@ -61,6 +62,11 @@ export const beginViewSwipe = (event: PointerEvent) => {
     startX: event.clientX,
     startY: event.clientY,
     isCommitted: false,
+    isRightEdge:
+      event.target instanceof Element &&
+      Boolean(
+        event.target.closest(".view-swipe-edge.is-right"),
+      ),
     isArtwork:
       event.target instanceof Element &&
       Boolean(event.target.closest(".artwork-frame")),
@@ -86,7 +92,8 @@ export const trackViewSwipe = (event: PointerEvent) => {
         device.value.views.some(
           (view) => view.clientId === "printer-status",
         )) ||
-      (!swipe.isArtwork &&
+      (swipe.isRightEdge &&
+        !swipe.isArtwork &&
         distanceX <= -SWIPE_COMMIT_PIXELS &&
         Math.abs(distanceX) > Math.abs(distanceY) &&
         device.value?.leftSwipeViewId))
@@ -106,7 +113,13 @@ export const endViewSwipe = (event: PointerEvent) => {
   if (!swipe || event.pointerId !== swipe.pointerId) {
     return
   }
-  const { isCommitted, isArtwork, startX, startY } = swipe
+  const {
+    isCommitted,
+    isArtwork,
+    isRightEdge,
+    startX,
+    startY,
+  } = swipe
   swipe = null
   isViewSwipe.value = false
   if (!isCommitted) {
@@ -124,6 +137,7 @@ export const endViewSwipe = (event: PointerEvent) => {
     Math.abs(distanceX) > Math.abs(distanceY) &&
     device.value?.hasPrinterNavigation
   const isLeftPull =
+    isRightEdge &&
     !isArtwork &&
     distanceX <= -SWIPE_COMMIT_PIXELS &&
     Math.abs(distanceX) > Math.abs(distanceY) &&
