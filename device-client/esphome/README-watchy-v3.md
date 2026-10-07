@@ -105,8 +105,15 @@ After a failed connection, a one-minute watch retries after five minutes, then
 Successful MQTT restores the normal cadence. Manual sync bypasses backoff; view
 buttons remain offline. Retry state lives in RTC SRAM without flash writes.
 
-Wi-Fi fast-connect remembers the last AP and channel in RTC memory, avoiding a full
-scan and a flash write each wake. Short battery connections disable modem sleep to
+Wi-Fi fast-connect remembers the last AP and channel in flash and writes it only
+when the AP changes, so an ordinary wake avoids a full scan and a flash write. Fast
+connect keeps returning to that AP while it answers, however weak. After a sync
+below -75 dBm the package forgets it, at most once every 30 minutes, so the next
+sync scans every channel and joins the strongest AP of the first configured network,
+then tries the other configured networks (for example a phone hotspot) in order.
+The ESP32-S3 radio is 2.4 GHz only: a phone hotspot must offer 2.4 GHz. Each MQTT
+connection publishes the joined SSID, BSSID, channel and RSSI, retained, on
+`castkit/<device_id>/wifi`. Short battery connections disable modem sleep to
 finish their exchanges promptly, while USB uses modem sleep. Hardware MPI acceleration
 reduces RSA work in TLS without weakening certificate verification; large keys retain
 the software fallback. MQTT waits for association and valid local time before DNS/TLS.

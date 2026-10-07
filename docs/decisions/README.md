@@ -6,6 +6,8 @@
 
 - [2026-10-06: Explicit refresh reopens the active Watchy timer](2026-10-06-watchy-explicit-refresh-reopens-the-active-timer.md)
 
+- [2026-10-06: Watchy forgets a weak access point and rescans](2026-10-06-watchy-forgets-a-weak-access-point-and-rescans.md)
+
 - [2026-10-06: Watchy idles at 80 MHz and turns off unused hardware](2026-10-06-watchy-idles-at-80-mhz-and-turns-off-unused-hardware.md)
 
 - [2026-10-06: Ambient LEDs can follow the current view](2026-10-06-ambient-leds-can-follow-current-view.md)
