@@ -1468,6 +1468,50 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.kids-points-rows[data-all-children="true"]
+  .kids-points-row-head {
+  align-items: center;
+}
+/* The compact board is read at a distance: a large initial anchors each name. */
+.kids-points-rows[data-all-children="true"] .kids-points-row
+  h3 {
+  font-size: clamp(24px, 20cqb, 32px);
+  line-height: 2.4;
+}
+.kids-points-rows[data-all-children="true"]
+  .kids-points-row
+  h3::first-letter {
+  font-size: clamp(48px, 46cqb, 72px);
+  font-weight: 800;
+  line-height: 1;
+}
+.kids-points-rows[data-all-children="true"]
+  .kids-points-scan {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+}
+.kids-points-rows[data-all-children="true"]
+  .kids-points-scan-headline {
+  flex: none;
+  font-size: clamp(28px, 28cqb, 40px);
+}
+.kids-points-rows[data-all-children="true"]
+  .kids-points-scan-detail {
+  font-size: clamp(18px, 18cqb, 26px);
+  -webkit-line-clamp: 1;
+}
+.kids-points-rows[data-all-children="true"]
+  .kids-points-row-total {
+  font-size: clamp(12px, 11cqb, 18px);
+}
+.kids-points-rows[data-all-children="true"]
+  .kids-points-row-total
+  strong {
+  font-size: clamp(48px, 46cqb, 72px);
+  font-weight: 800;
+  line-height: 1;
+}
 .kids-points-row-total {
   display: flex;
   align-items: baseline;
