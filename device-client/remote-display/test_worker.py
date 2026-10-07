@@ -6,11 +6,10 @@ import os
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from PIL import Image
-from playwright.async_api import async_playwright
-
 from codec import presto_frame_pixels
 from interaction import Target
+from PIL import Image
+from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer
 from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context
