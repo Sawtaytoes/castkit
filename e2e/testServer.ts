@@ -279,6 +279,17 @@ export const startTestServer = async ({
     pushController: {
       deviceById: new Map(),
       renderDevice: async () => null,
+      getRenderSettings: (deviceId) => {
+        const device = config.devices.find(
+          (item) => item.id === deviceId,
+        )
+        return device ? { device } : null
+      },
+      renderPreview: async () =>
+        Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==",
+          "base64",
+        ),
       pushDevice: async () => false,
       setView: async () => false,
     },

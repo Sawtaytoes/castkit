@@ -11,6 +11,7 @@ import type { InkcastConfig } from "./config/env.ts"
 import type { Platform } from "./platform/platform.ts"
 import { buildLandingPage } from "./platform/platformPages.ts"
 import { attachPlatformRoutes } from "./platform/platformRoutes.ts"
+import { attachPreviewRoutes } from "./platform/previewProfiles.ts"
 import type { PushController } from "./pushController.ts"
 import type {
   DeviceDefinition,
@@ -102,6 +103,14 @@ export const createApp = ({
       app,
       platform,
       apiToken: config.apiToken,
+    })
+
+  if (platform)
+    attachPreviewRoutes({
+      app,
+      platform,
+      definitions: deviceDefinitionStore,
+      pushController,
     })
 
   // Token-gate the API surface. With no token set (LAN/dev), the API is open.

@@ -45,7 +45,31 @@ test.beforeEach(async ({ page }) => {
     route.fulfill({ json: { devices } }),
   )
   await page.route(
-    /\/(view\/view-|d\/example-)[^/]+\?preview=1$/,
+    "**/api/manage/preview-profiles",
+    (route) =>
+      route.fulfill({
+        json: {
+          profiles: [
+            {
+              id: "browser",
+              label:
+                "1024 × 600 · Full color · Live browser",
+              width: 1024,
+              height: 600,
+              delivery: "browser",
+              deviceId: "example-0",
+              deviceLabels: devices.map(
+                (device) => device.label,
+              ),
+              deviceIds: devices.map((device) => device.id),
+              unsupportedViews: {},
+            },
+          ],
+        },
+      }),
+  )
+  await page.route(
+    /\/(view\/view-|d\/example-)[^/]+\?preview=1(?:&device=[^&]+)?$/,
     (route) =>
       route.fulfill({
         contentType: "text/html",
@@ -86,7 +110,7 @@ test("saved previews use device, custom, and changing browser dimensions without
   const frame = page.locator(".collection-preview iframe")
   await chooseSize({
     page,
-    name: /Example display 0 · 1024 × 600/,
+    name: /1024 × 600 · Full color/,
   })
   await frame.scrollIntoViewIfNeeded()
   await expect
@@ -307,4 +331,137 @@ test("device overview shows devices without synthetic screen cards and limits li
   await expect(
     page.locator(".screens-grid iframe"),
   ).toHaveCount(1)
+})
+
+test("gallery scrolling stays stable while previews recycle and controls stay readable", async ({
+  page,
+}) => {
+  await page.goto("/manage/views/gallery")
+  const search = page.getByLabel("Find a view")
+  const selector = page.getByRole("button", {
+    name: /^Preview size:/,
+  })
+  expect(
+    (await search.boundingBox())?.width,
+  ).toBeLessThanOrEqual(400)
+  expect(
+    (await selector.boundingBox())?.width,
+  ).toBeLessThanOrEqual(600)
+  await selector.click()
+  await page
+    .getByPlaceholder(
+      "Search sizes, capabilities, or device names",
+    )
+    .fill("Example display 39")
+  await expect(page.getByRole("option")).toHaveCount(1)
+  await page
+    .getByRole("option", { name: /1024 × 600/ })
+    .click()
+  const main = page.getByRole("main")
+  await main.evaluate((element) =>
+    element.scrollTo(0, 2200),
+  )
+  await expect
+    .poll(() =>
+      main.evaluate((element) => element.scrollTop),
+    )
+    .toBeGreaterThan(2000)
+  const bounds = (await main.boundingBox())!
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  )
+  await Array.from({ length: 16 }).reduce(
+    async (previous, _) => {
+      await previous
+      const before = await main.evaluate(
+        (element) => element.scrollTop,
+      )
+      await page.mouse.wheel(0, -180)
+      await page.waitForTimeout(250)
+      const after = await main.evaluate(
+        (element) => element.scrollTop,
+      )
+      expect(after).toBeLessThanOrEqual(
+        Math.max(0, before - 100),
+      )
+    },
+    Promise.resolve(),
+  )
+  await expect
+    .poll(() =>
+      main.evaluate((element) => element.scrollTop),
+    )
+    .toBe(0)
+  await page.waitForTimeout(1500)
+  expect(
+    await main.evaluate((element) => element.scrollTop),
+  ).toBe(0)
+  await expect(search).toBeVisible()
+})
+
+test("image profiles show rendered frames and explain unsupported views without opening iframes", async ({
+  page,
+}) => {
+  await page.route(
+    "**/api/manage/preview-profiles",
+    (route) =>
+      route.fulfill({
+        json: {
+          profiles: [
+            {
+              id: "mono",
+              label:
+                "200 × 200 · Black and white · Rendered image",
+              width: 200,
+              height: 200,
+              delivery: "image",
+              deviceId: "panel-one",
+              deviceIds: ["panel-one", "panel-two"],
+              deviceLabels: ["First panel", "Second panel"],
+              unsupportedViews: {
+                "preview-lab": [
+                  "Printer Status changes too quickly for this display.",
+                ],
+              },
+            },
+          ],
+        },
+      }),
+  )
+  await page.route("**/api/manage/previews/**", (route) =>
+    route.fulfill({
+      contentType: "image/png",
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    }),
+  )
+  await page.goto("/manage/views/gallery")
+  await chooseSize({ page, name: /200 × 200/ })
+  await expect(
+    page.getByText(/Shared by 2 devices/),
+  ).toBeVisible()
+  await page.getByLabel("Find a view").fill("Room controls")
+  await page
+    .locator(".view-gallery-grid")
+    .scrollIntoViewIfNeeded()
+  await expect
+    .poll(() =>
+      page.locator(".view-gallery-grid img").count(),
+    )
+    .toBeGreaterThan(0)
+  await expect(
+    page.locator(".view-gallery-grid iframe"),
+  ).toHaveCount(0)
+  await page.getByLabel("Find a view").fill("Lab preview")
+  await expect(
+    page.getByText(
+      /Unavailable on this profile: Printer Status/,
+    ),
+  ).toBeVisible()
+  await expect(
+    page.locator(".view-gallery-grid img"),
+  ).toHaveCount(0)
 })

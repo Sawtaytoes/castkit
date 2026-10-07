@@ -745,6 +745,7 @@ export const CollectionPage = ({
                     url={url}
                     name={draft.name}
                     size={sizing.size}
+                    profile={sizing.profile}
                     revision={previewRevision}
                     onResize={sizing.resize}
                   />
