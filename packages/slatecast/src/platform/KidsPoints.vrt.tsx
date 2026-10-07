@@ -1,3 +1,4 @@
+import type { ContractData } from "@castkit/sdk/contracts"
 import { render } from "@testing-library/preact"
 import {
   afterAll,
@@ -230,4 +231,79 @@ test("a countdown fits a short panel and a small square", async () => {
   await page.viewport(480, 480)
   renderDevicePage(countdownSnapshot())
   await capture("kids-points-countdown-480x480")
+})
+
+const timerSnapshot = (
+  theme: "light" | "dark",
+): DisplaySnapshot => {
+  const fixture = kidsPointsFixture({ hasScan: false })
+  const channel = fixture.channels.points!
+  const data =
+    channel.data as ContractData["kids-points.v1"]
+  const startedAtMs = SCREENSHOT_EPOCH_MILLIS - 60_000
+  const timerScans = ["robin", "sky"].map((kidId) => ({
+    kidId,
+    result: "started" as const,
+    points: 0,
+    taskName: "Sitting Still",
+    atMs: startedAtMs,
+  }))
+  return {
+    ...fixture,
+    view: { ...fixture.view, theme },
+    channels: {
+      points: {
+        ...channel,
+        data: {
+          ...data,
+          kids: data.kids.map((kid) =>
+            kid.id === "robin" || kid.id === "sky"
+              ? {
+                  ...kid,
+                  activeTask: {
+                    name: "Sitting Still",
+                    startedAtMs,
+                    goalMinutes:
+                      kid.id === "robin" ? 7 : 10,
+                    isCountdown: true,
+                  },
+                }
+              : kid,
+          ),
+          lastScan: timerScans[1],
+          timerScans,
+        },
+      },
+    },
+  }
+}
+
+test.each([
+  "light",
+  "dark",
+] as const)("two countdowns fit a short panel in %s", async (theme) => {
+  await page.viewport(480, 320)
+  renderDevicePage(timerSnapshot(theme))
+  expect(
+    document.querySelectorAll(".kids-points-timer-card"),
+  ).toHaveLength(2)
+  document
+    .querySelectorAll(".kids-points-timer-card")
+    .forEach((card) => {
+      const box = card.getBoundingClientRect()
+      card
+        .querySelectorAll("h3, p, .kids-points-bar")
+        .forEach((element) => {
+          const child = element.getBoundingClientRect()
+          expect(child.top).toBeGreaterThanOrEqual(box.top)
+          expect(child.bottom).toBeLessThanOrEqual(
+            box.bottom,
+          )
+          expect(child.left).toBeGreaterThanOrEqual(
+            box.left,
+          )
+          expect(child.right).toBeLessThanOrEqual(box.right)
+        })
+    })
+  await capture(`kids-points-two-timers-480x320-${theme}`)
 })

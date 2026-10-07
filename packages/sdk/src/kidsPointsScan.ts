@@ -51,33 +51,46 @@ export const getIsScanRecent = ({
   )
 }
 
-/** The countdown belonging to this channel's accepted scan, until its target. */
-export const getCountdownKid = ({
+/** Running countdowns reached by this channel's accepted scans, until their targets. */
+export const getCountdownKids = ({
   data,
   now,
 }: {
   data: ContractData["kids-points.v1"]
   now: number
 }) => {
-  const scan = data.lastScan
-  if (
-    !scan ||
-    (scan.result !== "started" &&
-      scan.result !== "progress")
-  ) {
-    return undefined
-  }
-  return data.kids.find((kid) => {
+  const scans =
+    data.timerScans ??
+    (data.lastScan ? [data.lastScan] : [])
+  return data.kids.filter((kid) => {
     const task = kid.activeTask
     return (
-      kid.id === scan.kidId &&
       task?.isCountdown === true &&
       task.goalMinutes !== undefined &&
-      task.name === scan.taskName &&
-      scan.atMs >=
-        task.startedAtMs - CLOCK_SKEW_MILLISECONDS &&
       now >= task.startedAtMs - CLOCK_SKEW_MILLISECONDS &&
-      now < task.startedAtMs + task.goalMinutes * 60_000
+      now < task.startedAtMs + task.goalMinutes * 60_000 &&
+      scans.some(
+        (scan) =>
+          kid.id === scan.kidId &&
+          (scan.result === "started" ||
+            scan.result === "progress") &&
+          task.name === scan.taskName &&
+          scan.atMs >=
+            task.startedAtMs - CLOCK_SKEW_MILLISECONDS,
+      )
     )
   })
+}
+
+/** Keep the channel active while any accepted countdown remains. */
+export const getCountdownKid = (input: {
+  data: ContractData["kids-points.v1"]
+  now: number
+}) => {
+  const kids = getCountdownKids(input)
+  return (
+    kids.find(
+      (kid) => kid.id === input.data.lastScan?.kidId,
+    ) ?? kids[0]
+  )
 }

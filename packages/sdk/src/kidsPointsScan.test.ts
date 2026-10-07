@@ -1,5 +1,8 @@
 import { expect, test } from "vitest"
-import { getCountdownKid } from "./kidsPointsScan.ts"
+import {
+  getCountdownKid,
+  getCountdownKids,
+} from "./kidsPointsScan.ts"
 
 const task = {
   name: "Sitting Still",
@@ -51,4 +54,72 @@ test("a countdown stays active only for the accepted attempt until its target", 
       now: 90_000,
     }),
   ).toBe(undefined)
+})
+
+const twoCountdowns = {
+  kids: [
+    kid,
+    {
+      ...kid,
+      id: "sky",
+      name: "Sky",
+      activeTask: {
+        ...task,
+        startedAtMs: 20_000,
+        goalMinutes: 10,
+      },
+    },
+  ],
+  lastScan: {
+    ...data.lastScan,
+    kidId: "sky",
+    atMs: 20_000,
+  },
+  timerScans: [
+    data.lastScan,
+    { ...data.lastScan, kidId: "sky", atMs: 20_000 },
+  ],
+}
+
+test("simultaneous countdowns survive another child's completion or cancellation", () => {
+  expect(
+    getCountdownKids({
+      data: twoCountdowns,
+      now: 70_000,
+    }).map((entry) => entry.id),
+  ).toEqual(["robin", "sky"])
+  expect(
+    getCountdownKids({
+      data: twoCountdowns,
+      now: 370_000,
+    }).map((entry) => entry.id),
+  ).toEqual(["sky"])
+  const stopped = {
+    ...twoCountdowns,
+    timerScans: [data.lastScan],
+    lastScan: {
+      ...twoCountdowns.lastScan,
+      result: "stopped" as const,
+      atMs: 70_000,
+    },
+  }
+  expect(
+    getCountdownKid({ data: stopped, now: 90_000 })?.id,
+  ).toBe("robin")
+  expect(
+    getCountdownKids({ data: stopped, now: 370_000 }),
+  ).toEqual([])
+})
+
+test("a later unaccepted start does not activate an older channel scan", () => {
+  expect(
+    getCountdownKids({
+      data: {
+        ...twoCountdowns,
+        lastScan: data.lastScan,
+        timerScans: [data.lastScan],
+      },
+      now: 70_000,
+    }).map((entry) => entry.id),
+  ).toEqual(["robin"])
 })
