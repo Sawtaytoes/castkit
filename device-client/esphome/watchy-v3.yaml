@@ -167,9 +167,11 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   enable_on_boot: false
+  # Flash storage lets the package forget a weak access point by its key. ESPHome
+  # writes it only when the access point changes, never on an unchanged wake.
   fast_connect:
     enabled: true
-    storage: rtc
+    storage: flash
   # Finish short battery transfers quickly; USB uses modem sleep while connected.
   power_save_mode: NONE
   on_connect:
@@ -314,6 +316,39 @@ mqtt:
         lambda: return id(mqtt_client).is_connected();
     # Publish during the short battery wake, not only on the 30-second poll.
     - lambda: watchy::network_succeeded(watchy::network_retry);
+    - lambda: |-
+        auto *wifi_component = wifi::global_wifi_component;
+        const int8_t rssi = wifi_component->wifi_rssi();
+        const auto bssid = wifi_component->wifi_bssid();
+        std::array<char, 33> ssid{};
+        wifi_component->wifi_ssid_to(ssid);
+        char bssid_text[18];
+        snprintf(bssid_text, sizeof(bssid_text), "%02x:%02x:%02x:%02x:%02x:%02x",
+          bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
+        auto now = id(watch_time).now();
+        const uint32_t timestamp = now.is_valid() ? now.timestamp : 0;
+        const bool is_rescan = watchy::should_rescan(rssi, timestamp, watchy::roam_state);
+        if (is_rescan) {
+          // An invalid index fails ESPHome's fast-connect load, so the next start scans
+          // every channel and joins the strongest configured network.
+          wifi::SavedWifiFastConnectSettings forgotten{};
+          forgotten.ap_index = -1;
+          auto saved = global_preferences->make_preference<wifi::SavedWifiFastConnectSettings>(
+            App.get_config_version_hash() + 1, true);
+          saved.save(&forgotten);
+          watchy::roam_state.last_rescan = timestamp;
+        }
+        const int channel = wifi_component->get_wifi_channel();
+        ESP_LOGI("watchy_network", "Joined %s via %s on channel %d at %d dBm after %u ms%s", ssid.data(),
+          bssid_text, channel, rssi, unsigned(millis()), is_rescan ? "; weak, rescanning next sync" : "");
+        id(mqtt_client).publish_json("${topic_base}/${device_id}/wifi", [&](JsonObject root) {
+          root["ssid"] = ssid.data();
+          root["bssid"] = bssid_text;
+          root["channel"] = channel;
+          root["rssi"] = rssi;
+          root["mqttConnectedMs"] = millis();
+          root["isRescanNext"] = is_rescan;
+        }, 0, true);
     - component.update: battery_voltage
     - script.execute: refresh_castkit
   on_message:

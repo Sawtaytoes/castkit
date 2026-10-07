@@ -48,4 +48,23 @@ inline void network_failed(RetryState &retry, uint32_t timestamp, uint8_t sync_m
 inline void network_succeeded(RetryState &retry) {
   retry = {};
 }
+
+// Fast connect returns to the saved access point while it still answers, however weak.
+// After a weak link, forget it so the next sync scans and joins the strongest one.
+constexpr int8_t WEAK_RSSI = -75;
+constexpr uint32_t ROAM_RESCAN_SECONDS = 30 * 60;
+
+struct RoamState {
+  uint32_t last_rescan{0};
+};
+#ifdef ESP_PLATFORM
+inline RTC_DATA_ATTR RoamState roam_state;
+#endif
+
+inline bool should_rescan(int8_t rssi, uint32_t timestamp, const RoamState &roam) {
+  if (rssi <= -127 || rssi >= WEAK_RSSI || timestamp == 0) {
+    return false;
+  }
+  return roam.last_rescan == 0 || timestamp - roam.last_rescan >= ROAM_RESCAN_SECONDS;
+}
 } // namespace watchy
