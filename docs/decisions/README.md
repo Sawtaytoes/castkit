@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-06: Display targets document viewing context and purpose](2026-10-06-display-targets-document-viewing-context-and-purpose.md)
+
 - [2026-10-06: Watchy Points navigation requests fresh data](2026-10-06-watchy-points-navigation-requests-fresh-data.md)
 
 - [2026-10-06: Kids Points shows simultaneous countdowns](2026-10-06-kids-points-shows-simultaneous-countdowns.md)
