@@ -4,12 +4,16 @@ import {
   waitFor,
   within,
 } from "@testing-library/preact"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, test } from "vitest"
 import {
+  buildDeviceProfile,
+  buildNowPlaying,
   buildQueue,
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
+import { waitUntil } from "../__tests__/setup/slatecastServer.ts"
 
 const mountQueueView = async (data: ViewDataState) =>
   mountSlatecast({
@@ -208,4 +212,110 @@ test("print queue uses its own feed and never shows music or print controls", as
   expect(
     within(queue as HTMLElement).queryByRole("button"),
   ).toBeNull()
+})
+
+describe("audio queue controls", () => {
+  test("clicking the upcoming row plays the next track through the socket", async () => {
+    const { server } = await mountQueueView({
+      queue: buildQueue(),
+      nowPlaying: buildNowPlaying(),
+    })
+    await userEvent.click(
+      screen.getByRole("button", { name: "Play Olson" }),
+    )
+    await waitUntil(() => server.commands.length === 1)
+    expect(server.commands).toEqual([{ action: "next" }])
+  })
+
+  test("keyboard activation resumes a stopped current track without clearing the queue", async () => {
+    const { server } = await mountQueueView({
+      queue: buildQueue(),
+      nowPlaying: buildNowPlaying({ isPlaying: false }),
+    })
+    screen
+      .getByRole("button", { name: "Resume Roygbiv" })
+      .focus()
+    await userEvent.keyboard("{Enter}")
+    await waitUntil(() => server.commands.length === 1)
+    expect(server.commands).toEqual([
+      { action: "play_pause" },
+    ])
+  })
+
+  test("the playing row cannot accidentally pause playback", async () => {
+    const { server } = await mountQueueView({
+      queue: buildQueue(),
+      nowPlaying: buildNowPlaying(),
+    })
+    const current = screen.getByRole("button", {
+      name: "Playing Roygbiv",
+    })
+    expect(current).toBeDisabled()
+    await userEvent.click(current)
+    expect(server.commands).toEqual([])
+  })
+
+  test("a view swipe does not also activate a queue row", async () => {
+    const { server } = await mountQueueView({
+      queue: buildQueue(),
+    })
+    const upcoming = screen.getByRole("button", {
+      name: "Play Olson",
+    })
+    const user = userEvent.setup()
+    await user.pointer([
+      {
+        target: upcoming,
+        keys: "[MouseLeft>]",
+        coords: { clientX: 100, clientY: 100 },
+      },
+      {
+        target: upcoming,
+        coords: { clientX: 100, clientY: 180 },
+      },
+      {
+        target: upcoming,
+        keys: "[/MouseLeft]",
+        coords: { clientX: 100, clientY: 180 },
+      },
+    ])
+    await waitUntil(() => server.commands.length === 1)
+    expect(server.commands).toEqual([
+      { action: "view", value: "now-playing" },
+    ])
+  })
+
+  test("touchless panels stay passive", async () => {
+    await mountSlatecast({
+      snapshot: buildSnapshot({
+        view: "queue",
+        device: buildDeviceProfile({ hasTouch: false }),
+        data: { queue: buildQueue() },
+      }),
+    })
+    expect(
+      within(
+        screen.getByRole("list", { name: "Audio queue" }),
+      ).queryByRole("button"),
+    ).toBeNull()
+  })
+
+  test("missing current position does not guess which track a next command would play", async () => {
+    await mountQueueView({
+      queue: buildQueue({
+        items: [
+          {
+            title: "Olson",
+            artist: "Boards of Canada",
+            isCurrent: false,
+          },
+        ],
+      }),
+    })
+    expect(
+      within(
+        screen.getByRole("list", { name: "Audio queue" }),
+      ).queryByRole("button"),
+    ).toBeNull()
+  })
 })

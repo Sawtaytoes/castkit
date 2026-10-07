@@ -460,6 +460,7 @@ export const NowPlaying = () => {
       setAccent(null)
       return
     }
+    setAccent(null)
     let isStale = false
     extractAccentColor(artworkUrl).then((color) => {
       if (!isStale) {
@@ -483,7 +484,14 @@ export const NowPlaying = () => {
   return (
     <div
       class="now-playing"
-      style={accent ? { "--accent": accent } : undefined}
+      style={
+        accent
+          ? {
+              "--accent": accent,
+              "--accent-content": accent,
+            }
+          : undefined
+      }
     >
       {isInteractive ? (
         <Artwork />
