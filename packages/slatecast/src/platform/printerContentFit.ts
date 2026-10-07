@@ -15,11 +15,16 @@ export const measurePrinterFacts = ({
   width,
   detailLevel,
   isCompact,
+  isPlatePreviewVisible = detailLevel < 2 &&
+    Boolean(
+      card.querySelector(".platform-printer-plate-preview"),
+    ),
 }: {
   card: HTMLElement
   width: number
   detailLevel: PrinterDetailLevel
   isCompact: boolean
+  isPlatePreviewVisible?: boolean
 }) => {
   const body =
     card.querySelector<HTMLElement>(".printer-body")
@@ -29,6 +34,9 @@ export const measurePrinterFacts = ({
   probe.setAttribute("aria-hidden", "true")
   probe.dataset.orientation = "facts"
   probe.dataset.compact = String(isCompact)
+  probe.dataset.platePreviewVisible = String(
+    isPlatePreviewVisible,
+  )
   applyPrinterDetailLevel(probe, detailLevel)
   Object.assign(probe.style, {
     position: "absolute",
