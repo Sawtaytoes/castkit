@@ -2344,7 +2344,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
 }
-.platform-printers :where(.printer-body) > :where(*) {
+.platform-printers :where(.printer-body) > :where(*),
+.platform-printers :where(.printer-facts) > :where(*) {
   grid-column: 1 / -1;
 }
 
@@ -3058,4 +3059,63 @@ html[data-repaint="instant"]
 }
 .kids-points-timer-card .kids-points-countdown-times span {
   font-size: clamp(12px, 7cqmin, 24px);
+}
+
+/* A secondary plate cover shares the facts area; the camera keeps its media slot. */
+.platform-printers .printer-secondary-details,
+.platform-printers .printer-facts {
+  display: contents;
+}
+.platform-printers .platform-printer-plate-preview {
+  display: none;
+}
+.platform-printers
+  .printer-card[data-plate-preview-visible="true"]
+  .printer-secondary-details {
+  display: grid;
+  grid-template-columns: clamp(64px, 16cqi, 96px) minmax(
+      0,
+      1fr
+    );
+  gap: 12px;
+  align-items: start;
+}
+.platform-printers
+  .printer-card[data-plate-preview-visible="true"]
+  .platform-printer-plate-preview {
+  display: flex;
+  aspect-ratio: 1;
+  min-inline-size: 0;
+}
+.platform-printer-plate-preview img {
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  object-fit: contain;
+}
+.platform-printers
+  .printer-card[data-plate-preview-visible="true"]
+  .printer-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-inline-size: 0;
+}
+@container (max-width: 320px) {
+  .platform-printers .printer-secondary-details {
+    grid-column: 1 / -1;
+  }
+  .platform-printers
+    .printer-card[data-plate-preview-visible="true"]
+    .printer-facts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+}
+/* Short cards retain a usable thumbnail before lower-priority facts. */
+.platform-printers .printer-card[data-compact="true"][data-plate-preview-visible="true"]
+  .printer-secondary-details {
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
 }

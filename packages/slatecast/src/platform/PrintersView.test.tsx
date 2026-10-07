@@ -386,3 +386,113 @@ test.each([
     )
   })
 })
+
+test("camera and plate preview stay separate and the plate opens without a printer command", async () => {
+  const onAction = await mount({ width: 1024, height: 600 })
+  const user = userEvent.setup()
+  const trigger = screen.getByRole("button", {
+    name: "Enlarge Printer One plate preview",
+  })
+  await waitFor(() => expect(trigger).toBeVisible())
+  expect(
+    screen.getByRole("button", {
+      name: "Enlarge Printer One camera",
+    }),
+  ).toBeVisible()
+  const camera = document.querySelector(
+    ".platform-printer-image",
+  ) as HTMLImageElement
+  expect(camera.src).toContain("printer-camera-chamber")
+  const plate = document.querySelector(
+    ".platform-printer-plate-preview img",
+  ) as HTMLImageElement
+  expect(plate.getAttribute("src")).toContain(
+    "printer-plate-canisters",
+  )
+  await user.click(trigger)
+  expect(
+    screen.getByRole("dialog", {
+      name: "Printer One plate preview",
+    }),
+  ).toBeVisible()
+  expect(camera).toBe(
+    document.querySelector(".platform-printer-image"),
+  )
+  await user.keyboard("{Escape}")
+  expect(screen.queryByRole("dialog")).toBeNull()
+  expect(trigger).toHaveFocus()
+  expect(onAction).not.toHaveBeenCalled()
+})
+
+test("camera-off mode shows one full print image without duplicating the plate preview", async () => {
+  await mount({ width: 1024, height: 600, isCamera: false })
+  expect(
+    screen.getByRole("button", {
+      name: "Enlarge Printer One print image",
+    }),
+  ).toBeVisible()
+  expect(
+    screen.queryByRole("button", {
+      name: "Enlarge Printer One plate preview",
+    }),
+  ).toBeNull()
+})
+
+test.each([
+  210, 190, 170,
+])("space reduction at 660 × %s keeps progress and drops metrics before the plate preview", async (height) => {
+  await mount({ width: 660, height })
+  await waitFor(() =>
+    expect(card()?.dataset.orientation).toBeDefined(),
+  )
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("button", { name: "Stop" }),
+  ).toBeVisible()
+  expect(
+    document.querySelector(".printer-band"),
+  ).toBeVisible()
+  await waitFor(() => {
+    const plate = document.querySelector(
+      ".platform-printer-plate-preview",
+    )
+    const metrics = document.querySelector(
+      ".printer-metrics",
+    )
+    if (card()?.dataset.platePreviewVisible === "false") {
+      expect(plate).not.toBeVisible()
+      expect(metrics).not.toBeVisible()
+    } else {
+      expect(plate).toBeVisible()
+    }
+  })
+})
+
+test("a failed secondary plate image yields its space without hiding the camera or progress", async () => {
+  await mount({ width: 1024, height: 600 })
+  const preview = document.querySelector<HTMLImageElement>(
+    ".platform-printer-plate-preview img",
+  )
+  expect(preview).not.toBeNull()
+  preview?.dispatchEvent(new Event("error"))
+  await waitFor(() =>
+    expect(
+      document.querySelector(
+        ".platform-printer-plate-preview",
+      ),
+    ).toBeNull(),
+  )
+  expect(
+    screen.getByRole("button", {
+      name: "Enlarge Printer One camera",
+    }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeVisible()
+  expect(
+    document.querySelector(".printer-band"),
+  ).toBeVisible()
+})

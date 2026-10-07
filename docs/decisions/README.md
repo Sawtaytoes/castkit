@@ -1,5 +1,6 @@
 # CastKit decision records
 
+- [2026-10-07: Camera and progress precede the secondary plate preview](2026-10-07-camera-and-progress-precede-the-secondary-plate-preview.md)
 - [2026-10-07: Management navigation prioritizes views and displays](2026-10-07-management-navigation-prioritizes-views-and-displays.md)
 
 - [2026-10-07: Live view previews use device or browser viewport sizes](2026-10-07-live-view-previews-use-device-or-browser-viewport-sizes.md)

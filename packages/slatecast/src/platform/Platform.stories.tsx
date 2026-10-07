@@ -487,6 +487,9 @@ const settledPrinterSnapshot = (
           state,
           percent:
             state === "finished" ? 100 : printer.percent,
+          thumbnailPath: staticPath(
+            "sample-photos/printer-plate-stand.png",
+          ),
           cameraPath: staticPath(
             "sample-photos/printer-camera-chamber.png",
           ),
@@ -601,6 +604,9 @@ const combinedSnapshot = (
             ...fixturePrinters[0],
             id: `printer-${index}`,
             name: `Printer ${index + 1}`,
+            thumbnailPath: staticPath(
+              "sample-photos/printer-plate-stand.png",
+            ),
             cameraPath: staticPath(
               "sample-photos/printer-camera-chamber.png",
             ),
@@ -727,6 +733,9 @@ export const CombinedPrintersAndUsage: Story = {
             ...printers,
             printers: printers.printers.map((printer) => ({
               ...printer,
+              thumbnailPath: staticPath(
+                "sample-photos/printer-plate-stand.png",
+              ),
               cameraPath: staticPath(
                 "sample-photos/printer-camera-chamber.png",
               ),

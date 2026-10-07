@@ -4,7 +4,7 @@
 - **Date:** 2026-09-30
 - **Type:** Layout / interaction
 - **Supersedes:** [The 900 px platform printer split](2026-09-28-a-wide-platform-printer-card-puts-the-picture-beside-the-facts.md)
-- **Superseded by:** —
+- **Superseded by:** [Camera and progress precede the secondary plate preview](2026-10-07-camera-and-progress-precede-the-secondary-plate-preview.md), for simultaneous camera and plate-preview priorities.
 
 ## Decision
 

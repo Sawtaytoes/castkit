@@ -15,11 +15,13 @@ const SECTION_PRIORITIES = {
 export const usePrinterLayout = ({
   isCamera,
   hasImage,
+  hasPlatePreview = false,
   contentKey,
   minimumDetailLevel = 0,
 }: {
   isCamera: boolean
   hasImage: boolean
+  hasPlatePreview?: boolean
   contentKey: string
   minimumDetailLevel?: number
 }) => {
@@ -73,12 +75,14 @@ export const usePrinterLayout = ({
         orientation: "vertical" | "horizontal" | "facts",
         factsWidth: number,
         detailLevel: PrinterDetailLevel,
+        isPlatePreviewVisible: boolean,
       ) => {
         const factsHeight = measurePrinterFacts({
           card: element,
           width: factsWidth,
           detailLevel,
           isCompact: height < 420,
+          isPlatePreviewVisible,
         })
         const mediaWidth =
           orientation === "horizontal"
@@ -90,14 +94,15 @@ export const usePrinterLayout = ({
             : height
         const isMediaHidden = orientation === "facts"
         return {
-          id: `${orientation}-${factsWidth}-${detailLevel}`,
+          id: `${orientation}-${factsWidth}-${detailLevel}-${isPlatePreviewVisible}`,
           orientation,
           factsWidth,
           detailLevel,
+          isPlatePreviewVisible,
           sections: [
             {
               priority: priorities.media,
-              visibilityPriority: 3,
+              visibilityPriority: 4,
               isHidden: isMediaHidden,
               width: isMediaHidden ? 0 : mediaWidth,
               height: isMediaHidden ? 0 : mediaHeight,
@@ -113,9 +118,12 @@ export const usePrinterLayout = ({
               width: factsWidth,
               height: 1,
               idealArea: Math.min(640, width),
-              minimumWidth: Math.min(
-                detailLevel < 2 ? 320 : 180,
-                width,
+              minimumWidth: Math.max(
+                isPlatePreviewVisible ? 256 : 0,
+                Math.min(
+                  detailLevel < 2 ? 320 : 180,
+                  width,
+                ),
               ),
             },
             {
@@ -123,6 +131,13 @@ export const usePrinterLayout = ({
               width: factsWidth,
               height,
               minimumHeight: factsHeight,
+            },
+            {
+              priority: 0,
+              visibilityPriority: 3,
+              isHidden: !isPlatePreviewVisible,
+              width: 1,
+              height: 1,
             },
             {
               priority: 0,
@@ -144,41 +159,64 @@ export const usePrinterLayout = ({
       const candidates = ([0, 1, 2, 3] as const)
         .filter((level) => level >= minimumDetailLevel)
         .flatMap((detailLevel) =>
-          detailLevel === 3 || !hasImage
-            ? [makeCandidate("facts", width, detailLevel)]
-            : [
-                makeCandidate(
-                  "vertical",
-                  width,
-                  detailLevel,
-                ),
-                ...[0.3, 0.4, 0.5, 0.6, 0.7].map(
-                  (fraction) =>
-                    makeCandidate(
-                      "horizontal",
-                      (width - gap) * fraction,
-                      detailLevel,
-                    ),
-                ),
-                ...(width > 652
-                  ? [
+          (hasPlatePreview
+            ? detailLevel < 2
+              ? [true]
+              : detailLevel === 2
+                ? [true, false]
+                : [false]
+            : [false]
+          ).flatMap((isPlatePreviewVisible) =>
+            detailLevel === 3 || !hasImage
+              ? [
+                  makeCandidate(
+                    "facts",
+                    width,
+                    detailLevel,
+                    false,
+                  ),
+                ]
+              : [
+                  makeCandidate(
+                    "vertical",
+                    width,
+                    detailLevel,
+                    isPlatePreviewVisible,
+                  ),
+                  ...[0.3, 0.4, 0.5, 0.6, 0.7].map(
+                    (fraction) =>
                       makeCandidate(
                         "horizontal",
-                        640,
+                        (width - gap) * fraction,
                         detailLevel,
+                        isPlatePreviewVisible,
                       ),
-                      makeCandidate(
-                        "horizontal",
-                        320,
-                        detailLevel,
-                      ),
-                    ]
-                  : []),
-              ],
+                  ),
+                  ...(width > 652
+                    ? [
+                        makeCandidate(
+                          "horizontal",
+                          640,
+                          detailLevel,
+                          isPlatePreviewVisible,
+                        ),
+                        makeCandidate(
+                          "horizontal",
+                          320,
+                          detailLevel,
+                          isPlatePreviewVisible,
+                        ),
+                      ]
+                    : []),
+                ],
+          ),
         )
       const chosen = selectPriorityLayout(candidates)
       if (chosen) {
         element.dataset.orientation = chosen.orientation
+        element.dataset.platePreviewVisible = String(
+          chosen.isPlatePreviewVisible,
+        )
         applyPrinterDetailLevel(element, chosen.detailLevel)
         element.style.setProperty(
           "--printer-facts-width",
@@ -220,6 +258,12 @@ export const usePrinterLayout = ({
         true,
       )
     }
-  }, [isCamera, hasImage, contentKey, minimumDetailLevel])
+  }, [
+    isCamera,
+    hasImage,
+    hasPlatePreview,
+    contentKey,
+    minimumDetailLevel,
+  ])
   return card
 }
