@@ -487,8 +487,8 @@ const KidRow = ({
         )}
       </span>
     </div>
-    <GoalBar kid={kid} />
-    {now === undefined ? null : (
+    {scan ? null : <GoalBar kid={kid} />}
+    {now === undefined || scan ? null : (
       <CompactActivity
         kid={kid}
         now={now}
@@ -626,7 +626,10 @@ export const KidsPointsView = ({
         ))}
       </div>
     ) : settings?.isAllChildrenVisible === true ? (
-      <div class="kids-points-rows">
+      <div
+        class="kids-points-rows"
+        data-all-children="true"
+      >
         {data.kids.slice(0, layout.rowCount).map((kid) => (
           <KidRow
             key={kid.id}

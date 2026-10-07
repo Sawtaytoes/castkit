@@ -371,6 +371,30 @@ test("a compact scan board can keep three children and two activities visible", 
   )
   expect(rows).toHaveLength(3)
   rows.forEach((row) => {
+    const name = row.querySelector("h3")
+    if (!name)
+      throw new Error("Each row must identify its child")
+    const nameSize = Number.parseFloat(
+      getComputedStyle(name).fontSize,
+    )
+    const initialSize = Number.parseFloat(
+      getComputedStyle(name, "::first-letter").fontSize,
+    )
+    expect(nameSize).toBeGreaterThanOrEqual(26)
+    expect(initialSize).toBeGreaterThanOrEqual(
+      nameSize * 1.6,
+    )
+    expect(name.scrollWidth).toBeLessThanOrEqual(
+      name.clientWidth + 1,
+    )
+    const total = row.querySelector(
+      ".kids-points-row-total strong",
+    )
+    if (!total)
+      throw new Error("Each row must show earned points")
+    expect(
+      Number.parseFloat(getComputedStyle(total).fontSize),
+    ).toBeGreaterThanOrEqual(60)
     expect(row.scrollHeight).toBeLessThanOrEqual(
       row.clientHeight + 1,
     )
@@ -401,4 +425,45 @@ test("the default compact scan still focuses on one child", async () => {
     }),
   )
   await capture("kids-points-default-scan-480x480")
+})
+
+test("large initials preserve complete longer names and totals on a compact board", async () => {
+  await page.viewport(480, 480)
+  const snapshot = compactBoardSnapshot({
+    isAllChildrenVisible: true,
+    hasScan: false,
+  })
+  const channel = snapshot.channels.points!
+  const data =
+    channel.data as ContractData["kids-points.v1"]
+  renderDevicePage({
+    ...snapshot,
+    channels: {
+      points: {
+        ...channel,
+        data: {
+          ...data,
+          kids: data.kids.map((kid, index) => ({
+            ...kid,
+            name:
+              ["Alexandra", "Robin", "Christopher"][
+                index
+              ] ?? kid.name,
+            pointsToday: 1234,
+          })),
+        },
+      },
+    },
+  })
+  await document.fonts.ready
+  document
+    .querySelectorAll(".kids-points-row h3")
+    .forEach((name) => {
+      expect(name.scrollWidth).toBeLessThanOrEqual(
+        name.clientWidth + 1,
+      )
+    })
+  await capture(
+    "kids-points-all-children-long-names-480x480",
+  )
 })
