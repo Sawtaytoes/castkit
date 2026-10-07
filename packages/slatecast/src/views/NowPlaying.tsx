@@ -466,7 +466,7 @@ export const NowPlaying = () => {
       setAccent(null)
       return
     }
-    setAccent(null)
+    setAccent(getCachedAccentColor(artworkUrl))
     let isStale = false
     extractAccentColor(artworkUrl).then((color) => {
       if (!isStale) {
