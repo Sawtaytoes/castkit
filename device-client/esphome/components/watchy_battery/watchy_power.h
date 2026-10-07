@@ -62,7 +62,9 @@ inline RTC_DATA_ATTR RoamState roam_state;
 #endif
 
 inline bool should_rescan(int8_t rssi, uint32_t timestamp, const RoamState &roam) {
-  if (rssi <= -127 || rssi >= WEAK_RSSI || timestamp == 0) return false;
+  if (rssi <= -127 || rssi >= WEAK_RSSI || timestamp == 0) {
+    return false;
+  }
   return roam.last_rescan == 0 || timestamp - roam.last_rescan >= ROAM_RESCAN_SECONDS;
 }
 } // namespace watchy
