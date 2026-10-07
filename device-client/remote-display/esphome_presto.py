@@ -10,7 +10,6 @@ import time
 
 from aioesphomeapi import APIClient, TextSensorState
 from aiohttp import web
-
 from codec import encode_presto_patch
 from presto_transport import PrestoTransport
 
