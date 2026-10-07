@@ -93,12 +93,14 @@ esphome:
         - lambda: |-
             auto now = id(watch_time).now();
             id(network_this_wake) = watchy::network_due({
-              id(usb_connected).state, bool(id(boot_button_mask) & (1ULL << 6)),
+              id(usb_connected).state, bool(id(boot_button_mask) & (1ULL << 6)) ||
+                (bool(id(boot_button_mask) & (1ULL << 8)) && id(is_scores_page)),
               id(boot_reset_reason) != ESP_RST_DEEPSLEEP, now.is_valid(), now.minute,
               ${battery_sync_minutes}, now.timestamp, watchy::timer_running(id(timer_cache)),
               ${active_timer_sync_minutes}}, watchy::network_retry);
-            // View buttons draw cached data without starting the radio.
+            // Points asks for current data; other view buttons remain local.
             if (id(boot_wake_cause) == ESP_SLEEP_WAKEUP_EXT1 && !(id(boot_button_mask) & (1ULL << 6))
+                && !(bool(id(boot_button_mask) & (1ULL << 8)) && id(is_scores_page))
                 && !id(usb_connected).state && now.is_valid()) id(network_this_wake) = false;
         - component.update: watch_display
         - if:
@@ -114,6 +116,11 @@ esphome:
               - wifi.enable:
               - script.execute: connect_mqtt
               - script.execute: battery_cycle
+              - if:
+                  condition:
+                    lambda: return bool(id(boot_button_mask) & (1ULL << 8)) && id(is_scores_page);
+                  then:
+                    - script.execute: request_fresh_state
             else:
               - script.execute: sleep_until_minute
 
@@ -224,6 +231,7 @@ api:
             id(is_timer_page) = false;
             id(scores_page) = 0;
         - component.update: watch_display
+        - script.execute: request_scores_sync
     - action: show_binary_clock
       then:
         - lambda: |-
@@ -252,6 +260,7 @@ api:
         - lambda: id(last_button_at) = millis();
         - script.execute: cycle_scores
         - component.update: watch_display
+        - script.execute: request_scores_sync
     - action: sync_now
       then:
         - script.execute: request_sync
@@ -366,7 +375,8 @@ mqtt:
             const uint64_t previous_start = id(timer_cache).started_ms;
             watchy::parse_timer(x, id(timer_cache));
             const bool is_active = watchy::timer_running(id(timer_cache));
-            if (watchy::should_open_timer(id(timer_cache), previous_start, id(is_timer_sync_requested))) {
+            if ((!id(is_scores_page) || id(is_timer_sync_requested))
+                && watchy::should_open_timer(id(timer_cache), previous_start, id(is_timer_sync_requested))) {
               id(is_binary_clock) = false;
               id(is_scores_page) = false;
               id(is_timer_page) = true;
@@ -801,6 +811,7 @@ binary_sensor:
       - lambda: id(last_button_at) = millis();
       - script.execute: cycle_scores
       - component.update: watch_display
+      - script.execute: request_scores_sync
 
 script:
   - id: sync_if_menu_held
@@ -813,12 +824,28 @@ script:
           then:
             - script.execute: request_sync
   - id: request_sync
+    then:
+      - script.execute:
+          id: request_cached_sync
+          is_timer_requested: true
+  - id: request_scores_sync
+    then:
+      - if:
+          condition:
+            lambda: return id(is_scores_page);
+          then:
+            - script.execute:
+                id: request_cached_sync
+                is_timer_requested: false
+  - id: request_cached_sync
+    parameters:
+      is_timer_requested: bool
     mode: restart
     then:
       - logger.log: "Manual request: synchronizing cached data."
       - script.stop: sleep_until_minute
       - lambda: |-
-          id(is_timer_sync_requested) = true;
+          id(is_timer_sync_requested) = is_timer_requested;
           if (!id(mqtt_client).is_connected()) id(has_received_agenda) = false;
           id(has_received_timer) = false;
           id(has_received_scores) = false;

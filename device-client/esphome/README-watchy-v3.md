@@ -63,9 +63,9 @@ The encrypted native ESPHome API can also be adopted in Home Assistant.
 
 - Top-right (Up): open cached agenda page 1, advance through its pages, then return to the default clock. The agenda omits its heading, date and battery; larger bold times separate event rows.
 - Top-left (Back): return to the default clock and synchronize immediately. A running task reopens its timer when the authoritative snapshot arrives.
-- Bottom-right (Down): open optional local scores, advance their pages, then return to the default clock. On a scores-disabled watch it advances an already-open agenda.
+- Bottom-right (Down): open scores and request a fresh Wi-Fi/MQTT synchronization, advance their pages, then return to the default clock. The cached page draws immediately and updates when fresh state arrives; the watch sleeps after the transfer or its bounded connection window. On a scores-disabled watch it advances an already-open agenda.
 - Bottom-left (Menu): toggle binary/digital clocks locally; hold for two seconds to synchronize and reopen a running task. Waking and already-awake presses have the same meaning.
-- View buttons wake and draw cached data without enabling Wi-Fi on battery. Back and held Menu request a connection immediately.
+- Agenda and clock buttons wake and draw cached data without enabling Wi-Fi on battery. Points, Back and held Menu request a connection immediately. Opening Points keeps that page selected while timer and agenda caches also update.
 - Native API actions: `show_clock`, `show_agenda`, `show_scores`, `show_binary_clock`, `show_castkit`, `set_image`, `cycle_agenda`, `cycle_scores`, and `toggle_clock`.
   `set_time(timestamp)` also provisions a valid Unix time when network time is unavailable.
 
