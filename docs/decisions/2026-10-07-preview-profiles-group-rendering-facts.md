@@ -12,6 +12,8 @@ Make the preview-size control a searchable combobox. Group displays whose effect
 
 A selected image-delivery profile uses the same render, palette, dither, margins, adjustments and rotation path as CastKit delivery. It shows a static image, with manual refresh and cached results. A browser-delivery profile uses live data and the selected display's property stamp. Explain incompatible views instead of presenting an unsupported layout as a valid preview. Never assign, switch or publish to a device merely by previewing it.
 
+When a panel dithers its own full-color input, preview its registered palette using a clearly labeled simulation; its physical dithering pattern may differ. This does not change the device delivery algorithm.
+
 Native firmware pages are separate from CastKit images; a generic saved view is not a pixel-accurate preview of a locally drawn firmware page.
 
 Keep management inputs at readable widths even on large windows. The preview grid may use the available space. Reserve thumbnail geometry before previews load so recycling them cannot pull the page back while the user scrolls.

@@ -5,6 +5,7 @@ export type PreviewProfile = {
   width: number
   height: number
   delivery: "browser" | "image"
+  isPaletteSimulation: boolean
   deviceId: string
   deviceLabels: string[]
   deviceIds: string[]

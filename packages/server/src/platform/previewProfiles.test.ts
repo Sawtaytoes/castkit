@@ -1,6 +1,8 @@
 import { IMPRESSION_DEVICE } from "@castkit/core/devices/device"
+import { MONOCHROME_PALETTE } from "@castkit/core/panels/palette"
 import type { ViewDefinition } from "@castkit/sdk/contracts"
 import { Hono } from "hono"
+import sharp from "sharp"
 import { afterEach, expect, test, vi } from "vitest"
 import type { PushController } from "../pushController.ts"
 import { createDeviceDefinitionStore } from "../state/deviceDefinitionStore.ts"
@@ -33,16 +35,28 @@ const fixture = async () => {
       ...IMPRESSION_DEVICE,
       id: "one",
       label: "First panel",
+      ditherProfile: {
+        algorithm: "threshold" as const,
+        supersampleFactor: 2,
+      },
     },
     {
       ...IMPRESSION_DEVICE,
       id: "two",
       label: "Second panel",
+      ditherProfile: {
+        algorithm: "threshold" as const,
+        supersampleFactor: 2,
+      },
     },
     {
       ...IMPRESSION_DEVICE,
       id: "rotated",
       label: "Portrait panel",
+      ditherProfile: {
+        algorithm: "threshold" as const,
+        supersampleFactor: 2,
+      },
       rotation: 90 as const,
     },
   ]
@@ -218,4 +232,65 @@ test("only an authenticated preview can use display properties without assignmen
   expect(
     (await response.json()).displayProperties.delivery,
   ).toBe("image")
+})
+
+test("panel-side dithering previews simulate the palette and disclose that approximation", async () => {
+  const {
+    platform,
+    definitions,
+    pushController,
+    renderPreview,
+    request,
+  } = await fixture()
+  const original = pushController.getRenderSettings
+  pushController.getRenderSettings = (id) => {
+    const settings = original(id)
+    return settings
+      ? {
+          ...settings,
+          device: {
+            ...settings.device,
+            colorMode: "monochrome",
+            palette: MONOCHROME_PALETTE,
+            ditherProfile: {
+              algorithm: "off",
+              supersampleFactor: 2,
+            },
+          },
+        }
+      : null
+  }
+  const image = await sharp(
+    Buffer.from([255, 0, 0, 0, 0, 255, 128, 128, 128]),
+    { raw: { width: 3, height: 1, channels: 3 } },
+  )
+    .png()
+    .toBuffer()
+  renderPreview.mockResolvedValue(image)
+  const profile = getPreviewProfiles({
+    platform,
+    definitions,
+    pushController,
+  })[0]!
+  expect(profile.isPaletteSimulation).toBe(true)
+  expect(profile.label).toContain("panel-side dithering")
+  const response = await request(
+    "/api/manage/previews/one/view/agenda",
+  )
+  expect(response.status).toBe(200)
+  const rendered = await sharp(
+    Buffer.from(await response.arrayBuffer()),
+  )
+    .removeAlpha()
+    .raw()
+    .toBuffer()
+  expect(
+    Array.from(rendered).every(
+      (value) => value === 0 || value === 255,
+    ),
+  ).toBe(true)
+  expect(
+    pushController.getRenderSettings("one")?.device
+      .ditherProfile.algorithm,
+  ).toBe("off")
 })

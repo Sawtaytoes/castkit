@@ -206,7 +206,9 @@ export const PreviewSizing = ({
             ? `Shared by ${sizing.profile.deviceIds.length} devices. `
             : ""}
           {sizing.profile.delivery === "image"
-            ? "Panel-ready CastKit image, including saved color and dithering settings. Refresh to update. Firmware-drawn pages are separate."
+            ? sizing.profile.isPaletteSimulation
+              ? "Display palette simulation; the panel’s own dithering pattern may differ. Refresh to update. Firmware-drawn pages are separate."
+              : "Panel-ready CastKit image, including saved color and dithering settings. Refresh to update. Firmware-drawn pages are separate."
             : "Live view with this display's capabilities."}
         </p>
       ) : null}

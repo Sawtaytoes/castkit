@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto"
+import { ditherToPanel } from "@castkit/core/pipeline/dither"
 import type { PreviewProfile } from "@castkit/shared/panels/previewProfile"
 import type { Hono } from "hono"
+import sharp from "sharp"
 import type { PushController } from "../pushController.ts"
 import type { DeviceDefinitionStore } from "../state/deviceDefinitionStore.ts"
 import { getDisplayCompatibility } from "./displayCompatibility.ts"
@@ -69,7 +71,7 @@ export const getPreviewProfiles = ({
     ]
       .filter(Boolean)
       .join(" · ")
-    const label = `${properties.width} × ${properties.height} · ${colorLabel} · ${properties.delivery === "image" ? `Rendered image · ${device?.ditherProfile.algorithm ?? "off"} · ${properties.repaint}` : "Live browser"}${facts.rotation ? ` · ${facts.rotation}°` : ""}${details ? ` · ${details}` : ""}`
+    const label = `${properties.width} × ${properties.height} · ${colorLabel} · ${properties.delivery === "image" ? `Rendered image · ${device?.ditherProfile.algorithm === "off" ? "panel-side dithering" : (device?.ditherProfile.algorithm ?? "off")} · ${properties.repaint}` : "Live browser"}${facts.rotation ? ` · ${facts.rotation}°` : ""}${details ? ` · ${details}` : ""}`
     groups.set(
       id,
       previous
@@ -88,6 +90,8 @@ export const getPreviewProfiles = ({
             width: properties.width,
             height: properties.height,
             delivery: properties.delivery,
+            isPaletteSimulation:
+              device?.ditherProfile.algorithm === "off",
             deviceId: definition.id,
             deviceLabels: [definition.label],
             deviceIds: [definition.id],
@@ -224,11 +228,30 @@ export const attachPreviewRoutes = ({
             state.cache.delete(key)
             return null
           }
-          return pushController.renderPreview({
-            deviceId,
-            kind,
-            id,
-          })
+          return pushController
+            .renderPreview({ deviceId, kind, id })
+            .then(async (image) => {
+              const settings =
+                pushController.getRenderSettings(deviceId)
+              if (
+                !image ||
+                settings?.device.ditherProfile.algorithm !==
+                  "off"
+              )
+                return image
+              const { width, height } =
+                await sharp(image).metadata()
+              if (!width || !height) return image
+              // A panel that dithers its own full-color input needs a palette simulation,
+              // not another delivery render. The UI explicitly distinguishes this estimate.
+              return ditherToPanel({
+                imageBuffer: image,
+                width,
+                height,
+                palette: settings.device.palette,
+                algorithm: "floyd-steinberg",
+              })
+            })
         })
         state.tail = pending.then(
           () => {},
