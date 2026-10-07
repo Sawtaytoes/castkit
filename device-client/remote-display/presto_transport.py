@@ -13,11 +13,14 @@ import zlib
 
 from aioesphomeapi import TextSensorState
 from aiohttp import web
+
 from ambient_light import control_state, metadata
 from codec import encode_presto_patch
 
 
 class PrestoTransport:
+    transport_build = "castkit-presto-transport-v6-raw-pixels"
+
     def __init__(self, config, token):
         if not isinstance(token, str) or len(token) < 32:
             raise ValueError("Presto requires a dedicated token of at least 32 characters")
@@ -314,7 +317,7 @@ class PrestoTransport:
     async def health(self, request):
         return web.json_response(
             {
-                "build": "castkit-presto-transport-v6-raw-pixels",
+                "build": self.transport_build,
                 "firmware": self.build_marker,
                 "last_seen_seconds": round(time.monotonic() - self.last_seen, 1)
                 if self.last_seen

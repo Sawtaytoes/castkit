@@ -14,17 +14,19 @@ from urllib.parse import urlsplit
 
 import yaml
 from aioesphomeapi import APIClient, TextSensorState
+from esphome_presto import ESPHomePrestoTransport
+from playwright.async_api import async_playwright
+
 from ambient_light import artwork_bounds
 from codec import encode_frame, presto_frame_pixels, presto_frame_pixels_with_palette
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
-from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v11-raw-pixels"
+BUILD_MARKER = "castkit-remote-display-v12-native-presto"
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
@@ -45,8 +47,10 @@ def read_config(path):
     config = yaml.safe_load(pathlib.Path(path).read_text())
     if not isinstance(config, dict):
         raise ValueError("Display configuration must be a mapping")
-    is_presto = config.get("transport") == "presto"
-    for key in ("manifest_url", "mac", "secrets_path") + (() if is_presto else ("host",)):
+    is_presto = config.get("transport") in ("presto", "esphome-presto")
+    for key in ("manifest_url", "mac", "secrets_path") + (
+        () if config.get("transport") == "presto" else ("host",)
+    ):
         if not isinstance(config.get(key), str) or not config[key]:
             raise ValueError(f"Missing display configuration field: {key}")
     parsed = urlsplit(config["manifest_url"])
@@ -440,9 +444,12 @@ async def serve(config):
     for sig in (signal.SIGINT, signal.SIGTERM):
         asyncio.get_running_loop().add_signal_handler(sig, stop.set)
     credentials = yaml.safe_load(pathlib.Path(config["secrets_path"]).read_text())
-    is_presto = config.get("transport") == "presto"
+    is_presto = config.get("transport") in ("presto", "esphome-presto")
     api_key = credentials[
-        config.get("api_key_name", "presto_token" if is_presto else "api_encryption_key")
+        config.get(
+            "api_key_name",
+            "presto_token" if config.get("transport") == "presto" else "api_encryption_key",
+        )
     ]
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(
@@ -466,7 +473,13 @@ async def serve(config):
         # Refresh limits describe transport capability, not a user-facing view setting.
         if is_presto:
             config = {**config, "max_fps": min(config["max_fps"], 8)}
-        presto = PrestoTransport(config, api_key) if is_presto else None
+        presto = (
+            ESPHomePrestoTransport(config, api_key)
+            if config.get("transport") == "esphome-presto"
+            else PrestoTransport(config, api_key)
+            if is_presto
+            else None
+        )
         controls_task = None
         if presto is not None:
             await presto.start()

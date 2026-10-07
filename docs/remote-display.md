@@ -109,3 +109,46 @@ python -m unittest discover -s device-client/remote-display -p 'test_*.py'
 ```
 
 `CASTKIT_TEST_CHROMIUM` selects an existing Chromium for local tests only. The infrastructure config optionally accepts `chromium` for a source run; the container uses its pinned Playwright browser.
+
+
+## ESPHome Presto transport
+
+A Pimoroni Presto running the external `presto_display` component can use the
+same remote browser and music gestures through ESPHome's encrypted native API.
+The hardware component is maintained separately in `esphome-presto`.
+
+```yaml
+transport: esphome-presto
+host: display.local
+mac: "02:00:00:00:00:01"
+manifest_url: https://castkit.example/d/display/castkit.json
+listen_port: 8791
+preview_port: 8792
+secrets_path: /run/secrets/display.yaml
+```
+
+The private secrets file contains `api_encryption_key`, matching the board's
+ESPHome API key. Keep it outside source control and mount it read-only. The
+worker checks the connected MAC before sending commands. `listen_port` exposes
+read-only transport health; frames, controls and touch use the encrypted API.
+
+The board must provide `frame_chunk` and `set_display_controls` actions and a
+`Display Events` text sensor, with **`api.batch_delay: 0ms`**. Batching can coalesce
+an acknowledgement with a touch or another acknowledgement. The public driver
+example supplies these contracts. Frames use bounded base64 chunks and RGB565
+rectangles, with zlib or RLE selected by size. Incomplete or invalid packets never
+reach the visible buffer. The worker advances its patch base only after the
+board acknowledges presentation at vertical blank; a rejected packet or
+reconnection clears that base and starts with a full frame.
+
+Backlight brightness and the seven ambient pixels share CastKit's existing
+controls and ambient effects. Reported values update only after the matching
+control revision is acknowledged. The health marker is
+`castkit-esphome-presto-v1`, alongside the board's compilation timestamp.
+
+Touch contacts retain the displayed frame identity so the existing frame guard
+can reject stale input. After seven seconds without a presented frame, the board
+shows an offline marker and suppresses touch until a fresh full frame arrives.
+The live preview remains available through the same `/screen.jpg` and
+`/screen.mjpeg` routes; it is the captured frame, not an optical measurement of
+panel timing.
