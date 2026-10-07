@@ -25,7 +25,8 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v12-native-presto"
+BUILD_MARKER = "castkit-remote-display-v13-capture-recovery"
+BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
@@ -127,10 +128,17 @@ class DisplaySession:
 
     async def cancel_contact(self):
         if self.contact is not None and self.contact.get("is_native_active"):
-            await self.cdp.send(
+            await self.send_cdp(
                 "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
             )
         self.contact = None
+
+    async def send_cdp(self, method, parameters):
+        # CDP capture/input has no Playwright timeout. A stalled compositor
+        # must hand control back to the reconnect loop before the glass goes stale.
+        return await asyncio.wait_for(
+            self.cdp.send(method, parameters), timeout=BROWSER_TIMEOUT_SECONDS
+        )
 
     async def input_loop(self):
         while True:
@@ -181,7 +189,7 @@ class DisplaySession:
                 )
             ):
                 if self.contact["is_native_active"]:
-                    await self.cdp.send(
+                    await self.send_cdp(
                         "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
                     )
                 self.contact["is_native_active"] = False
@@ -228,7 +236,7 @@ class DisplaySession:
                 # Cancel the tap but keep sampling the finger: it may cross a
                 # small control before travelling far enough to commit a swipe.
                 if self.contact["is_native_active"]:
-                    await self.cdp.send(
+                    await self.send_cdp(
                         "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
                     )
                 self.contact.update(x=x, y=y, is_tap_cancelled=True, is_native_active=False)
@@ -247,7 +255,7 @@ class DisplaySession:
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue
-            await self.cdp.send(
+            await self.send_cdp(
                 "Input.dispatchTouchEvent",
                 {
                     "type": ("touchStart", "touchMove", "touchEnd")[phase],
@@ -322,18 +330,23 @@ class DisplaySession:
             await self.send_frame(loading_frame, 0, [], format_id=3)
         input_task = asyncio.create_task(self.input_loop())
         previous_payload = None
-        last_sent = 0
+        last_sent = time.monotonic()
         previous_touch = -1
         try:
             while not self.stop.is_set():
                 if input_task.done():
                     input_task.result()
                 cycle = time.monotonic()
+                if cycle - last_sent > BROWSER_TIMEOUT_SECONDS:
+                    raise TimeoutError("No stable frame captured")
                 touch_id = self.processed_touch
-                before = await self.page.evaluate(TARGETS_SCRIPT, self.target_options)
+                before = await asyncio.wait_for(
+                    self.page.evaluate(TARGETS_SCRIPT, self.target_options),
+                    timeout=BROWSER_TIMEOUT_SECONDS,
+                )
                 capture_started = time.monotonic()
                 if isinstance(self.client, PrestoTransport):
-                    shot = await self.cdp.send(
+                    shot = await self.send_cdp(
                         "Page.captureScreenshot",
                         {
                             "format": "png",
@@ -348,7 +361,10 @@ class DisplaySession:
                         type="png", animations="disabled", timeout=5000
                     )
                 capture_finished = time.monotonic()
-                after = await self.page.evaluate(TARGETS_SCRIPT, self.target_options)
+                after = await asyncio.wait_for(
+                    self.page.evaluate(TARGETS_SCRIPT, self.target_options),
+                    timeout=BROWSER_TIMEOUT_SECONDS,
+                )
                 if before != after:
                     continue
                 self.preview.set_frame(png)
@@ -402,8 +418,10 @@ class DisplaySession:
         finally:
             input_task.cancel()
             await asyncio.gather(input_task, return_exceptions=True)
-            await self.cancel_contact()
-            await self.cdp.detach()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self.cancel_contact(), timeout=BROWSER_TIMEOUT_SECONDS)
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self.cdp.detach(), timeout=BROWSER_TIMEOUT_SECONDS)
 
 
 async def create_browser_context(browser, config):
@@ -556,6 +574,9 @@ async def serve(config):
                     await session.run(event_key, loading_frame)
                 except Exception as error:
                     LOG.warning("Display session ended: %s; reconnecting", type(error).__name__)
+                    # Recreate a stalled page instead of reusing its compositor.
+                    with contextlib.suppress(Exception):
+                        await asyncio.wait_for(page.close(), timeout=BROWSER_TIMEOUT_SECONDS)
                 finally:
                     await client.disconnect()
                 with contextlib.suppress(TimeoutError):

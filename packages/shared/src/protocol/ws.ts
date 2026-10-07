@@ -95,6 +95,8 @@ export type BrowserDeviceProfile = {
   hasViewDrawer: boolean
   /** Printer gestures are enabled when this installation binds a print queue. */
   hasPrinterNavigation?: boolean
+  /** Optional installation-selected view request for a leftward swipe. */
+  leftSwipeViewId?: string
   color: "monochrome" | "grayscale" | "spectra6" | "full"
   /**
    * How long this glass takes to show a new frame. A live-browser panel is

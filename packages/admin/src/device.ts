@@ -12,6 +12,7 @@ export type Device = {
   hasTouch?: boolean
   hasViewDrawer?: boolean
   printQueueChannel?: string
+  leftSwipeViewId?: string
   /** A backlight agent listens on the device's MQTT light topics. */
   hasMqttBacklight?: boolean
   /** Backlight commands travel directly with remote display frames. */

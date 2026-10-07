@@ -236,6 +236,15 @@ html[data-grayscale-text="true"] {
   bottom: 0;
 }
 
+.view-swipe-edge.is-right {
+  top: 24px;
+  bottom: 24px;
+  left: auto;
+  right: 0;
+  width: 24px;
+  height: auto;
+}
+
 .view-drawer-scrim {
   position: absolute;
   inset: 0;
