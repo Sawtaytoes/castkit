@@ -144,7 +144,7 @@ export const startTestServer = async ({
         id: "events",
         name: "Events",
         adapter: "mqtt",
-        settings: {},
+        settings: { mediaUrl: "https://media.example" },
         isEnabled: true,
       },
     ],
@@ -231,6 +231,37 @@ export const startTestServer = async ({
       },
     ],
     pinHashes: { "view:private-lab": hashPin("1357") },
+  }))
+  // Each independently scheduled browser spec owns its broker channel.
+  platform.store.update((previous) => ({
+    ...previous,
+    channels: previous.channels.concat(
+      ["preview", "zoom"].map((kind) => ({
+        id: `printers/${kind}`,
+        name: `${kind} printers`,
+        sourceId: "events",
+        type: "printers.v1",
+        settings: {},
+      })),
+    ),
+    views: previous.views.concat(
+      ["preview", "zoom"].map((kind) => ({
+        id: `${kind}-lab`,
+        name: `${kind} lab`,
+        layout: "single" as const,
+        theme: "dark" as const,
+        access: "public" as const,
+        isControlEnabled: true,
+        panels: [
+          {
+            id: "printers",
+            specId: "printer-status",
+            bindings: { data: `printers/${kind}` },
+            settings: {},
+          },
+        ],
+      })),
+    ),
   }))
   await platform.refresh()
   const app = createApp({

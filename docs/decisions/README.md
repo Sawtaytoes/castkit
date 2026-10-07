@@ -1,6 +1,11 @@
 # CastKit decision records
 
 - [2026-10-07: Camera and progress precede the secondary plate preview](2026-10-07-camera-and-progress-precede-the-secondary-plate-preview.md)
+- [2026-10-07: Management navigation prioritizes views and displays](2026-10-07-management-navigation-prioritizes-views-and-displays.md)
+
+- [2026-10-07: Live view previews use device or browser viewport sizes](2026-10-07-live-view-previews-use-device-or-browser-viewport-sizes.md)
+- [2026-10-07: Sidebar collapse is an icon button](2026-10-07-sidebar-collapse-is-an-icon-button.md)
+- [2026-10-07: Enlarged images support pinch zoom and pan](2026-10-07-enlarged-images-support-pinch-zoom-and-pan.md)
 
 - [2026-10-06: Display targets document viewing context and purpose](2026-10-06-display-targets-document-viewing-context-and-purpose.md)
 

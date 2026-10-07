@@ -3766,6 +3766,55 @@ html[data-grayscale-text="true"] {
   font-size: 14px;
 }
 
+.zoomable-media,
+.zoomable-media-surface,
+.zoomable-media-content {
+  display: contents;
+}
+.zoomable-media[data-zoom-enabled="true"] {
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  gap: 8px;
+}
+.zoomable-media[data-zoom-enabled="true"]
+  .zoomable-media-surface {
+  display: flex;
+  flex: 1 1 0;
+  min-block-size: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+.zoomable-media[data-zoom-enabled="true"]
+  .zoomable-media-content {
+  display: flex;
+  inline-size: 100%;
+  block-size: 100%;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center;
+}
+.zoomable-media[data-zoom-enabled="true"] :is(img, video) {
+  user-select: none;
+  -webkit-user-drag: none;
+  object-fit: contain;
+}
+.media-zoom-controls {
+  display: flex;
+  flex-wrap: wrap;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.media-zoom-controls button {
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  padding: 8px 12px;
+}
+
 .printer-plate > .expandable-media {
   display: contents;
 }
