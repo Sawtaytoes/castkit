@@ -234,6 +234,24 @@ test("only an authenticated preview can use display properties without assignmen
   ).toBe("image")
 })
 
+test("authenticated captures receive the delivery presentation, separate from readonly browser previews", async () => {
+  const { app, request } = await fixture()
+  expect(
+    (
+      await app.request(
+        "/api/display/view/agenda?device=one&capture=1",
+      )
+    ).status,
+  ).toBe(409)
+  const response = await request(
+    "/api/display/view/agenda?device=one&capture=1",
+  )
+  expect(response.status).toBe(200)
+  const snapshot = await response.json()
+  expect(snapshot.displayProperties.delivery).toBe("image")
+  expect(snapshot.view.name).toBe("Agenda")
+})
+
 test("panel-side dithering previews simulate the palette and disclose that approximation", async () => {
   const {
     platform,

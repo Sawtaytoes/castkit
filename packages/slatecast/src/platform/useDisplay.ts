@@ -17,6 +17,10 @@ export const useDisplay = (target: DisplayTarget) => {
     new URLSearchParams(window.location.search).get(
       "preview",
     ) === "1"
+  const isCapture =
+    new URLSearchParams(window.location.search).get(
+      "capture",
+    ) === "1"
   const [snapshot, setSnapshot] =
     useState<DisplaySnapshot | null>(null)
   const [isLocked, setIsLocked] = useState(false)
@@ -60,7 +64,12 @@ export const useDisplay = (target: DisplayTarget) => {
   const deviceQuery = target.deviceId
     ? `?device=${encodeURIComponent(target.deviceId)}`
     : ""
-  const displayQuery = `${deviceQuery}${isPreview ? `${deviceQuery ? "&" : "?"}preview=1` : ""}`
+  const modeQuery = isPreview
+    ? "preview=1"
+    : isCapture
+      ? "capture=1"
+      : ""
+  const displayQuery = `${deviceQuery}${modeQuery ? `${deviceQuery ? "&" : "?"}${modeQuery}` : ""}`
   const path = `/api/display/${target.kind}/${encodeURIComponent(target.id)}`
   const lockState = () => {
     setSnapshot(null)
@@ -98,10 +107,6 @@ export const useDisplay = (target: DisplayTarget) => {
       }
     }
     const controller = new AbortController()
-    const isCapture =
-      new URLSearchParams(window.location.search).get(
-        "capture",
-      ) === "1"
     const accept = (value: DisplaySnapshot) => {
       if (lifecycle.isDisposed) {
         return
@@ -253,6 +258,8 @@ export const useDisplay = (target: DisplayTarget) => {
     target.deviceId,
     revision,
     isPreview,
+    isCapture,
+    displayQuery,
   ])
   const unlock = async (pin: string) => {
     setIsPending(true)

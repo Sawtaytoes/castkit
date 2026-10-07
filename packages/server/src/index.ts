@@ -487,7 +487,7 @@ const main = async () => {
         device,
         margin,
         adjustments,
-        url: `http://127.0.0.1:${config.port}/${target.kind}/${encodeURIComponent(target.id)}?device=${encodeURIComponent(device.id)}&capture=1${previewTarget ? "&preview=1" : ""}`,
+        url: `http://127.0.0.1:${config.port}/${target.kind}/${encodeURIComponent(target.id)}?device=${encodeURIComponent(device.id)}&capture=1`,
         headers: {
           "x-castkit-render-key": platform.renderKey,
         },

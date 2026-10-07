@@ -59,11 +59,12 @@ export const getPreviewProfiles = ({
       properties.hasTouch ? "Touch" : "",
       properties.power === "battery" ? "Battery" : "",
       properties.hasViewDrawer ? "View drawer" : "",
-      settings?.margin
-        ? `Margins ${JSON.stringify(settings.margin)}`
+      settings?.margin &&
+      Object.values(settings.margin).some(Boolean)
+        ? `${settings.margin.top}/${settings.margin.right}/${settings.margin.bottom}/${settings.margin.left}px margins`
         : "",
       settings?.adjustments
-        ? `Adjustments ${JSON.stringify(settings.adjustments)}`
+        ? `${Math.round((settings.adjustments.brightness ?? 1) * 100)}% brightness · ${Math.round((settings.adjustments.saturation ?? 1) * 100)}% saturation`
         : "",
       device?.ditherProfile.supersampleFactor
         ? `${device.ditherProfile.supersampleFactor}× supersampling`
