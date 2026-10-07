@@ -76,8 +76,23 @@ export const createDeviceOverrides = ({
     emit()
     return getViewId(deviceId)
   }
-  const clear = (deviceId: string) => {
-    if (overrides.delete(deviceId)) emit()
+  const clear = ({
+    deviceId,
+    viewId,
+  }: {
+    deviceId: string
+    viewId: string
+  }) => {
+    const current = overrides.get(deviceId)
+    const remaining = current?.filter(
+      (item) => item.viewId !== viewId,
+    )
+    if (!current || remaining?.length === current.length)
+      return
+    if (remaining?.length)
+      overrides.set(deviceId, remaining)
+    else overrides.delete(deviceId)
+    emit()
   }
   const timer = setInterval(() => {
     const hasExpired = Array.from(overrides.values()).some(
