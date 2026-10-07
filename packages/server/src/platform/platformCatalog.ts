@@ -15,9 +15,20 @@ import {
 } from "@castkit/sdk/plugin"
 import { createAiUsageSource } from "./sources/aiUsage.ts"
 import { createBambuddySource } from "./sources/bambuddy.ts"
+import { createCutteroSource } from "./sources/cuttero.ts"
 import { createHomeAssistantSource } from "./sources/homeAssistant.ts"
 import { createImmichSource } from "./sources/immich.ts"
+import {
+  createKidsPointsSource,
+  DEFAULT_KIDS_POINTS_SCAN_TOPIC,
+  DEFAULT_KIDS_POINTS_STATE_TOPIC,
+} from "./sources/kidsPoints.ts"
 import { createMqttSource } from "./sources/mqtt.ts"
+import {
+  createPointsHistorySource,
+  DEFAULT_POINTS_REPORT_REQUEST_TOPIC,
+  DEFAULT_POINTS_REPORT_RESPONSE_TOPIC,
+} from "./sources/pointsHistory.ts"
 import { createRipDeckSource } from "./sources/ripDeck.ts"
 
 const urlField: SettingField = {
@@ -62,11 +73,25 @@ const adapters: AdapterDefinition[] = [
     id: "bambuddy",
     name: "Bambuddy",
     description:
-      "Printer jobs, camera snapshots, and print controls.",
-    channelTypes: ["printers.v1", "cameras.v1"],
+      "Printer jobs, camera snapshots, print controls, and the SpoolBuddy filament scale with the spool inventory.",
+    channelTypes: [
+      "printers.v1",
+      "queue.v1",
+      "cameras.v1",
+      "spools.v1",
+      "ams.v1",
+    ],
     settings: [
       urlField,
       { key: "apiKey", label: "API key", type: "secret" },
+      {
+        key: "cameraAccessCodes",
+        label:
+          "Printer camera access codes (JSON by printer ID)",
+        type: "secret",
+        description:
+          'Optional. Enables direct H.264 video for configured printers. Example: {"1":"code"}.',
+      },
       pollingField,
     ],
     channelSettings: [
@@ -79,11 +104,20 @@ const adapters: AdapterDefinition[] = [
           "Leave empty to include every printer.",
       },
     ],
-    actions: ["pause", "resume", "stop"].map((id) => ({
-      id,
-      name: id,
-      isConfirmationRequired: true,
-    })),
+    actions: [
+      { id: "clear_plate", name: "Clear plate" },
+      ...["pause", "resume", "stop"].map((id) => ({
+        id,
+        name: id,
+        isConfirmationRequired: true,
+      })),
+      ...[
+        "save_weight",
+        "assign_slot",
+        "copy_to_tag",
+        "link_tag",
+      ].map((id) => ({ id, name: id })),
+    ],
   },
   {
     id: "mqtt",
@@ -154,6 +188,28 @@ const adapters: AdapterDefinition[] = [
     ],
     channelSettings: [
       { ...entityField, isRequired: false },
+      {
+        key: "cameraFormat",
+        label: "Camera playback",
+        type: "select",
+        options: [
+          { value: "still", label: "Still image" },
+          {
+            value: "hls",
+            label: "Home Assistant live stream",
+          },
+        ],
+        defaultValue: "still",
+        description:
+          "Use Home Assistant's HLS stream for selected camera entities on browser views.",
+      },
+      {
+        key: "cameraIdAliases",
+        label: "Camera ID aliases",
+        type: "string-list",
+        description:
+          "Optional entity ID to matching printer ID, such as camera.printer=1.",
+      },
       {
         key: "forecastType",
         label: "Forecast",
@@ -303,6 +359,121 @@ const adapters: AdapterDefinition[] = [
     actions: [],
   },
   {
+    id: "cuttero",
+    name: "Cuttero",
+    description:
+      "Vinyl and paper cutters driven by a Cuttero server: whether each cutter is connected, the job it is working through, and its recent jobs. Read-only.",
+    channelTypes: ["cutters.v1"],
+    settings: [urlField, pollingField],
+    channelSettings: [
+      {
+        key: "cutterIds",
+        label: "Cutters",
+        type: "string-list",
+        discoveryKey: "cutters",
+        description: "Leave empty to include every cutter.",
+      },
+    ],
+    actions: [],
+  },
+  {
+    id: "points-history",
+    name: "Tally Marks History",
+    description:
+      "Historical points and task time calculated by the points service, available over MQTT.",
+    channelTypes: ["points-history.v1"],
+    settings: [
+      {
+        key: "requestTopic",
+        label: "Report request topic",
+        type: "text",
+        defaultValue: DEFAULT_POINTS_REPORT_REQUEST_TOPIC,
+      },
+      {
+        key: "responseTopic",
+        label: "Report response topic",
+        type: "text",
+        defaultValue: DEFAULT_POINTS_REPORT_RESPONSE_TOPIC,
+      },
+      {
+        key: "stateTopic",
+        label: "Child state topic",
+        type: "text",
+        defaultValue: "points/state/+",
+      },
+      {
+        key: "ledgerTopic",
+        label: "Ledger change topic",
+        type: "text",
+        defaultValue: "points/ledger",
+      },
+      {
+        key: "goalTopic",
+        label: "Goal response topic",
+        type: "text",
+        defaultValue: "tally-marks/resp/daily-goal",
+      },
+    ],
+    channelSettings: [
+      {
+        key: "days",
+        label: "Calendar days",
+        type: "number",
+        defaultValue: 7,
+        description:
+          "Rolling history through today, from 1 to 366 days.",
+      },
+      {
+        key: "kidIds",
+        label: "Children",
+        type: "string-list",
+        description: "Leave empty to include every child.",
+      },
+    ],
+    actions: [],
+  },
+  {
+    id: "kids-points",
+    name: "Tally Marks",
+    description:
+      "Each child's points today and every card scan, read from a points service over MQTT. CastKit never awards points.",
+    channelTypes: ["kids-points.v1"],
+    settings: [
+      {
+        key: "stateTopic",
+        label: "Child state topic",
+        type: "text",
+        defaultValue: DEFAULT_KIDS_POINTS_STATE_TOPIC,
+        description:
+          "One retained document per child. Use + for the child's ID.",
+      },
+      {
+        key: "scanTopic",
+        label: "Scan result topic",
+        type: "text",
+        defaultValue: DEFAULT_KIDS_POINTS_SCAN_TOPIC,
+      },
+    ],
+    channelSettings: [
+      {
+        key: "kidIds",
+        label: "Children",
+        type: "string-list",
+        discoveryKey: "kids",
+        description: "Leave empty to include every child.",
+      },
+      {
+        key: "readers",
+        label: "Card readers",
+        type: "string-list",
+        discoveryKey: "readers",
+        description:
+          "Show scans from these readers only. Leave empty to show a scan from any reader. A reader appears here after its first scan.",
+      },
+    ],
+    actions: [],
+  },
+  {
     id: "clock",
     name: "Clock",
     description:
@@ -402,6 +573,11 @@ const viewSpecs: ViewSpec[] = [
     type: "now-playing.v1",
   }),
   view({ id: "queue", name: "Queue", type: "queue.v1" }),
+  view({
+    id: "print-queue",
+    name: "Print Queue",
+    type: "queue.v1",
+  }),
   view({ id: "clock", name: "Clock" }),
   {
     ...view({ id: "ambient", name: "Ambient clock" }),
@@ -437,6 +613,53 @@ const viewSpecs: ViewSpec[] = [
     name: "Printer Status",
     type: "printers.v1",
   }),
+  {
+    ...view({
+      id: "ams",
+      name: "AMS Filaments",
+      type: "ams.v1",
+      description:
+        "Every printer’s loaded filaments, AMS temperature, humidity, and calibration.",
+    }),
+    renderers: ["browser"],
+    minimumRepaint: "fast",
+    settings: [
+      {
+        key: "layout",
+        label: "Layout",
+        type: "select",
+        defaultValue: "cards",
+        options: [
+          { value: "cards", label: "Slot cards" },
+          { value: "rows", label: "Spool rows" },
+        ],
+      },
+    ],
+  },
+  {
+    ...view({
+      id: "filament-spool-scale",
+      name: "Filament Spool Scale",
+      type: "spools.v1",
+    }),
+    renderers: ["browser"],
+    minimumRepaint: "fast",
+  },
+  {
+    ...view({
+      id: "cutter-status",
+      name: "Cutter Status",
+      type: "cutters.v1",
+      description:
+        "Each cutter's connection, the job it is cutting with an estimated finish, its cut lines, and its recent jobs.",
+    }),
+    minimumRepaint: "fast",
+  },
+  {
+    ...view({ id: "touch-test", name: "Touch Test" }),
+    renderers: ["browser"],
+    minimumRepaint: "fast",
+  },
   view({
     id: "rip-deck",
     name: "Rip Deck",
@@ -452,6 +675,86 @@ const viewSpecs: ViewSpec[] = [
   },
   {
     ...view({
+      id: "points-history",
+      name: "Tally Marks History",
+      type: "points-history.v1",
+      description:
+        "Points, daily goals, cumulative earnings, and task time from the same reports as the points app.",
+    }),
+    settings: [
+      {
+        key: "metric",
+        label: "Show",
+        type: "select",
+        defaultValue: "daily",
+        options: [
+          {
+            value: "daily",
+            label: "Daily points and goal",
+          },
+          {
+            value: "cumulative",
+            label: "Cumulative points",
+          },
+          { value: "task-points", label: "Points by task" },
+          { value: "minutes", label: "Task time" },
+        ],
+      },
+      {
+        key: "kidId",
+        label: "Child ID",
+        type: "text",
+        description:
+          "Leave empty to compare every child; select a child for the goal or task details.",
+      },
+      {
+        key: "taskKey",
+        label: "Task key",
+        type: "text",
+        description: "Optional: select one timed task.",
+      },
+    ],
+  },
+  {
+    ...view({
+      id: "kids-points",
+      name: "Tally Marks",
+      type: "kids-points.v1",
+      description:
+        "Each child's points today against the goal. A card scan puts that child first; a larger panel keeps every child on the board.",
+    }),
+    settings: [
+      {
+        key: "isTotalsOnly",
+        label: "Show only stacked totals",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "Keep every selected child visible during scans, without goal bars or identity stripes.",
+      },
+      {
+        key: "nameStyle",
+        label: "Child labels",
+        type: "select",
+        defaultValue: "full",
+        options: [
+          { value: "full", label: "Full names" },
+          { value: "initial", label: "First initial" },
+        ],
+        description: "Used by the stacked totals board.",
+      },
+      {
+        key: "scanSeconds",
+        label: "Show a scan for (seconds)",
+        type: "number",
+        defaultValue: 15,
+        description:
+          "A panel that repaints slower than this shows the last card instead.",
+      },
+    ],
+  },
+  {
+    ...view({
       id: "ai-usage",
       name: "AI Usage",
       type: "ai-usage.v1",
@@ -459,7 +762,7 @@ const viewSpecs: ViewSpec[] = [
     settings: [
       {
         key: "alertPercent",
-        label: "Show a second limit at (percent used)",
+        label: "Shorter limit alert (percent used)",
         type: "number",
         defaultValue: 80,
       },
@@ -520,6 +823,13 @@ const clockSettings: SettingField[] = [
 ]
 const entitySettings: SettingField[] = [
   {
+    key: "relatedEntitiesJson",
+    label: "Individual controls",
+    type: "text",
+    description:
+      "JSON mapping group entity IDs to bound child entity IDs. Children retain their own permission and visibility gates.",
+  },
+  {
     key: "actionVisibilityJson",
     label: "Visibility by action",
     type: "text",
@@ -575,16 +885,122 @@ const entitySettings: SettingField[] = [
   },
 ]
 viewSpecs.forEach((spec) => {
+  spec.settings = spec.settings.concat([
+    {
+      key: "homeGroupSpan",
+      label: "Group width",
+      type: "select",
+      defaultValue: "auto",
+      options: [
+        { value: "auto", label: "One column" },
+        { value: "full", label: "Full width" },
+      ],
+    },
+    {
+      key: "homeGroup",
+      label: "Dashboard group",
+      type: "text",
+      description:
+        "Panels with the same group share a content-sized dashboard card.",
+    },
+    {
+      key: "homeGroupTitle",
+      label: "Dashboard group title",
+      type: "text",
+    },
+    {
+      key: "homeAccent",
+      label: "Group color",
+      type: "select",
+      options: [
+        "blue",
+        "green",
+        "amber",
+        "purple",
+        "rose",
+        "cyan",
+      ].map((value) => ({ value, label: value })),
+    },
+  ])
+  if (["entities", "charts", "map"].includes(spec.id))
+    spec.settings = spec.settings.concat([
+      {
+        key: "presentation",
+        label: "Presentation",
+        type: "select",
+        defaultValue: "standard",
+        options: [
+          { value: "standard", label: "Standard" },
+          { value: "home", label: "Home dashboard" },
+        ],
+      },
+    ])
+  if (spec.id === "cameras")
+    spec.settings = spec.settings.concat([
+      {
+        key: "aliasesJson",
+        label: "Camera labels",
+        type: "text",
+        description:
+          "JSON object mapping camera IDs to short display labels.",
+      },
+    ])
+
   if (["clock", "ambient"].includes(spec.id)) {
-    spec.settings = clockSettings
+    spec.settings = spec.settings.concat(clockSettings)
     spec.valueLifetimeMilliseconds = 60000
   }
+  if (spec.id === "weather")
+    spec.settings = spec.settings.concat([
+      {
+        key: "forecastType",
+        label: "Forecast labels",
+        type: "select",
+        defaultValue: "hourly",
+        options: [
+          { value: "hourly", label: "Hourly" },
+          { value: "daily", label: "Daily" },
+        ],
+      },
+    ])
   if (spec.id === "now-playing") {
     spec.valueLifetimeMilliseconds = 180000
   }
   if (spec.id === "printer-status") {
     spec.minimumRepaint = "fast"
-    spec.settings = [
+    spec.inputs.push({
+      key: "cameras",
+      label: "Cameras",
+      type: "cameras.v1",
+      isRequired: false,
+    })
+    spec.settings = spec.settings.concat([
+      {
+        key: "isPrinterSelectionEnabled",
+        label: "Choose printers for this view",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "printerIds",
+        label: "Printers",
+        type: "string-list",
+        discoveryKey: "printers",
+        description:
+          "Only applies when choosing printers is enabled. An empty selection shows none.",
+      },
+      {
+        key: "isCompactControls",
+        label: "Use compact icon controls beside progress",
+        type: "boolean",
+        defaultValue: true,
+      },
+      {
+        key: "isCompactFacts",
+        label: "Use a compact printer facts row",
+        type: "boolean",
+        defaultValue: false,
+      },
       {
         key: "isCameraVisible",
         label: "Show printer cameras",
@@ -593,10 +1009,75 @@ viewSpecs.forEach((spec) => {
         description:
           "Shown on browser screens; touch displays can disable cameras.",
       },
-    ]
+    ])
   }
   if (spec.id === "rip-deck") {
     spec.minimumRepaint = "fast"
+    spec.settings = spec.settings.concat([
+      {
+        key: "isBaySelectionEnabled",
+        label: "Choose bays for this view",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "bayIds",
+        label: "Bays",
+        type: "string-list",
+        discoveryKey: "bays",
+      },
+      {
+        key: "presentation",
+        label: "Presentation",
+        type: "select",
+        defaultValue: "rows",
+        options: [
+          { value: "rows", label: "Compact rows" },
+          { value: "posters", label: "Poster cards" },
+        ],
+      },
+    ])
+  }
+  if (spec.id === "ai-usage") {
+    spec.settings = spec.settings.concat([
+      {
+        key: "isProviderSelectionEnabled",
+        label: "Choose accounts for this view",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "providerIds",
+        label: "AI accounts",
+        type: "string-list",
+        discoveryKey: "providers",
+      },
+      {
+        key: "isWindowSelectionEnabled",
+        label: "Choose usage windows for this view",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "windowIds",
+        label: "Usage windows",
+        type: "string-list",
+        discoveryKey: "windows",
+      },
+      {
+        key: "isPositiveUsageOnly",
+        label: "Show only usage above zero",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "isAlertReplacementEnabled",
+        label:
+          "Replace weekly usage with a shorter limit above the alert threshold",
+        type: "boolean",
+        defaultValue: false,
+      },
+    ])
   }
   if (
     ["entities", "timers", "map", "charts"].includes(
@@ -657,6 +1138,21 @@ viewSpecs.forEach((spec) => {
       },
     ])
   }
+  spec.settings = spec.settings.concat([
+    {
+      key: "priority",
+      label: "Composition priority",
+      type: "number",
+      defaultValue:
+        spec.id === "printer-status"
+          ? 3
+          : spec.id === "rip-deck"
+            ? 2
+            : 1,
+      description:
+        "Higher values receive useful space first in Automatic layouts. Required content still has to fit.",
+    },
+  ])
 })
 const sourceFactories: NonNullable<
   CastKitPlugin["adapters"]
@@ -667,6 +1163,9 @@ const sourceFactories: NonNullable<
   immich: createImmichSource,
   "rip-deck": createRipDeckSource,
   "ai-usage": createAiUsageSource,
+  cuttero: createCutteroSource,
+  "kids-points": createKidsPointsSource,
+  "points-history": createPointsHistorySource,
   clock: (context) => {
     const publish = () =>
       context.channels.forEach((channel) => {
@@ -699,13 +1198,28 @@ const viewGroups = [
   {
     id: "printers",
     name: "3D printers",
-    specs: ["printer-status"],
+    specs: [
+      "printer-status",
+      "print-queue",
+      "filament-spool-scale",
+      "ams",
+    ],
+  },
+  {
+    id: "cutters",
+    name: "Vinyl and paper cutters",
+    specs: ["cutter-status"],
+  },
+  {
+    id: "touch",
+    name: "Touch diagnostics",
+    specs: ["touch-test"],
   },
   { id: "rip-deck", name: "Rip Deck", specs: ["rip-deck"] },
   {
     id: "points",
     name: "Points",
-    specs: ["points"],
+    specs: ["kids-points", "points", "points-history"],
   },
   {
     id: "ai-usage",
@@ -741,6 +1255,43 @@ const presetsByGroup: Record<
     },
   ],
   "rip-deck": [
+    {
+      id: "working",
+      name: "Combined kiosk",
+      description:
+        "Prioritize printer cameras, with active disc jobs and AI usage fitted around them.",
+      layout: "adaptive",
+      isActiveOnly: true,
+      panels: [
+        {
+          id: "printers",
+          specId: "printer-status",
+          settings: {
+            title: "",
+            isCompactControls: true,
+            isCompactFacts: true,
+          },
+        },
+        {
+          id: "rips",
+          specId: "rip-deck",
+          settings: {
+            title: "Rip Deck",
+            presentation: "posters",
+          },
+        },
+        {
+          id: "ai",
+          specId: "ai-usage",
+          settings: {
+            title: "",
+            isPositiveUsageOnly: true,
+            isAlertReplacementEnabled: true,
+            alertPercent: 80,
+          },
+        },
+      ],
+    },
     {
       id: "rip-deck-printers",
       name: "Rip Deck and printers",
@@ -972,9 +1523,14 @@ const createCatalogSnapshot = ({
   })
   presets.forEach((preset) => {
     if (
-      !["single", "split", "grid"].includes(
-        preset.layout,
-      ) ||
+      ![
+        "single",
+        "split",
+        "grid",
+        "cards",
+        "rail",
+        "adaptive",
+      ].includes(preset.layout) ||
       !Array.isArray(preset.panels) ||
       preset.panels.length === 0 ||
       preset.panels.some(

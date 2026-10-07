@@ -58,6 +58,10 @@ Both accept a `providerIds` channel setting. Leave it empty for every provider.
 
 ## What the view decides
 
+**Provider names carry their brand icons.** Claude uses its starburst and Codex
+accounts share the OpenAI mark. Subscription plan labels are omitted; cached
+data and provider errors remain visible.
+
 **One row per provider: its weekly limit.** A panel is read from across a desk,
 not scanned like a table, so the view answers one question — how much of the
 week is left — and stays quiet about the rest. The headline is the longest
@@ -135,13 +139,36 @@ would make an outage look exactly like a healthy display.
 
 ## Panels
 
-The view is laid out in one column. That is right for a panel roughly 2:1 or
-squarer, and wrong for a letterbox. On the 1360 x 480 Waveshare 10.85 inch
-panel a single column runs out of height after three providers while two
-thirds of the glass stays empty. A column layout for wide panels is drawn and
-not yet built; see the preview gallery linked from the decision record.
+**The type grows with the panel.** Every length in the view is a base number
+times `--ai-usage-scale`, and the view sets that variable from the panel it
+measured: scale 1 up to 280 px of content height, then the height divided by
+280, capped at 2. A 122 px pHAT is already at the floor and does not shrink. A
+1360 x 480 letterbox draws at about 1.5x and a 1200 px panel at 2x, so each
+reads at its own distance. The owner's words: *"raise up the font size, so you
+can read it easier at a distance."*
+
+![One column at scale 1 on 1360 x 480, before](images/2026-09-30-ai-usage-type-scale-before.png)
+
+![Three columns at 1.5x on the same panel, after](images/2026-09-30-ai-usage-type-scale-after.png)
+
+**A wide panel flows into columns.** The count comes from the panel's aspect —
+one column per 1.1 of width over height, at most three — and is then held to
+what the width can carry at the current type size, which is what keeps the
+250 x 122 pHAT at one column though it is as wide for its height as the
+letterbox. Sections fill columns first to last and never split across two: a
+section that does not wholly fit moves to the next column, so a trimmed
+section only ever appears in the last column with any room.
+
+⚠️ **The row heights are a contract between `aiUsageLayout.ts` and
+`platform.css`.** The budget is arithmetic in the view and the stylesheet
+multiplies the same base numbers by the same variable. Change a base height
+in one place and the last row on every panel is cut in half. This is also why
+the scale is a variable the view sets and not a `cqi` `clamp()` the stylesheet
+resolves on its own: a number CSS computes is a number the view cannot read
+back, and the budget has to know it.
 
 ## Decision records
 
 - [AI Usage is a native view on an `ai-usage.v1` channel](decisions/2026-09-25-ai-usage-is-a-native-view-on-an-ai-usage-v1-channel.md)
 - [The AI Usage view shows one weekly limit per provider and escalates the rest](decisions/2026-09-25-the-ai-usage-view-shows-one-weekly-limit-per-provider.md)
+- [AI Usage type scales with the panel and a letterbox flows into columns](decisions/2026-09-30-ai-usage-type-scales-with-the-panel-and-a-letterbox-flows-into-columns.md)

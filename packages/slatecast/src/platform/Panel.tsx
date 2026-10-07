@@ -4,26 +4,37 @@ import type {
   ContractData,
   ViewPanel,
 } from "@castkit/sdk/contracts"
+import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { ViewInput } from "@castkit/sdk/plugin"
+import type { JSX } from "preact"
+import { AmsFilaments } from "../views/AmsFilaments.tsx"
+import { CutterStatus } from "../views/CutterStatus.tsx"
+import { FilamentSpoolScale } from "../views/FilamentSpoolScale.tsx"
+import { TouchTest } from "../views/TouchTest.tsx"
 import { BuiltinView } from "./BuiltinView.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { PluginView } from "./PluginView.tsx"
 import { PrintersView } from "./PrintersView.tsx"
 import type { PanelAction } from "./protocol.ts"
 import { RipDeckView } from "./RipDeckView.tsx"
+import { structuredSetting } from "./viewSettings.ts"
 
 /** Resolve each panel's own bindings; no shared mutable view data crosses panels. */
 export const Panel = ({
   panel,
+  layoutStyle,
   channels,
   isControlEnabled,
+  controlDisabledReason,
   onAction,
   browserEntry,
   inputs,
 }: {
+  layoutStyle?: JSX.CSSProperties
   panel: ViewPanel
   channels: Record<string, ChannelSnapshot>
   isControlEnabled: boolean
+  controlDisabledReason?: string
   browserEntry?: string
   inputs?: ViewInput[]
   onAction: (action: PanelAction) => Promise<void>
@@ -35,8 +46,13 @@ export const Panel = ({
         Object.values(panel.bindings)[0] ??
         ""
     ]
+  const selectedData = selectPanelData({
+    ...panel,
+    data: source?.data,
+  })
   const title =
-    typeof panel.settings.title === "string"
+    typeof panel.settings.title === "string" &&
+    panel.settings.title
       ? panel.settings.title
       : panel.specId.replaceAll("-", " ")
   const requestAction = (
@@ -68,6 +84,11 @@ export const Panel = ({
     panel.specId === "clock" ||
     panel.specId === "ambient" ||
     panel.specId === "text"
+  const isLocalView =
+    panel.specId === "ams" ||
+    panel.specId === "cutter-status" ||
+    panel.specId === "filament-spool-scale" ||
+    panel.specId === "touch-test"
   const declaredInputs =
     inputs ??
     (Object.keys(panel.bindings).length
@@ -96,6 +117,48 @@ export const Panel = ({
       channels[panel.bindings[input.key] ?? ""]?.status ===
       "ready",
   )
+  if (
+    isSourceReady &&
+    panel.settings.presentation === "home" &&
+    ["entities", "charts"].includes(panel.specId)
+  ) {
+    const data = selectedData as
+      | ContractData["entities.v1"]
+      | undefined
+    const entityIds = structuredSetting({
+      settings: panel.settings,
+      key: "entityIds",
+    })
+    const conditions = structuredSetting({
+      settings: panel.settings,
+      key: "entityVisibility",
+    }) as Record<string, unknown> | undefined
+    const hasEntities = data?.entities.some(
+      (entity) =>
+        (!Array.isArray(entityIds) ||
+          entityIds.includes(entity.id)) &&
+        isVisible({
+          condition: conditions?.[entity.id],
+          entities: data.entities,
+          matchMedia: (query) =>
+            window.matchMedia(query).matches,
+        }),
+    )
+    const fields = structuredSetting({
+      settings: panel.settings,
+      key: "attributeFields",
+    })
+    const actions = structuredSetting({
+      settings: panel.settings,
+      key: "actionButtons",
+    })
+    if (
+      !hasEntities &&
+      !(Array.isArray(fields) && fields.length) &&
+      !(Array.isArray(actions) && actions.length)
+    )
+      return null
+  }
   const isWaiting =
     !source ||
     source.data === null ||
@@ -103,6 +166,7 @@ export const Panel = ({
   return (
     <section
       class="platform-panel"
+      style={layoutStyle}
       aria-label={title}
       data-spec={panel.specId}
     >
@@ -159,11 +223,46 @@ export const Panel = ({
           }
           onAction={onAction}
         />
-      ) : isClock || !isWaiting ? (
-        panel.specId === "printer-status" ? (
+      ) : isClock || isLocalView || !isWaiting ? (
+        panel.specId === "ams" ? (
+          <AmsFilaments
+            data={
+              (source?.data as ContractData["ams.v1"]) ??
+              null
+            }
+            initialLayout={
+              typeof panel.settings.layout === "string"
+                ? panel.settings.layout
+                : "cards"
+            }
+          />
+        ) : panel.specId === "cutter-status" ? (
+          <CutterStatus
+            data={
+              (source?.data as
+                | ContractData["cutters.v1"]
+                | undefined) ?? null
+            }
+          />
+        ) : panel.specId === "filament-spool-scale" ? (
+          <FilamentSpoolScale
+            data={
+              (source?.data as ContractData["spools.v1"]) ??
+              null
+            }
+            onAction={requestAction}
+            isControlEnabled={
+              isControlEnabled &&
+              properties.isInteractive &&
+              isSourceReady
+            }
+          />
+        ) : panel.specId === "touch-test" ? (
+          <TouchTest />
+        ) : panel.specId === "printer-status" ? (
           <PrintersView
             data={
-              source?.data as ContractData["printers.v1"]
+              selectedData as ContractData["printers.v1"]
             }
             cameras={
               channels[panel.bindings.cameras ?? ""]
@@ -176,13 +275,20 @@ export const Panel = ({
               properties.isInteractive &&
               isSourceReady
             }
+            controlDisabledReason={
+              !properties.isInteractive
+                ? "Controls unavailable on this display"
+                : !isSourceReady
+                  ? "Source unavailable · Controls disabled"
+                  : controlDisabledReason
+            }
             onAction={requestAction}
             settings={panel.settings}
           />
         ) : panel.specId === "rip-deck" ? (
           <RipDeckView
             data={
-              source?.data as ContractData["rip-deck.v1"]
+              selectedData as ContractData["rip-deck.v1"]
             }
             isControlEnabled={
               isControlEnabled &&
@@ -190,11 +296,12 @@ export const Panel = ({
               isSourceReady
             }
             onAction={requestAction}
+            settings={panel.settings}
           />
         ) : (
           <BuiltinView
             panel={panel}
-            data={source?.data}
+            data={selectedData}
             weather={
               channels[panel.bindings.weather ?? ""]
                 ?.data as

@@ -1,5 +1,13 @@
+import type {
+  ChannelSnapshot,
+  ContractData,
+} from "@castkit/sdk/contracts"
+import type { SourceAction } from "@castkit/sdk/plugin"
 import type { MqttPublisher } from "@castkit/shared/mqtt/publisher"
-import { parseDeviceCommand } from "@castkit/shared/protocol/commands"
+import {
+  parseDeviceCommand,
+  SPOOL_COMMAND_ACTIONS,
+} from "@castkit/shared/protocol/commands"
 import type {
   BrowserClockConfig,
   BrowserDeviceSettings,
@@ -35,11 +43,16 @@ import {
 } from "../immich/immichClient.ts"
 import { preparePhotoFrameImage } from "../immich/photoFrameImage.ts"
 import { buildPlatformPage } from "../platform/platformPages.ts"
+import {
+  createPlatformStore,
+  type PlatformStore,
+} from "../platform/platformStore.ts"
 import { createViewDataStore } from "../state/viewDataStore.ts"
 import {
   getBrowserViewByName,
   getBrowserViewsForDevice,
 } from "../views/browserRegistry.ts"
+import { buildAmbientLightData } from "./ambientLightData.ts"
 import {
   brightnessToPercent,
   createBrowserBacklightStore,
@@ -57,6 +70,10 @@ import {
   resolveSlatecastBuildId,
   resolveSlatecastDistDir,
 } from "./pages.ts"
+import { createRemoteAmbientLight } from "./remoteAmbientLight.ts"
+import { createRemoteAmbientLightMqtt } from "./remoteAmbientLightMqtt.ts"
+import { createRemoteBacklight } from "./remoteBacklight.ts"
+import { createRemoteBacklightMqtt } from "./remoteBacklightMqtt.ts"
 
 /**
  * Browser-mode (Slatecast) wiring: HA discovery + MQTT routes for the
@@ -105,6 +122,32 @@ export type BrowserMode = ReturnType<
   typeof createBrowserMode
 >
 
+/** The slice of the platform the device page reads channels and actions through. */
+export type BrowserModePlatform = {
+  subscribe?: (listener: () => void) => () => void
+  getDeviceTarget?: (
+    deviceId: string,
+  ) => { kind: "view" | "screen"; id: string } | undefined
+  getTarget?: (target: {
+    kind: "view" | "screen"
+    id: string
+  }) => {
+    view: import("@castkit/sdk/contracts").ViewDefinition
+  } | null
+  store?: PlatformStore
+  hub: {
+    get: (id: string) => ChannelSnapshot | undefined
+    subscribe: (
+      listener: (snapshot: ChannelSnapshot) => void,
+    ) => () => void
+  }
+  runtime: {
+    executeAction: (
+      request: SourceAction,
+    ) => Promise<unknown>
+  }
+}
+
 /**
  * Map a current color mode back to the value a pre-2026-09-14 Slatecast bundle
  * expects. Only used to fill the deprecated `colour` alias in the snapshot.
@@ -129,6 +172,7 @@ export const createBrowserMode = ({
   publisher,
   getGlobalClockConfig,
   externalViewProbe,
+  platform,
 }: {
   config: InkcastConfig
   publisher: MqttPublisher
@@ -143,6 +187,14 @@ export const createBrowserMode = ({
     timeoutMs?: number
     fetchHealth?: typeof fetch
   }
+  /**
+   * The platform's channel cache and source runtime, for the one device-page
+   * view whose data is not pushed by Home Assistant: a device's
+   * `spoolsChannel` is read from the cache and its spool commands are executed
+   * by that channel's source. Optional so a test of the MQTT-fed views needs
+   * no platform.
+   */
+  platform?: BrowserModePlatform
 }) => {
   const devices = config.browserDevices
   const { baseTopic } = config.mqtt
@@ -151,6 +203,83 @@ export const createBrowserMode = ({
   const viewDataStore = createViewDataStore()
   const photoConfigStore = createBrowserPhotoConfigStore()
   const backlightStore = createBrowserBacklightStore()
+  const controlStore =
+    platform?.store ?? createPlatformStore()
+  const remoteAmbientLight = createRemoteAmbientLight({
+    store: controlStore,
+    getCurrentView: (deviceId) => {
+      const target = platform?.getDeviceTarget?.(deviceId)
+      if (target) {
+        const view = platform?.getTarget?.(target)?.view
+        return view
+          ? { id: `view:${view.id}`, name: view.name }
+          : undefined
+      }
+      const device = stateStore.deviceById.get(deviceId)
+      const view =
+        device &&
+        getBrowserViewByName({
+          device,
+          name: stateStore.getActiveView(deviceId),
+        })
+      return view &&
+        !view.clientId.startsWith("external-view:")
+        ? {
+            id: `builtin:${view.clientId}`,
+            name: view.name,
+          }
+        : undefined
+    },
+  })
+  const ambientLightMqtt = createRemoteAmbientLightMqtt({
+    controller: remoteAmbientLight,
+    publisher,
+    baseTopic,
+  })
+  const mirrorAmbientLight = (deviceId: string) => {
+    void ambientLightMqtt
+      .publish({ deviceId })
+      .catch(() => {})
+  }
+  const ambientViewSubscription = platform?.subscribe?.(
+    () => {
+      devices
+        .filter((device) => device.hasRemoteAmbientLight)
+        .forEach((device) => {
+          mirrorAmbientLight(device.id)
+        })
+    },
+  )
+  const remoteBacklight = createRemoteBacklight({
+    store: controlStore,
+    getChannel: (id) => platform?.hub.get(id),
+  })
+  const remoteBacklightMqtt = createRemoteBacklightMqtt({
+    controller: remoteBacklight,
+    publisher,
+    baseTopic,
+  })
+  // Persist first and mirror asynchronously: a disconnected broker must never
+  // delay a direct hardware control or its management response.
+  const mirrorRemoteBacklight = (deviceId: string) => {
+    void remoteBacklightMqtt
+      .publish({ deviceId })
+      .catch(() => {})
+  }
+  const backlightSubscription = platform?.hub.subscribe(
+    (snapshot) => {
+      devices
+        .filter(
+          (device) =>
+            device.hasRemoteBacklight &&
+            remoteBacklight.get(device.id).channel ===
+              snapshot.id,
+        )
+        .forEach((device) => {
+          mirrorRemoteBacklight(device.id)
+        })
+    },
+  )
   // Devices whose backlight agent last reported `online`. A transition INTO
   // online (including the first one seen after server start) is when the
   // stored level is re-sent — that is what survives a panel reboot.
@@ -241,6 +370,41 @@ export const createBrowserMode = ({
     },
   })
 
+  const readAmbientLightData = (deviceId: string) => {
+    const target = platform?.getDeviceTarget?.(deviceId)
+    if (!target)
+      return buildAmbientLightData({
+        data: buildViewDataState(deviceId),
+      })
+    const view = platform?.getTarget?.(target)?.view
+    const snapshots =
+      view?.panels
+        .flatMap((panel) =>
+          Object.values(panel.bindings).map((channelId) =>
+            platform?.hub.get(channelId),
+          ),
+        )
+        .filter(
+          (snapshot) => snapshot?.status === "ready",
+        ) ?? []
+    const read = (type: string) =>
+      snapshots.find((snapshot) => snapshot?.type === type)
+        ?.data
+    return buildAmbientLightData({
+      data: {
+        nowPlaying: read(
+          "now-playing.v1",
+        ) as ViewDataState["nowPlaying"],
+        agenda: read(
+          "agenda.v1",
+        ) as ViewDataState["agenda"],
+        weather: read("weather.v1") as
+          | { condition?: string }
+          | undefined,
+      },
+    })
+  }
+
   const buildViewDataState = (
     deviceId: string,
   ): ViewDataState => {
@@ -249,13 +413,142 @@ export const createBrowserMode = ({
     const weather = viewDataStore.getWeather(deviceId)
     const agenda = viewDataStore.getAgenda(deviceId)
     const printers = viewDataStore.getPrinters(deviceId)
+    const spools = viewDataStore.getSpools(deviceId)
+    const printQueueChannel = devices.find(
+      (device) => device.id === deviceId,
+    )?.printQueueChannel
+    const printQueue = printQueueChannel
+      ? (platform?.hub.get(printQueueChannel)
+          ?.data as ViewDataState["queue"])
+      : undefined
     return {
       ...(nowPlaying ? { nowPlaying } : {}),
       ...(queue ? { queue } : {}),
+      ...(printQueue ? { printQueue } : {}),
       ...(weather ? { weather } : {}),
       ...(agenda ? { agenda } : {}),
       ...(printers ? { printers } : {}),
+      ...(spools ? { spools } : {}),
     }
+  }
+
+  /**
+   * The spools channel is the one device-page feed that comes from the
+   * platform's cache rather than from an MQTT push. Every device naming a
+   * channel gets that channel's last valid value on connect and every change
+   * after; a channel in `waiting` or `error` keeps the last value on the glass
+   * rather than blanking it, the same way a retained MQTT payload would.
+   */
+  const spoolsDeviceIdsByChannelId = new Map<
+    string,
+    string[]
+  >()
+  devices.forEach((device) => {
+    if (!device.spoolsChannel) {
+      return
+    }
+    spoolsDeviceIdsByChannelId.set(device.spoolsChannel, [
+      ...(spoolsDeviceIdsByChannelId.get(
+        device.spoolsChannel,
+      ) ?? []),
+      device.id,
+    ])
+  })
+  const applySpoolsSnapshot = (
+    snapshot: ChannelSnapshot,
+  ) => {
+    devices
+      .filter(
+        (device) =>
+          device.printQueueChannel === snapshot.id,
+      )
+      .forEach((device) => {
+        if (
+          snapshot.status === "ready" &&
+          snapshot.type === "queue.v1"
+        ) {
+          hub.broadcast({
+            deviceId: device.id,
+            message: {
+              type: "print_queue",
+              data: snapshot.data as NonNullable<
+                ViewDataState["queue"]
+              >,
+            },
+          })
+        }
+      })
+    const deviceIds = spoolsDeviceIdsByChannelId.get(
+      snapshot.id,
+    )
+    if (
+      !deviceIds ||
+      snapshot.data === null ||
+      snapshot.data === undefined ||
+      (snapshot.status !== "ready" &&
+        snapshot.status !== "stale")
+    ) {
+      return
+    }
+    const data = snapshot.data as ContractData["spools.v1"]
+    deviceIds.forEach((deviceId) => {
+      viewDataStore.setSpools({ deviceId, data })
+      hub.broadcast({
+        deviceId,
+        message: { type: "spools", data },
+      })
+    })
+  }
+  const spoolsSubscription = {
+    unsubscribe: undefined as (() => void) | undefined,
+  }
+  if (
+    platform &&
+    (spoolsDeviceIdsByChannelId.size > 0 ||
+      devices.some((device) => device.printQueueChannel))
+  ) {
+    spoolsDeviceIdsByChannelId.forEach(
+      (_ids, channelId) => {
+        const snapshot = platform.hub.get(channelId)
+        if (snapshot) {
+          applySpoolsSnapshot(snapshot)
+        }
+      },
+    )
+    spoolsSubscription.unsubscribe = platform.hub.subscribe(
+      applySpoolsSnapshot,
+    )
+  }
+
+  /**
+   * A spool command is EXECUTED here, by the device's spools channel source,
+   * and never published: Home Assistant holds no spool inventory, so there is
+   * nothing on the other end of the command topic that could act on it. The
+   * source validates the spool, the slot and the tag against its own data
+   * before it calls the dashboard.
+   */
+  const executeSpoolCommand = async ({
+    deviceId,
+    action,
+    value,
+    payload,
+  }: {
+    deviceId: string
+    action: string
+    value: string
+    payload: Record<string, unknown>
+  }) => {
+    const device = stateStore.deviceById.get(deviceId)
+    if (!platform || !device?.spoolsChannel) {
+      throw new Error(
+        `Device ${deviceId} has no spools channel to execute ${action}.`,
+      )
+    }
+    await platform.runtime.executeAction({
+      channelId: device.spoolsChannel,
+      action: action.replace(/^spool_/, ""),
+      payload: { ...payload, spoolId: value },
+    })
   }
 
   /** The device's settings with the current global clock config stamped on. */
@@ -291,6 +584,9 @@ export const createBrowserMode = ({
         shape: device.shape,
         hasTouch: device.hasTouch,
         hasViewDrawer: device.hasViewDrawer,
+        hasPrinterNavigation: Boolean(
+          device.printQueueChannel,
+        ),
         color: device.color,
         ...resolveBrowserPanelProperties(device),
         // Legacy aliases for a kiosk still on the pre-rename bundle. See
@@ -354,6 +650,8 @@ export const createBrowserMode = ({
       viewName: view.name,
       isExplicit: !isRestore,
     })
+    if (device.hasRemoteAmbientLight)
+      mirrorAmbientLight(deviceId)
     if (!isRestore) {
       const topics = topicsByDeviceId.get(deviceId)
       if (topics) {
@@ -371,6 +669,7 @@ export const createBrowserMode = ({
   }
 
   type RouteKind =
+    | "ambientLight"
     | "view"
     | "viewRestore"
     | "reload"
@@ -384,6 +683,8 @@ export const createBrowserMode = ({
     | "photoQueryRestore"
     | "photoInterval"
     | "photoIntervalRestore"
+    | "backlightPower"
+    | "backlightPowerState"
     | "backlightLevel"
     | "backlightLevelRestore"
     | "backlightBrightness"
@@ -404,7 +705,10 @@ export const createBrowserMode = ({
     if (!topics) {
       return
     }
-    const routeEntries: readonly [string, RouteKind][] = [
+    const routeEntries: readonly (readonly [
+      string,
+      RouteKind,
+    ])[] = [
       [topics.viewCommand, "view"],
       [topics.viewState, "viewRestore"],
       [topics.reloadCommand, "reload"],
@@ -425,30 +729,56 @@ export const createBrowserMode = ({
       [topics.printersDataCommand, "printersData"],
       [topics.viewHoldCommand, "viewHold"],
     ]
-    // The backlight level only means something when a backlight agent listens
-    // on the device's MQTT light topics.
-    const backlightRouteEntries: readonly [
+    // Both native controllers and external agents use the same light command
+    // topics. Only the external agent restores retained level/availability.
+    const backlightRouteEntries: readonly (readonly [
       string,
       RouteKind,
-    ][] = device.hasMqttBacklight
-      ? [
-          [topics.backlightLevelCommand, "backlightLevel"],
-          [
-            topics.backlightLevelState,
-            "backlightLevelRestore",
-          ],
-          [
-            topics.backlightBrightnessCommand,
-            "backlightBrightness",
-          ],
-          [
-            topics.backlightAvailability,
-            "backlightAvailability",
-          ],
-        ]
-      : []
+    ])[] =
+      device.hasMqttBacklight || device.hasRemoteBacklight
+        ? [
+            [topics.backlightCommand, "backlightPower"],
+            ...(!device.hasRemoteBacklight
+              ? [
+                  [
+                    topics.backlightState,
+                    "backlightPowerState",
+                  ] as const,
+                ]
+              : []),
+            [
+              topics.backlightLevelCommand,
+              "backlightLevel",
+            ],
+            ...(!device.hasRemoteBacklight
+              ? [
+                  [
+                    topics.backlightLevelState,
+                    "backlightLevelRestore",
+                  ] as const,
+                ]
+              : []),
+            [
+              topics.backlightBrightnessCommand,
+              "backlightBrightness",
+            ],
+            ...(!device.hasRemoteBacklight
+              ? [
+                  [
+                    topics.backlightAvailability,
+                    "backlightAvailability",
+                  ] as const,
+                ]
+              : []),
+          ]
+        : []
     routeEntries
       .concat(backlightRouteEntries)
+      .concat(
+        device.hasRemoteAmbientLight
+          ? [[topics.ambientLightCommand, "ambientLight"]]
+          : [],
+      )
       .forEach(([topic, kind]) => {
         routes.set(topic, { deviceId: device.id, kind })
       })
@@ -520,6 +850,47 @@ export const createBrowserMode = ({
       return
     }
 
+    if (
+      kind === "ambientLight" &&
+      stateStore.deviceById.get(deviceId)
+        ?.hasRemoteAmbientLight
+    ) {
+      if (ambientLightMqtt.command({ deviceId, payload }))
+        mirrorAmbientLight(deviceId)
+      return
+    }
+    if (
+      stateStore.deviceById.get(deviceId)
+        ?.hasRemoteBacklight &&
+      [
+        "backlightPower",
+        "backlightBrightness",
+        "backlightLevel",
+      ].includes(kind)
+    ) {
+      if (
+        remoteBacklightMqtt.command({
+          deviceId,
+          kind,
+          payload,
+        })
+      ) {
+        mirrorRemoteBacklight(deviceId)
+      }
+      return
+    }
+    if (
+      kind === "backlightPower" ||
+      kind === "backlightPowerState"
+    ) {
+      if (payload === "ON" || payload === "OFF") {
+        backlightStore.setPower({
+          deviceId,
+          isOn: payload === "ON",
+        })
+      }
+      return
+    }
     if (kind === "view" || kind === "viewRestore") {
       await applyView({
         deviceId,
@@ -841,6 +1212,28 @@ export const createBrowserMode = ({
       handler: handleMessage,
     })
 
+    await Promise.all(
+      devices
+        .filter((device) => device.hasRemoteBacklight)
+        .map((device) =>
+          remoteBacklightMqtt.publish({
+            deviceId: device.id,
+            isForced: true,
+          }),
+        ),
+    )
+
+    await Promise.all(
+      devices
+        .filter((device) => device.hasRemoteAmbientLight)
+        .map((device) =>
+          ambientLightMqtt.publish({
+            deviceId: device.id,
+            isForced: true,
+          }),
+        ),
+    )
+
     // Publish the URL diagnostic sensor + reset the connected flag (retained
     // ON from a previous run would lie until the first socket event).
     await Promise.all(
@@ -900,7 +1293,8 @@ export const createBrowserMode = ({
               stateStore.getSettings(device.id).orientation,
             ),
           },
-          ...(device.hasMqttBacklight
+          ...(device.hasMqttBacklight &&
+          !device.hasRemoteBacklight
             ? [
                 {
                   topic: topics.backlightLevelState,
@@ -933,9 +1327,11 @@ export const createBrowserMode = ({
   const attach = (
     app: Hono,
     options?: {
-      getPlatformScreenId?: (
+      getPlatformTarget?: (
         deviceId: string,
-      ) => string | undefined
+      ) =>
+        | { kind: "view" | "screen"; id: string }
+        | undefined
     },
   ) => {
     const { injectWebSocket, upgradeWebSocket } =
@@ -991,14 +1387,14 @@ export const createBrowserMode = ({
           404,
         )
       }
-      const screenId = options?.getPlatformScreenId?.(
+      const target = options?.getPlatformTarget?.(
         context.req.param("id") ?? "",
       )
-      if (screenId)
+      if (target)
         return context.html(
           buildPlatformPage().replace(
             "</body>",
-            `<script id="castkit-platform-target" type="application/json">${JSON.stringify({ kind: "screen", id: screenId, deviceId: context.req.param("id") }).replaceAll("<", "\\u003c")}</script></body>`,
+            `<script id="castkit-platform-target" type="application/json">${JSON.stringify({ ...target, deviceId: context.req.param("id") }).replaceAll("<", "\\u003c")}</script></body>`,
           ),
         )
       return context.html(buildDevicePageHtml({ snapshot }))
@@ -1020,6 +1416,12 @@ export const createBrowserMode = ({
           height: device.height,
         },
         page_url: `/d/${device.id}`,
+        ...(device.hasRemoteBacklight ||
+        device.hasRemoteAmbientLight
+          ? {
+              controls_url: `/d/${device.id}/controls.json`,
+            }
+          : {}),
         ready_selector: "[data-castkit-ready]",
         input: {
           target_attribute: "data-castkit-target",
@@ -1027,6 +1429,44 @@ export const createBrowserMode = ({
         },
         cache: [],
         refresh: { max_fps: 10, heartbeat_ms: 2000 },
+      })
+    })
+
+    app.get("/d/:id/controls.json", (context) => {
+      const deviceId = context.req.param("id") ?? ""
+      const device = stateStore.deviceById.get(deviceId)
+      if (
+        !device?.hasRemoteBacklight &&
+        !device?.hasRemoteAmbientLight
+      ) {
+        return context.json(
+          { error: "no direct backlight" },
+          404,
+        )
+      }
+      context.header("Cache-Control", "no-store")
+      return context.json({
+        ...(device?.hasRemoteBacklight
+          ? remoteBacklight.resolve(deviceId)
+          : {}),
+        ...(device?.hasRemoteAmbientLight
+          ? {
+              ambientLight: (() => {
+                const state =
+                  remoteAmbientLight.resolve(deviceId)
+                return {
+                  isOn: state.isOn,
+                  brightness: state.brightness,
+                  mode: state.mode,
+                  demo: state.demo,
+                }
+              })(),
+              ambientLightPolicy:
+                remoteAmbientLight.get(deviceId),
+              ambientLightData:
+                readAmbientLightData(deviceId),
+            }
+          : {}),
       })
     })
 
@@ -1175,6 +1615,25 @@ export const createBrowserMode = ({
                 })
               }
             }
+            if (
+              SPOOL_COMMAND_ACTIONS.includes(
+                command.action,
+              ) &&
+              typeof command.value === "string"
+            ) {
+              executeSpoolCommand({
+                deviceId,
+                action: command.action,
+                value: command.value,
+                payload: command.payload ?? {},
+              }).catch((error) => {
+                console.error(
+                  `[castkit] ${command.action} failed for ${deviceId}`,
+                  error,
+                )
+              })
+              return
+            }
             publisher
               .publish({
                 topic: topics.command,
@@ -1214,13 +1673,89 @@ export const createBrowserMode = ({
     if (!device) {
       return null
     }
+    const ambientSettings = device.hasRemoteAmbientLight
+      ? (() => {
+          const state = remoteAmbientLight.get(deviceId)
+          const resolved =
+            remoteAmbientLight.resolve(deviceId)
+          return {
+            ambientLightPower: state.isOn ? "on" : "off",
+            ambientLightBrightness: String(
+              state.brightness,
+            ),
+            ambientLightMode: state.mode,
+            ambientLightDemo: String(state.demo),
+            ambientLightFollowView: String(
+              state.followView,
+            ),
+            ambientLightViewModes: JSON.stringify(
+              state.viewModes,
+            ),
+            ambientLightEffectivePower:
+              resolved.isOn && state.brightness > 0
+                ? "on"
+                : "off",
+            ambientLightEffectiveMode:
+              resolved.effectiveMode,
+            ambientLightEffectiveView:
+              resolved.view?.name ?? "Unavailable view",
+            ambientLightEffectiveViewId:
+              resolved.view?.id ?? "",
+            ambientLightViewOptions: JSON.stringify([
+              ...getBrowserViewsForDevice(device)
+                .filter(
+                  (view) =>
+                    !view.clientId.startsWith(
+                      "external-view:",
+                    ),
+                )
+                .map((view) => ({
+                  id: `builtin:${view.clientId}`,
+                  name: view.name,
+                })),
+              ...(platform?.store?.get().views ?? []).map(
+                (view) => ({
+                  id: `view:${view.id}`,
+                  name: view.name,
+                }),
+              ),
+            ]),
+          }
+        })()
+      : {}
+    if (device.hasRemoteBacklight) {
+      const settings = remoteBacklight.get(deviceId)
+      return {
+        ...ambientSettings,
+        backlightLevel: String(settings.level),
+        backlightPower: settings.power,
+        backlightRoomChannel: settings.channel,
+        backlightRoomEntity: settings.entity,
+        backlightEffective: String(
+          remoteBacklight.resolve(deviceId)
+            .backlight_percent,
+        ),
+        backlightRoomStatus: String(
+          remoteBacklight.resolve(deviceId).room_status,
+        ),
+      }
+    }
     return device.hasMqttBacklight
       ? {
+          ...ambientSettings,
           backlightLevel: String(
             backlightStore.getPercent(deviceId),
           ),
+          backlightPower: backlightStore.getIsOn(deviceId)
+            ? "on"
+            : "off",
+          backlightEffective: String(
+            backlightStore.getIsOn(deviceId)
+              ? backlightStore.getPercent(deviceId)
+              : 0,
+          ),
         }
-      : {}
+      : ambientSettings
   }
 
   /**
@@ -1239,17 +1774,56 @@ export const createBrowserMode = ({
     const device = stateStore.deviceById.get(deviceId)
     const topics = topicsByDeviceId.get(deviceId)
     if (
+      device?.hasRemoteAmbientLight &&
+      kind.startsWith("ambientLight")
+    ) {
+      const isUpdated = remoteAmbientLight.set({
+        deviceId,
+        kind,
+        payload,
+      })
+      if (isUpdated) mirrorAmbientLight(deviceId)
+      return isUpdated
+    }
+    if (device?.hasRemoteBacklight) {
+      const isUpdated = remoteBacklight.set({
+        deviceId,
+        kind,
+        payload,
+      })
+      if (isUpdated) mirrorRemoteBacklight(deviceId)
+      return isUpdated
+    }
+    if (
       !device ||
       !topics ||
       !publisher.isEnabled ||
-      kind !== "backlightLevel" ||
+      !["backlightLevel", "backlightPower"].includes(
+        kind,
+      ) ||
       !device.hasMqttBacklight
     ) {
       return false
     }
+    if (
+      kind === "backlightPower" &&
+      !["on", "off"].includes(payload)
+    )
+      return false
+    if (
+      kind === "backlightLevel" &&
+      parseBacklightPercentPayload(payload) === null
+    )
+      return false
     await publisher.publish({
-      topic: topics.backlightLevelCommand,
-      payload,
+      topic:
+        kind === "backlightPower"
+          ? topics.backlightCommand
+          : topics.backlightLevelCommand,
+      payload:
+        kind === "backlightPower"
+          ? payload.toUpperCase()
+          : payload,
       isRetained: false,
     })
     return true
@@ -1265,6 +1839,9 @@ export const createBrowserMode = ({
     start,
     /** Stops the timers this mode owns, so a test (or shutdown) can settle. */
     stop: () => {
+      spoolsSubscription.unsubscribe?.()
+      backlightSubscription?.()
+      ambientViewSubscription?.()
       externalViewHealth.stop()
       hub.stop()
     },

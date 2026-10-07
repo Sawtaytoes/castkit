@@ -77,20 +77,9 @@ export const getFinishAtMs = ({
 }
 
 /**
- * The finish as a person reads it off the glass: "3:47 PM" later today,
- * "Tomorrow 3:47 PM", "Fri 3:47 PM" further out.
- *
- * A bare clock time reads as TODAY. A print that ended the next afternoon
- * showed "3:47 PM" on the workbench panel, and the owner read three hours where
- * the printer meant twenty-seven.
- *
- * The day is named whenever the finish falls on a DIFFERENT CALENDAR DAY, not
- * when it is more than twenty-four hours out. Midnight is the boundary a person
- * means: an overnight print ending at 01:00 is eight hours away and is still
- * not today, and the bare time would misread there in the same way.
- *
- * The words match BambuBuddy's own ETA, which is where the same finish is read
- * everywhere else in the house.
+ * A predicted finish within twenty-four hours shows only the clock time, even
+ * across midnight. Beyond that elapsed-time window, the configured timezone
+ * determines the day prefix: tomorrow, a weekday, or a date.
  *
  * A weekday stops naming a day once the name comes round again, so a week or
  * more out gets the date. No print runs that long; a bad end time pushed by an
@@ -113,14 +102,65 @@ export const formatFinishTime = ({
     toMillis: finishAtMs,
   })
 
-  if (dayOffset <= 0) {
+  if (
+    finishAtMs - nowMillis <= 24 * 60 * 60 * 1_000 ||
+    dayOffset <= 0
+  ) {
     return time
   }
   if (dayOffset === 1) {
-    return `Tomorrow ${time}`
+    return `T ${time}`
   }
   if (dayOffset < 7) {
     return `${formatClockWeekdayShort(finishAtMs, clock)} ${time}`
   }
   return `${formatClockMonthDay(finishAtMs, clock)} ${time}`
+}
+
+/**
+ * A job that has stopped moving: it finished, or it failed. Either way the
+ * plate still holds the part, and the card stays on the glass until somebody
+ * clears it. The other three states are a printer that is still working.
+ */
+export const isSettledPrinterJob = (
+  job: Pick<PrinterJob, "state">,
+) => job.state === "finished" || job.state === "failed"
+
+/**
+ * When the print ended, as a person reads it off the glass: "3:47 PM" earlier
+ * today, "Yesterday 3:47 PM", "Fri 3:47 PM" further back, a date a week or more
+ * back.
+ *
+ * Historical finishes use calendar days: a finished
+ * plate that nobody cleared overnight must not read as this afternoon. A
+ * printer's end time can also sit a little AHEAD of the panel's clock — the two
+ * are not synchronized to the second — so a finish inside the same day is the
+ * bare time whichever side of now it lands.
+ */
+export const formatEndedTime = ({
+  clock,
+  endedAtMs,
+  nowMillis,
+}: {
+  clock?: BrowserClockConfig
+  endedAtMs: number
+  nowMillis: number
+}): string => {
+  const time = formatClockTime(endedAtMs, clock)
+  const dayOffset = getClockDayOffset({
+    clock,
+    fromMillis: nowMillis,
+    toMillis: endedAtMs,
+  })
+
+  if (dayOffset >= 0) {
+    return time
+  }
+  if (dayOffset === -1) {
+    return `Yesterday ${time}`
+  }
+  if (dayOffset > -7) {
+    return `${formatClockWeekdayShort(endedAtMs, clock)} ${time}`
+  }
+  return `${formatClockMonthDay(endedAtMs, clock)} ${time}`
 }

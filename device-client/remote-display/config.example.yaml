@@ -11,3 +11,7 @@ api_key_name: api_encryption_key
 #   GET /screen.mjpeg   multipart/x-mixed-replace, one part per changed frame
 #   GET /healthz        build marker, viewer count, frame age
 # preview_port: 8790
+
+# Optional Playwright storage state for a private panel. Keep this file private;
+# cookies are credentials. Grant only the views this worker needs, never management.
+# browser_storage_state: {cookies: [], origins: []}

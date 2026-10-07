@@ -12,7 +12,7 @@ import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
  * exactly — these match the shape the default config produces (12-hour time,
  * long date) instead.
  */
-const TWELVE_HOUR_TIME = /^\d{1,2}:\d{2}\s(AM|PM)$/
+const TWELVE_HOUR_TIME = /^\d{1,2}:\d{2}[ap]$/
 const LONG_DATE = /^\w+day, \w+ \d{1,2}$/
 
 const mountAmbientView = async (data: ViewDataState = {}) =>

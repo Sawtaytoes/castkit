@@ -260,3 +260,115 @@ test("Rip Deck binds poster and touch identity to the current job", () => {
     normalizeRipDeck(current).bays[0]?.posterUrl,
   ).toBeUndefined()
 })
+
+test("Rip Deck omits unmeasured and healthy verdicts while preserving real failures and quarantine", () => {
+  const unknownMessage =
+    "Not enough information to judge this rip yet."
+  const snapshot = normalizeRipDeck({
+    ...document,
+    ripDeck: {
+      ...document.ripDeck,
+      bays: [
+        {
+          ...document.ripDeck.bays[0],
+          alert: {
+            verdict: "unknown",
+            message: unknownMessage,
+          },
+        },
+        {
+          ...document.ripDeck.bays[0],
+          drive_id: "drive-error",
+          alert: {
+            verdict: "disc_read_error",
+            message: "A sector could not be read.",
+          },
+        },
+        {
+          ...document.ripDeck.bays[0],
+          drive_id: "drive-held",
+          alert: {
+            verdict: "unknown",
+            message: unknownMessage,
+          },
+          quarantine_reason:
+            "Drive disconnected during the rip.",
+          is_quarantined: true,
+        },
+      ],
+      alerts: [
+        {
+          verdict: "unknown",
+          message: unknownMessage,
+          drive_ids: ["drive-one"],
+        },
+        {
+          verdict: "ok",
+          message: "Reading normally.",
+          drive_ids: ["drive-one"],
+        },
+        {
+          verdict: "disc_marginal_slow",
+          message: "Slow but reading cleanly.",
+          drive_ids: ["drive-one"],
+        },
+        {
+          verdict: "disc_read_error",
+          message: "A sector could not be read.",
+          drive_ids: ["drive-error"],
+        },
+      ],
+      usb_alert: {
+        verdict: "hub_fault",
+        message: "Check the USB connection.",
+        drive_ids: ["drive-held"],
+      },
+    },
+  })
+  expect(snapshot.bays[0]?.problemText).toBeUndefined()
+  expect(snapshot.bays[1]?.problemText).toBe(
+    "A sector could not be read.",
+  )
+  expect(snapshot.bays[2]?.problemText).toBe(
+    "Drive disconnected during the rip.",
+  )
+  expect(
+    snapshot.alerts.map((alert) => alert.message),
+  ).toEqual([
+    "A sector could not be read.",
+    "Check the USB connection.",
+  ])
+})
+
+test("Rip Deck carries physical slot numbers separately from hardware labels", () => {
+  const snapshot = normalizeRipDeck({
+    ...document,
+    ripDeck: {
+      ...document.ripDeck,
+      bays: [
+        {
+          ...document.ripDeck.bays[0],
+          bay: 3,
+          label: "03 - Example Optical Drive",
+        },
+        {
+          ...document.ripDeck.bays[0],
+          drive_id: "drive-ten",
+          bay: 10,
+          label: "10 - Example Optical Drive",
+        },
+        {
+          ...document.ripDeck.bays[0],
+          drive_id: "unassigned",
+          bay: null,
+        },
+      ],
+    },
+  })
+  expect(snapshot.bays[0]).toMatchObject({
+    id: "drive-one",
+    slotNumber: 3,
+  })
+  expect(snapshot.bays[1]?.slotNumber).toBe(10)
+  expect(snapshot.bays[2]?.slotNumber).toBeUndefined()
+})

@@ -7,6 +7,7 @@ import {
   parseNowPlayingPayload,
   parseWeatherPayload,
 } from "@castkit/shared/viewData/parsers"
+import { createHomeAssistantHls } from "./homeAssistantHls.ts"
 import {
   finiteNumber,
   pollingSource,
@@ -19,7 +20,13 @@ import {
 const domainActions: Record<string, string[]> = {
   light: ["turn_on", "turn_off", "toggle"],
   switch: ["turn_on", "turn_off", "toggle"],
-  fan: ["turn_on", "turn_off", "toggle", "set_percentage"],
+  fan: [
+    "turn_on",
+    "turn_off",
+    "toggle",
+    "set_percentage",
+    "set_preset_mode",
+  ],
   cover: [
     "open_cover",
     "close_cover",
@@ -64,11 +71,17 @@ const allowedAttributes = [
   "icon",
   "supported_features",
   "brightness",
+  "supported_color_modes",
+  "color_mode",
+  "effect_list",
+  "effect",
   "color_temp_kelvin",
   "min_color_temp_kelvin",
   "max_color_temp_kelvin",
   "rgb_color",
   "percentage",
+  "percentage_step",
+  "target_temp_step",
   "preset_modes",
   "preset_mode",
   "temperature",
@@ -105,6 +118,7 @@ const allowedAttributes = [
 ]
 const parameters: Record<string, string[]> = {
   set_percentage: ["percentage"],
+  set_preset_mode: ["preset_mode"],
   set_cover_position: ["position"],
   set_temperature: [
     "temperature",
@@ -119,7 +133,12 @@ const parameters: Record<string, string[]> = {
   volume_set: ["volume_level"],
   volume_mute: ["is_volume_muted"],
   start: ["duration"],
-  turn_on: ["brightness", "color_temp_kelvin", "rgb_color"],
+  turn_on: [
+    "brightness",
+    "color_temp_kelvin",
+    "rgb_color",
+    "effect",
+  ],
   unlock: ["code"],
   lock: ["code"],
 }
@@ -164,6 +183,7 @@ export const createHomeAssistantSource: SourceFactory = (
   const headers = {
     Authorization: `Bearer ${context.secrets.token ?? ""}`,
   }
+  const hls = createHomeAssistantHls(context, headers)
   const state: { states: Record<string, unknown>[] } = {
     states: [],
   }
@@ -444,6 +464,22 @@ export const createHomeAssistantSource: SourceFactory = (
         },
       })
     } else if (channel.type === "cameras.v1") {
+      const aliases = new Map(
+        stringList(
+          channel.settings.cameraIdAliases,
+        ).flatMap((entry) => {
+          const separator = entry.indexOf("=")
+          return separator > 0
+            ? [
+                [
+                  entry.slice(0, separator).trim(),
+                  entry.slice(separator + 1).trim(),
+                ] as const,
+              ]
+            : []
+        }),
+      )
+      const isHls = channel.settings.cameraFormat === "hls"
       context.publish({
         channelId: channel.id,
         data: {
@@ -454,7 +490,9 @@ export const createHomeAssistantSource: SourceFactory = (
               ),
             )
             .map((entry) => ({
-              id: textValue(entry.entity_id),
+              id:
+                aliases.get(textValue(entry.entity_id)) ||
+                textValue(entry.entity_id),
               name:
                 textValue(
                   record(entry.attributes).friendly_name,
@@ -462,9 +500,10 @@ export const createHomeAssistantSource: SourceFactory = (
               url: mediaPath({
                 channelId: channel.id,
                 entityId: textValue(entry.entity_id),
-                kind: "camera",
+                kind: isHls ? "hls" : "camera",
               }),
-              isLive: false,
+              isLive: isHls,
+              ...(isHls ? { format: "hls" as const } : {}),
             })),
         },
       })
@@ -539,14 +578,19 @@ export const createHomeAssistantSource: SourceFactory = (
       }),
     )
   }
+  const polling = pollingSource({
+    context,
+    poll,
+    intervalSeconds:
+      finiteNumber(context.source.settings.pollSeconds) ??
+      5,
+  })
   return {
-    ...pollingSource({
-      context,
-      poll,
-      intervalSeconds:
-        finiteNumber(context.source.settings.pollSeconds) ??
-        5,
-    }),
+    ...polling,
+    dispose: () => {
+      polling.dispose()
+      hls.dispose()
+    },
     discover: async () => {
       const response = await sourceRequest({
         context,
@@ -628,7 +672,12 @@ export const createHomeAssistantSource: SourceFactory = (
       )
       return result
     },
-    getMedia: async ({ channelId, assetId, kind }) => {
+    getMedia: async ({
+      channelId,
+      assetId,
+      kind,
+      query = {},
+    }) => {
       const channel = context.channels.find(
         (entry) => entry.id === channelId,
       )
@@ -649,6 +698,14 @@ export const createHomeAssistantSource: SourceFactory = (
           headers,
           path: `/api/camera_proxy/${encodeURIComponent(assetId)}`,
         })
+      }
+      if (
+        kind === "hls" &&
+        assetId.startsWith("camera.") &&
+        channel.type === "cameras.v1" &&
+        channel.settings.cameraFormat === "hls"
+      ) {
+        return hls.fetchResource({ assetId, query })
       }
       const entity = state.states.find(
         (entry) => entry.entity_id === assetId,

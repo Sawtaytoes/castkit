@@ -8,11 +8,12 @@ export default createVitestConfig({
     browser: { enabled: false },
     exclude: [
       "**/render-output/**",
-      // Playwright specs have their own runner (`yarn e2e`); @playwright/test's
+      // Playwright specs have their own runner (`pnpm e2e`); @playwright/test's
       // describe/test globals are not compatible with vitest.
       "e2e/**",
     ],
     projects: [
+      "packages/sdk/vitest.config.ts",
       "packages/core/vitest.config.ts",
       "packages/shared/vitest.config.ts",
       "packages/render/vitest.config.ts",

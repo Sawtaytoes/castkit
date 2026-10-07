@@ -1,8 +1,8 @@
+import { selectPrimaryWindow as selectQuotaWindow } from "@castkit/sdk/aiUsageWindow"
 import type { ContractData } from "@castkit/sdk/contracts"
 
 type AiUsageData = ContractData["ai-usage.v1"]
 type UsageProvider = AiUsageData["providers"][number]
-type UsageWindow = UsageProvider["windows"][number]
 
 /**
  * The share of a window that has to be gone before a second limit is worth
@@ -15,49 +15,27 @@ type UsageWindow = UsageProvider["windows"][number]
  */
 export const DEFAULT_ALERT_PERCENT = 80
 
-const WEEK_HOURS = 168
-
 /**
- * The window that speaks for a provider.
+ * The escalation threshold this panel was configured with.
  *
- * The longest window that is not longer than a week, because that is the
- * budget a person actually plans against. A provider whose windows are all
- * longer than a week gives up its shortest one instead, which is the nearest
- * thing it has to a weekly figure.
- *
- * ⚠️ Ties keep producer order on purpose. Claude publishes an all-models
- * weekly limit and a model-scoped weekly limit, both 168 hours, and the
- * all-models one comes first because it is the limit that stops the work.
- *
- * A provider whose windows carry no period at all falls back to its first
- * window rather than to nothing — an unclassified window is still a real
- * limit, and a blank provider row teaches the reader nothing.
+ * Settings arrive from stored JSON, so the value may be a number, the string
+ * a form field produced, or nothing at all. Anything outside 0-100 falls back
+ * to the default rather than silently turning every limit into an alert, or
+ * none of them.
  */
-export const selectPrimaryWindow = (
-  windows: readonly UsageWindow[],
+export const readAlertPercent = (
+  settings: Record<string, unknown> | undefined,
 ) => {
-  const classified = windows.filter(
-    (usageWindow) => usageWindow.periodHours !== undefined,
-  )
-  if (classified.length === 0) {
-    return windows.at(0)
-  }
-  const withinWeek = classified.filter(
-    (usageWindow) =>
-      (usageWindow.periodHours ?? 0) <= WEEK_HOURS,
-  )
-  const hasWeeklyCandidate = withinWeek.length > 0
-  return (
-    hasWeeklyCandidate ? withinWeek : classified
-  ).reduce((best, candidate) => {
-    const candidateHours = candidate.periodHours ?? 0
-    const bestHours = best.periodHours ?? 0
-    if (hasWeeklyCandidate) {
-      return candidateHours > bestHours ? candidate : best
-    }
-    return candidateHours < bestHours ? candidate : best
-  })
+  const value = Number(settings?.alertPercent)
+  return Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 100
+    ? value
+    : DEFAULT_ALERT_PERCENT
 }
+
+/** Select the same primary window used by per-view server activity. */
+export const selectPrimaryWindow = selectQuotaWindow
 
 /**
  * The rows each provider is worth drawing, before the panel's height is known.

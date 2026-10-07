@@ -116,6 +116,55 @@ test("camera data uses CastKit media paths and media requests check channel memb
   adapter.dispose()
 })
 
+test("HA camera channel can provide live video under a printer ID alias", async () => {
+  const context = sourceContext({
+    fetch: vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              entity_id: "camera.example_printer",
+              state: "idle",
+              attributes: {
+                friendly_name: "Example printer",
+              },
+            },
+          ]),
+        ),
+    ),
+    channels: [
+      {
+        id: "cameras",
+        name: "Cameras",
+        sourceId: "source",
+        type: "cameras.v1",
+        settings: {
+          entityIds: ["camera.example_printer"],
+          cameraFormat: "hls",
+          cameraIdAliases: ["camera.example_printer=1"],
+        },
+      },
+    ],
+  })
+  const adapter = createHomeAssistantSource(context)
+  await adapter.start?.()
+  expect(context.publish).toHaveBeenCalledWith({
+    channelId: "cameras",
+    data: {
+      cameras: [
+        {
+          id: "1",
+          name: "Example printer",
+          url: "/api/platform/channels/cameras/media/camera.example_printer?kind=hls",
+          isLive: true,
+          format: "hls",
+        },
+      ],
+    },
+  })
+  adapter.dispose()
+})
+
 test("script actions send only channel-approved variables", async () => {
   const fetchRequest = vi
     .fn<typeof fetch>()
@@ -157,6 +206,51 @@ test("script actions send only channel-approved variables", async () => {
   ).toEqual({
     entity_id: "script.create_timer",
     variables: { name: "Tea", duration: "00:03:00" },
+  })
+  adapter.dispose()
+})
+
+test("light capability metadata survives normalization and LED effects use the narrow turn-on allowlist", async () => {
+  const attributes = {
+    supported_color_modes: ["rgbw", "color_temp"],
+    color_mode: "rgbw",
+    effect_list: ["Solid", "Rainbow"],
+    effect: "Solid",
+    brightness: 128,
+  }
+  expect(
+    normalizeHomeAssistantEntity({
+      entity_id: "light.desk",
+      state: "on",
+      attributes,
+    }).attributes,
+  ).toEqual(attributes)
+  const fetchRequest = vi.fn<typeof fetch>(
+    async () => new Response("[]"),
+  )
+  const adapter = createHomeAssistantSource(
+    sourceContext({ fetch: fetchRequest }),
+  )
+  await adapter.executeAction?.({
+    channelId: "channel",
+    action: "turn_on",
+    payload: {
+      entityId: "light.desk",
+      effect: "Rainbow",
+      rgb_color: [20, 40, 80],
+      color_temp_kelvin: 4000,
+      area_id: "all",
+    },
+  })
+  expect(
+    JSON.parse(
+      String(fetchRequest.mock.calls[0]?.[1]?.body),
+    ),
+  ).toEqual({
+    entity_id: "light.desk",
+    effect: "Rainbow",
+    rgb_color: [20, 40, 80],
+    color_temp_kelvin: 4000,
   })
   adapter.dispose()
 })

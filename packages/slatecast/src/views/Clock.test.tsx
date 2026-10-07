@@ -12,7 +12,7 @@ import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
  * asserted — the tests check the *shape* each config produces, and compare two
  * timezones against each other for the offset the config asked for.
  */
-const TWELVE_HOUR_TIME = /^\d{1,2}:\d{2}\s(AM|PM)$/
+const TWELVE_HOUR_TIME = /^\d{1,2}:\d{2}[ap]$/
 const TWENTY_FOUR_HOUR_TIME = /^\d{1,2}:\d{2}$/
 const LONG_DATE = /^\w+day, \w+ \d{1,2}$/
 const NUMERIC_DATE = /^\d{1,2}\/\d{1,2}\/\d{4}$/

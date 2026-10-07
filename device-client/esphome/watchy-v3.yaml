@@ -1,0 +1,1282 @@
+# SQFMI Watchy v3: a local clock and a CastKit image page.
+# Install with a wrapper overriding the substitutions and providing secrets.
+# The watch carries no points rules or child identity: configure its CastKit channel.
+substitutions:
+  node_name: watchy
+  friendly_name: Watchy Display
+  device_id: watchy
+  topic_base: castkit
+  timezone: UTC
+  agenda_state_topic: ${topic_base}/${device_id}/agenda/set
+  binary_clock_enabled: 'false'
+  scores_enabled: 'false'
+  scores_state_topic: ${topic_base}/${device_id}/scores/set
+  timer_state_topic: ${topic_base}/${device_id}/timer/state
+  battery_sync_minutes: '1'
+  scores_expected_count: '0'
+  state_refresh_topic: ''
+  active_timer_sync_minutes: '1'
+
+esphome:
+  name: ${node_name}
+  friendly_name: ${friendly_name}
+  min_version: 2026.9.1
+  includes:
+    - <esp_wifi.h>
+  on_boot:
+    - priority: 1000
+      then:
+        - lambda: |-
+            id(boot_wake_cause) = esp_sleep_get_wakeup_cause();
+            id(boot_button_mask) = esp_sleep_get_ext1_wakeup_status();
+            id(boot_reset_reason) = esp_reset_reason();
+            if (id(boot_reset_reason) != ESP_RST_DEEPSLEEP) {
+              watchy::network_retry = {};
+              watchy::hold_motor_off();
+            }
+            watchy::configure_cpu();
+    - priority: 600
+      then:
+        - lambda: |-
+            // The accelerometer is unused. Its state survives deep sleep, so set it once.
+            if (id(boot_reset_reason) != ESP_RST_DEEPSLEEP) {
+              struct Bus {
+                i2c::I2CBus *bus;
+                bool read_register(uint8_t address, uint8_t reg, uint8_t &value) {
+                  return bus->write_readv(address, &reg, 1, &value, 1) == i2c::ERROR_OK;
+                }
+                bool write_register(uint8_t address, uint8_t reg, uint8_t value) {
+                  const uint8_t bytes[2] = {reg, value};
+                  return bus->write(address, bytes, 2) == i2c::ERROR_OK;
+                }
+              } bus{id(sensor_bus)};
+              watchy::accel_state = watchy::suspend_bma423(bus, [](uint32_t ms) { delay(ms); });
+              ESP_LOGI("watchy_power", "Accelerometer: %s", watchy::accel_state_text(watchy::accel_state));
+            }
+            if (id(boot_reset_reason) == ESP_RST_DEEPSLEEP) {
+              const auto &saved = watchy::runtime_cache;
+              id(agenda_cache) = saved.agenda;
+              id(scores_cache) = saved.scores;
+              id(timer_cache) = saved.timer;
+              id(agenda_page) = saved.agenda_page;
+              id(scores_page) = saved.scores_page;
+              id(is_binary_clock) = saved.binary;
+              id(is_agenda_page) = saved.agenda_selected;
+              id(is_scores_page) = saved.scores_selected;
+              id(is_points_page) = saved.image_selected;
+              id(is_timer_page) = saved.timer_selected;
+            }
+            ESP_LOGI("watchy", "Restored scores for %s: %u entries", id(scores_cache).day, id(scores_cache).count);
+            ESP_LOGI("watchy", "Restored agenda for %s: %u events", id(agenda_cache).day, id(agenda_cache).count);
+            const uint64_t buttons = id(boot_button_mask);
+            if (buttons) id(last_button_at) = millis();
+            if (buttons & (1ULL << 0)) id(cycle_agenda).execute();
+            if (buttons & (1ULL << 7)) id(cycle_clock).execute();
+            if (buttons & (1ULL << 8)) id(cycle_scores).execute();
+            id(is_timer_sync_requested) = bool(buttons & (1ULL << 6));
+            if (buttons & (1ULL << 6)) {
+              id(is_binary_clock) = ${binary_clock_enabled};
+              id(is_timer_page) = false;
+              id(is_scores_page) = false;
+              id(is_points_page) = false;
+              id(is_agenda_page) = false;
+            }
+            if (id(is_agenda_page) || id(is_scores_page) || id(is_points_page) || id(is_timer_page))
+              id(is_binary_clock) = false;
+    - priority: -100
+      then:
+        - component.update: wake_reason
+        - component.update: accelerometer_state
+        - component.update: clock_wake_duration
+        - component.update: sync_wake_duration
+        - component.update: battery_voltage
+        - lambda: |-
+            auto now = id(watch_time).now();
+            id(network_this_wake) = watchy::network_due({
+              id(usb_connected).state, bool(id(boot_button_mask) & (1ULL << 6)) ||
+                (bool(id(boot_button_mask) & (1ULL << 8)) && id(is_scores_page)),
+              id(boot_reset_reason) != ESP_RST_DEEPSLEEP, now.is_valid(), now.minute,
+              ${battery_sync_minutes}, now.timestamp, watchy::timer_running(id(timer_cache)),
+              ${active_timer_sync_minutes}}, watchy::network_retry);
+            // Points asks for current data; other view buttons remain local.
+            if (id(boot_wake_cause) == ESP_SLEEP_WAKEUP_EXT1 && !(id(boot_button_mask) & (1ULL << 6))
+                && !(bool(id(boot_button_mask) & (1ULL << 8)) && id(is_scores_page))
+                && !id(usb_connected).state && now.is_valid()) id(network_this_wake) = false;
+        - component.update: watch_display
+        - if:
+            condition:
+              lambda: return bool(id(boot_button_mask) & (1ULL << 7));
+            then:
+              - script.execute: sync_if_menu_held
+        - if:
+            condition:
+              lambda: return id(network_this_wake);
+            then:
+              - lambda: watchy::boost_cpu(true);
+              - wifi.enable:
+              - script.execute: connect_mqtt
+              - script.execute: battery_cycle
+              - if:
+                  condition:
+                    lambda: return bool(id(boot_button_mask) & (1ULL << 8)) && id(is_scores_page);
+                  then:
+                    - script.execute: request_fresh_state
+            else:
+              - script.execute: sleep_until_minute
+
+  on_shutdown:
+    - priority: 700
+      then:
+        - lambda: |-
+            auto &saved = watchy::runtime_cache;
+            saved.agenda = id(agenda_cache);
+            saved.scores = id(scores_cache);
+            saved.timer = id(timer_cache);
+            saved.agenda_page = id(agenda_page);
+            saved.scores_page = id(scores_page);
+            saved.binary = id(is_binary_clock);
+            saved.agenda_selected = id(is_agenda_page);
+            saved.scores_selected = id(is_scores_page);
+            saved.image_selected = id(is_points_page);
+            saved.timer_selected = id(is_timer_page);
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 8MB
+  # Boot and draw at 80 MHz; network work holds 160 MHz through a power-management lock.
+  cpu_frequency: 80MHZ
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_PM_ENABLE: y
+      CONFIG_RTC_CLK_SRC_EXT_CRYS: y
+      CONFIG_MBEDTLS_HARDWARE_MPI: y
+      CONFIG_MBEDTLS_LARGE_KEY_SOFTWARE_MPI: y
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [watchy_battery, watchy_display]
+
+logger:
+  level: INFO
+  hardware_uart: USB_SERIAL_JTAG
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  enable_on_boot: false
+  # Flash storage lets the package forget a weak access point by its key. ESPHome
+  # writes it only when the access point changes, never on an unchanged wake.
+  fast_connect:
+    enabled: true
+    storage: flash
+  # Finish short battery transfers quickly; USB uses modem sleep while connected.
+  power_save_mode: NONE
+  on_connect:
+    - lambda: |-
+        esp_wifi_set_ps(id(usb_connected).state ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE);
+    - script.execute: connect_mqtt
+  on_disconnect:
+    - mqtt.disable:
+        id: mqtt_client
+    - lambda: watchy::boost_cpu(false);
+  reboot_timeout: 0s
+  ap:
+    password: !secret ap_fallback_password
+
+captive_portal:
+
+api:
+  reboot_timeout: 0s
+  encryption:
+    key: !secret api_encryption_key
+  actions:
+    - action: set_time
+      variables:
+        timestamp: int
+      then:
+        - lambda: |-
+            if (timestamp < 1700000000) return;
+            timeval value = {timestamp, 0};
+            settimeofday(&value, nullptr);
+        - script.execute: connect_mqtt
+        - component.update: watch_display
+        - script.execute: refresh_castkit
+    - action: set_image
+      variables:
+        image_url: string
+      then:
+        - online_image.set_url:
+            id: castkit_image
+            url: !lambda return image_url;
+            update: true
+    - action: show_agenda
+      then:
+        - lambda: |-
+            id(is_binary_clock) = false;
+            id(is_scores_page) = false;
+            id(is_agenda_page) = true;
+            id(is_points_page) = false;
+            id(is_timer_page) = false;
+            id(agenda_page) = 0;
+        - component.update: watch_display
+    - action: show_scores
+      then:
+        - lambda: |-
+            if (!${scores_enabled}) return;
+            id(is_binary_clock) = false;
+            id(is_scores_page) = true;
+            id(is_agenda_page) = false;
+            id(is_points_page) = false;
+            id(is_timer_page) = false;
+            id(scores_page) = 0;
+        - component.update: watch_display
+        - script.execute: request_scores_sync
+    - action: show_binary_clock
+      then:
+        - lambda: |-
+            if (!${binary_clock_enabled}) return;
+            id(is_binary_clock) = true;
+            id(is_scores_page) = false;
+            id(is_agenda_page) = false;
+            id(is_points_page) = false;
+            id(is_timer_page) = false;
+        - component.update: watch_display
+    - action: show_clock
+      then:
+        - lambda: id(is_binary_clock) = ${binary_clock_enabled};
+        - lambda: id(is_scores_page) = false;
+        - lambda: id(is_points_page) = false;
+        - lambda: id(is_agenda_page) = false;
+        - lambda: id(is_timer_page) = false;
+        - component.update: watch_display
+    - action: cycle_agenda
+      then:
+        - lambda: id(last_button_at) = millis();
+        - script.execute: cycle_agenda
+        - component.update: watch_display
+    - action: cycle_scores
+      then:
+        - lambda: id(last_button_at) = millis();
+        - script.execute: cycle_scores
+        - component.update: watch_display
+        - script.execute: request_scores_sync
+    - action: sync_now
+      then:
+        - script.execute: request_sync
+    - action: toggle_clock
+      then:
+        - lambda: id(last_button_at) = millis();
+        - script.execute: cycle_clock
+        - component.update: watch_display
+    - action: show_castkit
+      then:
+        - lambda: id(is_binary_clock) = false;
+        - lambda: id(is_scores_page) = false;
+        - lambda: id(is_points_page) = true;
+        - lambda: id(is_agenda_page) = false;
+        - script.execute: refresh_castkit
+        - component.update: watch_display
+
+# Keep the boot recovery counter out of NVS during frequent sleep wakes.
+safe_mode:
+  storage: rtc
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+    on_begin:
+      - lambda: id(is_updating) = true;
+      - script.stop: battery_cycle
+      - deep_sleep.prevent: watch_sleep
+    on_error:
+      - lambda: id(is_updating) = false;
+      - script.execute: battery_cycle
+    on_abort:
+      - lambda: id(is_updating) = false;
+      - script.execute: battery_cycle
+
+mqtt:
+  id: mqtt_client
+  broker: !secret mqtt_broker
+  port: 8883
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  certificate_authority: !secret mqtt_certificate_authority
+  discovery: false
+  topic_prefix: ${node_name}/firmware
+  enable_on_boot: false
+  log_topic: null
+  reboot_timeout: 0s
+  on_connect:
+    # The backend callback precedes the component's connected state.
+    - wait_until:
+        lambda: return id(mqtt_client).is_connected();
+    # Publish during the short battery wake, not only on the 30-second poll.
+    - lambda: watchy::network_succeeded(watchy::network_retry);
+    - lambda: |-
+        auto *wifi_component = wifi::global_wifi_component;
+        const int8_t rssi = wifi_component->wifi_rssi();
+        const auto bssid = wifi_component->wifi_bssid();
+        std::array<char, 33> ssid{};
+        wifi_component->wifi_ssid_to(ssid);
+        char bssid_text[18];
+        snprintf(bssid_text, sizeof(bssid_text), "%02x:%02x:%02x:%02x:%02x:%02x",
+          bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
+        auto now = id(watch_time).now();
+        const uint32_t timestamp = now.is_valid() ? now.timestamp : 0;
+        const bool is_rescan = watchy::should_rescan(rssi, timestamp, watchy::roam_state);
+        if (is_rescan) {
+          // An invalid index fails ESPHome's fast-connect load, so the next start scans
+          // every channel and joins the strongest configured network.
+          wifi::SavedWifiFastConnectSettings forgotten{};
+          forgotten.ap_index = -1;
+          auto saved = global_preferences->make_preference<wifi::SavedWifiFastConnectSettings>(
+            App.get_config_version_hash() + 1, true);
+          saved.save(&forgotten);
+          watchy::roam_state.last_rescan = timestamp;
+        }
+        const int channel = wifi_component->get_wifi_channel();
+        ESP_LOGI("watchy_network", "Joined %s via %s on channel %d at %d dBm after %u ms%s", ssid.data(),
+          bssid_text, channel, rssi, unsigned(millis()), is_rescan ? "; weak, rescanning next sync" : "");
+        id(mqtt_client).publish_json("${topic_base}/${device_id}/wifi", [&](JsonObject root) {
+          root["ssid"] = ssid.data();
+          root["bssid"] = bssid_text;
+          root["channel"] = channel;
+          root["rssi"] = rssi;
+          root["mqttConnectedMs"] = millis();
+          root["isRescanNext"] = is_rescan;
+        }, 0, true);
+    - component.update: battery_voltage
+    - script.execute: refresh_castkit
+  on_message:
+    - topic: ${topic_base}/${device_id}/image_url
+      then:
+        - if:
+            condition:
+              lambda: return id(is_points_page);
+            then:
+              - online_image.set_url:
+                  id: castkit_image
+                  url: !lambda return x;
+                  update: true
+  on_json_message:
+    - topic: ${scores_state_topic}
+      then:
+        - lambda: |-
+            if (!${scores_enabled}) return;
+            auto now = id(watch_time).now();
+            if (!watchy::parse_scores(x, id(scores_cache), now.is_valid() ? now.timestamp : 0)) {
+              ESP_LOGW("watchy", "Invalid scores snapshot; keeping saved scores.");
+              return;
+            }
+            watchy::record_scores_receipt(x, id(scores_receipt));
+            id(has_received_scores) = watchy::scores_sync_complete(id(scores_cache), id(scores_receipt), ${scores_expected_count});
+            ESP_LOGI("watchy", "Scores received: %u unique rows; complete: %s", unsigned(id(scores_receipt).count),
+              id(has_received_scores) ? "yes" : "no");
+        - component.update: saved_scores
+        - script.execute: finish_battery_sync
+        - if:
+            condition:
+              lambda: return id(is_scores_page);
+            then:
+              - component.update: watch_display
+    - topic: ${agenda_state_topic}
+      then:
+        - lambda: |-
+            id(has_received_agenda) = true;
+            auto now = id(watch_time).now();
+            const std::string day = x["date"] | "";
+            // Reject an old retained snapshot once the local date is known.
+            if (now.is_valid() && day != now.strftime("%Y-%m-%d")) return;
+            if (!watchy::parse_agenda(x, id(agenda_cache))) {
+              ESP_LOGW("watchy", "Invalid agenda snapshot; keeping the last saved agenda.");
+              return;
+            }
+            id(agenda_page) = std::min(id(agenda_page), std::max(0, (int(id(agenda_cache).count) - 1) / 2));
+        - script.execute: finish_battery_sync
+        - if:
+            condition:
+              lambda: return !id(is_points_page);
+            then:
+              - component.update: watch_display
+    - topic: ${timer_state_topic}
+      then:
+        - lambda: |-
+            id(has_received_timer) = true;
+            // New sessions and explicit refresh open the timer; routine sync preserves navigation.
+            const uint64_t previous_start = id(timer_cache).started_ms;
+            watchy::parse_timer(x, id(timer_cache));
+            const bool is_active = watchy::timer_running(id(timer_cache));
+            if ((!id(is_scores_page) || id(is_timer_sync_requested))
+                && watchy::should_open_timer(id(timer_cache), previous_start, id(is_timer_sync_requested))) {
+              id(is_binary_clock) = false;
+              id(is_scores_page) = false;
+              id(is_timer_page) = true;
+              id(is_points_page) = false;
+              id(is_agenda_page) = false;
+            }
+            id(is_timer_sync_requested) = false;
+            if (!is_active && id(is_timer_page)) {
+              id(is_timer_page) = false;
+              id(is_binary_clock) = ${binary_clock_enabled};
+            }
+            ESP_LOGI("watchy", "Timer snapshot: %s; banked minutes: %d", is_active ? "running" : "idle",
+              int(id(timer_cache).banked_minutes));
+        - component.update: watch_display
+        - script.execute: finish_battery_sync
+        - script.execute: battery_cycle
+
+http_request:
+  timeout: 10s
+  verify_ssl: true
+
+image:
+  - platform: online_image
+    id: castkit_image
+    url: https://example.com/unused.png
+    format: PNG
+    type: BINARY
+    resize: 200x200
+    update_interval: never
+    on_download_finished:
+      - lambda: id(has_castkit_image) = true;
+      - script.execute: finish_battery_sync
+      - if:
+          condition:
+            lambda: return id(is_points_page);
+          then:
+            - component.update: watch_display
+    on_error:
+      - logger.log:
+          level: WARN
+          format: CastKit image unavailable; keeping the local clock usable.
+
+time:
+  - platform: sntp
+    id: watch_time
+    timezone: ${timezone}
+    servers:
+      - time.cloudflare.com
+      - time.google.com
+      - pool.ntp.org
+    on_time_sync:
+      - logger.log: Clock synchronized.
+      - script.execute: connect_mqtt
+      - if:
+          condition:
+            lambda: return !id(is_points_page);
+          then:
+            - component.update: watch_display
+      - script.execute: refresh_castkit
+    on_time:
+      - seconds: 0
+        minutes: '*'
+        then:
+          - if:
+              condition:
+                lambda: return !id(is_points_page);
+              then:
+                - component.update: watch_display
+  - platform: homeassistant
+    id: ha_time
+    timezone: ${timezone}
+    on_time_sync:
+      - logger.log: Clock synchronized from Home Assistant.
+      - script.execute: connect_mqtt
+      - component.update: watch_display
+      - script.execute: refresh_castkit
+
+# Only used once per cold boot to suspend the unused BMA423 accelerometer.
+i2c:
+  id: sensor_bus
+  sda: GPIO12
+  scl: GPIO11
+  scan: false
+
+spi:
+  clk_pin: GPIO47
+  mosi_pin: GPIO48
+
+font:
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+    id: agenda_time_font
+    size: 26
+    glyphs: ' 0123456789:ANTadelopwxty'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 400
+    id: agenda_title_font
+    size: 20
+    glyphs: ' !"''%()+,-./0123456789:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+    id: clock_font
+    size: 56
+    glyphs: '0123456789:'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
+    id: label_font
+    size: 18
+    glyphs: ' !"''%()+,-./0123456789:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
+    id: date_font
+    size: 28
+    glyphs: ' ,-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
+    id: period_font
+    size: 22
+    glyphs: 'ap'
+
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
+    id: clock_date_font
+    size: 20
+    glyphs: ' ,0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+    id: score_initial_font
+    size: 42
+    glyphs: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz?'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+    id: score_value_font
+    size: 46
+    glyphs: '-0123456789'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 700
+    id: compact_font
+    size: 16
+    glyphs: ' !"''%()+,-./0123456789:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 400
+    id: next_title_font
+    size: 18
+    glyphs: ' !"''%()+,-./0123456789:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+
+# Data and page choices survive deep sleep in RTC FAST SRAM, never NVS.
+globals:
+  - id: boot_wake_cause
+    type: int
+    initial_value: '0'
+  - id: boot_button_mask
+    type: uint64_t
+    initial_value: '0'
+  - id: boot_reset_reason
+    type: int
+    initial_value: '0'
+  - id: has_received_agenda
+    type: bool
+    initial_value: 'false'
+  - id: is_timer_sync_requested
+    type: bool
+    initial_value: 'false'
+  - id: has_received_timer
+    type: bool
+    initial_value: 'false'
+  - id: scores_receipt
+    type: watchy::ScoresReceipt
+    initial_value: 'watchy::ScoresReceipt{}'
+  - id: has_received_scores
+    type: bool
+    initial_value: 'false'
+  - id: is_updating
+    type: bool
+    initial_value: 'false'
+  - id: is_binary_clock
+    type: bool
+    initial_value: '${binary_clock_enabled}'
+  - id: scores_cache
+    type: watchy::ScoresCache
+    initial_value: 'watchy::ScoresCache{}'
+  - id: is_scores_page
+    type: bool
+    initial_value: 'false'
+  - id: scores_page
+    type: int
+    initial_value: '0'
+  - id: agenda_cache
+    type: watchy::AgendaCache
+    initial_value: 'watchy::AgendaCache{}'
+  - id: is_agenda_page
+    type: bool
+    initial_value: 'false'
+  - id: agenda_page
+    type: int
+    initial_value: '0'
+  - id: last_button_at
+    type: uint32_t
+    initial_value: '0'
+  - id: is_points_page
+    type: bool
+    initial_value: 'false'
+  - id: has_castkit_image
+    type: bool
+    initial_value: 'false'
+  - id: is_timer_page
+    type: bool
+    initial_value: 'false'
+  - id: timer_cache
+    type: watchy::TimerCache
+    initial_value: 'watchy::TimerCache{}'
+  - id: network_this_wake
+    type: bool
+    initial_value: 'true'
+
+sensor:
+  - platform: watchy_battery
+    id: battery_voltage
+    internal: true
+    update_interval: 30s
+    on_value:
+      - mqtt.publish_json:
+          topic: ${topic_base}/${device_id}/battery
+          payload: |-
+            root["volts"] = x;
+            const bool charging = id(usb_connected).state && id(charger_active).state;
+            root["percent"] = watchy::battery_percent(x, id(usb_connected).state, charging);
+            root["isCharging"] = charging;
+            root["isOnBattery"] = !id(usb_connected).state;
+  - platform: wifi_signal
+    name: Wi-Fi Signal
+    update_interval: 60s
+  # Average awake time per battery wake (application start to sleep entry).
+  - platform: template
+    id: clock_wake_duration
+    name: Clock Wake Duration
+    entity_category: diagnostic
+    unit_of_measurement: ms
+    accuracy_decimals: 0
+    update_interval: never
+    lambda: |-
+      if (watchy::wake_stats.local_count == 0) return NAN;
+      return float(watchy::wake_stats.local_ms);
+  - platform: template
+    id: sync_wake_duration
+    name: Sync Wake Duration
+    entity_category: diagnostic
+    unit_of_measurement: ms
+    accuracy_decimals: 0
+    update_interval: never
+    lambda: |-
+      if (watchy::wake_stats.network_count == 0) return NAN;
+      return float(watchy::wake_stats.network_ms);
+
+button:
+  - platform: restart
+    name: Restart
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: template
+    name: Saved Timer
+    entity_category: diagnostic
+    update_interval: 30s
+    lambda: |-
+      const auto &timer = id(timer_cache);
+      return watchy::timer_running(timer) ? std::string(timer.name) + "; started " + std::to_string(timer.started_ms)
+        + "; banked " + std::to_string(timer.banked_minutes) : std::string("None");
+  - platform: template
+    id: wake_reason
+    name: Wake Reason
+    entity_category: diagnostic
+    update_interval: never
+    lambda: |-
+      const auto reason = id(boot_wake_cause);
+      if (reason == ESP_SLEEP_WAKEUP_TIMER) return std::string("Minute timer");
+      if (reason == ESP_SLEEP_WAKEUP_EXT0) return std::string("USB power");
+      if (reason == ESP_SLEEP_WAKEUP_EXT1) {
+        const auto buttons = id(boot_button_mask);
+        std::string text = "Button:";
+        if (buttons & (1ULL << 0)) text += " Up";
+        if (buttons & (1ULL << 6)) text += " Back";
+        if (buttons & (1ULL << 7)) text += " Menu";
+        if (buttons & (1ULL << 8)) text += " Down";
+        return text;
+      }
+      return std::string("Reset / power on; reset reason ") + std::to_string(id(boot_reset_reason));
+  - platform: template
+    id: accelerometer_state
+    name: Accelerometer
+    entity_category: diagnostic
+    update_interval: never
+    lambda: return std::string(watchy::accel_state_text(watchy::accel_state));
+  - platform: template
+    name: Saved Agenda
+    entity_category: diagnostic
+    update_interval: 30s
+    lambda: |-
+      auto &agenda = id(agenda_cache);
+      return agenda.day[0] ? std::string(agenda.day) + " (" + std::to_string(agenda.count) + " events)"
+        : std::string("Not synced");
+  - platform: template
+    id: saved_scores
+    name: Saved Scores
+    entity_category: diagnostic
+    update_interval: 30s
+    lambda: |-
+      auto &scores = id(scores_cache);
+      if (!scores.day[0]) return std::string("Not synced");
+      std::string text = scores.day;
+      for (int i = 0; i < scores.count; i++) text += "; " + std::string(scores.entries[i].name)
+        + " " + std::to_string(scores.entries[i].points);
+      return text;
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+      entity_category: diagnostic
+  - platform: template
+    name: Device Time
+    entity_category: diagnostic
+    update_interval: 60s
+    lambda: |-
+      auto now = id(watch_time).now();
+      return now.is_valid() ? now.strftime("%Y-%m-%d %H:%M:%S %Z") : std::string("Not synchronized");
+
+binary_sensor:
+  - platform: gpio
+    id: charger_active
+    name: Charging
+    device_class: battery_charging
+    entity_category: diagnostic
+    pin:
+      number: GPIO10
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 2s
+    on_state:
+      - component.update: battery_voltage
+      - component.update: watch_display
+  - platform: gpio
+    id: usb_connected
+    internal: true
+    pin: GPIO21
+    on_press:
+      - deep_sleep.prevent: watch_sleep
+      - lambda: watchy::boost_cpu(true);
+      - wifi.enable:
+      - lambda: esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+      - script.execute: connect_mqtt
+    on_release:
+      - lambda: esp_wifi_set_ps(WIFI_PS_NONE);
+      - script.execute: battery_cycle
+  - platform: gpio
+    id: menu_button
+    pin:
+      number: GPIO7
+      allow_other_uses: true
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+    on_press:
+      - lambda: id(last_button_at) = millis();
+      - script.execute: cycle_clock
+      - component.update: watch_display
+      - script.execute: sync_if_menu_held
+  - platform: gpio
+    id: back_button
+    pin:
+      number: GPIO6
+      allow_other_uses: true
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+    on_press:
+      - lambda: |-
+          id(last_button_at) = millis();
+          id(is_binary_clock) = ${binary_clock_enabled};
+          id(is_scores_page) = false;
+          id(is_points_page) = false;
+          id(is_agenda_page) = false;
+          id(is_timer_page) = false;
+      - component.update: watch_display
+      - script.execute: request_sync
+  - platform: gpio
+    id: up_button
+    pin:
+      number: GPIO0
+      allow_other_uses: true
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+    on_press:
+      - lambda: id(last_button_at) = millis();
+      - script.execute: cycle_agenda
+      - component.update: watch_display
+  - platform: gpio
+    id: down_button
+    pin:
+      number: GPIO8
+      allow_other_uses: true
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+    on_press:
+      - lambda: id(last_button_at) = millis();
+      - script.execute: cycle_scores
+      - component.update: watch_display
+      - script.execute: request_scores_sync
+
+script:
+  - id: sync_if_menu_held
+    mode: restart
+    then:
+      - delay: 2s
+      - if:
+          condition:
+            binary_sensor.is_on: menu_button
+          then:
+            - script.execute: request_sync
+  - id: request_sync
+    then:
+      - script.execute:
+          id: request_cached_sync
+          is_timer_requested: true
+  - id: request_scores_sync
+    then:
+      - if:
+          condition:
+            lambda: return id(is_scores_page);
+          then:
+            - script.execute:
+                id: request_cached_sync
+                is_timer_requested: false
+  - id: request_cached_sync
+    parameters:
+      is_timer_requested: bool
+    mode: restart
+    then:
+      - logger.log: "Manual request: synchronizing cached data."
+      - script.stop: sleep_until_minute
+      - lambda: |-
+          id(is_timer_sync_requested) = is_timer_requested;
+          if (!id(mqtt_client).is_connected()) id(has_received_agenda) = false;
+          id(has_received_timer) = false;
+          id(has_received_scores) = false;
+          id(scores_receipt) = {};
+          id(network_this_wake) = true;
+          watchy::boost_cpu(true);
+      - wifi.enable:
+      - script.execute: connect_mqtt
+      - script.execute: battery_cycle
+      - script.execute: request_fresh_state
+  - id: request_fresh_state
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: return !std::string("${state_refresh_topic}").empty();
+          then:
+            - wait_until:
+                condition:
+                  mqtt.connected:
+            - mqtt.publish_json:
+                topic: !lambda return std::string("${state_refresh_topic}");
+                qos: 1
+                retain: false
+                payload: |-
+                  root["requestId"] = std::string("${node_name}") + "-" + std::to_string(id(watch_time).now().timestamp)
+                    + "-" + std::to_string(millis());
+  - id: cycle_clock
+    then:
+      - lambda: |-
+          id(is_binary_clock) = ${binary_clock_enabled} && !id(is_binary_clock);
+          id(is_scores_page) = false;
+          id(is_agenda_page) = false;
+          id(is_points_page) = false;
+          id(is_timer_page) = false;
+  - id: cycle_scores
+    then:
+      - lambda: |-
+          if (!${scores_enabled}) {
+            if (id(is_agenda_page)) id(cycle_agenda).execute();
+            return;
+          }
+          const int last_page = std::max(0, (int(id(scores_cache).count) - 1) / 3);
+          if (id(is_scores_page) && id(scores_page) < last_page) id(scores_page)++;
+          else {
+            id(is_scores_page) = !id(is_scores_page);
+            id(scores_page) = 0;
+          }
+          id(is_binary_clock) = !id(is_scores_page) && ${binary_clock_enabled};
+          id(is_agenda_page) = false;
+          id(is_points_page) = false;
+          id(is_timer_page) = false;
+  - id: cycle_agenda
+    then:
+      - lambda: |-
+          auto now = id(watch_time).now();
+          if (now.is_valid()) watchy::expire_agenda(id(agenda_cache), now.timestamp, now.strftime("%Y-%m-%d"));
+          const int last_page = std::max(0, (int(id(agenda_cache).count) - 1) / 2);
+          if (id(is_agenda_page) && id(agenda_page) < last_page) id(agenda_page)++;
+          else {
+            id(is_agenda_page) = !id(is_agenda_page);
+            id(agenda_page) = 0;
+          }
+          id(is_binary_clock) = !id(is_agenda_page) && ${binary_clock_enabled};
+          id(is_scores_page) = false;
+          id(is_points_page) = false;
+          id(is_timer_page) = false;
+  # An optional roaming package can prepare its VPN before MQTT starts.
+  - id: prepare_network
+    mode: restart
+    then: []
+  - id: connect_mqtt
+    mode: restart
+    then:
+      # DNS before association can waste the entire short wake on a failed lookup.
+      - wait_until:
+          condition:
+            and:
+              - wifi.connected:
+              - lambda: return id(watch_time).now().is_valid();
+      - script.execute: prepare_network
+      - script.wait: prepare_network
+      - delay: 200ms
+      - mqtt.enable:
+          id: mqtt_client
+  - id: refresh_castkit
+    mode: restart
+    then:
+      # Local pages need only retained state, never a server-rendered image.
+      - if:
+          condition:
+            lambda: return id(is_points_page);
+          then:
+            # Subscribe before asking for a new single-use URL after each wake.
+            - delay: 1s
+            - mqtt.publish:
+                topic: ${topic_base}/${device_id}/refresh/set
+                payload: PRESS
+  - id: finish_battery_sync
+    mode: restart
+    then:
+      # Wait for complete scores, then allow queued telemetry to flush.
+      - delay: 1s
+      - if:
+          condition:
+            lambda: |-
+              const bool needs_timer = std::string("${timer_state_topic}") != "${topic_base}/${device_id}/timer/state";
+              return !id(usb_connected).state && !id(is_updating)
+                && id(battery_voltage).has_state() && id(battery_voltage).state >= 3.35f
+                && id(has_received_agenda) && (!needs_timer || id(has_received_timer))
+                && (!${scores_enabled} || id(has_received_scores))
+                && (!id(is_points_page) || id(has_castkit_image));
+          then:
+            - script.execute: sleep_until_minute
+  - id: sleep_until_minute
+    mode: single
+    then:
+      - wait_until:
+          condition:
+            lambda: |-
+              return !id(watch_display).is_refreshing()
+                && !id(up_button).state && !id(down_button).state
+                && !id(menu_button).state && !id(back_button).state
+                && (!id(last_button_at) || millis() - id(last_button_at) >= 800);
+      - if:
+          condition:
+            lambda: return !id(usb_connected).state && !id(is_updating);
+          then:
+            - lambda: |-
+                auto now = id(watch_time).now();
+                if (id(network_this_wake) && !id(mqtt_client).is_connected()) {
+                  watchy::network_failed(watchy::network_retry, now.is_valid() ? now.timestamp : 0, ${battery_sync_minutes});
+                }
+                watchy::record_wake(watchy::wake_stats, id(network_this_wake), millis());
+                ESP_LOGI("watchy_power", "Sleeping after %u ms awake; network wake: %s; retry at %u",
+                  unsigned(millis()), id(network_this_wake) ? "yes" : "no", unsigned(watchy::network_retry.next_attempt));
+            - deep_sleep.enter:
+                id: watch_sleep
+                sleep_duration: !lambda |-
+                  if (!id(usb_connected).state && id(battery_voltage).has_state() && id(battery_voltage).state < 3.35f) return 3600000;
+                  auto now = id(watch_time).now();
+                  return now.is_valid() ? (60 - now.second) * 1000
+                    : watchy::retry_minutes(watchy::network_retry, ${battery_sync_minutes}) * 60000;
+  - id: battery_cycle
+    # Repeated retained-state updates must not postpone an idle sleep deadline.
+    mode: single
+    then:
+      - deep_sleep.prevent: watch_sleep
+      - delay: 15s
+      - if:
+          condition:
+            lambda: return !id(usb_connected).state && !id(is_updating) && !id(mqtt_client).is_connected();
+          then:
+            - delay: 15s
+      - if:
+          condition:
+            lambda: return !id(usb_connected).state && !id(is_updating);
+          then:
+            # A low cell must not leave old points or a frozen clock on glass.
+            - if:
+                condition:
+                  lambda: return id(battery_voltage).has_state() && id(battery_voltage).state < 3.35f;
+                then:
+                  - lambda: |-
+                      id(is_points_page) = false;
+                  - component.update: watch_display
+                  - script.execute: sleep_until_minute
+                else:
+                  - script.execute: sleep_until_minute
+
+interval:
+  - interval: 30s
+    then:
+      - script.execute: battery_cycle
+      - if:
+          condition:
+            lambda: return id(is_points_page) && !id(has_castkit_image);
+          then:
+            - script.execute: refresh_castkit
+
+deep_sleep:
+  id: watch_sleep
+  esp32_ext1_wakeup:
+    pins:
+      - number: GPIO7
+        allow_other_uses: true
+      - number: GPIO6
+        allow_other_uses: true
+      - number: GPIO0
+        allow_other_uses: true
+      - number: GPIO8
+        allow_other_uses: true
+    mode: ANY_LOW
+
+display:
+  - platform: watchy_display
+    id: watch_display
+    cs_pin: GPIO33
+    dc_pin: GPIO34
+    reset_pin: GPIO35
+    busy_pin: GPIO36
+    full_update_every: 30
+    update_interval: never
+    lambda: |-
+      auto now = id(watch_time).now();
+      if (now.is_valid()) {
+        watchy::expire_agenda(id(agenda_cache), now.timestamp, now.strftime("%Y-%m-%d"));
+        id(agenda_page) = std::min(id(agenda_page), std::max(0, (int(id(agenda_cache).count) - 1) / 2));
+      }
+      ESP_LOGI("watchy_view", "View: %s; agenda page: %d; scores page: %d",
+        id(is_agenda_page) ? "agenda" : id(is_scores_page) ? "scores" : id(is_timer_page) ? "timer"
+          : id(is_points_page) ? "image" : id(is_binary_clock) ? "binary" : "clock",
+        id(agenda_page) + 1, id(scores_page) + 1);
+      if (id(battery_voltage).has_state() && id(battery_voltage).state < 3.35f && !id(usb_connected).state) {
+        it.print(100, 65, id(label_font), TextAlign::CENTER, "Battery low");
+        it.print(100, 100, id(label_font), TextAlign::CENTER, "Connect USB");
+        return;
+      }
+      if (id(is_binary_clock)) {
+        if (now.is_valid()) {
+          it.print(7, 60, id(compact_font), TextAlign::CENTER_LEFT, "h");
+          it.print(7, 95, id(compact_font), TextAlign::CENTER_LEFT, "m");
+          const int hour = (now.hour + 11) % 12 + 1;
+          for (int bit = 5; bit >= 0; bit--) {
+            const int value = 1 << bit;
+            const int x = 40 + (5 - bit) * 25;
+            if (bit == 5 || bit == 3 || bit == 1) {
+              it.printf(x, 27, id(compact_font), TextAlign::TOP_CENTER, "%d", value);
+            }
+            it.circle(x, 60, 9);
+            if (hour & value) it.filled_circle(x, 60, 8);
+            it.circle(x, 95, 9);
+            if (now.minute & value) it.filled_circle(x, 95, 8);
+          }
+        } else it.print(100, 100, id(label_font), TextAlign::CENTER, "Syncing time...");
+      } else if (id(is_scores_page)) {
+        auto &scores = id(scores_cache);
+        if (!scores.day[0]) {
+          it.print(100, 90, id(label_font), TextAlign::CENTER, "Scores not synced");
+          it.print(100, 120, id(label_font), TextAlign::CENTER, "Press Back to sync");
+        } else {
+          const int page = std::min(id(scores_page), std::max(0, (int(scores.count) - 1) / 3));
+          for (int row = 0; row < 3; row++) {
+            const int index = page * 3 + row;
+            if (index >= scores.count) break;
+            const auto &entry = scores.entries[index];
+            const std::string name = entry.name;
+            const std::string initial = name.empty() ? "?" : name.substr(0, 1);
+            std::string ending = name.size() > 1 ? name.substr(1) : "";
+            const auto points = std::to_string(entry.points);
+            int bounds_x, bounds_y, initial_width, height, value_width, ending_width;
+            it.get_text_bounds(0, 0, initial.c_str(), id(score_initial_font), TextAlign::TOP_LEFT,
+              &bounds_x, &bounds_y, &initial_width, &height);
+            it.get_text_bounds(0, 0, points.c_str(), id(score_value_font), TextAlign::TOP_LEFT,
+              &bounds_x, &bounds_y, &value_width, &height);
+            const int ending_x = 8 + initial_width;
+            const int available = 193 - value_width - 7 - ending_x;
+            while (!ending.empty()) {
+              it.get_text_bounds(0, 0, ending.c_str(), id(compact_font), TextAlign::TOP_LEFT,
+                &bounds_x, &bounds_y, &ending_width, &height);
+              if (ending_width <= available) break;
+              ending.pop_back();
+            }
+            const int y = 38 + row * 62;
+            it.print(7, y, id(score_initial_font), TextAlign::CENTER_LEFT, initial.c_str());
+            it.print(ending_x, y + 9, id(compact_font), TextAlign::CENTER_LEFT, ending.c_str());
+            // Very large totals must still fit the numeric column.
+            auto *const value_font = value_width <= 110 ? id(score_value_font) : id(date_font);
+            it.print(193, y, value_font, TextAlign::CENTER_RIGHT, points.c_str());
+          }
+          if (!now.is_valid() || now.strftime("%Y-%m-%d") != scores.day)
+            it.printf(100, 182, id(compact_font), TextAlign::TOP_CENTER, "Saved %s", scores.day);
+        }
+        return;
+      } else if (id(is_agenda_page)) {
+        auto &agenda = id(agenda_cache);
+        const bool is_today = now.is_valid() && now.strftime("%Y-%m-%d") == agenda.day;
+        if (!is_today) {
+          it.print(100, 90, id(label_font), TextAlign::CENTER, "Agenda not synced");
+          it.print(100, 120, id(label_font), TextAlign::CENTER, "Connect to Wi-Fi");
+        } else if (agenda.count == 0) {
+          it.print(100, 100, id(label_font), TextAlign::CENTER, "No events today");
+        } else {
+          const int page = std::min(id(agenda_page), (int(agenda.count) - 1) / 2);
+          for (int row = 0; row < 2; row++) {
+            const int index = page * 2 + row;
+            if (index >= agenda.count) break;
+            const auto &event = agenda.events[index];
+            const int y = 6 + row * 88;
+            if (event.all_day) it.print(6, y, id(agenda_time_font), "All day");
+            else {
+              time_t timestamp = event.start;
+              struct tm local{};
+              localtime_r(&timestamp, &local);
+              it.printf(6, y, id(agenda_time_font), "%d:%02d%s", (local.tm_hour + 11) % 12 + 1,
+                local.tm_min, local.tm_hour < 12 ? "a" : "p");
+            }
+            std::string remaining = event.summary;
+            for (int line = 0; line < 2 && !remaining.empty(); line++) {
+              size_t length = remaining.size();
+              int x, bounds_y, width, height;
+              while (length > 0) {
+                const std::string candidate = remaining.substr(0, length);
+                it.get_text_bounds(0, 0, candidate.c_str(), id(agenda_title_font), TextAlign::TOP_LEFT, &x, &bounds_y, &width, &height);
+                if (width <= 188) break;
+                length--;
+              }
+              if (length < remaining.size() && line == 0) {
+                const size_t space = remaining.rfind(' ', length);
+                if (space != std::string::npos && space > 0) length = space;
+              }
+              std::string text = remaining.substr(0, length);
+              if (line == 1 && length < remaining.size() && length > 3) text = text.substr(0, length - 3) + "...";
+              it.print(6, y + 34 + line * 24, id(agenda_title_font), text.c_str());
+              remaining.erase(0, length);
+              while (!remaining.empty() && remaining.front() == ' ') remaining.erase(0, 1);
+            }
+          }
+          it.printf(100, 176, id(label_font), TextAlign::TOP_CENTER, "%d/%d%s", page + 1,
+            (int(agenda.count) + 1) / 2, agenda.omitted ? " + more" : "");
+        }
+        return;
+      } else if (id(is_timer_page) && watchy::timer_running(id(timer_cache)) && now.is_valid()) {
+        const auto &timer = id(timer_cache);
+        const int elapsed = watchy::elapsed_minutes(timer, now.timestamp);
+        const bool countdown = timer.is_countdown && timer.goal_minutes > 0;
+        it.print(100, 32, id(label_font), TextAlign::TOP_CENTER, std::string(timer.name).substr(0, 17).c_str());
+        it.printf(100, 57, id(clock_font), TextAlign::TOP_CENTER, "%d", watchy::timer_minutes(timer, now.timestamp));
+        it.print(100, 120, id(label_font), TextAlign::TOP_CENTER, countdown ? "min left" : "min today");
+        it.printf(100, 152, id(label_font), TextAlign::TOP_CENTER, "This run: %d min", elapsed);
+      } else if (id(is_points_page) && id(has_castkit_image)) {
+        it.image(0, 0, id(castkit_image));
+        return;
+      } else if (now.is_valid()) {
+        auto clock = now.strftime("%I:%M");
+        if (clock[0] == '0') clock.erase(0, 1);
+        int bounds_x, bounds_y, clock_width, clock_height;
+        it.get_text_bounds(0, 0, clock.c_str(), id(clock_font), TextAlign::TOP_LEFT,
+                           &bounds_x, &bounds_y, &clock_width, &clock_height);
+        it.print(7, 31, id(clock_font), TextAlign::TOP_LEFT, clock.c_str());
+        it.print(7 + clock_width + 4, 59, id(period_font), TextAlign::TOP_LEFT, now.hour < 12 ? "a" : "p");
+        it.strftime(7, 91, id(clock_date_font), TextAlign::TOP_LEFT, "%a, %b %d", now);
+      } else {
+        it.print(100, 75, id(label_font), TextAlign::CENTER, "Syncing time...");
+      }
+      if (now.is_valid() && !id(is_scores_page) && !id(is_timer_page) && !id(is_points_page)) {
+        const auto &agenda = id(agenda_cache);
+        const auto day = now.strftime("%Y-%m-%d");
+        const int divider_y = 120;
+        it.line(7, divider_y, 193, divider_y);
+        const int index = watchy::next_agenda_event(agenda, now.timestamp, day);
+        if (index >= 0) {
+          const auto &event = agenda.events[index];
+          it.print(7, divider_y + 14, id(compact_font), event.all_day ? "Today"
+            : event.start <= now.timestamp ? "Now" : "Next");
+          if (!event.all_day) {
+            time_t timestamp = event.start;
+            struct tm local{};
+            localtime_r(&timestamp, &local);
+            it.printf(193, divider_y + 10, id(agenda_time_font), TextAlign::TOP_RIGHT, "%d:%02d%s",
+              (local.tm_hour + 11) % 12 + 1, local.tm_min, local.tm_hour < 12 ? "a" : "p");
+          }
+          std::string remaining = event.summary;
+          for (int line = 0; line < 2 && !remaining.empty(); line++) {
+            size_t length = remaining.size();
+            int bounds_x, bounds_y, width, height;
+            while (length > 0) {
+              const auto candidate = remaining.substr(0, length);
+              it.get_text_bounds(0, 0, candidate.c_str(), id(next_title_font), TextAlign::TOP_LEFT,
+                &bounds_x, &bounds_y, &width, &height);
+              if (width <= 186) break;
+              length--;
+            }
+            if (length < remaining.size() && line == 0) {
+              const auto space = remaining.rfind(' ', length);
+              if (space != std::string::npos && space > 0) length = space;
+            }
+            std::string text = remaining.substr(0, length);
+            if (line == 1 && length < remaining.size() && length > 3) text = text.substr(0, length - 3) + "...";
+            it.print(7, divider_y + 37 + line * 21, id(next_title_font), text.c_str());
+            remaining.erase(0, length);
+            while (!remaining.empty() && remaining.front() == ' ') remaining.erase(0, 1);
+          }
+        } else it.print(7, divider_y + 18, id(next_title_font),
+          day != agenda.day ? "Agenda not synced" : "No more today");
+      }
+      if (id(battery_voltage).has_state()) {
+        const bool charging = id(usb_connected).state && id(charger_active).state;
+        const int level = watchy::battery_bars(id(battery_voltage).state);
+        it.rectangle(172, 5, 20, 11);
+        it.filled_rectangle(192, 8, 3, 5);
+        for (int bar = 0; bar < level; bar++) it.filled_rectangle(175 + bar * 5, 8, 3, 5);
+        if (charging) {
+          // The bolt sits beside the compact bars, never over them.
+          it.line(167, 4, 162, 10);
+          it.line(162, 10, 168, 10);
+          it.line(168, 10, 163, 16);
+        }
+      }

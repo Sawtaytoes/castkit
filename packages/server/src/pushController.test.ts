@@ -14,11 +14,13 @@ const PNG = Buffer.from([
 const makeController = ({
   activeView = "Clock",
   imageDelivery,
+  publicUrl = "",
   photoEncoding = { format: "png" },
   onRender,
 }: {
   activeView?: string
   imageDelivery?: "mqtt-image" | "http-pull"
+  publicUrl?: string
   photoEncoding?: { format: string; quality?: number }
   /**
    * Runs INSIDE the fake render, so a test can do what Home Assistant's
@@ -91,7 +93,7 @@ const makeController = ({
     renderTokenStore: {
       createToken: () => "token",
     } as never,
-    publicUrl: "",
+    publicUrl,
   })
 
   return {
@@ -106,6 +108,43 @@ const makeController = ({
 }
 
 describe("pushDevice — 'http-pull' panels are locked to PNG", () => {
+  test("an explicit refresh delivers unchanged bytes after a client loses its image", async () => {
+    const {
+      pushController,
+      publishedTopics,
+      deviceConfigStore,
+    } = makeController({
+      imageDelivery: "http-pull",
+      publicUrl: "https://display.example.com",
+    })
+    await pushController.pushDevice(IMPRESSION_DEVICE.id)
+    await pushController.pushDevice(IMPRESSION_DEVICE.id)
+    expect(
+      publishedTopics.filter((topic) =>
+        topic.endsWith("/image_url"),
+      ),
+    ).toHaveLength(1)
+    await pushController.pushDevice(IMPRESSION_DEVICE.id, {
+      isForced: true,
+    })
+    expect(
+      publishedTopics.filter((topic) =>
+        topic.endsWith("/image_url"),
+      ),
+    ).toHaveLength(2)
+    deviceConfigStore.setIsUpdatesEnabled({
+      deviceId: IMPRESSION_DEVICE.id,
+      isEnabled: false,
+    })
+    await pushController.pushDevice(IMPRESSION_DEVICE.id, {
+      isForced: true,
+    })
+    expect(
+      publishedTopics.filter((topic) =>
+        topic.endsWith("/image_url"),
+      ),
+    ).toHaveLength(2)
+  })
   // An ESPHome `online_image` picks its decoder at COMPILE time, so a JPEG or
   // WebP frame is not "lower quality" to it — it is undecodable ("Incorrect PNG
   // signature") and the panel silently keeps its last frame. This bit the

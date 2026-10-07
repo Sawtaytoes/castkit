@@ -8,4 +8,4 @@ and removes the unused package. No application restart occurs.
 - [Package review](installer-review.png)
 - [Installed package](installed-plugin.png)
 
-Run `yarn e2e e2e/pluginManagement.spec.ts` to repeat the flow.
+Run `pnpm e2e e2e/pluginManagement.spec.ts` to repeat the flow.

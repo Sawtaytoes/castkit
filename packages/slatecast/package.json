@@ -16,14 +16,16 @@
   "dependencies": {
     "@castkit/sdk": "workspace:*",
     "@castkit/shared": "workspace:*",
-    "@charcuterie/logic": "^2.4.0",
-    "@charcuterie/tokens": "^1.10.1",
+    "@charcuterie/logic": "^2.9.0",
+    "@charcuterie/tokens": "^1.10.2",
     "@preact/signals": "^2.5.1",
     "@preact/signals-core": "^1.13.1",
+    "hls.js": "^1.7.3",
     "preact": "^10.29.1"
   },
   "devDependencies": {
     "@charcuterie/server": "^0.5.1",
+    "@charcuterie/vitest-config": "^2.0.0",
     "@preact/preset-vite": "^2.10.2",
     "@storybook/addon-docs": "^10",
     "@storybook/preact-vite": "^10",

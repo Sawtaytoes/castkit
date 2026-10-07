@@ -1,6 +1,7 @@
 import type { PrinterJob } from "@castkit/shared/viewData/types"
 import { useEffect, useState } from "preact/hooks"
 import {
+  clearPrinterPlate,
   clockConfig,
   nowMs,
   pausePrinter,
@@ -8,28 +9,46 @@ import {
   resumePrinter,
   stopPrinter,
 } from "../state.ts"
+import { ExpandableMedia } from "./ExpandableMedia.tsx"
 import {
+  FilamentControl,
+  FilamentDetailsDialog,
+} from "./FilamentDetails.tsx"
+import {
+  formatEndedTime,
   formatFinishTime,
   formatRemaining,
   getFinishAtMs,
   getPrinterJobTitle,
+  isSettledPrinterJob,
 } from "./printerJob.ts"
 
 /**
- * Printer Status: one column per printer that is printing RIGHT NOW.
+ * Printer Status: one column per printer that Home Assistant calls active.
  *
  * The workbench panel stands beside the machines, so this view carries no
  * camera and no printer that is idle — a card on the glass means a job is
- * running on the bench in front of you. Home Assistant decides what "active"
- * means and pushes only those printers; the view renders what it is handed.
+ * running on the bench in front of you, or has just stopped and is still
+ * holding its plate. Home Assistant decides what "active" means and pushes
+ * only those printers; the view renders what it is handed.
+ *
+ * A FINISHED or FAILED job stays on the glass until somebody clears the plate.
+ * The whole card takes the state's color, the band reads the end rather than
+ * the time left, the metrics and the Pause/Stop pair go, and a full-width
+ * `Clear plate` button takes their place, with nothing under it.
+ * The card leaves when the next `printers` push no longer carries the job —
+ * the same way a stopped print leaves today. See
+ * docs/decisions/2026-09-28-a-finished-print-stays-on-the-glass-until-the-plate-is-cleared.md.
  *
  * The shape is the shared progress card's: a wide band with the percentage set
  * large, then the labeled facts. It is REPRODUCED from design tokens rather
  * than imported.
  *
- * The state word sits in the HEAD, beside the controls, not inside the band.
- * It is a fact about the printer rather than about the progress, so it belongs
- * with the printer's name and the buttons that change it.
+ * The state word sits in the HEAD, at the right of the printer's name. It is a
+ * fact about the printer rather than about the progress, so it belongs with the
+ * name. The controls that change it sit at the FOOT of the card, full width,
+ * because a fingertip on a wall panel needs a control taller than the head
+ * could hold beside a name.
  *
  * The band then carries the percentage at its right and THE TIME LEFT at its
  * left. The time left is the fact a person walking up to a running printer
@@ -57,20 +76,30 @@ const CONFIRM_TIMEOUT_MS = 12_000
  */
 const PENDING_TIMEOUT_MS = 15_000
 
-type PendingAction = "pause" | "resume" | "stop"
+/**
+ * A clear-plate request's own floor. The job leaving the payload is what ends
+ * it normally; a job still on the glass after this long means the request did
+ * not land, and the button becomes live again so it can be tapped once more.
+ */
+const CLEAR_PENDING_TIMEOUT_MS = 10_000
+
+type PendingAction = "pause" | "resume" | "stop" | "clear"
+
+/** The actions that ask first. Clearing a plate does not: see `PrinterCard`. */
+type ConfirmedAction = Exclude<PendingAction, "clear">
 
 type Confirmation = {
   printerId: string
-  action: PendingAction
+  action: ConfirmedAction
 }
 
-const CONFIRM_QUESTIONS: Record<PendingAction, string> = {
+const CONFIRM_QUESTIONS: Record<ConfirmedAction, string> = {
   pause: "Pause this print?",
   resume: "Resume this print?",
   stop: "Stop this print?",
 }
 
-const CONFIRM_VERBS: Record<PendingAction, string> = {
+const CONFIRM_VERBS: Record<ConfirmedAction, string> = {
   pause: "Pause",
   resume: "Resume",
   stop: "Stop",
@@ -80,6 +109,7 @@ const PENDING_LABELS: Record<PendingAction, string> = {
   pause: "Pausing…",
   resume: "Resuming…",
   stop: "Stopping…",
+  clear: "Clearing…",
 }
 
 const PRINTER_LIST_ROW_HEIGHT = 64
@@ -101,56 +131,109 @@ const STATE_LABELS: Record<PrinterJob["state"], string> = {
   preparing: "Preparing",
   printing: "Printing",
   paused: "Paused",
+  finished: "Finished",
+  failed: "Failed",
+}
+
+type CardIntent =
+  | "neutral"
+  | "warning"
+  | "danger"
+  | "success"
+
+/**
+ * The card's tint. A fault outranks everything: a failed print is a fault and
+ * a finished one that also reports a problem is still a problem.
+ */
+const getCardIntent = (job: PrinterJob): CardIntent => {
+  if (
+    job.problemText !== undefined ||
+    job.state === "failed"
+  ) {
+    return "danger"
+  }
+  if (job.state === "finished") {
+    return "success"
+  }
+  if (job.state === "paused") {
+    return "warning"
+  }
+  return "neutral"
+}
+
+/**
+ * Pending state a story can start a card in. Stories and tests only — the
+ * pending label is component state, and a story cannot tap the button before
+ * its picture is taken. Mirrors `__setPhotoUrlBuilderForStories`.
+ */
+const storyPending: {
+  value: Record<string, PendingAction>
+} = { value: {} }
+
+/** Start the next mount of the view with these actions pending. */
+export const __setPrinterPendingForStories = (
+  pending: Record<string, PendingAction>,
+) => {
+  storyPending.value = pending
 }
 
 /** Left-to-right ordering is HA's; the badge only counts the columns. */
 const PrinterCard = ({
   index,
   isExpanded,
+  isFilamentDetailsOpen,
   job,
+  onClear,
   onToggleExpanded,
+  onShowFilaments,
   pendingAction,
   onRequest,
 }: {
   index: number
   isExpanded: boolean
+  isFilamentDetailsOpen: boolean
   job: PrinterJob
+  onClear: () => void
   onToggleExpanded: () => void
+  onShowFilaments: () => void
   pendingAction: PendingAction | null
-  onRequest: (action: PendingAction) => void
+  onRequest: (action: ConfirmedAction) => void
 }) => {
   const clock = clockConfig.value
   const isPaused = job.state === "paused"
-  const hasProblem = job.problemText !== undefined
-  const controlAction: PendingAction = isPaused
-    ? "resume"
-    : "pause"
-  const controlLabel =
-    pendingAction === "pause" || pendingAction === "resume"
-      ? PENDING_LABELS[pendingAction]
-      : isPaused
-        ? "Resume"
-        : "Pause"
+  const isSettled = isSettledPrinterJob(job)
+  const isFinished = job.state === "finished"
   const finishAtMs = getFinishAtMs({
     job,
     nowMillis: nowMs.value,
   })
   const jobTitle = getPrinterJobTitle(job)
   const remainingText =
-    isPaused || job.remainingMinutes === undefined
+    isPaused ||
+    isSettled ||
+    job.remainingMinutes === undefined
       ? null
       : formatRemaining(job.remainingMinutes)
+  const endedText =
+    isSettled && job.finishAtMs !== undefined
+      ? `Ended ${formatEndedTime({
+          clock,
+          endedAtMs: job.finishAtMs,
+          nowMillis: nowMs.value,
+        })}`
+      : null
+  const settledText = isFinished
+    ? "Finished"
+    : job.currentLayer === undefined
+      ? "Failed"
+      : `Stopped at layer ${job.currentLayer}`
+  const isPending = pendingAction !== null
 
   return (
     <article
       class="printer-card"
-      data-intent={
-        hasProblem
-          ? "danger"
-          : isPaused
-            ? "warning"
-            : "neutral"
-      }
+      data-intent={getCardIntent(job)}
+      data-state={job.state}
       data-expanded={String(isExpanded)}
       data-has-thumbnail={String(
         Boolean(job.thumbnailPath),
@@ -161,7 +244,9 @@ const PrinterCard = ({
           {/* The plate render is decorative: every fact it carries is already
               written beside it, and a name read out of a picture is not one a
               screen reader can announce. */}
-          <img alt="" src={job.thumbnailPath} />
+          <ExpandableMedia name={`${job.name} print image`}>
+            <img alt="" src={job.thumbnailPath} />
+          </ExpandableMedia>
         </div>
       ) : null}
       <div class="printer-body">
@@ -177,88 +262,15 @@ const PrinterCard = ({
               </div>
             ) : null}
           </div>
-          {/* The state reads left of the buttons, so the word and the control
-              that changes it are one group. The dot carries the same fact for
-              a glance from a step back, and is hidden from the accessibility
-              tree because the word beside it already says it. */}
-          {/* The chip and the buttons are ONE group, so they wrap
-              TOGETHER. At three columns the card is about 380 px wide and
-              the head cannot hold a name, a chip and two buttons on one
-              line: the group drops to its own line and the name gets the
-              width back. Wrapping them separately would strand the chip
-              beside a name squeezed to nothing. */}
-          <div class="printer-head-controls">
-            <div class="printer-state">
-              <span
-                class="printer-state-dot"
-                aria-hidden="true"
-              />
-              {STATE_LABELS[job.state]}
-            </div>
-            <div class="printer-actions">
-              <button
-                type="button"
-                class="printer-action is-pause"
-                aria-label={controlLabel}
-                disabled={pendingAction !== null}
-                onClick={() => onRequest(controlAction)}
-              >
-                <svg
-                  class="printer-action-icon"
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                >
-                  {controlAction === "pause" ? (
-                    <path
-                      d="M6 4v12M14 4v12"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-linecap="round"
-                      stroke-width="2.5"
-                    />
-                  ) : (
-                    <path
-                      d="M6 4.5v11l9-5.5z"
-                      fill="currentColor"
-                    />
-                  )}
-                </svg>
-                <span class="printer-action-label">
-                  {controlLabel}
-                </span>
-              </button>
-              <button
-                type="button"
-                class="printer-action is-stop"
-                aria-label={
-                  pendingAction === "stop"
-                    ? PENDING_LABELS.stop
-                    : "Stop"
-                }
-                disabled={pendingAction !== null}
-                onClick={() => onRequest("stop")}
-              >
-                <svg
-                  class="printer-action-icon"
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                >
-                  <rect
-                    x="5"
-                    y="5"
-                    width="10"
-                    height="10"
-                    rx="1.5"
-                    fill="currentColor"
-                  />
-                </svg>
-                <span class="printer-action-label">
-                  {pendingAction === "stop"
-                    ? PENDING_LABELS.stop
-                    : "Stop"}
-                </span>
-              </button>
-            </div>
+          {/* The state reads at the right of the name. The dot carries the
+              same fact for a glance from a step back, and is hidden from the
+              accessibility tree because the word beside it already says it. */}
+          <div class="printer-state">
+            <span
+              class="printer-state-dot"
+              aria-hidden="true"
+            />
+            {STATE_LABELS[job.state]}
           </div>
         </div>
         <button
@@ -277,7 +289,9 @@ const PrinterCard = ({
         <div class="printer-band">
           <div
             class="printer-band-fill"
-            style={{ width: `${job.percent}%` }}
+            style={{
+              width: `${isFinished ? 100 : job.percent}%`,
+            }}
           />
           <div class="printer-band-text">
             {/* Absent rather than an em dash: a paused printer has no honest
@@ -288,73 +302,139 @@ const PrinterCard = ({
                 {remainingText} left
               </span>
             )}
+            {/* A settled card says how it ended where the time left was. Two
+                lines, because "Stopped at layer 32" and its time do not fit
+                one line beside the percentage at three columns. */}
+            {isSettled ? (
+              <span class="printer-band-ended">
+                <span>{settledText}</span>
+                {endedText === null ? null : (
+                  <span>{endedText}</span>
+                )}
+              </span>
+            ) : null}
             <span class="printer-percent">
-              {job.percent}%
+              {isFinished ? 100 : job.percent}%
             </span>
           </div>
         </div>
-        <dl class="printer-metrics">
-          <div class="printer-metric">
-            <dt>Layer</dt>
-            <dd>
-              <span>
-                {job.currentLayer === undefined
-                  ? "—"
-                  : job.totalLayers === undefined
-                    ? String(job.currentLayer)
-                    : `${job.currentLayer} / ${job.totalLayers}`}
-              </span>
-            </dd>
-          </div>
-          <div class="printer-metric">
-            <dt>Finishes</dt>
-            <dd>
-              <span>
-                {isPaused || finishAtMs === null
-                  ? "—"
-                  : formatFinishTime({
-                      clock,
-                      finishAtMs,
-                      nowMillis: nowMs.value,
-                    })}
-              </span>
-            </dd>
-          </div>
-          {/*
-           * Always drawn. An active job always prints from a tray, but the
-           * printer names it only once the print starts; dropping the row
-           * until then made a preparing card shorter than its neighbors.
-           */}
-          <div
-            class={
-              job.filamentText
-                ? "printer-metric is-filament"
-                : "printer-metric is-filament is-pending"
-            }
-          >
-            <dt>Filament</dt>
-            <dd>
-              {job.filamentText ? (
-                <>
-                  {job.filamentColor ? (
-                    <span
-                      class="printer-swatch"
-                      style={{
-                        background: job.filamentColor,
-                      }}
+        {isSettled ? (
+          <>
+            {/* One tap, no question: a print that has already stopped cannot
+                be lost by it. Nothing under the button either — a sentence
+                pointing at other hardware is noise to someone already reading
+                the button (the owner's words, 2026-09-28), and that hardware
+                is one household's, not every panel's. The pending label is
+                the only feedback until the job leaves the payload. */}
+            <button
+              type="button"
+              class="printer-clear"
+              data-castkit-target={`printer-clear-plate:${job.id}`}
+              disabled={isPending}
+              onClick={onClear}
+            >
+              {pendingAction === "clear"
+                ? PENDING_LABELS.clear
+                : "Clear plate"}
+            </button>
+          </>
+        ) : (
+          <>
+            <dl class="printer-metrics">
+              <div class="printer-metric">
+                <dt>Layer</dt>
+                <dd>
+                  <span>
+                    {job.currentLayer === undefined
+                      ? "—"
+                      : job.totalLayers === undefined
+                        ? String(job.currentLayer)
+                        : `${job.currentLayer} / ${job.totalLayers}`}
+                  </span>
+                </dd>
+              </div>
+              <div class="printer-metric">
+                <dt>Finishes</dt>
+                <dd>
+                  <span>
+                    {isPaused || finishAtMs === null
+                      ? "—"
+                      : formatFinishTime({
+                          clock,
+                          finishAtMs,
+                          nowMillis: nowMs.value,
+                        })}
+                  </span>
+                </dd>
+              </div>
+              {/*
+               * Always drawn. An active job always prints from a tray, but the
+               * printer names it only once the print starts; dropping the row
+               * until then made a preparing card shorter than its neighbors.
+               */}
+              <div
+                class={
+                  job.filamentText
+                    ? "printer-metric is-filament"
+                    : "printer-metric is-filament is-pending"
+                }
+              >
+                <dt>Filament</dt>
+                <dd>
+                  {job.filamentText ||
+                  job.filaments?.length ? (
+                    <FilamentControl
+                      color={job.filamentColor}
+                      isExpanded={isFilamentDetailsOpen}
+                      filaments={job.filaments}
+                      onClick={onShowFilaments}
+                      text={job.filamentText}
                     />
-                  ) : null}
-                  <span>{job.filamentText}</span>
-                </>
-              ) : (
-                <>
-                  <span class="printer-swatch is-pending" />
-                  <span>Chosen when the print starts</span>
-                </>
-              )}
-            </dd>
-          </div>
-        </dl>
+                  ) : (
+                    <>
+                      <span class="printer-swatch is-pending" />
+                      <span>
+                        Chosen when the print starts
+                      </span>
+                    </>
+                  )}
+                </dd>
+              </div>
+            </dl>
+            {/* The pair sits at the foot of the card, full width and a
+                fingertip tall. A button in the head beside the name was
+                13 px of type on a wall panel. */}
+            <div class="printer-actions">
+              <button
+                type="button"
+                class="printer-action is-pause"
+                data-castkit-target={`printer-${isPaused ? "resume" : "pause"}:${job.id}`}
+                disabled={isPending}
+                onClick={() =>
+                  onRequest(isPaused ? "resume" : "pause")
+                }
+              >
+                {pendingAction === "pause" ||
+                pendingAction === "resume"
+                  ? PENDING_LABELS[pendingAction]
+                  : isPaused
+                    ? "Resume"
+                    : "Pause"}
+              </button>
+              <button
+                type="button"
+                class="printer-action is-stop"
+                data-castkit-target={`printer-stop:${job.id}`}
+                disabled={isPending}
+                onClick={() => onRequest("stop")}
+              >
+                {pendingAction === "stop"
+                  ? PENDING_LABELS.stop
+                  : "Stop"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </article>
   )
@@ -363,29 +443,28 @@ const PrinterCard = ({
 export const PrinterStatus = () => {
   const jobs = printers.value?.printers ?? []
   const [viewportHeight, setViewportHeight] = useState(
-    () => window.innerHeight,
+    window.innerHeight,
   )
+  useEffect(() => {
+    const updateViewportHeight = () =>
+      setViewportHeight(window.innerHeight)
+    window.addEventListener("resize", updateViewportHeight)
+    return () =>
+      window.removeEventListener(
+        "resize",
+        updateViewportHeight,
+      )
+  }, [])
   const [confirmation, setConfirmation] =
     useState<Confirmation | null>(null)
   const [expandedIds, setExpandedIds] = useState<
     readonly string[]
   >([])
+  const [filamentDetailsId, setFilamentDetailsId] =
+    useState<string | null>(null)
   const [pending, setPending] = useState<
     Record<string, PendingAction>
-  >({})
-
-  useEffect(() => {
-    const updateViewportHeight = () => {
-      setViewportHeight(window.innerHeight)
-    }
-    window.addEventListener("resize", updateViewportHeight)
-    return () => {
-      window.removeEventListener(
-        "resize",
-        updateViewportHeight,
-      )
-    }
-  }, [])
+  >(() => storyPending.value)
 
   // A question nobody answered withdraws itself.
   useEffect(() => {
@@ -402,9 +481,9 @@ export const PrinterStatus = () => {
 
   /*
    * The printer's own state ends the pending label. A pause that took effect
-   * arrives as `paused`, a stop arrives as the printer leaving the payload
-   * entirely — so a card that is gone, or has reached the state the tap asked
-   * for, is confirmation.
+   * arrives as `paused`, a stop or a cleared plate arrives as the printer
+   * leaving the payload entirely — so a card that is gone, or has reached the
+   * state the tap asked for, is confirmation.
    */
   useEffect(() => {
     setPending((currentPending) => {
@@ -430,12 +509,25 @@ export const PrinterStatus = () => {
     })
   }, [jobs])
 
-  const confirm = () => {
-    if (!confirmation) {
-      return
+  useEffect(() => {
+    if (
+      filamentDetailsId &&
+      !jobs.some((job) => job.id === filamentDetailsId)
+    ) {
+      setFilamentDetailsId(null)
     }
-    const { action, printerId } = confirmation
-    setConfirmation(null)
+  }, [filamentDetailsId, jobs])
+
+  /** Mark a printer pending, and let the mark lapse if nothing answers. */
+  const startPending = ({
+    action,
+    printerId,
+    timeoutMs,
+  }: {
+    action: PendingAction
+    printerId: string
+    timeoutMs: number
+  }) => {
     setPending((currentPending) => ({
       ...currentPending,
       [printerId]: action,
@@ -446,7 +538,20 @@ export const PrinterStatus = () => {
           currentPending
         return rest
       })
-    }, PENDING_TIMEOUT_MS)
+    }, timeoutMs)
+  }
+
+  const confirm = () => {
+    if (!confirmation) {
+      return
+    }
+    const { action, printerId } = confirmation
+    setConfirmation(null)
+    startPending({
+      action,
+      printerId,
+      timeoutMs: PENDING_TIMEOUT_MS,
+    })
     if (action === "pause") {
       pausePrinter(printerId)
       return
@@ -456,6 +561,15 @@ export const PrinterStatus = () => {
       return
     }
     stopPrinter(printerId)
+  }
+
+  const clear = (printerId: string) => {
+    startPending({
+      action: "clear",
+      printerId,
+      timeoutMs: CLEAR_PENDING_TIMEOUT_MS,
+    })
+    clearPrinterPlate(printerId)
   }
 
   if (jobs.length === 0) {
@@ -469,9 +583,6 @@ export const PrinterStatus = () => {
     )
   }
 
-  const confirmedJob = confirmation
-    ? jobs.find((job) => job.id === confirmation.printerId)
-    : undefined
   const layout =
     jobs.length === 4
       ? "quad"
@@ -485,6 +596,12 @@ export const PrinterStatus = () => {
           countPrinterRowsThatFit(viewportHeight),
         )
       : jobs
+  const confirmedJob = confirmation
+    ? jobs.find((job) => job.id === confirmation.printerId)
+    : undefined
+  const filamentDetailsJob = filamentDetailsId
+    ? jobs.find((job) => job.id === filamentDetailsId)
+    : undefined
 
   return (
     <div
@@ -500,8 +617,14 @@ export const PrinterStatus = () => {
             key={job.id}
             index={index}
             isExpanded={expandedIds.includes(job.id)}
+            isFilamentDetailsOpen={
+              filamentDetailsId === job.id
+            }
             job={job}
             pendingAction={pending[job.id] ?? null}
+            onClear={() => {
+              clear(job.id)
+            }}
             onRequest={(action) => {
               setConfirmation({
                 action,
@@ -515,9 +638,23 @@ export const PrinterStatus = () => {
                   : [...currentIds, job.id],
               )
             }}
+            onShowFilaments={() => {
+              setFilamentDetailsId(job.id)
+            }}
           />
         ))}
       </div>
+      {filamentDetailsJob ? (
+        <FilamentDetailsDialog
+          filaments={filamentDetailsJob.filaments}
+          jobName={
+            getPrinterJobTitle(filamentDetailsJob) ||
+            filamentDetailsJob.jobName
+          }
+          onClose={() => setFilamentDetailsId(null)}
+          printerName={filamentDetailsJob.name}
+        />
+      ) : null}
       {confirmation && confirmedJob ? (
         <div
           class="printer-confirm"

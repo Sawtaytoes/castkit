@@ -11,6 +11,7 @@ import type {
   NowPlayingData,
   PrintersData,
   QueueData,
+  SpoolsData,
   WeatherData,
 } from "@castkit/shared/viewData/types"
 import type { ConnectionStatus } from "@charcuterie/logic/core"
@@ -183,6 +184,11 @@ export const nowPlaying = computed(() => {
   }
   return { ...serverData, ...predicted }
 })
+/** The independent queue of pending printer jobs. */
+export const printQueue = signal<QueueData | null>(
+  inlineSnapshot?.data.printQueue ?? null,
+)
+
 export const queue = signal<QueueData | null>(
   inlineSnapshot?.data.queue ?? null,
 )
@@ -226,6 +232,14 @@ export const agenda = signal<AgendaData | null>(
  */
 export const printers = signal<PrintersData | null>(
   inlineSnapshot?.data.printers ?? null,
+)
+/**
+ * The filament scale, the tag on its reader, the inventory and every AMS
+ * tray, for the Filament Spool Scale view. Read from the platform's spools
+ * channel by the server and forwarded here; `null` until the first value.
+ */
+export const spools = signal<SpoolsData | null>(
+  inlineSnapshot?.data.spools ?? null,
 )
 /**
  * The socket's lifecycle, as `@charcuterie/logic`'s shared connection machine.
@@ -346,6 +360,7 @@ const applyMessage = (message: ServerToClientMessage) => {
     nowPlayingFromServer.value =
       message.data.nowPlaying ?? null
     queue.value = message.data.queue ?? null
+    printQueue.value = message.data.printQueue ?? null
     weather.value = message.data.weather ?? null
     agenda.value = message.data.agenda ?? null
     printers.value = message.data.printers ?? null
@@ -370,6 +385,10 @@ const applyMessage = (message: ServerToClientMessage) => {
     }
     return
   }
+  if (message.type === "print_queue") {
+    printQueue.value = message.data
+    return
+  }
   if (message.type === "queue") {
     queue.value = message.data
     return
@@ -388,6 +407,10 @@ const applyMessage = (message: ServerToClientMessage) => {
   }
   if (message.type === "printers") {
     printers.value = message.data
+    return
+  }
+  if (message.type === "spools") {
+    spools.value = message.data
     return
   }
   if (message.type === "external_views") {
@@ -531,6 +554,91 @@ export const resumePrinter = (printerId: string) => {
 
 export const stopPrinter = (printerId: string) => {
   sendCommand({ action: "printer_stop", value: printerId })
+}
+
+/**
+ * Clear a finished or failed printer's plate. The house makes the clear-plate
+ * call for that printer, and the card leaves the glass when the next printers
+ * push no longer carries the job.
+ */
+export const clearPrinterPlate = (printerId: string) => {
+  sendCommand({
+    action: "printer_clear_plate",
+    value: printerId,
+  })
+}
+
+/**
+ * The spool actions. Each names the spool in `value` and carries the rest in
+ * `payload`; the server executes them through the panel's spools channel and
+ * the next spools message is what confirms them.
+ */
+export const saveSpoolWeight = ({
+  spoolId,
+  grams,
+}: {
+  spoolId: string
+  grams: number
+}) => {
+  sendCommand({
+    action: "spool_save_weight",
+    value: spoolId,
+    payload: { grams },
+  })
+}
+
+export const assignSpoolToSlot = ({
+  spoolId,
+  printerId,
+  amsId,
+  trayId,
+}: {
+  spoolId: string
+  printerId: string
+  amsId: number
+  trayId: number
+}) => {
+  sendCommand({
+    action: "spool_assign_slot",
+    value: spoolId,
+    payload: { printerId, amsId, trayId },
+  })
+}
+
+export const copySpoolToTag = ({
+  spoolId,
+  tagUid,
+  tagType,
+  trayUuid,
+}: {
+  spoolId: string
+  tagUid: string
+  tagType?: string
+  trayUuid?: string
+}) => {
+  sendCommand({
+    action: "spool_copy_to_tag",
+    value: spoolId,
+    payload: { tagUid, tagType, trayUuid },
+  })
+}
+
+export const linkSpoolTag = ({
+  spoolId,
+  tagUid,
+  tagType,
+  trayUuid,
+}: {
+  spoolId: string
+  tagUid: string
+  tagType?: string
+  trayUuid?: string
+}) => {
+  sendCommand({
+    action: "spool_link_tag",
+    value: spoolId,
+    payload: { tagUid, tagType, trayUuid },
+  })
 }
 
 /**
@@ -700,8 +808,10 @@ export const __resetStateForTests = () => {
   nowPlayingFromServer.value =
     snapshot?.data.nowPlaying ?? null
   queue.value = snapshot?.data.queue ?? null
+  printQueue.value = snapshot?.data.printQueue ?? null
   weather.value = snapshot?.data.weather ?? null
   agenda.value = snapshot?.data.agenda ?? null
   printers.value = snapshot?.data.printers ?? null
+  spools.value = snapshot?.data.spools ?? null
   scrubPositionSeconds.value = null
 }

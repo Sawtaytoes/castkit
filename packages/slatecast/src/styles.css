@@ -92,8 +92,11 @@ body {
  * trips — but that is a fact about one renderer's settings, not about the
  * glass, and a kiosk browser on a slow panel asks for no such thing.
  *
- * `!important` is doing real work here: the rules it overrides are equally
- * specific and come later in the file.
+ * ⚠️ There is no `!important` here, so this wins only against a rule that is
+ * LESS specific than `html:not([…]) *` — a single class and nothing more; a
+ * tie goes to the later rule, and every rule below is later. It never reaches a `::before`/`::after`, since `*` does not
+ * match one. An animation behind a longer selector must name
+ * `html[data-repaint="instant"]` itself, as the spool scale's ring does.
  */
 html:not([data-repaint="instant"]) * {
   animation: none;
@@ -186,35 +189,51 @@ html[data-grayscale-text="true"] {
   pointer-events: auto;
 }
 
+/* Undrawn edge regions keep navigation above external iframes. */
 .view-edge-handle {
   position: absolute;
-  top: 35%;
-  width: 34px;
-  height: 30%;
-  min-height: 112px;
+  top: 0;
+  bottom: 0;
+  width: 32px;
   padding: 0;
-  border: 1px solid
-    color-mix(in srgb, var(--fg) 28%, transparent);
-  background: color-mix(
-    in srgb,
-    var(--surface) 88%,
-    transparent
-  );
-  color: var(--fg);
-  font: 800 30px / 1 var(--font-sans);
+  border: 0;
+  background: none;
   touch-action: none;
 }
 
 .view-edge-handle.is-left {
   left: 0;
-  border-left: 0;
-  border-radius: 0 14px 14px 0;
 }
 
 .view-edge-handle.is-right {
   right: 0;
-  border-right: 0;
-  border-radius: 14px 0 0 14px;
+}
+
+.view-swipe-edges {
+  position: absolute;
+  inset: 0;
+  z-index: 19;
+  pointer-events: none;
+}
+
+.view-swipe-edge {
+  position: absolute;
+  left: 32px;
+  right: 32px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.view-swipe-edge.is-top {
+  top: 0;
+}
+
+.view-swipe-edge.is-bottom {
+  bottom: 0;
 }
 
 .view-drawer-scrim {
@@ -1100,6 +1119,12 @@ html[data-grayscale-text="true"] {
 
 /* The condition's mark leads the weather row, centered on it rather than on
    the text baseline, a step taller than the temperature. */
+.calendar-weather .weather-mark {
+  width: 1.8em;
+  height: 1.8em;
+  color: var(--accent-content);
+}
+
 .ambient-weather .weather-mark {
   align-self: center;
   flex: none;
@@ -1506,7 +1531,13 @@ html[data-grayscale-text="true"] {
     margin-top: 18px;
   }
 
-  .ambient-short .ambient-weather .weather-mark {
+  .ambient-short .calendar-weather .weather-mark {
+    width: 1.8em;
+    height: 1.8em;
+    color: var(--accent-content);
+  }
+
+  .ambient-weather .weather-mark {
     width: 60px;
     height: 60px;
   }
@@ -1745,6 +1776,16 @@ html[data-grayscale-text="true"] {
 }
 
 /*
+ * A finished print tints the WHOLE card, the way a failed one does in danger:
+ * the card is a reminder that a plate is waiting, and it has to read as one
+ * from across the room, not from a chip.
+ */
+.printer-card[data-intent="success"] {
+  border-color: var(--color-intent-success-border);
+  background: var(--color-intent-success-surface);
+}
+
+/*
  * The plate picture takes the slack and is never cropped. It carries its own
  * dark background, so it gets NO box: a box letterboxes the square render
  * inside a differently-colored rectangle, which reads as a clipped picture.
@@ -1776,10 +1817,11 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * The head wraps as two groups: the badge and the name, then the state chip
- * and the buttons. At one and two printers they share a line. At three the
- * card is about 380 px wide and they cannot, so the controls drop below and
- * the name keeps its width instead of colliding with the chip.
+ * The head is the badge, the name and the state chip. The buttons used to
+ * share it and wrapped under the name at three columns; they are at the foot
+ * of the card now, a fingertip tall. The head still wraps, because a 480 px
+ * panel at three columns gives a card about 110 px, where the chip has to
+ * drop under the name rather than sit on the subtitle.
  */
 .printer-head {
   display: flex;
@@ -1789,21 +1831,8 @@ html[data-grayscale-text="true"] {
   align-items: center;
 }
 
-.printer-head-controls {
-  display: flex;
-  flex: none;
-  gap: 10px;
-  align-items: center;
-  margin-left: auto;
-}
-
-/*
- * The name group asks for more room than three columns can give, which is what
- * makes the controls wrap there and not at two. Below this width the flex line
- * cannot hold both groups.
- */
 .printer-names {
-  flex: 1 1 190px;
+  flex: 1 1 150px;
 }
 
 .printer-index {
@@ -1833,24 +1862,44 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-meta {
+  overflow: hidden;
   margin-top: 1px;
   color: var(--color-content-muted);
   font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
+/*
+ * Pause and Stop sit at the foot of the card in a bounded, evenly split row.
+ *
+ * Controls scale between 48 and 56 px high, with a 320 px row cap. Extra space
+ * belongs to the camera first and readable facts second. A bounding box IS the touch area
+ * here — no pseudo-element pad — because the remote-display renderer binds a
+ * touch by that box (see `nowPlayingTouchTargets.test.tsx`).
+ */
 .printer-actions {
   display: flex;
   flex: none;
-  gap: 7px;
+  align-self: flex-end;
+  inline-size: 100%;
+  max-inline-size: 320px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .printer-action {
-  padding: 6px 13px;
-  border-radius: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+  height: clamp(48px, 8.9vmin, 56px);
+  min-height: 48px;
+  max-height: 56px;
+  padding: 8px 16px;
+  border-radius: 12px;
   background: transparent;
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: clamp(15px, 3.2vmin, 22px);
+  font-weight: 700;
 }
 
 .printer-action[disabled] {
@@ -1872,6 +1921,36 @@ html[data-grayscale-text="true"] {
 .printer-action.is-stop {
   border: 1px solid var(--color-intent-danger-border);
   color: var(--color-intent-danger-content);
+}
+
+/*
+ * Clear plate: the one control on a finished or failed card. Full width, taller
+ * than Pause and Stop, and SOLID in the card's own color, because the card is
+ * a reminder and this is the thing that dismisses it. Nothing sits under it:
+ * a sentence about other hardware was removed on 2026-09-28.
+ */
+.printer-clear {
+  flex: none;
+  width: 100%;
+  min-height: max(56px, 13.4vmin);
+  margin-top: 10px;
+  padding: 10px 20px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: var(--color-intent-success-solid);
+  color: var(--color-intent-success-on-solid);
+  font: inherit;
+  font-size: max(20px, 4.4vmin);
+  font-weight: 700;
+}
+
+.printer-card[data-state="failed"] .printer-clear {
+  background: var(--color-intent-danger-solid);
+  color: var(--color-intent-danger-on-solid);
+}
+
+.printer-clear[disabled] {
+  opacity: 0.55;
 }
 
 /*
@@ -1942,6 +2021,35 @@ html[data-grayscale-text="true"] {
   opacity: 0.5;
 }
 
+.printer-card[data-intent="success"] .printer-band-fill {
+  background: var(--color-intent-success-solid);
+  opacity: 0.5;
+}
+
+/*
+ * A settled card's band says how the print ended where the time left was:
+ * two short lines — "Stopped at layer 32" over "Ended 3:47 PM" — because
+ * together they do not fit one line beside the percentage at three columns.
+ */
+.printer-band-ended {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 0;
+  color: var(--fg);
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.printer-band-ended span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /*
  * The band carries the percentage at its right and the time left at its left.
  *
@@ -1985,6 +2093,7 @@ html[data-grayscale-text="true"] {
   flex: none;
   gap: 7px;
   align-items: center;
+  margin-left: auto;
   padding: 4px 11px;
   border-radius: 999px;
   background: color-mix(
@@ -2014,6 +2123,15 @@ html[data-grayscale-text="true"] {
     transparent
   );
   color: var(--color-intent-danger-content);
+}
+
+.printer-card[data-intent="success"] .printer-state {
+  background: color-mix(
+    in oklab,
+    var(--color-intent-success-solid) 30%,
+    transparent
+  );
+  color: var(--color-intent-success-content);
 }
 
 .printer-state-dot {
@@ -2079,7 +2197,9 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-metric.is-filament {
+  position: relative;
   grid-column: 1 / -1;
+  min-height: 62px;
   margin-top: 7px;
 }
 
@@ -2099,6 +2219,196 @@ html[data-grayscale-text="true"] {
 .printer-swatch.is-pending {
   border-style: dashed;
   background: transparent;
+}
+
+.printer-filament-summary .printer-swatch {
+  border: 0;
+}
+
+.printer-swatch .fss-swatch {
+  border-radius: inherit;
+}
+
+.printer-filament-button {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  min-width: 0;
+  min-height: 62px;
+  max-width: none;
+  width: auto;
+  gap: 7px;
+  margin: 0;
+  padding: 0 9px 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.printer-filament-button:focus-visible,
+.filament-details-close:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.printer-filament-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.printer-filament-summary {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  gap: 7px;
+}
+
+.printer-metric dd .printer-filament-text {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.printer-metric dd .printer-filament-text > span {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.printer-filament-name {
+  font-size: 0.82em;
+  line-height: 1.1;
+}
+
+.printer-filament-location {
+  color: var(--color-content-muted);
+  font-size: 0.62em;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.printer-filament-count {
+  flex: none;
+  color: var(--accent-content);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.filament-details-dialog {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  inset: 0;
+  padding: 24px;
+  background: rgb(0 0 0 / 72%);
+}
+
+.filament-details-box {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.filament-details-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.filament-details-head h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.filament-details-head p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--color-content-muted);
+  font-size: 14px;
+}
+
+.filament-details-close {
+  flex: none;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filament-details-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filament-details-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  background: color-mix(
+    in oklab,
+    var(--color-surface-sunken) 70%,
+    transparent
+  );
+}
+
+.filament-details-swatch {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+
+.filament-details-info {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.filament-details-name {
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.filament-details-location,
+.filament-details-metadata {
+  color: var(--color-content-muted);
+  font-size: 14px;
+}
+
+.filament-details-empty {
+  margin: 0;
+  color: var(--color-content-muted);
 }
 
 /*
@@ -2170,8 +2480,15 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-status[data-count="1"] .printer-action {
-  padding: 9px 18px;
-  font-size: 15px;
+  font-size: clamp(17px, 3.6vmin, 22px);
+}
+
+.printer-status[data-count="1"] .printer-band-ended {
+  font-size: 21px;
+}
+
+.printer-status[data-count="1"] .printer-clear {
+  margin-top: 14px;
 }
 
 /* Four printers use a 2×2 grid. The plate stays beside the facts. */
@@ -2432,9 +2749,9 @@ html[data-grayscale-text="true"] {
 
 .printer-status[data-layout="list"] .printer-band {
   grid-column: 3;
-  grid-row: 1 / span 2;
+  grid-row: 1;
   align-self: center;
-  height: 38px;
+  height: 26px;
   margin-top: 0;
 }
 
@@ -2647,4 +2964,1878 @@ html[data-grayscale-text="true"] {
 .printer-confirm-commit[data-action="stop"] {
   background: var(--color-intent-danger-solid);
   color: var(--color-intent-danger-on-solid);
+}
+
+/*
+ * ————— Filament Spool Scale —————
+ *
+ * The scale and tag reader beside the printers, on the 1280×720 Pi Touch
+ * Display 2 read at arm's length. Every size below is in px and was tuned on
+ * that panel across three review rounds of the mockup; it is not meant to
+ * scale to another panel, because no other panel has a scale under it.
+ *
+ * The mockup's palette is the token set with local names. They are mapped
+ * here once, so the rules below read like the mockup they reproduce.
+ */
+.fss {
+  --fss-sunken: var(--color-surface-sunken);
+  --fss-overlay: var(--color-surface-overlay);
+  --fss-muted: var(--color-content-muted);
+  --fss-disabled: var(--color-content-disabled);
+  --fss-border: var(--color-border-subtle);
+  --fss-border-default: var(--color-border-default);
+  --fss-border-strong: var(--color-border-strong);
+  --fss-accent-surface: var(--color-intent-accent-surface);
+  --fss-accent-border: var(--color-intent-accent-border);
+  --fss-success: var(--color-intent-success-solid);
+  --fss-success-content: var(
+    --color-intent-success-content
+  );
+  --fss-success-surface: var(
+    --color-intent-success-surface
+  );
+  --fss-success-border: var(--color-intent-success-border);
+  --fss-warning: var(--color-intent-warning-solid);
+  --fss-warning-content: var(
+    --color-intent-warning-content
+  );
+  --fss-warning-surface: var(
+    --color-intent-warning-surface
+  );
+  --fss-warning-border: var(--color-intent-warning-border);
+  --fss-danger: var(--color-intent-danger-solid);
+
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px 30px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+
+/*
+ * The button reset sits at zero specificity so every `.fss-*` class below
+ * outranks it. As `.fss button` it was (0,1,1) and silently beat all of them:
+ * the pill, the tabs and the cards rendered as bare text on the first shot.
+ */
+:where(.fss button) {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+}
+
+.fss button:disabled {
+  opacity: 0.55;
+}
+
+.fss h1,
+.fss p {
+  margin: 0;
+}
+
+/* The type scale. */
+.fss-title {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.fss-subtitle {
+  color: var(--fg-dim);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.fss-label {
+  color: var(--fss-muted);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fss-hint {
+  color: var(--fss-muted);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.fss-title-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.fss-title-row > * {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-card {
+  padding: 22px;
+  border: 1px solid var(--fss-border);
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+/* Buttons: a hand's width, and the label shrinks to a wrap before it clips. */
+.fss-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 96px;
+  padding: 18px 26px;
+  border: 2px solid var(--fss-border-default);
+  border-radius: 20px;
+  background: var(--fss-overlay);
+  color: var(--fg);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.fss-btn.is-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--color-content-on-accent, #fff);
+}
+
+.fss-btn.is-success {
+  border-color: var(--fss-success);
+  background: var(--fss-success);
+  color: var(--color-intent-success-on-solid, #04140c);
+}
+
+.fss-btn.is-small {
+  min-height: 68px;
+  padding: 12px 24px;
+  border-radius: 16px;
+  font-size: 24px;
+}
+
+.fss-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--fss-border-default);
+  border-radius: 999px;
+  color: var(--fg-dim);
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fss-chip.is-accent {
+  border-color: var(--fss-accent-border);
+  background: var(--fss-accent-surface);
+  color: var(--accent-content);
+}
+
+.fss-chip.is-success {
+  border-color: var(--fss-success-border);
+  background: var(--fss-success-surface);
+  color: var(--fss-success-content);
+}
+
+.fss-chip.is-warning {
+  border-color: var(--fss-warning-border);
+  background: var(--fss-warning-surface);
+  color: var(--fss-warning-content);
+}
+
+.fss-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--fss-success);
+}
+
+.fss-dot.is-danger {
+  background: var(--fss-danger);
+}
+
+.fss-spacer {
+  flex: 1;
+}
+
+/*
+ * Swatches. A two-tone one is clipped bands inside the rounded box, never a
+ * gradient: a gradient bleeds under the translucent border and reads as a
+ * smudge at this size. The `::after` ring is the border; it is drawn last so
+ * it sits over the bands and the effects alike.
+ */
+.fss-swatch {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 16px;
+  background: var(--c);
+}
+
+.fss-swatch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+  pointer-events: none;
+}
+
+.fss-swatch.is-big {
+  width: 170px;
+  height: 170px;
+  border-radius: 34px;
+}
+
+.fss-swatch.is-tiny {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.fss-swatch.is-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+}
+
+.fss-swatch.is-hatched {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--fss-overlay, var(--color-surface-raised)) 0 12px,
+    var(--fss-border-default, var(--color-border-default))
+      12px 24px
+  );
+}
+
+/* The checkerboard shows through a translucent color's own alpha. */
+.fss-swatch.is-translucent {
+  background:
+    repeating-conic-gradient(#979797 0% 25%, #f5f5f5 0% 50%)
+    0 0 / 14px 14px;
+}
+
+.fss-swatch.is-translucent::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--c);
+}
+
+.fss-swatch.is-outlined {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.fss-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.fss-swatch.is-galaxy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 18% 28%,
+      rgb(255 255 255 / 0.9) 0 1.6px,
+      transparent 2.4px
+    ),
+    radial-gradient(
+      circle at 62% 18%,
+      rgb(255 255 255 / 0.7) 0 1.2px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 80% 58%,
+      rgb(255 255 255 / 0.9) 0 1.8px,
+      transparent 2.6px
+    ),
+    radial-gradient(
+      circle at 36% 70%,
+      rgb(255 255 255 / 0.6) 0 1.2px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 55% 48%,
+      rgb(200 220 255 / 0.8) 0 1.4px,
+      transparent 2.2px
+    ),
+    radial-gradient(
+      circle at 24% 86%,
+      rgb(255 255 255 / 0.7) 0 1.2px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 88% 22%,
+      rgb(255 255 255 / 0.5) 0 1px,
+      transparent 1.8px
+    ),
+    radial-gradient(
+      circle at 70% 84%,
+      rgb(255 255 255 / 0.8) 0 1.4px,
+      transparent 2.2px
+    ),
+    radial-gradient(
+      circle at 45% 12%,
+      rgb(255 255 255 / 0.5) 0 1px,
+      transparent 1.8px
+    ),
+    radial-gradient(
+      circle at 10% 55%,
+      rgb(255 255 255 / 0.6) 0 1.2px,
+      transparent 2px
+    ),
+    linear-gradient(
+      110deg,
+      rgb(255 255 255 / 0) 30%,
+      rgb(255 255 255 / 0.14) 50%,
+      rgb(255 255 255 / 0) 70%
+    );
+}
+
+.fss-swatch.is-marble::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 30% 14% at 30% 35%,
+      rgb(0 0 0 / 0.28) 0 60%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse 22% 10% at 68% 62%,
+      rgb(0 0 0 / 0.24) 0 60%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse 14% 8% at 78% 24%,
+      rgb(0 0 0 / 0.22) 0 60%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse 18% 8% at 22% 78%,
+      rgb(0 0 0 / 0.2) 0 60%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle at 52% 82%,
+      rgb(0 0 0 / 0.3) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 56% 20%,
+      rgb(0 0 0 / 0.3) 0 1.6px,
+      transparent 2.6px
+    ),
+    repeating-linear-gradient(
+      135deg,
+      rgb(0 0 0 / 0.06) 0 1px,
+      transparent 1px 9px
+    );
+}
+
+.fss-swatch.is-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    rgb(255 255 255 / 0) 30%,
+    rgb(255 255 255 / 0.32) 50%,
+    rgb(255 255 255 / 0) 70%
+  );
+}
+
+/* The footer: status bottom-left, the toggle or the hint bottom-right. */
+.fss-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: 0;
+  margin-top: auto;
+}
+
+.fss-foot-left,
+.fss-foot-right {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.fss-foot-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.fss-status {
+  display: flex;
+  gap: 18px;
+  color: var(--fss-muted);
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fss-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fss-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px 26px;
+  border: 2px solid var(--fss-accent-border);
+  border-radius: 999px;
+  background: var(--fss-accent-surface);
+  color: var(--accent-content);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.fss-toggle svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/*
+ * Ready to scan: the ring and the copy beside it. The ring takes the accent
+ * while it waits and the success color while something sits on the scale.
+ */
+.fss-stage {
+  --fss-ring-color: var(--accent);
+  --fss-ring-border: var(--fss-accent-border);
+
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 70px;
+  min-height: 0;
+}
+
+.fss-stage[data-load="settling"],
+.fss-stage[data-load="stable"] {
+  --fss-ring-color: var(--fss-success);
+  --fss-ring-border: var(--fss-success-border);
+}
+
+.fss-ring {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  flex: none;
+  border: 4px solid var(--fss-border-default);
+  border-radius: 50%;
+}
+
+.fss-ring::before {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  border: 4px solid var(--fss-ring-border);
+  border-radius: 50%;
+}
+
+.fss-ring::after {
+  content: "";
+  position: absolute;
+  inset: 62px;
+  border-radius: 50%;
+  background: var(--fss-ring-color);
+  opacity: 0.85;
+}
+
+/*
+ * The waves are invisible until they animate, so a panel that may not animate
+ * (and the reduced-motion `vrt` shot) draws only the still ring. They are
+ * elements and not more pseudo-elements because the only-`instant`-animates
+ * rule at the top of this file reaches `*`, and `*` never matches one.
+ */
+.fss-ring-wave {
+  position: absolute;
+  inset: 62px;
+  border: 3px solid var(--fss-ring-color);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes fss-ring-wave {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+
+  80%,
+  100% {
+    transform: scale(2.9);
+    opacity: 0;
+  }
+}
+
+/*
+ * Transform and opacity only, like SpoolBuddy's own ping, so the Pi composites
+ * it without a repaint. Nothing on the scale pings slowly — listening. A load
+ * that has not settled pings fast; a settled one goes back to the slow beat.
+ * An offline scale does not ping at all.
+ *
+ * Every selector names `data-repaint="instant"` itself: the blanket
+ * no-animation rule near the top of this file is less specific than these,
+ * so it would lose to them on a slow panel.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-repaint="instant"] .fss-ring::before {
+    transition: border-color 0.3s linear;
+  }
+
+  html[data-repaint="instant"] .fss-ring::after {
+    transition: background-color 0.3s linear;
+  }
+
+  html[data-repaint="instant"]
+    .fss-stage:is([data-load="empty"], [data-load="stable"])
+    .fss-ring-wave {
+    animation: fss-ring-wave 3.5s cubic-bezier(0, 0, 0.2, 1)
+      infinite;
+  }
+
+  html[data-repaint="instant"]
+    .fss-stage[data-load="settling"]
+    .fss-ring-wave {
+    animation: fss-ring-wave 1.2s cubic-bezier(0, 0, 0.2, 1)
+      infinite;
+  }
+
+  /* The second wave runs half a beat behind the first. */
+  html[data-repaint="instant"] .fss-stage:is(
+      [data-load="empty"],
+      [data-load="stable"]
+    )
+    .fss-ring-wave
+    + .fss-ring-wave {
+    animation-delay: 1.75s;
+  }
+
+  html[data-repaint="instant"]
+    .fss-stage[data-load="settling"]
+    .fss-ring-wave
+    + .fss-ring-wave {
+    animation-delay: 0.6s;
+  }
+}
+
+/*
+ * Wide enough for the longest ready or weighing copy, so the ring does not
+ * jump sideways when the title turns from `Ready to scan` into a weight — but
+ * never wider than what the ring and the gap (330px) leave on a small panel.
+ */
+.fss-stage-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: min(460px, 100% - 330px);
+}
+
+.fss-big {
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* The spool card and its actions. */
+.fss-two-col {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 20px;
+  min-height: 0;
+}
+
+.fss-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.fss-hero {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 26px;
+  min-height: 0;
+}
+
+.fss-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.fss-spool-name {
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.fss-line {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-spool-sub {
+  overflow: hidden;
+  margin-top: 8px;
+  color: var(--fg-dim);
+  font-size: 24px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.fss-chips .fss-chip {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+.fss-facts {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fss-fact {
+  min-width: 0;
+  padding: 16px 20px;
+  border-radius: 18px;
+  background: var(--fss-sunken);
+}
+
+.fss-value {
+  overflow: hidden;
+  margin-top: 6px;
+  font-size: 46px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-value small {
+  margin-left: 6px;
+  color: var(--fg-dim);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.fss-value.is-muted {
+  color: var(--fss-muted);
+}
+
+.fss-value.is-small {
+  font-size: 30px;
+  line-height: 46px;
+}
+
+.fss-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.fss-actions .fss-btn {
+  flex: 1;
+}
+
+.fss-note {
+  flex: 1;
+  padding: 18px 22px;
+  border: 1px dashed var(--fss-border-strong);
+  border-radius: 18px;
+  background: var(--fss-sunken);
+  color: var(--fg-dim);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.fss-note b {
+  color: var(--fg);
+}
+
+/* The copy / link picker. */
+.fss-filters {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.fss-spool-grid {
+  display: grid;
+  flex: 1;
+  grid-auto-rows: min-content;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.fss-tile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  min-height: 110px;
+  padding: 16px;
+  border: 2px solid var(--fss-border);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.fss-tile-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.fss-tile-name {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.fss-tile-meta {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--fg-dim);
+  font-size: 19px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+/* The AMS overview: printer tabs, then one card per unit. */
+.fss-tabs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.fss-tab {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 68px;
+  padding: 14px 26px;
+  border: 2px solid var(--fss-border-default);
+  border-radius: 18px;
+  color: var(--fg-dim);
+  font-size: 26px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-tab.is-active {
+  border-color: var(--fss-accent-border);
+  background: var(--fss-accent-surface);
+  color: var(--accent-content);
+}
+
+.fss-tab.is-offline {
+  opacity: 0.45;
+}
+
+.fss-ams-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(
+      var(--columns, 3),
+      minmax(0, 1fr)
+    );
+  gap: 16px;
+  min-height: 0;
+}
+
+.fss-ams-grid.is-offline {
+  opacity: 0.45;
+}
+
+.fss-ams-unit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+}
+
+.fss-ams-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fss-ams-name {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.fss-ams-env {
+  color: var(--fss-muted);
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fss-slot {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 0;
+  padding: 12px 14px;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  background: var(--fss-sunken);
+}
+
+.fss-slot-text {
+  min-width: 0;
+}
+
+.fss-slot-name {
+  display: block;
+  overflow: hidden;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-slot-meta {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--fg-dim);
+  font-size: 17px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-slot-pct {
+  min-width: 80px;
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.fss-bar {
+  display: block;
+  overflow: hidden;
+  height: 14px;
+  margin-top: 8px;
+  border-radius: 7px;
+  background: var(--bg);
+}
+
+.fss-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 7px;
+  background: var(--accent);
+}
+
+.fss-slot.is-low {
+  border-color: var(--fss-warning-border);
+}
+
+.fss-slot.is-low .fss-slot-pct {
+  color: var(--fss-warning-content);
+}
+
+.fss-slot.is-low .fss-bar > i {
+  background: var(--fss-warning);
+}
+
+.fss-slot.is-empty {
+  border: 2px dashed var(--fss-border-default);
+  background: transparent;
+}
+
+.fss-slot.is-empty .fss-slot-name {
+  color: var(--fss-muted);
+}
+
+.fss-slot.is-untagged {
+  border-color: var(--fss-accent-border);
+  background: var(--fss-accent-surface);
+}
+
+.fss-slot.is-untagged .fss-slot-meta,
+.fss-slot.is-untagged .fss-slot-pct {
+  color: var(--accent-content);
+}
+
+.fss-slot.is-untagged .fss-slot-pct {
+  min-width: 30px;
+  font-size: 22px;
+}
+
+/* The assign flow: crumbs, then a row of big cards. */
+.fss-steps {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.fss-crumb-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fss-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-dim);
+  font-size: 26px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fss-crumb.is-now {
+  color: var(--fg);
+}
+
+.fss-crumb-sep {
+  color: var(--fss-disabled);
+  font-size: 26px;
+}
+
+.fss-choice-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(
+      var(--columns, 3),
+      minmax(0, 1fr)
+    );
+  gap: 18px;
+  min-height: 0;
+}
+
+.fss-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+  border: 3px solid var(--fss-border-default);
+  border-radius: 26px;
+  background: var(--surface);
+}
+
+.fss-choice.is-good {
+  border-color: var(--accent);
+}
+
+.fss-choice.is-empty {
+  border-style: dashed;
+}
+
+.fss-choice-head {
+  display: block;
+  overflow: hidden;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fss-choice.is-empty .fss-choice-head {
+  color: var(--fss-muted);
+}
+
+.fss-choice-sub {
+  display: block;
+  color: var(--fg-dim);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.fss-choice-sub.is-good {
+  color: var(--accent-content);
+}
+
+.fss-choice-fill {
+  flex: 1;
+}
+
+.fss-mini {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  height: 54px;
+}
+
+.fss-mini-empty {
+  display: block;
+  border: 2px dashed var(--fss-border-strong);
+  border-radius: 12px;
+}
+
+.fss-choice-swatch {
+  display: block;
+  flex: none;
+  width: 100%;
+  aspect-ratio: 1.7;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.fss-choice-swatch .fss-swatch {
+  border-radius: 20px;
+}
+
+.fss-choice-swatch.is-empty {
+  border: 2px dashed var(--fss-border-strong);
+}
+
+/* Display lightbox: keep the same live player mounted through enlargement. */
+.expandable-media {
+  position: relative;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.expandable-media-dialog:not([open]),
+.expandable-media-dialog:not([open])
+  .expandable-media-close {
+  display: contents;
+}
+.expandable-media-dialog:not([open])
+  .expandable-media-hint {
+  display: none;
+}
+.expandable-media-trigger {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: zoom-in;
+}
+.expandable-media .expandable-media-trigger,
+.platform .expandable-media-trigger {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+.expandable-media[data-expanded="true"]
+  > .expandable-media-trigger {
+  visibility: hidden;
+}
+.expandable-media-dialog[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  padding: 0;
+  border: 0;
+  max-inline-size: none;
+  max-block-size: none;
+  inline-size: 100dvw;
+  block-size: 100dvh;
+  background: var(--color-scrim);
+  color: var(--fg);
+}
+.expandable-media-dialog::backdrop {
+  background: var(--color-scrim);
+}
+.expandable-media-dialog[open] .expandable-media-close,
+.platform
+  .expandable-media-dialog[open]
+  .expandable-media-close {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: zoom-out;
+}
+.expandable-media-dialog[open] .platform-camera {
+  display: contents;
+}
+.expandable-media-dialog[open] :is(img, video) {
+  flex: 1 1 0;
+  min-block-size: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  max-block-size: calc(100dvh - 80px);
+  object-fit: contain;
+}
+.expandable-media-hint {
+  flex: none;
+  font-size: 14px;
+}
+
+.printer-plate > .expandable-media {
+  display: contents;
+}
+.printer-plate {
+  position: relative;
+}
+
+/* Numbered assignment stages; completed stages have the entire step as a target. */
+.fss-assign-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.fss-assign-title h2 {
+  margin: 0 0 4px;
+  font-size: 28px;
+}
+.fss-assign-title > div > span {
+  color: var(--fg-dim);
+  font-size: 18px;
+}
+.fss-assign-spool {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.fss-wizard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.fss-wizard li {
+  border: 2px solid var(--fss-border-default);
+  border-radius: 16px;
+  min-width: 0;
+  background: var(--surface);
+}
+.fss-wizard li[data-status="current"] {
+  border-color: var(--accent);
+  background: var(--fss-accent-surface);
+}
+.fss-wizard li > :is(button, div) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  width: 100%;
+  min-height: 72px;
+  text-align: start;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  color: inherit;
+}
+.fss-wizard strong {
+  display: block;
+  font-size: 22px;
+}
+.fss-wizard small {
+  display: block;
+  font-size: 16px;
+  color: var(--fg-dim);
+  overflow-wrap: anywhere;
+}
+.fss-step-number {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--fss-border-strong);
+  border-radius: 50%;
+  font-size: 18px;
+}
+.fss-wizard li[data-status="current"] .fss-step-number {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--color-intent-accent-on-solid);
+}
+.fss-wizard li[data-status="done"] .fss-step-number {
+  border-color: var(--accent);
+}
+.fss-printer-picture {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  max-height: 220px;
+  width: 100%;
+  object-fit: contain;
+}
+
+/* Fleet cards and the original roomy rows share the same source facts. */
+.ams-view {
+  gap: 14px;
+  padding: 18px 22px;
+  container-type: size;
+}
+.ams-view-head,
+.ams-printer-head,
+.ams-unit-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ams-view-head h2 {
+  margin: 0;
+  font-size: 28px;
+}
+.ams-layout {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--fss-sunken);
+}
+.ams-layout button,
+.ams-printer-tabs button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 16px;
+}
+.ams-layout button[aria-pressed="true"],
+.ams-printer-tabs button[aria-pressed="true"] {
+  background: var(--fss-accent-surface);
+  border-color: var(--fss-accent-border);
+}
+.ams-printer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ams-fleet {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(
+      var(--ams-printers),
+      minmax(0, 1fr)
+    );
+  gap: 22px;
+}
+.ams-printer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.ams-printer-head h3 {
+  font-size: 22px;
+  margin: 0;
+}
+.ams-printer-head > span {
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+.ams-units {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+  grid-template-rows: repeat(
+      var(--ams-units),
+      minmax(0, 1fr)
+    );
+}
+.ams-unit {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--surface);
+}
+.ams-unit h4 {
+  margin: 0;
+  font-size: 16px;
+}
+.ams-unit .fss-ams-env {
+  font-size: 12px;
+  font-weight: 400;
+}
+.ams-trays {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  gap: 9px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.ams-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+.ams-slot-color {
+  position: relative;
+  display: block;
+  height: 38px;
+  flex: none;
+  border-radius: 10px;
+}
+.ams-slot-color .fss-swatch {
+  border-radius: inherit;
+}
+.ams-slot-number {
+  position: absolute;
+  inset-inline-end: 5px;
+  top: 5px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--fss-sunken);
+  color: var(--fg);
+  font-size: 12px;
+}
+.ams-slot-name {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ams-slot-facts {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 3px;
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+.ams-slot-facts strong {
+  color: var(--fg);
+  font-size: 13px;
+}
+.ams-slot-bar {
+  display: block;
+  flex: none;
+  height: 3px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--fss-border-default);
+}
+.ams-slot-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.ams-slot.is-low .ams-slot-bar i {
+  background: var(--fss-warning);
+}
+.ams-slot.is-low strong {
+  color: var(--fss-warning-content);
+}
+.ams-slot.is-empty .ams-slot-color {
+  border: 1px dashed var(--fss-border-strong);
+}
+.ams-slot.is-empty .ams-slot-name {
+  color: var(--fg-dim);
+}
+.ams-view[data-focused="true"] .ams-units {
+  grid-template-columns: repeat(
+      var(--ams-units),
+      minmax(0, 1fr)
+    );
+  grid-template-rows: minmax(0, 1fr);
+}
+.ams-view[data-layout="rows"] .ams-trays {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+}
+.ams-view[data-layout="rows"] .ams-unit h4 {
+  font-size: 26px;
+}
+.ams-view[data-layout="rows"] .ams-unit .fss-ams-env {
+  font-size: 16px;
+}
+.ams-view[data-layout="rows"] .fss-slot {
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  padding: 10px;
+  gap: 10px;
+}
+.ams-view[data-layout="rows"] .fss-slot .fss-swatch {
+  width: 56px;
+  height: 56px;
+}
+.ams-view[data-layout="rows"] .fss-slot-name {
+  font-size: clamp(18px, 2cqw, 26px);
+}
+.ams-view[data-layout="rows"] .fss-slot-pct {
+  min-width: 0;
+  font-size: clamp(22px, 2.7cqw, 34px);
+}
+.ams-view[data-layout="rows"] .fss-slot-meta {
+  font-size: 14px;
+}
+@container (max-width: 900px) {
+  .ams-view[data-focused="true"] .ams-units {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(
+        var(--ams-units),
+        minmax(0, 1fr)
+      );
+  }
+}
+@container (max-height: 550px) {
+  .ams-slot-color {
+    height: 26px;
+  }
+  .ams-unit {
+    gap: 5px;
+    padding: 8px;
+  }
+  .ams-slot {
+    gap: 3px;
+  }
+  .ams-unit .fss-ams-env {
+    font-size: 10px;
+  }
+  .ams-slot-name {
+    font-size: 12px;
+  }
+}
+.fss-printer-picture[hidden] {
+  display: none;
+}
+@container (max-height: 550px) {
+  .ams-view[data-layout="rows"] .fss-slot .fss-swatch {
+    width: 36px;
+    height: 36px;
+  }
+  .ams-view[data-layout="rows"] .fss-slot {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    padding: 7px;
+  }
+}
+
+/*
+ * Cutter Status. The card is the printer card — same head, chip, band and
+ * metric blocks — so a cutter beside a printer reads as the same kind of
+ * thing. What differs is the picture: the job's own cut lines, drawn from
+ * path data, on the sheet they will be cut from.
+ */
+.cutter-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  padding: 18px 22px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+.cutter-cards {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 320px), 1fr)
+    );
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+.cutter-empty {
+  margin: auto;
+  color: var(--fg-dim);
+  font-size: 20px;
+}
+/* Each card answers to its OWN shape: two cutters side by side are two tall cards. */
+.cutter-card {
+  container: cutter-card / size;
+}
+.cutter-card .printer-head {
+  flex-wrap: nowrap;
+}
+.cutter-model-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+/*
+ * Stacked, the cut lines keep at least 40% of the height and the facts take
+ * what they need of the rest. The facts row can shrink below its content, so
+ * the recent jobs drop whole rows rather than pushing the picture to nothing.
+ */
+.cutter-main {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(40%, 1fr) minmax(
+      0,
+      max-content
+    );
+  gap: 12px;
+  min-height: 0;
+}
+.cutter-picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+.cutter-picture > * {
+  max-width: 100%;
+  max-height: 100%;
+}
+.cutter-picture .cutter-lines {
+  width: 100%;
+  height: 100%;
+}
+.cutter-model-image {
+  width: 70%;
+  height: 60%;
+  object-fit: contain;
+}
+.cutter-sheet {
+  fill: var(--color-surface-sunken);
+  stroke: var(--color-border-default);
+  stroke-width: 0.5;
+}
+.cutter-path {
+  fill: none;
+  stroke: var(--fg);
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.cutter-path.is-weedbox {
+  stroke: var(--color-intent-warning-content);
+  stroke-dasharray: 6 4;
+}
+.cutter-path.is-outline {
+  stroke: var(--accent);
+  stroke-dasharray: 6 4;
+}
+.cutter-facts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.cutter-card .printer-job {
+  margin-top: 0;
+  color: var(--fg);
+  font-size: 20px;
+  font-weight: 700;
+}
+.cutter-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-intent-warning-border);
+  border-radius: 10px;
+  color: var(--color-intent-warning-content);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.cutter-idle {
+  margin: 0;
+  color: var(--fg-dim);
+  font-size: 20px;
+  font-weight: 600;
+}
+.cutter-band {
+  height: 64px;
+}
+/* Two lines at the band's left: what is happening, then the clock time. */
+.cutter-band-text {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 16px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.cutter-band-text strong {
+  overflow: hidden;
+  font-size: 19px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cutter-band-text span {
+  overflow: hidden;
+  color: var(--fg-dim);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cutter-recent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  margin-top: 12px;
+}
+.cutter-recent h3 {
+  margin: 0;
+  color: var(--color-content-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+/*
+ * The rows wrap into a second column that the list clips. A row that would
+ * end below the panel's edge moves there whole, so the glass never shows a
+ * row cut in half and never needs a scrollbar it does not have.
+ *
+ * The first item is an empty spacer. A flex line always takes at least one
+ * item, so without it a list too short for even one row would still draw
+ * that row, cut off at the bottom.
+ */
+.cutter-recent-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0;
+  overflow: hidden;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cutter-recent-spacer {
+  width: 100%;
+  height: 0;
+}
+.cutter-recent-row {
+  margin-bottom: 6px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 9px;
+}
+.cutter-recent-thumb {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: var(--color-surface-sunken);
+}
+.cutter-recent-thumb .cutter-lines {
+  width: 100%;
+  height: 100%;
+}
+.cutter-recent-thumb .cutter-path {
+  stroke-width: 1px;
+}
+.cutter-recent-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cutter-recent-text > * {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cutter-recent-text strong {
+  font-size: 16px;
+}
+.cutter-recent-text span {
+  color: var(--fg-dim);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cutter-recent-text span[data-status="failed"] {
+  color: var(--color-intent-danger-content);
+}
+/*
+ * A landscape card puts the cut lines beside the facts: the picture keeps
+ * the height it needs to be read, and the recent jobs fill the column under
+ * the band.
+ */
+@container cutter-card (min-aspect-ratio: 4 / 3) {
+  .cutter-main {
+    grid-template-columns: minmax(0, 1fr) minmax(
+        0,
+        clamp(280px, 42cqw, 520px)
+      );
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+/* A small square or round panel has room for the job, not its history. */
+@container cutter-card (max-height: 520px) and (
+  max-aspect-ratio: 4 / 3
+) {
+  .cutter-recent {
+    display: none;
+  }
+}
+/* A short panel has no room for history; the job is the whole story. */
+@container cutter-card (max-height: 400px) {
+  .cutter-recent,
+  .cutter-card .printer-metrics {
+    display: none;
+  }
+  .cutter-card .printer-job {
+    font-size: 16px;
+  }
+  .cutter-band {
+    height: 54px;
+  }
+  .cutter-band-text strong {
+    font-size: 16px;
+  }
+  .cutter-band-text span {
+    font-size: 13px;
+  }
+}
+
+/* Keep the current foot controls in compact rows after the master merge. */
+.printer-status[data-layout="list"] .printer-actions,
+.printer-status[data-layout="list"] .printer-clear {
+  grid-column: 3;
+  grid-row: 2;
+  margin-top: 0;
+  min-height: 26px;
+}
+.printer-status[data-layout="list"] .printer-percent {
+  font-size: 20px;
+}
+@media (max-width: 1000px) {
+  .printer-status[data-layout="list"] .printer-actions,
+  .printer-status[data-layout="list"] .printer-clear {
+    grid-column: 2;
+  }
+  .printer-status[data-layout="list"] .printer-action {
+    width: auto;
+    min-width: 40px;
+    min-height: 26px;
+    padding: 3px;
+  }
+}
+@media (max-width: 520px) {
+  .printer-status[data-layout="list"] .printer-head {
+    grid-column: 1;
+  }
+  .printer-status[data-layout="list"] .printer-band {
+    grid-row: 1;
+    height: 26px;
+  }
 }

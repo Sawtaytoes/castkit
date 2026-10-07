@@ -14,7 +14,11 @@ import {
   test,
   vi,
 } from "vitest"
-import { compositionFixture } from "./fixtures.ts"
+import { buildMatchedSpools } from "../__fixtures__/buildSpools.ts"
+import {
+  aiUsageFixture,
+  compositionFixture,
+} from "./fixtures.ts"
 import { PinKeypad } from "./PinKeypad.tsx"
 import {
   DisplayComposition,
@@ -26,6 +30,8 @@ import {
   safeMediaUrl,
 } from "./protocol.ts"
 import { RipDeckView } from "./RipDeckView.tsx"
+import { ViewTabs } from "./ViewTabs.tsx"
+import "../styles.css"
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -38,7 +44,9 @@ test("composes independent channels and sends an action for the selected panel o
       onAction={onAction}
     />,
   )
-  expect(screen.getByText("Printer One")).toBeVisible()
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
   expect(screen.getByText("Sample movie")).toBeVisible()
   const user = userEvent.setup()
   await user.click(
@@ -54,7 +62,145 @@ test("composes independent channels and sends an action for the selected panel o
   })
 })
 
-test("stale or failed sources keep their last value and remove controls", () => {
+test("a saved spool view reads its channel and sends a weight through its bound panel", async () => {
+  const onAction = vi.fn(async () => undefined)
+  render(
+    <DisplayComposition
+      snapshot={{
+        ...compositionFixture,
+        view: {
+          ...compositionFixture.view,
+          id: "spools",
+          layout: "single",
+          panels: [
+            {
+              id: "scale",
+              specId: "filament-spool-scale",
+              bindings: { data: "spools" },
+              settings: {},
+            },
+          ],
+        },
+        channels: {
+          spools: {
+            id: "spools",
+            type: "spools.v1",
+            status: "ready",
+            data: buildMatchedSpools(),
+          },
+        },
+        viewSpecs: [
+          {
+            id: "filament-spool-scale",
+            inputs: [
+              {
+                key: "data",
+                label: "Data",
+                type: "spools.v1",
+                isRequired: true,
+              },
+            ],
+          },
+        ],
+      }}
+      isConnected
+      onAction={onAction}
+    />,
+  )
+  expect(screen.getByText("Ash Gray")).toBeVisible()
+  await userEvent.setup().click(
+    screen.getByRole("button", {
+      name: /Save 292 g remaining/,
+    }),
+  )
+  expect(onAction).toHaveBeenCalledWith({
+    panelId: "scale",
+    action: "save_weight",
+    payload: { spoolId: "spool-ash-gray", grams: 542 },
+  })
+})
+
+test("an active-only view hides the idle panel, and says so when none is active", () => {
+  const activeOnly: DisplaySnapshot = {
+    ...compositionFixture,
+    view: {
+      ...compositionFixture.view,
+      isActiveOnly: true,
+    },
+    panelActivity: { printers: true, discs: false },
+  }
+  const { rerender } = render(
+    <DisplayComposition
+      snapshot={activeOnly}
+      isConnected
+      onAction={async () => undefined}
+    />,
+  )
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
+  expect(screen.queryByText("Sample movie")).toBeNull()
+  expect(
+    document
+      .querySelector(".platform-layout")
+      ?.getAttribute("data-layout"),
+  ).toBe("single")
+  rerender(
+    <DisplayComposition
+      snapshot={{
+        ...activeOnly,
+        panelActivity: { printers: false, discs: false },
+      }}
+      isConnected
+      onAction={async () => undefined}
+    />,
+  )
+  expect(screen.queryByText("Printer One")).toBeNull()
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Nothing active",
+  )
+  rerender(
+    <DisplayComposition
+      snapshot={{
+        ...compositionFixture,
+        panelActivity: { printers: false, discs: false },
+      }}
+      isConnected
+      onAction={async () => undefined}
+    />,
+  )
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
+  expect(screen.getByText("Sample movie")).toBeVisible()
+})
+
+test("a tab carries a dot while its view has something active", () => {
+  render(
+    <ViewTabs
+      views={[
+        { id: "now", name: "Now", isActive: true },
+        { id: "photos", name: "Photos" },
+      ]}
+      activeId="photos"
+    />,
+  )
+  const tabs = within(
+    screen.getByRole("navigation", { name: "Views" }),
+  )
+  expect(
+    within(
+      tabs.getByRole("link", { name: /Now/ }),
+    ).getByRole("img", { name: "Something is active" }),
+  ).toBeVisible()
+  expect(
+    within(
+      tabs.getByRole("link", { name: "Photos" }),
+    ).queryByRole("img"),
+  ).toBeNull()
+})
+
+test("stale or failed sources keep their last value and disable controls", () => {
   const snapshot = {
     ...compositionFixture,
     channels: {
@@ -76,13 +222,15 @@ test("stale or failed sources keep their last value and remove controls", () => 
   expect(
     screen.getByText(/Provider disconnected/),
   ).toBeVisible()
-  expect(screen.getByText("Printer One")).toBeVisible()
   expect(
-    screen.queryByRole("button", { name: "Pause" }),
-  ).toBeNull()
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
 })
 
-test("a connection loss removes controls even when cached sources were ready", () => {
+test("a connection loss disables controls even when cached sources were ready", () => {
   render(
     <DisplayComposition
       snapshot={compositionFixture}
@@ -91,8 +239,8 @@ test("a connection loss removes controls even when cached sources were ready", (
     />,
   )
   expect(
-    screen.queryByRole("button", { name: "Pause" }),
-  ).toBeNull()
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
 })
 
 test("Rip Deck details preserve cancel confirmation and prevent tray operations while ripping", async () => {
@@ -109,11 +257,11 @@ test("Rip Deck details preserve cancel confirmation and prevent tray operations 
     screen.getByRole("button", { name: /Sample movie/ }),
   )
   expect(
-    screen.getByRole("button", { name: "Open" }),
-  ).toBeDisabled()
+    screen.queryByRole("button", { name: "Open" }),
+  ).toBeNull()
   expect(
-    screen.getByRole("button", { name: "Disc removed" }),
-  ).toBeDisabled()
+    screen.queryByRole("button", { name: "Disc removed" }),
+  ).toBeNull()
   await user.click(
     screen.getByRole("button", { name: "Cancel rip" }),
   )
@@ -234,7 +382,9 @@ test("the page restores a server session and responds to a screen switch through
     view.unmount()
   })
   await waitFor(() =>
-    expect(screen.getByText("Printer One")).toBeVisible(),
+    expect(
+      screen.getByRole("article", { name: "Printer One" }),
+    ).toBeVisible(),
   )
   await waitFor(() =>
     expect(connections.client).toBeDefined(),
@@ -259,8 +409,10 @@ test("the page restores a server session and responds to a screen switch through
   )
   await waitFor(() =>
     expect(
-      screen.getByText("Changed by automation"),
-    ).toBeVisible(),
+      document.querySelector(
+        '.platform-panel[data-spec="clock"]',
+      ),
+    ).not.toBeNull(),
   )
   expect(screen.queryByText("Printer One")).toBeNull()
   expect(fetch).toHaveBeenCalledWith(
@@ -541,17 +693,23 @@ test("one screen PIN grants dropdown and internal-link navigation without changi
   )
   await waitFor(() =>
     expect(
-      screen.getByRole("combobox", { name: "View" }),
-    ).toBeEnabled(),
+      within(
+        screen.getByRole("navigation", { name: "Views" }),
+      ).getByRole("link", { name: "Clock view" }),
+    ).not.toHaveAttribute("aria-disabled"),
   )
-  await user.selectOptions(
-    screen.getByRole("combobox", { name: "View" }),
-    "clock",
+  await user.click(
+    within(
+      screen.getByRole("navigation", { name: "Views" }),
+    ).getByRole("link", { name: "Clock view" }),
   )
-  await screen.findByRole("heading", {
-    name: "Clock view",
-    exact: true,
-  })
+  await waitFor(() =>
+    expect(
+      within(
+        screen.getByRole("navigation", { name: "Views" }),
+      ).getByRole("link", { name: "Clock view" }),
+    ).toHaveAttribute("aria-current", "page"),
+  )
   for (const name of ["Other view", "External"]) {
     let isPrevented = true
     document.addEventListener(
@@ -635,7 +793,7 @@ test("a physical screen shows view navigation only when its drawer is enabled", 
   })
   await screen.findByText("Printer One")
   expect(
-    screen.queryByRole("combobox", { name: "View" }),
+    screen.queryByRole("navigation", { name: "Views" }),
   ).toBeNull()
   await waitFor(() =>
     expect(connections.send).toBeDefined(),
@@ -652,7 +810,7 @@ test("a physical screen shows view navigation only when its drawer is enabled", 
   )
   await waitFor(() =>
     expect(
-      screen.getByRole("combobox", { name: "View" }),
+      screen.getByRole("navigation", { name: "Views" }),
     ).toBeVisible(),
   )
 })
@@ -698,22 +856,362 @@ test("a preview receives live updates without exposing device actions or screen 
     JSON.stringify({
       type: "snapshot",
       ...snapshot,
-      view: { ...snapshot.view, name: "Updated preview" },
+      channels: {
+        ...snapshot.channels,
+        prints: {
+          ...snapshot.channels.prints,
+          data: {
+            printers: [
+              {
+                ...(
+                  snapshot.channels.prints?.data as {
+                    printers: Record<string, unknown>[]
+                  }
+                ).printers[0],
+                name: "Updated preview printer",
+              },
+            ],
+          },
+        },
+      },
     }),
   )
-  await screen.findByRole("heading", {
-    name: "Updated preview",
-  })
+  await screen.findByText("Updated preview printer")
   expect(
-    screen.queryByRole("button", { name: "Pause" }),
-  ).toBeNull()
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
   expect(
     screen.queryByRole("button", { name: "Lock" }),
   ).toBeNull()
   expect(
-    screen.queryByRole("combobox", { name: "View" }),
+    screen.queryByRole("navigation", { name: "Views" }),
   ).toBeNull()
   expect(
     screen.queryByText("Connection lost · Retrying"),
   ).toBeNull()
+})
+
+test("individual printer cards keep their original action binding and mounted camera when the group changes", async () => {
+  const data = compositionFixture.channels.prints?.data as {
+    printers: {
+      id: string
+      name: string
+      jobName: string
+      state: string
+    }[]
+  }
+  const makeSnapshot = (
+    count: number,
+  ): DisplaySnapshot => ({
+    ...compositionFixture,
+    view: {
+      ...compositionFixture.view,
+      layout: "adaptive",
+    },
+    channels: {
+      ...compositionFixture.channels,
+      prints: {
+        ...compositionFixture.channels.prints,
+        id: "prints",
+        type: "printers.v1",
+        status: "ready",
+        data: {
+          printers: Array.from(
+            { length: count },
+            (_unused, index) => ({
+              ...data.printers[0],
+              id: `printer-${index}`,
+              name: `Printer ${index + 1}`,
+            }),
+          ),
+        },
+      },
+    },
+  })
+  const onAction = vi.fn(async () => undefined)
+  const mounted = render(
+    <main
+      class="platform"
+      style={{ width: "1920px", height: "1080px" }}
+    >
+      <DisplayComposition
+        snapshot={makeSnapshot(1)}
+        isConnected
+        onAction={onAction}
+      />
+    </main>,
+  )
+  const camera = screen.getByRole("button", {
+    name: "Enlarge Printer 1 camera",
+  })
+  mounted.rerender(
+    <main
+      class="platform"
+      style={{ width: "1920px", height: "1080px" }}
+    >
+      <DisplayComposition
+        snapshot={makeSnapshot(3)}
+        isConnected
+        onAction={onAction}
+      />
+    </main>,
+  )
+  expect(
+    screen.getByRole("button", {
+      name: "Enlarge Printer 1 camera",
+    }),
+  ).toBe(camera)
+  const thirdCard = screen.getByRole("article", {
+    name: "Printer 3",
+  })
+  expect(thirdCard).toBeVisible()
+  const user = userEvent.setup()
+  await user.click(
+    within(thirdCard).getByRole("button", {
+      name: "Pause",
+    }),
+  )
+  await user.click(
+    screen.getByRole("button", { name: "Confirm" }),
+  )
+  expect(onAction).toHaveBeenCalledWith({
+    panelId: "printers",
+    action: "pause",
+    payload: { printerId: "printer-2" },
+  })
+})
+
+test("a browser view keeps content without access chrome and marks reconnect, disappearance and recovery", async () => {
+  const connections: { close?: () => void } = {}
+  const worker = setupWorker(
+    ws
+      .link("*/view/activity/ws")
+      .addEventListener("connection", ({ client }) => {
+        connections.close = () => client.close()
+      }),
+  )
+  await worker.start({
+    quiet: true,
+    onUnhandledRequest: "bypass",
+  })
+  onTestFinished(() => worker.stop())
+  const response = { status: 200 }
+  vi.spyOn(window, "fetch").mockImplementation(
+    async () =>
+      new Response(JSON.stringify(compositionFixture), {
+        status: response.status,
+      }),
+  )
+  const view = render(
+    <PlatformApp
+      target={{ kind: "view", id: "activity" }}
+    />,
+  )
+  onTestFinished(() => {
+    view.unmount()
+  })
+  const surface = () => document.querySelector("main")
+  await waitFor(() =>
+    expect(surface()).toHaveAttribute(
+      "data-connection",
+      "connected",
+    ),
+  )
+  expect(
+    screen.queryByRole("heading", {
+      name: compositionFixture.view.name,
+    }),
+  ).toBeNull()
+  expect(
+    screen.queryByRole("button", {
+      name: /Sign in|Sign out|Lock/,
+    }),
+  ).toBeNull()
+  response.status = 404
+  connections.close?.()
+  await waitFor(() =>
+    expect(surface()).toHaveAttribute(
+      "data-connection",
+      "reconnecting",
+    ),
+  )
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
+  const warning = getComputedStyle(
+    surface() as Element,
+    "::after",
+  ).borderColor
+  await waitFor(
+    () =>
+      expect(surface()).toHaveAttribute(
+        "data-connection",
+        "disconnected",
+      ),
+    { timeout: 5000 },
+  )
+  expect(
+    getComputedStyle(surface() as Element, "::after")
+      .borderColor,
+  ).not.toBe(warning)
+  expect(
+    screen.getByText("Connection unavailable · Retrying"),
+  ).toHaveTextContent("Connection unavailable")
+  response.status = 200
+  await waitFor(
+    () =>
+      expect(surface()).toHaveAttribute(
+        "data-connection",
+        "connected",
+      ),
+    { timeout: 6000 },
+  )
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeEnabled()
+  expect(
+    getComputedStyle(surface() as Element, "::after")
+      .content,
+  ).toBe("none")
+  response.status = 503
+  connections.close?.()
+  await waitFor(() =>
+    expect(surface()).toHaveAttribute(
+      "data-connection",
+      "reconnecting",
+    ),
+  )
+  await waitFor(
+    () =>
+      expect(surface()).toHaveAttribute(
+        "data-connection",
+        "disconnected",
+      ),
+    { timeout: 35000 },
+  )
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeDisabled()
+}, 45000)
+
+test("automatic reflows three quotas below three cameras without clipping selected rows", async () => {
+  const channel = compositionFixture.channels.prints
+  const first = (
+    channel?.data as { printers: Record<string, unknown>[] }
+  ).printers[0]
+  const snapshot: DisplaySnapshot = {
+    ...compositionFixture,
+    view: {
+      ...compositionFixture.view,
+      layout: "adaptive",
+      panels: [
+        compositionFixture.view.panels[0]!,
+        aiUsageFixture.view.panels[0]!,
+      ],
+    },
+    channels: {
+      ...compositionFixture.channels,
+      ...aiUsageFixture.channels,
+      prints: {
+        ...channel!,
+        data: {
+          printers: Array.from(
+            { length: 3 },
+            (_unused, index) => ({
+              ...first,
+              id: `printer-${index}`,
+              name: `Printer ${index}`,
+              cameraPath:
+                "/assets/printer-camera-chamber.jpg",
+              cameraIsLive: false,
+            }),
+          ),
+        },
+      },
+      usage: {
+        ...aiUsageFixture.channels.usage!,
+        data: {
+          providers: ["Alpha", "Beta", "Gamma"].map(
+            (name) => ({
+              id: name,
+              name,
+              isOk: true,
+              windows: [
+                {
+                  id: "weekly",
+                  label: "Weekly",
+                  percentUsed: 50,
+                  periodHours: 168,
+                },
+              ],
+            }),
+          ),
+        },
+      },
+    },
+  }
+  const mounted = render(
+    <main
+      class="platform"
+      style={{
+        width: "2048px",
+        height: "775px",
+        padding: "12px",
+      }}
+    >
+      <DisplayComposition
+        snapshot={snapshot}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  const usagePanel = (
+    await screen.findByText("Alpha")
+  ).closest(".platform-panel") as HTMLElement
+  await waitFor(() => {
+    expect(usagePanel.style.gridColumn).toBe("1 / span 3")
+    expect(usagePanel.style.gridRow).toBe("2 / span 1")
+    expect(screen.queryByText(/more limits/)).toBeNull()
+    expect(screen.getByText("Gamma")).toBeVisible()
+  })
+  expect(usagePanel.scrollHeight).toBe(
+    usagePanel.clientHeight,
+  )
+  expect(usagePanel.scrollWidth).toBe(
+    usagePanel.clientWidth,
+  )
+  const camera = screen.getByRole("button", {
+    name: "Enlarge Printer 0 camera",
+  })
+  mounted.rerender(
+    <main
+      class="platform"
+      style={{
+        width: "1920px",
+        height: "1080px",
+        padding: "12px",
+      }}
+    >
+      <DisplayComposition
+        snapshot={snapshot}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  await waitFor(() =>
+    expect(screen.getByText("Gamma")).toBeVisible(),
+  )
+  expect(
+    screen.getByRole("button", {
+      name: "Enlarge Printer 0 camera",
+    }),
+  ).toBe(camera)
 })

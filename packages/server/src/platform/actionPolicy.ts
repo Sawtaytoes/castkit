@@ -3,6 +3,7 @@ import type {
   ChannelSnapshot,
   ViewPanel,
 } from "@castkit/sdk/contracts"
+import { selectPanelData } from "@castkit/sdk/panelSelection"
 
 const object = (value: unknown): Record<string, unknown> =>
   value &&
@@ -89,7 +90,17 @@ export const assertActionAllowed = ({
       "The panel's control conditions are not met",
     )
   const channel = channels[channelId]
-  const data = object(channel?.data)
+  const data = object(
+    selectPanelData({ ...panel, data: channel?.data }),
+  )
+  if (
+    channel?.type === "rip-deck.v1" &&
+    panel.settings.isBaySelectionEnabled === true &&
+    ["open_trays", "close_trays"].includes(action)
+  )
+    throw new Error(
+      "Bulk tray controls are unavailable with a bay selection",
+    )
   if (
     channel?.type === "now-playing.v1" &&
     (typeof data.entityId !== "string" ||

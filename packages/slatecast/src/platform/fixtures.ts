@@ -193,3 +193,184 @@ export const aiUsageFixture: DisplaySnapshot = {
     },
   },
 }
+
+/**
+ * Four invented children on one board. Times are relative to the fixture's
+ * own clock, which the Storybook freezes under automation, so the scan is
+ * always fresh in a screenshot and the running timer always started at the
+ * same minute.
+ */
+export const kidsPointsFixture = ({
+  hasScan,
+}: {
+  hasScan: boolean
+}): DisplaySnapshot => ({
+  target: { kind: "view", id: "kids-points" },
+  canControl: false,
+  view: {
+    id: "kids-points",
+    name: "Tally Marks",
+    layout: "single",
+    theme: "dark",
+    access: "public",
+    isControlEnabled: false,
+    panels: [
+      {
+        id: "points",
+        specId: "kids-points",
+        bindings: { data: "points" },
+        settings: {},
+      },
+    ],
+  },
+  channels: {
+    points: {
+      id: "points",
+      type: "kids-points.v1",
+      status: "ready",
+      data: {
+        kids: [
+          {
+            id: "quinn",
+            name: "Quinn",
+            color: "#E07A5F",
+            pointsToday: 0,
+            goal: 500,
+          },
+          {
+            id: "robin",
+            name: "Robin",
+            color: "#81B29A",
+            pointsToday: 130,
+            goal: 500,
+            lastTask: "Feed the Cat",
+          },
+          {
+            id: "sky",
+            name: "Sky",
+            color: "#F2CC8F",
+            pointsToday: 520,
+            goal: 500,
+            lastTask: "Unload the Dishwasher",
+          },
+          {
+            id: "wren",
+            name: "Wren",
+            color: "#7A8BD6",
+            pointsToday: 240,
+            goal: 500,
+            activeTask: {
+              name: "Reading",
+              startedAtMs: Date.now() - 1_200_000,
+            },
+          },
+        ],
+        ...(hasScan
+          ? {
+              lastScan: {
+                kidId: "robin",
+                result: "awarded",
+                points: 10,
+                taskName: "Feed the Cat",
+                reader: "Hall Reader",
+                atMs: Date.now() - 3_000,
+              },
+            }
+          : {}),
+      },
+    },
+  },
+})
+
+/** Fixed historical samples with negative entries and separate timed tasks. */
+export const pointsHistoryFixture = (
+  metric = "daily",
+): DisplaySnapshot => ({
+  target: { kind: "view", id: "points-history" },
+  canControl: false,
+  view: {
+    id: "points-history",
+    name: "Points History",
+    layout: "single",
+    theme: "dark",
+    access: "public",
+    isControlEnabled: false,
+    panels: [
+      {
+        id: "history",
+        specId: "points-history",
+        bindings: { data: "history" },
+        settings: { metric },
+      },
+    ],
+  },
+  channels: {
+    history: {
+      id: "history",
+      type: "points-history.v1",
+      status: "ready",
+      data: {
+        version: 1,
+        generatedAtMs: Date.parse("2026-09-30T20:00:00Z"),
+        range: {
+          fromDay: "2026-09-28",
+          toDay: "2026-09-30",
+          dayCount: 3,
+          timezone: "America/Chicago",
+          isPartial: true,
+        },
+        source: {
+          name: "influxdb",
+          isFallback: false,
+          message: null,
+        },
+        children: [
+          {
+            id: "robin",
+            name: "Robin",
+            color: "#80B918",
+            pointsToday: 150,
+            goalToday: 120,
+            lifetimeEarned: 3000,
+            spendable: 2600,
+            totals: {
+              net: 200,
+              previousNet: 180,
+              averagePerCalendarDay: 200 / 3,
+              averagePerActiveDay: 200 / 3,
+              activeDays: 3,
+              qualifyingDays: 1,
+              bonusPercent: 0,
+              pointsToPenaltyRatio: 5,
+            },
+            days: [-50, 100, 150].map((net, index) => ({
+              day: `2026-09-${28 + index}`,
+              goal: 120,
+              net,
+              chores: index === 0 ? 0 : net,
+              bonus: 0,
+              penalty: index === 0 ? -50 : 0,
+              reversals: 0,
+              cumulative: [-50, 50, 200][index],
+              minutes: { reading: [0, 30, 45][index] },
+            })),
+            tasks: [
+              {
+                key: "reading",
+                name: "Reading",
+                points: 250,
+                minutes: 75,
+                averageMinutesPerCalendarDay: 25,
+                days: [0, 30, 45].map((minutes, index) => ({
+                  day: `2026-09-${28 + index}`,
+                  points: [0, 100, 150][index],
+                  minutes,
+                })),
+              },
+            ],
+          },
+        ],
+      },
+    },
+  },
+})

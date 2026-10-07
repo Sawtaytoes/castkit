@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
 import { managementPlatform } from "./__fixtures__/managementPlatform.ts"
+import { windowOf } from "./windows.ts"
 
 test.beforeEach(async ({ page }) => {
   const platform = managementPlatform()
@@ -126,10 +127,9 @@ test("compact selection searches names and tags, filters groups, and Add view fo
   expect(saved.id).toBe("new-dashboard")
 })
 
-test("tabs keep edits and the preview stays beside structured forms while unknown settings survive save", async ({
+test("tabs keep edits and unknown settings survive save", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1600, height: 1000 })
   await page.goto("/manage/views/panels?item=view-0")
   await page
     .getByRole("button", {
@@ -155,15 +155,6 @@ test("tabs keep edits and the preview stays beside structured forms while unknow
       exact: true,
     })
     .fill("Start scene")
-  const editor = await page
-    .locator(".collection-editor")
-    .boundingBox()
-  const preview = await page
-    .locator(".collection-preview")
-    .boundingBox()
-  expect(preview?.x).toBeGreaterThan(
-    (editor?.x ?? 0) + (editor?.width ?? 0),
-  )
   expect(await page.locator("textarea").count()).toBe(0)
   await page
     .getByRole("link", { name: "General", exact: true })
@@ -261,10 +252,67 @@ test("nested visibility rules remain editable, incomplete new rules block saving
   )
 })
 
+/*
+ * The workspace puts the preview beside the forms from a 68rem container
+ * (`.collection-workspace`), which the two landscape windows have and the
+ * phone and the portrait monitor do not. Each side of that line gets the
+ * claim that is true there.
+ */
+const openStructuredForms = async (page: Page) => {
+  await page.goto("/manage/views/panels?item=view-0")
+  await page
+    .getByRole("button", {
+      name: "Entity labels",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByRole("textbox", {
+      name: "Display label",
+      exact: true,
+    }),
+  ).toBeVisible()
+  return {
+    editor: await page
+      .locator(".collection-editor")
+      .boundingBox(),
+    preview: await page
+      .locator(".collection-preview")
+      .boundingBox(),
+  }
+}
+
+test("the preview stays beside structured forms in a landscape window", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    ["narrow", "tall"].includes(windowOf(testInfo)),
+    "Narrower than the 68rem the preview needs beside the forms",
+  )
+  const { editor, preview } =
+    await openStructuredForms(page)
+  expect(preview?.x).toBeGreaterThan(
+    (editor?.x ?? 0) + (editor?.width ?? 0),
+  )
+})
+
+test("the preview follows structured forms where the window is too narrow to share", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    ["wide", "ultrawide"].includes(windowOf(testInfo)),
+    "Wide enough to put the preview beside the forms",
+  )
+  const { editor, preview } =
+    await openStructuredForms(page)
+  expect(preview?.y).toBeGreaterThanOrEqual(
+    (editor?.y ?? 0) + (editor?.height ?? 0),
+  )
+})
+
 test("screen view lists are searchable and the editor fits a phone", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(
     "/manage/screens/views?item=browser-screen",
   )
@@ -383,7 +431,6 @@ test("duplicate mapping names block save and reveal the affected settings tab", 
 test("a screen preview scrolls without scrolling the settings page", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1600, height: 1000 })
   await page.route(/\/screen\/[^/]+\?preview=1$/, (route) =>
     route.fulfill({
       contentType: "text/html",
@@ -414,4 +461,238 @@ test("a screen preview scrolls without scrolling the settings page", async ({
   expect(await page.evaluate(() => scrollY)).toBe(
     outerScroll,
   )
+})
+
+test("combined kiosk preset exposes per-view printer and account choices and saves an explicit subset", async ({
+  page,
+}) => {
+  const platform = managementPlatform()
+  platform.channels = [
+    {
+      id: "prints",
+      name: "Printers",
+      sourceId: "sample-source",
+      type: "printers.v1",
+      settings: {},
+    },
+    {
+      id: "usage",
+      name: "Usage",
+      sourceId: "sample-source",
+      type: "ai-usage.v1",
+      settings: {},
+    },
+  ]
+  platform.channels = platform.channels.concat([
+    {
+      id: "rips",
+      name: "Disc jobs",
+      sourceId: "sample-source",
+      type: "rip-deck.v1",
+      settings: {},
+    },
+  ])
+  platform.channelStates = {
+    prints: {
+      status: "ready",
+      data: {
+        printers: [
+          { id: "one", name: "Printer One" },
+          { id: "two", name: "Printer Two" },
+        ],
+      },
+    },
+    usage: {
+      status: "ready",
+      data: {
+        providers: [
+          {
+            id: "account",
+            name: "Account",
+            windows: [{ id: "weekly", label: "Weekly" }],
+          },
+        ],
+      },
+    },
+  }
+  await page.route("**/api/manage/platform", (route) =>
+    route.fulfill({ json: platform }),
+  )
+  const captured = { writes: [] as unknown[] }
+  await page.route(
+    "**/api/manage/platform/views**",
+    async (route) => {
+      if (route.request().method() === "POST")
+        captured.writes = captured.writes.concat(
+          route.request().postDataJSON(),
+        )
+      await route.fulfill({ json: { ok: true } })
+    },
+  )
+  await page.goto("/manage/views")
+  await page
+    .getByRole("button", { name: "Add view", exact: true })
+    .click()
+  await page
+    .getByRole("textbox", {
+      name: "View name",
+      exact: true,
+    })
+    .fill("Combined dashboard")
+  await page
+    .getByRole("button", {
+      name: "Start from a preset: Custom layout",
+    })
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Combined kiosk",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: "Layout: Automatic · prioritize printer cameras",
+    }),
+  ).toBeVisible()
+  await page
+    .getByRole("link", { name: "Panels", exact: true })
+    .click()
+  await page
+    .getByRole("button", {
+      name: "Data channel: Choose a channel",
+    })
+    .first()
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Printers · ready",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("checkbox", {
+      name: "Choose printers for this view",
+      exact: true,
+    })
+    .check()
+  await page
+    .getByRole("checkbox", {
+      name: "Printer Two (two)",
+      exact: true,
+    })
+    .check()
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Printer One (one)",
+      exact: true,
+    }),
+  ).not.toBeChecked()
+  await page
+    .getByRole("button", {
+      name: "Data channel: Choose a channel",
+    })
+    .first()
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Disc jobs · waiting",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("button", {
+      name: "Data channel: Choose a channel",
+    })
+    .first()
+    .click()
+  await page
+    .getByRole("option", {
+      name: "Usage · ready",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("checkbox", {
+      name: "Choose accounts for this view",
+      exact: true,
+    })
+    .check()
+  await page
+    .getByRole("checkbox", {
+      name: "Account (account)",
+      exact: true,
+    })
+    .check()
+  await page
+    .getByRole("navigation", { name: "View settings" })
+    .getByRole("link", { name: "Access", exact: true })
+    .click()
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Show only what is active",
+      exact: true,
+    }),
+  ).toBeChecked()
+  await page
+    .getByRole("button", { name: /Save view/ })
+    .click()
+  await expect.poll(() => captured.writes.length).toBe(1)
+  expect(captured.writes[0]).toMatchObject({
+    layout: "adaptive",
+    isActiveOnly: true,
+    panels: [
+      {
+        settings: {
+          isPrinterSelectionEnabled: true,
+          printerIds: ["two"],
+        },
+      },
+      {},
+      {},
+    ],
+  })
+})
+
+test("a failed deletion stays visible beside the mobile save buttons and names its screen assignment", async ({
+  page,
+}) => {
+  await page.route(
+    "**/api/manage/platform/views/view-0",
+    (route) =>
+      route.fulfill({
+        status: 409,
+        json: {
+          error:
+            "Remove this view from these screens before deleting it: Browser dashboard.",
+        },
+      }),
+  )
+  await page.goto("/manage/views/general?item=view-0")
+  await expect(
+    page.getByRole("link", {
+      name: "Browser dashboard",
+      exact: true,
+    }),
+  ).toHaveAttribute(
+    "href",
+    "/manage/screens/views?item=browser-screen",
+  )
+  page.on("dialog", (dialog) => dialog.accept())
+  await page
+    .getByRole("button", {
+      name: "Delete view",
+      exact: true,
+    })
+    .click()
+  await expect(page.getByRole("alert")).toContainText(
+    "Browser dashboard",
+  )
+  await expect(page.getByRole("alert")).toBeInViewport()
+  await expect(
+    page.getByRole("button", {
+      name: "Delete view",
+      exact: true,
+    }),
+  ).toBeInViewport()
 })

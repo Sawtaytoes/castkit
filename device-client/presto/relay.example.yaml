@@ -1,0 +1,9 @@
+transport: presto
+manifest_url: https://castkit.example.com/d/presto-test/castkit.json
+mac: "02:00:00:00:00:01"
+listen_host: 0.0.0.0
+listen_port: 8791
+secrets_path: /run/secrets/presto.yaml
+# presto.yaml holds only presto_token, matching the device's CASTKIT_TOKEN.
+# Optional LAN frame preview; leave off unless needed.
+# preview_port: 8792

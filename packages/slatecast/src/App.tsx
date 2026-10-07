@@ -3,6 +3,7 @@ import type { ComponentType } from "preact"
 import { useEffect } from "preact/hooks"
 import { HandBackEdge } from "./HandBackEdge.tsx"
 import { activeView, device, settings } from "./state.ts"
+import { ViewSwipeEdges } from "./ViewSwipeEdges.tsx"
 import { ViewSwitcher } from "./ViewSwitcher.tsx"
 import {
   beginViewSwipe,
@@ -14,6 +15,7 @@ import { Ambient } from "./views/Ambient.tsx"
 import { Calendar } from "./views/Calendar.tsx"
 import { Clock } from "./views/Clock.tsx"
 import { ExternalView } from "./views/ExternalView.tsx"
+import { FilamentSpoolScale } from "./views/FilamentSpoolScale.tsx"
 import { NowPlaying } from "./views/NowPlaying.tsx"
 import { PhotoFrame } from "./views/PhotoFrame.tsx"
 import { PrinterStatus } from "./views/PrinterStatus.tsx"
@@ -28,13 +30,15 @@ import { Weather } from "./views/Weather.tsx"
 export const viewByClientId: Record<string, ComponentType> =
   {
     "now-playing": NowPlaying,
-    queue: Queue,
+    queue: () => <Queue />,
+    "print-queue": () => <Queue isPrintQueue />,
     ambient: Ambient,
     clock: Clock,
     weather: Weather,
     calendar: Calendar,
     "photo-frame": PhotoFrame,
     "printer-status": PrinterStatus,
+    "filament-spool-scale": () => <FilamentSpoolScale />,
     "touch-test": TouchTest,
   }
 
@@ -193,6 +197,7 @@ export const App = () => {
     <div
       class={`stage shape-${profile.shape}${profile.hasTouch ? "" : " touchless"}`}
       data-theme={theme.toLowerCase()}
+      data-view={activeView.value}
       data-castkit-ready="true"
       onPointerDown={
         profile.hasTouch ? beginViewSwipe : undefined
@@ -216,6 +221,7 @@ export const App = () => {
       }}
     >
       <ActiveView />
+      <ViewSwipeEdges />
       <ViewSwitcher />
       <HandBackEdge />
     </div>

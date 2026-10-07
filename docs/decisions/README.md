@@ -1,5 +1,46 @@
 # CastKit decision records
 
+- [2026-10-07: Camera remains primary; the plate preview is secondary](2026-10-07-camera-remains-primary-and-plate-preview-is-secondary.md)
+
+- [2026-10-06: Display targets document viewing context and purpose](2026-10-06-display-targets-document-viewing-context-and-purpose.md)
+
+- [2026-10-06: Watchy Points navigation requests fresh data](2026-10-06-watchy-points-navigation-requests-fresh-data.md)
+
+- [2026-10-06: Kids Points shows simultaneous countdowns](2026-10-06-kids-points-shows-simultaneous-countdowns.md)
+
+- [2026-10-06: Watchy removes ended calendar events locally](2026-10-06-watchy-removes-ended-calendar-events-locally.md)
+
+- [2026-10-06: Watchy refresh keeps MQTT open and waits for all scores](2026-10-06-watchy-refresh-keeps-mqtt-open-and-waits-for-all-scores.md)
+
+- [2026-10-06: Explicit refresh reopens the active Watchy timer](2026-10-06-watchy-explicit-refresh-reopens-the-active-timer.md)
+
+- [2026-10-06: Watchy forgets a weak access point and rescans](2026-10-06-watchy-forgets-a-weak-access-point-and-rescans.md)
+
+- [2026-10-06: Watchy idles at 80 MHz and turns off unused hardware](2026-10-06-watchy-idles-at-80-mhz-and-turns-off-unused-hardware.md)
+
+- [2026-10-06: Ambient LEDs can follow the current view](2026-10-06-ambient-leds-can-follow-current-view.md)
+
+- [2026-10-06: Ambient LEDs have independent shared controls](2026-10-06-ambient-leds-have-independent-shared-controls.md)
+
+- [2026-10-06: Horizontal Watchy binary rows](2026-10-06-watchy-binary-rows-read-most-significant-bit-first.md)
+
+- [2026-10-06: Compact Watchy binary grid](2026-10-06-watchy-binary-grid-is-compact.md)
+
+
+- [2026-10-06 Watchy clock and Points emphasize primary values](2026-10-06-watchy-clock-and-points-emphasize-primary-values.md)
+- [2026-10-06 Watchy idle scans slow down and Back syncs](2026-10-06-watchy-idle-scans-slow-down-and-back-syncs.md)
+
+- [2026-10-06 Watchy short clock presses stay offline](2026-10-06-watchy-short-clock-presses-stay-offline.md)
+
+- [2026-10-06 Watchy view buttons cycle and clocks show cached next events](2026-10-06-watchy-view-buttons-cycle-and-clocks-show-cached-next-events.md)
+
+- [2026-10-04 Kids Points follows the producer’s manual order](2026-10-04-kids-points-follows-the-producers-manual-order.md)
+- [2026-10-04 Tally Marks cards use the available panel](2026-10-04-tally-marks-cards-use-the-available-panel.md)
+
+- [2026-10-04 Management sign-in persists for one year](2026-10-04-management-sign-in-persists-for-one-year.md)
+
+- [2026-10-04 Countdowns show time left only](2026-10-04-countdowns-show-time-left-only.md)
+
 Append-only log of settled decisions (newest first). One decision per file,
 `YYYY-MM-DD-<kebab-slug>.md`. Never edit a past decision to change its meaning —
 supersede it with a new dated file and link both ways. Check this index before
@@ -7,9 +48,45 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
-| 2026-09-28 | [Browser printer cards preserve the small-count layouts](2026-09-28-browser-printer-cards-preserve-small-count-layouts.md) — one through three keep a full-width camera or print preview above details; four camera cards use a tall 2×2 grid, and the print preview sits beside the facts when camera mode is off | Accepted |
-| 2026-09-28 | [Storybook calls this view 3D Printer Status](2026-09-28-storybook-calls-this-view-3d-printer-status.md) — the Storybook title says `Views/3D Printer Status`; the panel and Home Assistant keep `Printer Status` | Accepted |
-| 2026-09-28 | [Printer Status adds layouts from four](2026-09-28-printer-status-adds-layouts-from-four.md) — counts one through three stay as they are; four uses a 2×2 image-and-facts grid; five or more use compact rows with a print preview and controls, sized to complete rows at the 1280×720 Pi Touch Display 2 | Accepted |
+| 2026-10-06 | [Backlight controls share native and MQTT state](2026-10-06-backlight-controls-share-native-and-mqtt-state.md) | Accepted |
+| 2026-10-06 | [Touch navigation uses undrawn edges](2026-10-06-touch-navigation-uses-undrawn-edges.md) | Accepted |
+| 2026-10-06 | [Management uses available screen width](2026-10-06-management-uses-available-screen-width.md) | Accepted |
+| 2026-10-05 | [AI Usage shows provider icons and omits plans](2026-10-05-ai-usage-shows-provider-icons-and-omits-plans.md) | Accepted |
+| 2026-10-03 | [Countdowns show continuous timed progress](2026-10-03-countdowns-show-continuous-timed-progress.md) | Accepted |
+| 2026-10-03 | [Rip slots and return navigation fit small panels](2026-10-03-rip-slots-and-return-navigation-fit-small-panels.md) | Accepted |
+| 2026-10-03 | [Scan feedback is temporary in active-only views](2026-10-03-scan-feedback-is-temporary-in-active-only-views.md) | Accepted |
+| 2026-10-03 | [Rip panels show status without metadata warnings](2026-10-03-rip-panels-show-status-without-metadata-warnings.md) | Accepted |
+| 2026-10-03 | [Progress and fullest subscriptions survive tight layouts](2026-10-03-progress-and-fullest-subscriptions-survive-tight-layouts.md) | Accepted |
+| 2026-10-03 | [Room-specific screens reuse shared views](2026-10-03-room-specific-screens-reuse-shared-views.md) | Accepted |
+| 2026-10-03 | [Weather colors and queue gestures](2026-10-03-weather-colors-and-queue-gestures.md) | Accepted |
+| 2026-10-02 | [AMS fleet layouts and direct wizard navigation](2026-10-02-ams-fleet-and-assignment-wizard.md) | Accepted |
+| 2026-10-02 | [Optional details hide before printer cameras and controls](2026-10-02-optional-details-hide-before-printer-cameras-and-controls.md) | Accepted |
+| 2026-10-02 | [Clock labels use compact day and period suffixes](2026-10-02-clock-labels-use-compact-day-and-period-suffixes.md) | Accepted |
+| 2026-10-01 | [Printer finish times name the day only beyond twenty-four hours](2026-10-01-printer-finish-times-name-the-day-only-beyond-twenty-four-hours.md) — short overnight jobs show only the time; exactly 24 hours remains unprefixed | Superseded |
+| 2026-10-01 | [Composed printer state colors the padded panel](2026-10-01-composed-printer-state-colors-the-padded-panel.md) | Accepted |
+| 2026-10-01 | [Automatic compositions reclaim camera letterboxing](2026-10-01-automatic-compositions-reclaim-camera-letterboxing.md) | Accepted |
+| 2026-10-01 | [Browser views reserve space for content](2026-10-01-browser-views-reserve-space-for-content.md) | Accepted |
+| 2026-10-02 | [Printer progress fits beside icon controls](2026-10-02-printer-progress-fits-beside-icon-controls.md) | Accepted |
+| 2026-10-01 | [Combined kiosks share space by nested priority](2026-10-01-combined-kiosks-share-space-by-nested-priority.md) | Automatic and manual card/rail layouts, per-view item selection, quota replacement, poster art and compact SVG controls. |
+| 2026-10-01 | [Tally Marks is the app; Tally Marks Store is the shop](2026-10-01-tally-marks-is-the-app-and-tally-marks-store-is-the-shop.md) | Accepted |
+| 2026-10-01 | [Printer actions stop growing before camera and facts](2026-10-01-printer-actions-stop-growing-before-camera-and-facts.md) — Pause/Resume/Stop cap at 56 px high, 22 px text and a 320 px row in both browser renderers | Accepted |
+| 2026-09-30 | [Public printer views use shared management sign-in](2026-09-30-public-printer-views-use-shared-management-sign-in.md) — public viewing, one management PIN session across views, and visible disabled controls with reasons | Accepted |
+| 2026-09-30 | [Printer layouts fit sections in priority order](2026-09-30-printer-layouts-fit-sections-in-priority-order.md) — camera views maximize contained camera area; static views prioritize live facts; both images enlarge without restarting their player, and printer actions keep warning/danger colors | Accepted |
+| 2026-09-30 | [AI Usage type scales with the panel and a letterbox flows into columns](2026-09-30-ai-usage-type-scales-with-the-panel-and-a-letterbox-flows-into-columns.md) — one `--ai-usage-scale` from the measured content height (1 to 2), columns from the aspect held to the width, and the row budget sharing the stylesheet's base heights as a contract | Accepted |
+| 2026-09-29 | [A scan reaches every display in its room, and only an instant display animates it](2026-09-29-a-scan-reaches-every-display-in-its-room-and-only-an-instant-display-animates-it.md) — any physical display takes a temporary view over `<base>/<device-id>/override/set`; it lasts at least ten repaints (a `slow` display turns fifteen seconds into thirty) and a `super-slow` display refuses; the Kids Points scan window uses the same rule; only an `instant` display animates the points into the total, with confetti at the goal and a star burst after it | Accepted |
+| 2026-09-29 | [Kids Points is a native view on a `kids-points.v1` channel](2026-09-29-kids-points-is-a-native-view-on-a-kids-points-v1-channel.md) — every child's points today and the last card scan, read by a `kids-points` adapter from the points service's own MQTT topics; the view draws a board when every child fits side by side and gives a scan to that child alone on a smaller panel; a scan shows for `scanSeconds` (15) only on a panel fast enough to draw it in time; a channel's `readers` setting keeps a room's display to its own reader | Accepted |
+| 2026-09-29 | [A paused track stays in an active-only view for ten minutes](2026-09-29-a-paused-track-stays-in-an-active-only-view-for-ten-minutes.md) — a now-playing channel stays active for ten minutes after it really stops, while it still names a track; a stop counts only after thirty seconds of playback, so an announcement cannot start or restart the ten minutes | Accepted |
+| 2026-09-28 | [A failed inventory read is the spools channels' fault, not the printers'](2026-09-28-a-failed-inventory-read-is-the-spools-channels-fault-not-the-printers.md) — the Bambuddy source reports a failed `/inventory/*` read on the spools channels only; the printers and cameras keep publishing from the last good inventory | Accepted |
+| 2026-09-28 | [A tab draws a dot only for a view that can be idle](2026-09-28-a-tab-draws-a-dot-only-for-a-view-that-can-be-idle.md) — a contract with no idle state answers no activity: an active-only view still draws the panel, and a tab dots only while a panel that can be idle is active | Accepted |
+| 2026-09-28 | [An active-only view shows only what is going on](2026-09-28-an-active-only-view-shows-only-what-is-going-on.md) — `isActiveOnly` hides a panel whose channel has nothing going on and says `Nothing active` when none has; the server answers activity per panel and per view from the contract data; a tab carries a dot while its view is active; `Working` and `House` are the two browser screens | Accepted |
+| 2026-09-28 | [A panel reloads only when its page answers](2026-09-28-a-panel-reloads-only-when-its-page-answers.md) — every self-reload goes through `reloadPage()`, which fetches the page URL first and retries every 2 s with no deadline; a reload during a deploy no longer lands on the proxy's 502 | Accepted |
+| 2026-09-28 | [A printer row is the panel's height, and the ordering prefix is a badge](2026-09-28-a-printer-row-is-the-panels-height-and-the-ordering-prefix-is-a-badge.md) — the Printer Status row is `minmax(0, 1fr)` of the panel and the picture shrinks to fit, so the facts never fall under the fold; the Bambuddy source strips a `1 - ` ordering prefix from the printer name and the card draws the position as a badge | Accepted |
+| 2026-09-28 | [A screen's views are tabs across its header](2026-09-28-a-screens-views-are-tabs-across-its-header.md) — the native select view picker is replaced by a scrolling tab row of real `/view/<id>` links; management draws its `Nav` in the side `Rail` through `useNavLayout`; the header mark links home and the `Home` links go | Accepted |
+| 2026-09-28 | [A wide platform printer card puts the picture beside the facts](2026-09-28-a-wide-platform-printer-card-puts-the-picture-beside-the-facts.md) — a platform printer card 900 px or wider is picture left at 40%, facts right and centered; the breakpoint is the card's width through a container query on the card's children | Accepted |
+| 2026-09-28 | [Printer Status stacks printers top to bottom on a portrait panel](2026-09-28-printer-status-stacks-printers-top-to-bottom-on-a-portrait-panel.md) — on a portrait panel the printers sit one above the other at full width; the column rule stands on landscape | Accepted |
+| 2026-09-28 | [A panel too small for a view is a stated limit, not a layout to fix](2026-09-28-a-panel-too-small-for-a-view-is-a-stated-limit.md) — Printer Status shows at most one printer on a 480 px panel; Photo Frame is not recommended on a round panel and needs a zoom-to-fill option; every limit is written in `docs/panel-limits.md` against a panel property | Accepted |
+| 2026-09-28 | [The Clear plate card names no other hardware](2026-09-28-the-clear-plate-card-names-no-other-hardware.md) — the `Or press the andon button on the printer.` sentence is removed from the finished/failed card; whoever can read the button taps the button, and an andon module is one household's hardware, not every panel's | Accepted |
+| 2026-09-28 | [A finished print stays on the glass until the plate is cleared](2026-09-28-a-finished-print-stays-on-the-glass-until-the-plate-is-cleared.md) — a `finished` or `failed` job keeps its card, tinted whole in success or danger, with a one-tap full-width `Clear plate` that publishes `printer_clear_plate` and the andon reminder under it; the card leaves when the next push drops the job. Pause and Stop move to the foot of an active card at a fingertip's height (64 px on the 1280x720 panel); the chip stays in the head. After a clear the panel shows whatever Home Assistant makes active | Accepted |
 | 2026-09-27 | [Browser printer cameras use live streams](2026-09-27-browser-printer-cameras-use-live-streams.md) — direct Bambuddy browser views proxy MJPEG instead of refreshing a still image every ten seconds | Accepted |
 | 2026-09-25 | [CastKit runs VRT from both Storybooks and the short-panel faces](2026-09-25-castkit-runs-vrt-from-both-storybooks-and-the-short-panel-faces.md) — CI's `vrt` job shoots every story of the ePaper and browser Storybooks plus `yarn vrt:capture`, the platform faces at the real 480x320 short panel. Clock frozen at one instant (the Storybook only under automation), fixed weather and agenda. `*.vrt.tsx` files write pictures and never run in `yarn test`; a unit test still never asserts on a picture | Accepted |
 | 2026-09-25 | [Ambient's weather row carries the condition mark](2026-09-25-ambient-weather-row-carries-the-condition-mark.md) — the purple condition mark leads the weather row, before the temperature; 10vmin, 60 px on the short panel | Accepted |
@@ -17,7 +94,7 @@ proposing a change; a settled decision here overrides default instinct.
 | 2026-09-25 | [The AI Usage view shows one weekly limit per provider and escalates the rest](2026-09-25-the-ai-usage-view-shows-one-weekly-limit-per-provider.md) — one row per provider, its weekly budget; every other window is withheld until it reaches `alertPercent`, default 80. The span comes from a new `periodHours`, never from `resetsAtMs`, which is the next clearing time and not the length of the window | Accepted |
 | 2026-09-25 | [Collections use search, tags, and structured editors](2026-09-25-collections-use-search-tags-and-structured-editors.md) | Accepted |
 | 2026-09-25 | [Overview previews are upright](2026-09-25-overview-previews-are-upright.md) | Accepted |
-| 2026-09-25 | [A finish time names its day when it is not today](2026-09-25-a-finish-time-names-its-day-when-it-is-not-today.md) — `Finishes` prints `Tomorrow 3:47 PM`, `Sun 3:47 PM`, or a date a week out, because a bare clock time states today and a print that runs past midnight was read as three hours away when the printer meant twenty-seven. The test is the calendar day in the panel's timezone, never a twenty-four hour window — a finish at 01:00 is eight hours out and still not today | Accepted |
+| 2026-09-25 | [A finish time names its day when it is not today](2026-09-25-a-finish-time-names-its-day-when-it-is-not-today.md) — `Finishes` prints `Tomorrow 3:47 PM`, `Sun 3:47 PM`, or a date a week out, because a bare clock time states today and a print that runs past midnight was read as three hours away when the printer meant twenty-seven. The test is the calendar day in the panel's timezone, never a twenty-four hour window — a finish at 01:00 is eight hours out and still not today | Superseded |
 | 2026-09-25 | [AI Usage is a native view on an `ai-usage.v1` channel](2026-09-25-ai-usage-is-a-native-view-on-an-ai-usage-v1-channel.md) — remaining Claude, Codex, Grok and Cursor quota becomes a native view, fed either by the producer's retained MQTT snapshot or by a dedicated adapter polling its `/api/state`. No provider credential reaches CastKit. A reset time is absolute on a slow panel, because a countdown is already wrong when the glass settles; the view budgets whole rows out of its own panel; an unreachable provider keeps its row and says why | Accepted |
 | 2026-09-25 | [Access settings show controls without explanatory cards](2026-09-25-access-settings-show-controls-without-explanatory-cards.md) | Accepted |
 | 2026-09-25 | [Plugins install from management without redeployment](2026-09-25-plugins-install-from-management-without-redeployment.md) | Accepted |
@@ -112,3 +189,7 @@ proposing a change; a settled decision here overrides default instinct.
 | 2026-07-01 | [Develop on a local disk with the node-modules linker (not a network share)](2026-07-01-local-drive-not-network-share.md) | Accepted |
 | 2026-07-01 | [Views use inline style objects (Satori-safe), not Emotion or Tailwind](2026-07-01-inline-styles-for-views.md) | Accepted |
 | 2026-07-01 | [Always use latest dependencies; never scaffold with old ones](2026-07-01-latest-dependencies.md) | Accepted |
+
+- [2026-09-28: Browser printer cards preserve the small-count layouts](2026-09-28-browser-printer-cards-preserve-small-count-layouts.md)
+- [2026-09-28: Printer Status adds layouts from four](2026-09-28-printer-status-adds-layouts-from-four.md)
+- [2026-09-28: Storybook calls this view 3D Printer Status](2026-09-28-storybook-calls-this-view-3d-printer-status.md)

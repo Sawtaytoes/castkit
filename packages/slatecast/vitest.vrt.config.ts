@@ -6,9 +6,9 @@ import baseConfig from "./vitest.config.ts"
  * The visual-regression capture: `src/**\/*.vrt.tsx` only, each writing PNGs
  * into `VRT_ACTUAL_DIR` (the shared `vrt` workflow passes it absolute).
  *
- * A separate config, so `yarn test` never writes a picture and never asserts
+ * A separate config, so `pnpm test` never writes a picture and never asserts
  * on one: these files produce shots for reg-suit to compare, and the verdict
- * is the `vrt` check, not a test failure. Run it with `yarn vrt:capture`.
+ * is the `vrt` check, not a test failure. Run it with `pnpm vrt:capture`.
  *
  * The page's time zone and locale are pinned here rather than inherited from
  * the machine, because the platform views format with the browser's defaults.
@@ -33,6 +33,10 @@ export default defineConfig({
     provide: { vrtActualDir },
     browser: {
       ...baseConfig.test?.browser,
+      // One window, deliberately: the unit config runs in all four, but
+      // the capture's viewport is the baseline's, and widening it is its
+      // own change with its own reviewed images.
+      instances: [{ browser: "chromium" }],
       provider: playwright({
         contextOptions: {
           locale: "en-US",

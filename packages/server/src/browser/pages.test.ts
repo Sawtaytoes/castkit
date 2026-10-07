@@ -197,7 +197,7 @@ describe("resolveSlatecastBuildId", () => {
     // ⚠️ The directory EXISTS and is empty; it is deliberately not a missing
     // path. `resolveSlatecastDistDir` falls through to the workspace build
     // when its candidate does not exist, which is right for dev and wrong for
-    // this test: anybody who has run `yarn workspace @castkit/slatecast build`
+    // this test: anybody who has run `pnpm --filter @castkit/slatecast build`
     // then finds a real build here and gets a hash, so the assertion passed
     // only on a checkout nobody had built. An empty directory exercises the
     // same guarantee — no files to hash — and cannot be rescued by a fallback.

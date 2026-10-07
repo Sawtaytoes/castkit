@@ -30,10 +30,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@charcuterie/vitest-config": "^2.0.0",
     "@types/node": "^26.1.0",
     "@types/react": "^19.2.17",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "ws": "8.21.0",
+    "@types/ws": "8.18.1"
   }
 }

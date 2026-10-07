@@ -11,8 +11,13 @@ export type Device = {
   shape?: "square" | "round" | "rectangle"
   hasTouch?: boolean
   hasViewDrawer?: boolean
+  printQueueChannel?: string
   /** A backlight agent listens on the device's MQTT light topics. */
   hasMqttBacklight?: boolean
+  /** Backlight commands travel directly with remote display frames. */
+  hasRemoteBacklight?: boolean
+  /** Independent ambient LEDs receive persisted controls alongside remote frames. */
+  hasRemoteAmbientLight?: boolean
   /** Ordered allow-list. Absent means every compatible view. */
   views?: string[]
   externalViews?: {

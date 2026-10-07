@@ -1,5 +1,9 @@
 # Views, channels, and screens
 
+Use [Display targets](display-targets.md) to document the viewing context, purposes
+and readable-fit requirements behind a composition. These design records complement
+existing layout priorities and screen overrides; they do not add runtime settings.
+
 ## Create a browser view
 
 1. Open `/manage`. On a new installation, use the one-time setup token from the private platform file and choose the management PIN. The setup link can carry the token in its `#setup=` fragment; the browser removes it from the address immediately.
@@ -21,6 +25,33 @@ CastKit rejects compositions whose renderer, repaint requirement, or value lifet
 
 The legacy device View command can select an assigned composition when its ID or name matches, or when exactly one allowed single-panel composition has the matching view specification. For unambiguous automation, use the named screen command.
 
+### A temporary view on one display
+
+Any physical display can show a platform view for a while, whether or not it is
+assigned a screen. Send the display, not a screen:
+
+```text
+<base>/<device-id>/override/set
+{"viewId":"kids-points-kitchen","durationSeconds":15,"priority":100}
+```
+
+The equivalent HTTP endpoint is
+`POST /api/manage/platform/devices/<device-id>/show`, which answers with the
+seconds granted. The highest priority wins and a more recent request wins a tie,
+as for a screen. When the last override expires, the display returns to its
+assigned screen, or to its own view system: a browser display reloads its
+page, and an image display is sent a frame of its own view. Nothing is saved; a
+restart ends every temporary view.
+
+The display sets the length. A temporary view is a value whose lifetime is the
+time it stays up, so the freshness rule applies to it: it lasts at least ten
+repaints. An `instant` or `fast` display keeps the requested time, a `slow`
+display lengthens fifteen seconds to thirty, and a `super-slow` display refuses
+the request and keeps its view, because it would spend most of a minute in two
+full flashes. The view must also be compatible with the display, exactly as for
+an assignment. A PIN-protected view on a browser display still needs that
+display's grant.
+
 ## Screen automation
 
 With MQTT enabled, each screen publishes a Home Assistant select entity. Its command topic is `<base>/screens/<id>/view/set`. Send a view ID as plain text for a persistent selection. For a temporary override, send:
@@ -38,6 +69,18 @@ View data uses separate topics. The MQTT source defaults to `castkit/channels/<c
 ## Points
 
 A `points.v1` channel carries the person name, awarded points, message, and optional expiration. A source can supply `total` for an account total or `pointsToday` for a daily total. The view labels each value explicitly. Pair the result with a short screen override to show an NFC outcome without changing the screen URL. The display does not award points.
+
+For a household board, use the **Tally Marks** view on a `kids-points.v1` channel. It shows every child's points today and the last card scan, and a channel can limit scans to one room's readers. See [the Tally Marks view](kids-points-view.md).
+
+## Combined kiosks
+
+Start a saved view from **Combined kiosk**, bind its printer, Rip Deck and AI Usage channels, and keep **Show only what is active** enabled. **Automatic** measures the available room, preserves required content and gives higher-priority components useful space first. Its default order is printers, disc jobs, then AI usage. **A · Adaptive cards** and **B · Cameras and rail** remain manual choices.
+
+In **Panels**, enable **Choose printers for this view**, **Choose bays for this view** or **Choose accounts for this view** and check the items to include. An enabled empty selection shows none. Selections belong to the view, so another kiosk can use a different subset of the same channels.
+
+Enable **Show only usage above zero** to hide idle accounts. **Replace weekly usage with a shorter limit above the alert threshold** shows one quota per account: the aggregate weekly quota normally, or the shorter quota when it is strictly above the threshold (80% by default). At exactly 80%, the weekly quota stays. Usage-window selection can limit the eligible quotas further.
+
+Printer cards can use a compact facts row and bounded SVG controls beside progress. Each card still independently maximizes its camera's contained area before spending spare room on facts. Rip Deck's **Poster cards** presentation fills its region with artwork and shows only whole cards; any remaining active jobs are counted. AI usage stacks accounts in a tall rail and chooses more columns in a shallow region to preserve readable, complete rows.
 
 ## Access
 

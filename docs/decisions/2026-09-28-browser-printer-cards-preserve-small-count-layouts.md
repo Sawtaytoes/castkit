@@ -4,7 +4,7 @@
 - **Date:** 2026-09-28
 - **Type:** View / layout
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [Camera remains primary; the plate preview is secondary](2026-10-07-camera-remains-primary-and-plate-preview-is-secondary.md), for simultaneous camera and plate preview placement.
 
 ## Decision
 

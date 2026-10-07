@@ -14,25 +14,30 @@ from urllib.parse import urlsplit
 
 import yaml
 from aioesphomeapi import APIClient, TextSensorState
-from codec import encode_frame
+from ambient_light import artwork_bounds
+from codec import encode_frame, presto_frame_pixels, presto_frame_pixels_with_palette
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
 from playwright.async_api import async_playwright
+from presto_transport import PrestoTransport
 from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v1"
-TARGETS_SCRIPT = """({attribute, loadingSelector}) => Array.from(document.querySelectorAll(`[${attribute}]`)).filter(element => {
+BUILD_MARKER = "castkit-remote-display-v11-raw-pixels"
+TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
+const stage = document.querySelector('.stage');
+const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
+return gestures.concat(Array.from(document.querySelectorAll(`[${attribute}]`)).filter(element => {
   const bounds = element.getBoundingClientRect();
-  return bounds.width && bounds.height && bounds.left >= 0 && bounds.top >= 0 && bounds.right <= 480 && bounds.bottom <= 320 && !element.matches(':disabled,[aria-disabled="true"]');
+  return bounds.width && bounds.height && bounds.left >= 0 && bounds.top >= 0 && bounds.right <= width && bounds.bottom <= height && !element.matches(':disabled,[aria-disabled="true"]');
 }).map(element => { const bounds = element.getBoundingClientRect(); return {
   identity: element.getAttribute(attribute), x: bounds.x, y: bounds.y,
   width: bounds.width, height: bounds.height, loading: loadingSelector ? element.matches(loadingSelector) : false
-}; })"""
+}; })); }"""
 HIT_SCRIPT = """({x,y,attribute}) => {
  const element = document.elementFromPoint(x,y)?.closest(`[${attribute}]`);
- return element && !element.matches(':disabled,[aria-disabled="true"]') ? element.getAttribute(attribute) : null;
+ return element && !element.matches(':disabled,[aria-disabled="true"]') ? element.getAttribute(attribute) : document.querySelector('.stage') ? `view-gesture:${document.querySelector('.stage').dataset.view}` : null;
 }"""
 
 
@@ -40,7 +45,8 @@ def read_config(path):
     config = yaml.safe_load(pathlib.Path(path).read_text())
     if not isinstance(config, dict):
         raise ValueError("Display configuration must be a mapping")
-    for key in ("manifest_url", "host", "mac", "secrets_path"):
+    is_presto = config.get("transport") == "presto"
+    for key in ("manifest_url", "mac", "secrets_path") + (() if is_presto else ("host",)):
         if not isinstance(config.get(key), str) or not config[key]:
             raise ValueError(f"Missing display configuration field: {key}")
     parsed = urlsplit(config["manifest_url"])
@@ -52,6 +58,11 @@ def read_config(path):
     ):
         raise ValueError("Display URL must be HTTP(S), without embedded credentials")
     validate_preview_port(config.get("preview_port"))
+    if is_presto:
+        port = config.get("listen_port")
+        if type(port) is not int or not 1024 <= port <= 65535:
+            raise ValueError("Presto requires a listen_port between 1024 and 65535")
+        config["viewport"] = {"width": 480, "height": 480}
     return config
 
 
@@ -72,6 +83,7 @@ class DisplaySession:
         self.target_options = {
             "attribute": self.target_attribute,
             "loadingSelector": config.get("loading_selector"),
+            **config.get("viewport", {"width": 480, "height": 320}),
         }
         self.processed_touch = 0
         self.last_sequence = 0
@@ -98,6 +110,12 @@ class DisplaySession:
                     self.is_reset_required = True
                 self.touches.put_nowait(parts)
             elif parts[0] == "error":
+                if parts[1] == "device-restarted":
+                    self.last_sequence = 0
+                    self.processed_touch = 0
+                    self.is_reset_required = True
+                    self.guard.frames.clear()
+                    self.force_frame.set()
                 for future in self.pending.values():
                     if not future.done():
                         future.set_exception(RuntimeError(parts[1]))
@@ -105,7 +123,7 @@ class DisplaySession:
             LOG.warning("Ignored malformed display telemetry")
 
     async def cancel_contact(self):
-        if self.contact is not None:
+        if self.contact is not None and self.contact.get("is_native_active"):
             await self.cdp.send(
                 "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
             )
@@ -132,7 +150,16 @@ class DisplaySession:
                     self.processed_touch = sequence
                     self.force_frame.set()
                     continue
-                self.contact = {"identity": identity, "x": x, "y": y, "started": time.monotonic()}
+                self.contact = {
+                    "identity": identity,
+                    "x": x,
+                    "y": y,
+                    "start_x": x,
+                    "start_y": y,
+                    "started": time.monotonic(),
+                    "is_gesture": False,
+                    "is_native_active": False,
+                }
             elif self.contact is None:
                 # ESPHome replays its retained sensor value after reconnect.
                 self.processed_touch = sequence
@@ -140,14 +167,80 @@ class DisplaySession:
                 continue
             if phase == 2:
                 x, y = self.contact["x"], self.contact["y"]
+            if (
+                phase == 1
+                and not self.contact["is_gesture"]
+                and not self.contact["identity"].startswith("navigation-edge:")
+                and max(abs(y - self.contact["start_y"]), abs(x - self.contact["start_x"])) >= 48
+                and (
+                    self.contact["identity"] != "now-playing-artwork"
+                    or abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
+                )
+            ):
+                if self.contact["is_native_active"]:
+                    await self.cdp.send(
+                        "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
+                    )
+                self.contact["is_native_active"] = False
+                self.contact["is_gesture"] = True
+                await self.page.evaluate(
+                    """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
+                    {"x": self.contact["start_x"], "y": self.contact["start_y"]},
+                )
+            if self.contact["is_gesture"]:
+                await self.page.evaluate(
+                    """({phase,x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent(phase === 2 ? 'pointerup' : 'pointermove', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
+                    {"phase": phase, "x": x, "y": y},
+                )
+                if phase == 2:
+                    self.contact = None
+                else:
+                    self.contact.update(x=x, y=y)
+                self.processed_touch = sequence
+                self.force_frame.set()
+                continue
             current = await self.page.evaluate(
                 HIT_SCRIPT, {"x": x, "y": y, "attribute": self.target_attribute}
             )
-            if (
-                current != self.contact["identity"]
-                or time.monotonic() - self.contact["started"] > 5
-            ):
+            if time.monotonic() - self.contact["started"] > 5:
                 await self.cancel_contact()
+                self.processed_touch = sequence
+                self.force_frame.set()
+                continue
+            # Artwork captures its pointer: a horizontal drag can legitimately
+            # leave its rectangle and must still receive the release. Other
+            # controls retain the cross-control cancellation guard.
+            is_artwork_drag = self.contact["identity"] == "now-playing-artwork" and abs(
+                x - self.contact["start_x"]
+            ) > abs(y - self.contact["start_y"])
+            # Shell edges capture their pointer above native and external views.
+            # Their acknowledged starting hitbox owns the whole inward pull.
+            is_navigation_drag = self.contact["identity"].startswith("navigation-edge:")
+            if (
+                phase == 1
+                and current != self.contact["identity"]
+                and not is_artwork_drag
+                and not is_navigation_drag
+            ):
+                # Cancel the tap but keep sampling the finger: it may cross a
+                # small control before travelling far enough to commit a swipe.
+                if self.contact["is_native_active"]:
+                    await self.cdp.send(
+                        "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
+                    )
+                self.contact.update(x=x, y=y, is_tap_cancelled=True, is_native_active=False)
+                self.processed_touch = sequence
+                self.force_frame.set()
+                continue
+            if self.contact.get("is_tap_cancelled") or (
+                current != self.contact["identity"]
+                and not is_artwork_drag
+                and not is_navigation_drag
+            ):
+                if phase == 2:
+                    await self.cancel_contact()
+                else:
+                    self.contact.update(x=x, y=y)
                 self.processed_touch = sequence
                 self.force_frame.set()
                 continue
@@ -161,13 +254,24 @@ class DisplaySession:
             if phase == 2:
                 self.contact = None
             else:
-                self.contact.update(x=x, y=y)
+                self.contact.update(x=x, y=y, is_native_active=True)
             self.processed_touch = sequence
             self.force_frame.set()
 
     async def send_frame(self, payload, touch_id, targets, format_id=2):
         self.frame_id += 1
         frame_id = self.frame_id
+        if isinstance(self.client, PrestoTransport):
+            # A touch can only use a frame that the physical panel acknowledged.
+            response = await self.client.send_frame(frame_id, touch_id, payload)
+            self.guard.remember(
+                frame_id,
+                [
+                    Target(**{key: value for key, value in target.items() if key != "loading"})
+                    for target in targets
+                ],
+            )
+            return response
         if format_id == 2:
             rectangles = ";".join(
                 ":".join(str(round(target[key])) for key in ("x", "y", "width", "height"))
@@ -224,12 +328,48 @@ class DisplaySession:
                 cycle = time.monotonic()
                 touch_id = self.processed_touch
                 before = await self.page.evaluate(TARGETS_SCRIPT, self.target_options)
-                png = await self.page.screenshot(type="png", animations="disabled", timeout=5000)
+                capture_started = time.monotonic()
+                if isinstance(self.client, PrestoTransport):
+                    shot = await self.cdp.send(
+                        "Page.captureScreenshot",
+                        {
+                            "format": "png",
+                            "fromSurface": True,
+                            "captureBeyondViewport": False,
+                            "optimizeForSpeed": True,
+                        },
+                    )
+                    png = base64.b64decode(shot["data"])
+                else:
+                    png = await self.page.screenshot(
+                        type="png", animations="disabled", timeout=5000
+                    )
+                capture_finished = time.monotonic()
                 after = await self.page.evaluate(TARGETS_SCRIPT, self.target_options)
                 if before != after:
                     continue
                 self.preview.set_frame(png)
-                payload = await asyncio.to_thread(encode_frame, png)
+                needs_palette = (
+                    isinstance(self.client, PrestoTransport)
+                    and self.client.ambient_light is not None
+                    and self.client.ambient_light["on"]
+                    and self.client.ambient_light["mode"] in ("album-glow", "swipe-comet")
+                )
+                if needs_palette:
+                    payload, colors = await asyncio.to_thread(
+                        presto_frame_pixels_with_palette, png, artwork_bounds(after)
+                    )
+                    self.client.set_ambient_palette(colors)
+                else:
+                    payload = (
+                        await asyncio.to_thread(presto_frame_pixels, png)
+                        if isinstance(self.client, PrestoTransport)
+                        else await asyncio.to_thread(encode_frame, png)
+                    )
+                encoded_at = time.monotonic()
+                if isinstance(self.client, PrestoTransport):
+                    self.client.capture_ms = round((capture_finished - capture_started) * 1000, 1)
+                    self.client.encode_ms = round((encoded_at - capture_finished) * 1000, 1)
                 if (
                     payload != previous_payload
                     or touch_id != previous_touch
@@ -263,33 +403,75 @@ class DisplaySession:
             await self.cdp.detach()
 
 
+async def create_browser_context(browser, config):
+    """Restore infrastructure credentials without changing panel rendering properties."""
+    return await browser.new_context(
+        viewport=config.get("viewport", {"width": 480, "height": 320}),
+        device_scale_factor=1,
+        has_touch=True,
+        is_mobile=True,
+        reduced_motion="reduce",
+        accept_downloads=False,
+        storage_state=config.get("browser_storage_state"),
+    )
+
+
+async def poll_controls(context, config, transport, stop):
+    """Read app-owned controls independently of capture and frame acknowledgements."""
+    while not stop.is_set():
+        try:
+            response = await context.request.get(config["controls_url"], timeout=5000)
+            same_origin_url(config["manifest_url"], response.url)
+            if not response.ok:
+                raise ConnectionError("Controls unavailable")
+            controls = await response.json()
+            if "backlight_percent" in controls:
+                transport.set_backlight(controls["backlight_percent"])
+            transport.set_ambient_light(
+                controls.get("ambientLight"), controls.get("ambientLightData")
+            )
+        except Exception as error:
+            LOG.warning("Display controls unavailable: %s", type(error).__name__)
+        await asyncio.sleep(0.5)
+
+
 async def serve(config):
     stop = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         asyncio.get_running_loop().add_signal_handler(sig, stop.set)
     credentials = yaml.safe_load(pathlib.Path(config["secrets_path"]).read_text())
-    api_key = credentials[config.get("api_key_name", "api_encryption_key")]
+    is_presto = config.get("transport") == "presto"
+    api_key = credentials[
+        config.get("api_key_name", "presto_token" if is_presto else "api_encryption_key")
+    ]
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(
             **({"executable_path": config["chromium"]} if config.get("chromium") else {}),
             args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
-        context = await browser.new_context(
-            viewport={"width": 480, "height": 320},
-            device_scale_factor=1,
-            has_touch=True,
-            is_mobile=True,
-            reduced_motion="reduce",
-            accept_downloads=False,
-        )
+        context = await create_browser_context(browser, config)
         manifest_response = await context.request.get(config["manifest_url"], timeout=15000)
         same_origin_url(config["manifest_url"], manifest_response.url)
         if not manifest_response.ok:
             raise ConnectionError("CastKit manifest unavailable")
         config = {
             **config,
-            **parse_manifest(await manifest_response.json(), config["manifest_url"]),
+            **parse_manifest(
+                await manifest_response.json(),
+                config["manifest_url"],
+                config.get("viewport"),
+                max_cache_entries=0 if is_presto else 1,
+            ),
         }
+        # Refresh limits describe transport capability, not a user-facing view setting.
+        if is_presto:
+            config = {**config, "max_fps": min(config["max_fps"], 8)}
+        presto = PrestoTransport(config, api_key) if is_presto else None
+        controls_task = None
+        if presto is not None:
+            await presto.start()
+            if config.get("controls_url"):
+                controls_task = asyncio.create_task(poll_controls(context, config, presto, stop))
         page = await context.new_page()
         origin = urlsplit(config["url"])
 
@@ -324,7 +506,7 @@ async def serve(config):
         await preview.start()
         try:
             while not stop.is_set():
-                client = APIClient(config["host"], 6053, None, noise_psk=api_key)
+                client = presto or APIClient(config["host"], 6053, None, noise_psk=api_key)
                 try:
                     if page.is_closed():
                         page = await context.new_page()
@@ -341,19 +523,23 @@ async def serve(config):
                         if config["ready_selector"]:
                             await page.locator(config["ready_selector"]).wait_for(timeout=15000)
                     await client.connect(login=True)
-                    info = await client.device_info()
-                    if info.mac_address.lower().replace(":", "") != config["mac"].lower().replace(
-                        ":", ""
-                    ):
-                        raise ValueError("Device identity mismatch")
-                    entities, services = await client.list_entities_services()
-                    actions = {service.name: service for service in services}
-                    if not {"frame_chunk", "configure_touch_regions"} <= actions.keys():
-                        raise ValueError("The display needs CastKit remote-display firmware")
-                    event_key = next(
-                        entity.key for entity in entities if entity.name == "Display Events"
-                    )
-                    LOG.info("Display connected; firmware=%s", info.compilation_time)
+                    if is_presto:
+                        actions, event_key = {}, 1
+                        LOG.info("Presto connected; firmware=%s", client.build_marker)
+                    else:
+                        info = await client.device_info()
+                        if info.mac_address.lower().replace(":", "") != config[
+                            "mac"
+                        ].lower().replace(":", ""):
+                            raise ValueError("Device identity mismatch")
+                        entities, services = await client.list_entities_services()
+                        actions = {service.name: service for service in services}
+                        if not {"frame_chunk", "configure_touch_regions"} <= actions.keys():
+                            raise ValueError("The display needs CastKit remote-display firmware")
+                        event_key = next(
+                            entity.key for entity in entities if entity.name == "Display Events"
+                        )
+                        LOG.info("Display connected; firmware=%s", info.compilation_time)
                     session = DisplaySession(config, page, client, actions, stop, preview)
                     await session.run(event_key, loading_frame)
                 except Exception as error:
@@ -363,7 +549,12 @@ async def serve(config):
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=2)
         finally:
+            if controls_task is not None:
+                controls_task.cancel()
+                await asyncio.gather(controls_task, return_exceptions=True)
             await preview.stop()
+            if presto is not None:
+                await presto.stop()
             await browser.close()
 
 

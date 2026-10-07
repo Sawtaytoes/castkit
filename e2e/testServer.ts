@@ -9,6 +9,7 @@ import { serve } from "@hono/node-server"
 import { createApp } from "../packages/server/src/app.ts"
 import { createBrowserMode } from "../packages/server/src/browser/browserMode.ts"
 import { loadConfig } from "../packages/server/src/config/env.ts"
+import { watchDeviceTargets } from "../packages/server/src/platform/deviceTargetWatcher.ts"
 import { createPlatform } from "../packages/server/src/platform/platform.ts"
 import { attachPlatformSockets } from "../packages/server/src/platform/platformSockets.ts"
 import { hashPin } from "../packages/server/src/platform/platformStore.ts"
@@ -149,6 +150,13 @@ export const startTestServer = async ({
     ],
     channels: [
       {
+        id: "points/fixture",
+        name: "Fixture points",
+        sourceId: "events",
+        type: "kids-points.v1",
+        settings: {},
+      },
+      {
         id: "printers/lab",
         name: "Lab printers",
         sourceId: "events",
@@ -158,12 +166,29 @@ export const startTestServer = async ({
     ],
     views: [
       {
+        id: "scan-monitor",
+        name: "Scan monitor",
+        layout: "single",
+        theme: "dark",
+        access: "public",
+        isControlEnabled: false,
+        isActiveOnly: true,
+        panels: [
+          {
+            id: "points",
+            specId: "kids-points",
+            bindings: { data: "points/fixture" },
+            settings: { scanSeconds: 3 },
+          },
+        ],
+      },
+      {
         id: "lab",
         name: "Lab",
         layout: "split",
         theme: "dark",
         access: "public",
-        isControlEnabled: false,
+        isControlEnabled: true,
         panels: [
           {
             id: "printers",
@@ -185,7 +210,7 @@ export const startTestServer = async ({
         layout: "single",
         theme: "dark",
         access: "pin",
-        isControlEnabled: false,
+        isControlEnabled: true,
         panels: [
           {
             id: "printers",
@@ -262,10 +287,18 @@ export const startTestServer = async ({
 
   const { injectWebSocket, upgradeWebSocket } =
     browserMode.attach(app, {
-      getPlatformScreenId: (deviceId) =>
-        platform.store.get().deviceScreens[deviceId],
+      getPlatformTarget: platform.getDeviceTarget,
     })
   attachPlatformSockets({ app, platform, upgradeWebSocket })
+  watchDeviceTargets({
+    platform,
+    browserDeviceIds: config.browserDevices.map(
+      (device) => device.id,
+    ),
+    imageDeviceIds: [],
+    onBrowserTargetChanged: browserMode.reloadDevice,
+    onImageTargetRemoved: () => {},
+  })
   const server = serve({ fetch: app.fetch, port })
   injectWebSocket(server)
 

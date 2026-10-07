@@ -1,10 +1,13 @@
 import { isVisible } from "@castkit/sdk/conditions"
 import type { ContractData } from "@castkit/sdk/contracts"
+import type { JSX } from "preact"
 import { useEffect, useState } from "preact/hooks"
+import { formatClockTime } from "../time.ts"
 import { AttributeFields } from "./AttributeFields.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { EntityChart } from "./EntityChart.tsx"
 import { EntityControls } from "./EntityControls.tsx"
+import { HomeLightMembers } from "./HomeLightMembers.tsx"
 import { LocationMap } from "./LocationMap.tsx"
 import {
   hasInvalidControlSettings,
@@ -37,6 +40,7 @@ export const EntitiesView = ({
   ) => Promise<void>
 }) => {
   const properties = useDisplayProperties()
+  const isHome = settings.presentation === "home"
   const [confirmation, setConfirmation] = useState<{
     entity: Entity
     action: string
@@ -62,6 +66,10 @@ export const EntitiesView = ({
     settings,
     key: "labelsFromEntities",
   }) as Record<string, string> | undefined
+  const relatedEntities = structuredSetting({
+    settings,
+    key: "relatedEntities",
+  }) as Record<string, string[]> | undefined
   const conditions = structuredSetting({
     settings,
     key: "entityVisibility",
@@ -113,6 +121,12 @@ export const EntitiesView = ({
   }) => {
     if (
       !isControlEnabled ||
+      (["light", "fan", "climate"].includes(
+        entity.domain,
+      ) &&
+        ["unknown", "unavailable"].includes(
+          entity.state,
+        )) ||
       !entity.actions.includes(action) ||
       !isVisible({
         condition: actionVisibility?.[entity.id]?.[action],
@@ -154,94 +168,182 @@ export const EntitiesView = ({
       </p>
     )
   }
+  const renderEntity = ({
+    entity,
+    ancestors,
+  }: {
+    entity: Entity
+    ancestors: string[]
+  }): JSX.Element => {
+    const finish = Date.parse(
+      String(entity.attributes.finishes_at ?? ""),
+    )
+    const remaining =
+      Number.isFinite(finish) && entity.state === "active"
+        ? Math.max(0, Math.ceil((finish - now) / 1000))
+        : null
+    const labelEntity = data.entities.find(
+      (candidate) =>
+        candidate.id === labelEntities?.[entity.id],
+    )
+    const name =
+      labelEntity?.state ||
+      (typeof aliases?.[entity.id] === "string"
+        ? aliases[entity.id]
+        : undefined) ||
+      entity.name
+    return (
+      <article
+        class="platform-entity"
+        key={entity.id}
+        data-domain={entity.domain}
+        data-state={entity.state}
+      >
+        <h2>{name}</h2>
+        {isHome &&
+        entity.domain === "light" &&
+        (entity.state === "off" ||
+          typeof entity.attributes.brightness ===
+            "number") ? (
+          <progress
+            class="home-light-progress"
+            aria-label={`${name} brightness`}
+            max={100}
+            value={
+              entity.state === "off"
+                ? 0
+                : typeof entity.attributes.brightness ===
+                    "number"
+                  ? Math.round(
+                      (entity.attributes.brightness / 255) *
+                        100,
+                    )
+                  : undefined
+            }
+          />
+        ) : null}
+        <p class="platform-entity-value">
+          {remaining !== null && !properties.hasClockSeconds
+            ? `Ends at ${formatClockTime(finish)}`
+            : remaining !== null
+              ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`
+              : entity.domain === "timer" &&
+                  entity.state === "paused"
+                ? String(
+                    entity.attributes.remaining ?? "Paused",
+                  )
+                : isHome && entity.domain === "climate"
+                  ? `${entity.attributes.current_temperature ?? "—"}° · ${entity.state}`
+                  : isHome &&
+                      entity.domain === "light" &&
+                      typeof entity.attributes
+                        .brightness === "number"
+                    ? entity.state === "off"
+                      ? "Off"
+                      : `${Math.round((entity.attributes.brightness / 255) * 100)}%`
+                    : isHome &&
+                        [
+                          "scene",
+                          "script",
+                          "button",
+                          "input_button",
+                        ].includes(entity.domain)
+                      ? "Ready"
+                      : entity.state}{" "}
+          {typeof entity.attributes.unit_of_measurement ===
+          "string"
+            ? entity.attributes.unit_of_measurement
+            : ""}
+        </p>
+        {mode === "charts" ? (
+          <EntityChart
+            entity={entity}
+            settings={settings}
+            now={now}
+          />
+        ) : null}
+        {mode === "map" &&
+        typeof entity.attributes.latitude === "number" &&
+        typeof entity.attributes.longitude === "number" ? (
+          <p>
+            {entity.attributes.latitude.toFixed(4)},{" "}
+            {entity.attributes.longitude.toFixed(4)}
+          </p>
+        ) : null}
+        {(isControlEnabled || isHome) &&
+        entity.actions.length ? (
+          <fieldset
+            disabled={!isControlEnabled}
+            class="home-control-fieldset"
+          >
+            <EntityControls
+              isHome={isHome}
+              entity={{
+                ...entity,
+                name,
+                actions: entity.actions.filter((action) =>
+                  isVisible({
+                    condition:
+                      actionVisibility?.[entity.id]?.[
+                        action
+                      ],
+                    entities: data.entities,
+                  }),
+                ),
+              }}
+              request={({ action, payload }) =>
+                request({
+                  entity,
+                  action,
+                  payload,
+                  condition: conditions?.[entity.id],
+                })
+              }
+            />
+          </fieldset>
+        ) : null}
+        {isHome &&
+        relatedEntities?.[entity.id]?.some(
+          (id) => !ancestors.includes(id),
+        ) ? (
+          <HomeLightMembers
+            count={relatedEntities[entity.id]?.length ?? 0}
+            render={() =>
+              relatedEntities[entity.id]
+                ?.filter((id) => !ancestors.includes(id))
+                .flatMap((id) =>
+                  data.entities.filter(
+                    (candidate) =>
+                      candidate.id === id &&
+                      isVisible({
+                        condition: conditions?.[id],
+                        entities: data.entities,
+                      }),
+                  ),
+                )
+                .map((child) =>
+                  renderEntity({
+                    entity: child,
+                    ancestors: ancestors.concat(entity.id),
+                  }),
+                )
+            }
+          />
+        ) : null}
+      </article>
+    )
+  }
   return (
-    <div class="platform-entities">
+    <div
+      class="platform-entities"
+      data-home={String(isHome)}
+    >
       {mode === "map" ? (
         <LocationMap entities={entities} />
       ) : null}
-      {entities.map((entity) => {
-        const finish = Date.parse(
-          String(entity.attributes.finishes_at ?? ""),
-        )
-        const remaining =
-          Number.isFinite(finish) &&
-          entity.state === "active"
-            ? Math.max(0, Math.ceil((finish - now) / 1000))
-            : null
-        const labelEntity = data.entities.find(
-          (candidate) =>
-            candidate.id === labelEntities?.[entity.id],
-        )
-        const name =
-          labelEntity?.state ||
-          aliases?.[entity.id] ||
-          entity.name
-        return (
-          <article class="platform-entity" key={entity.id}>
-            <h2>{name}</h2>
-            <p class="platform-entity-value">
-              {remaining !== null &&
-              !properties.hasClockSeconds
-                ? `Ends at ${new Date(finish).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
-                : remaining !== null
-                  ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`
-                  : entity.domain === "timer" &&
-                      entity.state === "paused"
-                    ? String(
-                        entity.attributes.remaining ??
-                          "Paused",
-                      )
-                    : entity.state}{" "}
-              {typeof entity.attributes
-                .unit_of_measurement === "string"
-                ? entity.attributes.unit_of_measurement
-                : ""}
-            </p>
-            {mode === "charts" ? (
-              <EntityChart
-                entity={entity}
-                settings={settings}
-                now={now}
-              />
-            ) : null}
-            {mode === "map" &&
-            typeof entity.attributes.latitude ===
-              "number" &&
-            typeof entity.attributes.longitude ===
-              "number" ? (
-              <p>
-                {entity.attributes.latitude.toFixed(4)},{" "}
-                {entity.attributes.longitude.toFixed(4)}
-              </p>
-            ) : null}
-            {isControlEnabled && entity.actions.length ? (
-              <EntityControls
-                entity={{
-                  ...entity,
-                  name,
-                  actions: entity.actions.filter((action) =>
-                    isVisible({
-                      condition:
-                        actionVisibility?.[entity.id]?.[
-                          action
-                        ],
-                      entities: data.entities,
-                    }),
-                  ),
-                }}
-                request={({ action, payload }) =>
-                  request({
-                    entity,
-                    action,
-                    payload,
-                    condition: conditions?.[entity.id],
-                  })
-                }
-              />
-            ) : null}
-          </article>
-        )
-      })}
+      {entities.map((entity) =>
+        renderEntity({ entity, ancestors: [] }),
+      )}
       {isControlEnabled && Array.isArray(customActions) ? (
         <div class="platform-actions">
           {customActions.flatMap(

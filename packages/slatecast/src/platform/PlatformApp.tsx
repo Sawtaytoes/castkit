@@ -1,6 +1,9 @@
+import type { ContractData } from "@castkit/sdk/contracts"
+import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { JSX } from "preact"
 import { useEffect } from "preact/hooks"
 import { viewAppearance } from "./appearance.ts"
+import { DeferredHomeDashboard } from "./DeferredHomeDashboard.tsx"
 import { DisplayContext } from "./DisplayContext.ts"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
 import { Panel } from "./Panel.tsx"
@@ -11,57 +14,189 @@ import type {
   PanelAction,
 } from "./protocol.ts"
 import { useRenderReadiness } from "./RenderReadiness.ts"
+import { useCompositionLayout } from "./useCompositionLayout.ts"
 import { useDisplay } from "./useDisplay.ts"
 import "./platform.css"
+import { ViewTabs } from "./ViewTabs.tsx"
 
 /** Pure composition surface shared by the live client and preview stories. */
 export const DisplayComposition = ({
   snapshot,
   isConnected,
   isPending = false,
+  controlDisabledReason,
   onAction,
 }: {
   snapshot: DisplaySnapshot
   isConnected: boolean
   isPending?: boolean
+  controlDisabledReason?: string
   onAction: (action: PanelAction) => Promise<void>
-}) => (
-  <DisplayPropertiesContext.Provider
-    value={snapshot.displayProperties}
-  >
-    <DisplayContext.Provider value={snapshot.target}>
-      <div
-        class="platform-layout"
-        style={viewAppearance(snapshot.view)}
-        data-layout={snapshot.view.layout}
-      >
-        {snapshot.view.panels.map((panel) => (
-          <Panel
-            key={`${snapshot.view.id}:${panel.id}`}
-            panel={panel}
-            browserEntry={
-              snapshot.viewSpecs?.find(
-                (spec) => spec.id === panel.specId,
-              )?.browserEntry
+}) => {
+  // An active-only view draws only the panels the server says have something
+  // going on; a region with nothing to report gets out of the way and the
+  // others take the room. A panel the server did not answer for is drawn.
+  const panels = snapshot.view.isActiveOnly
+    ? snapshot.view.panels.filter(
+        (panel) =>
+          snapshot.panelActivity?.[panel.id] !== false,
+      )
+    : snapshot.view.panels
+  const isCombined = ["cards", "rail", "adaptive"].includes(
+    snapshot.view.layout,
+  )
+  const displayedPanels = panels.flatMap((panel) => {
+    const data = selectPanelData({
+      ...panel,
+      data: snapshot.channels[panel.bindings.data ?? ""]
+        ?.data,
+    })
+    if (
+      isCombined &&
+      panel.specId === "printer-status" &&
+      data
+    ) {
+      return (
+        data as ContractData["printers.v1"]
+      ).printers.map((printer, index) => ({
+        key: `${snapshot.view.id}:${panel.id}:${printer.id}`,
+        panel: {
+          ...panel,
+          settings: {
+            ...panel.settings,
+            title: "",
+            isCompactFacts:
+              panel.settings.isCompactFacts ?? true,
+            isPrinterSelectionEnabled: true,
+            printerIds: [printer.id],
+            printerIndex: index,
+          },
+        },
+        data: {
+          ...(data as ContractData["printers.v1"]),
+          printers: [printer],
+        },
+      }))
+    }
+    return [
+      {
+        key: `${snapshot.view.id}:${panel.id}`,
+        panel: isCombined
+          ? {
+              ...panel,
+              settings: {
+                ...panel.settings,
+                isAdaptiveLayout: true,
+              },
             }
-            inputs={
-              snapshot.viewSpecs?.find(
-                (spec) => spec.id === panel.specId,
-              )?.inputs
+          : panel,
+        data,
+      },
+    ]
+  })
+  const combined = useCompositionLayout({
+    panels: displayedPanels,
+    mode: snapshot.view.layout,
+    data: Object.fromEntries(
+      displayedPanels.map((item) => [item.key, item.data]),
+    ),
+  })
+  const layout = isCombined
+    ? (combined.layout?.id ?? "cards")
+    : snapshot.view.isActiveOnly && panels.length <= 1
+      ? "single"
+      : snapshot.view.layout
+  const isHome = panels.some(
+    (panel) => typeof panel.settings.homeGroup === "string",
+  )
+  const renderPanel = ({
+    key,
+    panel,
+  }: (typeof displayedPanels)[number]) => (
+    <Panel
+      key={key}
+      layoutStyle={
+        isCombined ? combined.layout?.cells[key] : undefined
+      }
+      panel={
+        isCombined && panel.specId === "printer-status"
+          ? {
+              ...panel,
+              settings: {
+                ...panel.settings,
+                minimumDetailLevel:
+                  combined.layout?.detailLevel ?? 0,
+              },
             }
-            channels={snapshot.channels}
-            isControlEnabled={
-              snapshot.canControl &&
-              isConnected &&
-              !isPending
-            }
-            onAction={onAction}
-          />
-        ))}
-      </div>
-    </DisplayContext.Provider>
-  </DisplayPropertiesContext.Provider>
-)
+          : panel
+      }
+      browserEntry={
+        snapshot.viewSpecs?.find(
+          (spec) => spec.id === panel.specId,
+        )?.browserEntry
+      }
+      inputs={
+        snapshot.viewSpecs?.find(
+          (spec) => spec.id === panel.specId,
+        )?.inputs
+      }
+      channels={snapshot.channels}
+      isControlEnabled={
+        snapshot.canControl && isConnected && !isPending
+      }
+      controlDisabledReason={
+        controlDisabledReason ??
+        (!isConnected
+          ? "Connection lost · Controls disabled"
+          : isPending
+            ? "Please wait · Action in progress"
+            : !snapshot.view.isControlEnabled
+              ? "Controls disabled for this view"
+              : !snapshot.canControl
+                ? "Sign in to control"
+                : undefined)
+      }
+      onAction={onAction}
+    />
+  )
+  return (
+    <DisplayPropertiesContext.Provider
+      value={snapshot.displayProperties}
+    >
+      <DisplayContext.Provider value={snapshot.target}>
+        <div
+          class="platform-layout"
+          ref={combined.element}
+          style={{
+            ...viewAppearance(snapshot.view),
+            ...(isCombined ? combined.layout?.style : {}),
+          }}
+          data-layout={layout}
+          data-home-dashboard={String(isHome)}
+          data-priority-layout={String(isCombined)}
+        >
+          {snapshot.view.isActiveOnly &&
+          panels.length === 0 ? (
+            <section
+              class="platform-panel platform-nothing-active"
+              aria-label="Nothing active"
+            >
+              <p role="status">Nothing active</p>
+            </section>
+          ) : null}
+          {isHome ? (
+            <DeferredHomeDashboard
+              panels={displayedPanels}
+              renderPanel={renderPanel}
+            />
+          ) : (
+            displayedPanels.map(renderPanel)
+          )}
+        </div>
+      </DisplayContext.Provider>
+    </DisplayPropertiesContext.Provider>
+  )
+}
 
 /** Browser views and named screens share a client without registering a device. */
 export const PlatformApp = ({
@@ -124,7 +259,10 @@ export const PlatformApp = ({
   }
   if (!display.snapshot) {
     return (
-      <main class="platform-lock">
+      <main
+        class="platform-lock"
+        data-connection={display.connectionStatus}
+      >
         <h1>CastKit</h1>
         <p role="status">
           {display.error || "Connecting…"}
@@ -189,6 +327,7 @@ export const PlatformApp = ({
     <main
       class="platform"
       style={viewAppearance(display.snapshot.view)}
+      data-connection={display.connectionStatus}
       data-device={String(Boolean(target.deviceId))}
       data-screen-navigation={String(hasScreenNavigation)}
       onClick={navigate}
@@ -199,51 +338,30 @@ export const PlatformApp = ({
       }
       data-castkit-ready={String(isReady)}
     >
-      <header class="platform-header">
-        <h1>{display.snapshot.view.name}</h1>
-        <div>
-          {hasScreenNavigation ? (
-            <label class="platform-view-picker">
-              View
-              <select
-                aria-label="View"
-                data-castkit-target="screen:select-view"
-                value={display.snapshot.view.id}
-                disabled={
-                  display.isPending || !display.isConnected
-                }
-                onChange={(event) =>
-                  void display.selectView(
-                    event.currentTarget.value,
-                  )
-                }
-              >
-                {availableViews.map((view) => (
-                  <option key={view.id} value={view.id}>
-                    {view.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {!display.isConnected ? (
-            <span role="status">
-              Connection lost · Retrying
-            </span>
-          ) : null}
-          {!display.isPreview &&
-          (display.snapshot.view.access === "pin" ||
-            display.snapshot.screen?.access === "pin") ? (
-            <button
-              type="button"
-              onClick={() => void display.lock()}
-            >
-              Lock
-            </button>
-          ) : null}
-        </div>
-      </header>
-      {display.error ? (
+      {hasScreenNavigation ? (
+        <header class="platform-header">
+          <ViewTabs
+            views={availableViews}
+            activeId={display.snapshot.view.id}
+            isDisabled={
+              display.isPending || !display.isConnected
+            }
+          />
+        </header>
+      ) : null}
+      <span
+        class="platform-connection-status"
+        role="status"
+      >
+        {display.connectionStatus === "disconnected"
+          ? "Connection unavailable · Retrying"
+          : display.connectionStatus === "reconnecting"
+            ? "Connection lost · Retrying"
+            : display.connectionStatus === "connecting"
+              ? "Connecting…"
+              : "Connected"}
+      </span>
+      {display.error && display.isConnected ? (
         <p class="platform-notice" role="alert">
           {display.error}
         </p>
@@ -252,6 +370,11 @@ export const PlatformApp = ({
         snapshot={display.snapshot}
         isConnected={display.isConnected}
         isPending={display.isPending}
+        controlDisabledReason={
+          display.isPreview
+            ? "Preview · Controls disabled"
+            : undefined
+        }
         onAction={display.requestAction}
       />
     </main>

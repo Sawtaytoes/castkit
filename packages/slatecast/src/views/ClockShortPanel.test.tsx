@@ -122,7 +122,7 @@ describe("clock on a short landscape panel", () => {
       document.querySelector(".clock-short-hours")
         ?.textContent,
     ).toMatch(/^\d{1,2}:\d{2}$/)
-    expect(screen.getByText(/^(AM|PM)$/)).toBeVisible()
+    expect(screen.getByText(/^[ap]$/)).toBeVisible()
   })
 
   test("drops the meridiem line in twenty-four-hour mode", async () => {
@@ -149,7 +149,7 @@ describe("clock on a short landscape panel", () => {
     expect(document.querySelector(".date-tile")).toBeNull()
     expect(
       document.querySelector(".ambient-time")?.textContent,
-    ).toMatch(/^\d{1,2}:\d{2}\s(AM|PM)$/)
+    ).toMatch(/^\d{1,2}:\d{2}[ap]$/)
     expect(
       document.querySelector(".ambient-date")?.textContent,
     ).toMatch(/^\w+day, \w+ \d{1,2}$/)
