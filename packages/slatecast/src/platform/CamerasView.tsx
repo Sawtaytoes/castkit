@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { ZoomableMedia } from "../views/ZoomableMedia.tsx"
 import { CameraImage } from "./CameraImage.tsx"
 import { structuredSetting } from "./viewSettings.ts"
 
@@ -38,7 +39,7 @@ const CameraCard = ({
       if (event.key !== "Tab") return
       const controls = Array.from(
         container.current?.querySelectorAll<HTMLElement>(
-          "button:not([hidden]), video[controls], [tabindex='0']:not([hidden])",
+          "button:not([hidden]):not([disabled]), video[controls], [tabindex='0']:not([hidden])",
         ) ?? [],
       )
       const first = controls[0]
@@ -98,12 +99,14 @@ const CameraCard = ({
         onLoadedDataCapture={() => setHasSettled(true)}
         onErrorCapture={() => setHasSettled(true)}
       >
-        <CameraImage
-          url={camera.url}
-          name={name}
-          isLive={camera.isLive}
-          format={camera.format}
-        />
+        <ZoomableMedia isEnabled={isExpanded}>
+          <CameraImage
+            url={camera.url}
+            name={name}
+            isLive={camera.isLive}
+            format={camera.format}
+          />
+        </ZoomableMedia>
         {!hasSettled ? (
           <p class="home-camera-loading" role="status">
             {isSlow

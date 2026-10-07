@@ -263,9 +263,21 @@ test("camera expansion keeps the same media element, traps focus, and restores t
   ).toBeTruthy()
   expect(screen.getByAltText("Studio camera")).toBe(image)
   await user.keyboard("{Tab}")
-  expect(document.activeElement).toBe(
+  expect(
+    screen.getByRole("button", { name: "Zoom in" }),
+  ).toHaveFocus()
+  await user.keyboard("{Tab}")
+  expect(
+    screen.getByRole("button", { name: "Reset zoom" }),
+  ).toHaveFocus()
+  await user.keyboard("{Tab}")
+  expect(
     screen.getByRole("button", { name: "Close Studio" }),
-  )
+  ).toHaveFocus()
+  await user.keyboard("{Shift>}{Tab}{/Shift}")
+  expect(
+    screen.getByRole("button", { name: "Reset zoom" }),
+  ).toHaveFocus()
   await user.keyboard("{Escape}")
   await waitFor(() =>
     expect(screen.queryByRole("dialog")).toBeNull(),

@@ -289,6 +289,10 @@ test("wide screens split the active category without exposing unrelated controls
         .boundingBox()
     )?.width,
   ).toBeLessThan(150)
+  await page
+    .locator(".device-preview")
+    .first()
+    .scrollIntoViewIfNeeded()
   await expect(
     page.getByRole("img", {
       name: "Desk display rendered output",
@@ -334,6 +338,10 @@ test("a window with room to stack keeps the active category in one column", asyn
       exact: true,
     }),
   ).toHaveCount(0)
+  await page
+    .locator(".device-preview")
+    .first()
+    .scrollIntoViewIfNeeded()
   await expect(
     page.getByRole("img", {
       name: "Desk display rendered output",
@@ -374,6 +382,9 @@ test("search and phone layouts keep every setting reachable without page overflo
         document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true)
+  await page
+    .locator(".device-preview")
+    .scrollIntoViewIfNeeded()
   await expect(page.locator("iframe")).toHaveAttribute(
     "src",
     "/d/e2e-square?preview=1",
@@ -522,6 +533,10 @@ test("overview keeps image output upright and preserves editor drafts", async ({
   await page
     .getByRole("textbox", { name: "Name", exact: true })
     .fill("Draft name")
+  await page
+    .locator(".device-preview")
+    .first()
+    .scrollIntoViewIfNeeded()
   const preview = page.getByRole("img", {
     name: "Desk display rendered output",
   })
@@ -546,7 +561,7 @@ test("overview keeps image output upright and preserves editor drafts", async ({
   )
   await page
     .getByRole("button", {
-      name: "All screens",
+      name: "Device overview",
       exact: true,
     })
     .click()
@@ -557,6 +572,10 @@ test("overview keeps image output upright and preserves editor drafts", async ({
       exact: true,
     }),
   ).toBeVisible()
+  await page
+    .locator(".device-preview")
+    .first()
+    .scrollIntoViewIfNeeded()
   await expect(
     page.getByRole("img", {
       name: "Desk display rendered output",
@@ -589,6 +608,10 @@ test("a runtime quarter-turn is undone without cropping or changing the device",
   await page.goto(
     "/manage/devices/device?device=sample-image",
   )
+  await page
+    .locator(".device-preview")
+    .first()
+    .scrollIntoViewIfNeeded()
   const preview = page.getByRole("img", {
     name: "Desk display rendered output",
   })
@@ -625,7 +648,7 @@ test("a runtime quarter-turn is undone without cropping or changing the device",
   ).toBe(250)
 })
 
-test("the overview includes independent screens without duplicating assigned screens", async ({
+test("the overview lists devices and excludes assigned and independent screen definitions", async ({
   page,
 }) => {
   await page.route("**/api/manage/platform", (route) =>
@@ -653,7 +676,7 @@ test("the overview includes independent screens without duplicating assigned scr
       name: "Independent screen",
       exact: true,
     }),
-  ).toBeVisible()
+  ).toHaveCount(0)
   await expect(
     page.getByRole("heading", {
       name: "Assigned screen",
@@ -662,7 +685,13 @@ test("the overview includes independent screens without duplicating assigned scr
   ).toHaveCount(0)
   await expect(
     page.getByTitle("Independent screen browser preview"),
-  ).toHaveAttribute("src", "/screen/lab?preview=1")
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("heading", {
+      name: "Desk display",
+      exact: true,
+    }),
+  ).toBeVisible()
 })
 
 for (const isNative of [true, false]) {

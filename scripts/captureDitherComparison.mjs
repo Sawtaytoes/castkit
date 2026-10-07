@@ -44,40 +44,54 @@ try {
     deviceScaleFactor: 1,
     reducedMotion: "reduce",
   })
-  await page.goto(
-    `http://127.0.0.1:${server.address().port}/iframe.html?id=dither-comparison--every-sample-photo&viewMode=story`,
-  )
-  await page.waitForLoadState("networkidle")
-  await page.evaluate(() => document.fonts.ready)
-  await page.waitForFunction(
-    () => {
-      const previews = Array.from(
-        document.querySelectorAll("[data-dither-preview]"),
-      )
-      return (
-        previews.length === 6 &&
-        previews.every(
-          (preview) =>
-            preview.getAttribute("aria-busy") === "false",
-        )
-      )
-    },
-    undefined,
-    { timeout: 120000 },
-  )
-  await page.addStyleTag({
-    content:
-      "* { transition: none !important; animation: none !important; }",
-  })
   const output = resolve(
     process.env.VRT_ACTUAL_DIR ?? ".vrt-actual",
     "web",
   )
   await mkdir(output, { recursive: true })
-  await page.locator("#storybook-root").screenshot({
-    path: `${output}/dither-comparison--every-sample-photo.png`,
-    animations: "disabled",
-  })
+  const captureComparison = async (storyId) => {
+    await page.goto(
+      `http://127.0.0.1:${server.address().port}/iframe.html?id=${storyId}&viewMode=story`,
+    )
+    await page.waitForLoadState("networkidle")
+    await page.evaluate(() => document.fonts.ready)
+    await page.waitForFunction(
+      () => {
+        const previews = Array.from(
+          document.querySelectorAll(
+            "[data-dither-preview]",
+          ),
+        )
+        return (
+          previews.length === 6 &&
+          previews.every(
+            (preview) =>
+              preview.getAttribute("aria-busy") === "false",
+          )
+        )
+      },
+      undefined,
+      { timeout: 120000 },
+    )
+    await page.addStyleTag({
+      content:
+        "* { transition: none !important; animation: none !important; }",
+    })
+    // A transient root measurement must fail capture instead of substituting
+    // an 800px viewport for the complete six-algorithm comparison.
+    await page.locator("#storybook-root").screenshot({
+      path: `${output}/${storyId}.png`,
+      animations: "disabled",
+      timeout: 120000,
+    })
+  }
+  await [
+    "dither-comparison--every-sample-photo",
+    "dither-comparison--impression-every-algorithm",
+  ].reduce(async (previous, storyId) => {
+    await previous
+    await captureComparison(storyId)
+  }, Promise.resolve())
 } finally {
   await browser.close()
   server.close()

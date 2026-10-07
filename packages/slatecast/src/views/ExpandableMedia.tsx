@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { ZoomableMedia } from "./ZoomableMedia.tsx"
 
 /** Lightweight display reproduction of Charcuterie's Lightbox shape, without React. */
 export const ExpandableMedia = ({
@@ -48,6 +49,15 @@ export const ExpandableMedia = ({
         class="expandable-media-dialog"
         aria-label={isExpanded ? name : undefined}
         aria-hidden={!isExpanded}
+        onClick={(event) => {
+          if (
+            !(
+              event.target instanceof Element &&
+              event.target.closest(".media-zoom-controls")
+            )
+          )
+            setIsExpanded(false)
+        }}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault()
@@ -66,17 +76,18 @@ export const ExpandableMedia = ({
           }
         }}
       >
-        <button
-          class="expandable-media-close"
-          type="button"
-          aria-label={`Close ${name}`}
-          onClick={() => setIsExpanded(false)}
-        >
-          {children}
+        <div class="expandable-media-close">
+          <ZoomableMedia
+            isEnabled={isExpanded}
+            closeLabel={`Close ${name}`}
+            onClose={() => setIsExpanded(false)}
+          >
+            {children}
+          </ZoomableMedia>
           <span class="expandable-media-hint">
             Click to close · Esc
           </span>
-        </button>
+        </div>
       </dialog>
     </div>
   )

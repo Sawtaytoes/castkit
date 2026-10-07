@@ -440,6 +440,9 @@ test("a screen preview scrolls without scrolling the settings page", async ({
   await page.goto(
     "/manage/screens/general?item=browser-screen",
   )
+  await page
+    .locator(".live-preview")
+    .scrollIntoViewIfNeeded()
   const preview = page.frameLocator(
     ".collection-preview-frame",
   )

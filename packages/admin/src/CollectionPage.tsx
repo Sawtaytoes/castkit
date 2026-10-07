@@ -1,5 +1,6 @@
 import {
   Button,
+  ButtonLink,
   Card,
   Combobox,
   EmptyState,
@@ -13,6 +14,11 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router"
+import { LivePreviewFrame } from "./LivePreviewFrame.tsx"
+import {
+  PreviewSizing,
+  usePreviewSizing,
+} from "./PreviewSizing.tsx"
 import {
   api,
   type Channel,
@@ -34,6 +40,7 @@ import {
 } from "./SourceEditor.tsx"
 import { TagField } from "./TagField.tsx"
 import { ViewEditor } from "./ViewEditor.tsx"
+import { ViewGallery } from "./ViewGallery.tsx"
 
 const titles = {
   sources: "Source",
@@ -136,6 +143,9 @@ export const CollectionPage = ({
   const handledSelection = useRef<string | null>(null)
   const location = useLocation()
   const navigate = useNavigate()
+  const sizing = usePreviewSizing(
+    collection === "views" || collection === "screens",
+  )
   const requestedTab =
     location.pathname.split("/")[2] ?? "general"
   const sections =
@@ -352,12 +362,24 @@ export const CollectionPage = ({
     (collection === "views" || collection === "screens")
       ? `/${collection === "views" ? "view" : "screen"}/${encodeURIComponent(draft.id)}`
       : null
+  if (collection === "views" && requestedTab === "gallery")
+    return (
+      <ViewGallery platform={platform} sizing={sizing} />
+    )
   return (
     <div className="collection-page grid min-w-0 gap-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <p className="max-w-3xl text-content-secondary">
           {descriptions[collection]}
         </p>
+        {collection === "views" ? (
+          <ButtonLink
+            href="/views/gallery"
+            appearance="outline"
+          >
+            All views
+          </ButtonLink>
+        ) : null}
         <Button onClick={() => begin(null)}>
           Add {title.toLowerCase()}
         </Button>
@@ -718,11 +740,13 @@ export const CollectionPage = ({
                     Saved version. Save your changes to
                     update the preview.
                   </p>
-                  <iframe
-                    key={`${url}:${previewRevision}`}
-                    src={`${url}?preview=1`}
-                    title={`${draft.name} preview`}
-                    className="collection-preview-frame"
+                  <PreviewSizing sizing={sizing} />
+                  <LivePreviewFrame
+                    url={url}
+                    name={draft.name}
+                    size={sizing.size}
+                    revision={previewRevision}
+                    onResize={sizing.resize}
                   />
                   <a
                     href={url}
