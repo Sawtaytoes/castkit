@@ -50,6 +50,7 @@ type SwipeState = {
   startX: number
   startY: number
   isCommitted: boolean
+  isArtwork: boolean
 }
 
 let swipe: SwipeState | null = null
@@ -60,6 +61,9 @@ export const beginViewSwipe = (event: PointerEvent) => {
     startX: event.clientX,
     startY: event.clientY,
     isCommitted: false,
+    isArtwork:
+      event.target instanceof Element &&
+      Boolean(event.target.closest(".artwork-frame")),
   }
   isViewSwipe.value = false
 }
@@ -81,7 +85,11 @@ export const trackViewSwipe = (event: PointerEvent) => {
         device.value?.hasPrinterNavigation &&
         device.value.views.some(
           (view) => view.clientId === "printer-status",
-        )))
+        )) ||
+      (!swipe.isArtwork &&
+        distanceX <= -SWIPE_COMMIT_PIXELS &&
+        Math.abs(distanceX) > Math.abs(distanceY) &&
+        device.value?.leftSwipeViewId))
   ) {
     swipe.isCommitted = true
     isViewSwipe.value = true
@@ -98,7 +106,7 @@ export const endViewSwipe = (event: PointerEvent) => {
   if (!swipe || event.pointerId !== swipe.pointerId) {
     return
   }
-  const { isCommitted, startX, startY } = swipe
+  const { isCommitted, isArtwork, startX, startY } = swipe
   swipe = null
   isViewSwipe.value = false
   if (!isCommitted) {
@@ -115,7 +123,12 @@ export const endViewSwipe = (event: PointerEvent) => {
     distanceX >= SWIPE_COMMIT_PIXELS &&
     Math.abs(distanceX) > Math.abs(distanceY) &&
     device.value?.hasPrinterNavigation
-  if (!isVertical && !isPrinterPull) {
+  const isLeftPull =
+    !isArtwork &&
+    distanceX <= -SWIPE_COMMIT_PIXELS &&
+    Math.abs(distanceX) > Math.abs(distanceY) &&
+    Boolean(device.value?.leftSwipeViewId)
+  if (!isVertical && !isPrinterPull && !isLeftPull) {
     return
   }
   const view = activeView.value
@@ -124,8 +137,9 @@ export const endViewSwipe = (event: PointerEvent) => {
       event.isAllDay ||
       event.startMs >= nowMs.value - 60 * 60 * 1000,
   )
-  const requested =
-    Math.abs(distanceX) > Math.abs(distanceY)
+  const requested = isLeftPull
+    ? device.value?.leftSwipeViewId
+    : Math.abs(distanceX) > Math.abs(distanceY)
       ? view === "printer-status"
         ? "print-queue"
         : "printer-status"
@@ -136,7 +150,9 @@ export const endViewSwipe = (event: PointerEvent) => {
         : hasAgenda
           ? "calendar"
           : "ambient"
+  if (!requested) return
   if (
+    !isLeftPull &&
     !device.value?.views.some(
       (offered) => offered.clientId === requested,
     )

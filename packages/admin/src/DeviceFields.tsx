@@ -169,6 +169,18 @@ export const DeviceFields = ({
             }
           />
           <SettingField
+            label="Left swipe view"
+            description="The view ID to request from your display automation when swiping left. Leave empty to keep it unassigned."
+            value={device.leftSwipeViewId ?? ""}
+            onChange={(leftSwipeViewId) =>
+              onChange({
+                leftSwipeViewId:
+                  leftSwipeViewId || undefined,
+              })
+            }
+            width="wide"
+          />
+          <SettingField
             label="Print queue channel"
             description="A queue.v1 channel from the printer source."
             value={device.printQueueChannel ?? ""}

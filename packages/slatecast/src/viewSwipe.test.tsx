@@ -12,15 +12,18 @@ import { SWIPE_COMMIT_PIXELS } from "./viewSwipe.ts"
 const mountView = async ({
   view = "calendar",
   hasTouch = true,
+  leftSwipeViewId,
 }: {
   view?: string
   hasTouch?: boolean
+  leftSwipeViewId?: string
 } = {}) =>
   mountSlatecast({
     snapshot: buildSnapshot({
       view,
       device: buildDeviceProfile({
         hasTouch,
+        leftSwipeViewId,
         hasPrinterNavigation: true,
         views: [
           "now-playing",
@@ -89,6 +92,52 @@ describe("a vertical swipe asks the house for a view", () => {
     await waitUntil(() => server.commands.length > 0)
     expect(server.commands).toEqual([
       { action: "view", value: requested },
+    ])
+  })
+
+  test("a configured left swipe asks the house for that view", async () => {
+    const { server } = await mountView({
+      leftSwipeViewId: "scores",
+    })
+    await swipe({ distanceY: 0, distanceX: -80 })
+    await waitUntil(() => server.commands.length > 0)
+    expect(server.commands).toEqual([
+      { action: "view", value: "scores" },
+    ])
+  })
+
+  test("a left artwork drag keeps track navigation instead of opening the configured view", async () => {
+    const { server } = await mountView({
+      view: "now-playing",
+      leftSwipeViewId: "scores",
+    })
+    await swipe({
+      selector: ".artwork-frame",
+      distanceY: 0,
+      distanceX: -180,
+    })
+    await waitUntil(() => server.commands.length > 0)
+    expect(server.commands).toEqual([{ action: "next" }])
+  })
+
+  test("an unconfigured left swipe stays unassigned", async () => {
+    const { server } = await mountView()
+    await swipe({ distanceY: 0, distanceX: -80 })
+    expect(server.commands).toEqual([])
+  })
+
+  test("the right edge carries the left swipe over an external view", async () => {
+    const { server } = await mountView({
+      leftSwipeViewId: "scores",
+    })
+    await swipe({
+      selector: ".view-swipe-edge.is-right",
+      distanceY: 0,
+      distanceX: -80,
+    })
+    await waitUntil(() => server.commands.length > 0)
+    expect(server.commands).toEqual([
+      { action: "view", value: "scores" },
     ])
   })
 
