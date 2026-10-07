@@ -60,6 +60,7 @@ export const useDisplay = (target: DisplayTarget) => {
   const deviceQuery = target.deviceId
     ? `?device=${encodeURIComponent(target.deviceId)}`
     : ""
+  const displayQuery = `${deviceQuery}${isPreview ? `${deviceQuery ? "&" : "?"}preview=1` : ""}`
   const path = `/api/display/${target.kind}/${encodeURIComponent(target.id)}`
   const lockState = () => {
     setSnapshot(null)
@@ -148,7 +149,7 @@ export const useDisplay = (target: DisplayTarget) => {
     const load = async () => {
       try {
         const response = await fetch(
-          `${path}${deviceQuery}`,
+          `${path}${displayQuery}`,
           {
             credentials: "same-origin",
             cache: "no-store",
@@ -191,7 +192,7 @@ export const useDisplay = (target: DisplayTarget) => {
           return
         }
         const socket = new WebSocket(
-          `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/${target.kind}/${encodeURIComponent(target.id)}/ws${deviceQuery}`,
+          `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/${target.kind}/${encodeURIComponent(target.id)}/ws${displayQuery}`,
         )
         lifecycle.socket = socket
         socket.onopen = () => {
@@ -298,7 +299,7 @@ export const useDisplay = (target: DisplayTarget) => {
     setError("")
     try {
       const response = await fetch(
-        `${path}/select${deviceQuery}`,
+        `${path}/select${displayQuery}`,
         {
           method: "POST",
           credentials: "same-origin",
@@ -344,7 +345,7 @@ export const useDisplay = (target: DisplayTarget) => {
     setError("")
     try {
       const response = await fetch(
-        `${path}/actions${deviceQuery}`,
+        `${path}/actions${displayQuery}`,
         {
           method: "POST",
           credentials: "same-origin",

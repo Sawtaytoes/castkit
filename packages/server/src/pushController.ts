@@ -15,6 +15,13 @@ import type { RenderTokenStore } from "./state/renderTokenStore.ts"
 import type { ViewDataStore } from "./state/viewDataStore.ts"
 import type { ClockConfig } from "./views/registry.ts"
 
+/** Effective image-rendering settings shared by delivery and read-only previews. */
+export type DeviceRenderSettings = {
+  device: ConfiguredDevice
+  margin?: import("@castkit/core/panels/safeArea").PanelMargin
+  adjustments?: import("@castkit/core/pipeline/dither").DitherAdjustments
+}
+
 /**
  * The single place that renders a device's current view and pushes it to MQTT
  * (image + view-state + last-render timestamp). Shared by the HTTP API, the
@@ -29,6 +36,14 @@ import type { ClockConfig } from "./views/registry.ts"
 export type PushController = {
   deviceById: Map<string, ConfiguredDevice>
   renderDevice: (deviceId: string) => Promise<Buffer | null>
+  getRenderSettings: (
+    deviceId: string,
+  ) => DeviceRenderSettings | null
+  renderPreview: (request: {
+    deviceId: string
+    kind: "view" | "screen"
+    id: string
+  }) => Promise<Buffer | null>
   pushDevice: (
     deviceId: string,
     options?: { isForced?: boolean },
@@ -57,11 +72,11 @@ export const createPushController = ({
   getPlatformSelection?: (
     deviceId: string,
   ) => string | undefined
-  renderPlatform?: (request: {
-    device: ConfiguredDevice
-    margin?: import("@castkit/core/panels/safeArea").PanelMargin
-    adjustments?: import("@castkit/core/pipeline/dither").DitherAdjustments
-  }) => Promise<Buffer | null>
+  renderPlatform?: (
+    request: DeviceRenderSettings & {
+      target?: { kind: "view" | "screen"; id: string }
+    },
+  ) => Promise<Buffer | null>
   devices: readonly ConfiguredDevice[]
   deviceStore: DeviceStore
   deviceConfigStore: DeviceConfigStore
@@ -102,16 +117,9 @@ export const createPushController = ({
     string
   >()
 
-  /**
-   * `viewName` pins which view to render. `pushDevice` passes the view it read
-   * before starting, so the rendered bytes, the logged name and the published
-   * `view` state all describe the same frame even if the owner switches views
-   * mid-render. Callers that just want "whatever is current" omit it.
-   */
-  const renderDevice = async (
+  const getRenderSettings = (
     deviceId: string,
-    viewName?: ViewName,
-  ) => {
+  ): DeviceRenderSettings | null => {
     const device = deviceById.get(deviceId)
     if (!device) {
       return null
@@ -155,6 +163,33 @@ export const createPushController = ({
       (saturationPercent !== undefined &&
         saturationPercent !== 100)
 
+    return {
+      device: effectiveDevice,
+      margin: deviceConfigStore.getMargin(deviceId),
+      adjustments: hasAdjustments
+        ? {
+            brightness: (brightnessPercent ?? 100) / 100,
+            saturation: (saturationPercent ?? 100) / 100,
+          }
+        : undefined,
+    }
+  }
+
+  /**
+   * `viewName` pins which view to render. `pushDevice` passes the view it read
+   * before starting, so the rendered bytes, the logged name and the published
+   * `view` state all describe the same frame even if the owner switches views
+   * mid-render. Callers that just want "whatever is current" omit it.
+   */
+  const renderDevice = async (
+    deviceId: string,
+    viewName?: ViewName,
+  ) => {
+    const settings = getRenderSettings(deviceId)
+    if (!settings) return null
+    const { device, margin, adjustments } = settings
+    const effectiveDevice = device
+
     // EVERY view honors the mat's safe-area crop, photos included.
     const activeView =
       viewName ?? deviceStore.getActiveView(deviceId)
@@ -174,17 +209,11 @@ export const createPushController = ({
       !isFormatLockedToPng
         ? resolvePhotoEncoding(deviceId)
         : { format: "png" }
-    const margin = deviceConfigStore.getMargin(deviceId)
 
     const platformImage = await renderPlatform?.({
       device: effectiveDevice,
       margin,
-      adjustments: hasAdjustments
-        ? {
-            brightness: (brightnessPercent ?? 100) / 100,
-            saturation: (saturationPercent ?? 100) / 100,
-          }
-        : undefined,
+      adjustments,
     })
     if (platformImage) return platformImage
     return renderService.renderDevice({
@@ -197,14 +226,7 @@ export const createPushController = ({
       photoFrame: viewDataStore.getPhotoFrame(deviceId),
       weather: viewDataStore.getWeather(deviceId),
       agenda: viewDataStore.getAgenda(deviceId),
-      ...(hasAdjustments
-        ? {
-            adjustments: {
-              brightness: (brightnessPercent ?? 100) / 100,
-              saturation: (saturationPercent ?? 100) / 100,
-            },
-          }
-        : {}),
+      adjustments,
       ...(margin ? { margin } : {}),
       fullColorEncoding,
     })
@@ -346,6 +368,16 @@ export const createPushController = ({
   return {
     deviceById,
     renderDevice,
+    getRenderSettings,
+    renderPreview: async ({ deviceId, kind, id }) => {
+      const settings = getRenderSettings(deviceId)
+      return settings && renderPlatform
+        ? renderPlatform({
+            ...settings,
+            target: { kind, id },
+          })
+        : null
+    },
     pushDevice,
     setView,
   }

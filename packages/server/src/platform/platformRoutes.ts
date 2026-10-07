@@ -58,6 +58,10 @@ export const getDisplay = ({
     : undefined
   if (
     deviceId &&
+    !(
+      context.req.query("preview") === "1" &&
+      platform.access.isAdmin(context)
+    ) &&
     (deviceTarget?.kind !== kind || deviceTarget.id !== id)
   )
     return {
