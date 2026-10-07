@@ -16,4 +16,5 @@ panels retain their existing source and control behavior.
 Now Playing uses its existing artwork-derived, contrast-adjusted accent for seek and
 volume fills, both slider knobs, the volume icon and elapsed/total time labels. A new
 cover replaces the accent; missing, undecodable or inaccessible artwork falls back
-to the current theme. Monochrome and grayscale profiles keep their theme colors.
+to the current theme. Black-and-white covers derive a readable gray accent rather
+than an unrelated theme hue. Monochrome and grayscale profiles keep their theme colors.

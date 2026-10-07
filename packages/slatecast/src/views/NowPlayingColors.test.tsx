@@ -5,6 +5,7 @@ import {
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
+import { getCachedAccentColor } from "../accentColor.ts"
 import "../styles.css"
 
 test("artwork changes update control colors and missing artwork restores the theme", async () => {
@@ -85,4 +86,43 @@ test("artwork changes update control colors and missing artwork restores the the
   expect(
     panel.style.getPropertyValue("--accent-content"),
   ).toBe("")
+})
+
+test("black-and-white artwork supplies a readable neutral accent instead of the theme hue", async () => {
+  const artworkPath = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#222"/><rect x="4" y="4" width="8" height="8" fill="#ddd"/></svg>')}`
+  const { view } = await mountSlatecast({
+    snapshot: buildSnapshot({
+      view: "now-playing",
+      data: {
+        nowPlaying: buildNowPlaying({ artworkPath }),
+      },
+    }),
+  })
+  const panel =
+    view.container.querySelector<HTMLElement>(
+      ".now-playing",
+    )
+  if (!panel)
+    throw new Error("The music panel did not mount")
+  await waitFor(() =>
+    expect(
+      panel.style.getPropertyValue("--accent"),
+    ).not.toBe(""),
+  )
+  const accent = panel.style.getPropertyValue("--accent")
+  const channels = accent.match(/\d+/g)?.map(Number)
+  expect(channels).toHaveLength(3)
+  expect(new Set(channels).size).toBe(1)
+  expect(getCachedAccentColor(artworkPath)).toBe(accent)
+  expect(
+    getComputedStyle(
+      screen.getByRole("button", { name: "Mute" }),
+    ).color,
+  ).toBe(
+    getComputedStyle(
+      view.container.querySelector<HTMLElement>(
+        ".seek-knob",
+      )!,
+    ).backgroundColor,
+  )
 })
