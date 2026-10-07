@@ -624,7 +624,7 @@ html[data-grayscale-text="true"] {
 .seek-time {
   font-size: 2.6vmin;
   font-weight: 600;
-  color: var(--fg-dim);
+  color: var(--accent-content);
   font-variant-numeric: tabular-nums;
   min-width: 8vmin;
   text-align: center;
@@ -690,7 +690,7 @@ html[data-grayscale-text="true"] {
   width: 4.5vmin;
   height: 4.5vmin;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--accent);
   box-shadow: 0 0.4vmin 1.6vmin rgb(0 0 0 / 0.4);
   transform: translate(-50%, -50%);
   pointer-events: none;
@@ -715,7 +715,7 @@ html[data-grayscale-text="true"] {
 .volume button {
   background: none;
   border: none;
-  color: var(--fg);
+  color: var(--accent-content);
   font-size: 6vmin;
   line-height: 1;
   padding: 1.5vmin;
@@ -787,7 +787,7 @@ html[data-grayscale-text="true"] {
   height: 5.5vmin;
   border: 0;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--accent);
   box-shadow: 0 0.4vmin 1.6vmin rgb(0 0 0 / 0.4);
 }
 
@@ -796,7 +796,7 @@ html[data-grayscale-text="true"] {
   height: 5.5vmin;
   border: 0;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--accent);
   box-shadow: 0 0.4vmin 1.6vmin rgb(0 0 0 / 0.4);
 }
 
@@ -1014,11 +1014,41 @@ html[data-grayscale-text="true"] {
 }
 
 .queue li {
+  border-radius: 1.5vmin;
+}
+
+.queue-row,
+.queue-play {
+  width: 100%;
+  min-height: 48px;
   display: flex;
   align-items: center;
   gap: 2.5vmin;
   padding: 1.5vmin 2vmin;
   border-radius: 1.5vmin;
+}
+
+.queue-play {
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.queue-play:disabled {
+  cursor: default;
+}
+
+.queue-play:not(:disabled):hover,
+.queue-play:not(:disabled):active {
+  background: var(--surface);
+}
+
+.queue-play:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
 }
 
 .queue li.current {
