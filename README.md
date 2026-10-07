@@ -88,3 +88,10 @@ server during development.
 which panels a given deployment owns lives with that deployment.
 
 CastKit is available under the [MIT License](LICENSE).
+
+A controller can dismiss its own temporary physical-display view when the activity
+ends: publish `{"viewId":"points"}` (non-retained) to
+`castkit/<device-id>/override/clear`, or send the same body with
+`DELETE /api/manage/platform/devices/<device-id>/show`. This removes only that
+view's override. Other temporary views retain their priority and expiration;
+when none remain, the display returns to its normal view or assigned screen.

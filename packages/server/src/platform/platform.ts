@@ -289,6 +289,37 @@ export const createPlatform = async ({
       }
     },
   })
+  await publisher.subscribe({
+    topics: [`${topicPrefix}/+/override/clear`],
+    handler: async (message) => {
+      if (
+        !message.topic.startsWith(`${topicPrefix}/`) ||
+        !message.topic.endsWith("/override/clear")
+      )
+        return
+      const deviceId = message.topic.slice(
+        topicPrefix.length + 1,
+        -"/override/clear".length,
+      )
+      if (!deviceId || deviceId.includes("/")) return
+      try {
+        const request = JSON.parse(message.payload)
+        if (typeof request.viewId !== "string")
+          throw new Error("Invalid display override view")
+        deviceOverrides.clear({
+          deviceId,
+          viewId: request.viewId,
+        })
+      } catch (error) {
+        console.warn(
+          "[platform] Ignored invalid override dismissal",
+          error instanceof Error
+            ? error.message
+            : "invalid JSON",
+        )
+      }
+    },
+  })
   const getDeviceProperties = (deviceId: string) => {
     const device = [...devices, ...browserDevices].find(
       (item) => item.id === deviceId,

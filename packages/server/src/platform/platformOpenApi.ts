@@ -340,6 +340,12 @@ export const buildPlatformOpenApi = () => {
     },
     "/api/manage/platform/devices/{id}/show": {
       parameters: [pathId],
+      delete: post(
+        "Dismiss only the named temporary view on a physical display, preserving other overrides and its normal view.",
+        { viewId: { type: "string" } },
+        ["viewId"],
+        management,
+      ),
       post: post(
         "Show a view on one physical display for a while. A slow display lengthens the time to ten repaints; a super-slow display refuses. The response carries the seconds granted.",
         {

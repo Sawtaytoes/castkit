@@ -107,6 +107,7 @@ const createFixture = async () => {
     payload: string
   }) => Promise<void> | void)[] = []
   const platform = await createPlatform({
+    apiToken: "test-machine-token",
     publisher: {
       isEnabled: true,
       publish: async () => {},
@@ -139,7 +140,11 @@ const createFixture = async () => {
     deviceScreens: { desk: "desk-screen" },
   }))
   const app = new Hono()
-  attachPlatformRoutes({ app, platform })
+  attachPlatformRoutes({
+    app,
+    platform,
+    apiToken: "test-machine-token",
+  })
   const deliver = async (
     topic: string,
     payload: string,
@@ -186,6 +191,64 @@ describe("a temporary view on one display", () => {
     expect(
       platform.getDeviceTarget("mantle"),
     ).toBeUndefined()
+  })
+
+  test("a timer ending dismisses only its own view through MQTT", async () => {
+    const { platform, deliver } = await createFixture()
+    platform.showOnDevice({
+      deviceId: "desk",
+      viewId: "points",
+      durationSeconds: 60,
+      priority: 100,
+    })
+    await deliver(
+      "castkit/desk/override/clear",
+      JSON.stringify({ viewId: "unrelated" }),
+    )
+    expect(platform.getDeviceTarget("desk")?.id).toBe(
+      "points",
+    )
+    await deliver(
+      "castkit/desk/override/clear",
+      JSON.stringify({ viewId: "points" }),
+    )
+    expect(platform.getDeviceTarget("desk")).toEqual({
+      kind: "screen",
+      id: "desk-screen",
+    })
+  })
+
+  test("management dismisses the named view and validates the request", async () => {
+    const { platform, app } = await createFixture()
+    platform.showOnDevice({
+      deviceId: "desk",
+      viewId: "points",
+      durationSeconds: 60,
+    })
+    const request = (deviceId: string, body: unknown) =>
+      app.request(
+        `/api/manage/platform/devices/${deviceId}/show`,
+        {
+          method: "DELETE",
+          headers: {
+            "content-type": "application/json",
+            authorization: "Bearer test-machine-token",
+          },
+          body: JSON.stringify(body),
+        },
+      )
+    expect((await request("desk", {})).status).toBe(400)
+    expect(
+      (await request("missing", { viewId: "points" }))
+        .status,
+    ).toBe(404)
+    expect(
+      (await request("desk", { viewId: "points" })).status,
+    ).toBe(200)
+    expect(platform.getDeviceTarget("desk")).toEqual({
+      kind: "screen",
+      id: "desk-screen",
+    })
   })
 
   test("arrives over MQTT and ignores other topics", async () => {
