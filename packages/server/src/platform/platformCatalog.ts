@@ -733,6 +733,14 @@ const viewSpecs: ViewSpec[] = [
     }),
     settings: [
       {
+        key: "isAllChildrenVisible",
+        label: "Keep the board visible during scans",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "Use compact rows on smaller panels instead of focusing on one child. Keep totals, scan feedback and simultaneous running activities together.",
+      },
+      {
         key: "isTotalsOnly",
         label: "Show only stacked totals",
         type: "boolean",

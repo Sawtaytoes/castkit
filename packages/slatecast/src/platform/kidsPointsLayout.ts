@@ -184,10 +184,12 @@ export const getKidsPointsLayout = ({
   width,
   height,
   kidCount,
+  minimumRowHeight = KID_ROW_HEIGHT,
 }: {
   width: number
   height: number
   kidCount: number
+  minimumRowHeight?: number
 }) => {
   const candidates = Array.from(
     { length: kidCount },
@@ -227,7 +229,7 @@ export const getKidsPointsLayout = ({
       0,
       Math.floor(
         (available + KIDS_POINTS_GAP) /
-          (KID_ROW_HEIGHT + KIDS_POINTS_GAP),
+          (minimumRowHeight + KIDS_POINTS_GAP),
       ),
     )
   const rowCount =

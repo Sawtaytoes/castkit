@@ -307,3 +307,191 @@ test.each([
     })
   await capture(`kids-points-two-timers-480x320-${theme}`)
 })
+
+const compactBoardSnapshot = ({
+  isAllChildrenVisible,
+  hasScan,
+}: {
+  isAllChildrenVisible: boolean
+  hasScan: boolean
+}): DisplaySnapshot => {
+  const snapshot = kidsPointsFixture({ hasScan })
+  const channel = snapshot.channels.points!
+  const data =
+    channel.data as ContractData["kids-points.v1"]
+  return {
+    ...snapshot,
+    view: {
+      ...snapshot.view,
+      panels: snapshot.view.panels.map((panel) => ({
+        ...panel,
+        settings: { isAllChildrenVisible, scanSeconds: 30 },
+      })),
+    },
+    channels: {
+      points: {
+        ...channel,
+        data: {
+          ...data,
+          kids: data.kids.slice(0, 3).map((kid, index) => ({
+            ...kid,
+            ...(index < 2
+              ? {
+                  activeTask: {
+                    name:
+                      index === 0 ? "Reading" : "Sitting",
+                    startedAtMs:
+                      Date.now() -
+                      (index === 0 ? 120_000 : 60_000),
+                    isCountdown: index === 1,
+                    ...(index === 1
+                      ? { goalMinutes: 5 }
+                      : {}),
+                  },
+                }
+              : {}),
+          })),
+        },
+      },
+    },
+  }
+}
+
+test("a compact scan board can keep three children and two activities visible", async () => {
+  await page.viewport(480, 480)
+  renderDevicePage(
+    compactBoardSnapshot({
+      isAllChildrenVisible: true,
+      hasScan: true,
+    }),
+  )
+  await document.fonts.ready
+  const rows = Array.from(
+    document.querySelectorAll(".kids-points-row"),
+  )
+  expect(rows).toHaveLength(3)
+  rows.forEach((row) => {
+    const name = row.querySelector("h3")
+    if (!name)
+      throw new Error("Each row must identify its child")
+    const nameSize = Number.parseFloat(
+      getComputedStyle(name).fontSize,
+    )
+    const initialSize = Number.parseFloat(
+      getComputedStyle(name, "::first-letter").fontSize,
+    )
+    expect(nameSize).toBeGreaterThanOrEqual(26)
+    expect(initialSize).toBeGreaterThanOrEqual(
+      nameSize * 1.6,
+    )
+    expect(name.scrollWidth).toBeLessThanOrEqual(
+      name.clientWidth + 1,
+    )
+    const total = row.querySelector(
+      ".kids-points-row-total strong",
+    )
+    if (!total)
+      throw new Error("Each row must show earned points")
+    expect(
+      Number.parseFloat(getComputedStyle(total).fontSize),
+    ).toBeGreaterThanOrEqual(60)
+    expect(row.scrollHeight).toBeLessThanOrEqual(
+      row.clientHeight + 1,
+    )
+    expect(
+      row.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(480)
+  })
+  await capture("kids-points-all-children-scan-480x480")
+})
+
+test("the compact board keeps both timers visible after scan feedback ends", async () => {
+  await page.viewport(480, 480)
+  renderDevicePage(
+    compactBoardSnapshot({
+      isAllChildrenVisible: true,
+      hasScan: false,
+    }),
+  )
+  await capture("kids-points-all-children-timers-480x480")
+})
+
+test("the default compact scan still focuses on one child", async () => {
+  await page.viewport(480, 480)
+  renderDevicePage(
+    compactBoardSnapshot({
+      isAllChildrenVisible: false,
+      hasScan: true,
+    }),
+  )
+  await capture("kids-points-default-scan-480x480")
+})
+
+test("large initials preserve complete longer names and totals on a compact board", async () => {
+  await page.viewport(480, 480)
+  const snapshot = compactBoardSnapshot({
+    isAllChildrenVisible: true,
+    hasScan: false,
+  })
+  const channel = snapshot.channels.points!
+  const data =
+    channel.data as ContractData["kids-points.v1"]
+  renderDevicePage({
+    ...snapshot,
+    channels: {
+      points: {
+        ...channel,
+        data: {
+          ...data,
+          kids: data.kids.map((kid, index) => ({
+            ...kid,
+            name:
+              ["Alexandra", "Robin", "Christopher"][
+                index
+              ] ?? kid.name,
+            pointsToday: 1234,
+          })),
+        },
+      },
+    },
+  })
+  await document.fonts.ready
+  document
+    .querySelectorAll(".kids-points-row h3")
+    .forEach((name) => {
+      expect(name.scrollWidth).toBeLessThanOrEqual(
+        name.clientWidth + 1,
+      )
+    })
+  await capture(
+    "kids-points-all-children-long-names-480x480",
+  )
+})
+
+test("a shorter all-child panel omits rows before shrinking primary values", async () => {
+  await page.viewport(480, 320)
+  renderDevicePage(
+    compactBoardSnapshot({
+      isAllChildrenVisible: true,
+      hasScan: false,
+    }),
+  )
+  await document.fonts.ready
+  const rows = Array.from(
+    document.querySelectorAll(".kids-points-row"),
+  )
+  expect(rows).toHaveLength(1)
+  expect(
+    document.querySelector(".kids-points-overflow")
+      ?.textContent,
+  ).toBe("2 more")
+  rows.forEach((row) => {
+    expect(row.scrollHeight).toBeLessThanOrEqual(
+      row.clientHeight + 1,
+    )
+    expect(
+      row.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(320)
+  })
+  await capture("kids-points-all-children-rows-480x320")
+})
