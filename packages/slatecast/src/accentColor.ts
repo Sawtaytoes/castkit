@@ -99,14 +99,30 @@ export const getCachedAccentColor = (imageUrl: string) => {
     : null
 }
 
+const rememberArtworkColor = ({
+  imageUrl,
+  color,
+}: {
+  imageUrl: string
+  color: string
+}) => {
+  if (artworkHues.size >= MAXIMUM_CACHED_ARTWORK) {
+    const oldest = artworkHues.keys().next().value
+    if (oldest) artworkHues.delete(oldest)
+  }
+  artworkHues.set(imageUrl, color)
+  return getCachedAccentColor(imageUrl)
+}
+
 /**
  * Derive an accent color from album art, client-side: downscale to 16×16 on
  * a canvas, bucket pixels by hue, and pick the most saturated-populous
  * bucket. ~1 KB instead of a color-extraction dependency.
  *
  * Artwork often comes from another origin without CORS headers — reading a
- * tainted canvas throws, so this resolves to null and the UI keeps the
- * neutral accent. Never applied on mono/grayscale panels (caller's job).
+ * tainted canvas throws, so this resolves to null and the UI keeps its theme.
+ * A cover with no saturated pixels supplies a readable neutral accent instead
+ * of an unrelated theme hue. Never applied on mono/grayscale panels (caller's job).
  */
 export const extractAccentColor = (
   imageUrl: string,
@@ -157,7 +173,8 @@ export const extractAccentColor = (
           const min = Math.min(red, green, blue)
           const delta = max - min
           const saturation = max === 0 ? 0 : delta / max
-          const score = saturation * max
+          const score =
+            saturation * max * (data[index + 3]! / 255)
           if (score < 0.15) {
             continue // Grays/near-blacks don't vote.
           }
@@ -188,18 +205,45 @@ export const extractAccentColor = (
         )
         const best = sums[bestBucket]
         if (!best || best.weight === 0) {
-          resolvePromise(null)
+          const neutral = Array.from(
+            { length: size * size },
+            (_unusedValue, pixelIndex) => pixelIndex * 4,
+          ).reduce(
+            (sum, pixelOffset) => {
+              const opacity = data[pixelOffset + 3]! / 255
+              const value =
+                (data[pixelOffset]! +
+                  data[pixelOffset + 1]! +
+                  data[pixelOffset + 2]!) /
+                3
+              return {
+                value: sum.value + value * opacity,
+                weight: sum.weight + opacity,
+              }
+            },
+            { value: 0, weight: 0 },
+          )
+          if (neutral.weight === 0) {
+            resolvePromise(null)
+            return
+          }
+          const channel = Math.round(
+            neutral.value / neutral.weight,
+          )
+          resolvePromise(
+            rememberArtworkColor({
+              imageUrl,
+              color: `rgb(${channel} ${channel} ${channel})`,
+            }),
+          )
           return
         }
         const toChannel = (value: number) =>
           Math.round((value / best.weight) * 255)
         const color = `rgb(${toChannel(best.r)} ${toChannel(best.g)} ${toChannel(best.b)})`
-        if (artworkHues.size >= MAXIMUM_CACHED_ARTWORK) {
-          const oldest = artworkHues.keys().next().value
-          if (oldest) artworkHues.delete(oldest)
-        }
-        artworkHues.set(imageUrl, color)
-        resolvePromise(getCachedAccentColor(imageUrl))
+        resolvePromise(
+          rememberArtworkColor({ imageUrl, color }),
+        )
       } catch {
         resolvePromise(null) // Tainted canvas (no CORS) or decode failure.
       }
