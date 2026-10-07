@@ -1,5 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
-import { getCountdownKid } from "@castkit/sdk/kidsPointsScan"
+import { getCountdownKids } from "@castkit/sdk/kidsPointsScan"
 import {
   useLayoutEffect,
   useRef,
@@ -505,7 +505,8 @@ export const KidsPointsView = ({
   })
   const isAnimated = properties.repaint === "instant"
   const isLive = properties.repaint === "instant"
-  const countdownKid = getCountdownKid({ data, now })
+  const countdownKids = getCountdownKids({ data, now })
+  const countdownKid = countdownKids[0]
   const scan =
     isScanShowing || countdownKid
       ? data.lastScan
@@ -557,7 +558,10 @@ export const KidsPointsView = ({
             }
             isDimmed={
               scannedKid !== undefined &&
-              kid.id !== scannedKid.id
+              kid.id !== scannedKid.id &&
+              !countdownKids.some(
+                (runningKid) => runningKid.id === kid.id,
+              )
             }
             isAnimated={isAnimated}
             now={now}
@@ -566,6 +570,28 @@ export const KidsPointsView = ({
               layout.columnCount < data.kids.length
             }
           />
+        ))}
+      </div>
+    ) : countdownKids.length > 1 ? (
+      <div
+        class="kids-points-countdowns"
+        style={{
+          gridTemplateColumns: `repeat(${size.width >= size.height ? 2 : 1}, minmax(0, 1fr))`,
+        }}
+      >
+        {countdownKids.map((kid) => (
+          <article
+            key={kid.id}
+            class="kids-points-timer-card"
+            style={kidStyle(kid)}
+          >
+            <h3>{kid.name}</h3>
+            <CountdownProgress
+              kid={kid}
+              now={now}
+              isLive={isLive}
+            />
+          </article>
         ))}
       </div>
     ) : countdownKid ? (

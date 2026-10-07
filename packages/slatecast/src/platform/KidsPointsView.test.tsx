@@ -478,3 +478,94 @@ test("the totals board defaults to full names and preserves negative scores", ()
     ),
   ).toHaveTextContent("-25")
 })
+
+const simultaneousCountdowns: ContractData["kids-points.v1"] =
+  {
+    ...countdown,
+    timerScans: [
+      countdown.lastScan!,
+      {
+        ...countdown.lastScan!,
+        kidId: "sky",
+        atMs: now - 60_000,
+      },
+    ],
+    kids: countdown.kids.map((kid) =>
+      kid.id === "sky"
+        ? {
+            ...kid,
+            activeTask: {
+              name: "Sitting Still",
+              startedAtMs: now - 60_000,
+              goalMinutes: 10,
+              isCountdown: true,
+            },
+          }
+        : kid,
+    ),
+    lastScan: {
+      ...countdown.lastScan!,
+      kidId: "sky",
+      atMs: now - 60_000,
+    },
+  }
+
+test.each([
+  { width: 480, height: 320 },
+  { width: 384, height: 824 },
+  { width: 200, height: 200 },
+])("a $width by $height panel shows both independent countdowns", (size) => {
+  renderInPanel({ ...size, value: simultaneousCountdowns })
+  expect(screen.getByText("2:36")).toBeVisible()
+  expect(screen.getByText("9:00")).toBeVisible()
+  expect(
+    screen.getByRole("heading", { name: "Robin" }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("heading", { name: "Sky" }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("progressbar", {
+      name: "Robin Sitting Still timed progress",
+    }),
+  ).toHaveAttribute("aria-valuenow", "204")
+  expect(
+    screen.getByRole("progressbar", {
+      name: "Sky Sitting Still timed progress",
+    }),
+  ).toHaveAttribute("aria-valuenow", "60")
+})
+
+test("stopping the latest timer leaves the other countdown visible past scan expiry", () => {
+  renderInPanel({
+    width: 480,
+    height: 320,
+    value: {
+      ...simultaneousCountdowns,
+      kids: simultaneousCountdowns.kids.map((kid) =>
+        kid.id === "sky"
+          ? { ...kid, activeTask: undefined }
+          : kid,
+      ),
+      lastScan: {
+        ...simultaneousCountdowns.lastScan!,
+        result: "stopped",
+        atMs: now - 30_000,
+      },
+    },
+  })
+  expect(screen.getByText("2:36")).toBeVisible()
+  expect(screen.queryByText("9:00")).toBe(null)
+})
+
+test("a slow compact panel shows both absolute timer deadlines", () => {
+  renderInPanel({
+    width: 480,
+    height: 320,
+    repaint: "slow",
+    value: simultaneousCountdowns,
+  })
+  expect(screen.getByText(/^6 min · ends/)).toBeVisible()
+  expect(screen.getByText(/^10 min · ends/)).toBeVisible()
+  expect(screen.queryByText("9:00")).toBe(null)
+})

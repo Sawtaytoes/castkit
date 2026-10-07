@@ -1,4 +1,8 @@
-import type { ChannelDefinition } from "@castkit/sdk/contracts"
+import type {
+  ChannelDefinition,
+  ContractData,
+} from "@castkit/sdk/contracts"
+import { getCountdownKids } from "@castkit/sdk/kidsPointsScan"
 import { expect, test, vi } from "vitest"
 import { sourceContext } from "./__fixtures__/sourceContext.ts"
 import {
@@ -389,4 +393,71 @@ test("manual producer order survives shuffled retained messages and filtering", 
       })?.displayOrder,
     ).toBeUndefined()
   }
+})
+
+test("a room retains both accepted timers and excludes another room's start", () => {
+  const context = sourceContext({
+    channels: [
+      channel("hall", { readers: ["Hall Reader"] }),
+    ],
+  })
+  const source = createKidsPointsSource(context)
+  const sendTimer = (
+    id: string,
+    reader: string,
+    startedMs: number,
+  ) => {
+    source.handleMqttMessage?.({
+      topic: "points/resp/scan",
+      payload: JSON.stringify({
+        kid: id,
+        outcome: "session-start",
+        points: 0,
+        taskName: "Sitting Still",
+        reader,
+        ts: startedMs,
+      }),
+    })
+    source.handleMqttMessage?.({
+      topic: `points/state/${id}`,
+      payload: JSON.stringify({
+        kid: id,
+        kidName: id,
+        pointsToday: 0,
+        runningSession: {
+          taskName: "Sitting Still",
+          startedMs,
+          goalMinutes: 10,
+          isCountdown: true,
+        },
+      }),
+    })
+  }
+  const current = () =>
+    vi.mocked(context.publish).mock.calls.at(-1)?.[0]
+      .data as ContractData["kids-points.v1"]
+  sendTimer("robin", "Hall Reader", 10_000)
+  sendTimer("sky", "Hall Reader", 20_000)
+  sendTimer("quinn", "Kitchen Reader", 5_000)
+  expect(
+    getCountdownKids({ data: current(), now: 70_000 }).map(
+      (kid) => kid.id,
+    ),
+  ).toEqual(["robin", "sky"])
+  source.handleMqttMessage?.({
+    topic: "points/resp/scan",
+    payload: JSON.stringify({
+      kid: "sky",
+      outcome: "session-stop",
+      points: 0,
+      taskName: "Sitting Still",
+      reader: "Hall Reader",
+      ts: 70_000,
+    }),
+  })
+  expect(
+    getCountdownKids({ data: current(), now: 90_000 }).map(
+      (kid) => kid.id,
+    ),
+  ).toEqual(["robin"])
 })
