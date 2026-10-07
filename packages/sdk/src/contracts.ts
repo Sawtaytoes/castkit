@@ -545,6 +545,7 @@ export const builtinContractSchemas = {
   "kids-points.v1": z.object({
     kids: z.array(kidPoints),
     lastScan: kidScan.optional(),
+    timerScans: z.array(kidScan).optional(),
   }),
   "points-history.v1": z.object({
     version: z.literal(1),

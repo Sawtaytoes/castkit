@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-06: Kids Points shows simultaneous countdowns](2026-10-06-kids-points-shows-simultaneous-countdowns.md)
+
 - [2026-10-06: Watchy removes ended calendar events locally](2026-10-06-watchy-removes-ended-calendar-events-locally.md)
 
 - [2026-10-06: Watchy refresh keeps MQTT open and waits for all scores](2026-10-06-watchy-refresh-keeps-mqtt-open-and-waits-for-all-scores.md)

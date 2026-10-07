@@ -190,10 +190,12 @@ export const buildKidsPointsData = ({
   kids,
   channel,
   lastScan,
+  timerScans,
 }: {
   kids: readonly KidEntry[]
   channel: ChannelDefinition
   lastScan?: KidScan
+  timerScans?: KidScan[]
 }): KidsPointsData => {
   const kidIds = stringList(channel.settings.kidIds)
   const selected = kids
@@ -209,6 +211,13 @@ export const buildKidsPointsData = ({
     )
   return {
     kids: selected,
+    ...(timerScans?.length
+      ? {
+          timerScans: timerScans.filter((scan) =>
+            selected.some((kid) => kid.id === scan.kidId),
+          ),
+        }
+      : {}),
     ...(lastScan &&
     selected.some((kid) => kid.id === lastScan.kidId)
       ? { lastScan }
@@ -251,6 +260,7 @@ export const createKidsPointsSource: SourceFactory = (
     DEFAULT_KIDS_POINTS_SCAN_TOPIC
   const kids = new Map<string, KidEntry>()
   const lastScans = new Map<string, KidScan>()
+  const timerScans = new Map<string, Map<string, KidScan>>()
   const readers = new Set<string>()
   const publishAll = () => {
     const entries = Array.from(kids.values())
@@ -261,6 +271,9 @@ export const createKidsPointsSource: SourceFactory = (
           kids: entries,
           channel,
           lastScan: lastScans.get(channel.id),
+          timerScans: Array.from(
+            timerScans.get(channel.id)?.values() ?? [],
+          ),
         }),
       })
     })
@@ -330,6 +343,21 @@ export const createKidsPointsSource: SourceFactory = (
       )
       .forEach((channel) => {
         lastScans.set(channel.id, scan)
+        const acceptedTimers =
+          timerScans.get(channel.id) ??
+          new Map<string, KidScan>()
+        if (
+          scan.result === "started" ||
+          scan.result === "progress"
+        ) {
+          acceptedTimers.set(scan.kidId, scan)
+        } else if (
+          scan.result === "stopped" ||
+          scan.result === "awarded"
+        ) {
+          acceptedTimers.delete(scan.kidId)
+        }
+        timerScans.set(channel.id, acceptedTimers)
       })
     return true
   }
