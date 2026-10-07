@@ -2344,7 +2344,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
 }
-.platform-printers :where(.printer-body) > :where(*) {
+.platform-printers :where(.printer-body) > :where(*),
+.platform-printers :where(.printer-facts) > :where(*) {
   grid-column: 1 / -1;
 }
 

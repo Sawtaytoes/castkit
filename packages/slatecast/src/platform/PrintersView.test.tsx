@@ -469,3 +469,30 @@ test.each([
     }
   })
 })
+
+test("a failed secondary plate image yields its space without hiding the camera or progress", async () => {
+  await mount({ width: 1024, height: 600 })
+  const preview = document.querySelector<HTMLImageElement>(
+    ".platform-printer-plate-preview img",
+  )
+  expect(preview).not.toBeNull()
+  preview?.dispatchEvent(new Event("error"))
+  await waitFor(() =>
+    expect(
+      document.querySelector(
+        ".platform-printer-plate-preview",
+      ),
+    ).toBeNull(),
+  )
+  expect(
+    screen.getByRole("button", {
+      name: "Enlarge Printer One camera",
+    }),
+  ).toBeVisible()
+  expect(
+    screen.getByRole("button", { name: "Pause" }),
+  ).toBeVisible()
+  expect(
+    document.querySelector(".printer-band"),
+  ).toBeVisible()
+})

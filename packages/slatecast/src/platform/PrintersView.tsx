@@ -70,12 +70,19 @@ const PrinterCard = ({
   const printPreviewUrl = safeMediaUrl(
     printer.thumbnailPath,
   )
+  const [failedPlatePreviewUrl, setFailedPlatePreviewUrl] =
+    useState<string | null>(null)
+  const hasPlatePreview = Boolean(
+    cameraUrl &&
+      printPreviewUrl &&
+      printPreviewUrl !== failedPlatePreviewUrl,
+  )
   const imageUrl = cameraUrl ?? printPreviewUrl
   const isCamera = Boolean(cameraUrl)
   const cardRef = usePrinterLayout({
     isCamera,
     hasImage: Boolean(imageUrl),
-    hasPlatePreview: Boolean(cameraUrl && printPreviewUrl),
+    hasPlatePreview,
     minimumDetailLevel: Number(
       settings.minimumDetailLevel ?? 0,
     ),
@@ -172,7 +179,7 @@ const PrinterCard = ({
           </p>
         ) : null}
         <div class="printer-secondary-details">
-          {isCamera && printPreviewUrl ? (
+          {hasPlatePreview && printPreviewUrl ? (
             <ExpandableMedia
               className="platform-printer-plate-preview"
               name={`${printer.name} plate preview`}
@@ -180,6 +187,9 @@ const PrinterCard = ({
               <img
                 src={printPreviewUrl}
                 alt={`${printer.name} plate preview`}
+                onError={() =>
+                  setFailedPlatePreviewUrl(printPreviewUrl)
+                }
               />
             </ExpandableMedia>
           ) : null}
