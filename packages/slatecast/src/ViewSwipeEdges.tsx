@@ -11,7 +11,7 @@ import {
 /** Undrawn audio/time swipe regions that remain above external views. */
 export const ViewSwipeEdges = () => {
   const start = useRef<{
-    edge: "top" | "bottom"
+    edge: "top" | "bottom" | "right"
     x: number
     y: number
   } | null>(null)
@@ -20,7 +20,7 @@ export const ViewSwipeEdges = () => {
   }
 
   const beginPull = (
-    edge: "top" | "bottom",
+    edge: "top" | "bottom" | "right",
     event: TargetedPointerEvent<HTMLButtonElement>,
   ) => {
     event.stopPropagation()
@@ -37,9 +37,13 @@ export const ViewSwipeEdges = () => {
     }
   }
 
+  const edges: ("top" | "bottom" | "right")[] = device.value
+    .leftSwipeViewId
+    ? ["top", "bottom", "right"]
+    : ["top", "bottom"]
   return (
     <div class="view-swipe-edges">
-      {(["top", "bottom"] as const).map((edge) => (
+      {edges.map((edge) => (
         <button
           key={edge}
           type="button"
@@ -48,7 +52,9 @@ export const ViewSwipeEdges = () => {
           aria-label={
             edge === "top"
               ? "Swipe down for audio"
-              : "Swipe up for time"
+              : edge === "bottom"
+                ? "Swipe up for time"
+                : "Swipe left for the configured view"
           }
           onPointerDown={(event) => beginPull(edge, event)}
           onPointerMove={(event) => {
@@ -60,12 +66,19 @@ export const ViewSwipeEdges = () => {
             const origin = start.current
             start.current = null
             const inward = origin
-              ? (event.clientY - origin.y) *
-                (origin.edge === "top" ? 1 : -1)
+              ? origin.edge === "right"
+                ? origin.x - event.clientX
+                : (event.clientY - origin.y) *
+                  (origin.edge === "top" ? 1 : -1)
               : 0
             if (
               origin &&
-              inward > Math.abs(event.clientX - origin.x)
+              inward >
+                Math.abs(
+                  origin.edge === "right"
+                    ? event.clientY - origin.y
+                    : event.clientX - origin.x,
+                )
             ) {
               endViewSwipe(event)
             } else {

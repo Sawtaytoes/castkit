@@ -259,6 +259,8 @@ const BrowserDeviceConfigSchema = z.object({
   // view has no data and is offered with an empty scale.
   spoolsChannel: z.optional(z.string()),
   printQueueChannel: z.optional(z.string()),
+  // The client-id requested from the house by a leftward navigation gesture.
+  leftSwipeViewId: z.optional(z.string()),
 })
 
 export type BrowserDeviceConfig = z.infer<

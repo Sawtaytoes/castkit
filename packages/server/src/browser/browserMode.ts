@@ -587,6 +587,7 @@ export const createBrowserMode = ({
         hasPrinterNavigation: Boolean(
           device.printQueueChannel,
         ),
+        leftSwipeViewId: device.leftSwipeViewId,
         color: device.color,
         ...resolveBrowserPanelProperties(device),
         // Legacy aliases for a kiosk still on the pre-rename bundle. See

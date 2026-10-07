@@ -4,12 +4,13 @@ import asyncio
 import io
 import os
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
+
+from PIL import Image
+from playwright.async_api import async_playwright
 
 from codec import presto_frame_pixels
 from interaction import Target
-from PIL import Image
-from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer
 from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context
@@ -72,6 +73,38 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(Image.open(io.BytesIO(session.preview.latest_png)).size, (480, 480))
         self.assertIn(session.frame_id, session.guard.frames)
         self.assertIsNotNone(transport.capture_ms)
+
+    async def test_stalled_native_capture_times_out_and_releases_touch_session(self):
+        await self.task_cancel_for_capture_test()
+        transport = PrestoTransport({"mac": "020000000001"}, "a" * 32)
+        session = DisplaySession(
+            {"viewport": {"width": 480, "height": 480}, "max_fps": 8, "heartbeat_seconds": 2},
+            self.page,
+            transport,
+            {},
+            asyncio.Event(),
+            PreviewServer("test", 8),
+        )
+        blocked = asyncio.Event()
+        capture_started = asyncio.Event()
+        cdp = AsyncMock()
+
+        async def stalled_send(method, parameters):
+            self.assertEqual(method, "Page.captureScreenshot")
+            capture_started.set()
+            await blocked.wait()
+
+        cdp.send.side_effect = stalled_send
+        with (
+            patch.object(self.context, "new_cdp_session", return_value=cdp),
+            patch("worker.BROWSER_TIMEOUT_SECONDS", 0.05),
+            self.assertRaises(TimeoutError),
+        ):
+            await asyncio.wait_for(session.run(1, None), timeout=1)
+        self.assertTrue(capture_started.is_set())
+        cdp.detach.assert_awaited_once()
+        self.assertEqual(session.frames, 0)
+        self.assertIsNone(session.contact)
 
     async def task_cancel_for_capture_test(self):
         self.task.cancel()
