@@ -257,6 +257,8 @@ const kidPoints = z.object({
     .object({
       name: z.string(),
       startedAtMs: finiteNumber,
+      /** Reader where this timed activity started. */
+      reader: z.string().optional(),
       goalMinutes: finiteNumber.positive().optional(),
       isCountdown: z.boolean().optional(),
     })
