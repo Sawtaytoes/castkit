@@ -43,4 +43,14 @@ int main() {
   // Invalid settings cannot strand a watch without automatic network checks.
   assert(watchy::network_due({false, false, false, true, 14, 0}));
   assert(watchy::network_due({false, false, false, true, 14, 255}));
+  // A weak link forgets the saved access point, at most every thirty minutes.
+  watchy::RoamState roam{};
+  assert(!watchy::should_rescan(-60, 1800000000, roam));
+  assert(!watchy::should_rescan(-75, 1800000000, roam));
+  assert(watchy::should_rescan(-80, 1800000000, roam));
+  assert(!watchy::should_rescan(-127, 1800000000, roam));
+  assert(!watchy::should_rescan(-80, 0, roam));
+  roam.last_rescan = 1800000000;
+  assert(!watchy::should_rescan(-89, 1800000000 + 29 * 60, roam));
+  assert(watchy::should_rescan(-89, 1800000000 + 30 * 60, roam));
 }
