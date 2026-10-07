@@ -1,5 +1,9 @@
 # CastKit decision records
 
+- [2026-10-07: Live view previews use device or browser viewport sizes](2026-10-07-live-view-previews-use-device-or-browser-viewport-sizes.md)
+- [2026-10-07: Sidebar collapse is an icon button](2026-10-07-sidebar-collapse-is-an-icon-button.md)
+- [2026-10-07: Enlarged images support pinch zoom and pan](2026-10-07-enlarged-images-support-pinch-zoom-and-pan.md)
+
 - [2026-10-06: Display targets document viewing context and purpose](2026-10-06-display-targets-document-viewing-context-and-purpose.md)
 
 - [2026-10-06: Watchy Points navigation requests fresh data](2026-10-06-watchy-points-navigation-requests-fresh-data.md)

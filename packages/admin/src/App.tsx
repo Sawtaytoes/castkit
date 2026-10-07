@@ -18,6 +18,8 @@ import {
   LayoutTemplate,
   Menu,
   Monitor,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plug,
   Puzzle,
   Radio,
@@ -42,7 +44,11 @@ import {
  * navigates (`NavRailItem` makes the type checker say so).
  */
 const destinations: NavRailItem[] = [
-  { label: "All screens", icon: <LayoutGrid /> },
+  {
+    label: "Device overview",
+    href: "/all-screens",
+    icon: <LayoutGrid />,
+  },
   { label: "Sources", icon: <Plug /> },
   { label: "Channels", icon: <Radio /> },
   { label: "Views", icon: <LayoutTemplate /> },
@@ -52,7 +58,9 @@ const destinations: NavRailItem[] = [
   { label: "Access", icon: <KeyRound /> },
 ].map((item) => ({
   ...item,
-  href: `/${item.label.toLowerCase().replaceAll(" ", "-")}`,
+  href:
+    item.href ??
+    `/${item.label.toLowerCase().replaceAll(" ", "-")}`,
 }))
 
 export const App = () => {
@@ -207,15 +215,21 @@ export const App = () => {
             layout={navLayout.layout}
           />
           <div className="mt-auto hidden justify-end md:flex">
-            <Button
+            <IconButton
               appearance="ghost"
-              size="sm"
+              label={
+                navLayout.isCollapsed
+                  ? "Expand navigation"
+                  : "Collapse navigation"
+              }
               onClick={navLayout.toggle}
             >
-              {navLayout.isCollapsed
-                ? "Expand"
-                : "Collapse"}
-            </Button>
+              {navLayout.isCollapsed ? (
+                <PanelLeftOpen aria-hidden="true" />
+              ) : (
+                <PanelLeftClose aria-hidden="true" />
+              )}
+            </IconButton>
           </div>
         </Rail>
       ) : null}

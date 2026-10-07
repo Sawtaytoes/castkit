@@ -1,10 +1,10 @@
 import {
-  AdaptiveGrid,
   Button,
   Card,
   Field,
   Picker,
   Tabs,
+  VirtualizedGrid,
 } from "@charcuterie/ui"
 import {
   useCallback,
@@ -110,16 +110,6 @@ export const Devices = ({
           : "image") === outputFilter) &&
       matchesOverview(
         `${device.label} ${device.id} ${platform.screens.find((screen) => screen.id === platform.deviceScreens[device.id])?.tags?.join(" ") ?? ""}`,
-      ),
-  )
-  const visibleScreens = platform.screens.filter(
-    (screen) =>
-      outputFilter !== "image" &&
-      !Object.values(platform.deviceScreens).includes(
-        screen.id,
-      ) &&
-      matchesOverview(
-        `${screen.name} ${screen.id} ${(screen.tags ?? []).join(" ")}`,
       ),
   )
   const [isDeviceListOpen, setIsDeviceListOpen] =
@@ -682,7 +672,9 @@ export const Devices = ({
               )
             }
           >
-            {isOverview ? "Device settings" : "All screens"}
+            {isOverview
+              ? "Device settings"
+              : "Device overview"}
           </Button>
           <Button
             aria-controls="management-devices"
@@ -789,7 +781,7 @@ export const Devices = ({
           <>
             <div className="device-heading">
               <div>
-                <h1>All screens</h1>
+                <h1>Device overview</h1>
                 <p className="text-content-secondary text-sm">
                   Previews in normal orientation. Browser
                   views update automatically; refresh to
@@ -822,7 +814,7 @@ export const Devices = ({
               physical screens.
             </p>
             <div className="collection-picker">
-              <Field label="Find a screen">
+              <Field label="Find a device">
                 <input
                   className={inputClass}
                   type="search"
@@ -847,61 +839,37 @@ export const Devices = ({
               </Field>
             </div>
             {!isLoading &&
-            visibleDevices.length +
-              visibleScreens.length ===
-              0 &&
-            devices.length + platform.screens.length > 0 ? (
-              <p>No screens match these filters.</p>
+            visibleDevices.length === 0 &&
+            devices.length > 0 ? (
+              <p>No devices match these filters.</p>
             ) : null}
             {isLoading ? (
               <p>Load in progress…</p>
-            ) : devices.length === 0 &&
-              platform.screens.length === 0 ? (
+            ) : devices.length === 0 ? (
               <Card heading="No displays">
                 <p>Add a device, or connect below.</p>
               </Card>
             ) : (
-              <AdaptiveGrid
+              <VirtualizedGrid
                 className="screens-grid"
+                items={visibleDevices}
+                getItemKey={(device) => device.id}
+                label="Device previews"
                 itemBlockSize={420}
                 chromeBlockSize={230}
                 minColumnInlineSize={320}
                 maxColumns={4}
-              >
-                {visibleDevices.map((device) => (
+                overscanRows={0}
+                renderItem={(device) => (
                   <DevicePreview
-                    key={device.id}
                     apiToken={apiToken}
                     device={device}
                     revision={previewRevision}
                     isOverview
                     onEdit={() => selectDevice(device)}
                   />
-                ))}
-                {visibleScreens.map((screen) => (
-                  <DevicePreview
-                    key={`screen:${screen.id}`}
-                    apiToken={apiToken}
-                    device={{
-                      id: `screen:${screen.id}`,
-                      label: screen.name,
-                      mac: "",
-                      width: 1280,
-                      height: 720,
-                      renderer: "browser",
-                      rotation: 0,
-                    }}
-                    revision={previewRevision}
-                    isOverview
-                    previewUrl={`/screen/${encodeURIComponent(screen.id)}?preview=1`}
-                    onEdit={() =>
-                      navigate(
-                        `/screens/general?item=${encodeURIComponent(screen.id)}`,
-                      )
-                    }
-                  />
-                ))}
-              </AdaptiveGrid>
+                )}
+              />
             )}
           </>
         ) : selectedDevice ? (
