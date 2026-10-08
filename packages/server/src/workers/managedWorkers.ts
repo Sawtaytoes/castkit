@@ -188,9 +188,9 @@ export const startManagedWorkers = ({
     if (!child?.pid) return
     const groups = await readProcessGroups(child.pid)
     if (worker.process !== child) return
-    groups.forEach((identity, groupId) =>
-      worker.groups.set(groupId, identity),
-    )
+    groups.forEach((identity, groupId) => {
+      worker.groups.set(groupId, identity)
+    })
   }
   const terminateGroups = async (
     worker: (typeof workers)[number],
