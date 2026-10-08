@@ -2,7 +2,7 @@ import type { ServerToClientMessage } from "@castkit/shared/protocol/ws"
 import { render } from "@testing-library/preact"
 import { onTestFinished } from "vitest"
 import { buildSnapshot } from "../../__fixtures__/buildSnapshot.ts"
-import { App } from "../../App.tsx"
+import { DeviceApp } from "../../DeviceApp.tsx"
 import {
   __resetStateForTests,
   connect,
@@ -42,7 +42,7 @@ export const mountSlatecast = async ({
   __resetStateForTests()
 
   const disconnect = connect()
-  const view = render(<App />)
+  const view = render(<DeviceApp />)
   if (snapshot) {
     await server.waitForConnection()
   }

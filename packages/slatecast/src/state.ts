@@ -119,6 +119,11 @@ const reloadWhenBuildChanged = (
   reloadPage()
 }
 
+/** A composed target changes inside the device document, preserving touch and capture. */
+export const deviceDisplayTarget = signal<
+  Snapshot["displayTarget"]
+>(inlineSnapshot?.displayTarget ?? null)
+
 export const device = signal<BrowserDeviceProfile | null>(
   inlineSnapshot?.device ?? null,
 )
@@ -352,6 +357,8 @@ const isPredictionConfirmed = ({
 const applyMessage = (message: ServerToClientMessage) => {
   if (message.type === "snapshot") {
     reloadWhenBuildChanged(message.buildId)
+    deviceDisplayTarget.value =
+      message.displayTarget ?? null
     device.value = message.device
     settings.value = message.settings
     activeView.value = message.view
@@ -364,6 +371,10 @@ const applyMessage = (message: ServerToClientMessage) => {
     weather.value = message.data.weather ?? null
     agenda.value = message.data.agenda ?? null
     printers.value = message.data.printers ?? null
+    return
+  }
+  if (message.type === "display_target") {
+    deviceDisplayTarget.value = message.target
     return
   }
   if (message.type === "view") {
@@ -801,6 +812,8 @@ export const __resetStateForTests = () => {
   const snapshot = readInlineSnapshot()
   bundleBuild.bootstrapBuildId = snapshot?.buildId
   bundleBuild.hasReloaded = false
+  deviceDisplayTarget.value =
+    snapshot?.displayTarget ?? null
   device.value = snapshot?.device ?? null
   settings.value = snapshot?.settings ?? DEFAULT_SETTINGS
   activeView.value = snapshot?.view ?? "now-playing"
