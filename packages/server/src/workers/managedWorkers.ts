@@ -90,6 +90,49 @@ export const readProcessMemory = async (
   )
 }
 
+const readGroupIdentity = async (groupId: number) => {
+  const stat = await readFile(
+    `/proc/${groupId}/stat`,
+    "utf8",
+  ).catch(() => "")
+  return (
+    stat.slice(stat.lastIndexOf(") ") + 2).split(" ")[19] ??
+    ""
+  )
+}
+
+/** Track descendant process groups before exit, including detached Chromium groups. */
+export const readProcessGroups = async (
+  processId: number,
+): Promise<Map<number, string>> => {
+  const [stat, children] = await Promise.all([
+    readFile(`/proc/${processId}/stat`, "utf8").catch(
+      () => "",
+    ),
+    readFile(
+      `/proc/${processId}/task/${processId}/children`,
+      "utf8",
+    ).catch(() => ""),
+  ])
+  const groupId = Number(
+    stat.slice(stat.lastIndexOf(") ") + 2).split(" ")[2],
+  )
+  const identity = groupId
+    ? await readGroupIdentity(groupId)
+    : ""
+  const descendants = await Promise.all(
+    children
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((child) => readProcessGroups(Number(child))),
+  )
+  return new Map([
+    ...(identity ? [[groupId, identity] as const] : []),
+    ...descendants.flatMap((groups) => [...groups]),
+  ])
+}
+
 /** Supervise independent stream processes inside CastKit; one failed worker never restarts the server. */
 export const startManagedWorkers = ({
   definitions,
@@ -113,6 +156,10 @@ export const startManagedWorkers = ({
     timer: undefined as
       | ReturnType<typeof setTimeout>
       | undefined,
+    exitTimer: undefined as
+      | ReturnType<typeof setTimeout>
+      | undefined,
+    groups: new Map<number, string>(),
     restarts: 0,
     failures: 0,
     startedAt: 0,
@@ -134,6 +181,31 @@ export const startManagedWorkers = ({
       /* Already exited. */
     }
   }
+  const trackGroups = async (
+    worker: (typeof workers)[number],
+  ) => {
+    const child = worker.process
+    if (!child?.pid) return
+    const groups = await readProcessGroups(child.pid)
+    if (worker.process !== child) return
+    groups.forEach((identity, groupId) => {
+      worker.groups.set(groupId, identity)
+    })
+  }
+  const terminateGroups = async (
+    worker: (typeof workers)[number],
+  ) => {
+    await Promise.all(
+      [...worker.groups].map(
+        async ([groupId, identity]) => {
+          if (
+            (await readGroupIdentity(groupId)) === identity
+          )
+            killTree(groupId, "SIGKILL")
+        },
+      ),
+    )
+  }
   const launch = (worker: (typeof workers)[number]) => {
     if (lifecycle.isStopped) return
     const child = spawn(
@@ -145,6 +217,8 @@ export const startManagedWorkers = ({
       },
     )
     worker.process = child
+    worker.groups.clear()
+    void trackGroups(worker)
     worker.startedAt = Date.now()
     log(`[castkit.worker:${worker.deviceId}] started`)
     const output = (chunk: Buffer) =>
@@ -159,10 +233,16 @@ export const startManagedWorkers = ({
       ),
     )
     child.once("exit", () => {
-      if (child.pid) killTree(child.pid, "SIGKILL")
+      // The driver sees stdin EOF and closes Chromium. Killing it immediately
+      // interrupts that cleanup; detached browser groups would be orphaned.
+      worker.exitTimer = setTimeout(() => {
+        if (child.pid) killTree(child.pid, "SIGKILL")
+        void terminateGroups(worker)
+      }, 3000)
     })
     child.once("close", (code, signal) => {
-      if (child.pid) killTree(child.pid, "SIGKILL")
+      clearTimeout(worker.exitTimer)
+      void terminateGroups(worker)
       worker.process = null
       if (lifecycle.isStopped) return
       worker.failures =
@@ -212,6 +292,10 @@ export const startManagedWorkers = ({
         }
       }),
     )
+  const groupTimer = setInterval(() => {
+    workers.forEach((worker) => void trackGroups(worker))
+  }, 250)
+  groupTimer.unref()
   const measurementTimer = setInterval(
     () => void getStatus(),
     10_000,
@@ -222,6 +306,7 @@ export const startManagedWorkers = ({
     stop: async () => {
       lifecycle.isStopped = true
       clearInterval(measurementTimer)
+      clearInterval(groupTimer)
       await Promise.all(
         workers.map(async (worker) => {
           clearTimeout(worker.timer)
@@ -230,9 +315,11 @@ export const startManagedWorkers = ({
           const closed = new Promise<void>((done) =>
             child.once("close", () => done()),
           )
+          await trackGroups(worker)
           killTree(child.pid, "SIGTERM")
           const timeout = setTimeout(() => {
             if (child.pid) killTree(child.pid, "SIGKILL")
+            void terminateGroups(worker)
           }, 3000)
           await closed
           clearTimeout(timeout)
