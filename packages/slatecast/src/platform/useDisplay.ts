@@ -12,7 +12,10 @@ import type {
 } from "./protocol.ts"
 
 /** Own one subscription per page, with bounded reconnect and server-issued unlock sessions. */
-export const useDisplay = (target: DisplayTarget) => {
+export const useDisplay = (
+  target: DisplayTarget,
+  isDeviceShell = false,
+) => {
   const isPreview =
     new URLSearchParams(window.location.search).get(
       "preview",
@@ -165,7 +168,7 @@ export const useDisplay = (target: DisplayTarget) => {
           return
         }
         if (response.status === 409) {
-          reloadPage()
+          if (!isDeviceShell) reloadPage()
           return
         }
         if (
@@ -207,7 +210,7 @@ export const useDisplay = (target: DisplayTarget) => {
           try {
             const message = JSON.parse(event.data)
             if (message.type === "reload") {
-              reloadPage()
+              if (!isDeviceShell) reloadPage()
               return
             }
             if (message.type === "locked") {
@@ -260,6 +263,7 @@ export const useDisplay = (target: DisplayTarget) => {
     isPreview,
     isCapture,
     displayQuery,
+    isDeviceShell,
   ])
   const unlock = async (pin: string) => {
     setIsPending(true)
@@ -315,7 +319,7 @@ export const useDisplay = (target: DisplayTarget) => {
         },
       )
       if (response.status === 409 && target.deviceId) {
-        reloadPage()
+        if (!isDeviceShell) reloadPage()
         return
       }
       if (response.status === 401) lockState()

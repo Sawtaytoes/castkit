@@ -2279,7 +2279,7 @@ const main = async () => {
     imageDeviceIds: config.devices.map(
       (device) => device.id,
     ),
-    onBrowserTargetChanged: browserMode.reloadDevice,
+    onBrowserTargetChanged: browserMode.refreshDeviceTarget,
     onImageTargetRemoved: pushDeviceLogged,
   })
   const server = serve({

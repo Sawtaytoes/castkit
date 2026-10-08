@@ -338,7 +338,7 @@ export const startTestServer = async ({
       (device) => device.id,
     ),
     imageDeviceIds: [],
-    onBrowserTargetChanged: browserMode.reloadDevice,
+    onBrowserTargetChanged: browserMode.refreshDeviceTarget,
     onImageTargetRemoved: () => {},
   })
   const server = serve({ fetch: app.fetch, port })

@@ -42,7 +42,6 @@ import {
   resolvePersonIds,
 } from "../immich/immichClient.ts"
 import { preparePhotoFrameImage } from "../immich/photoFrameImage.ts"
-import { buildPlatformPage } from "../platform/platformPages.ts"
 import {
   createPlatformStore,
   type PlatformStore,
@@ -559,6 +558,8 @@ export const createBrowserMode = ({
     clock: getGlobalClockConfig(),
   })
 
+  const targetReader = { get: platform?.getDeviceTarget }
+
   const buildSnapshot = (
     deviceId: string,
   ): Extract<
@@ -608,6 +609,7 @@ export const createBrowserMode = ({
         activeView?.clientId ??
         browserViews[0]?.clientId ??
         "now-playing",
+      displayTarget: targetReader.get?.(deviceId) ?? null,
       data: buildViewDataState(deviceId),
       // What the panel compares against the bundle it is running. A reconnect
       // after a deploy carries a different id and the panel reloads itself.
@@ -1335,6 +1337,8 @@ export const createBrowserMode = ({
         | undefined
     },
   ) => {
+    targetReader.get =
+      options?.getPlatformTarget ?? targetReader.get
     const { injectWebSocket, upgradeWebSocket } =
       createNodeWebSocket({ app })
 
@@ -1388,16 +1392,6 @@ export const createBrowserMode = ({
           404,
         )
       }
-      const target = options?.getPlatformTarget?.(
-        context.req.param("id") ?? "",
-      )
-      if (target)
-        return context.html(
-          buildPlatformPage().replace(
-            "</body>",
-            `<script id="castkit-platform-target" type="application/json">${JSON.stringify({ ...target, deviceId: context.req.param("id") }).replaceAll("<", "\\u003c")}</script></body>`,
-          ),
-        )
       return context.html(buildDevicePageHtml({ snapshot }))
     })
 
@@ -1831,6 +1825,14 @@ export const createBrowserMode = ({
   }
 
   return {
+    refreshDeviceTarget: (deviceId: string) =>
+      hub.broadcast({
+        deviceId,
+        message: {
+          type: "display_target",
+          target: targetReader.get?.(deviceId) ?? null,
+        },
+      }),
     reloadDevice: (deviceId: string) =>
       hub.broadcast({
         deviceId,

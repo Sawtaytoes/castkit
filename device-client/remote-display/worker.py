@@ -19,13 +19,14 @@ from codec import encode_frame, presto_frame_pixels, presto_frame_pixels_with_pa
 from esphome_presto import ESPHomePrestoTransport
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
+from playwright.async_api import Error as BrowserError
 from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v15-gesture-frame-priority"
+BUILD_MARKER = "castkit-remote-display-v16-document-navigation"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -41,6 +42,14 @@ HIT_SCRIPT = """({x,y,attribute}) => {
  const element = document.elementFromPoint(x,y)?.closest(`[${attribute}]`);
  return element && !element.matches(':disabled,[aria-disabled="true"]') ? element.getAttribute(attribute) : document.querySelector('.stage') ? `view-gesture:${document.querySelector('.stage').dataset.view}` : null;
 }"""
+
+
+def is_navigation_error(error):
+    """A document replacement invalidates evaluations without killing the browser."""
+    return isinstance(error, BrowserError) and any(
+        message in str(error)
+        for message in ("Execution context was destroyed", "Cannot find context with specified id")
+    )
 
 
 def read_config(path):
@@ -98,6 +107,8 @@ class DisplaySession:
         self.is_reset_required = False
         self.frames = 0
         self.last_report = time.monotonic()
+        self.document_revision = 0
+        self.document_changed_at = 0
 
     def state_changed(self, state):
         if not isinstance(state, TextSensorState) or state.key != self.event_key:
@@ -171,7 +182,30 @@ class DisplaySession:
             event = candidate
         return event
 
+    def document_changed(self, frame):
+        if frame != self.page.main_frame:
+            return
+        self.document_revision += 1
+        self.document_changed_at = time.monotonic()
+        self.guard.frames.clear()
+        self.is_reset_required = True
+        self.force_frame.set()
+        LOG.info("Display document changed; keeping device connection")
+
     async def input_loop(self):
+        while True:
+            try:
+                await self.process_input()
+            except BrowserError as error:
+                if not is_navigation_error(error):
+                    raise
+                # The replaced document no longer owns this contact. Consume no
+                # action from it; a new contact needs a newly acknowledged frame.
+                self.contact = None
+                self.processed_touch = self.last_sequence
+                self.force_frame.set()
+
+    async def process_input(self):
         while True:
             event = await self.next_touch()
             sequence, phase, x, y = map(int, event[1:5])
@@ -357,6 +391,7 @@ class DisplaySession:
         self.event_key = event_key
         self.cdp = await self.page.context.new_cdp_session(self.page)
         self.client.subscribe_states(self.state_changed)
+        self.page.on("framenavigated", self.document_changed)
         if loading_frame is not None:
             await self.send_frame(loading_frame, 0, [], format_id=3)
         input_task = asyncio.create_task(self.input_loop())
@@ -368,35 +403,48 @@ class DisplaySession:
                 if input_task.done():
                     input_task.result()
                 cycle = time.monotonic()
-                if cycle - last_sent > BROWSER_TIMEOUT_SECONDS:
+                if cycle - max(last_sent, self.document_changed_at) > BROWSER_TIMEOUT_SECONDS:
                     raise TimeoutError("No stable frame captured")
                 touch_id = self.processed_touch
-                before = await asyncio.wait_for(
-                    self.page.evaluate(TARGETS_SCRIPT, self.target_options),
-                    timeout=BROWSER_TIMEOUT_SECONDS,
-                )
-                capture_started = time.monotonic()
-                if isinstance(self.client, PrestoTransport):
-                    shot = await self.send_cdp(
-                        "Page.captureScreenshot",
-                        {
-                            "format": "png",
-                            "fromSurface": True,
-                            "captureBeyondViewport": False,
-                            "optimizeForSpeed": True,
-                        },
+                document_revision = self.document_revision
+                try:
+                    before = await asyncio.wait_for(
+                        self.page.evaluate(TARGETS_SCRIPT, self.target_options),
+                        timeout=BROWSER_TIMEOUT_SECONDS,
                     )
-                    png = base64.b64decode(shot["data"])
-                else:
-                    png = await self.page.screenshot(
-                        type="png", animations="disabled", timeout=5000
+                    capture_started = time.monotonic()
+                    if isinstance(self.client, PrestoTransport):
+                        shot = await self.send_cdp(
+                            "Page.captureScreenshot",
+                            {
+                                "format": "png",
+                                "fromSurface": True,
+                                "captureBeyondViewport": False,
+                                "optimizeForSpeed": True,
+                            },
+                        )
+                        png = base64.b64decode(shot["data"])
+                    else:
+                        png = await self.page.screenshot(
+                            type="png", animations="disabled", timeout=5000
+                        )
+                    capture_finished = time.monotonic()
+                    after = await asyncio.wait_for(
+                        self.page.evaluate(TARGETS_SCRIPT, self.target_options),
+                        timeout=BROWSER_TIMEOUT_SECONDS,
                     )
-                capture_finished = time.monotonic()
-                after = await asyncio.wait_for(
-                    self.page.evaluate(TARGETS_SCRIPT, self.target_options),
-                    timeout=BROWSER_TIMEOUT_SECONDS,
-                )
-                if before != after:
+                except BrowserError as error:
+                    if not is_navigation_error(error):
+                        raise
+                    # A real document reload invalidates capture. Keep it bounded
+                    # without rebuilding the encrypted device session.
+                    await asyncio.sleep(0.05)
+                    continue
+                except TimeoutError:
+                    if document_revision == self.document_revision:
+                        raise
+                    continue
+                if document_revision != self.document_revision or before != after:
                     continue
                 self.preview.set_frame(png)
                 needs_palette = (
@@ -450,6 +498,7 @@ class DisplaySession:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(self.force_frame.wait(), timeout=delay)
         finally:
+            self.page.remove_listener("framenavigated", self.document_changed)
             input_task.cancel()
             await asyncio.gather(input_task, return_exceptions=True)
             with contextlib.suppress(TimeoutError):
@@ -607,7 +656,9 @@ async def serve(config):
                     session = DisplaySession(config, page, client, actions, stop, preview)
                     await session.run(event_key, loading_frame)
                 except Exception as error:
-                    LOG.warning("Display session ended: %s; reconnecting", type(error).__name__)
+                    LOG.warning(
+                        "Display session ended: %s: %s; reconnecting", type(error).__name__, error
+                    )
                     if not browser.is_connected():
                         # A killed browser has no context left to recreate pages
                         # in. Exit so the service supervisor starts a fresh worker.

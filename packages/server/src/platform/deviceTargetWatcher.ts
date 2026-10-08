@@ -4,9 +4,8 @@ import type { Platform } from "./platform.ts"
  * Tell each display when what it shows through the platform changes: an
  * assigned screen appears or goes, or a temporary view starts or ends.
  *
- * A browser display reloads, which moves its page between its own view
- * system and the platform page; a platform page also notices the change
- * itself (a 409 on its socket) and reloads. An image display that leaves the
+ * A browser display receives its new target over the device socket and
+ * switches components inside the same document, preserving frame capture. An image display that leaves the
  * platform needs one frame of its own view, which the platform scheduler no
  * longer draws. An image display joining the platform needs nothing here:
  * the scheduler sees the new target on its next tick.
