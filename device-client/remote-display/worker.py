@@ -14,14 +14,13 @@ from urllib.parse import urlsplit
 
 import yaml
 from aioesphomeapi import APIClient, TextSensorState
-from playwright.async_api import Error as BrowserError
-from playwright.async_api import async_playwright
-
 from ambient_light import artwork_bounds
 from codec import encode_frame, presto_frame_pixels, presto_frame_pixels_with_palette
 from esphome_presto import ESPHomePrestoTransport
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
+from playwright.async_api import Error as BrowserError
+from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer, validate_preview_port
 
