@@ -608,6 +608,11 @@ async def serve(config):
                     await session.run(event_key, loading_frame)
                 except Exception as error:
                     LOG.warning("Display session ended: %s; reconnecting", type(error).__name__)
+                    if not browser.is_connected():
+                        # A killed browser has no context left to recreate pages
+                        # in. Exit so the service supervisor starts a fresh worker.
+                        LOG.error("Capture browser disconnected; restarting worker")
+                        raise
                     # Recreate a stalled page instead of reusing its compositor.
                     with contextlib.suppress(Exception):
                         await asyncio.wait_for(page.close(), timeout=BROWSER_TIMEOUT_SECONDS)

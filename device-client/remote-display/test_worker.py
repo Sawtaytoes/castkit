@@ -1,8 +1,11 @@
 """Real Chromium coverage for touch routing and retained-event recovery."""
 
 import asyncio
+import contextlib
 import io
 import os
+import tempfile
+import types
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -12,7 +15,7 @@ from PIL import Image
 from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer
-from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context
+from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context, serve
 
 
 class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
@@ -124,6 +127,62 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(acknowledgements[:3], [(1, 0), (4, 3), (5, 3)])
         self.assertEqual(acknowledgements[3][1], 3)
         self.assertGreater(acknowledgements[3][0], 5)
+
+    async def test_dead_browser_exits_worker_instead_of_retrying_a_dead_context(self):
+        await self.task_cancel_for_capture_test()
+        transport = types.SimpleNamespace(
+            start=AsyncMock(),
+            stop=AsyncMock(),
+            connect=AsyncMock(),
+            disconnect=AsyncMock(),
+            build_marker="test-firmware",
+        )
+        manifest = types.SimpleNamespace(
+            ok=True, url="https://panel.example/manifest", json=AsyncMock()
+        )
+        browser_api = types.SimpleNamespace(
+            chromium=types.SimpleNamespace(launch=AsyncMock(return_value=self.browser))
+        )
+
+        @contextlib.asynccontextmanager
+        async def browser_manager():
+            yield browser_api
+
+        async def crash(session, event_key, loading_frame):
+            await self.browser.close()
+            raise RuntimeError("browser process stopped")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as credentials:
+            credentials.write("api_encryption_key: test-key\n")
+            credentials.flush()
+            config = {
+                "transport": "esphome-presto",
+                "mac": "020000000001",
+                "host": "127.0.0.1",
+                "secrets_path": credentials.name,
+                "manifest_url": manifest.url,
+            }
+            parsed = {
+                "url": "https://panel.example/display",
+                "ready_selector": None,
+                "cache_url": None,
+                "max_fps": 8,
+            }
+            with (
+                patch("worker.async_playwright", browser_manager),
+                patch("worker.create_browser_context", AsyncMock(return_value=self.context)),
+                patch.object(self.context.request, "get", AsyncMock(return_value=manifest)),
+                patch("worker.parse_manifest", return_value=parsed),
+                patch.object(self.context, "new_page", AsyncMock(return_value=self.page)),
+                patch.object(self.page, "goto", AsyncMock(return_value=manifest)),
+                patch("worker.ESPHomePrestoTransport", return_value=transport),
+                patch.object(DisplaySession, "run", crash),
+                self.assertRaisesRegex(RuntimeError, "browser process stopped"),
+            ):
+                await asyncio.wait_for(serve(config), timeout=3)
+        transport.connect.assert_awaited_once()
+        transport.disconnect.assert_awaited_once()
+        transport.stop.assert_awaited_once()
 
     async def test_stalled_native_capture_times_out_and_releases_touch_session(self):
         await self.task_cancel_for_capture_test()
