@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-08 — Music queue history and stable artwork colors](2026-10-08-music-queue-history-and-stable-artwork-colors.md)
+
 - [2026-10-08 — Monitoring cameras and neutral music labels](2026-10-08-monitoring-cameras-and-neutral-music-labels.md)
 
 - [2026-10-08: Agenda distance clock and daily task drilldown](2026-10-08-agenda-distance-clock-and-daily-task-drilldown.md)

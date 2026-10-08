@@ -95,7 +95,9 @@ test("artwork changes update control colors and missing artwork restores the the
   )
   server.push({
     type: "now_playing",
-    data: buildNowPlaying(),
+    data: buildNowPlaying({
+      title: "A track without artwork",
+    }),
   })
   await waitFor(() =>
     expect(panel.style.getPropertyValue("--accent")).toBe(
@@ -113,7 +115,10 @@ test("black-and-white artwork supplies a readable neutral accent instead of the 
     snapshot: buildSnapshot({
       view: "now-playing",
       data: {
-        nowPlaying: buildNowPlaying({ artworkPath }),
+        nowPlaying: buildNowPlaying({
+          artworkPath,
+          title: "Neutral artwork fixture",
+        }),
       },
     }),
   })
@@ -124,9 +129,9 @@ test("black-and-white artwork supplies a readable neutral accent instead of the 
   if (!panel)
     throw new Error("The music panel did not mount")
   await waitFor(() =>
-    expect(
-      panel.style.getPropertyValue("--accent"),
-    ).not.toBe(""),
+    expect(panel.style.getPropertyValue("--accent")).toBe(
+      getCachedAccentColor(artworkPath),
+    ),
   )
   const accent = panel.style.getPropertyValue("--accent")
   const channels = accent.match(/\d+/g)?.map(Number)
@@ -143,5 +148,86 @@ test("black-and-white artwork supplies a readable neutral accent instead of the 
         ".seek-knob",
       )!,
     ).backgroundColor,
+  )
+})
+
+test("a playing track retains its hue across artwork proxy changes, failures and view returns", async () => {
+  const artworkPath = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#c03020"/></svg>')}`
+  const data = buildNowPlaying({
+    title: "Stable artwork fixture",
+    artworkPath,
+  })
+  const { server, view } = await mountSlatecast({
+    snapshot: buildSnapshot({
+      view: "now-playing",
+      data: { nowPlaying: data },
+    }),
+  })
+  const panel = () =>
+    view.container.querySelector<HTMLElement>(
+      ".now-playing",
+    )!
+  await waitFor(() =>
+    expect(
+      panel().style.getPropertyValue("--accent"),
+    ).not.toBe(""),
+  )
+  const accent = panel().style.getPropertyValue("--accent")
+  const observed: string[] = []
+  const observer = new MutationObserver(() => {
+    observed.push(
+      panel().style.getPropertyValue("--accent"),
+    )
+  })
+  observer.observe(panel(), {
+    attributes: true,
+    attributeFilter: ["style"],
+  })
+  server.push({
+    type: "now_playing",
+    data: {
+      ...data,
+      artworkPath: "data:image/png;base64,invalid",
+      isPlaying: false,
+    },
+  })
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", {
+        name: "Play Stable artwork fixture",
+      }),
+    ).toBeVisible(),
+  )
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(panel().style.getPropertyValue("--accent")).toBe(
+    accent,
+  )
+  expect(observed.every((value) => value === accent)).toBe(
+    true,
+  )
+  observer.disconnect()
+  server.push({ type: "view", view: "queue" })
+  await waitFor(() =>
+    expect(
+      view.container.querySelector(".now-playing"),
+    ).toBeNull(),
+  )
+  server.push({ type: "view", view: "now-playing" })
+  await waitFor(() =>
+    expect(panel().style.getPropertyValue("--accent")).toBe(
+      accent,
+    ),
+  )
+  server.push({
+    type: "now_playing",
+    data: { ...data, artworkPath: undefined },
+  })
+  await waitFor(() =>
+    expect(
+      panel().querySelector(".artwork.placeholder"),
+    ).not.toBeNull(),
+  )
+  expect(panel().style.getPropertyValue("--accent")).toBe(
+    accent,
   )
 })
