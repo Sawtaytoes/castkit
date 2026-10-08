@@ -9,7 +9,11 @@ import {
 } from "./viewSwipe.ts"
 
 /** Undrawn audio/time swipe regions that remain above external views. */
-export const ViewSwipeEdges = () => {
+export const ViewSwipeEdges = ({
+  viewId,
+}: {
+  viewId?: string
+} = {}) => {
   const start = useRef<{
     edge: "top" | "bottom" | "right"
     x: number
@@ -80,7 +84,7 @@ export const ViewSwipeEdges = () => {
                     : event.clientX - origin.x,
                 )
             ) {
-              endViewSwipe(event)
+              endViewSwipe(event, viewId)
             } else {
               cancelViewSwipe()
             }

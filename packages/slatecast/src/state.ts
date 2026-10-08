@@ -676,8 +676,7 @@ const connection: {
  * calls it, but without it a caller has no way to stop the self-healing
  * reconnect loop, which retries forever by design.
  */
-export const connect = () => {
-  const deviceId = device.value?.id
+export const connect = (deviceId = device.value?.id) => {
   if (!deviceId) {
     return () => {}
   }

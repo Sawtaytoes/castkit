@@ -109,7 +109,10 @@ export const trackViewSwipe = (event: PointerEvent) => {
  * The audio gesture cycles Now Playing and Queue. The printer gesture cycles
  * Printer Status and Print Queue. The time gesture follows the remaining agenda.
  */
-export const endViewSwipe = (event: PointerEvent) => {
+export const endViewSwipe = (
+  event: PointerEvent,
+  currentView = activeView.value,
+) => {
   if (!swipe || event.pointerId !== swipe.pointerId) {
     return
   }
@@ -145,7 +148,7 @@ export const endViewSwipe = (event: PointerEvent) => {
   if (!isVertical && !isPrinterPull && !isLeftPull) {
     return
   }
-  const view = activeView.value
+  const view = currentView
   const hasAgenda = (agenda.value?.events ?? []).some(
     (event) =>
       event.isAllDay ||
