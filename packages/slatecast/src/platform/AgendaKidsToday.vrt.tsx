@@ -75,7 +75,9 @@ const mountKids = () => {
       }}
     >
       <div
+        class="platform"
         style={{
+          padding: "0",
           fontFamily: "var(--font-sans)",
           width: "100vw",
           height: "100vh",

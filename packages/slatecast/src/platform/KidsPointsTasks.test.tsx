@@ -64,6 +64,7 @@ const drawing = ({
     }}
   >
     <div
+      class="platform"
       style={{
         width: "min(480px, 100vw)",
         height: "480px",
@@ -94,6 +95,13 @@ const openKid = async (name: string) => {
 test("a full child card opens its latest daily tasks and returns to the whole board", async () => {
   document.documentElement.dataset.repaint = "instant"
   render(drawing())
+  expect(
+    getComputedStyle(
+      screen.getByRole("button", {
+        name: "View Robin's tasks today",
+      }),
+    ).backgroundColor,
+  ).toBe("rgba(0, 0, 0, 0)")
   await openKid("Robin")
   expect(
     screen.getByRole("heading", { name: "Today's tasks" }),

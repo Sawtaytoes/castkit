@@ -3172,7 +3172,7 @@ html[data-repaint="instant"]
 .kids-points-focus {
   position: relative;
 }
-.kids-points-open {
+.kids-points .kids-points-open {
   position: absolute;
   inset: 0;
   z-index: 2;
@@ -3185,11 +3185,11 @@ html[data-repaint="instant"]
   cursor: pointer;
   touch-action: manipulation;
 }
-.kids-points-open:focus-visible {
+.kids-points .kids-points-open:focus-visible {
   outline: 3px solid var(--accent-content);
   outline-offset: -3px;
 }
-.kids-points-open:active {
+.kids-points .kids-points-open:active {
   background: color-mix(in srgb, var(--fg) 8%, transparent);
 }
 .kids-points-tasks {
