@@ -34,7 +34,13 @@ RUN --mount=type=cache,id=castkit-pnpm,target=/pnpm/store,sharing=locked pnpm in
 
 # Chromium + its system libraries for the render engine.
 RUN pnpm exec playwright install --with-deps chromium
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3 python3-venv && rm -rf /var/lib/apt/lists/*
+
+# Managed native stream workers ship in the same app image. Python uses its
+# pinned browser build; connection files and credentials remain private mounts.
+COPY device-client/remote-display/requirements.txt /tmp/worker-requirements.txt
+RUN python3 -m venv /opt/castkit-worker && /opt/castkit-worker/bin/pip install --no-cache-dir -r /tmp/worker-requirements.txt && /opt/castkit-worker/bin/python -m playwright install --with-deps chromium && rm -rf /var/lib/apt/lists/*
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 
 # --- Source + bundle ---
 COPY . .

@@ -29,6 +29,7 @@ const EnvSchema = z.object({
   ),
   INKCAST_DEVICES_FILE: z.optional(z.string()),
   CASTKIT_PLATFORM_FILE: z.optional(z.string()),
+  CASTKIT_STREAM_WORKERS_FILE: z.optional(z.string()),
   // Public base URL browser-mode devices are told to load (the HA "URL"
   // diagnostic sensor), e.g. https://castkit.octen.dev — empty in dev.
   CASTKIT_PUBLIC_URL: z._default(z.string(), ""),
@@ -335,6 +336,7 @@ export type InkcastConfig = {
   browserDevices: readonly BrowserDeviceConfig[]
   /** Persistent JSON file owned by the device-management UI. */
   devicesFile: string | undefined
+  streamWorkersFile?: string
   platformFile?: string
   /** Public base URL browser devices load, e.g. https://castkit.octen.dev. */
   publicUrl: string
@@ -353,6 +355,7 @@ export const loadConfig = (
 
   return {
     port: parsed.PORT,
+    streamWorkersFile: parsed.CASTKIT_STREAM_WORKERS_FILE,
     apiToken: parsed.INKCAST_API_TOKEN,
     renderEngine: parsed.INKCAST_RENDER_ENGINE,
     devices: imageDevices,
