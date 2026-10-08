@@ -25,7 +25,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v14-touch-coalescing"
+BUILD_MARKER = "castkit-remote-display-v15-gesture-frame-priority"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -420,13 +420,16 @@ class DisplaySession:
                 if isinstance(self.client, PrestoTransport):
                     self.client.capture_ms = round((capture_finished - capture_started) * 1000, 1)
                     self.client.encode_ms = round((encoded_at - capture_finished) * 1000, 1)
+                is_forced = self.force_frame.is_set()
+                self.force_frame.clear()
                 if (
                     payload != previous_payload
-                    or touch_id != previous_touch
-                    or self.force_frame.is_set()
+                    # Captured gestures with no visual change need no extra
+                    # round trip for every move. Preserve changed drag frames,
+                    # the release acknowledgement and the periodic heartbeat.
+                    or (self.contact is None and (touch_id != previous_touch or is_forced))
                     or cycle - last_sent >= self.config["heartbeat_seconds"]
                 ):
-                    self.force_frame.clear()
                     response = await self.send_frame(payload, touch_id, after)
                     previous_payload, last_sent, previous_touch = (
                         payload,
@@ -605,6 +608,11 @@ async def serve(config):
                     await session.run(event_key, loading_frame)
                 except Exception as error:
                     LOG.warning("Display session ended: %s; reconnecting", type(error).__name__)
+                    if not browser.is_connected():
+                        # A killed browser has no context left to recreate pages
+                        # in. Exit so the service supervisor starts a fresh worker.
+                        LOG.error("Capture browser disconnected; restarting worker")
+                        raise
                     # Recreate a stalled page instead of reusing its compositor.
                     with contextlib.suppress(Exception):
                         await asyncio.wait_for(page.close(), timeout=BROWSER_TIMEOUT_SECONDS)
