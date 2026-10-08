@@ -1,5 +1,6 @@
 import { render } from "preact"
 import { App } from "./App.tsx"
+import { DeviceViewNavigation } from "./DeviceViewNavigation.tsx"
 import { PlatformApp } from "./platform/PlatformApp.tsx"
 import {
   readDisplayTarget,
@@ -20,7 +21,16 @@ const displayTarget =
     : routeTarget
 if (displayTarget) {
   render(
-    <PlatformApp target={displayTarget} />,
+    displayTarget.deviceId ? (
+      <DeviceViewNavigation
+        deviceId={displayTarget.deviceId}
+        viewId={displayTarget.id}
+      >
+        <PlatformApp target={displayTarget} />
+      </DeviceViewNavigation>
+    ) : (
+      <PlatformApp target={displayTarget} />
+    ),
     document.getElementById("app")!,
   )
 } else {

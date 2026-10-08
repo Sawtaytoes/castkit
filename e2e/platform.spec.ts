@@ -188,6 +188,77 @@ test("a temporary view takes over a display's own page and hands it back", async
   ).toBeVisible()
 })
 
+test("device edge navigation remains available throughout a composed override", async ({
+  page,
+  request,
+}) => {
+  await publishPrinters(request)
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/e2e-preview/override/set",
+      payload: {
+        viewId: "lab",
+        durationSeconds: 30,
+        priority: 100,
+      },
+    },
+  })
+  await page.goto("/d/e2e-preview")
+  await expect(
+    page.getByText("Bracket", { exact: true }),
+  ).toBeVisible()
+  const publishedBefore = (
+    await (await request.get("/__test__/published")).json()
+  ).length
+  for (const edge of ["top", "bottom"] as const) {
+    const button = page.locator(
+      `.view-swipe-edge.is-${edge}`,
+    )
+    await expect(button).toBeVisible()
+    const bounds = await button.boundingBox()
+    if (!bounds) throw new Error("Missing edge bounds")
+    const positionX = bounds.x + bounds.width / 2
+    const positionY = bounds.y + bounds.height / 2
+    await page.mouse.move(positionX, positionY)
+    await page.mouse.down()
+    await page.mouse.move(
+      positionX,
+      positionY + (edge === "top" ? 80 : -80),
+      { steps: 3 },
+    )
+    await page.mouse.up()
+  }
+  await expect
+    .poll(async () => {
+      const published = await (
+        await request.get("/__test__/published")
+      ).json()
+      return published
+        .slice(publishedBefore)
+        .filter(
+          (entry: { topic: string }) =>
+            entry.topic === "castkit/e2e-preview/command",
+        )
+        .map(
+          (entry: { payload: string }) =>
+            JSON.parse(entry.payload).value,
+        )
+    })
+    .toEqual(["now-playing", "ambient"])
+  await expect(
+    page.getByText("Bracket", { exact: true }),
+  ).toBeVisible()
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/e2e-preview/override/clear",
+      payload: { viewId: "lab" },
+    },
+  })
+  await expect(
+    page.getByText("Bracket", { exact: true }),
+  ).toHaveCount(0)
+})
+
 test("public printer views share one PIN session and explain disabled controls", async ({
   page,
   context,
