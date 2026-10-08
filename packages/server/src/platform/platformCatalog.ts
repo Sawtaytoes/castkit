@@ -1018,6 +1018,14 @@ viewSpecs.forEach((spec) => {
         defaultValue: false,
       },
       {
+        key: "isFilamentVisible",
+        label: "Show active filament",
+        type: "boolean",
+        defaultValue: true,
+        description:
+          "Turn off in camera-focused views to leave more room for the print.",
+      },
+      {
         key: "isCameraVisible",
         label: "Show printer cameras",
         type: "boolean",

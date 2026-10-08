@@ -354,8 +354,9 @@ const PrinterCard = ({
                       : "—"}
                   </dd>
                 </div>
-                {printer.filamentText ||
-                printer.filaments?.length ? (
+                {settings.isFilamentVisible !== false &&
+                (printer.filamentText ||
+                  printer.filaments?.length) ? (
                   <div class="printer-metric is-filament">
                     <dt>Filament</dt>
                     <dd>

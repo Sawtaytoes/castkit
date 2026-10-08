@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-08 — Monitoring cameras and neutral music labels](2026-10-08-monitoring-cameras-and-neutral-music-labels.md)
+
 - [2026-10-08: Agenda distance clock and daily task drilldown](2026-10-08-agenda-distance-clock-and-daily-task-drilldown.md)
 
 - [2026-10-07: Preview profiles group rendering facts](2026-10-07-preview-profiles-group-rendering-facts.md)

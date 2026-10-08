@@ -84,6 +84,10 @@ export const chooseCompositionLayout = ({
 }) => {
   const printers = items.filter((item) => item.isPrinter)
   const supporting = items.filter((item) => !item.isPrinter)
+  const highestPrinterPriority = Math.max(
+    0,
+    ...printers.map((printer) => printer.priority),
+  )
   const makeCandidate = ({
     id,
     columns,
@@ -175,16 +179,25 @@ export const chooseCompositionLayout = ({
               aspectRatio: usage
                 ? undefined
                 : item.aspectRatio,
-              idealArea: item.isPrinter
-                ? undefined
-                : item.minimumWidth *
-                  item.minimumHeight *
-                  4,
+              // Once supporting quotas reach their normal readable size,
+              // extra height belongs to the media rather than larger labels.
+              idealArea: usage
+                ? item.priority > highestPrinterPriority
+                  ? undefined
+                  : 100
+                : item.isPrinter
+                  ? undefined
+                  : item.minimumWidth *
+                    item.minimumHeight *
+                    4,
             },
             {
               priority: 0,
               width: cellWidth,
               height: cellHeight,
+              // This section enforces fit only. Scoring its rectangle would
+              // reward a wider supporting strip for absorbing empty space.
+              idealArea: 0,
               minimumWidth: item.minimumWidth,
               minimumHeight: Math.max(
                 minimumHeight,

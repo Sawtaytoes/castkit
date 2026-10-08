@@ -624,7 +624,7 @@ html[data-grayscale-text="true"] {
 .seek-time {
   font-size: 2.6vmin;
   font-weight: 600;
-  color: var(--accent-content);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
   min-width: 8vmin;
   text-align: center;
@@ -715,7 +715,7 @@ html[data-grayscale-text="true"] {
 .volume button {
   background: none;
   border: none;
-  color: var(--accent-content);
+  color: var(--fg);
   font-size: 6vmin;
   line-height: 1;
   padding: 1.5vmin;
@@ -723,7 +723,7 @@ html[data-grayscale-text="true"] {
 }
 
 .volume button:active {
-  color: var(--accent);
+  color: var(--fg);
 }
 
 .volume {
