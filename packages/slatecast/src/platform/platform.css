@@ -3331,3 +3331,91 @@ html[data-repaint="instant"]
     animation: none;
   }
 }
+
+/* Compact monitoring facts are bounded by their own card, including measurement
+ * probes and zoomed browser windows. Spare area belongs to the camera. */
+.platform-printers .printer-card {
+  container-name: printer-card;
+  container-type: inline-size;
+}
+.platform-printers
+  .printer-card[data-compact-facts="true"]
+  .printer-names {
+  flex: 1 1 64px;
+}
+.platform-printers
+  .printer-card[data-compact-facts="true"]
+  .printer-name {
+  font-size: clamp(16px, 2cqi, 20px);
+}
+.platform-printers
+  .printer-card[data-compact-facts="true"]
+  .printer-job {
+  font-size: clamp(14px, 2cqi, 18px);
+}
+.platform-printers
+  .printer-card[data-compact-facts="true"]
+  .printer-metric
+  :is(dt, dd) {
+  font-size: 14px;
+}
+@container printer-card (min-width: 600px) {
+  .platform-printers
+    .printer-card[data-compact-facts="true"]:not(
+      [data-orientation="horizontal"]
+    )
+    .printer-body {
+    grid-template-columns: minmax(180px, 0.4fr) minmax(
+        0,
+        1fr
+      );
+    grid-template-rows: auto auto;
+    column-gap: 16px;
+    align-content: start;
+  }
+  .platform-printers
+    .printer-card[data-compact-facts="true"]:not(
+      [data-orientation="horizontal"]
+    )
+    .printer-head {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .platform-printers
+    .printer-card[data-compact-facts="true"]:not(
+      [data-orientation="horizontal"]
+    )
+    .printer-job {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+  }
+  .platform-printers
+    .printer-card[data-compact-facts="true"]:not(
+      [data-orientation="horizontal"]
+    )
+    .printer-secondary-details {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+  .platform-printers
+    .printer-card[data-compact-facts="true"][data-plate-preview-visible="true"]:not(
+      [data-orientation="horizontal"]
+    )
+    .printer-secondary-details {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .platform-printers
+    .printer-card[data-compact-facts="true"]:not(
+      [data-orientation="horizontal"]
+    )
+    .printer-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-inline-size: 0;
+  }
+}

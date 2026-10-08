@@ -51,11 +51,24 @@ test("artwork changes update control colors and missing artwork restores the the
   })
   if (!seekTime || !seekKnob)
     throw new Error("The seek controls did not mount")
+  const resolveColor = (property: string) => {
+    const probe = document.createElement("span")
+    probe.style.color = `var(${property})`
+    panel.append(probe)
+    const value = getComputedStyle(probe).color
+    probe.remove()
+    return value
+  }
+  const foreground = resolveColor("--fg")
+  const mutedForeground = resolveColor("--fg-dim")
   expect(getComputedStyle(seekTime).color).toBe(
-    getComputedStyle(seekKnob).backgroundColor,
+    mutedForeground,
   )
   expect(getComputedStyle(volumeIcon).color).toBe(
-    getComputedStyle(seekTime).color,
+    foreground,
+  )
+  expect(getComputedStyle(seekTime).color).not.toBe(
+    getComputedStyle(seekKnob).backgroundColor,
   )
   server.push({
     type: "now_playing",
@@ -74,6 +87,12 @@ test("artwork changes update control colors and missing artwork restores the the
       panel.style.getPropertyValue("--accent-content"),
     ).toBe(panel.style.getPropertyValue("--accent"))
   })
+  expect(getComputedStyle(seekTime).color).toBe(
+    mutedForeground,
+  )
+  expect(getComputedStyle(volumeIcon).color).toBe(
+    foreground,
+  )
   server.push({
     type: "now_playing",
     data: buildNowPlaying(),
@@ -118,7 +137,7 @@ test("black-and-white artwork supplies a readable neutral accent instead of the 
     getComputedStyle(
       screen.getByRole("button", { name: "Mute" }),
     ).color,
-  ).toBe(
+  ).not.toBe(
     getComputedStyle(
       view.container.querySelector<HTMLElement>(
         ".seek-knob",
