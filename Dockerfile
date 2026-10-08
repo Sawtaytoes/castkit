@@ -34,7 +34,7 @@ RUN --mount=type=cache,id=castkit-pnpm,target=/pnpm/store,sharing=locked pnpm in
 
 # Chromium + its system libraries for the render engine.
 RUN pnpm exec playwright install --with-deps chromium
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3 python3-venv && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3 python3-venv tini && rm -rf /var/lib/apt/lists/*
 
 # Managed native stream workers ship in the same app image. Python uses its
 # pinned browser build; connection files and credentials remain private mounts.
@@ -51,4 +51,8 @@ EXPOSE 8788
 
 # Config comes from the environment (see .env.example). Mount a .env or pass
 # -e vars; nothing house-specific is baked into the image.
-CMD ["pnpm", "--filter", "@castkit/server", "start:prod"]
+# PID 1 reaps orphaned browser descendants. Node directly receives termination
+# and stops managed workers before the server closes.
+WORKDIR /app/packages/server
+ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
+CMD ["node", "--enable-source-maps", "dist/index.js"]

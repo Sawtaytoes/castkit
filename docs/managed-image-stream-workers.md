@@ -29,7 +29,10 @@ own one device. Preserve old app configuration for rollback until fresh frame
 acknowledgements and input routing are verified. The main app starts workers after
 its HTTP/WebSocket server is listening. Failed workers retry independently with
 backoff from one to thirty seconds; the main server and other workers stay alive.
-Shutdown terminates each worker's browser process group before closing the server.
+Shutdown terminates each worker's browser process groups before closing the server.
+The supervisor allows Playwright to close detached browsers after worker exit,
+then kills surviving tracked groups after three seconds. Group start times prevent
+killing a reused PID; a container init reaps orphaned descendants.
 
 ## Memory telemetry and sizing
 

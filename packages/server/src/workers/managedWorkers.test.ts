@@ -1,4 +1,8 @@
-import { mkdtemp, writeFile } from "node:fs/promises"
+import {
+  mkdtemp,
+  readFile,
+  writeFile,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect, onTestFinished, test } from "vitest"
@@ -144,4 +148,77 @@ test("memory telemetry handles a process that has already exited", async () => {
     rssBytes: 0,
     pssBytes: 0,
   })
+})
+
+test("a driver can clean up detached descendants after the worker exits", async () => {
+  const { directory, script } = await fixture(`
+    const {spawn}=require('node:child_process');
+    const file=process.argv.at(-1)+'.cleanup';
+    const driver=spawn(process.execPath,['-e',"process.stdin.resume(); process.stdin.on('end',()=>{require('node:fs').writeFileSync(process.argv[1],'closed'); process.exit(0)})",file],{stdio:['pipe','inherit','inherit']});
+    setTimeout(()=>process.exit(1),200);
+  `)
+  const configPath = join(directory, "graceful")
+  const supervisor = startManagedWorkers({
+    definitions: [{ deviceId: "graceful", configPath }],
+    command: process.execPath,
+    script,
+    restartDelayMs: 5000,
+    log: () => {},
+  })
+  onTestFinished(() => supervisor.stop())
+  await expect
+    .poll(
+      async () =>
+        readFile(`${configPath}.cleanup`, "utf8").catch(
+          () => "",
+        ),
+      { timeout: 5000 },
+    )
+    .toBe("closed")
+  await supervisor.stop()
+})
+
+test("a detached browser that ignores driver EOF is terminated before a worker restarts", async () => {
+  if (process.platform !== "linux") return
+  const { directory, script } = await fixture(`
+    const {spawn}=require('node:child_process');
+    const browser=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:['ignore','inherit','inherit']});
+    require('node:fs').writeFileSync(process.argv.at(-1)+'.pid',String(browser.pid));
+    setTimeout(()=>process.exit(1),700);
+  `)
+  const configPath = join(directory, "detached")
+  const supervisor = startManagedWorkers({
+    definitions: [{ deviceId: "detached", configPath }],
+    command: process.execPath,
+    script,
+    restartDelayMs: 5000,
+    log: () => {},
+  })
+  onTestFinished(() => supervisor.stop())
+  await expect
+    .poll(async () =>
+      readFile(`${configPath}.pid`, "utf8").catch(() => ""),
+    )
+    .not.toBe("")
+  const processId = Number(
+    await readFile(`${configPath}.pid`, "utf8"),
+  )
+  await expect
+    .poll(
+      async () => {
+        const stat = await readFile(
+          `/proc/${processId}/stat`,
+          "utf8",
+        ).catch(() => "")
+        return (
+          !stat ||
+          stat
+            .slice(stat.lastIndexOf(") ") + 2)
+            .startsWith("Z ")
+        )
+      },
+      { timeout: 6000 },
+    )
+    .toBe(true)
+  await supervisor.stop()
 })
