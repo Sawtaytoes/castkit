@@ -1,8 +1,11 @@
 """Real Chromium coverage for touch routing and retained-event recovery."""
 
 import asyncio
+import contextlib
 import io
 import os
+import tempfile
+import types
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -12,7 +15,7 @@ from PIL import Image
 from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer
-from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context
+from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context, serve
 
 
 class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
@@ -72,6 +75,114 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(Image.open(io.BytesIO(session.preview.latest_png)).size, (480, 480))
         self.assertIn(session.frame_id, session.guard.frames)
         self.assertIsNotNone(transport.capture_ms)
+
+    async def test_unchanged_drag_skips_extra_acks_but_keeps_change_release_and_heartbeat(self):
+        await self.task_cancel_for_capture_test()
+        await self.page.set_viewport_size({"width": 480, "height": 480})
+        transport = PrestoTransport({"mac": "020000000001"}, "a" * 32)
+        session = DisplaySession(
+            {"viewport": {"width": 480, "height": 480}, "max_fps": 20, "heartbeat_seconds": 1},
+            self.page,
+            transport,
+            {},
+            asyncio.Event(),
+            PreviewServer("test", 20),
+        )
+        acknowledgements = []
+        session.contact = {"is_native_active": False}
+        captured = 0
+        real_capture = self.page.context.new_cdp_session
+        cdp = await real_capture(self.page)
+        real_send = cdp.send
+
+        async def capture(method, parameters):
+            nonlocal captured
+            if method == "Page.captureScreenshot":
+                captured += 1
+                # Both samples are visually unchanged, but a real drag repaint
+                # must still reach the board while contact is held.
+                if captured in (2, 3):
+                    session.processed_touch = captured
+                    session.force_frame.set()
+                if captured == 4:
+                    await self.page.evaluate("document.body.style.background = 'red'")
+                if captured == 5:
+                    session.contact = None
+                    session.processed_touch = 3
+                    session.config["heartbeat_seconds"] = 0.1
+                    session.force_frame.set()
+            return await real_send(method, parameters)
+
+        cdp.send = capture
+
+        async def acknowledge(frame_id, touch_id, payload):
+            acknowledgements.append((captured, touch_id))
+            if len(acknowledgements) == 4:
+                session.stop.set()
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
+
+        transport.send_frame = acknowledge
+        with patch.object(self.context, "new_cdp_session", return_value=cdp):
+            await asyncio.wait_for(session.run(1, None), timeout=3)
+        self.assertEqual(acknowledgements[:3], [(1, 0), (4, 3), (5, 3)])
+        self.assertEqual(acknowledgements[3][1], 3)
+        self.assertGreater(acknowledgements[3][0], 5)
+
+    async def test_dead_browser_exits_worker_instead_of_retrying_a_dead_context(self):
+        await self.task_cancel_for_capture_test()
+        transport = types.SimpleNamespace(
+            start=AsyncMock(),
+            stop=AsyncMock(),
+            connect=AsyncMock(),
+            disconnect=AsyncMock(),
+            build_marker="test-firmware",
+        )
+        manifest = types.SimpleNamespace(
+            ok=True, url="https://panel.example/manifest", json=AsyncMock()
+        )
+        browser_api = types.SimpleNamespace(
+            chromium=types.SimpleNamespace(launch=AsyncMock(return_value=self.browser))
+        )
+
+        @contextlib.asynccontextmanager
+        async def browser_manager():
+            yield browser_api
+
+        async def crash(session, event_key, loading_frame):
+            await self.browser.close()
+            raise RuntimeError("browser process stopped")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as credentials:
+            credentials.write("api_encryption_key: test-key\n")
+            credentials.flush()
+            config = {
+                "transport": "esphome-presto",
+                "mac": "020000000001",
+                "host": "127.0.0.1",
+                "secrets_path": credentials.name,
+                "manifest_url": manifest.url,
+            }
+            parsed = {
+                "url": "https://panel.example/display",
+                "ready_selector": None,
+                "cache_url": None,
+                "max_fps": 8,
+            }
+            with (
+                patch("worker.async_playwright", browser_manager),
+                patch("worker.create_browser_context", AsyncMock(return_value=self.context)),
+                patch.object(self.context.request, "get", AsyncMock(return_value=manifest)),
+                patch("worker.parse_manifest", return_value=parsed),
+                patch.object(self.context, "new_page", AsyncMock(return_value=self.page)),
+                patch.object(self.page, "goto", AsyncMock(return_value=manifest)),
+                patch("worker.ESPHomePrestoTransport", return_value=transport),
+                patch.object(DisplaySession, "run", crash),
+                self.assertRaisesRegex(RuntimeError, "browser process stopped"),
+            ):
+                await asyncio.wait_for(serve(config), timeout=3)
+        transport.connect.assert_awaited_once()
+        transport.disconnect.assert_awaited_once()
+        transport.stop.assert_awaited_once()
 
     async def test_stalled_native_capture_times_out_and_releases_touch_session(self):
         await self.task_cancel_for_capture_test()
