@@ -1,5 +1,5 @@
 import { render } from "preact"
-import { App } from "./App.tsx"
+import { DeviceApp } from "./DeviceApp.tsx"
 import { DeviceViewNavigation } from "./DeviceViewNavigation.tsx"
 import { PlatformApp } from "./platform/PlatformApp.tsx"
 import {
@@ -33,7 +33,9 @@ if (displayTarget) {
     ),
     document.getElementById("app")!,
   )
+  if (displayTarget.deviceId)
+    connect(displayTarget.deviceId)
 } else {
-  render(<App />, document.getElementById("app")!)
+  render(<DeviceApp />, document.getElementById("app")!)
   connect()
 }

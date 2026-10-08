@@ -12,10 +12,17 @@ from unittest.mock import AsyncMock, patch
 from codec import presto_frame_pixels
 from interaction import Target
 from PIL import Image
+from playwright.async_api import Error as BrowserError
 from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer
-from worker import TARGETS_SCRIPT, DisplaySession, create_browser_context, serve
+from worker import (
+    TARGETS_SCRIPT,
+    DisplaySession,
+    create_browser_context,
+    is_navigation_error,
+    serve,
+)
 
 
 class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
@@ -50,6 +57,22 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(self.task, return_exceptions=True)
         await self.browser.close()
         await self.playwright.stop()
+
+    async def test_navigation_invalidates_old_frame_targets_without_resetting_touch_sequence(self):
+        self.session.contact = {"is_native_active": True}
+        self.session.last_sequence = 70
+        self.page.on("framenavigated", self.session.document_changed)
+        await self.page.goto("data:text/html,<h1>New document</h1>")
+        self.assertEqual(self.session.document_revision, 1)
+        self.assertEqual(self.session.guard.frames, {})
+        self.assertEqual(self.session.last_sequence, 70)
+        self.assertTrue(self.session.is_reset_required)
+        self.assertTrue(self.session.force_frame.is_set())
+        self.assertTrue(is_navigation_error(BrowserError("Execution context was destroyed")))
+        self.assertFalse(
+            is_navigation_error(BrowserError("Target page, context or browser has been closed"))
+        )
+        self.assertFalse(is_navigation_error(TimeoutError()))
 
     async def test_presto_fast_capture_preserves_square_viewport_and_ack_guard(self):
         await self.task_cancel_for_capture_test()

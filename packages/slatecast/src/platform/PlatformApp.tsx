@@ -201,10 +201,12 @@ export const DisplayComposition = ({
 /** Browser views and named screens share a client without registering a device. */
 export const PlatformApp = ({
   target,
+  isDeviceShell = false,
 }: {
   target: DisplayTarget
+  isDeviceShell?: boolean
 }) => {
-  const display = useDisplay(target)
+  const display = useDisplay(target, isDeviceShell)
   const isReady = useRenderReadiness(display.snapshot)
   useEffect(() => {
     if (

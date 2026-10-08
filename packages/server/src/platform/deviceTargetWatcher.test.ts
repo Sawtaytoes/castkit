@@ -29,7 +29,7 @@ const createPlatform = () => {
   }
 }
 
-test("a browser display reloads both ways, and an image display redraws its own view when the target goes", () => {
+test("a browser display receives target changes both ways, and an image display redraws its own view when the target goes", () => {
   const fixture = createPlatform()
   const onBrowserTargetChanged = vi.fn()
   const onImageTargetRemoved = vi.fn()

@@ -161,6 +161,11 @@ test("a temporary view takes over a display's own page and hands it back", async
 }) => {
   await publishPrinters(request)
   await page.goto("/d/e2e-preview")
+  const documentToken = await page.evaluate(() => {
+    document.documentElement.dataset.documentToken =
+      crypto.randomUUID()
+    return document.documentElement.dataset.documentToken
+  })
   await expect(
     page.locator("[data-castkit-ready]"),
   ).toBeVisible()
@@ -186,6 +191,11 @@ test("a temporary view takes over a display's own page and hands it back", async
   await expect(
     page.locator("[data-castkit-ready]"),
   ).toBeVisible()
+  expect(
+    await page.evaluate(
+      () => document.documentElement.dataset.documentToken,
+    ),
+  ).toBe(documentToken)
 })
 
 test("device edge navigation remains available throughout a composed override", async ({
@@ -204,6 +214,11 @@ test("device edge navigation remains available throughout a composed override", 
     },
   })
   await page.goto("/d/e2e-preview")
+  const documentToken = await page.evaluate(() => {
+    document.documentElement.dataset.documentToken =
+      crypto.randomUUID()
+    return document.documentElement.dataset.documentToken
+  })
   await expect(
     page.getByText("Bracket", { exact: true }),
   ).toBeVisible()
@@ -257,6 +272,11 @@ test("device edge navigation remains available throughout a composed override", 
   await expect(
     page.getByText("Bracket", { exact: true }),
   ).toHaveCount(0)
+  expect(
+    await page.evaluate(
+      () => document.documentElement.dataset.documentToken,
+    ),
+  ).toBe(documentToken)
 })
 
 test("public printer views share one PIN session and explain disabled controls", async ({

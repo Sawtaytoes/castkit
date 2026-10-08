@@ -163,6 +163,10 @@ export type ServerToClientMessage =
       settings: BrowserDeviceSettings
       /** The active view's client id (see the view registry). */
       view: string
+      displayTarget?: {
+        kind: "view" | "screen"
+        id: string
+      } | null
       data: ViewDataState
       /**
        * A content hash of the SPA bundle the server is serving right now.
@@ -176,6 +180,10 @@ export type ServerToClientMessage =
        * tell", never "reload".
        */
       buildId?: string
+    }
+  | {
+      type: "display_target"
+      target: { kind: "view" | "screen"; id: string } | null
     }
   | { type: "view"; view: string }
   | { type: "now_playing"; data: NowPlayingData }
