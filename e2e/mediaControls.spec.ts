@@ -251,3 +251,82 @@ test.describe("Media Controls end to end", () => {
       .toEqual([{ action: "view", value: "touch-test" }])
   })
 })
+
+test("artwork without upstream CORS still colors music controls and survives play/pause", async ({
+  page,
+  baseURL,
+}) => {
+  const upstream = new URL("/__test__/artwork.svg", baseURL)
+  upstream.hostname = "127.0.0.1"
+  const source = await page.request.get(upstream.toString())
+  expect(
+    source.headers()["access-control-allow-origin"],
+  ).toBeUndefined()
+  await publishFromHomeAssistant({
+    page,
+    topic: e2eTopics.view,
+    payload: "Now Playing",
+  })
+  const payload = {
+    ...buildNowPlayingPayload({
+      title: "Cross-origin artwork fixture",
+    }),
+    artwork: upstream.toString(),
+  }
+  await publishFromHomeAssistant({
+    page,
+    topic: e2eTopics.nowPlaying,
+    payload,
+  })
+  await page.goto(`/d/${E2E_DEVICE_ID}`)
+  const accent = () =>
+    page
+      .locator(".now-playing")
+      .evaluate((element) =>
+        (element as HTMLElement).style.getPropertyValue(
+          "--accent",
+        ),
+      )
+  await expect.poll(accent).not.toBe("")
+  const sampled = await accent()
+  const artwork = page.locator(
+    ".artwork-slot.is-current img",
+  )
+  await expect(artwork).toHaveAttribute(
+    "src",
+    new RegExp(
+      `^/d/${E2E_DEVICE_ID}/artwork/[a-f0-9]{24}$`,
+    ),
+  )
+  const path = await artwork.getAttribute("src")
+  const image = await page.request.get(path ?? "")
+  expect(image.status()).toBe(200)
+  expect(image.headers()["content-type"]).toContain(
+    "image/svg+xml",
+  )
+  await publishFromHomeAssistant({
+    page,
+    topic: e2eTopics.nowPlaying,
+    payload: { ...payload, isPlaying: false },
+  })
+  await expect(
+    page.getByRole("button", {
+      name: "Play Cross-origin artwork fixture",
+    }),
+  ).toBeVisible()
+  expect(await accent()).toBe(sampled)
+  await publishFromHomeAssistant({
+    page,
+    topic: e2eTopics.nowPlaying,
+    payload: {
+      ...payload,
+      artwork: `${upstream}?rotated=1`,
+    },
+  })
+  await expect(
+    page.getByRole("button", {
+      name: "Pause Cross-origin artwork fixture",
+    }),
+  ).toBeVisible()
+  await expect.poll(accent).toBe(sampled)
+})
