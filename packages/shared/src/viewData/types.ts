@@ -44,7 +44,7 @@ export type QueueItem = {
   isCurrent: boolean
 }
 
-/** The play queue for the queue view (current + upcoming, capped upstream). */
+/** The play queue, including previous, current and upcoming tracks. */
 export type QueueData = {
   items: readonly QueueItem[]
 }

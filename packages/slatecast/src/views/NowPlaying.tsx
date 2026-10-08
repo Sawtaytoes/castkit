@@ -6,8 +6,9 @@ import {
   useState,
 } from "preact/hooks"
 import {
-  extractAccentColor,
+  extractTrackAccentColor,
   getCachedAccentColor,
+  getTrackAccentColor,
 } from "../accentColor.ts"
 import { formatTime } from "../formatTime.ts"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
@@ -456,19 +457,29 @@ export const NowPlaying = () => {
     profile?.color === "full" ||
     profile?.color === "spectra6"
   const artworkUrl = data?.artworkPath
+  const trackKey = JSON.stringify([
+    data?.title,
+    data?.artist,
+    data?.album,
+  ])
+  const getAccent = () =>
+    isColorCapable && data?.title
+      ? (getTrackAccentColor(trackKey) ??
+        (artworkUrl
+          ? getCachedAccentColor(artworkUrl)
+          : null))
+      : null
   const [accent, setAccent] = useState<string | null>(() =>
-    artworkUrl && isColorCapable
-      ? getCachedAccentColor(artworkUrl)
-      : null,
+    getAccent(),
   )
   useEffect(() => {
-    if (!artworkUrl || !isColorCapable) {
-      setAccent(null)
-      return
-    }
-    setAccent(getCachedAccentColor(artworkUrl))
+    setAccent(getAccent())
+    if (!artworkUrl || !isColorCapable) return
     let isStale = false
-    extractAccentColor(artworkUrl).then((color) => {
+    extractTrackAccentColor({
+      imageUrl: artworkUrl,
+      trackKey,
+    }).then((color) => {
       if (!isStale) {
         setAccent(color)
       }
@@ -476,7 +487,7 @@ export const NowPlaying = () => {
     return () => {
       isStale = true
     }
-  }, [artworkUrl, isColorCapable])
+  }, [artworkUrl, isColorCapable, trackKey])
 
   if (!data || (!data.title && !data.artist)) {
     return (

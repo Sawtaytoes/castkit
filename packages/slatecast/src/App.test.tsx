@@ -12,6 +12,8 @@ import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
 import { connectionStatus } from "./state.ts"
 
+import "./styles.css"
+
 const stage = () => document.querySelector(".stage")
 
 describe("view switching", () => {

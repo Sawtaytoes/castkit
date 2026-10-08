@@ -251,3 +251,34 @@ export const extractAccentColor = (
     image.src = imageUrl
   })
 }
+
+/** Cache artwork by track as well as URL: HA rotates proxies during playback. */
+export const getTrackAccentColor = (trackKey: string) =>
+  getCachedAccentColor(`track:${trackKey}`)
+
+const pendingTrackArtwork = new Map<string, string>()
+
+/** Retain a track's hue while a replacement proxy loads or temporarily fails. */
+export const extractTrackAccentColor = async ({
+  imageUrl,
+  trackKey,
+}: {
+  imageUrl: string
+  trackKey: string
+}) => {
+  pendingTrackArtwork.set(trackKey, imageUrl)
+  const color = await extractAccentColor(imageUrl)
+  const isLatest =
+    pendingTrackArtwork.get(trackKey) === imageUrl
+  if (isLatest) pendingTrackArtwork.delete(trackKey)
+  const hue = isLatest
+    ? artworkHues.get(imageUrl)
+    : undefined
+  if (hue) {
+    return rememberArtworkColor({
+      imageUrl: `track:${trackKey}`,
+      color: hue,
+    })
+  }
+  return color ?? getTrackAccentColor(trackKey)
+}

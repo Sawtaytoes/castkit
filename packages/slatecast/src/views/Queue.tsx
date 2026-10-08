@@ -1,4 +1,8 @@
-import { useRef } from "preact/hooks"
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks"
 import { formatTime } from "../formatTime.ts"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
 import {
@@ -22,7 +26,48 @@ export const Queue = ({
   isPrintQueue?: boolean
 }) => {
   const hasRowSwipe = useRef(false)
+  const list = useRef<HTMLUListElement>(null)
+  const rowHeight = useRef(0)
+  const [rowCount, setRowCount] = useState(1)
   const data = isPrintQueue ? printQueue.value : queue.value
+  useLayoutEffect(() => {
+    if (isPrintQueue || !list.current) return
+    const root = list.current
+    const measure = () => {
+      const row = root.querySelector("li")
+      if (row)
+        rowHeight.current =
+          row.getBoundingClientRect().height
+      if (rowHeight.current <= 0) return
+      const style = getComputedStyle(root)
+      const gap = Number.parseFloat(style.rowGap) || 0
+      const available =
+        root.clientHeight -
+        Number.parseFloat(style.paddingTop) -
+        Number.parseFloat(style.paddingBottom)
+      setRowCount(
+        Math.max(
+          0,
+          Math.floor(
+            (available + gap) / (rowHeight.current + gap),
+          ),
+        ),
+      )
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(root)
+    const row = root.querySelector("li")
+    if (row) observer.observe(row)
+    const lifecycle = { isDisposed: false }
+    void document.fonts.ready.then(() => {
+      if (!lifecycle.isDisposed) measure()
+    })
+    return () => {
+      lifecycle.isDisposed = true
+      observer.disconnect()
+    }
+  }, [data, isPrintQueue])
   if (!data || data.items.length === 0) {
     return (
       <div class="idle">
@@ -40,18 +85,38 @@ export const Queue = ({
   const currentIndex = data.items.findIndex(
     (item) => item.isCurrent,
   )
+  // Keep a little history above the current track, then fill every complete
+  // row below it. At the end, use earlier history to fill the remaining room.
+  const previousCount = Math.min(
+    2,
+    Math.floor(rowCount / 3),
+  )
+  const startIndex = isPrintQueue
+    ? 0
+    : Math.max(
+        0,
+        Math.min(
+          Math.max(0, currentIndex) - previousCount,
+          data.items.length - rowCount,
+        ),
+      )
+  const items = isPrintQueue
+    ? data.items
+    : data.items.slice(startIndex, startIndex + rowCount)
   const isInteractive =
     !isPrintQueue && (device.value?.hasTouch ?? false)
   const isPlaying = nowPlaying.value?.isPlaying === true
 
   return (
     <ul
-      class="queue"
+      ref={list}
+      class={isPrintQueue ? "queue" : "queue audio-queue"}
       aria-label={
         isPrintQueue ? "Print queue" : "Audio queue"
       }
     >
-      {data.items.map((item, index) => {
+      {items.map((item, visibleIndex) => {
+        const index = startIndex + visibleIndex
         const isNext =
           currentIndex >= 0 && index === currentIndex + 1
         const hasControl =
