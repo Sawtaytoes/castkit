@@ -553,8 +553,21 @@ test.each([
   "light",
 ] as const)("a count-up keeps all three children readable on a square in %s", async (theme) => {
   await page.viewport(480, 480)
-  renderDevicePage(countUpSnapshot(theme))
+  const snapshot = countUpSnapshot(theme)
+  renderDevicePage({
+    ...snapshot,
+    displayProperties: {
+      ...snapshot.displayProperties,
+      repaint: "fast",
+    },
+  })
   await document.fonts.ready
+  expect(
+    document.querySelector(".kids-points-countup-total"),
+  ).toHaveTextContent("27min total")
+  expect(
+    document.querySelector(".kids-points-countup-session"),
+  ).toHaveTextContent("0 min this session")
   const rows = document.querySelectorAll(".kids-points-row")
   expect(rows).toHaveLength(3)
   rows.forEach((row) => {

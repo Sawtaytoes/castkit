@@ -317,6 +317,9 @@ const CountUpProgress = ({
   now: number
   isLive: boolean
 }) => {
+  const properties = useDisplayProperties()
+  const hasLiveMinutes =
+    isLive || properties.repaint === "fast"
   const task = kid.activeTask
   if (!task) return null
   const sessionMinutes = Math.floor(
@@ -330,7 +333,7 @@ const CountUpProgress = ({
   return (
     <div class="kids-points-countup">
       <p class="kids-points-countup-name">{task.name}</p>
-      {isLive ? (
+      {hasLiveMinutes ? (
         <>
           <p class="kids-points-countup-total">
             <strong>{total}</strong>

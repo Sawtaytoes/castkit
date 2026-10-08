@@ -62,7 +62,7 @@ const renderInPanel = ({
 }: {
   width: number
   height: number
-  repaint?: "instant" | "slow" | "super-slow"
+  repaint?: "instant" | "fast" | "slow" | "super-slow"
   value?: ContractData["kids-points.v1"]
   settings?: Record<string, unknown>
 }) => {
@@ -694,7 +694,7 @@ test("count-up scans lead with accumulated minutes and advance the session indep
   ).toBeVisible()
 })
 
-test("the all-child square board gives a running count-up its total instead of start feedback", () => {
+test("a fast all-child square board gives a running count-up its total instead of start feedback", () => {
   const kids = data.kids.slice(0, 3).map((kid, index) =>
     index === 0
       ? {
@@ -709,9 +709,10 @@ test("the all-child square board gives a running count-up its total instead of s
         }
       : kid,
   )
-  const { container } = renderInPanel({
+  const { container, rerender } = renderInPanel({
     width: 480,
     height: 480,
+    repaint: "fast",
     settings: { isAllChildrenVisible: true },
     value: {
       kids,
@@ -734,6 +735,23 @@ test("the all-child square board gives a running count-up its total instead of s
   ).toHaveTextContent("27")
   expect(
     screen.getByText("0 min this session"),
+  ).toBeVisible()
+  rerender(
+    <DisplayPropertiesContext.Provider
+      value={{ delivery: "image", repaint: "fast" }}
+    >
+      <KidsPointsView
+        data={{ kids }}
+        now={now + 2 * 60_000}
+        settings={{ isAllChildrenVisible: true }}
+      />
+    </DisplayPropertiesContext.Provider>,
+  )
+  expect(
+    container.querySelector(".kids-points-countup-total"),
+  ).toHaveTextContent("29min total")
+  expect(
+    screen.getByText("2 min this session"),
   ).toBeVisible()
 })
 

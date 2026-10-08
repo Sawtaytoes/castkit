@@ -107,6 +107,10 @@ it.
   2026-09-14 by a blanket rule on `html:not([data-repaint="instant"])`, so a
   view written next year inherits it without its author knowing the rule
   exists.
+- **Whether count-up minutes advance.** `instant` and `fast` panels show whole
+  accumulated minutes with this session's whole minutes underneath. A minute
+  lasts long enough for either repaint grade. `slow` and `super-slow` keep the
+  banked baseline and absolute start time.
 
 ---
 
