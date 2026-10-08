@@ -73,3 +73,30 @@ geometry can select a different control. Local microSD can hold fallback images,
 but firmware support and measured decode/transfer latency are required before
 claiming faster live interaction. Shared browser contexts or demand-driven idle
 workers are separate possible savings to benchmark, not deployed behavior.
+
+## Observed reference workload (2026-10-08)
+
+A deployed Linux container on commit `bf0a563` ran two native stream workers with
+Python Playwright 1.62.0 and Chrome for Testing 151.0.7922.34. Both stayed active;
+interaction was concentrated on one device. The reference views included a
+calendar/weather clock, a three-card composed view, audio-view transitions and an
+external status view. These are workload observations, not hardware minimums.
+
+| Native stream | Observed peak process-tree PSS | Observed peak process-tree RSS |
+| --- | ---: | ---: |
+| 480×480 RGB565, encrypted ESPHome API | 367 MiB | 582 MiB |
+| 480×320 RGB565, encrypted ESPHome API | 320 MiB | 535 MiB |
+
+Per-device peaks came from roughly six minutes of sampled telemetry, including
+repeated view changes; neither worker restarted. Thirteen whole-container samples
+at ten-second intervals covered a two-minute transition replay and ranged from
+1.51 to 1.95 GiB. A later settled reading was 1.54 GiB. The server also rendered
+other registered panels, so its baseline and the total are installation-dependent.
+RSS includes shared pages more than once and must not be summed as a requirement.
+
+**Start with a 4 GiB allowance for this tested two-stream workload**, then measure
+longer under the intended media, view complexity and concurrent load before reducing
+it. Leave extra headroom when adding workers. The deployment's 64 GiB ceiling was
+not consumed and is not required by this reference workload. A smallest safe limit
+has not been established: short sampled peaks can miss transients, and these results
+do not establish long-run leak freedom or costs for untested views.
