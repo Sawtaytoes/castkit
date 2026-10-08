@@ -67,6 +67,10 @@ import {
   getRepaintFactsForDevice,
   getViewsForDevice,
 } from "./views/viewsForDevice.ts"
+import {
+  readWorkerDefinitions,
+  startManagedWorkers,
+} from "./workers/managedWorkers.ts"
 
 /**
  * Inkcast server entrypoint. Boots the render engine + MQTT bridge, advertises
@@ -2282,11 +2286,25 @@ const main = async () => {
     onBrowserTargetChanged: browserMode.refreshDeviceTarget,
     onImageTargetRemoved: pushDeviceLogged,
   })
+  const workerDefinitions = await readWorkerDefinitions({
+    file: config.streamWorkersFile,
+    deviceIds: config.browserDevices.map(
+      (device) => device.id,
+    ),
+  })
   const server = serve({
     fetch: app.fetch,
     port: config.port,
   })
   injectWebSocket(server)
+  const managedWorkers = startManagedWorkers({
+    definitions: workerDefinitions,
+  })
+  app.get("/api/manage/stream-workers", async (context) =>
+    context.json({
+      workers: await managedWorkers.getStatus(),
+    }),
+  )
   const platformImageScheduler =
     createPlatformImageScheduler({
       platform,
@@ -2299,6 +2317,7 @@ const main = async () => {
 
   const shutdown = async () => {
     console.log("[inkcast] shutting down")
+    await managedWorkers.stop()
     server.close()
     platformImageScheduler.dispose()
     platform.dispose()
