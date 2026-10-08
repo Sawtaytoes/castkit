@@ -3419,3 +3419,64 @@ html[data-repaint="instant"]
     min-inline-size: 0;
   }
 }
+
+/* Count-up sessions emphasize today's accumulated minutes over this scan's duration. */
+.kids-points-countup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-inline-size: 0;
+}
+.kids-points-countup-name {
+  font-size: clamp(16px, 8cqmin, 48px);
+  line-height: 1.15;
+}
+.kids-points-countup-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1;
+}
+.kids-points-countup-total strong {
+  font-size: clamp(32px, 20cqmin, 100px);
+  font-variant-numeric: tabular-nums;
+}
+.kids-points-countup-total span {
+  font-size: clamp(14px, 6cqmin, 28px);
+  color: var(--fg-dim);
+}
+.kids-points-countup-session {
+  font-size: clamp(12px, 5cqmin, 24px);
+  color: var(--fg-dim);
+  line-height: 1.15;
+}
+.kids-points-card .kids-points-countup,
+.kids-points-timer-card .kids-points-countup,
+.kids-points-row .kids-points-countup {
+  gap: 4px;
+}
+.kids-points-card .kids-points-countup-name,
+.kids-points-timer-card .kids-points-countup-name,
+.kids-points-row .kids-points-countup-name {
+  font-size: clamp(14px, 10cqmin, 32px);
+}
+.kids-points-card .kids-points-countup-total strong,
+.kids-points-timer-card .kids-points-countup-total strong,
+.kids-points-row .kids-points-countup-total strong {
+  font-size: clamp(32px, 25cqmin, 80px);
+}
+
+.kids-points-row .kids-points-countup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 12px;
+}
+.kids-points-row .kids-points-countup-total {
+  flex-wrap: nowrap;
+}
+.kids-points-row .kids-points-countup-session {
+  grid-column: 1 / -1;
+  text-align: end;
+}

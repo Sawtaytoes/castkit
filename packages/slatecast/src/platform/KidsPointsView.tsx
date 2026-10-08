@@ -1,5 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
-import { getCountdownKids } from "@castkit/sdk/kidsPointsScan"
+import { getRunningKids } from "@castkit/sdk/kidsPointsScan"
 import {
   useLayoutEffect,
   useRef,
@@ -307,6 +307,74 @@ const CountdownProgress = ({
   )
 }
 
+/** Daily accumulated minutes lead; this scan's elapsed minutes are supporting detail. */
+const CountUpProgress = ({
+  kid,
+  now,
+  isLive,
+}: {
+  kid: KidEntry
+  now: number
+  isLive: boolean
+}) => {
+  const task = kid.activeTask
+  if (!task) return null
+  const sessionMinutes = Math.floor(
+    Math.max(0, now - task.startedAtMs) / 60_000,
+  )
+  const banked = task.bankedMinutes
+  const total =
+    banked === undefined
+      ? sessionMinutes
+      : Math.floor(banked) + sessionMinutes
+  return (
+    <div class="kids-points-countup">
+      <p class="kids-points-countup-name">{task.name}</p>
+      {isLive ? (
+        <>
+          <p class="kids-points-countup-total">
+            <strong>{total}</strong>
+            <span>
+              {banked === undefined
+                ? "min this session"
+                : "min total"}
+            </span>
+          </p>
+          {banked === undefined ? null : (
+            <p class="kids-points-countup-session">
+              {sessionMinutes} min this session
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          {banked === undefined ? null : (
+            <p class="kids-points-countup-total">
+              <strong>{Math.floor(banked)}</strong>
+              <span>min before this session</span>
+            </p>
+          )}
+          <p class="kids-points-countup-session">
+            Started {formatClockTime(task.startedAtMs)}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Countdown deadlines and count-up daily totals share the same session lifetime. */
+const TimerProgress = (input: {
+  kid: KidEntry
+  now: number
+  isLive: boolean
+}) =>
+  input.kid.activeTask?.isCountdown ? (
+    <CountdownProgress {...input} />
+  ) : (
+    <CountUpProgress {...input} />
+  )
+
 const ScanBanner = ({ scan }: { scan: KidScan }) => {
   const text = getScanText(scan)
   return (
@@ -374,10 +442,12 @@ const KidCard = ({
   now,
   isLive,
   isStacked,
+  isTimerShowing,
 }: {
   now: number
   isLive: boolean
   isStacked: boolean
+  isTimerShowing: boolean
   kid: KidEntry
   onSelect?: (id: string) => void
   scan: KidScan | undefined
@@ -415,11 +485,11 @@ const KidCard = ({
       ) : (
         <h3>{kid.name}</h3>
       )}
-      {kid.activeTask?.isCountdown &&
+      {(isTimerShowing || kid.activeTask?.isCountdown) &&
       (!scan ||
         scan.result === "started" ||
         scan.result === "progress") ? (
-        <CountdownProgress
+        <TimerProgress
           kid={kid}
           now={now}
           isLive={isLive}
@@ -523,9 +593,11 @@ const KidRow = ({
   now,
   isLive = false,
   scan,
+  isTimerShowing = false,
 }: {
   kid: KidEntry
   onSelect?: (id: string) => void
+  isTimerShowing?: boolean
   now?: number
   isLive?: boolean
   scan?: KidScan
@@ -541,15 +613,26 @@ const KidRow = ({
         )}
       </span>
     </div>
-    {scan ? null : <GoalBar kid={kid} />}
-    {now === undefined || scan ? null : (
-      <CompactActivity
-        kid={kid}
-        now={now}
-        isLive={isLive}
-      />
+    {isTimerShowing &&
+    kid.activeTask?.isCountdown !== true &&
+    now !== undefined &&
+    (!scan ||
+      scan.result === "started" ||
+      scan.result === "progress") ? (
+      <TimerProgress kid={kid} now={now} isLive={isLive} />
+    ) : (
+      <>
+        {scan ? null : <GoalBar kid={kid} />}
+        {now === undefined || scan ? null : (
+          <CompactActivity
+            kid={kid}
+            now={now}
+            isLive={isLive}
+          />
+        )}
+        {scan ? <ScanBanner scan={scan} /> : null}
+      </>
     )}
-    {scan ? <ScanBanner scan={scan} /> : null}
   </article>
 )
 
@@ -621,12 +704,10 @@ export const KidsPointsView = ({
   })
   const isAnimated = properties.repaint === "instant"
   const isLive = properties.repaint === "instant"
-  const countdownKids = getCountdownKids({ data, now })
-  const countdownKid = countdownKids[0]
+  const runningKids = getRunningKids({ data, now })
+  const runningKid = runningKids[0]
   const scan =
-    isScanShowing || countdownKid
-      ? data.lastScan
-      : undefined
+    isScanShowing || runningKid ? data.lastScan : undefined
   const scannedKid = scan
     ? data.kids.find((kid) => kid.id === scan.kidId)
     : undefined
@@ -684,7 +765,7 @@ export const KidsPointsView = ({
           isDimmed={
             scannedKid !== undefined &&
             kid.id !== scannedKid.id &&
-            !countdownKids.some(
+            !runningKids.some(
               (runningKid) => runningKid.id === kid.id,
             )
           }
@@ -692,6 +773,9 @@ export const KidsPointsView = ({
           now={now}
           isLive={isLive}
           isStacked={layout.columnCount < data.kids.length}
+          isTimerShowing={runningKids.some(
+            (runningKid) => runningKid.id === kid.id,
+          )}
         />
       ))}
     </div>
@@ -704,6 +788,9 @@ export const KidsPointsView = ({
           kid={kid}
           now={now}
           isLive={isLive}
+          isTimerShowing={runningKids.some(
+            (runningKid) => runningKid.id === kid.id,
+          )}
           scan={scan?.kidId === kid.id ? scan : undefined}
         />
       ))}
@@ -713,14 +800,14 @@ export const KidsPointsView = ({
         </p>
       ) : null}
     </div>
-  ) : countdownKids.length > 1 ? (
+  ) : runningKids.length > 1 ? (
     <div
       class="kids-points-countdowns"
       style={{
         gridTemplateColumns: `repeat(${size.width >= size.height ? 2 : 1}, minmax(0, 1fr))`,
       }}
     >
-      {countdownKids.map((kid) => (
+      {runningKids.map((kid) => (
         <article
           key={kid.id}
           class="kids-points-timer-card"
@@ -728,7 +815,7 @@ export const KidsPointsView = ({
         >
           <KidOpenButton kid={kid} onSelect={onSelect} />
           <h3>{kid.name}</h3>
-          <CountdownProgress
+          <TimerProgress
             kid={kid}
             now={now}
             isLive={isLive}
@@ -736,18 +823,15 @@ export const KidsPointsView = ({
         </article>
       ))}
     </div>
-  ) : countdownKid ? (
+  ) : runningKid ? (
     <article
       class="kids-points-focus"
-      style={kidStyle(countdownKid)}
+      style={kidStyle(runningKid)}
     >
-      <KidOpenButton
-        kid={countdownKid}
-        onSelect={onSelect}
-      />
-      <h3>{countdownKid.name}</h3>
-      <CountdownProgress
-        kid={countdownKid}
+      <KidOpenButton kid={runningKid} onSelect={onSelect} />
+      <h3>{runningKid.name}</h3>
+      <TimerProgress
+        kid={runningKid}
         now={now}
         isLive={isLive}
       />

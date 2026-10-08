@@ -495,3 +495,154 @@ test("a shorter all-child panel omits rows before shrinking primary values", asy
   })
   await capture("kids-points-all-children-rows-480x320")
 })
+
+const countUpSnapshot = (
+  theme: "dark" | "light",
+): DisplaySnapshot => {
+  const snapshot = kidsPointsFixture({ hasScan: false })
+  const channel = snapshot.channels.points!
+  const data =
+    channel.data as ContractData["kids-points.v1"]
+  const startedAtMs = Date.now()
+  return {
+    ...snapshot,
+    view: {
+      ...snapshot.view,
+      theme,
+      panels: snapshot.view.panels.map((panel) => ({
+        ...panel,
+        settings: {
+          isAllChildrenVisible: true,
+          scanSeconds: 30,
+        },
+      })),
+    },
+    channels: {
+      points: {
+        ...channel,
+        data: {
+          kids: data.kids.slice(0, 3).map((kid, index) =>
+            index === 0
+              ? {
+                  ...kid,
+                  activeTask: {
+                    name: "Instrument Practice",
+                    startedAtMs,
+                    bankedMinutes: 27,
+                    isCountdown: false,
+                    reader: "Practice Reader",
+                  },
+                }
+              : kid,
+          ),
+          lastScan: {
+            kidId: data.kids[0]?.id,
+            taskName: "Instrument Practice",
+            result: "started",
+            points: 0,
+            atMs: startedAtMs,
+          },
+        },
+      },
+    },
+  }
+}
+
+test.each([
+  "dark",
+  "light",
+] as const)("a count-up keeps all three children readable on a square in %s", async (theme) => {
+  await page.viewport(480, 480)
+  renderDevicePage(countUpSnapshot(theme))
+  await document.fonts.ready
+  const rows = document.querySelectorAll(".kids-points-row")
+  expect(rows).toHaveLength(3)
+  rows.forEach((row) => {
+    expect(row.scrollHeight).toBeLessThanOrEqual(
+      row.clientHeight + 1,
+    )
+    const box = row.getBoundingClientRect()
+    row.querySelectorAll("h3,p,strong").forEach((child) => {
+      const bounds = child.getBoundingClientRect()
+      expect(bounds.top).toBeGreaterThanOrEqual(box.top - 1)
+      expect(bounds.bottom).toBeLessThanOrEqual(
+        box.bottom + 1,
+      )
+      expect(bounds.right).toBeLessThanOrEqual(
+        box.right + 1,
+      )
+    })
+  })
+  const primary = document.querySelector(
+    ".kids-points-countup-total strong",
+  )!
+  const secondary = document.querySelector(
+    ".kids-points-countup-session",
+  )!
+  expect(
+    Number.parseFloat(getComputedStyle(primary).fontSize),
+  ).toBeGreaterThan(
+    Number.parseFloat(getComputedStyle(secondary).fontSize),
+  )
+  await capture(`kids-points-countup-480x480-${theme}`)
+})
+
+test("a focused count-up and simultaneous mixed timers fit a short panel", async () => {
+  await page.viewport(480, 320)
+  const snapshot = countUpSnapshot("dark")
+  const points = snapshot.channels.points!
+  const data = points.data as ContractData["kids-points.v1"]
+  const focused = {
+    ...snapshot,
+    view: {
+      ...snapshot.view,
+      panels: snapshot.view.panels.map((panel) => ({
+        ...panel,
+        settings: { scanSeconds: 30 },
+      })),
+    },
+  }
+  const first = renderDevicePage(focused)
+  await capture("kids-points-countup-focus-480x320")
+  first.unmount()
+  renderDevicePage({
+    ...focused,
+    channels: {
+      points: {
+        ...points,
+        data: {
+          ...data,
+          kids: data.kids.slice(0, 2).map((kid, index) =>
+            index === 0
+              ? kid
+              : {
+                  ...kid,
+                  activeTask: {
+                    name: "Quiet Time",
+                    reader: "Practice Reader",
+                    isCountdown: true,
+                    goalMinutes: 5,
+                    startedAtMs: Date.now() - 60_000,
+                  },
+                },
+          ),
+        },
+      },
+    },
+  })
+  await document.fonts.ready
+  expect(
+    document.querySelectorAll(".kids-points-timer-card"),
+  ).toHaveLength(2)
+  document
+    .querySelectorAll(".kids-points-timer-card")
+    .forEach((card) => {
+      expect(card.scrollHeight).toBeLessThanOrEqual(
+        card.clientHeight + 1,
+      )
+      expect(card.scrollWidth).toBeLessThanOrEqual(
+        card.clientWidth + 1,
+      )
+    })
+  await capture("kids-points-mixed-timers-480x320")
+})

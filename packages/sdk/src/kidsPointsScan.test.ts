@@ -2,6 +2,7 @@ import { expect, test } from "vitest"
 import {
   getCountdownKid,
   getCountdownKids,
+  getRunningKids,
 } from "./kidsPointsScan.ts"
 
 const task = {
@@ -122,4 +123,78 @@ test("a later unaccepted start does not activate an older channel scan", () => {
       now: 70_000,
     }).map((entry) => entry.id),
   ).toEqual(["robin"])
+})
+
+test("count-up timers survive their goal and restart, but stop at the matching terminal scan", () => {
+  const running = {
+    kids: [
+      {
+        id: "robin",
+        name: "Robin",
+        pointsToday: 100,
+        activeTask: {
+          name: "Instrument Practice",
+          startedAtMs: 1000,
+          reader: "Practice Reader",
+          isCountdown: false,
+          goalMinutes: 30,
+          bankedMinutes: 27,
+        },
+      },
+    ],
+  }
+  expect(
+    getRunningKids({ data: running, now: 61_000 }).map(
+      (child) => child.id,
+    ),
+  ).toEqual(["robin"])
+  expect(
+    getRunningKids({ data: running, now: 3_601_000 }),
+  ).toHaveLength(1)
+  expect(
+    getCountdownKids({ data: running, now: 61_000 }),
+  ).toEqual([])
+  const stopped = {
+    ...running,
+    lastScan: {
+      kidId: "robin",
+      result: "stopped" as const,
+      taskName: "Instrument Practice",
+      points: 0,
+      atMs: 61_000,
+    },
+  }
+  expect(
+    getRunningKids({ data: stopped, now: 62_000 }),
+  ).toEqual([])
+  expect(
+    getRunningKids({
+      data: {
+        ...stopped,
+        lastScan: {
+          ...stopped.lastScan,
+          result: "awarded",
+          taskName: "Feed the Cat",
+        },
+      },
+      now: 62_000,
+    }),
+  ).toHaveLength(1)
+  expect(
+    getRunningKids({
+      data: {
+        ...running,
+        kids: [
+          {
+            ...running.kids[0]!,
+            activeTask: {
+              ...running.kids[0]?.activeTask,
+              startedAtMs: 100_000,
+            },
+          },
+        ],
+      },
+      now: 61_000,
+    }),
+  ).toEqual([])
 })
