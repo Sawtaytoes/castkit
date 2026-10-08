@@ -93,11 +93,32 @@ export const normalizeKidState = (
   const color = hexColor(raw.color ?? raw.kidColor)
   const displayOrder = finiteNumber(raw.displayOrder)
   const lastTask = textValue(raw.lastTask)
+  const taskSnapshot = builtinContractSchemas[
+    "kids-points.v1"
+  ].shape.kids.element.safeParse({
+    id,
+    name:
+      textValue(raw.name) || textValue(raw.kidName) || id,
+    pointsToday,
+    day: raw.day,
+    timeZone: raw.timeZone,
+    tasksToday: raw.tasksToday,
+  })
   return {
     id,
     name:
       textValue(raw.name) || textValue(raw.kidName) || id,
     pointsToday,
+    ...(taskSnapshot.success && taskSnapshot.data.day
+      ? { day: taskSnapshot.data.day }
+      : {}),
+    ...(taskSnapshot.success && taskSnapshot.data.timeZone
+      ? { timeZone: taskSnapshot.data.timeZone }
+      : {}),
+    ...(taskSnapshot.success &&
+    taskSnapshot.data.tasksToday !== undefined
+      ? { tasksToday: taskSnapshot.data.tasksToday }
+      : {}),
     ...(displayOrder !== undefined &&
     Number.isInteger(displayOrder) &&
     displayOrder >= 0

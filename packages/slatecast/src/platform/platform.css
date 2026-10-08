@@ -3163,3 +3163,171 @@ html[data-repaint="instant"]
   grid-template-columns: 64px minmax(0, 1fr);
   gap: 8px;
 }
+
+/* Read-only drill-down keeps the complete existing card as its touch target. */
+.kids-points-card,
+.kids-points-row,
+.kids-points-simple-row,
+.kids-points-timer-card,
+.kids-points-focus {
+  position: relative;
+}
+.kids-points .kids-points-open {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.kids-points .kids-points-open:focus-visible {
+  outline: 3px solid var(--accent-content);
+  outline-offset: -3px;
+}
+.kids-points .kids-points-open:active {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+.kids-points-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2.5cqmin, 20px);
+  height: 100%;
+  min-height: 0;
+  padding: clamp(12px, 3.3cqmin, 28px);
+  overflow: hidden;
+}
+.kids-points[data-animated="true"] .kids-points-tasks {
+  animation: kids-points-open-tasks 240ms ease-out;
+}
+@keyframes kids-points-open-tasks {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.kids-points-tasks-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+.kids-points-back {
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 32px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.kids-points-tasks-header h2 {
+  margin: 0;
+  font-size: clamp(22px, 7cqmin, 48px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kids-points-tasks-header p {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+.kids-points-tasks-header strong {
+  font-size: clamp(28px, 8.5cqmin, 64px);
+}
+.kids-points-tasks-header p span {
+  font-size: clamp(14px, 3.5cqmin, 24px);
+  color: var(--fg-dim);
+}
+.kids-points-tasks-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+}
+.kids-points-tasks-heading h3 {
+  margin: 0;
+  font-size: clamp(18px, 5cqmin, 32px);
+}
+.kids-points-tasks-heading > span {
+  font-size: clamp(14px, 3.5cqmin, 22px);
+  color: var(--fg-dim);
+}
+.kids-points-task-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Capture the list drag even when an enclosing appliance stage owns native panning. */
+  touch-action: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fg-dim) transparent;
+}
+.kids-points-task {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: clamp(12px, 3cqmin, 22px) 8px;
+  border-bottom: 1px solid var(--border);
+}
+.kids-points-task > div {
+  flex: 1;
+  min-width: 0;
+}
+.kids-points-task h4 {
+  margin: 0 0 6px;
+  font-size: clamp(18px, 5cqmin, 32px);
+  line-height: 1.25;
+}
+.kids-points-task p {
+  margin: 0;
+  font-size: clamp(14px, 3.5cqmin, 22px);
+  color: var(--fg-dim);
+}
+.kids-points-task > strong {
+  flex: none;
+  font-size: clamp(22px, 6cqmin, 40px);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-content);
+}
+.kids-points-tasks-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+.kids-points-tasks-empty h3 {
+  margin: 0;
+  font-size: clamp(22px, 6cqmin, 36px);
+}
+.kids-points-tasks-empty p {
+  margin: 0;
+  max-width: 32ch;
+  font-size: clamp(16px, 4cqmin, 24px);
+  color: var(--fg-dim);
+}
+@media (prefers-reduced-motion: reduce) {
+  .kids-points[data-animated="true"] .kids-points-tasks {
+    animation: none;
+  }
+}
