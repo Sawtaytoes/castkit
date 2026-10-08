@@ -317,6 +317,14 @@ export const startTestServer = async ({
     return context.json({ ok: true })
   })
 
+  // An upstream image without CORS headers exercises browser color sampling.
+  app.get("/__test__/artwork.svg", (context) =>
+    context.body(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#d06020"/></svg>',
+      200,
+      { "Content-Type": "image/svg+xml" },
+    ),
+  )
   // Everything the server has published to the broker, for command assertions.
   app.get("/__test__/published", (context) =>
     context.json(published),

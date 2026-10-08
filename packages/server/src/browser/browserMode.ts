@@ -52,6 +52,7 @@ import {
   getBrowserViewsForDevice,
 } from "../views/browserRegistry.ts"
 import { buildAmbientLightData } from "./ambientLightData.ts"
+import { createBrowserArtworkMedia } from "./artworkMedia.ts"
 import {
   brightnessToPercent,
   createBrowserBacklightStore,
@@ -200,6 +201,7 @@ export const createBrowserMode = ({
   const globalTopics = buildGlobalTopics(baseTopic)
   const stateStore = createBrowserStateStore({ devices })
   const viewDataStore = createViewDataStore()
+  const artworkMedia = createBrowserArtworkMedia()
   const photoConfigStore = createBrowserPhotoConfigStore()
   const backlightStore = createBrowserBacklightStore()
   const controlStore =
@@ -407,7 +409,14 @@ export const createBrowserMode = ({
   const buildViewDataState = (
     deviceId: string,
   ): ViewDataState => {
-    const nowPlaying = viewDataStore.getNowPlaying(deviceId)
+    const sourceNowPlaying =
+      viewDataStore.getNowPlaying(deviceId)
+    const nowPlaying = sourceNowPlaying
+      ? artworkMedia.rewrite({
+          deviceId,
+          data: sourceNowPlaying,
+        })
+      : undefined
     const queue = viewDataStore.getQueue(deviceId)
     const weather = viewDataStore.getWeather(deviceId)
     const agenda = viewDataStore.getAgenda(deviceId)
@@ -1128,7 +1137,10 @@ export const createBrowserMode = ({
       viewDataStore.setNowPlaying({ deviceId, data })
       hub.broadcast({
         deviceId,
-        message: { type: "now_playing", data },
+        message: {
+          type: "now_playing",
+          data: artworkMedia.rewrite({ deviceId, data }),
+        },
       })
       return
     }
@@ -1393,6 +1405,16 @@ export const createBrowserMode = ({
         )
       }
       return context.html(buildDevicePageHtml({ snapshot }))
+    })
+
+    app.get("/d/:id/artwork/:assetId", (context) => {
+      const deviceId = context.req.param("id")
+      if (!stateStore.deviceById.has(deviceId))
+        return context.notFound()
+      return artworkMedia.get({
+        deviceId,
+        assetId: context.req.param("assetId"),
+      })
     })
 
     app.get("/d/:id/castkit.json", (context) => {
