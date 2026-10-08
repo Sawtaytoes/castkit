@@ -6,6 +6,7 @@ import {
   useState,
 } from "preact/hooks"
 import { useDisplayProperties } from "./displayProperties.ts"
+import { KidTasksToday } from "./KidTasksToday.tsx"
 import {
   formatClockTime,
   formatPointsDelta,
@@ -33,6 +34,50 @@ type KidScan = NonNullable<KidsPointsData["lastScan"]>
  */
 const kidStyle = (kid: KidEntry) =>
   kid.color ? { "--kid-color": kid.color } : undefined
+
+const KidOpenButton = ({
+  kid,
+  onSelect,
+}: {
+  kid: KidEntry
+  onSelect?: (id: string) => void
+}) => {
+  const contact = useRef({ x: 0, y: 0, hasMoved: false })
+  if (!onSelect) return null
+  return (
+    <button
+      type="button"
+      class="kids-points-open"
+      aria-label={`View ${kid.name}'s tasks today`}
+      data-castkit-target={`kids-points-open:${kid.id}`}
+      onPointerDown={(event) => {
+        contact.current = {
+          x: event.clientX,
+          y: event.clientY,
+          hasMoved: false,
+        }
+      }}
+      onPointerMove={(event) => {
+        if (
+          Math.max(
+            Math.abs(event.clientX - contact.current.x),
+            Math.abs(event.clientY - contact.current.y),
+          ) > 8
+        )
+          contact.current.hasMoved = true
+      }}
+      onPointerCancel={() => {
+        contact.current.hasMoved = true
+      }}
+      onKeyDown={() => {
+        contact.current.hasMoved = false
+      }}
+      onClick={() => {
+        if (!contact.current.hasMoved) onSelect(kid.id)
+      }}
+    />
+  )
+}
 
 const formatPoints = (points: number) =>
   points.toLocaleString("en-US")
@@ -322,6 +367,7 @@ const GoalReached = ({
 
 const KidCard = ({
   kid,
+  onSelect,
   scan,
   isDimmed,
   isAnimated,
@@ -333,6 +379,7 @@ const KidCard = ({
   isLive: boolean
   isStacked: boolean
   kid: KidEntry
+  onSelect?: (id: string) => void
   scan: KidScan | undefined
   isDimmed: boolean
   isAnimated: boolean
@@ -355,6 +402,7 @@ const KidCard = ({
           : "false"
       }
     >
+      <KidOpenButton kid={kid} onSelect={onSelect} />
       {isStacked ? (
         <div class="kids-points-card-head">
           <h3>{kid.name}</h3>
@@ -399,10 +447,12 @@ const KidCard = ({
  */
 const KidFocus = ({
   kid,
+  onSelect,
   scan,
   isAnimated,
 }: {
   kid: KidEntry
+  onSelect?: (id: string) => void
   scan: KidScan
   isAnimated: boolean
 }) => {
@@ -417,6 +467,7 @@ const KidFocus = ({
       style={kidStyle(kid)}
       data-motion={cardMotion?.motion}
     >
+      <KidOpenButton kid={kid} onSelect={onSelect} />
       <h3>{kid.name}</h3>
       {cardMotion ? null : <ScanBanner scan={scan} />}
       <KidTotal kid={kid} cardMotion={cardMotion} />
@@ -468,16 +519,19 @@ const CompactActivity = ({
 
 const KidRow = ({
   kid,
+  onSelect,
   now,
   isLive = false,
   scan,
 }: {
   kid: KidEntry
+  onSelect?: (id: string) => void
   now?: number
   isLive?: boolean
   scan?: KidScan
 }) => (
   <article class="kids-points-row" style={kidStyle(kid)}>
+    <KidOpenButton kid={kid} onSelect={onSelect} />
     <div class="kids-points-row-head">
       <h3>{kid.name}</h3>
       <span class="kids-points-row-total">
@@ -521,6 +575,15 @@ export const KidsPointsView = ({
 }) => {
   const properties = useDisplayProperties()
   const element = useRef<HTMLDivElement>(null)
+  const [selectedKidId, setSelectedKidId] = useState<
+    string | undefined
+  >()
+  const onSelect = properties.isInteractive
+    ? setSelectedKidId
+    : undefined
+  const selectedKid = properties.isInteractive
+    ? data.kids.find((kid) => kid.id === selectedKidId)
+    : undefined
   const [size, setSize] = useState({ width: 0, height: 0 })
   useLayoutEffect(() => {
     const root = element.current
@@ -575,136 +638,154 @@ export const KidsPointsView = ({
         ? 128
         : undefined,
   })
-  const content =
-    settings?.isTotalsOnly === true ? (
-      <div class="kids-points-simple-totals">
-        {data.kids.map((kid) => (
-          <article
-            key={kid.id}
-            class="kids-points-simple-row"
-          >
-            <h3 title={kid.name}>
-              {settings.nameStyle === "initial"
-                ? Array.from(kid.name)[0]
-                : kid.name}
-            </h3>
-            <strong>{formatPoints(kid.pointsToday)}</strong>
-          </article>
-        ))}
-      </div>
-    ) : layout.isBoard ? (
-      <div
-        class="kids-points-board"
-        data-stacked={
-          layout.columnCount < data.kids.length
-            ? "true"
-            : "false"
-        }
-        style={{
-          gridTemplateColumns: `repeat(${layout.columnCount}, minmax(0, 1fr))`,
-        }}
-      >
-        {data.kids.map((kid) => (
-          <KidCard
-            key={kid.id}
-            kid={kid}
-            scan={
-              scan && kid.id === scan.kidId
-                ? scan
-                : undefined
-            }
-            isDimmed={
-              scannedKid !== undefined &&
-              kid.id !== scannedKid.id &&
-              !countdownKids.some(
-                (runningKid) => runningKid.id === kid.id,
-              )
-            }
-            isAnimated={isAnimated}
-            now={now}
-            isLive={isLive}
-            isStacked={
-              layout.columnCount < data.kids.length
-            }
-          />
-        ))}
-      </div>
-    ) : settings?.isAllChildrenVisible === true ? (
-      <div
-        class="kids-points-rows"
-        data-all-children="true"
-      >
-        {data.kids.slice(0, layout.rowCount).map((kid) => (
-          <KidRow
-            key={kid.id}
-            kid={kid}
-            now={now}
-            isLive={isLive}
-            scan={scan?.kidId === kid.id ? scan : undefined}
-          />
-        ))}
-        {layout.rowCount < data.kids.length ? (
-          <p class="kids-points-overflow">
-            {data.kids.length - layout.rowCount} more
-          </p>
-        ) : null}
-      </div>
-    ) : countdownKids.length > 1 ? (
-      <div
-        class="kids-points-countdowns"
-        style={{
-          gridTemplateColumns: `repeat(${size.width >= size.height ? 2 : 1}, minmax(0, 1fr))`,
-        }}
-      >
-        {countdownKids.map((kid) => (
-          <article
-            key={kid.id}
-            class="kids-points-timer-card"
-            style={kidStyle(kid)}
-          >
-            <h3>{kid.name}</h3>
-            <CountdownProgress
-              kid={kid}
-              now={now}
-              isLive={isLive}
-            />
-          </article>
-        ))}
-      </div>
-    ) : countdownKid ? (
-      <article
-        class="kids-points-focus"
-        style={kidStyle(countdownKid)}
-      >
-        <h3>{countdownKid.name}</h3>
-        <CountdownProgress
-          kid={countdownKid}
+  const content = selectedKid ? (
+    <KidTasksToday
+      kid={selectedKid}
+      now={now}
+      onBack={() => setSelectedKidId(undefined)}
+    />
+  ) : settings?.isTotalsOnly === true ? (
+    <div class="kids-points-simple-totals">
+      {data.kids.map((kid) => (
+        <article
+          key={kid.id}
+          class="kids-points-simple-row"
+        >
+          <KidOpenButton kid={kid} onSelect={onSelect} />
+          <h3 title={kid.name}>
+            {settings.nameStyle === "initial"
+              ? Array.from(kid.name)[0]
+              : kid.name}
+          </h3>
+          <strong>{formatPoints(kid.pointsToday)}</strong>
+        </article>
+      ))}
+    </div>
+  ) : layout.isBoard ? (
+    <div
+      class="kids-points-board"
+      data-stacked={
+        layout.columnCount < data.kids.length
+          ? "true"
+          : "false"
+      }
+      style={{
+        gridTemplateColumns: `repeat(${layout.columnCount}, minmax(0, 1fr))`,
+      }}
+    >
+      {data.kids.map((kid) => (
+        <KidCard
+          onSelect={onSelect}
+          key={kid.id}
+          kid={kid}
+          scan={
+            scan && kid.id === scan.kidId ? scan : undefined
+          }
+          isDimmed={
+            scannedKid !== undefined &&
+            kid.id !== scannedKid.id &&
+            !countdownKids.some(
+              (runningKid) => runningKid.id === kid.id,
+            )
+          }
+          isAnimated={isAnimated}
           now={now}
           isLive={isLive}
+          isStacked={layout.columnCount < data.kids.length}
         />
-      </article>
-    ) : scan && scannedKid ? (
-      <KidFocus
-        kid={scannedKid}
-        scan={scan}
-        isAnimated={isAnimated}
+      ))}
+    </div>
+  ) : settings?.isAllChildrenVisible === true ? (
+    <div class="kids-points-rows" data-all-children="true">
+      {data.kids.slice(0, layout.rowCount).map((kid) => (
+        <KidRow
+          onSelect={onSelect}
+          key={kid.id}
+          kid={kid}
+          now={now}
+          isLive={isLive}
+          scan={scan?.kidId === kid.id ? scan : undefined}
+        />
+      ))}
+      {layout.rowCount < data.kids.length ? (
+        <p class="kids-points-overflow">
+          {data.kids.length - layout.rowCount} more
+        </p>
+      ) : null}
+    </div>
+  ) : countdownKids.length > 1 ? (
+    <div
+      class="kids-points-countdowns"
+      style={{
+        gridTemplateColumns: `repeat(${size.width >= size.height ? 2 : 1}, minmax(0, 1fr))`,
+      }}
+    >
+      {countdownKids.map((kid) => (
+        <article
+          key={kid.id}
+          class="kids-points-timer-card"
+          style={kidStyle(kid)}
+        >
+          <KidOpenButton kid={kid} onSelect={onSelect} />
+          <h3>{kid.name}</h3>
+          <CountdownProgress
+            kid={kid}
+            now={now}
+            isLive={isLive}
+          />
+        </article>
+      ))}
+    </div>
+  ) : countdownKid ? (
+    <article
+      class="kids-points-focus"
+      style={kidStyle(countdownKid)}
+    >
+      <KidOpenButton
+        kid={countdownKid}
+        onSelect={onSelect}
       />
-    ) : (
-      <div class="kids-points-rows">
-        {data.kids.slice(0, layout.rowCount).map((kid) => (
-          <KidRow key={kid.id} kid={kid} />
-        ))}
-        {layout.rowCount < data.kids.length ? (
-          <p class="kids-points-overflow">
-            {data.kids.length - layout.rowCount} more
-          </p>
-        ) : null}
-      </div>
-    )
+      <h3>{countdownKid.name}</h3>
+      <CountdownProgress
+        kid={countdownKid}
+        now={now}
+        isLive={isLive}
+      />
+    </article>
+  ) : scan && scannedKid ? (
+    <KidFocus
+      onSelect={onSelect}
+      kid={scannedKid}
+      scan={scan}
+      isAnimated={isAnimated}
+    />
+  ) : (
+    <div class="kids-points-rows">
+      {data.kids.slice(0, layout.rowCount).map((kid) => (
+        <KidRow
+          key={kid.id}
+          kid={kid}
+          onSelect={onSelect}
+        />
+      ))}
+      {layout.rowCount < data.kids.length ? (
+        <p class="kids-points-overflow">
+          {data.kids.length - layout.rowCount} more
+        </p>
+      ) : null}
+    </div>
+  )
   return (
     <div
       class="kids-points"
       data-color-mode={colorMode}
+      data-detail={selectedKid ? selectedKid.id : undefined}
+      data-animated={
+        properties.repaint === "instant" ||
+        properties.repaint === "fast"
+          ? "true"
+          : "false"
+      }
       ref={element}
     >
       {content}

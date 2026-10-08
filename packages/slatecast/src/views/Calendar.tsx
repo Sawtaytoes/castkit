@@ -4,6 +4,11 @@ import type {
   WeatherData,
 } from "@castkit/shared/viewData/types"
 import {
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks"
+import {
   agenda,
   clockConfig,
   nowMs,
@@ -11,7 +16,6 @@ import {
 } from "../state.ts"
 import {
   formatClockDate,
-  formatClockTime,
   formatClockTimeParts,
   formatEventTime,
 } from "../time.ts"
@@ -74,6 +78,78 @@ export const CalendarFace = ({
   agenda: AgendaData | null | undefined
 }) => {
   const isShortPanel = useIsShortPanel()
+  const element = useRef<HTMLDivElement>(null)
+  const rowHeight = useRef(0)
+  const [rowCount, setRowCount] = useState(EVENT_BUDGET)
+  useLayoutEffect(() => {
+    const root = element.current
+    // The short layout retains its fixed five-row budget.
+    if (!root || isShortPanel) return
+    const measure = () => {
+      const style = getComputedStyle(root)
+      const firstRow = root.querySelector(".calendar-event")
+      if (firstRow)
+        rowHeight.current =
+          firstRow.getBoundingClientRect().height
+      if (!rowHeight.current) return
+      const header =
+        root
+          .querySelector(".calendar-header")
+          ?.getBoundingClientRect().height ?? 0
+      const weatherHeight =
+        root
+          .querySelector(".calendar-weather")
+          ?.getBoundingClientRect().height ?? 0
+      const list = root.querySelector(".calendar-events")
+      const rowGap = list
+        ? Number.parseFloat(
+            getComputedStyle(list).rowGap,
+          ) || 0
+        : 0
+      const blockGap = Number.parseFloat(style.rowGap) || 0
+      const available =
+        root.clientHeight -
+        Number.parseFloat(style.paddingTop) -
+        Number.parseFloat(style.paddingBottom) -
+        header -
+        weatherHeight -
+        blockGap * (weatherHeight === 0 ? 1 : 2)
+      setRowCount(
+        Math.max(
+          0,
+          Math.min(
+            EVENT_BUDGET,
+            Math.floor(
+              (available + rowGap) /
+                (rowHeight.current + rowGap),
+            ),
+          ),
+        ),
+      )
+    }
+    measure()
+    const pending = { frame: 0, isDisposed: false }
+    const schedule = () => {
+      if (pending.isDisposed) return
+      cancelAnimationFrame(pending.frame)
+      pending.frame = requestAnimationFrame(measure)
+    }
+    const observer = new ResizeObserver(schedule)
+    observer.observe(root)
+    root
+      .querySelectorAll(
+        ".calendar-header, .calendar-weather",
+      )
+      .forEach((child) => {
+        observer.observe(child)
+      })
+    void document.fonts.ready.then(schedule)
+    return () => {
+      pending.isDisposed = true
+      cancelAnimationFrame(pending.frame)
+      observer.disconnect()
+    }
+  }, [isShortPanel, weatherData, agendaData, clock])
   const upcomingEvents = (agendaData?.events ?? [])
     .filter(
       (event) =>
@@ -83,9 +159,12 @@ export const CalendarFace = ({
     )
     .slice(
       0,
-      isShortPanel
-        ? SHORT_PANEL_EVENT_BUDGET
-        : EVENT_BUDGET,
+      Math.min(
+        isShortPanel ? SHORT_PANEL_EVENT_BUDGET : rowCount,
+        isShortPanel
+          ? SHORT_PANEL_EVENT_BUDGET
+          : EVENT_BUDGET,
+      ),
     )
   const { time, meridiem } = formatClockTimeParts(
     currentMillis,
@@ -94,23 +173,18 @@ export const CalendarFace = ({
 
   return (
     <div
+      ref={element}
       class={`calendar${isShortPanel ? " calendar-short" : ""}`}
     >
       <div class="calendar-header">
-        {isShortPanel ? (
-          <span class="calendar-clock">
-            <span class="calendar-time">{time}</span>
-            {meridiem ? (
-              <span class="calendar-meridiem">
-                {meridiem}
-              </span>
-            ) : null}
-          </span>
-        ) : (
-          <span class="calendar-time">
-            {formatClockTime(currentMillis, clock)}
-          </span>
-        )}
+        <span class="calendar-clock">
+          <span class="calendar-time">{time}</span>
+          {meridiem ? (
+            <span class="calendar-meridiem">
+              {meridiem}
+            </span>
+          ) : null}
+        </span>
         <span class="calendar-date">
           {formatClockDate(currentMillis, clock)}
         </span>

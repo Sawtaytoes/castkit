@@ -26,7 +26,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v16-document-navigation"
+BUILD_MARKER = "castkit-remote-display-v17-scroll-targets"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -41,6 +41,22 @@ return gestures.concat(Array.from(document.querySelectorAll(`[${attribute}]`)).f
 HIT_SCRIPT = """({x,y,attribute}) => {
  const element = document.elementFromPoint(x,y)?.closest(`[${attribute}]`);
  return element && !element.matches(':disabled,[aria-disabled="true"]') ? element.getAttribute(attribute) : document.querySelector('.stage') ? `view-gesture:${document.querySelector('.stage').dataset.view}` : null;
+}"""
+SCROLL_HIT_SCRIPT = """({x,y}) => {
+ const hasScrollTarget = (document, pointX, pointY) => {
+   const element = document.elementFromPoint(pointX, pointY);
+   if (!element) return false;
+   if (element.closest('[data-castkit-scroll]')) return true;
+   if (element.tagName !== 'IFRAME') return false;
+   try {
+     const child = element.contentDocument;
+     const bounds = element.getBoundingClientRect();
+     return child ? hasScrollTarget(child,
+       (pointX - bounds.left) * element.clientWidth / bounds.width,
+       (pointY - bounds.top) * element.clientHeight / bounds.height) : false;
+   } catch { return false; }
+ };
+ return hasScrollTarget(document,x,y);
 }"""
 
 
@@ -235,6 +251,7 @@ class DisplaySession:
                     "started": time.monotonic(),
                     "is_gesture": False,
                     "is_native_active": False,
+                    "is_scroll_drag": await self.page.evaluate(SCROLL_HIT_SCRIPT, {"x": x, "y": y}),
                 }
             elif self.contact is None:
                 # ESPHome replays its retained sensor value after reconnect.
@@ -246,6 +263,7 @@ class DisplaySession:
             if (
                 phase == 1
                 and not self.contact["is_gesture"]
+                and not self.contact.get("is_scroll_drag", False)
                 and not self.contact["identity"].startswith("navigation-edge:")
                 and max(abs(y - self.contact["start_y"]), abs(x - self.contact["start_x"])) >= 48
                 and (
@@ -292,11 +310,13 @@ class DisplaySession:
             # Shell edges capture their pointer above native and external views.
             # Their acknowledged starting hitbox owns the whole inward pull.
             is_navigation_drag = self.contact["identity"].startswith("navigation-edge:")
+            is_scroll_drag = self.contact.get("is_scroll_drag", False)
             if (
                 phase == 1
                 and current != self.contact["identity"]
                 and not is_artwork_drag
                 and not is_navigation_drag
+                and not is_scroll_drag
             ):
                 # Cancel the tap but keep sampling the finger: it may cross a
                 # small control before travelling far enough to commit a swipe.
@@ -312,6 +332,7 @@ class DisplaySession:
                 current != self.contact["identity"]
                 and not is_artwork_drag
                 and not is_navigation_drag
+                and not is_scroll_drag
             ):
                 if phase == 2:
                     await self.cancel_contact()

@@ -191,7 +191,7 @@ describe("calendar on a short landscape panel", () => {
     ).not.toBeNull()
   })
 
-  test("keeps the stacked header, six rows and a weather mark on the square", async () => {
+  test("keeps the larger stacked clock, complete rows and a weather mark on the square", async () => {
     await mountCalendarOn({
       ...SQUARE_PANEL,
       events: EIGHT_EVENTS,
@@ -199,16 +199,16 @@ describe("calendar on a short landscape panel", () => {
 
     expect(
       document.querySelectorAll(".calendar-event").length,
-    ).toBe(6)
+    ).toBe(5)
     expect(
       document.querySelector(".weather-mark"),
     ).not.toBeNull()
     expect(
       document.querySelector(".calendar-meridiem"),
-    ).toBeNull()
+    ).not.toBeNull()
     expect(
       document.querySelector(".calendar-time")?.textContent,
-    ).toMatch(/^\d{1,2}:\d{2}[ap]$/)
+    ).toMatch(/^\d{1,2}:\d{2}$/)
     // The weather line sits under the header, not beside it.
     expect(
       rectOf(".calendar-weather").top,

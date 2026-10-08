@@ -163,6 +163,7 @@ test("every child's retained state fills the board in name order", async () => {
           id: "robin",
           name: "Robin",
           color: "#336699",
+          day: "2026-01-15",
           pointsToday: 120,
           goal: 500,
         },
@@ -170,6 +171,7 @@ test("every child's retained state fills the board in name order", async () => {
           id: "sky",
           name: "Sky",
           color: "#336699",
+          day: "2026-01-15",
           pointsToday: 80,
           goal: 500,
         },
@@ -221,6 +223,7 @@ test("a room channel hears only its own reader, and the scan moves the total at 
         id: "robin",
         name: "Robin",
         color: "#336699",
+        day: "2026-01-15",
         pointsToday: 130,
         goal: 500,
         lastTask: "Feed the Cat",
@@ -242,6 +245,7 @@ test("a room channel hears only its own reader, and the scan moves the total at 
         id: "robin",
         name: "Robin",
         color: "#336699",
+        day: "2026-01-15",
         pointsToday: 130,
         goal: 500,
         lastTask: "Feed the Cat",
@@ -275,6 +279,7 @@ test("a channel can narrow the board to some children", async () => {
           id: "sky",
           name: "Sky",
           color: "#336699",
+          day: "2026-01-15",
           pointsToday: 80,
           goal: 500,
         },
@@ -546,4 +551,63 @@ test("retained timer origin survives normalization without a new scan", () => {
     },
   })
   expect(kid?.activeTask?.reader).toBe("Hall Reader")
+})
+
+test("retained daily task snapshots preserve empty days and replace corrected history", () => {
+  const context = sourceContext({
+    channels: [channel("board")],
+  })
+  const source = createKidsPointsSource(context)
+  const state = {
+    kid: "robin",
+    kidName: "Robin",
+    pointsToday: 40,
+    day: "2026-01-15",
+    timeZone: "America/Chicago",
+    tasksToday: [
+      {
+        id: "award-one",
+        name: "Reading",
+        atMs: 1000,
+        points: 40,
+        minutes: 12,
+      },
+    ],
+  }
+  expect(normalizeKidState(state)).toMatchObject({
+    day: "2026-01-15",
+    timeZone: "America/Chicago",
+    tasksToday: state.tasksToday,
+  })
+  source.handleMqttMessage?.({
+    topic: "points/state/robin",
+    payload: JSON.stringify(state),
+  })
+  source.handleMqttMessage?.({
+    topic: "points/state/robin",
+    payload: JSON.stringify({
+      ...state,
+      pointsToday: 0,
+      tasksToday: [],
+    }),
+  })
+  expect(context.publish).toHaveBeenLastCalledWith({
+    channelId: "board",
+    data: {
+      kids: [expect.objectContaining({ tasksToday: [] })],
+    },
+  })
+})
+
+test("older publishers leave unavailable task history distinct from a completed empty snapshot", () => {
+  expect(
+    normalizeKidState({ kid: "robin", pointsToday: 0 }),
+  ).not.toHaveProperty("tasksToday")
+  expect(
+    normalizeKidState({
+      kid: "robin",
+      pointsToday: 0,
+      tasksToday: [{ name: "Invalid" }],
+    }),
+  ).not.toHaveProperty("tasksToday")
 })

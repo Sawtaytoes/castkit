@@ -1273,6 +1273,27 @@ html[data-grayscale-text="true"] {
   font-variant-numeric: tabular-nums;
 }
 
+.calendar-clock {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.6vmin;
+}
+.calendar-meridiem {
+  font-size: 13vmin;
+  font-weight: 700;
+  line-height: 1;
+}
+@media (min-width: 480px) and (min-height: 480px) {
+  .calendar:not(.calendar-short) .calendar-time {
+    font-size: 25vmin;
+    letter-spacing: -1vmin;
+  }
+  .calendar:not(.calendar-short) .calendar-meridiem {
+    font-size: 6.25vmin;
+  }
+}
+
 .calendar-date {
   font-size: 5vmin;
   font-weight: 600;

@@ -252,6 +252,24 @@ const kidPoints = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
   lastTask: z.string().optional(),
+  /** Producer-local day and timezone for the complete daily task snapshot. */
+  day: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  timeZone: z.string().optional(),
+  /** Completed task entries; the producer excludes voids and reversed awards. */
+  tasksToday: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string().min(1),
+        atMs: finiteNumber,
+        points: finiteNumber,
+        minutes: finiteNumber.nonnegative().optional(),
+      }),
+    )
+    .optional(),
   /** A timed card that is running now, and when it started. */
   activeTask: z
     .object({
