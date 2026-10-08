@@ -88,6 +88,11 @@ export const normalizeKidState = (
   const sessionStartedAtMs =
     finiteNumber(session.startedAtMs) ??
     finiteNumber(session.startedMs)
+  const bankedMinutes =
+    finiteNumber(session.bankedMinutes) ??
+    finiteNumber(
+      record(raw.minutesToday)[textValue(session.task)],
+    )
   const goalMinutes = positiveNumber(session.goalMinutes)
   const goal = positiveNumber(raw.goal)
   const color = hexColor(raw.color ?? raw.kidColor)
@@ -134,6 +139,10 @@ export const normalizeKidState = (
             startedAtMs: sessionStartedAtMs,
             ...(textValue(session.reader)
               ? { reader: textValue(session.reader) }
+              : {}),
+            ...(bankedMinutes !== undefined &&
+            bankedMinutes >= 0
+              ? { bankedMinutes }
               : {}),
             ...(goalMinutes === undefined
               ? {}
@@ -392,7 +401,9 @@ export const createKidsPointsSource: SourceFactory = (
           acceptedTimers.set(scan.kidId, scan)
         } else if (
           scan.result === "stopped" ||
-          scan.result === "awarded"
+          (scan.result === "awarded" &&
+            acceptedTimers.get(scan.kidId)?.taskName ===
+              scan.taskName)
         ) {
           acceptedTimers.delete(scan.kidId)
         }

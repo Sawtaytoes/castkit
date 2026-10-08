@@ -636,3 +636,132 @@ test("a compact board shows simultaneous countdown and count-up activities after
     screen.getByText("Sitting · 4:00 left"),
   ).toBeVisible()
 })
+
+test("count-up scans lead with accumulated minutes and advance the session independently", () => {
+  const task = {
+    name: "Instrument Practice",
+    startedAtMs: now,
+    bankedMinutes: 27,
+    goalMinutes: 30,
+    isCountdown: false,
+    reader: "Practice Reader",
+  }
+  const running = {
+    kids: [{ ...data.kids[0]!, activeTask: task }],
+    lastScan: {
+      kidId: "robin",
+      result: "started" as const,
+      taskName: task.name,
+      points: 0,
+      atMs: now,
+    },
+  }
+  const { container, rerender } = renderInPanel({
+    width: 480,
+    height: 480,
+    value: running,
+  })
+  expect(screen.queryByText("Timer started")).toBeNull()
+  expect(
+    container.querySelector(".kids-points-countup-total"),
+  ).toHaveTextContent("27min total")
+  expect(
+    screen.getByText("0 min this session"),
+  ).toBeVisible()
+  rerender(
+    <KidsPointsView
+      data={running}
+      now={now + 3 * 60_000}
+    />,
+  )
+  expect(
+    container.querySelector(".kids-points-countup-total"),
+  ).toHaveTextContent("30min total")
+  expect(
+    screen.getByText("3 min this session"),
+  ).toBeVisible()
+  rerender(
+    <KidsPointsView
+      data={running}
+      now={now + 40 * 60_000}
+    />,
+  )
+  expect(
+    container.querySelector(".kids-points-countup-total"),
+  ).toHaveTextContent("67min total")
+  expect(
+    screen.getByText("40 min this session"),
+  ).toBeVisible()
+})
+
+test("the all-child square board gives a running count-up its total instead of start feedback", () => {
+  const kids = data.kids.slice(0, 3).map((kid, index) =>
+    index === 0
+      ? {
+          ...kid,
+          activeTask: {
+            name: "Instrument Practice",
+            startedAtMs: now,
+            bankedMinutes: 27,
+            isCountdown: false,
+            reader: "Practice Reader",
+          },
+        }
+      : kid,
+  )
+  const { container } = renderInPanel({
+    width: 480,
+    height: 480,
+    settings: { isAllChildrenVisible: true },
+    value: {
+      kids,
+      lastScan: {
+        kidId: "robin",
+        taskName: "Instrument Practice",
+        points: 0,
+        result: "started",
+        atMs: now,
+      },
+    },
+  })
+  expect(
+    container.querySelectorAll(".kids-points-card"),
+  ).toHaveLength(3)
+  expect(
+    container.querySelector(
+      ".kids-points-countup-total strong",
+    ),
+  ).toHaveTextContent("27")
+  expect(
+    screen.getByText("0 min this session"),
+  ).toBeVisible()
+})
+
+test("a slow count-up states the banked baseline and start instead of a stale running duration", () => {
+  const { container } = renderInPanel({
+    width: 480,
+    height: 480,
+    repaint: "slow",
+    value: {
+      kids: [
+        {
+          ...data.kids[0]!,
+          activeTask: {
+            name: "Instrument Practice",
+            reader: "Practice Reader",
+            startedAtMs: now,
+            bankedMinutes: 27,
+            isCountdown: false,
+          },
+        },
+      ],
+    },
+  })
+  expect(
+    container.querySelector(".kids-points-countup-total"),
+  ).toHaveTextContent("27min before this session")
+  expect(screen.getByText(/^Started /)).toBeVisible()
+  expect(
+    screen.queryByText("0 min this session"),
+  ).toBeNull()
+})

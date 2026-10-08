@@ -2,7 +2,10 @@ import type {
   ChannelDefinition,
   ContractData,
 } from "@castkit/sdk/contracts"
-import { getCountdownKids } from "@castkit/sdk/kidsPointsScan"
+import {
+  getCountdownKids,
+  getRunningKids,
+} from "@castkit/sdk/kidsPointsScan"
 import { expect, test, vi } from "vitest"
 import { sourceContext } from "./__fixtures__/sourceContext.ts"
 import {
@@ -610,4 +613,73 @@ test("older publishers leave unavailable task history distinct from a completed 
       tasksToday: [{ name: "Invalid" }],
     }),
   ).not.toHaveProperty("tasksToday")
+})
+
+test("count-up state retains zero or banked minutes and can restore only its own room", () => {
+  const raw = {
+    kid: "robin",
+    kidName: "Robin",
+    pointsToday: 100,
+    runningSession: {
+      task: "practice",
+      taskName: "Instrument Practice",
+      startedMs: 1000,
+      reader: "Practice Reader",
+      isCountdown: false,
+      bankedMinutes: 27,
+    },
+  }
+  const kid = normalizeKidState(raw)!
+  expect(kid.activeTask).toMatchObject({
+    bankedMinutes: 27,
+    reader: "Practice Reader",
+  })
+  expect(
+    normalizeKidState({
+      ...raw,
+      runningSession: {
+        ...raw.runningSession,
+        bankedMinutes: 0,
+      },
+    })?.activeTask?.bankedMinutes,
+  ).toBe(0)
+  expect(
+    normalizeKidState({
+      ...raw,
+      minutesToday: { practice: 27 },
+      runningSession: {
+        ...raw.runningSession,
+        bankedMinutes: undefined,
+      },
+    })?.activeTask?.bankedMinutes,
+  ).toBe(27)
+  expect(
+    normalizeKidState({
+      ...raw,
+      runningSession: {
+        ...raw.runningSession,
+        bankedMinutes: -1,
+      },
+    })?.activeTask?.bankedMinutes,
+  ).toBeUndefined()
+  const local = buildKidsPointsData({
+    kids: [kid],
+    channel: channel("practice", {
+      timerReaders: ["Practice Reader"],
+    }),
+  })
+  const elsewhere = buildKidsPointsData({
+    kids: [kid],
+    channel: channel("hall", {
+      timerReaders: ["Hall Reader"],
+    }),
+  })
+  expect(
+    getRunningKids({ data: local, now: 61_000 }).map(
+      (child) => child.id,
+    ),
+  ).toEqual(["robin"])
+  expect(
+    getRunningKids({ data: elsewhere, now: 61_000 }),
+  ).toEqual([])
 })
