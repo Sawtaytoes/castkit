@@ -51,8 +51,8 @@ export const getIsScanRecent = ({
   )
 }
 
-/** Running countdowns reached by this channel's accepted scans, until their targets. */
-export const getCountdownKids = ({
+/** Running timed cards in this channel, restored from their saved reader or accepted scans. */
+export const getRunningKids = ({
   data,
   now,
 }: {
@@ -65,19 +65,31 @@ export const getCountdownKids = ({
   return data.kids.filter((kid) => {
     const task = kid.activeTask
     return (
-      task?.isCountdown === true &&
-      task.goalMinutes !== undefined &&
+      task !== undefined &&
       now >= task.startedAtMs - CLOCK_SKEW_MILLISECONDS &&
-      now < task.startedAtMs + task.goalMinutes * 60_000 &&
-      scans.some(
-        (scan) =>
-          kid.id === scan.kidId &&
-          (scan.result === "started" ||
-            scan.result === "progress") &&
-          task.name === scan.taskName &&
-          scan.atMs >=
-            task.startedAtMs - CLOCK_SKEW_MILLISECONDS,
-      )
+      (task.isCountdown !== true ||
+        (task.goalMinutes !== undefined &&
+          now <
+            task.startedAtMs +
+              task.goalMinutes * 60_000)) &&
+      !(
+        data.lastScan?.kidId === kid.id &&
+        data.lastScan.taskName === task.name &&
+        data.lastScan.atMs >=
+          task.startedAtMs - CLOCK_SKEW_MILLISECONDS &&
+        (data.lastScan.result === "stopped" ||
+          data.lastScan.result === "awarded")
+      ) &&
+      (Boolean(task.reader) ||
+        scans.some(
+          (scan) =>
+            kid.id === scan.kidId &&
+            (scan.result === "started" ||
+              scan.result === "progress") &&
+            task.name === scan.taskName &&
+            scan.atMs >=
+              task.startedAtMs - CLOCK_SKEW_MILLISECONDS,
+        ))
     )
   })
 }
@@ -88,6 +100,28 @@ export const getCountdownKid = (input: {
   now: number
 }) => {
   const kids = getCountdownKids(input)
+  return (
+    kids.find(
+      (kid) => kid.id === input.data.lastScan?.kidId,
+    ) ?? kids[0]
+  )
+}
+
+/** Countdowns expire at their saved deadline; count-up sessions stay until stopped. */
+export const getCountdownKids = (input: {
+  data: ContractData["kids-points.v1"]
+  now: number
+}) =>
+  getRunningKids(input).filter(
+    (kid) => kid.activeTask?.isCountdown === true,
+  )
+
+/** The most recently scanned running child, or the first still running child. */
+export const getRunningKid = (input: {
+  data: ContractData["kids-points.v1"]
+  now: number
+}) => {
+  const kids = getRunningKids(input)
   return (
     kids.find(
       (kid) => kid.id === input.data.lastScan?.kidId,

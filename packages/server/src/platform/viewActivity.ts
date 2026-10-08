@@ -6,8 +6,8 @@ import type {
 } from "@castkit/sdk/contracts"
 import {
   DEFAULT_SCAN_SECONDS,
-  getCountdownKid,
   getIsScanRecent,
+  getRunningKid,
   readScanSeconds,
 } from "@castkit/sdk/kidsPointsScan"
 import { selectPanelData } from "@castkit/sdk/panelSelection"
@@ -79,7 +79,7 @@ export const isChannelActive = (
         channel.data as ContractData["kids-points.v1"]
       return Boolean(
         scanSeconds > 0 &&
-          (getCountdownKid({ data, now: Date.now() }) ||
+          (getRunningKid({ data, now: Date.now() }) ||
             (data.lastScan &&
               data.kids.some(
                 (kid) => kid.id === data.lastScan?.kidId,

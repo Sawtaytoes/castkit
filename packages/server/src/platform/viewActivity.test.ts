@@ -416,3 +416,34 @@ test("an accepted countdown remains active between announcements and ends at its
     vi.useRealTimers()
   }
 })
+
+test("a saved local count-up keeps an active-only view open until it stops", () => {
+  const running = channel("kids-points.v1", {
+    kids: [
+      {
+        id: "robin",
+        name: "Robin",
+        pointsToday: 100,
+        activeTask: {
+          name: "Instrument Practice",
+          startedAtMs: Date.now() - 3_600_000,
+          goalMinutes: 30,
+          bankedMinutes: 27,
+          isCountdown: false,
+          reader: "Practice Reader",
+        },
+      },
+    ],
+  })
+  expect(isChannelActive(running)).toBe(true)
+  expect(
+    isChannelActive({
+      ...running,
+      data: {
+        kids: [
+          { id: "robin", name: "Robin", pointsToday: 100 },
+        ],
+      },
+    }),
+  ).toBe(false)
+})
