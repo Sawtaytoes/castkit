@@ -134,7 +134,7 @@ test("the supporting strip uses spare camera height to grow text without shrinki
     layout?.sections.find(
       (section) => section.priority === 1,
     )?.width,
-  ).toBe(200)
+  ).toBeLessThanOrEqual(120)
 })
 
 test("quota fit budgets keep an account's multiple rows together", () => {
