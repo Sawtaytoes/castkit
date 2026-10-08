@@ -9,11 +9,12 @@ import types
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from codec import presto_frame_pixels
-from interaction import Target
 from PIL import Image
 from playwright.async_api import Error as BrowserError
 from playwright.async_api import async_playwright
+
+from codec import presto_frame_pixels
+from interaction import Target
 from presto_transport import PrestoTransport
 from preview import PreviewServer
 from worker import (
@@ -443,6 +444,80 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                         self.task.result()
                     await asyncio.sleep(0.01)
         self.assertEqual(await self.page.evaluate("window.actions"), ["next"])
+
+    async def test_scroll_region_keeps_drag_capture_in_root_and_same_origin_composition(self):
+        content = """<section data-castkit-target="scroll:tasks" data-castkit-scroll="true"
+            style="position:absolute;left:20px;top:80px;width:400px;height:160px;overflow:auto;touch-action:none">
+            <div style="height:1200px">Daily tasks</div></section>"""
+        for index, is_composed in enumerate([False, True]):
+            with self.subTest(is_composed=is_composed):
+                await self.page.set_content("""<div class="stage" data-castkit-target="view-gesture:points"
+                    style="position:absolute;inset:0;touch-action:none"></div>""")
+                await self.page.evaluate(
+                    """({content,isComposed}) => {
+                        const stage = document.querySelector('.stage');
+                        window.gestures = 0;
+                        stage.onpointerdown = () => window.gestures++;
+                        if (isComposed) {
+                            const frame = document.createElement('iframe');
+                            frame.style.cssText = 'position:absolute;inset:0;width:480px;height:320px;border:0';
+                            stage.append(frame);
+                            frame.contentDocument.body.innerHTML = content;
+                        } else stage.innerHTML = content;
+                    }""",
+                    {"content": content, "isComposed": is_composed},
+                )
+                await self.page.evaluate("""() => {
+                    const documentWithList = document.querySelector('iframe')?.contentDocument ?? document;
+                    const list = documentWithList.querySelector('section');
+                    let contact;
+                    list.onpointerdown = event => {
+                        event.stopPropagation();
+                        contact = {y:event.clientY,top:list.scrollTop};
+                        list.setPointerCapture(event.pointerId);
+                    };
+                    list.onpointermove = event => {
+                        event.stopPropagation();
+                        if (contact) list.scrollTop = contact.top + contact.y - event.clientY;
+                    };
+                    list.onpointerup = event => {event.stopPropagation();contact=undefined;};
+                }""")
+                targets = await self.page.evaluate(
+                    TARGETS_SCRIPT,
+                    {"attribute": "data-castkit-target", "width": 480, "height": 320},
+                )
+                self.session.guard.remember(
+                    70 + index,
+                    [
+                        Target(**{key: value for key, value in target.items() if key != "loading"})
+                        for target in targets
+                    ],
+                )
+                for offset, (phase, y) in enumerate([(0, 220), (1, 190), (1, 30), (2, 0)]):
+                    sequence = index * 4 + offset + 1
+                    await self.session.touches.put(
+                        [
+                            "touch",
+                            str(sequence),
+                            str(phase),
+                            "0" if phase == 2 else "100",
+                            str(y),
+                            "0",
+                            str(70 + index),
+                            "0",
+                        ]
+                    )
+                    async with asyncio.timeout(3):
+                        while self.session.processed_touch != sequence:
+                            if self.task.done():
+                                self.task.result()
+                            await asyncio.sleep(0.01)
+                self.assertGreater(
+                    await self.page.evaluate("""() =>
+                    (document.querySelector('iframe')?.contentDocument ?? document).querySelector('section').scrollTop"""),
+                    150,
+                )
+                self.assertEqual(await self.page.evaluate("window.gestures"), 0)
 
     async def test_all_shell_edges_keep_native_capture_outside_their_acknowledged_strip(self):
         edges = [
