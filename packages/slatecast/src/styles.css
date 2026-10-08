@@ -1013,7 +1013,12 @@ html[data-grayscale-text="true"] {
   gap: 1.5vmin;
 }
 
+.audio-queue {
+  overflow: hidden;
+}
+
 .queue li {
+  flex-shrink: 0;
   border-radius: 1.5vmin;
 }
 

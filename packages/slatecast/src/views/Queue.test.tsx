@@ -15,6 +15,8 @@ import {
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "../__tests__/setup/slatecastServer.ts"
 
+import "../styles.css"
+
 const mountQueueView = async (data: ViewDataState) =>
   mountSlatecast({
     snapshot: buildSnapshot({ view: "queue", data }),
@@ -318,4 +320,75 @@ describe("audio queue controls", () => {
       ).queryByRole("button"),
     ).toBeNull()
   })
+})
+
+test("audio queue fills complete rows around the current track and refills when resized", async () => {
+  const { page } = await import("vitest/browser")
+  await page.viewport(480, 480)
+  const items = Array.from(
+    { length: 46 },
+    (_unused, index) => ({
+      title: `Track ${index + 1}`,
+      artist: "Fixture artist",
+      isCurrent: index === 21,
+    }),
+  )
+  await mountQueueView({
+    queue: buildQueue({ items }),
+    nowPlaying: buildNowPlaying(),
+  })
+  await document.fonts.ready
+  await waitFor(() => expect(queueItems().length).toBe(7))
+  expect(screen.getByText("Track 21")).toBeVisible()
+  expect(
+    screen.getByText("Track 22").closest("li"),
+  ).toHaveAttribute("aria-current", "true")
+  expect(
+    screen.getByRole("button", { name: "Play Track 23" }),
+  ).toBeVisible()
+  const assertFit = () => {
+    const root =
+      document.querySelector<HTMLElement>(".queue")!
+    const rows = queueItems()
+    const gap = Number.parseFloat(
+      getComputedStyle(root).rowGap,
+    )
+    const padding = Number.parseFloat(
+      getComputedStyle(root).paddingBottom,
+    )
+    const bottom =
+      root.getBoundingClientRect().bottom - padding
+    const last = rows.at(-1)?.getBoundingClientRect()
+    if (!last) throw new Error("Queue has no complete rows")
+    expect(last.bottom).toBeLessThanOrEqual(bottom + 1)
+    expect(last.bottom + last.height + gap).toBeGreaterThan(
+      bottom,
+    )
+  }
+  assertFit()
+  await page.viewport(480, 720)
+  await waitFor(() =>
+    expect(queueItems().length).toBeGreaterThan(7),
+  )
+  assertFit()
+})
+
+test("the end of an audio queue fills available rows with earlier tracks", async () => {
+  const { page } = await import("vitest/browser")
+  await page.viewport(480, 480)
+  await mountQueueView({
+    queue: buildQueue({
+      items: Array.from(
+        { length: 20 },
+        (_unused, index) => ({
+          title: `End track ${index + 1}`,
+          artist: "Fixture artist",
+          isCurrent: index === 19,
+        }),
+      ),
+    }),
+  })
+  await waitFor(() => expect(queueItems().length).toBe(7))
+  expect(screen.getByText("End track 20")).toBeVisible()
+  expect(screen.getByText("End track 15")).toBeVisible()
 })
