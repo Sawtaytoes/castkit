@@ -73,6 +73,58 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(session.frame_id, session.guard.frames)
         self.assertIsNotNone(transport.capture_ms)
 
+    async def test_unchanged_drag_skips_extra_acks_but_keeps_change_release_and_heartbeat(self):
+        await self.task_cancel_for_capture_test()
+        await self.page.set_viewport_size({"width": 480, "height": 480})
+        transport = PrestoTransport({"mac": "020000000001"}, "a" * 32)
+        session = DisplaySession(
+            {"viewport": {"width": 480, "height": 480}, "max_fps": 20, "heartbeat_seconds": 1},
+            self.page,
+            transport,
+            {},
+            asyncio.Event(),
+            PreviewServer("test", 20),
+        )
+        acknowledgements = []
+        session.contact = {"is_native_active": False}
+        captured = 0
+        real_capture = self.page.context.new_cdp_session
+        cdp = await real_capture(self.page)
+        real_send = cdp.send
+
+        async def capture(method, parameters):
+            nonlocal captured
+            if method == "Page.captureScreenshot":
+                captured += 1
+                # Both samples are visually unchanged, but a real drag repaint
+                # must still reach the board while contact is held.
+                if captured in (2, 3):
+                    session.processed_touch = captured
+                    session.force_frame.set()
+                if captured == 4:
+                    await self.page.evaluate("document.body.style.background = 'red'")
+                if captured == 5:
+                    session.contact = None
+                    session.processed_touch = 3
+                    session.config["heartbeat_seconds"] = 0.1
+                    session.force_frame.set()
+            return await real_send(method, parameters)
+
+        cdp.send = capture
+
+        async def acknowledge(frame_id, touch_id, payload):
+            acknowledgements.append((captured, touch_id))
+            if len(acknowledgements) == 4:
+                session.stop.set()
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
+
+        transport.send_frame = acknowledge
+        with patch.object(self.context, "new_cdp_session", return_value=cdp):
+            await asyncio.wait_for(session.run(1, None), timeout=3)
+        self.assertEqual(acknowledgements[:3], [(1, 0), (4, 3), (5, 3)])
+        self.assertEqual(acknowledgements[3][1], 3)
+        self.assertGreater(acknowledgements[3][0], 5)
+
     async def test_stalled_native_capture_times_out_and_releases_touch_session(self):
         await self.task_cancel_for_capture_test()
         transport = PrestoTransport({"mac": "020000000001"}, "a" * 32)
