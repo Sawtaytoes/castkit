@@ -41,7 +41,28 @@ export const createPlatformImageScheduler = ({
         const channels = platform.channelsForView(
           target.view,
         )
+        const cameraInterval = target.view.panels
+          .filter(
+            (panel) => panel.specId === "camera-alert",
+          )
+          .map(
+            (panel) =>
+              Math.min(
+                10,
+                Math.max(
+                  1,
+                  Number(
+                    panel.settings.snapshotIntervalSeconds,
+                  ) || 1,
+                ),
+              ) * 1000,
+          )
+          .sort((left, right) => left - right)[0]
         const signature = JSON.stringify({
+          // A camera snapshot is an acquisition-time fact, not a live-state claim.
+          cameraFrame: cameraInterval
+            ? Math.floor(Date.now() / cameraInterval)
+            : undefined,
           view: target.view,
           photos: target.view.panels
             .filter(
@@ -89,7 +110,8 @@ export const createPlatformImageScheduler = ({
           Date.now() - state.lastRenderedAt >=
           Math.max(
             1000,
-            capabilities.minimumValueLifetimeMilliseconds,
+            cameraInterval ??
+              capabilities.minimumValueLifetimeMilliseconds,
           )
         return signature !== state.signature &&
           (hasChangedView || isDue)

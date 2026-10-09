@@ -544,6 +544,7 @@ export const builtinContractSchemas = {
         id: z.string(),
         name: z.string(),
         url: safeUrl,
+        snapshotUrl: safeUrl.optional(),
         isLive: z.boolean().optional(),
         format: z.enum(["hls", "mjpeg"]).optional(),
       }),

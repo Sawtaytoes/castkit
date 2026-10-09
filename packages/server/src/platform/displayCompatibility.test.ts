@@ -82,3 +82,68 @@ test("composition assignment rejects a camera or clock incompatible with the tar
     }).isCompatible,
   ).toBe(true)
 })
+
+test.each([
+  {
+    delivery: "browser",
+    repaint: "instant",
+    power: "wired",
+    isCompatible: true,
+  },
+  {
+    delivery: "browser",
+    repaint: "fast",
+    power: "wired",
+    isCompatible: true,
+  },
+  {
+    delivery: "image",
+    repaint: "fast",
+    power: "wired",
+    isCompatible: true,
+  },
+  {
+    delivery: "image",
+    repaint: "fast",
+    power: "battery",
+    isCompatible: false,
+  },
+  {
+    delivery: "image",
+    repaint: "slow",
+    power: "wired",
+    isCompatible: false,
+  },
+  {
+    delivery: "browser",
+    repaint: "super-slow",
+    power: "wired",
+    isCompatible: false,
+  },
+] as const)("camera alert compatibility follows $delivery / $repaint / $power", ({
+  isCompatible,
+  ...display
+}) => {
+  expect(
+    getDisplayCompatibility({
+      catalog: createPlatformCatalog(),
+      view: {
+        id: "alert",
+        name: "Camera",
+        layout: "single",
+        theme: "dark",
+        access: "pin",
+        isControlEnabled: false,
+        panels: [
+          {
+            id: "camera",
+            specId: "camera-alert",
+            bindings: { data: "camera" },
+            settings: {},
+          },
+        ],
+      },
+      display,
+    }).isCompatible,
+  ).toBe(isCompatible)
+})
