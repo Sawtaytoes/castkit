@@ -1,5 +1,6 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { useRef, useState } from "preact/hooks"
+import { ICON_PATHS, Icon } from "../Icon.tsx"
 import { formatClockTime } from "../time.ts"
 import { formatPointsDelta } from "./kidsPointsLayout.ts"
 
@@ -155,7 +156,7 @@ export const KidTasksToday = ({
             }
           }}
         >
-          ‹
+          <Icon path={ICON_PATHS.chevronLeft} size="32px" />
         </button>
         <h2 title={kid.name}>{kid.name}</h2>
         <p>
