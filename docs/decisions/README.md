@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-09: Task header top-aligns name and total](2026-10-09-task-header-top-aligns-name-and-total.md)
+
 - [2026-10-08: Task totals before scan history](2026-10-08-task-totals-before-scan-history.md)
 
 - [2026-10-08: Count-up timers lead with total minutes](2026-10-08-count-up-timers-lead-with-total-minutes.md)
