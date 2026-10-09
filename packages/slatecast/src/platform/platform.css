@@ -3217,13 +3217,16 @@ html[data-repaint="instant"]
 .kids-points-tasks-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: 12px;
   flex: none;
 }
-.kids-points-back {
+.platform .kids-points-back {
+  display: grid;
+  place-items: center;
   width: 52px;
   height: 52px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
@@ -3236,6 +3239,7 @@ html[data-repaint="instant"]
 .kids-points-tasks-header h2 {
   margin: 0;
   font-size: clamp(22px, 7cqmin, 48px);
+  line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3249,6 +3253,7 @@ html[data-repaint="instant"]
 }
 .kids-points-tasks-header strong {
   font-size: clamp(28px, 8.5cqmin, 64px);
+  line-height: 1;
 }
 .kids-points-tasks-header p span {
   font-size: clamp(14px, 3.5cqmin, 24px);
