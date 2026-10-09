@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-08
 Type: Display presentation and interaction
 Supersedes: None
-Superseded by: None
+Superseded by: [Task totals before scan history](2026-10-08-task-totals-before-scan-history.md) for daily task list presentation only.
 
 ## Decision
 
