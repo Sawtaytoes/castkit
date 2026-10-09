@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-08: Task totals before scan history](2026-10-08-task-totals-before-scan-history.md)
+
 - [2026-10-08: Count-up timers lead with total minutes](2026-10-08-count-up-timers-lead-with-total-minutes.md)
 
 - [2026-10-08 — Music queue history and stable artwork colors](2026-10-08-music-queue-history-and-stable-artwork-colors.md)
