@@ -150,6 +150,13 @@ export const startTestServer = async ({
     ],
     channels: [
       {
+        id: "points/task-totals",
+        name: "Task total fixture",
+        sourceId: "events",
+        type: "kids-points.v1",
+        settings: {},
+      },
+      {
         id: "points/fixture",
         name: "Fixture points",
         sourceId: "events",
@@ -165,6 +172,22 @@ export const startTestServer = async ({
       },
     ],
     views: [
+      {
+        id: "task-totals",
+        name: "Task totals",
+        layout: "single",
+        theme: "dark",
+        access: "public",
+        isControlEnabled: true,
+        panels: [
+          {
+            id: "points",
+            specId: "kids-points",
+            bindings: { data: "points/task-totals" },
+            settings: {},
+          },
+        ],
+      },
       {
         id: "scan-monitor",
         name: "Scan monitor",

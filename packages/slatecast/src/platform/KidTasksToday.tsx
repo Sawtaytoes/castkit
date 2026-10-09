@@ -1,5 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
-import { useRef } from "preact/hooks"
+import { useRef, useState } from "preact/hooks"
 import { formatClockTime } from "../time.ts"
 import { formatPointsDelta } from "./kidsPointsLayout.ts"
 
@@ -40,14 +40,19 @@ export const KidTasksToday = ({
   now: number
   onBack: () => void
 }) => {
+  const [selectedTaskName, setSelectedTaskName] = useState<
+    string | undefined
+  >()
   const contact = useRef<
     | {
         pointerId: number
+        startX: number
         startY: number
         scrollTop: number
       }
     | undefined
   >()
+  const hasDragged = useRef(false)
   const today = getTaskDay({
     atMs: now,
     timeZone: kid.timeZone,
@@ -69,7 +74,40 @@ export const KidTasksToday = ({
             right.atMs - left.atMs ||
             left.id.localeCompare(right.id),
         )
-  const active = kid.activeTask
+  const active = isPreviousDay ? undefined : kid.activeTask
+  const taskNames = Array.from(
+    new Set([
+      ...(active ? [active.name] : []),
+      ...tasks.map((task) => task.name),
+    ]),
+  )
+  const summaries = taskNames.map((name) => {
+    const entries = tasks.filter(
+      (task) => task.name === name,
+    )
+    return {
+      name,
+      entries,
+      points: entries.reduce(
+        (total, task) => total + task.points,
+        0,
+      ),
+      minutes: entries.some(
+        (task) => task.minutes !== undefined,
+      )
+        ? entries.reduce(
+            (total, task) => total + (task.minutes ?? 0),
+            0,
+          )
+        : undefined,
+      active: active?.name === name ? active : undefined,
+    }
+  })
+  const selected = summaries.find(
+    (summary) => summary.name === selectedTaskName,
+  )
+  const visibleTasks = selected?.entries ?? tasks
+  const visibleActive = selected ? selected.active : active
   const hasHistory = kid.tasksToday !== undefined
   const hasActivity =
     tasks.length > 0 || active !== undefined
@@ -79,6 +117,21 @@ export const KidTasksToday = ({
       isTwelveHour: true,
       isNumericDate: false,
     })
+  const scanCount = (count: number) =>
+    `${count} ${count === 1 ? "scan" : "scans"}`
+  const summaryText = (
+    summary: (typeof summaries)[number],
+  ) =>
+    !hasHistory
+      ? "Task history unavailable"
+      : [
+          summary.minutes === undefined
+            ? undefined
+            : `${summary.minutes.toLocaleString("en-US")} min total`,
+          scanCount(summary.entries.length),
+        ]
+          .filter((text) => text !== undefined)
+          .join(" · ")
   return (
     <section
       class="kids-points-tasks"
@@ -88,56 +141,92 @@ export const KidTasksToday = ({
         <button
           type="button"
           class="kids-points-back"
-          aria-label="Back to all children"
-          data-castkit-target={`kids-points-back:${kid.id}`}
-          onClick={onBack}
+          aria-label={
+            selected
+              ? "Back to today's tasks"
+              : "Back to all children"
+          }
+          data-castkit-target={`kids-points-back:${kid.id}:${selected ? "tasks" : "board"}`}
+          onClick={() => {
+            if (selected) {
+              setSelectedTaskName(undefined)
+            } else {
+              onBack()
+            }
+          }}
         >
           ‹
         </button>
         <h2 title={kid.name}>{kid.name}</h2>
         <p>
           <strong>
-            {kid.pointsToday.toLocaleString("en-US")}
+            {selected
+              ? hasHistory
+                ? formatPointsDelta(selected.points)
+                : "—"
+              : kid.pointsToday.toLocaleString("en-US")}
           </strong>
           <span>today</span>
         </p>
       </header>
       <div class="kids-points-tasks-heading">
-        <h3>Today's tasks</h3>
+        <h3>{selected?.name ?? "Today's tasks"}</h3>
         {hasHistory && !isPreviousDay ? (
           <span>
-            {tasks.length}{" "}
-            {tasks.length === 1 ? "entry" : "entries"}
+            {selected
+              ? summaryText(selected)
+              : `${summaries.length} ${summaries.length === 1 ? "task" : "tasks"}`}
           </span>
         ) : null}
       </div>
       {hasActivity ? (
         // biome-ignore lint/a11y/noNoninteractiveTabindex: The scroll region needs keyboard scrolling.
         <section
+          key={selected?.name ?? "summary"}
           class="kids-points-task-list"
-          aria-label="Scroll today's tasks"
-          data-castkit-target={`scroll:kids-points-tasks:${kid.id}`}
+          aria-label={
+            selected
+              ? `Scroll ${selected.name} scans`
+              : "Scroll today's tasks"
+          }
+          data-castkit-target={`scroll:kids-points-tasks:${kid.id}:${selected ? encodeURIComponent(selected.name) : "summary"}`}
           data-castkit-scroll="true"
           onPointerDown={(event) => {
             event.stopPropagation()
+            hasDragged.current = false
             contact.current = {
               pointerId: event.pointerId,
+              startX: event.clientX,
               startY: event.clientY,
               scrollTop: event.currentTarget.scrollTop,
             }
-            event.currentTarget.setPointerCapture(
-              event.pointerId,
-            )
           }}
           onPointerMove={(event) => {
             event.stopPropagation()
             if (
               contact.current?.pointerId === event.pointerId
             ) {
-              event.currentTarget.scrollTop =
-                contact.current.scrollTop +
-                contact.current.startY -
-                event.clientY
+              if (
+                Math.max(
+                  Math.abs(
+                    contact.current.startX - event.clientX,
+                  ),
+                  Math.abs(
+                    contact.current.startY - event.clientY,
+                  ),
+                ) > 8
+              ) {
+                hasDragged.current = true
+                event.currentTarget.setPointerCapture(
+                  event.pointerId,
+                )
+              }
+              if (hasDragged.current) {
+                event.currentTarget.scrollTop =
+                  contact.current.scrollTop +
+                  contact.current.startY -
+                  event.clientY
+              }
             }
           }}
           onPointerUp={(event) => {
@@ -146,50 +235,89 @@ export const KidTasksToday = ({
           }}
           onPointerCancel={(event) => {
             event.stopPropagation()
+            hasDragged.current = true
             contact.current = undefined
           }}
         >
-          {active ? (
+          {!selected
+            ? summaries.map((summary) => (
+                <button
+                  type="button"
+                  class="kids-points-task kids-points-task-summary"
+                  key={summary.name}
+                  aria-label={`View ${summary.name} scans`}
+                  data-castkit-target={`kids-points-task:${kid.id}:${encodeURIComponent(summary.name)}`}
+                  onKeyDown={() => {
+                    hasDragged.current = false
+                  }}
+                  onClick={() => {
+                    if (!hasDragged.current) {
+                      setSelectedTaskName(summary.name)
+                    }
+                  }}
+                >
+                  <div>
+                    <h4>{summary.name}</h4>
+                    <p>{summaryText(summary)}</p>
+                    {summary.active ? (
+                      <p>
+                        In progress since{" "}
+                        {time(summary.active.startedAtMs)}
+                      </p>
+                    ) : null}
+                  </div>
+                  {hasHistory ? (
+                    <strong>
+                      {formatPointsDelta(summary.points)}
+                    </strong>
+                  ) : null}
+                  <span aria-hidden="true">›</span>
+                </button>
+              ))
+            : null}
+          {selected && visibleActive ? (
             <article
               class="kids-points-task"
               data-running="true"
             >
               <div>
-                <h4>{active.name}</h4>
+                <h4>{visibleActive.name}</h4>
                 <p>
                   In progress since{" "}
-                  {time(active.startedAtMs)}
+                  {time(visibleActive.startedAtMs)}
                 </p>
               </div>
             </article>
           ) : null}
-          {tasks.map((task) => (
-            <article
-              class="kids-points-task"
-              key={task.id}
-              data-task-id={task.id}
-            >
-              <div>
-                <h4>{task.name}</h4>
-                <p>
-                  <time
-                    dateTime={new Date(
-                      task.atMs,
-                    ).toISOString()}
-                  >
-                    {time(task.atMs)}
-                  </time>
-                  {task.minutes === undefined ||
-                  task.minutes === 0
-                    ? null
-                    : ` · ${task.minutes.toLocaleString("en-US")} min`}
-                </p>
-              </div>
-              <strong>
-                {formatPointsDelta(task.points)}
-              </strong>
-            </article>
-          ))}
+          {selected
+            ? visibleTasks.map((task) => (
+                <article
+                  class="kids-points-task"
+                  key={task.id}
+                  data-task-id={task.id}
+                >
+                  <div>
+                    <h4>{task.name}</h4>
+                    <p>
+                      <time
+                        dateTime={new Date(
+                          task.atMs,
+                        ).toISOString()}
+                      >
+                        {time(task.atMs)}
+                      </time>
+                      {task.minutes === undefined ||
+                      task.minutes === 0
+                        ? null
+                        : ` · ${task.minutes.toLocaleString("en-US")} min`}
+                    </p>
+                  </div>
+                  <strong>
+                    {formatPointsDelta(task.points)}
+                  </strong>
+                </article>
+              ))
+            : null}
         </section>
       ) : (
         <div class="kids-points-tasks-empty" role="status">

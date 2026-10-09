@@ -236,3 +236,13 @@ A Kids Points panel in an active-only view appears during the most recent scan's
 ## Adaptive cards
 
 Complete cards now fill a measured grid selected by Charcuterie’s shared priority policy. Tall portrait boxes stack the children over the full height, retaining last-task details and making earned points larger than the adjacent goal. Wide boxes can use columns. Every card must meet its minimum size; constrained boxes retain complete compact rows and an overflow count.
+
+## Today's task totals and scans
+
+Tap a child on an interactive display to see one row per task: recorded minutes, net points and scan count. Repeated practice appears once, so its final daily total is visible without scrolling through every session. Tap that task to see only its scans, newest first, with timestamps and session lengths. Back returns to task totals, then to all children.
+
+Zero-point scans remain in the history. Running activity stays marked in progress alongside its completed total; unfinished elapsed time is not counted as recorded minutes. The producer's local-day snapshot controls the list, including corrections. Touch controls and frame targets are shared by browser and image deliveries.
+
+![Task totals at 480×480, from fixture data](images/task-totals/summary.png)
+
+![The selected task’s scans, from fixture data](images/task-totals/scans.png)

@@ -111,7 +111,11 @@ const mountKids = () => {
                     atMs: now - (index + 1) * 600000,
                     points: 30,
                     minutes:
-                      index % 2 === 0 ? 10 : undefined,
+                      index % 4 === 1
+                        ? 15
+                        : index % 4 === 0
+                          ? 10
+                          : undefined,
                   }),
                 ),
               },
@@ -141,7 +145,7 @@ test("daily tasks board", async () => {
   await capture("kids-today-board-480x480")
 })
 
-test("daily tasks detail and scrolled entries", async () => {
+test("daily task summary and individual scan history", async () => {
   await page.viewport(480, 480)
   mountKids()
   await userEvent.click(
@@ -158,8 +162,14 @@ test("daily tasks detail and scrolled entries", async () => {
     )
     .toBe("1")
   await capture("kids-today-detail-480x480")
+  await userEvent.click(
+    screen.getByRole("button", {
+      name: "View Practice piano scans",
+    }),
+  )
+  await capture("kids-today-task-scans-480x480")
   const list = screen.getByRole("region", {
-    name: "Scroll today's tasks",
+    name: "Scroll Practice piano scans",
   })
   list.scrollTop = list.scrollHeight
   await capture("kids-today-scrolled-480x480")
