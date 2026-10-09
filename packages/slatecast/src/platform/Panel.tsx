@@ -302,6 +302,12 @@ export const Panel = ({
           <BuiltinView
             panel={panel}
             data={selectedData}
+            snapshots={
+              channels[panel.bindings.snapshots ?? ""]
+                ?.data as
+                | ContractData["cameras.v1"]
+                | undefined
+            }
             weather={
               channels[panel.bindings.weather ?? ""]
                 ?.data as

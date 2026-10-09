@@ -569,3 +569,22 @@ required. See [the decision](decisions/2026-10-06-ambient-leds-can-follow-curren
 ### Right edge view
 
 `leftSwipeViewId` is an optional installation setting for touch navigation. Pulling inward from the right edge requests that view ID through the normal device command contract. A sideways drag that starts in the middle does not request it. Empty preserves the unassigned gesture. It also supplies an undrawn right-edge region above external views, so the gesture remains reachable there. Set it in the device editor; Home Assistant can apply the installation's interruption and return policy. It does not change the hardware profile or enable the drawer.
+
+### Camera alerts
+
+The Camera Alert specification requires effective `fast` repaint or faster and supports
+both delivery modes. Effective `slow` and `super-slow` targets, including a battery-powered
+`fast` panel, reject assignment and temporary overrides. An `instant` browser uses muted
+source video; `fast` targets and image delivery use serialized snapshots, starting at one
+request per second. The interval setting is available in the view editor and is clamped
+to 1–10 seconds. Acquisition, capture, transport and physical repaint can reduce the
+actual rate; the repaint grade does not guarantee FPS.
+
+A still states **Image received** with its acquisition time rather than claiming that its
+contents remain true. That timestamp describes CastKit receiving and decoding the image,
+not the camera's exposure time. It remains visible while retrying a failed acquisition.
+The image scheduler refreshes this timestamped view independently of channel-state
+polling. It never overlaps its image renders, and target checks discard frames whose
+temporary view has expired. Browser snapshots abort on unmount and release image blobs.
+While source video starts, an instant browser also refreshes snapshots so startup failure
+leaves a useful timestamped picture. Existing camera-wall refresh behavior is unchanged.

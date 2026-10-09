@@ -149,6 +149,7 @@ export type SourceInstance = {
     assetId: string
     kind?: string
     query?: Record<string, string>
+    signal?: AbortSignal
   }) => Promise<Response>
 }
 /** A factory is run only for an explicitly configured, enabled source. */
