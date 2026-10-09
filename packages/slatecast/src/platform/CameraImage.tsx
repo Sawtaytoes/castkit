@@ -16,6 +16,7 @@ type CameraProps = {
   isLive?: boolean
   format?: "hls" | "mjpeg"
   className?: string
+  onPlaybackChange?: (isPlaying: boolean) => void
 }
 
 /** Keep authenticated still and MJPEG cameras current. */
@@ -24,6 +25,7 @@ const MjpegCameraImage = ({
   name,
   isLive = false,
   className,
+  onPlaybackChange,
 }: CameraProps) => {
   const image = useRef<HTMLImageElement>(null)
   const [frame, setFrame] = useState(0)
@@ -135,8 +137,14 @@ const MjpegCameraImage = ({
           class={className}
           src={refreshed}
           alt={`${name} camera`}
-          onError={() => setHasFailed(true)}
-          onLoad={() => setHasFailed(false)}
+          onError={() => {
+            setHasFailed(true)
+            onPlaybackChange?.(false)
+          }}
+          onLoad={() => {
+            setHasFailed(false)
+            onPlaybackChange?.(true)
+          }}
         />
       )}
       {hasFailed ? (
@@ -153,6 +161,7 @@ export const CameraImage = (props: CameraProps) =>
       url={props.url}
       name={props.name}
       className={props.className}
+      onPlaybackChange={props.onPlaybackChange}
     />
   ) : (
     <MjpegCameraImage {...props} />

@@ -1387,6 +1387,7 @@ const sendMedia = async ({
       assetId: context.req.param("assetId") ?? "",
       kind: context.req.query("kind"),
       query: context.req.query(),
+      signal: context.req.raw.signal,
     })
     if (!response.ok)
       return context.json(

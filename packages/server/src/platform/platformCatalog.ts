@@ -800,6 +800,44 @@ const viewSpecs: ViewSpec[] = [
   },
   {
     ...view({
+      id: "camera-alert",
+      name: "Camera Alert",
+      type: "cameras.v1",
+    }),
+    minimumRepaint: "fast",
+    inputs: [
+      {
+        key: "data",
+        label: "Camera",
+        type: "cameras.v1",
+        isRequired: true,
+      },
+      {
+        key: "snapshots",
+        label: "Snapshot camera (optional)",
+        type: "cameras.v1",
+        isRequired: false,
+      },
+    ],
+    settings: [
+      {
+        key: "label",
+        label: "Camera label",
+        type: "text",
+        defaultValue: "Camera",
+      },
+      {
+        key: "snapshotIntervalSeconds",
+        label: "Snapshot interval (seconds)",
+        type: "number",
+        defaultValue: 1,
+        description:
+          "Fast and image-delivered displays use fresh snapshots. Requests never overlap; slower acquisition reduces the delivered rate. Minimum one second.",
+      },
+    ],
+  },
+  {
+    ...view({
       id: "timers",
       name: "Timers",
       type: "entities.v1",
@@ -1255,7 +1293,11 @@ const viewGroups = [
     name: "Home controls and history",
     specs: ["entities", "timers", "map", "charts"],
   },
-  { id: "cameras", name: "Cameras", specs: ["cameras"] },
+  {
+    id: "cameras",
+    name: "Cameras",
+    specs: ["cameras", "camera-alert"],
+  },
   {
     id: "text",
     name: "Text and instructions",

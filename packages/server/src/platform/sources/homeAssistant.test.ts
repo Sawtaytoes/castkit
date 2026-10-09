@@ -156,6 +156,8 @@ test("HA camera channel can provide live video under a printer ID alias", async 
           id: "1",
           name: "Example printer",
           url: "/api/platform/channels/cameras/media/camera.example_printer?kind=hls",
+          snapshotUrl:
+            "/api/platform/channels/cameras/media/camera.example_printer?kind=camera",
           isLive: true,
           format: "hls",
         },
@@ -252,5 +254,36 @@ test("light capability metadata survives normalization and LED effects use the n
     rgb_color: [20, 40, 80],
     color_temp_kelvin: 4000,
   })
+  adapter.dispose()
+})
+
+test("canceling a selected camera snapshot cancels the upstream HA request", async () => {
+  const fetchRequest = vi.fn<typeof fetch>(
+    async () => new Response("image"),
+  )
+  const context = sourceContext({
+    fetch: fetchRequest,
+    channels: [
+      {
+        id: "cameras",
+        name: "Cameras",
+        sourceId: "source",
+        type: "cameras.v1",
+        settings: { entityIds: ["camera.example"] },
+      },
+    ],
+  })
+  const adapter = createHomeAssistantSource(context)
+  const controller = new AbortController()
+  await adapter.getMedia?.({
+    channelId: "cameras",
+    assetId: "camera.example",
+    kind: "camera",
+    signal: controller.signal,
+  })
+  const signal = fetchRequest.mock.calls[0]?.[1]?.signal
+  expect(signal?.aborted).toBe(false)
+  controller.abort()
+  expect(signal?.aborted).toBe(true)
   adapter.dispose()
 })

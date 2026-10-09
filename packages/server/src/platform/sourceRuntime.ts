@@ -214,6 +214,7 @@ export const createSourceRuntime = ({
       assetId: string
       kind?: string
       query?: Record<string, string>
+      signal?: AbortSignal
     }) => {
       const instance = instanceFor(request.channelId)
       if (!instance?.getMedia) {

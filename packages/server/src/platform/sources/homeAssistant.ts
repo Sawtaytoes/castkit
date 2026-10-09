@@ -502,6 +502,15 @@ export const createHomeAssistantSource: SourceFactory = (
                 entityId: textValue(entry.entity_id),
                 kind: isHls ? "hls" : "camera",
               }),
+              ...(isHls
+                ? {
+                    snapshotUrl: mediaPath({
+                      channelId: channel.id,
+                      entityId: textValue(entry.entity_id),
+                      kind: "camera",
+                    }),
+                  }
+                : {}),
               isLive: isHls,
               ...(isHls ? { format: "hls" as const } : {}),
             })),
@@ -677,6 +686,7 @@ export const createHomeAssistantSource: SourceFactory = (
       assetId,
       kind,
       query = {},
+      signal,
     }) => {
       const channel = context.channels.find(
         (entry) => entry.id === channelId,
@@ -694,9 +704,18 @@ export const createHomeAssistantSource: SourceFactory = (
         assetId.startsWith("camera.")
       ) {
         return sourceRequest({
-          context,
+          context: signal
+            ? {
+                ...context,
+                signal: AbortSignal.any([
+                  context.signal,
+                  signal,
+                ]),
+              }
+            : context,
           headers,
           path: `/api/camera_proxy/${encodeURIComponent(assetId)}`,
+          timeoutMilliseconds: 3000,
         })
       }
       if (

@@ -117,6 +117,7 @@ export const BuiltinView = ({
   panel,
   data,
   weather,
+  snapshots,
   isControlEnabled,
   onAction,
 }: {
@@ -124,6 +125,7 @@ export const BuiltinView = ({
   data: unknown
   /** The optional `weather` binding the clock and agenda faces carry. */
   weather?: ContractData["weather.v1"]
+  snapshots?: ContractData["cameras.v1"]
   isControlEnabled: boolean
   onAction: (
     action: string,
@@ -317,6 +319,15 @@ export const BuiltinView = ({
         <DeferredCamerasView
           data={data as ContractData["cameras.v1"]}
           settings={panel.settings}
+        />
+      )
+    case "camera-alert":
+      return (
+        <DeferredCamerasView
+          data={data as ContractData["cameras.v1"]}
+          settings={panel.settings}
+          isAlert
+          snapshots={snapshots}
         />
       )
     case "ai-usage":

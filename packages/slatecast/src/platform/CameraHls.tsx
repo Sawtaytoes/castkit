@@ -9,12 +9,16 @@ export const CameraHls = ({
   url,
   name,
   className,
+  onPlaybackChange,
 }: {
   url: string
   name: string
   className?: string
+  onPlaybackChange?: (isPlaying: boolean) => void
 }) => {
   const video = useRef<HTMLVideoElement>(null)
+  const playback = useRef(onPlaybackChange)
+  playback.current = onPlaybackChange
   const [attempt, setAttempt] = useState(0)
   const [error, setError] = useState("")
   useEffect(() => {
@@ -30,6 +34,7 @@ export const CameraHls = ({
       | undefined
     const retry = () => {
       if (isDisposed || retryTimer) return
+      playback.current?.(false)
       setError(`Reconnecting ${name} camera…`)
       retryTimer = setTimeout(
         () => setAttempt((current) => current + 1),
@@ -37,9 +42,13 @@ export const CameraHls = ({
       )
     }
     const monitor = setInterval(() => {
-      if (element.currentTime > lastPosition) {
+      if (
+        element.readyState >= 2 &&
+        element.currentTime > lastPosition
+      ) {
         lastPosition = element.currentTime
         lastAdvanceAt = Date.now()
+        playback.current?.(true)
         setError("")
       } else if (
         Date.now() - lastAdvanceAt >=
@@ -71,6 +80,7 @@ export const CameraHls = ({
           element.src = source
           void element.play().catch(retry)
         } else {
+          playback.current?.(false)
           setError(
             `${name} camera playback is unavailable in this browser.`,
           )

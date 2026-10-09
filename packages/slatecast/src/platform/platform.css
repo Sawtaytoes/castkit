@@ -3506,3 +3506,75 @@ html[data-repaint="instant"]
   grid-column: 1 / -1;
   text-align: end;
 }
+
+/* Camera alerts preserve the entire image and leave only a small status band. */
+.platform[data-device="true"]:has(
+  .platform-panel[data-spec="camera-alert"]
+) {
+  padding: 0;
+}
+.platform-panel[data-spec="camera-alert"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+.camera-alert {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-block-size: 0;
+  background: var(--bg);
+}
+.camera-alert > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: clamp(14px, 3cqi, 24px);
+}
+.camera-alert > header > span {
+  color: var(--fg-dim);
+  font-size: 0.75em;
+}
+.camera-alert-media {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+.camera-alert-snapshot,
+.camera-alert-video,
+.camera-alert-video > .platform-camera {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+.camera-alert-snapshot > img,
+.camera-alert-video video,
+.camera-alert-video img {
+  flex: 1;
+  inline-size: 100%;
+  block-size: 0;
+  min-block-size: 0;
+  object-fit: contain;
+}
+.camera-alert-video {
+  position: absolute;
+  inset: 0;
+}
+.camera-alert-video[data-ready="false"] :is(video, img) {
+  opacity: 0;
+}
+.camera-alert-freshness,
+.camera-alert-video p {
+  padding: 6px 12px;
+  margin: 0;
+  font-size: clamp(12px, 2.5cqi, 18px);
+  text-align: center;
+  background: var(--bg);
+}
