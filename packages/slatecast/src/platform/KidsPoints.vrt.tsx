@@ -405,6 +405,102 @@ test("a compact scan board can keep three children and two activities visible", 
   await capture("kids-points-all-children-scan-480x480")
 })
 
+/**
+ * A countdown reminder on the square panel. Tally Marks sends the display a
+ * line without the child's name, because the row already names the child.
+ * These are the longest lines it sends; "together" and the name were cut to
+ * "10 minutes to go…" beside the task name.
+ */
+const countdownReminderSnapshot = (
+  message: string,
+): DisplaySnapshot => {
+  const snapshot = compactBoardSnapshot({
+    isAllChildrenVisible: true,
+    hasScan: false,
+  })
+  const channel = snapshot.channels.points
+  const data = channel?.data as
+    | ContractData["kids-points.v1"]
+    | undefined
+  const kid = data?.kids[1]
+  if (!channel || !data || !kid)
+    throw new Error("The fixture must hold a second child")
+  return {
+    ...snapshot,
+    channels: {
+      points: {
+        ...channel,
+        data: {
+          ...data,
+          kids: data.kids.map((other) =>
+            other.id === kid.id
+              ? {
+                  ...other,
+                  activeTask: {
+                    name: "Sitting Still",
+                    startedAtMs: Date.now() - 2_000,
+                    isCountdown: true,
+                    goalMinutes: 10,
+                  },
+                }
+              : other,
+          ),
+          lastScan: {
+            kidId: kid.id,
+            result: "progress",
+            points: 0,
+            taskName: "Sitting Still",
+            message,
+            atMs: Date.now() - 1_000,
+          },
+        },
+      },
+    },
+  }
+}
+
+test.each([
+  ["minutes", "10 minutes to go!"],
+  ["seconds", "30 seconds to go!"],
+] as const)("a countdown reminder fits its row on a square panel (%s)", async (name, message) => {
+  await page.viewport(480, 480)
+  renderDevicePage(countdownReminderSnapshot(message))
+  await document.fonts.ready
+  const scan = document.querySelector(
+    ".kids-points-row .kids-points-scan",
+  )
+  if (!scan)
+    throw new Error("The reminder must show in its row")
+  const rowBox = scan
+    .closest(".kids-points-row")
+    ?.getBoundingClientRect()
+  if (!rowBox)
+    throw new Error("The reminder must sit in a row")
+  for (const part of scan.querySelectorAll(
+    ".kids-points-scan-headline, .kids-points-scan-detail",
+  )) {
+    expect(part.scrollWidth).toBeLessThanOrEqual(
+      part.clientWidth + 1,
+    )
+    const box = part.getBoundingClientRect()
+    expect(box.left).toBeGreaterThanOrEqual(rowBox.left)
+    expect(box.right).toBeLessThanOrEqual(rowBox.right)
+  }
+  const detail = scan.querySelector(
+    ".kids-points-scan-detail",
+  )
+  if (!detail)
+    throw new Error("The reminder must show its line")
+  expect(detail.textContent).toBe(message)
+  // The detail is clamped to one line: a second line means an ellipsis.
+  expect(detail.scrollHeight).toBeLessThanOrEqual(
+    detail.clientHeight + 1,
+  )
+  await capture(
+    `kids-points-countdown-reminder-${name}-480x480`,
+  )
+})
+
 test("the compact board keeps both timers visible after scan feedback ends", async () => {
   await page.viewport(480, 480)
   renderDevicePage(
