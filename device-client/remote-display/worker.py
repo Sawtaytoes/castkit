@@ -26,7 +26,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v17-scroll-targets"
+BUILD_MARKER = "castkit-remote-display-v18-slider-ownership"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -42,6 +42,9 @@ HIT_SCRIPT = """({x,y,attribute}) => {
  const element = document.elementFromPoint(x,y)?.closest(`[${attribute}]`);
  return element && !element.matches(':disabled,[aria-disabled="true"]') ? element.getAttribute(attribute) : document.querySelector('.stage') ? `view-gesture:${document.querySelector('.stage').dataset.view}` : null;
 }"""
+SLIDER_HIT_SCRIPT = """({x,y}) => Boolean(
+ document.elementFromPoint(x,y)?.closest('[role="slider"],input[type="range"]')
+)"""
 SCROLL_HIT_SCRIPT = """({x,y}) => {
  const hasScrollTarget = (document, pointX, pointY) => {
    const element = document.elementFromPoint(pointX, pointY);
@@ -251,6 +254,7 @@ class DisplaySession:
                     "started": time.monotonic(),
                     "is_gesture": False,
                     "is_native_active": False,
+                    "is_slider_drag": await self.page.evaluate(SLIDER_HIT_SCRIPT, {"x": x, "y": y}),
                     "is_scroll_drag": await self.page.evaluate(SCROLL_HIT_SCRIPT, {"x": x, "y": y}),
                 }
             elif self.contact is None:
@@ -264,6 +268,7 @@ class DisplaySession:
                 phase == 1
                 and not self.contact["is_gesture"]
                 and not self.contact.get("is_scroll_drag", False)
+                and not self.contact.get("is_slider_drag", False)
                 and not self.contact["identity"].startswith("navigation-edge:")
                 and max(abs(y - self.contact["start_y"]), abs(x - self.contact["start_x"])) >= 48
                 and (
@@ -311,12 +316,16 @@ class DisplaySession:
             # Their acknowledged starting hitbox owns the whole inward pull.
             is_navigation_drag = self.contact["identity"].startswith("navigation-edge:")
             is_scroll_drag = self.contact.get("is_scroll_drag", False)
+            # Sliders capture the original contact. Travel past 48 px or
+            # outside the track stays an adjustment, never view navigation.
+            is_slider_drag = self.contact.get("is_slider_drag", False)
             if (
                 phase == 1
                 and current != self.contact["identity"]
                 and not is_artwork_drag
                 and not is_navigation_drag
                 and not is_scroll_drag
+                and not is_slider_drag
             ):
                 # Cancel the tap but keep sampling the finger: it may cross a
                 # small control before travelling far enough to commit a swipe.
@@ -333,6 +342,7 @@ class DisplaySession:
                 and not is_artwork_drag
                 and not is_navigation_drag
                 and not is_scroll_drag
+                and not is_slider_drag
             ):
                 if phase == 2:
                     await self.cancel_contact()

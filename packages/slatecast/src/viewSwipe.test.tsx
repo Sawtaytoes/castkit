@@ -1,3 +1,4 @@
+import { fireEvent, screen } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, test } from "vitest"
 import {
@@ -7,6 +8,7 @@ import {
 } from "./__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
+import { scrubPositionSeconds } from "./state.ts"
 import { SWIPE_COMMIT_PIXELS } from "./viewSwipe.ts"
 
 const mountView = async ({
@@ -118,7 +120,10 @@ describe("a vertical swipe asks the house for a view", () => {
     expect(server.commands).toEqual([])
   })
 
-  test("a left artwork drag keeps track navigation instead of opening the configured view", async () => {
+  test.each([
+    [-180, "next"],
+    [180, "previous"],
+  ])("an artwork drag (%s) keeps %s track navigation", async (distanceX, action) => {
     const { server } = await mountView({
       view: "now-playing",
       leftSwipeViewId: "scores",
@@ -126,10 +131,10 @@ describe("a vertical swipe asks the house for a view", () => {
     await swipe({
       selector: ".artwork-frame",
       distanceY: 0,
-      distanceX: -180,
+      distanceX,
     })
     await waitUntil(() => server.commands.length > 0)
-    expect(server.commands).toEqual([{ action: "next" }])
+    expect(server.commands).toEqual([{ action }])
   })
 
   test("an unconfigured left swipe stays unassigned", async () => {
@@ -235,5 +240,84 @@ describe("a vertical swipe asks the house for a view", () => {
     expect(server.commands).toEqual([
       { action: "view", value: "ambient" },
     ])
+  })
+})
+
+describe("music sliders own their contacts", () => {
+  test.each([
+    [100, 0],
+    [20, -100],
+  ])("a seek drag (%s, %s) sends only the seek", async (distanceX, distanceY) => {
+    const { server } = await mountView({
+      view: "now-playing",
+    })
+    await swipe({
+      selector: ".seek-track",
+      distanceX,
+      distanceY,
+    })
+    await waitUntil(() => server.commands.length > 0)
+    expect(server.commands).toHaveLength(1)
+    expect(server.commands[0]?.action).toBe("seek")
+  })
+
+  test("cancelling a seek discards the preview and a stray release", async () => {
+    const { server } = await mountView({
+      view: "now-playing",
+    })
+    const target = screen.getByRole("slider", {
+      name: "Seek",
+    })
+    target.style.width = "200px"
+    target.style.height = "20px"
+    const bounds = target.getBoundingClientRect()
+    const user = userEvent.setup()
+    const point = {
+      target,
+      coords: {
+        clientX: bounds.left + 100,
+        clientY: bounds.top + 10,
+      },
+    }
+    await user.pointer({ ...point, keys: "[MouseLeft>]" })
+    expect(scrubPositionSeconds.value).not.toBeNull()
+    fireEvent.pointerCancel(target, { pointerId: 1 })
+    expect(scrubPositionSeconds.value).toBeNull()
+    await user.pointer({ ...point, keys: "[/MouseLeft]" })
+    expect(server.commands).toEqual([])
+  })
+
+  test("an upward pull that lands on volume sends no music or view command", async () => {
+    const { server } = await mountView({
+      view: "now-playing",
+    })
+    await swipe({
+      selector: 'input[type="range"]',
+      distanceX: 10,
+      distanceY: -100,
+    })
+    expect(server.commands).toEqual([])
+    expect(
+      screen.getByRole("slider", { name: "Volume" }),
+    ).toHaveValue("50")
+  })
+
+  test("a horizontal volume drag keeps adjusting outside the track without navigation", async () => {
+    const { server } = await mountView({
+      view: "now-playing",
+    })
+    await swipe({
+      selector: 'input[type="range"]',
+      distanceX: 250,
+      distanceY: -100,
+    })
+    await waitUntil(
+      () => server.commands.at(-1)?.value === 1,
+    )
+    expect(
+      server.commands.every(
+        (command) => command.action === "volume_set",
+      ),
+    ).toBe(true)
   })
 })

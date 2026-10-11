@@ -270,6 +270,7 @@ const SeekBar = ({
 }: {
   isInteractive: boolean
 }) => {
+  const pointerId = useRef<number | null>(null)
   const data = nowPlaying.value
   const duration = data?.durationSeconds
   const position =
@@ -339,6 +340,7 @@ const SeekBar = ({
           aria-valuetext={valueText}
           data-castkit-target="now-playing-seek"
           onPointerDown={(event) => {
+            pointerId.current = event.pointerId
             ;(
               event.currentTarget as HTMLElement
             ).setPointerCapture(event.pointerId)
@@ -346,15 +348,27 @@ const SeekBar = ({
               positionFromEvent(event)
           }}
           onPointerMove={(event) => {
-            if (scrubPositionSeconds.value !== null) {
+            if (pointerId.current === event.pointerId) {
               scrubPositionSeconds.value =
                 positionFromEvent(event)
             }
           }}
           onPointerUp={(event) => {
+            if (pointerId.current !== event.pointerId) {
+              return
+            }
+            pointerId.current = null
             const target = positionFromEvent(event)
             scrubPositionSeconds.value = null
             seekTo(target)
+          }}
+          onPointerCancel={() => {
+            pointerId.current = null
+            scrubPositionSeconds.value = null
+          }}
+          onLostPointerCapture={() => {
+            pointerId.current = null
+            scrubPositionSeconds.value = null
           }}
         >
           {trackBar}
@@ -390,7 +404,52 @@ const SeekBar = ({
 */
 
 const VolumeRow = () => {
+  const input = useRef<HTMLInputElement>(null)
+  const contact = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    isHorizontal: boolean
+    isCancelled: boolean
+  } | null>(null)
+  const volumeFromEvent = (event: PointerEvent) => {
+    const bounds = (
+      event.currentTarget as HTMLElement
+    ).getBoundingClientRect()
+    return (
+      Math.round(
+        Math.min(
+          1,
+          Math.max(
+            0,
+            (event.clientX - bounds.left) / bounds.width,
+          ),
+        ) * 100,
+      ) / 100
+    )
+  }
   const data = nowPlaying.value
+  const hasVolume = data?.volume !== undefined
+  useEffect(() => {
+    const element = input.current
+    if (!element) {
+      return
+    }
+    // Register the lowercase DOM event explicitly: desktop Chromium can
+    // receive touch input without exposing an `ontouchstart` property.
+    const preventNativeTouch = (event: TouchEvent) =>
+      event.preventDefault()
+    element.addEventListener(
+      "touchstart",
+      preventNativeTouch,
+      { passive: false },
+    )
+    return () =>
+      element.removeEventListener(
+        "touchstart",
+        preventNativeTouch,
+      )
+  }, [hasVolume])
   if (data?.volume === undefined) {
     return null
   }
@@ -426,15 +485,80 @@ const VolumeRow = () => {
           style={{ "--volume-fill": `${percent}%` }}
         />
         <input
+          ref={input}
           type="range"
           min="0"
           max="100"
           value={percent}
           aria-label="Volume"
           data-castkit-target="now-playing-volume"
-          // onInput, not onChange: onChange only fires on release, so the
-          // slider sat still under a moving finger. setVolume throttles the
-          // publishes.
+          // Native ranges change on touch-down, before a bottom-up gesture
+          // has a direction. Wait for a tap release or horizontal intent;
+          // a vertical pull never changes the music volume.
+          onPointerDown={(event) => {
+            event.preventDefault()
+            event.currentTarget.focus()
+            event.currentTarget.setPointerCapture(
+              event.pointerId,
+            )
+            contact.current = {
+              pointerId: event.pointerId,
+              startX: event.clientX,
+              startY: event.clientY,
+              isHorizontal: false,
+              isCancelled: false,
+            }
+          }}
+          onPointerMove={(event) => {
+            const origin = contact.current
+            if (
+              !origin ||
+              origin.pointerId !== event.pointerId ||
+              origin.isCancelled
+            ) {
+              return
+            }
+            const distanceX = Math.abs(
+              event.clientX - origin.startX,
+            )
+            const distanceY = Math.abs(
+              event.clientY - origin.startY,
+            )
+            if (!origin.isHorizontal) {
+              if (
+                Math.max(distanceX, distanceY) <
+                DRAG_SLOP_PIXELS
+              ) {
+                return
+              }
+              if (distanceY >= distanceX) {
+                origin.isCancelled = true
+                return
+              }
+              origin.isHorizontal = true
+            }
+            setVolume(volumeFromEvent(event))
+          }}
+          onPointerUp={(event) => {
+            const origin = contact.current
+            if (
+              !origin ||
+              origin.pointerId !== event.pointerId
+            ) {
+              return
+            }
+            contact.current = null
+            if (!origin.isCancelled) {
+              setVolume(volumeFromEvent(event))
+            }
+          }}
+          onPointerCancel={() => {
+            contact.current = null
+          }}
+          onLostPointerCapture={() => {
+            contact.current = null
+          }}
+          // Keyboard and accessibility input retain the native range behavior.
           onInput={(event) =>
             setVolume(
               Number(

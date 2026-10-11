@@ -69,6 +69,11 @@ const buildNowPlayingPayload = ({
 
 test.describe("Media Controls end to end", () => {
   test.beforeEach(async ({ page }) => {
+    await publishFromHomeAssistant({
+      page,
+      topic: e2eTopics.view,
+      payload: "Now Playing",
+    })
     await page.goto(`/d/${E2E_DEVICE_ID}`)
   })
 
@@ -155,6 +160,158 @@ test.describe("Media Controls end to end", () => {
           .at(-1),
       )
       .toEqual({ action: "volume_set", value: 0.85 })
+  })
+
+  test("a real upward touch on volume leaves the volume unchanged", async ({
+    page,
+  }) => {
+    await publishFromHomeAssistant({
+      page,
+      topic: e2eTopics.nowPlaying,
+      payload: buildNowPlayingPayload(),
+    })
+    const slider = page.getByRole("slider", {
+      name: "Volume",
+    })
+    await expect(slider).toBeVisible()
+    const bounds = await slider.boundingBox()
+    if (!bounds) {
+      throw new Error("Volume slider has no touch area")
+    }
+    const before = await readCommands(page)
+    const session = await page.context().newCDPSession(page)
+    const point = {
+      x: bounds.x + bounds.width * 0.8,
+      y: bounds.y + bounds.height / 2,
+      id: 0,
+    }
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [point],
+    })
+    await expect(slider).toHaveValue("50")
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ ...point, y: point.y - 100 }],
+    })
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    })
+    await expect(slider).toHaveValue("50")
+    expect(
+      (await readCommands(page)).slice(before.length),
+    ).toEqual([])
+    await session.detach()
+  })
+
+  test("a real volume drag keeps its contact beyond the navigation threshold", async ({
+    page,
+  }) => {
+    await publishFromHomeAssistant({
+      page,
+      topic: e2eTopics.nowPlaying,
+      payload: buildNowPlayingPayload(),
+    })
+    const slider = page.getByRole("slider", {
+      name: "Volume",
+    })
+    await expect(slider).toBeVisible()
+    const bounds = await slider.boundingBox()
+    if (!bounds) {
+      throw new Error("Volume slider has no touch area")
+    }
+    const before = await readCommands(page)
+    const session = await page.context().newCDPSession(page)
+    const point = {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+      id: 0,
+    }
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [point],
+    })
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        { ...point, x: bounds.x + bounds.width * 0.9 },
+      ],
+    })
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    })
+    await expect
+      .poll(async () =>
+        (await readCommands(page))
+          .slice(before.length)
+          .at(-1),
+      )
+      .toEqual({ action: "volume_set", value: 0.9 })
+    await slider.press("ArrowLeft")
+    await expect(slider).toHaveValue("89")
+    await expect
+      .poll(async () =>
+        (await readCommands(page))
+          .slice(before.length)
+          .at(-1),
+      )
+      .toEqual({ action: "volume_set", value: 0.89 })
+    expect(
+      (await readCommands(page))
+        .slice(before.length)
+        .every(
+          (command) => command.action === "volume_set",
+        ),
+    ).toBe(true)
+    await session.detach()
+  })
+
+  test("a bottom-edge pull requests time without touching music volume", async ({
+    page,
+  }) => {
+    await publishFromHomeAssistant({
+      page,
+      topic: e2eTopics.nowPlaying,
+      payload: buildNowPlayingPayload(),
+    })
+    const edge = page.getByRole("button", {
+      name: "Pull inward from the bottom for time",
+    })
+    await expect(edge).toBeVisible()
+    const bounds = await edge.boundingBox()
+    if (!bounds) {
+      throw new Error("Bottom edge has no touch area")
+    }
+    const before = await readCommands(page)
+    const session = await page.context().newCDPSession(page)
+    const point = {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+      id: 0,
+    }
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [point],
+    })
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ ...point, y: point.y - 150 }],
+    })
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    })
+    await expect
+      .poll(async () =>
+        (await readCommands(page)).slice(before.length),
+      )
+      .toEqual([{ action: "view", value: "ambient" }])
+    await expect(
+      page.getByRole("slider", { name: "Volume" }),
+    ).toBeHidden()
+    await session.detach()
   })
 
   test("a view message swaps the rendered view", async ({
