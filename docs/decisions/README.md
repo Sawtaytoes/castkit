@@ -67,6 +67,7 @@ proposing a change; a settled decision here overrides default instinct.
 
 | Date | Decision | Status |
 | --- | --- | --- |
+| 2026-10-11 | [Sliders own their touch contact](2026-10-11-sliders-own-their-touch-contact.md) | Accepted |
 | 2026-10-06 | [Backlight controls share native and MQTT state](2026-10-06-backlight-controls-share-native-and-mqtt-state.md) | Accepted |
 | 2026-10-06 | [Touch navigation uses undrawn edges](2026-10-06-touch-navigation-uses-undrawn-edges.md) | Accepted |
 | 2026-10-06 | [Management uses available screen width](2026-10-06-management-uses-available-screen-width.md) | Accepted |
