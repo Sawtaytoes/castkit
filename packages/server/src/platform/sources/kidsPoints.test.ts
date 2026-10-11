@@ -138,6 +138,26 @@ test("a scan outcome is reduced to what a display draws differently", () => {
   ).toBe("started")
 })
 
+test("a countdown reminder shows its line without the child's name", () => {
+  const scan = {
+    kid: "robin",
+    kidName: "Robin",
+    outcome: "session-progress",
+    message: "Robin has 15 seconds to go!",
+    ts: 9_000,
+  }
+  expect(
+    normalizeKidScan({
+      ...scan,
+      displayMessage: "15 seconds to go!",
+    })?.scan.message,
+  ).toBe("15 seconds to go!")
+  // An older producer sends only the spoken line, which still shows.
+  expect(normalizeKidScan(scan)?.scan.message).toBe(
+    "Robin has 15 seconds to go!",
+  )
+})
+
 test("every child's retained state fills the board in name order", async () => {
   const context = sourceContext({
     channels: [channel("board")],

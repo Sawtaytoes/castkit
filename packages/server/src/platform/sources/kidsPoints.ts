@@ -192,7 +192,10 @@ export const normalizeKidScan = (
     return undefined
   }
   const taskName = textValue(raw.taskName)
-  const message = textValue(raw.message)
+  // The producer's `message` is spoken, so it names the child. A display
+  // already labels the child, so it prefers the name-free line when sent.
+  const message =
+    textValue(raw.displayMessage) || textValue(raw.message)
   const reader = textValue(raw.reader)
   const name = textValue(raw.kidName)
   return {
