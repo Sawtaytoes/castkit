@@ -57,6 +57,16 @@ type SwipeState = {
 let swipe: SwipeState | null = null
 
 export const beginViewSwipe = (event: PointerEvent) => {
+  // A slider owns its contact, including travel outside its original box.
+  // A seek or volume adjustment must never double as a request for a view.
+  if (
+    event.target instanceof Element &&
+    event.target.closest(
+      '[role="slider"], input[type="range"]',
+    )
+  ) {
+    return
+  }
   swipe = {
     pointerId: event.pointerId,
     startX: event.clientX,
@@ -86,7 +96,8 @@ export const trackViewSwipe = (event: PointerEvent) => {
     !swipe.isCommitted &&
     ((Math.abs(distanceY) >= SWIPE_COMMIT_PIXELS &&
       Math.abs(distanceY) > Math.abs(distanceX)) ||
-      (distanceX >= SWIPE_COMMIT_PIXELS &&
+      (!swipe.isArtwork &&
+        distanceX >= SWIPE_COMMIT_PIXELS &&
         Math.abs(distanceX) > Math.abs(distanceY) &&
         device.value?.hasPrinterNavigation &&
         device.value.views.some(
@@ -136,6 +147,7 @@ export const endViewSwipe = (
     Math.abs(distanceY) >= SWIPE_COMMIT_PIXELS &&
     Math.abs(distanceY) > Math.abs(distanceX)
   const isPrinterPull =
+    !isArtwork &&
     distanceX >= SWIPE_COMMIT_PIXELS &&
     Math.abs(distanceX) > Math.abs(distanceY) &&
     device.value?.hasPrinterNavigation

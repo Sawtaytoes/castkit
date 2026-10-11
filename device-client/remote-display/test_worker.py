@@ -444,6 +444,84 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                     await asyncio.sleep(0.01)
         self.assertEqual(await self.page.evaluate("window.actions"), ["next"])
 
+    async def test_slider_drags_keep_capture_without_becoming_navigation(self):
+        for index, identity in enumerate(["now-playing-seek", "now-playing-volume"]):
+            with self.subTest(identity=identity):
+                await self.page.set_content(f"""<div class="stage" data-view="now-playing"
+                    style="position:absolute;inset:0;touch-action:none">
+                    <div role="slider" data-castkit-target="{identity}"
+                    style="position:absolute;left:100px;top:150px;width:200px;height:40px;touch-action:none"></div>
+                    </div>""")
+                await self.page.evaluate("""() => {
+                    window.actions = [];
+                    const slider = document.querySelector('[role="slider"]');
+                    slider.onpointerdown = event => slider.setPointerCapture(event.pointerId);
+                    slider.onpointerup = event => window.actions.push(['release', event.clientX, event.clientY]);
+                    slider.onpointercancel = () => window.actions.push(['cancel']);
+                    document.querySelector('.stage').onpointerdown = event => {
+                        if (event.target.className === 'stage') window.actions.push(['view-swipe']);
+                    };
+                }""")
+                self.session.guard.remember(
+                    50,
+                    [
+                        Target("view-gesture:now-playing", 0, 0, 480, 320),
+                        Target(identity, 100, 150, 200, 40),
+                    ],
+                )
+                for offset, phase, x, y in [
+                    (1, 0, 150, 170),
+                    (2, 1, 230, 170),
+                    (3, 1, 420, 100),
+                    (4, 2, 0, 0),
+                ]:
+                    sequence = index * 10 + offset
+                    await self.session.touches.put(
+                        ["touch", str(sequence), str(phase), str(x), str(y), "0", "50", "0"]
+                    )
+                    async with asyncio.timeout(3):
+                        while self.session.processed_touch != sequence:
+                            if self.task.done():
+                                self.task.result()
+                            await asyncio.sleep(0.01)
+                self.assertEqual(
+                    await self.page.evaluate("window.actions"), [["release", 420, 100]]
+                )
+
+    async def test_bottom_edge_pull_crosses_volume_without_activating_it(self):
+        await self.page.set_content("""<div class="stage" data-view="now-playing"
+            style="position:absolute;inset:0;touch-action:none">
+            <input type="range" data-castkit-target="now-playing-volume"
+            style="position:absolute;left:80px;top:220px;width:300px;height:40px;touch-action:none">
+            <button data-castkit-target="navigation-edge:bottom"
+            style="position:absolute;left:32px;right:32px;bottom:0;height:24px;touch-action:none"></button>
+            </div>""")
+        await self.page.evaluate("""() => {
+            window.actions = [];
+            const edge = document.querySelector('button');
+            edge.onpointerdown = event => edge.setPointerCapture(event.pointerId);
+            edge.onpointerup = () => window.actions.push('time');
+            document.querySelector('input').oninput = () => window.actions.push('volume');
+        }""")
+        self.session.guard.remember(
+            50,
+            [
+                Target("view-gesture:now-playing", 0, 0, 480, 320),
+                Target("now-playing-volume", 80, 220, 300, 40),
+                Target("navigation-edge:bottom", 32, 296, 416, 24),
+            ],
+        )
+        for sequence, phase, y in [(1, 0, 310), (2, 1, 250), (3, 1, 150), (4, 2, 0)]:
+            await self.session.touches.put(
+                ["touch", str(sequence), str(phase), "200", str(y), "0", "50", "0"]
+            )
+            async with asyncio.timeout(3):
+                while self.session.processed_touch != sequence:
+                    if self.task.done():
+                        self.task.result()
+                    await asyncio.sleep(0.01)
+        self.assertEqual(await self.page.evaluate("window.actions"), ["time"])
+
     async def test_scroll_region_keeps_drag_capture_in_root_and_same_origin_composition(self):
         content = """<section data-castkit-target="scroll:tasks" data-castkit-scroll="true"
             style="position:absolute;left:20px;top:80px;width:400px;height:160px;overflow:auto;touch-action:none">
