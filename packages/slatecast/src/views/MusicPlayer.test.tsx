@@ -247,3 +247,30 @@ test("the wide-waveform layout puts the queue below the controls", async () => {
   expect(queue?.top ?? 0).toBeGreaterThan(controls.bottom)
   expect(queue?.width ?? 0).toBeGreaterThan(1000)
 })
+
+test("artwork that fails to load shows the note instead of a broken image", async () => {
+  const data = buildMusicPlayer({ nowMs: NOW_MS })
+  await renderPlayer({
+    data: {
+      ...data,
+      ...(data.current
+        ? {
+            current: {
+              ...data.current,
+              artworkPath: "/missing-artwork.jpg",
+            },
+          }
+        : {}),
+    },
+  })
+  await waitFor(() =>
+    expect(
+      document.querySelector(
+        ".music-main .music-art-empty",
+      ),
+    ).not.toBeNull(),
+  )
+  expect(
+    document.querySelector(".music-main img.music-art"),
+  ).toBeNull()
+})

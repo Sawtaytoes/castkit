@@ -89,8 +89,15 @@ const Artwork = ({
   className: string
 }) => {
   const source = safeMediaUrl(path)
-  return source ? (
-    <img class={className} src={source} alt="" />
+  // A picture that fails to load shows the note, not the browser's broken-image mark.
+  const [failedSource, setFailedSource] = useState<string>()
+  return source && source !== failedSource ? (
+    <img
+      class={className}
+      src={source}
+      alt=""
+      onError={() => setFailedSource(source)}
+    />
   ) : (
     <div class={`${className} music-art-empty`}>
       <Icon path={ICON_PATHS.note} size="40%" />

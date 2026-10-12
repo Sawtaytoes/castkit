@@ -101,9 +101,15 @@ const QUEUE = {
 const createFakeServer = ({
   responses = {},
 }: {
-  responses?: Record<string, (args: Record<string, unknown>) => unknown>
+  responses?: Record<
+    string,
+    (args: Record<string, unknown>) => unknown
+  >
 } = {}) => {
-  const sent: { command: string; args: Record<string, unknown> }[] = []
+  const sent: {
+    command: string
+    args: Record<string, unknown>
+  }[] = []
   const listeners = new Map<
     string,
     ((event: { data?: unknown }) => void)[]
@@ -112,7 +118,10 @@ const createFakeServer = ({
     (listeners.get(type) ?? []).forEach((listener) => {
       listener({ data })
     })
-  const answers: Record<string, (args: Record<string, unknown>) => unknown> = {
+  const answers: Record<
+    string,
+    (args: Record<string, unknown>) => unknown
+  > = {
     auth: () => ({ authenticated: true }),
     "players/all": () => PLAYERS,
     "player_queues/get_active_queue": () => QUEUE,
@@ -143,10 +152,15 @@ const createFakeServer = ({
         command: string
         args: Record<string, unknown>
       }
-      sent.push({ command: message.command, args: message.args })
+      sent.push({
+        command: message.command,
+        args: message.args,
+      })
       const answer =
         answers[message.command] ??
-        (/^(player_queues|players\/cmd)\//.test(message.command)
+        (/^(player_queues|players\/cmd)\//.test(
+          message.command,
+        )
           ? () => null
           : undefined)
       queueMicrotask(() =>
@@ -185,7 +199,9 @@ const startSource = async ({
   server?: ReturnType<typeof createFakeServer>
   playerIds?: string[]
 } = {}) => {
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout"],
+  })
   const context = sourceContext({
     source: {
       id: "music",
@@ -212,7 +228,7 @@ const startSource = async ({
   await vi.runAllTimersAsync()
   vi.useRealTimers()
   const latest = () =>
-    context.publish.mock.calls.at(-1)?.[0] as
+    vi.mocked(context.publish).mock.calls.at(-1)?.[0] as
       | { channelId: string; data: Record<string, unknown> }
       | undefined
   return { context, source, server, latest }
@@ -231,7 +247,9 @@ test("clamps waveform values and returns nothing for an empty curve", () => {
   expect(
     downsampleWaveform({ values: [2, -1], binCount: 5 }),
   ).toEqual([1, 0])
-  expect(downsampleWaveform({ values: null })).toBe(undefined)
+  expect(downsampleWaveform({ values: null })).toBe(
+    undefined,
+  )
 })
 
 test("parses LRC time tags, repeats, and drops metadata tags", () => {
@@ -356,7 +374,9 @@ test("authenticates with the token and publishes the playing player's queue wind
   })
   const data = latest()?.data as {
     player: Record<string, unknown>
-    queue: { items: { queueItemId: string; artworkPath?: string }[] }
+    queue: {
+      items: { queueItemId: string; artworkPath?: string }[]
+    }
     current: Record<string, unknown>
     waveform: number[]
     lyrics: unknown
@@ -520,7 +540,9 @@ test("keeps a person's player choice until they return to automatic", async () =
     payload: { playerId: "speaker-1" },
   })
   await new Promise((resolve) => setTimeout(resolve, 150))
-  const chosen = context.publish.mock.calls.at(-1)?.[0] as {
+  const chosen = vi
+    .mocked(context.publish)
+    .mock.calls.at(-1)?.[0] as {
     data: {
       player: { id: string }
       isAutomaticSelection: boolean
@@ -550,8 +572,11 @@ test("rejects an action the source never advertised", async () => {
 
 test("republishes the position after a seek but not for ordinary ticks", async () => {
   const { context, server } = await startSource()
-  const publishCount = context.publish.mock.calls.length
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] })
+  const publishCount = vi.mocked(context.publish).mock.calls
+    .length
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "Date"],
+  })
   vi.setSystemTime(1_700_000_010_000)
   server.event({
     event: "queue_time_updated",
@@ -559,7 +584,9 @@ test("republishes the position after a seek but not for ordinary ticks", async (
     data: 40,
   })
   await vi.runAllTimersAsync()
-  expect(context.publish.mock.calls.length).toBe(publishCount)
+  expect(vi.mocked(context.publish).mock.calls.length).toBe(
+    publishCount,
+  )
   server.event({
     event: "queue_time_updated",
     object_id: "group-1",
@@ -567,7 +594,9 @@ test("republishes the position after a seek but not for ordinary ticks", async (
   })
   await vi.runAllTimersAsync()
   vi.useRealTimers()
-  const data = context.publish.mock.calls.at(-1)?.[0].data as {
+  const data = vi
+    .mocked(context.publish)
+    .mock.calls.at(-1)?.[0].data as {
     positionSeconds: number
   }
   expect(data.positionSeconds).toBe(120)
