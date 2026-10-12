@@ -1,0 +1,37 @@
+{
+  "name": "@castkit/desktop",
+  "productName": "CastKit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The CastKit desktop app: an Electron shell that shows CastKit pages in windows that remember their display, fullscreen state, and zoom.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/build.mjs && electron .",
+    "package": "node scripts/build.mjs && electron-forge package",
+    "make": "node scripts/build.mjs && electron-forge make",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node scripts/build.mjs && node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "8.0.1",
+    "@electron-forge/maker-squirrel": "8.0.1",
+    "@electron-forge/maker-zip": "8.0.1",
+    "@electron-forge/plugin-fuses": "8.0.1",
+    "@electron-forge/shared-types": "8.0.1",
+    "@electron/fuses": "^2.1.3",
+    "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/node": "^26.1.0",
+    "electron": "^44.7.0",
+    "electron-squirrel-startup": "^1.0.1",
+    "esbuild": "^0.28.1",
+    "playwright": "^1.61.1",
+    "sharp": "^0.35.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10",
+    "zod": "^4.6.6"
+  }
+}

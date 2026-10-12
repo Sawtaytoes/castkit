@@ -1,0 +1,72 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  display: grid;
+  gap: 24px;
+  padding: 20px;
+}
+
+h1,
+h2 {
+  font-size: 1.1rem;
+  margin: 0 0 8px;
+}
+
+form {
+  display: grid;
+  gap: 6px;
+}
+
+input:not([type="checkbox"]),
+select,
+button {
+  font: inherit;
+  padding: 6px 8px;
+}
+
+button {
+  justify-self: start;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status {
+  margin: 0;
+  min-block-size: 1.3em;
+}
+
+.status[data-tone="error"] {
+  color: #c62828;
+}
+
+fieldset {
+  border: 1px solid
+    color-mix(in srgb, currentColor 30%, transparent);
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.targets button {
+  font-size: 0.9rem;
+  padding: 2px 8px;
+}
