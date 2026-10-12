@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-11: Agenda and Ambient share one clock face](2026-10-11-agenda-and-ambient-share-one-clock-face.md)
+
 - [2026-10-11: Ambient time takes the agenda distance size](2026-10-11-ambient-time-takes-the-agenda-distance-size.md)
 
 - [2026-10-09: Task header top-aligns name and total](2026-10-09-task-header-top-aligns-name-and-total.md)

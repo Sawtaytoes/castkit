@@ -1148,16 +1148,30 @@ html[data-grayscale-text="true"] {
   font-variant-numeric: tabular-nums;
 }
 
-/* At 480 x 480 and larger the time takes the agenda's 120 px distance-reading
-   size (25vmin), so a 480 x 480 Presto reads from across the room. The short
-   landscape panel keeps its px sizes below, and a panel that shares a
-   platform grid keeps 17vmin, since vmin there is the whole window's. */
+/* The time as digits plus a quarter-size a/p on their baseline, the same
+   reading the agenda draws (`ClockReading`). The short landscape panel keeps
+   its one-string px time below. */
+.ambient-time:has(> .ambient-hours) {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.6vmin;
+}
+.ambient-meridiem {
+  font-size: 0.25em;
+}
+
+/* At 480 x 480 and larger the time is as large as the widest reading allows:
+   34vmin puts "12:59" and its suffix at 429 px on a 480 x 480 Presto, inside
+   90% of the glass (measured in Outfit; AmbientClockFit.test.tsx holds it).
+   A panel that shares a platform grid keeps 17vmin, since vmin there is the
+   whole window's. */
 @media (min-width: 480px) and (min-height: 480px) {
   .ambient:not(.ambient-short):not(
       .platform-layout:not([data-layout="single"]) *
     )
     .ambient-time {
-    font-size: 25vmin;
+    font-size: 34vmin;
     letter-spacing: -1vmin;
   }
 }
@@ -1376,13 +1390,6 @@ html[data-grayscale-text="true"] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.calendar-empty {
-  font-size: 4vmin;
-  font-weight: 600;
-  color: var(--fg-dim);
-  text-align: center;
 }
 
 /* --- Photo Frame (full-bleed rotating Immich photos) --- */
@@ -1711,8 +1718,7 @@ html[data-grayscale-text="true"] {
     line-height: 1.1;
   }
 
-  .calendar-short .calendar-events,
-  .calendar-short .calendar-empty {
+  .calendar-short .calendar-events {
     grid-area: events;
     align-self: start;
   }
@@ -1735,11 +1741,6 @@ html[data-grayscale-text="true"] {
 
   .calendar-short .calendar-event-summary {
     font-size: 22px;
-  }
-
-  .calendar-short .calendar-empty {
-    font-size: 28px;
-    padding-top: 40px;
   }
 }
 
