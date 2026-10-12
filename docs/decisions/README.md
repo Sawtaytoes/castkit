@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-12: Task header aligns primary values in one row](2026-10-12-task-header-aligns-primary-values-in-one-row.md)
+
 - [2026-10-12: A dark touch panel wakes for thirty seconds on a tap](2026-10-12-a-dark-touch-panel-wakes-for-thirty-seconds-on-a-tap.md)
 
 - [2026-10-11: Agenda and Ambient share one clock face](2026-10-11-agenda-and-ambient-share-one-clock-face.md)

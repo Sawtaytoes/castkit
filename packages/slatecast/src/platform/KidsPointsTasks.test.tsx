@@ -52,11 +52,13 @@ const drawing = ({
   hasTouch = true,
   atMs = now,
   delivery = "browser",
+  width = "min(480px, 100vw)",
 }: {
   value?: typeof data
   hasTouch?: boolean
   atMs?: number
   delivery?: "browser" | "image"
+  width?: string
 } = {}) => (
   <DisplayPropertiesContext.Provider
     value={{
@@ -68,7 +70,7 @@ const drawing = ({
     <div
       class="platform"
       style={{
-        width: "min(480px, 100vw)",
+        width,
         height: "480px",
         display: "flex",
       }}
@@ -506,4 +508,59 @@ test("an empty day, unavailable history, and yesterday's snapshot have distinct 
   expect(
     screen.getByText("Task history unavailable"),
   ).toBeVisible()
+})
+
+test.each([
+  "min(480px, 100vw)",
+  "100vw",
+])("task header aligns its primary values independently of the today label at %s", async (width) => {
+  render(drawing({ width }))
+  await openKid("Robin")
+  await document.fonts.ready
+  const header = screen.getByRole("heading", {
+    name: "Robin",
+  }).parentElement
+  if (!header) {
+    throw new Error("Missing task header")
+  }
+  const bounds = (selector: string) => {
+    const element = header.querySelector(selector)
+    if (!element) {
+      throw new Error(`Missing header element: ${selector}`)
+    }
+    return element.getBoundingClientRect()
+  }
+  const center = (rectangle: DOMRect) =>
+    rectangle.top + rectangle.height / 2
+  const verifyAlignment = () => {
+    const total = bounds("strong")
+    expect(
+      Math.abs(center(bounds("h2")) - center(total)),
+    ).toBeLessThan(1)
+    expect(
+      Math.abs(center(bounds("svg")) - center(total)),
+    ).toBeLessThan(1)
+    expect(bounds("p span").top).toBeGreaterThanOrEqual(
+      total.bottom,
+    )
+    expect(bounds("p span").right).toBeCloseTo(
+      total.right,
+      0,
+    )
+    expect(header.scrollWidth).toBeLessThanOrEqual(
+      header.clientWidth,
+    )
+  }
+  verifyAlignment()
+  await userEvent.click(
+    screen.getByRole("button", {
+      name: "View Reading scans",
+    }),
+  )
+  expect(
+    screen.getByRole("button", {
+      name: "Back to today's tasks",
+    }),
+  ).toBeVisible()
+  verifyAlignment()
 })
