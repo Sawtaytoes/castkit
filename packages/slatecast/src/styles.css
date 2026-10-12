@@ -1148,6 +1148,20 @@ html[data-grayscale-text="true"] {
   font-variant-numeric: tabular-nums;
 }
 
+/* At 480 x 480 and larger the time takes the agenda's 120 px distance-reading
+   size (25vmin), so a 480 x 480 Presto reads from across the room. The short
+   landscape panel keeps its px sizes below, and a panel that shares a
+   platform grid keeps 17vmin, since vmin there is the whole window's. */
+@media (min-width: 480px) and (min-height: 480px) {
+  .ambient:not(.ambient-short):not(
+      .platform-layout:not([data-layout="single"]) *
+    )
+    .ambient-time {
+    font-size: 25vmin;
+    letter-spacing: -1vmin;
+  }
+}
+
 .ambient-date {
   font-size: 5vmin;
   font-weight: 600;

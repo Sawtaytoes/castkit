@@ -226,8 +226,9 @@ describe("ambient on a short landscape panel", () => {
     expect(
       document.querySelector(".ambient-time")?.textContent,
     ).toMatch(/^\d{1,2}:\d{2}[ap]$/)
+    // The square takes the agenda's 25vmin distance-reading time.
     expect(fontSizeOf(".ambient-time")).toBe(
-      0.17 * SQUARE_PANEL.height,
+      0.25 * SQUARE_PANEL.height,
     )
   })
 })
