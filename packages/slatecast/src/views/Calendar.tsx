@@ -21,6 +21,8 @@ import {
 } from "../time.ts"
 import { useIsShortPanel } from "../useIsShortPanel.ts"
 import { WeatherMark } from "../WeatherMark.tsx"
+import { AmbientFace } from "./Ambient.tsx"
+import { ClockReading } from "./ClockReading.tsx"
 
 /** How many upcoming events the panel shows at once. */
 const EVENT_BUDGET = 6
@@ -171,20 +173,32 @@ export const CalendarFace = ({
     clock,
   )
 
+  // With nothing left on the agenda the face is the Ambient screen, not an
+  // agenda with an apology under it. The hooks above still run, so the row
+  // budget is measured again as soon as an event arrives.
+  if (upcomingEvents.length === 0) {
+    return (
+      <AmbientFace
+        currentMillis={currentMillis}
+        clock={clock}
+        weather={weatherData}
+      />
+    )
+  }
+
   return (
     <div
       ref={element}
       class={`calendar${isShortPanel ? " calendar-short" : ""}`}
     >
       <div class="calendar-header">
-        <span class="calendar-clock">
-          <span class="calendar-time">{time}</span>
-          {meridiem ? (
-            <span class="calendar-meridiem">
-              {meridiem}
-            </span>
-          ) : null}
-        </span>
+        <ClockReading
+          time={time}
+          meridiem={meridiem}
+          class="calendar-clock"
+          timeClass="calendar-time"
+          meridiemClass="calendar-meridiem"
+        />
         <span class="calendar-date">
           {formatClockDate(currentMillis, clock)}
         </span>
@@ -206,29 +220,25 @@ export const CalendarFace = ({
           </span>
         </div>
       ) : null}
-      {upcomingEvents.length > 0 ? (
-        <ul class="calendar-events">
-          {upcomingEvents.map((event) => (
-            <li
-              key={`${event.startMs}-${event.summary}`}
-              class="calendar-event"
-            >
-              <span class="calendar-event-time">
-                {formatEventTime({
-                  startMillis: event.startMs,
-                  isAllDay: event.isAllDay,
-                  clock,
-                })}
-              </span>
-              <span class="calendar-event-summary">
-                {event.summary}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div class="calendar-empty">No upcoming events</div>
-      )}
+      <ul class="calendar-events">
+        {upcomingEvents.map((event) => (
+          <li
+            key={`${event.startMs}-${event.summary}`}
+            class="calendar-event"
+          >
+            <span class="calendar-event-time">
+              {formatEventTime({
+                startMillis: event.startMs,
+                isAllDay: event.isAllDay,
+                clock,
+              })}
+            </span>
+            <span class="calendar-event-summary">
+              {event.summary}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

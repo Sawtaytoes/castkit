@@ -173,7 +173,7 @@ describe("calendar on a short landscape panel", () => {
     )
   })
 
-  test("keeps the header row on an empty day, with no weather block until it arrives", async () => {
+  test("draws the short Ambient face on an empty day, with no weather block until it arrives", async () => {
     await mountCalendarOn({
       ...SHORT_PANEL,
       events: [],
@@ -181,14 +181,14 @@ describe("calendar on a short landscape panel", () => {
     })
 
     expect(
-      screen.getByText("No upcoming events"),
-    ).toBeVisible()
+      document.querySelector(".ambient-short"),
+    ).not.toBeNull()
     expect(
-      document.querySelector(".calendar-weather"),
+      document.querySelector(".ambient-weather"),
     ).toBeNull()
     expect(
-      document.querySelector(".calendar-meridiem"),
-    ).not.toBeNull()
+      screen.queryByText("No upcoming events"),
+    ).toBeNull()
   })
 
   test("keeps the larger stacked clock, complete rows and a weather mark on the square", async () => {

@@ -2,11 +2,11 @@ import type { BrowserClockConfig } from "@castkit/shared/protocol/ws"
 import { clockConfig, nowMs } from "../state.ts"
 import {
   formatClockDate,
-  formatClockTime,
   formatClockTimeParts,
   formatDateTile,
 } from "../time.ts"
 import { useIsShortPanel } from "../useIsShortPanel.ts"
+import { ClockReading } from "./ClockReading.tsx"
 
 /**
  * Plain clock: big time + date, no weather — the browser-native counterpart to
@@ -45,9 +45,12 @@ export const ClockFace = ({
   if (!isShortPanel) {
     return (
       <div class="ambient">
-        <div class="ambient-time">
-          {formatClockTime(currentMillis, clock)}
-        </div>
+        <ClockReading
+          {...formatClockTimeParts(currentMillis, clock)}
+          class="ambient-time"
+          timeClass="ambient-hours"
+          meridiemClass="ambient-meridiem"
+        />
         <div class="ambient-date">
           {formatClockDate(currentMillis, clock)}
         </div>

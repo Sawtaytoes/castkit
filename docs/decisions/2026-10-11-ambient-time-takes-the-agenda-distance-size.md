@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-11
 Type: Display presentation
 Supersedes: None
-Superseded by: None
+Superseded by: [Agenda and Ambient share one clock face](2026-10-11-agenda-and-ambient-share-one-clock-face.md) for the Ambient and Clock time size only.
 
 ## Decision
 

@@ -24,7 +24,10 @@ describe("ambient clock", () => {
   test("renders the time over today's date", async () => {
     const { view } = await mountAmbientView()
 
-    expect(screen.getByText(TWELVE_HOUR_TIME)).toBeVisible()
+    expect(
+      screen.getByText(/^\d{1,2}:\d{2}$/),
+    ).toBeVisible()
+    expect(screen.getByText(/^[ap]$/)).toBeVisible()
     expect(screen.getByText(LONG_DATE)).toBeVisible()
     expect(
       view.container.querySelector(".ambient-time")

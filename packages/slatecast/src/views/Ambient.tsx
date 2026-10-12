@@ -4,9 +4,11 @@ import { clockConfig, nowMs, weather } from "../state.ts"
 import {
   formatClockDate,
   formatClockTime,
+  formatClockTimeParts,
 } from "../time.ts"
 import { useIsShortPanel } from "../useIsShortPanel.ts"
 import { WeatherMark } from "../WeatherMark.tsx"
+import { ClockReading } from "./ClockReading.tsx"
 
 /**
  * Ambient view: a big clock with today's date, plus the current weather
@@ -50,9 +52,18 @@ export const AmbientFace = ({
     <div
       class={`ambient${isShortPanel ? " ambient-short" : ""}`}
     >
-      <div class="ambient-time">
-        {formatClockTime(currentMillis, clock)}
-      </div>
+      {isShortPanel ? (
+        <div class="ambient-time">
+          {formatClockTime(currentMillis, clock)}
+        </div>
+      ) : (
+        <ClockReading
+          {...formatClockTimeParts(currentMillis, clock)}
+          class="ambient-time"
+          timeClass="ambient-hours"
+          meridiemClass="ambient-meridiem"
+        />
+      )}
       <div class="ambient-date">
         {formatClockDate(currentMillis, clock)}
       </div>
