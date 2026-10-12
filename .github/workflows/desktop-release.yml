@@ -1,0 +1,125 @@
+name: Desktop release
+
+# Builds the CastKit desktop app's Windows installer (Squirrel `Setup.exe`
+# plus a `.zip`) on a Windows runner, the same way Image-Viewer does.
+#
+# - A `desktop-v<version>` tag publishes a GitHub release with both files.
+# - A manual run with a version does the same, and creates the tag.
+# - A pull request that changes the desktop package only BUILDS, and uploads
+#   the files as a workflow artifact, so a broken installer is caught before
+#   it merges.
+#
+# It does not run on other pull requests: a Windows build takes minutes and the
+# server's CI does not depend on it. That is why `paths:` is safe here — this is
+# not a required check, so a workflow that never starts holds nothing pending.
+
+on:
+  push:
+    tags: ["desktop-v*"]
+  pull_request:
+    branches: [master]
+    paths:
+      - "packages/desktop/**"
+      - ".github/workflows/desktop-release.yml"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, for example 0.2.0"
+        required: true
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  windows:
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with: { node-version-file: .nvmrc }
+
+      - name: Install pinned pnpm
+        run: |
+          npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
+          $pnpmBin = npm prefix -g
+          Add-Content -Path $env:GITHUB_PATH -Value $pnpmBin
+          & "$pnpmBin\pnpm.cmd" --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --store-dir "$HOME/.cache/pnpm/store"
+
+      # Electron 44 has no postinstall; its binary is fetched on request.
+      - name: Install the Electron binary
+        run: pnpm --filter @castkit/desktop exec install-electron
+
+      - name: Decide the version
+        id: version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_EVENT_NAME" in
+            push) version="${GITHUB_REF_NAME#desktop-v}" ;;
+            workflow_dispatch) version="$INPUT_VERSION" ;;
+            *) version="$(node -p "require('./packages/desktop/package.json').version")" ;;
+          esac
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$version' is not a version (expected, for example, 0.2.0)."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp the version
+        working-directory: packages/desktop
+        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Build the Windows installer
+        run: pnpm --filter @castkit/desktop make
+
+      # Never publish an empty release: fail when make produced no installer.
+      - name: Verify the installer exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(packages/desktop/out/make/squirrel.windows/x64/*Setup.exe packages/desktop/out/make/zip/win32/x64/*.zip)
+          if [ ${#files[@]} -lt 2 ]; then
+            echo "::error::Electron Forge did not produce both the Setup.exe and the .zip."
+            find packages/desktop/out -type f || true
+            exit 1
+          fi
+          printf 'Built: %s\n' "${files[@]}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: castkit-desktop-windows-${{ steps.version.outputs.version }}
+          path: |
+            packages/desktop/out/make/squirrel.windows/x64/*Setup.exe
+            packages/desktop/out/make/squirrel.windows/x64/*.nupkg
+            packages/desktop/out/make/squirrel.windows/x64/RELEASES
+            packages/desktop/out/make/zip/win32/x64/*.zip
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: ${{ github.event_name != 'pull_request' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="desktop-v${VERSION}"
+          gh release create "$tag" \
+            --target "$GITHUB_SHA" \
+            --title "CastKit desktop ${VERSION}" \
+            --notes "The CastKit desktop app for Windows. Run the Setup.exe to install, or unzip the .zip to run without installing." \
+            packages/desktop/out/make/squirrel.windows/x64/*Setup.exe \
+            packages/desktop/out/make/zip/win32/x64/*.zip
