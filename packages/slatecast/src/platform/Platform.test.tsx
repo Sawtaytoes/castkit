@@ -427,6 +427,65 @@ test("the page restores a server session and responds to a screen switch through
   )
 })
 
+test("the page root names the view on screen, and follows a screen switch", async () => {
+  const link = ws.link("*/screen/hall/ws")
+  const connections: {
+    client?: { send: (value: string) => void }
+  } = {}
+  const worker = setupWorker(
+    link.addEventListener("connection", ({ client }) => {
+      connections.client = client
+    }),
+  )
+  await worker.start({
+    quiet: true,
+    onUnhandledRequest: "bypass",
+  })
+  onTestFinished(() => worker.stop())
+  vi.spyOn(window, "fetch").mockResolvedValue(
+    new Response(JSON.stringify(compositionFixture), {
+      status: 200,
+    }),
+  )
+  const view = render(
+    <PlatformApp target={{ kind: "screen", id: "hall" }} />,
+  )
+  onTestFinished(() => {
+    view.unmount()
+  })
+  const viewOnScreen = () =>
+    document
+      .querySelector("main.platform")
+      ?.getAttribute("data-view")
+  await waitFor(() =>
+    expect(viewOnScreen()).toBe("activity"),
+  )
+  await waitFor(() =>
+    expect(connections.client).toBeDefined(),
+  )
+  connections.client?.send(
+    JSON.stringify({
+      type: "snapshot",
+      ...compositionFixture,
+      view: {
+        ...compositionFixture.view,
+        id: "clock-only",
+        panels: [
+          {
+            id: "clock",
+            specId: "clock",
+            bindings: {},
+            settings: {},
+          },
+        ],
+      },
+    }),
+  )
+  await waitFor(() =>
+    expect(viewOnScreen()).toBe("clock-only"),
+  )
+})
+
 test("private data stays hidden until the server accepts the PIN", async () => {
   const fetch = vi.spyOn(window, "fetch").mockResolvedValue(
     new Response(

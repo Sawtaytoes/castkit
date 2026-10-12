@@ -15,6 +15,7 @@ export default createVitestConfig({
     projects: [
       "packages/sdk/vitest.config.ts",
       "packages/core/vitest.config.ts",
+      "packages/desktop/vitest.config.ts",
       "packages/shared/vitest.config.ts",
       "packages/render/vitest.config.ts",
       "packages/server/vitest.config.ts",

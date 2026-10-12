@@ -152,6 +152,7 @@ discovery. Architecture + phase plan are in the README and
 | `@castkit/server` | Hono token API + MQTT publish/subscribe + idle/active state machine. |
 | `@castkit/shared` | Server↔Slatecast protocol, MQTT topic/discovery builders, view-data types. |
 | `@castkit/slatecast` | The tiny Preact SPA kiosk browsers load at `/d/<id>` (browser-mode devices). |
+| `@castkit/desktop` | The Electron desktop app: one CastKit page per window, each window a virtual device that keeps its display, fullscreen state, and per-view zoom. Not in the server image (`.dockerignore`). See its [README](packages/desktop/README.md). |
 
 ### Bake-offs (Phase 0)
 

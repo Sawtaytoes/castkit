@@ -367,6 +367,9 @@ export const PlatformApp = ({
       data-connection={display.connectionStatus}
       data-device={String(Boolean(target.deviceId))}
       data-screen-navigation={String(hasScreenNavigation)}
+      // The view on screen now. A screen switches views without changing its
+      // URL, so the desktop app reads this to keep a zoom per view.
+      data-view={display.snapshot.view.id}
       onClick={navigate}
       data-scheme={
         display.snapshot.view.theme === "auto"
