@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-09
 Type: Display presentation
 Supersedes: None
-Superseded by: None
+Superseded by: [Primary values aligned in one row](2026-10-12-task-header-aligns-primary-values-in-one-row.md), alignment only; Back icon and touch target retained.
 
 ## Decision
 
