@@ -36,7 +36,9 @@ const mediaItem = (title: string, itemId: string) => ({
 
 const queueRow = (index: number) => ({
   queue_item_id: `row-${index}`,
-  index,
+  // Music Assistant sends 0 here on every row; the position is the page offset.
+  index: 0,
+  sort_index: index,
   name: `Sample Artist - Song ${index}`,
   duration: 200,
   available: true,
@@ -341,7 +343,7 @@ test("splits a stream row's display name when it has no media item", () => {
         name: "A Band - A Song",
         available: true,
       },
-      fallbackIndex: 4,
+      queueIndex: 4,
       baseUrl: "https://music.example",
     }),
   ).toEqual({
