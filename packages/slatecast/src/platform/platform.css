@@ -3507,6 +3507,25 @@ html[data-repaint="instant"]
   text-align: end;
 }
 
+/* Keep earned points visible below a count-up; stacked cards have them in the header. */
+.kids-points-activity-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin-block-start: auto;
+  flex: none;
+  line-height: 1.1;
+}
+.kids-points-activity-total strong {
+  font-size: clamp(24px, 16cqmin, 64px);
+  font-variant-numeric: tabular-nums;
+}
+.kids-points-activity-total span {
+  font-size: clamp(12px, 6cqmin, 24px);
+  color: var(--fg-dim);
+}
+
 /* Camera alerts preserve the entire image and leave only a small status band. */
 .platform[data-device="true"]:has(
   .platform-panel[data-spec="camera-alert"]
@@ -3577,4 +3596,61 @@ html[data-repaint="instant"]
   font-size: clamp(12px, 2.5cqi, 18px);
   text-align: center;
   background: var(--bg);
+}
+
+/* A busy overview reserves a small, permanent band for each child's earned points. */
+.kids-points-summary {
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  min-block-size: 0;
+}
+.kids-points-summary-child {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-inline-size: 0;
+  container-type: size;
+}
+.kids-points-summary-child[data-running="true"] {
+  flex: 2;
+  border-block-end: 3px solid
+    var(--kid-color, var(--accent));
+}
+.kids-points-summary-values {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: clamp(20px, 24cqi, 56px);
+  font-weight: 900;
+  line-height: 1;
+}
+.kids-points-summary-values h3 {
+  font-size: 0.8em;
+}
+.kids-points-summary-values strong {
+  font-size: 1em;
+  font-variant-numeric: tabular-nums;
+}
+.kids-points-summary-child .kids-points-footnote {
+  font-size: clamp(12px, 7cqi, 22px);
+}
+.kids-points-summary-child + .kids-points-summary-child {
+  border-inline-start: 1px solid var(--color-border-subtle);
+  padding-inline-start: 12px;
+}
+.kids-points-summary:has([data-running="true"])
+  .kids-points-summary-child {
+  justify-content: flex-start;
+  padding-block-start: 10px;
+}
+@container (width < 120px) {
+  .kids-points-summary-values {
+    flex-direction: column;
+    gap: 4px;
+  }
 }

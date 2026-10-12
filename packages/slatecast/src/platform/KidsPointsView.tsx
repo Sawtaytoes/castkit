@@ -492,11 +492,22 @@ const KidCard = ({
       (!scan ||
         scan.result === "started" ||
         scan.result === "progress") ? (
-        <TimerProgress
-          kid={kid}
-          now={now}
-          isLive={isLive}
-        />
+        <>
+          <TimerProgress
+            kid={kid}
+            now={now}
+            isLive={isLive}
+          />
+          {isStacked ||
+          kid.activeTask?.isCountdown ? null : (
+            <p class="kids-points-activity-total">
+              <strong>
+                {formatPoints(kid.pointsToday)}
+              </strong>
+              <span>points today</span>
+            </p>
+          )}
+        </>
       ) : (
         <>
           {scan ? <ScanBanner scan={scan} /> : null}
@@ -559,10 +570,12 @@ const CompactActivity = ({
   kid,
   now,
   isLive,
+  hasAccumulatedMinutes = false,
 }: {
   kid: KidEntry
   now: number
   isLive: boolean
+  hasAccumulatedMinutes?: boolean
 }) => {
   const task = kid.activeTask
   if (!task) return null
@@ -582,10 +595,16 @@ const CompactActivity = ({
   const duration = isLive
     ? `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, "0")}`
     : `${isCountdown ? Math.ceil(seconds / 60) : Math.floor(seconds / 60)} min`
+  const isDailyTotal =
+    hasAccumulatedMinutes &&
+    !isCountdown &&
+    task.bankedMinutes !== undefined
   return (
     <p class="kids-points-footnote">
-      {task.name} · {duration}{" "}
-      {isCountdown ? "left" : "elapsed"}
+      {task.name} ·{" "}
+      {isDailyTotal
+        ? `${Math.floor(task.bankedMinutes ?? 0) + Math.floor(elapsed / 60)} min total`
+        : `${duration} ${isCountdown ? "left" : "elapsed"}`}
     </p>
   )
 }
@@ -728,6 +747,41 @@ export const KidsPointsView = ({
       now={now}
       onBack={() => setSelectedKidId(undefined)}
     />
+  ) : settings?.isCompactSummary === true ? (
+    <div class="kids-points-summary">
+      {data.kids.map((kid) => {
+        const isRunning = runningKids.some(
+          (running) => running.id === kid.id,
+        )
+        return (
+          <article
+            key={kid.id}
+            class="kids-points-summary-child"
+            style={kidStyle(kid)}
+            data-running={String(isRunning)}
+            aria-label={`${kid.name}: ${formatPoints(kid.pointsToday)} points today`}
+          >
+            <KidOpenButton kid={kid} onSelect={onSelect} />
+            <div class="kids-points-summary-values">
+              <h3 title={kid.name}>
+                {Array.from(kid.name)[0]}
+              </h3>
+              <strong>
+                {formatPoints(kid.pointsToday)}
+              </strong>
+            </div>
+            {isRunning ? (
+              <CompactActivity
+                kid={kid}
+                now={now}
+                isLive={isLive}
+                hasAccumulatedMinutes
+              />
+            ) : null}
+          </article>
+        )
+      })}
+    </div>
   ) : settings?.isTotalsOnly === true ? (
     <div class="kids-points-simple-totals">
       {data.kids.map((kid) => (

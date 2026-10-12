@@ -647,6 +647,15 @@ const countUpSnapshot = (
 test.each([
   "dark",
   "light",
+] as const)("a count-up and points share a monitor card in %s", async (theme) => {
+  await page.viewport(1024, 280)
+  renderDevicePage(countUpSnapshot(theme))
+  await capture(`kids-points-countup-monitor-${theme}`)
+})
+
+test.each([
+  "dark",
+  "light",
 ] as const)("a count-up keeps all three children readable on a square in %s", async (theme) => {
   await page.viewport(480, 480)
   const snapshot = countUpSnapshot(theme)
