@@ -44,6 +44,8 @@ class PrestoTransport:
         self.last_ack = None
         self.backlight_percent = 0 if config.get("controls_url") else None
         self.reported_backlight_percent = None
+        # (percent, seconds) a tap lights a dark panel at; None until CastKit sends one.
+        self.wake_controls = None
         self.ambient_light = None
         self.reported_ambient_light = None
         self.ambient_metadata = metadata(None)
@@ -122,6 +124,16 @@ class PrestoTransport:
         if percent != self.backlight_percent:
             self.backlight_percent = percent
             self.frame_ready.set()
+
+    def set_wake(self, percent, seconds):
+        if (
+            type(percent) is not int
+            or type(seconds) is not int
+            or not 0 <= percent <= 100
+            or not 1 <= seconds <= 600
+        ):
+            raise ValueError("Wake requires an integer percentage and 1-600 seconds")
+        self.wake_controls = (percent, seconds)
 
     async def acknowledge_controls(self, request):
         document = await self.read_json(request)
