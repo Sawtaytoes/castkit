@@ -23,6 +23,9 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       name: "castkit",
+      // NuGet, which Squirrel builds its package with, requires an author.
+      // package.json has none, so name the project rather than a person.
+      authors: "CastKit contributors",
       setupIcon: "dist/icon.ico",
     }),
     new MakerZIP({}, ["win32", "linux"]),
