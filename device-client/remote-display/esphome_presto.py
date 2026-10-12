@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import contextlib
 import importlib.util
 import json
 import pathlib
@@ -26,6 +27,8 @@ class ESPHomePrestoTransport(PrestoTransport):
         self.control_revision = 0
         self.control_pending = None
         self.control_sent = None
+        self.wake_sent = None
+        self.wake_requested_at = None
         self.unsubscribe = None
         self.led_pixels = bytearray(21)
         path = pathlib.Path(__file__).resolve().parent.parent / "presto" / "ambient.py"
@@ -61,6 +64,8 @@ class ESPHomePrestoTransport(PrestoTransport):
         self.build_marker = f"esphome-presto-rgb565-v1 {info.compilation_time}"
         self.base_id, self.base_pixels = 0, None
         self.control_sent = None
+        self.wake_sent = None
+        self.wake_requested_at = None
         self.reported_backlight_percent = None
         self.reported_ambient_light = None
         self.connected.set()
@@ -103,6 +108,9 @@ class ESPHomePrestoTransport(PrestoTransport):
             self.touch_received_at[sequence] = time.monotonic()
             self.touches_received += 1
             self.report(state.state)
+        elif parts[0] == "wake_controls" and len(parts) == 3:
+            with contextlib.suppress(ValueError):
+                self.wake_sent = (int(parts[1]), int(parts[2]))
         elif parts[0] == "controls" and len(parts) == 3 and self.control_pending is not None:
             revision, percent, state_snapshot, future = self.control_pending
             if parts[1:3] == [str(revision), str(percent)] and not future.done():
@@ -136,6 +144,7 @@ class ESPHomePrestoTransport(PrestoTransport):
             else:
                 self.effects.apply_header(None)
             self.effects.tick()
+            await self.send_wake_controls()
             percent = self.backlight_percent
             state = self.ambient_light
             identity = (percent, bytes(self.led_pixels), json.dumps(state, sort_keys=True))
@@ -155,6 +164,21 @@ class ESPHomePrestoTransport(PrestoTransport):
                 self.control_sent = identity
                 self.control_pending = None
             await asyncio.sleep(0.05)
+
+    async def send_wake_controls(self):
+        """Firmware without the action keeps its old no-touch-when-dark behavior."""
+        wake = self.wake_controls
+        if wake is None or wake == self.wake_sent or "set_wake_controls" not in self.actions:
+            return
+        # The board echoes `wake_controls,<percent>,<seconds>`; resend until it does.
+        now = time.monotonic()
+        if self.wake_requested_at is not None and now - self.wake_requested_at < 3:
+            return
+        self.wake_requested_at = now
+        await self.api.execute_service(
+            self.actions["set_wake_controls"],
+            {"wake_backlight": wake[0], "wake_seconds": wake[1]},
+        )
 
     async def send_frame(self, frame_id, touch_id, raw):
         if self.control_task.done():

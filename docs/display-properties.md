@@ -513,7 +513,8 @@ so Home Assistant automations can control the same backlight.
 | --- | --- |
 | Neither backlight flag | No backlight controls or commands are offered. |
 | `hasMqttBacklight` | Brightness is sent to the installation's MQTT backlight agent. |
-| `hasRemoteBacklight` | Brightness, power and optional room following are persisted by CastKit and delivered directly by a supporting remote-display receiver. The Presto receiver applies its hardware PWM and suppresses touch while off; neither manual control nor persistence requires MQTT or Home Assistant. |
+| `hasRemoteBacklight` | Brightness, power and optional room following are persisted by CastKit and delivered directly by a supporting remote-display receiver. The Presto receiver applies its hardware PWM; neither manual control nor persistence requires MQTT or Home Assistant. |
+| `hasRemoteBacklight` + `hasTouch` | **Tap to wake.** While the backlight is off — by hand, by room following or by a Home Assistant automation — a tap lights the panel at its chosen brightness for 30 seconds (`TAP_WAKE_SECONDS`). The waking tap presses nothing; later taps work normally and restart the window, and a finger left on the glass holds it lit. `controls.json` carries `wake_percent` (the chosen level) and `wake_seconds`; the receiver owns the timer, so the panel lights with no network round trip, and CastKit's stored power stays Off throughout. Firmware without `set_wake_controls` keeps the old behavior: no touch while off. |
 
 Room following reads a selected current `entities.v1` light/switch state. The
 source is optional and separate from manual control. An unavailable source holds

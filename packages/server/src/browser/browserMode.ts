@@ -1466,6 +1466,9 @@ export const createBrowserMode = ({
         ...(device?.hasRemoteBacklight
           ? remoteBacklight.resolve(deviceId)
           : {}),
+        ...(device?.hasRemoteBacklight && device.hasTouch
+          ? remoteBacklight.resolveWake(deviceId)
+          : {}),
         ...(device?.hasRemoteAmbientLight
           ? {
               ambientLight: (() => {

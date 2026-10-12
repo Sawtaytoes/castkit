@@ -90,6 +90,36 @@ class NativePrestoTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.transport.reported_backlight_percent, 2)
         self.assertEqual(self.transport.api.execute_service.await_count, 1)
 
+    async def test_wake_controls_resend_until_the_board_echoes_them(self):
+        self.transport.actions["set_wake_controls"] = "wake"
+        self.transport.set_wake(35, 30)
+        await self.transport.send_wake_controls()
+        self.transport.api.execute_service.assert_awaited_once_with(
+            "wake", {"wake_backlight": 35, "wake_seconds": 30}
+        )
+        await self.transport.send_wake_controls()
+        self.assertEqual(self.transport.api.execute_service.await_count, 1)
+        self.transport.wake_requested_at -= 3
+        await self.transport.send_wake_controls()
+        self.assertEqual(self.transport.api.execute_service.await_count, 2)
+        self.event("wake_controls,35,30")
+        self.transport.wake_requested_at -= 3
+        await self.transport.send_wake_controls()
+        self.assertEqual(self.transport.api.execute_service.await_count, 2)
+        self.transport.set_wake(10, 30)
+        await self.transport.send_wake_controls()
+        self.assertEqual(self.transport.api.execute_service.await_count, 3)
+
+    async def test_firmware_without_the_wake_action_is_left_alone(self):
+        self.transport.set_wake(35, 30)
+        await self.transport.send_wake_controls()
+        self.transport.api.execute_service.assert_not_awaited()
+
+    def test_wake_values_are_validated(self):
+        for percent, seconds in ((101, 30), (-1, 30), (35, 0), (35, 601), (35.0, 30)):
+            with self.assertRaises(ValueError):
+                self.transport.set_wake(percent, seconds)
+
     async def test_malformed_and_unpresented_touches_are_ignored(self):
         received = []
         self.transport.subscribe_states(lambda event: received.append(event.state))
