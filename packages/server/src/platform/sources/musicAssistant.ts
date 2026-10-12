@@ -91,14 +91,18 @@ export const readArtworkUrl = ({
   }
 }
 
-/** One Music Assistant queue row as the contract's queue item. */
+/**
+ * One Music Assistant queue row as the contract's queue item. `queueIndex` is
+ * the row's position in the queue — the page offset plus its place in the page.
+ * Music Assistant's own `index` field is not a position: it reads 0 on every row.
+ */
 export const normalizeQueueItem = ({
   item,
-  fallbackIndex,
+  queueIndex,
   baseUrl,
 }: {
   item: unknown
-  fallbackIndex: number
+  queueIndex: number
   baseUrl: unknown
 }): MusicQueueItem | undefined => {
   const row = record(item)
@@ -118,15 +122,9 @@ export const normalizeQueueItem = ({
     image: row.image ?? mediaItem.image,
     baseUrl,
   })
-  const index = finiteNumber(row.index)
   return {
     queueItemId,
-    index:
-      index !== undefined &&
-      Number.isInteger(index) &&
-      index >= 0
-        ? index
-        : fallbackIndex,
+    index: queueIndex,
     title,
     artist,
     ...(album ? { album } : {}),
@@ -359,8 +357,7 @@ export const buildMusicPlayerData = ({
     .map((item, position) =>
       normalizeQueueItem({
         item,
-        fallbackIndex:
-          (queueWindow?.offset ?? 0) + position,
+        queueIndex: (queueWindow?.offset ?? 0) + position,
         baseUrl,
       }),
     )
@@ -831,9 +828,8 @@ export const buildMusicAssistantSource =
       return record(
         record(
           queueWindow?.items.find(
-            (item, position) =>
-              (finiteNumber(record(item).index) ??
-                queueWindow.offset + position) ===
+            (_item, position) =>
+              queueWindow.offset + position ===
               currentIndex,
           ),
         ).media_item,
