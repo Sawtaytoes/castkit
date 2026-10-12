@@ -2,6 +2,7 @@ import type {
   ContractData,
   ViewPanel,
 } from "@castkit/sdk/contracts"
+import { getRunningKids } from "@castkit/sdk/kidsPointsScan"
 import {
   useLayoutEffect,
   useRef,
@@ -46,6 +47,18 @@ export const useCompositionLayout = ({
           HTMLImageElement | HTMLVideoElement
         >(".platform-printer-image")
         const isPrinter = panel.specId === "printer-status"
+        const points =
+          panel.specId === "kids-points"
+            ? (data[key] as
+                | ContractData["kids-points.v1"]
+                | undefined)
+            : undefined
+        const hasRunningActivity = points
+          ? getRunningKids({
+              data: points,
+              now: Date.now(),
+            }).length > 0
+          : false
         const usage =
           panel.specId === "ai-usage"
             ? (data[key] as
@@ -78,6 +91,11 @@ export const useCompositionLayout = ({
         return {
           key,
           isPrinter,
+          summaryHeight:
+            panel.settings.isCompactSummary === true
+              ? (hasRunningActivity ? 112 : 72) +
+                insetHeight
+              : undefined,
           priority: Number.isFinite(
             Number(panel.settings.priority),
           )
