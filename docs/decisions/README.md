@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-12: The desktop app is an Electron shell whose windows are virtual devices](2026-10-12-the-desktop-app-is-an-electron-shell-whose-windows-are-virtual-devices.md)
+
 - [2026-10-12: The Music Player view reads Music Assistant directly](2026-10-12-the-music-player-view-reads-music-assistant-directly.md)
 
 - [2026-10-12: Task header aligns primary values in one row](2026-10-12-task-header-aligns-primary-values-in-one-row.md)
