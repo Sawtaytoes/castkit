@@ -749,6 +749,14 @@ const viewSpecs: ViewSpec[] = [
           "Keep every selected child visible during scans, without goal bars or identity stripes.",
       },
       {
+        key: "isPersistentSummary",
+        label: "Keep points visible in activity overviews",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "Keep totals visible while idle. In combined layouts, active printers and disc rips get the main area; initials and points share a compact strip, with extra room for running activities.",
+      },
+      {
         key: "nameStyle",
         label: "Child labels",
         type: "select",

@@ -39,12 +39,40 @@ export const DisplayComposition = ({
   const panels = snapshot.view.isActiveOnly
     ? snapshot.view.panels.filter(
         (panel) =>
-          snapshot.panelActivity?.[panel.id] !== false,
+          snapshot.panelActivity?.[panel.id] !== false ||
+          (panel.specId === "kids-points" &&
+            panel.settings.isPersistentSummary === true),
       )
     : snapshot.view.panels
   const isCombined = ["cards", "rail", "adaptive"].includes(
     snapshot.view.layout,
   )
+  const hasBusyWork = panels.some((panel) => {
+    const data = selectPanelData({
+      ...panel,
+      data: snapshot.channels[panel.bindings.data ?? ""]
+        ?.data,
+    })
+    if (panel.specId === "printer-status") {
+      return Boolean(
+        (data as ContractData["printers.v1"] | undefined)
+          ?.printers.length,
+      )
+    }
+    if (panel.specId === "rip-deck") {
+      const rips = data as
+        | ContractData["rip-deck.v1"]
+        | undefined
+      return Boolean(
+        rips?.isPresent &&
+          (rips.activeCount > 0 ||
+            rips.bays.some(
+              (bay) => bay.jobId !== undefined,
+            )),
+      )
+    }
+    return false
+  })
   const displayedPanels = panels.flatMap((panel) => {
     const data = selectPanelData({
       ...panel,
@@ -87,6 +115,13 @@ export const DisplayComposition = ({
               settings: {
                 ...panel.settings,
                 isAdaptiveLayout: true,
+                ...(panel.specId === "kids-points" &&
+                panel.settings.isPersistentSummary === true
+                  ? {
+                      isCompactSummary: hasBusyWork,
+                      isAllChildrenVisible: true,
+                    }
+                  : {}),
               },
             }
           : panel,

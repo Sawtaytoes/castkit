@@ -19,6 +19,7 @@ export type CompositionItem = {
   usageRows?: ReturnType<typeof selectProviderRows>
   insetWidth?: number
   insetHeight?: number
+  summaryHeight?: number
 }
 
 // Providers stay together, so a row count divided by columns is not a fit budget.
@@ -63,7 +64,7 @@ const usageHeight = (
 }
 
 /** Score the composition with the same policy each media card uses internally. */
-export const chooseCompositionLayout = ({
+const chooseMainCompositionLayout = ({
   width,
   height,
   gap,
@@ -451,4 +452,56 @@ export const chooseCompositionLayout = ({
         ? railCandidates
         : cardCandidates.concat(railCandidates),
   )
+}
+
+/** Keep persistent summaries below the higher-priority work area. */
+export const chooseCompositionLayout = (
+  input: Parameters<typeof chooseMainCompositionLayout>[0],
+) => {
+  const { width, height, gap, items, mode, measureFacts } =
+    input
+  const summaries = items.filter(
+    (item) => item.summaryHeight !== undefined,
+  )
+  const primary = items.filter(
+    (item) => item.summaryHeight === undefined,
+  )
+  if (summaries.length && primary.length) {
+    const layout = chooseMainCompositionLayout({
+      width,
+      height:
+        height -
+        summaries.reduce(
+          (total, item) =>
+            total + item.summaryHeight! + gap,
+          0,
+        ),
+      gap,
+      items: primary,
+      mode,
+      measureFacts,
+    })
+    if (layout) {
+      return {
+        ...layout,
+        style: {
+          ...layout.style,
+          gridTemplateRows: `${layout.style.gridTemplateRows} ${summaries.map((item) => `minmax(0, ${item.summaryHeight}fr)`).join(" ")}`,
+        },
+        cells: {
+          ...layout.cells,
+          ...Object.fromEntries(
+            summaries.map((item, index) => [
+              item.key,
+              {
+                gridColumn: "1 / -1",
+                gridRow: `${index - summaries.length - 1} / span 1`,
+              },
+            ]),
+          ),
+        },
+      }
+    }
+  }
+  return chooseMainCompositionLayout(input)
 }
