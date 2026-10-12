@@ -81,6 +81,14 @@ jobs:
         working-directory: packages/desktop
         run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
 
+      # Forge refuses pnpm's isolated linker because it expects to copy the
+      # app's `node_modules` into the package. This app ships none: the build
+      # bundles every dependency into `dist/`, and `forge.config.ts` packages
+      # only `package.json` and `dist/`. The marker file is Forge's own
+      # documented opt-out of that check, and it touches nothing in the repo.
+      - name: Skip Forge's node_modules layout check
+        run: New-Item -ItemType File -Force -Path "$HOME/.skip-forge-system-check" | Out-Null
+
       - name: Build the Windows installer
         run: pnpm --filter @castkit/desktop make
 
