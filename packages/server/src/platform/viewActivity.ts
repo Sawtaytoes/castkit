@@ -97,6 +97,11 @@ export const isChannelActive = (
       ).cutters.some(
         (cutter) => cutter.currentJob !== undefined,
       )
+    case "music-player.v1":
+      return (
+        (channel.data as ContractData["music-player.v1"])
+          .player?.state === "playing"
+      )
     case "queue.v1":
       return (
         (channel.data as ContractData["queue.v1"]).items
