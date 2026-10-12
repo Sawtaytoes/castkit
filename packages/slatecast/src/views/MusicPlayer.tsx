@@ -1,0 +1,998 @@
+import type { JSX } from "preact"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks"
+import {
+  extractTrackAccentColor,
+  getTrackAccentColor,
+} from "../accentColor.ts"
+import { formatTime } from "../formatTime.ts"
+import { ICON_PATHS, Icon } from "../Icon.tsx"
+import { safeMediaUrl } from "../platform/protocol.ts"
+import {
+  countUpcomingRows,
+  findCurrentLyricIndex,
+  type MusicPlayerData,
+  type MusicQueueItem,
+  readLivePositionSeconds,
+  readSeekSeconds,
+  resampleWaveform,
+  splitQueue,
+} from "./musicPlayerModel.ts"
+
+/** Queue row height and section label height, in pixels; the CSS uses the same. */
+const ROW_HEIGHT = 46
+const LABEL_HEIGHT = 26
+/** One waveform bar plus its gap, in pixels. */
+const BAR_PITCH = 3
+
+type MusicAction = (
+  action: string,
+  payload?: Record<string, unknown>,
+) => Promise<void>
+
+/** Re-render on a timer while `isActive`, for a position that moves by itself. */
+const useNowMs = ({
+  isActive,
+  intervalMs,
+}: {
+  isActive: boolean
+  intervalMs: number
+}) => {
+  const [nowMs, setNowMs] = useState(Date.now())
+  useEffect(() => {
+    setNowMs(Date.now())
+    if (!isActive) {
+      return undefined
+    }
+    const timer = setInterval(
+      () => setNowMs(Date.now()),
+      intervalMs,
+    )
+    return () => clearInterval(timer)
+  }, [isActive, intervalMs])
+  return nowMs
+}
+
+/** An element's content box, kept current as the panel resizes. */
+const useElementSize = <
+  ElementType extends HTMLElement,
+>() => {
+  const reference = useRef<ElementType>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  useLayoutEffect(() => {
+    const element = reference.current
+    if (!element) {
+      return undefined
+    }
+    const measure = () =>
+      setSize({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      })
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  return { reference, size }
+}
+
+const Artwork = ({
+  path,
+  className,
+}: {
+  path: string | undefined
+  className: string
+}) => {
+  const source = safeMediaUrl(path)
+  return source ? (
+    <img class={className} src={source} alt="" />
+  ) : (
+    <div class={`${className} music-art-empty`}>
+      <Icon path={ICON_PATHS.note} size="40%" />
+    </div>
+  )
+}
+
+const IconButton = ({
+  label,
+  path,
+  isOn = false,
+  isPrimary = false,
+  isDisabled,
+  onClick,
+}: {
+  label: string
+  path: string
+  isOn?: boolean
+  isPrimary?: boolean
+  isDisabled: boolean
+  onClick: () => void
+}) => (
+  <button
+    type="button"
+    class={`music-button${isPrimary ? " music-button-primary" : ""}${isOn ? " is-on" : ""}`}
+    aria-label={label}
+    aria-pressed={isPrimary ? undefined : isOn}
+    title={label}
+    disabled={isDisabled}
+    onClick={onClick}
+  >
+    <Icon path={path} size={isPrimary ? "28px" : "22px"} />
+  </button>
+)
+
+const repeatOrder = ["off", "all", "one"] as const
+
+const Transport = ({
+  data,
+  isControlEnabled,
+  onAction,
+}: {
+  data: MusicPlayerData
+  isControlEnabled: boolean
+  onAction: MusicAction
+}) => {
+  const queue = data.queue
+  const isPlaying = data.player?.state === "playing"
+  const repeat = queue?.repeat ?? "off"
+  const isDisabled = !isControlEnabled || !queue
+  return (
+    <div class="music-transport">
+      <IconButton
+        label={
+          data.current?.isFavorite
+            ? "Remove from favorites"
+            : "Add to favorites"
+        }
+        path={
+          data.current?.isFavorite
+            ? ICON_PATHS.favorite
+            : ICON_PATHS.favoriteOutline
+        }
+        isOn={data.current?.isFavorite === true}
+        isDisabled={isDisabled || !data.current}
+        onClick={() =>
+          void onAction("favorite", {
+            isFavorite: !data.current?.isFavorite,
+          })
+        }
+      />
+      <IconButton
+        label="Shuffle"
+        path={ICON_PATHS.shuffle}
+        isOn={queue?.isShuffled === true}
+        isDisabled={isDisabled}
+        onClick={() =>
+          void onAction("shuffle", {
+            isEnabled: !queue?.isShuffled,
+          })
+        }
+      />
+      <IconButton
+        label="Previous track"
+        path={ICON_PATHS.previous}
+        isDisabled={isDisabled}
+        onClick={() => void onAction("previous")}
+      />
+      <IconButton
+        label={isPlaying ? "Pause" : "Play"}
+        path={
+          isPlaying ? ICON_PATHS.pause : ICON_PATHS.play
+        }
+        isPrimary
+        isDisabled={isDisabled}
+        onClick={() => void onAction("play_pause")}
+      />
+      <IconButton
+        label="Next track"
+        path={ICON_PATHS.next}
+        isDisabled={isDisabled}
+        onClick={() => void onAction("next")}
+      />
+      <IconButton
+        label={
+          repeat === "one"
+            ? "Repeat one"
+            : repeat === "all"
+              ? "Repeat all"
+              : "Repeat off"
+        }
+        path={
+          repeat === "one"
+            ? ICON_PATHS.repeatOne
+            : ICON_PATHS.repeat
+        }
+        isOn={repeat !== "off"}
+        isDisabled={isDisabled}
+        onClick={() =>
+          void onAction("repeat", {
+            mode: repeatOrder[
+              (repeatOrder.indexOf(repeat) + 1) %
+                repeatOrder.length
+            ],
+          })
+        }
+      />
+    </div>
+  )
+}
+
+/**
+ * The seek bar. With a waveform it draws one bar per few pixels, colored up
+ * to the position; without one it is a plain progress line. Selecting any
+ * point seeks there.
+ */
+const SeekBar = ({
+  data,
+  positionSeconds,
+  isControlEnabled,
+  onAction,
+}: {
+  data: MusicPlayerData
+  positionSeconds: number
+  isControlEnabled: boolean
+  onAction: MusicAction
+}) => {
+  const { reference, size } =
+    useElementSize<HTMLDivElement>()
+  const [hoverFraction, setHoverFraction] = useState<
+    number | undefined
+  >(undefined)
+  const duration = data.current?.durationSeconds ?? 0
+  const fraction =
+    duration > 0
+      ? Math.min(1, Math.max(0, positionSeconds / duration))
+      : 0
+  const bars = resampleWaveform({
+    values: data.waveform ?? [],
+    barCount: Math.floor(size.width / BAR_PITCH),
+  })
+  const isSeekable = isControlEnabled && duration > 0
+  const readFraction = (
+    event: JSX.TargetedMouseEvent<HTMLDivElement>,
+  ) => {
+    const box = event.currentTarget.getBoundingClientRect()
+    return box.width > 0
+      ? (event.clientX - box.left) / box.width
+      : 0
+  }
+  return (
+    <div class="music-seek">
+      <div
+        ref={reference}
+        class={`music-wave${bars.length ? "" : " is-plain"}${isSeekable ? " is-seekable" : ""}`}
+        role="slider"
+        aria-label="Seek"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(positionSeconds)}
+        aria-valuetext={`${formatTime(positionSeconds)} of ${formatTime(duration)}`}
+        tabIndex={isSeekable ? 0 : -1}
+        onMouseMove={(event) =>
+          setHoverFraction(readFraction(event))
+        }
+        onMouseLeave={() => setHoverFraction(undefined)}
+        onClick={(event) => {
+          if (!isSeekable) {
+            return
+          }
+          void onAction("seek", {
+            positionSeconds: readSeekSeconds({
+              fraction: readFraction(event),
+              durationSeconds: duration,
+            }),
+          })
+        }}
+        onKeyDown={(event) => {
+          if (
+            !isSeekable ||
+            !["ArrowLeft", "ArrowRight"].includes(event.key)
+          ) {
+            return
+          }
+          event.preventDefault()
+          void onAction("seek", {
+            positionSeconds: Math.min(
+              duration,
+              Math.max(
+                0,
+                Math.round(positionSeconds) +
+                  (event.key === "ArrowLeft" ? -10 : 10),
+              ),
+            ),
+          })
+        }}
+      >
+        {bars.length ? (
+          bars.map((level, index) => (
+            <i
+              key={index}
+              class={
+                index / bars.length < fraction
+                  ? "is-played"
+                  : undefined
+              }
+              style={{
+                height: `${Math.max(6, Math.round(level * 100))}%`,
+              }}
+            />
+          ))
+        ) : (
+          <span
+            class="music-progress"
+            style={{ width: `${fraction * 100}%` }}
+          />
+        )}
+        {hoverFraction !== undefined && isSeekable ? (
+          <span
+            class="music-seek-hover"
+            style={{ left: `${hoverFraction * 100}%` }}
+          >
+            {formatTime(
+              readSeekSeconds({
+                fraction: hoverFraction,
+                durationSeconds: duration,
+              }),
+            )}
+          </span>
+        ) : null}
+      </div>
+      <div class="music-times">
+        <span>{formatTime(positionSeconds)}</span>
+        <span>
+          {duration > 0 ? formatTime(duration) : ""}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+const Volume = ({
+  data,
+  isControlEnabled,
+  onAction,
+}: {
+  data: MusicPlayerData
+  isControlEnabled: boolean
+  onAction: MusicAction
+}) => {
+  const reported = data.player?.volume
+  const [draft, setDraft] = useState<number | undefined>(
+    undefined,
+  )
+  useEffect(() => setDraft(undefined), [reported])
+  const volume = draft ?? reported ?? 0
+  return (
+    <label class="music-volume">
+      <Icon
+        path={
+          data.player?.isMuted || volume === 0
+            ? ICON_PATHS.muted
+            : ICON_PATHS.volume
+        }
+        size="20px"
+      />
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={volume}
+        aria-label="Volume"
+        disabled={
+          !isControlEnabled || reported === undefined
+        }
+        style={{ "--music-volume": `${volume}%` }}
+        onInput={(event) =>
+          setDraft(Number(event.currentTarget.value))
+        }
+        onChange={(event) =>
+          void onAction("set_volume", {
+            volume: Number(event.currentTarget.value),
+          })
+        }
+      />
+      <span class="music-volume-value">
+        {reported === undefined ? "" : Math.round(volume)}
+      </span>
+    </label>
+  )
+}
+
+/**
+ * The player the view controls, and a menu to pick another or to sync
+ * speakers with it. Sync is offered only where Music Assistant can group
+ * the player; otherwise its members are listed as status.
+ */
+const PlayerChip = ({
+  data,
+  isControlEnabled,
+  onAction,
+}: {
+  data: MusicPlayerData
+  isControlEnabled: boolean
+  onAction: MusicAction
+}) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const player = data.player
+  const syncedCount =
+    player?.members.filter((member) => member.isMember)
+      .length ?? 0
+  const hasMenu =
+    data.players.length > 1 ||
+    (player?.members.length ?? 0) > 0
+  return (
+    <div class="music-player-picker">
+      <button
+        type="button"
+        class="music-chip"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        disabled={!hasMenu}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <Icon path={ICON_PATHS.speakers} size="18px" />
+        <span class="music-chip-name">
+          {player?.name ?? "No player"}
+        </span>
+        {syncedCount > 0 ? (
+          <span class="music-chip-count">
+            +{syncedCount}
+          </span>
+        ) : null}
+      </button>
+      {isOpen ? (
+        <div class="music-menu" role="menu">
+          {data.players.length > 1 ? (
+            <>
+              <div class="music-menu-label">Control</div>
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={data.isAutomaticSelection}
+                class="music-menu-item"
+                disabled={!isControlEnabled}
+                onClick={() => {
+                  setIsOpen(false)
+                  void onAction("select_player", {
+                    playerId: "automatic",
+                  })
+                }}
+              >
+                <span class="music-menu-check">
+                  {data.isAutomaticSelection ? (
+                    <Icon
+                      path={ICON_PATHS.check}
+                      size="16px"
+                    />
+                  ) : null}
+                </span>
+                Whichever is playing
+              </button>
+              {data.players.map((choice) => {
+                const isChosen =
+                  !data.isAutomaticSelection &&
+                  choice.id === player?.id
+                return (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={isChosen}
+                    class="music-menu-item"
+                    disabled={!isControlEnabled}
+                    onClick={() => {
+                      setIsOpen(false)
+                      void onAction("select_player", {
+                        playerId: choice.id,
+                      })
+                    }}
+                  >
+                    <span class="music-menu-check">
+                      {isChosen ? (
+                        <Icon
+                          path={ICON_PATHS.check}
+                          size="16px"
+                        />
+                      ) : null}
+                    </span>
+                    {choice.name}
+                    <span class="music-menu-state">
+                      {choice.state === "playing"
+                        ? "Playing"
+                        : choice.state === "unavailable"
+                          ? "Offline"
+                          : ""}
+                    </span>
+                  </button>
+                )
+              })}
+            </>
+          ) : null}
+          {player?.members.length ? (
+            <>
+              <div class="music-menu-label">
+                {player.isMemberControlAvailable
+                  ? "Sync speakers"
+                  : "Speakers in this group"}
+              </div>
+              {player.members.map((member) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={member.isMember}
+                  class="music-menu-item"
+                  disabled={
+                    !isControlEnabled ||
+                    !player.isMemberControlAvailable ||
+                    !member.isAvailable
+                  }
+                  onClick={() =>
+                    void onAction("set_member", {
+                      playerId: member.id,
+                      isMember: !member.isMember,
+                    })
+                  }
+                >
+                  <span class="music-menu-check">
+                    {member.isMember ? (
+                      <Icon
+                        path={ICON_PATHS.check}
+                        size="16px"
+                      />
+                    ) : null}
+                  </span>
+                  {member.name}
+                  <span class="music-menu-state">
+                    {member.isAvailable ? "" : "Offline"}
+                  </span>
+                </button>
+              ))}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+const QueueRow = ({
+  item,
+  kind,
+  isControlEnabled,
+  onAction,
+}: {
+  item: MusicQueueItem
+  kind: "played" | "current" | "upcoming"
+  isControlEnabled: boolean
+  onAction: MusicAction
+}) => (
+  <button
+    type="button"
+    class={`music-row is-${kind}`}
+    aria-current={kind === "current" ? "true" : undefined}
+    disabled={
+      !isControlEnabled ||
+      kind === "current" ||
+      !item.isAvailable
+    }
+    title={
+      kind === "current" ? undefined : `Play ${item.title}`
+    }
+    onClick={() =>
+      void onAction("play_item", {
+        queueItemId: item.queueItemId,
+      })
+    }
+  >
+    <Artwork
+      path={item.artworkPath}
+      className="music-row-art"
+    />
+    <span class="music-row-text">
+      <span class="music-row-title">{item.title}</span>
+      <span class="music-row-artist">{item.artist}</span>
+    </span>
+    <span class="music-row-duration">
+      {item.durationSeconds === undefined
+        ? ""
+        : formatTime(item.durationSeconds)}
+    </span>
+  </button>
+)
+
+const QueueList = ({
+  data,
+  playedRowCount,
+  isControlEnabled,
+  onAction,
+}: {
+  data: MusicPlayerData
+  playedRowCount: number
+  isControlEnabled: boolean
+  onAction: MusicAction
+}) => {
+  const { reference, size } =
+    useElementSize<HTMLDivElement>()
+  const queue = data.queue
+  const { played, current, upcoming } = splitQueue({
+    items: queue?.items ?? [],
+    currentIndex: queue?.currentIndex,
+    playedRowCount,
+  })
+  const upcomingCount = countUpcomingRows({
+    listHeight: size.height,
+    rowHeight: ROW_HEIGHT,
+    labelHeight: LABEL_HEIGHT,
+    playedRowCount: played.length,
+    hasCurrent: current !== undefined,
+  })
+  const remaining =
+    queue && queue.currentIndex !== undefined
+      ? Math.max(
+          0,
+          queue.itemCount - queue.currentIndex - 1,
+        )
+      : upcoming.length
+  return (
+    <div ref={reference} class="music-queue">
+      {!queue?.items.length ? (
+        <div class="music-empty">The queue is empty.</div>
+      ) : (
+        <>
+          {played.length ? (
+            <div class="music-label">Played</div>
+          ) : null}
+          {played.map((item) => (
+            <QueueRow
+              key={item.queueItemId}
+              item={item}
+              kind="played"
+              isControlEnabled={isControlEnabled}
+              onAction={onAction}
+            />
+          ))}
+          {current ? (
+            <>
+              <div class="music-label">Now playing</div>
+              <QueueRow
+                item={current}
+                kind="current"
+                isControlEnabled={isControlEnabled}
+                onAction={onAction}
+              />
+            </>
+          ) : null}
+          <div class="music-label">
+            Up next{" "}
+            <span class="music-label-count">
+              {remaining}
+            </span>
+          </div>
+          {upcoming.slice(0, upcomingCount).map((item) => (
+            <QueueRow
+              key={item.queueItemId}
+              item={item}
+              kind="upcoming"
+              isControlEnabled={isControlEnabled}
+              onAction={onAction}
+            />
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Lyrics for the current track. Synced lyrics follow the position and keep
+ * the sung line in the middle; selecting a line seeks to it. Plain lyrics
+ * carry no times, so they scroll and do not seek.
+ */
+const LyricsPane = ({
+  data,
+  positionSeconds,
+  isControlEnabled,
+  onAction,
+}: {
+  data: MusicPlayerData
+  positionSeconds: number
+  isControlEnabled: boolean
+  onAction: MusicAction
+}) => {
+  const lyrics = data.lyrics
+  const listReference = useRef<HTMLDivElement>(null)
+  const currentIndex = lyrics?.isSynced
+    ? findCurrentLyricIndex({
+        lines: lyrics.lines,
+        positionSeconds,
+      })
+    : -1
+  useEffect(() => {
+    const list = listReference.current
+    const line = list?.querySelector<HTMLElement>(
+      ".music-lyric.is-current",
+    )
+    if (!list || !line) {
+      return
+    }
+    list.scrollTo({
+      top:
+        line.offsetTop -
+        list.clientHeight / 2 +
+        line.offsetHeight / 2,
+      behavior: "smooth",
+    })
+  }, [currentIndex])
+  if (!lyrics) {
+    return (
+      <div class="music-empty">
+        This track has no lyrics.
+      </div>
+    )
+  }
+  return (
+    <div
+      ref={listReference}
+      class={`music-lyrics${lyrics.isSynced ? " is-synced" : ""}`}
+    >
+      {lyrics.lines.map((line, index) =>
+        lyrics.isSynced &&
+        line.startSeconds !== undefined ? (
+          <button
+            key={index}
+            type="button"
+            class={`music-lyric${index === currentIndex ? " is-current" : index < currentIndex ? " is-sung" : ""}`}
+            disabled={!isControlEnabled}
+            onClick={() =>
+              void onAction("seek", {
+                positionSeconds: Math.floor(
+                  line.startSeconds ?? 0,
+                ),
+              })
+            }
+          >
+            {line.text || "· · ·"}
+          </button>
+        ) : (
+          <p key={index} class="music-lyric is-plain">
+            {line.text || " "}
+          </p>
+        ),
+      )}
+    </div>
+  )
+}
+
+/**
+ * A music player for a mid-sized display: the player beside its queue, or
+ * a wide waveform above it. Built for a mouse as much as for touch; every
+ * control is a real button.
+ */
+export const MusicPlayer = ({
+  data,
+  layout,
+  isLyricsTabVisible,
+  playedRowCount,
+  isControlEnabled,
+  onAction,
+  initialTab = "queue",
+}: {
+  data: MusicPlayerData | null
+  initialTab?: "queue" | "lyrics"
+  layout: "side-by-side" | "wide-waveform"
+  isLyricsTabVisible: boolean
+  playedRowCount: number
+  isControlEnabled: boolean
+  onAction: MusicAction
+}) => {
+  const [tab, setTab] = useState(initialTab)
+  const [error, setError] = useState<string | undefined>(
+    undefined,
+  )
+  const isPlaying = data?.player?.state === "playing"
+  const nowMs = useNowMs({
+    isActive: isPlaying,
+    intervalMs: 250,
+  })
+  const current = data?.current
+  const trackKey = current?.queueItemId ?? ""
+  const [accent, setAccent] = useState<string | undefined>(
+    () =>
+      trackKey ? getTrackAccentColor(trackKey) : undefined,
+  )
+  useEffect(() => {
+    const imageUrl = safeMediaUrl(current?.artworkPath)
+    if (!imageUrl || !trackKey) {
+      setAccent(undefined)
+      return undefined
+    }
+    const state = { isCurrent: true }
+    void extractTrackAccentColor({
+      imageUrl,
+      trackKey,
+    }).then((color) => {
+      if (state.isCurrent) {
+        setAccent(color ?? undefined)
+      }
+    })
+    return () => {
+      state.isCurrent = false
+    }
+  }, [current?.artworkPath, trackKey])
+  useEffect(() => {
+    if (!error) {
+      return undefined
+    }
+    const timer = setTimeout(
+      () => setError(undefined),
+      4000,
+    )
+    return () => clearTimeout(timer)
+  }, [error])
+  const hasLyrics = Boolean(data?.lyrics)
+  const visibleTab =
+    tab === "lyrics" && isLyricsTabVisible && hasLyrics
+      ? "lyrics"
+      : "queue"
+  if (!data) {
+    return (
+      <section class="music-player">
+        <div class="music-empty">
+          Waiting for the music player…
+        </div>
+      </section>
+    )
+  }
+  const act: MusicAction = (action, payload) =>
+    onAction(action, payload).catch((failure: unknown) =>
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "That did not work.",
+      ),
+    )
+  const positionSeconds = readLivePositionSeconds({
+    data,
+    nowMs,
+  })
+  const controls = {
+    data,
+    isControlEnabled,
+    onAction: act,
+  }
+  const title = (
+    <div class="music-title">
+      <div class="music-track" title={current?.title}>
+        {current?.title ?? "Nothing playing"}
+      </div>
+      <div class="music-artist" title={current?.artist}>
+        {[
+          current?.artist,
+          layout === "wide-waveform"
+            ? current?.album
+            : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </div>
+    </div>
+  )
+  const side = (
+    <section class="music-side">
+      <div class="music-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={visibleTab === "queue"}
+          class="music-tab"
+          onClick={() => setTab("queue")}
+        >
+          Queue
+        </button>
+        {isLyricsTabVisible ? (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={visibleTab === "lyrics"}
+            class="music-tab"
+            disabled={!hasLyrics}
+            title={
+              hasLyrics
+                ? undefined
+                : "This track has no lyrics"
+            }
+            onClick={() => setTab("lyrics")}
+          >
+            Lyrics
+          </button>
+        ) : null}
+        <span class="music-tabs-note">
+          {visibleTab === "lyrics"
+            ? data.lyrics?.isSynced
+              ? isControlEnabled
+                ? "Select a line to seek"
+                : "Synced"
+              : "Not synced"
+            : data.queue
+              ? `${data.queue.itemCount} tracks`
+              : ""}
+        </span>
+      </div>
+      {visibleTab === "lyrics" ? (
+        <LyricsPane
+          {...controls}
+          positionSeconds={positionSeconds}
+        />
+      ) : (
+        <QueueList
+          {...controls}
+          playedRowCount={playedRowCount}
+        />
+      )}
+    </section>
+  )
+  return (
+    <section
+      class="music-player"
+      style={
+        accent ? { "--music-accent": accent } : undefined
+      }
+    >
+      <div class={`music-layout is-${layout}`}>
+        {layout === "wide-waveform" ? (
+          <>
+            <header class="music-header">
+              <Artwork
+                path={current?.artworkPath}
+                className="music-art"
+              />
+              <div class="music-header-main">
+                {title}
+                <div class="music-header-controls">
+                  <Transport {...controls} />
+                  <Volume {...controls} />
+                  <PlayerChip {...controls} />
+                </div>
+              </div>
+            </header>
+            <SeekBar
+              {...controls}
+              positionSeconds={positionSeconds}
+            />
+            {side}
+          </>
+        ) : (
+          <>
+            <section class="music-main">
+              <Artwork
+                path={current?.artworkPath}
+                className="music-art"
+              />
+              {title}
+              <SeekBar
+                {...controls}
+                positionSeconds={positionSeconds}
+              />
+              <Transport {...controls} />
+              <Volume {...controls} />
+              <PlayerChip {...controls} />
+            </section>
+            {side}
+          </>
+        )}
+      </div>
+      {error ? (
+        <div class="music-error" role="alert">
+          {error}
+        </div>
+      ) : null}
+    </section>
+  )
+}
