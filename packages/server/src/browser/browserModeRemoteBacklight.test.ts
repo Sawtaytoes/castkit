@@ -26,6 +26,18 @@ test("management controls and the device endpoint work with MQTT disabled and pe
         height: 480,
         hasMqttBacklight: false,
         hasRemoteBacklight: true,
+        hasTouch: true,
+      },
+      {
+        renderer: "browser",
+        id: "glass",
+        label: "No touch",
+        mac: "02:00:00:00:00:02",
+        width: 480,
+        height: 480,
+        hasMqttBacklight: false,
+        hasRemoteBacklight: true,
+        hasTouch: false,
       },
     ]),
   )
@@ -79,13 +91,22 @@ test("management controls and the device endpoint work with MQTT disabled and pe
         ).json()
       ).controls_url,
     ).toBe("/d/panel/controls.json")
+    // Dark, but a tap lights it at its chosen level for the wake window.
     expect(
-      (
-        await (
-          await app.request("/d/panel/controls.json")
-        ).json()
-      ).backlight_percent,
-    ).toBe(0)
+      await (
+        await app.request("/d/panel/controls.json")
+      ).json(),
+    ).toMatchObject({
+      backlight_percent: 0,
+      wake_percent: 35,
+      wake_seconds: 30,
+    })
+    // A panel with no touch has nothing to tap.
+    expect(
+      await (
+        await app.request("/d/glass/controls.json")
+      ).json(),
+    ).not.toHaveProperty("wake_percent")
     const restored = create()
     try {
       expect(

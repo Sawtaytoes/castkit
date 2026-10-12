@@ -4,6 +4,13 @@ import type {
 } from "@castkit/sdk/contracts"
 import type { PlatformStore } from "../platform/platformStore.ts"
 
+/**
+ * How long a tap keeps a dark touch panel lit. The receiver owns the timer, so
+ * the panel lights without a round trip; CastKit only supplies the level and
+ * the window.
+ */
+export const TAP_WAKE_SECONDS = 30
+
 /** Direct device settings survive restarts without a broker or automation service. */
 export const createRemoteBacklight = ({
   store,
@@ -52,6 +59,12 @@ export const createRemoteBacklight = ({
             : "unavailable",
     }
   }
+  // A tap on a dark panel lights it at the brightness chosen for it, which is
+  // already the level its owner reads it at.
+  const resolveWake = (deviceId: string) => ({
+    wake_percent: get(deviceId).level,
+    wake_seconds: TAP_WAKE_SECONDS,
+  })
   const set = ({
     deviceId,
     kind,
@@ -97,5 +110,5 @@ export const createRemoteBacklight = ({
     }))
     return true
   }
-  return { get, resolve, set }
+  return { get, resolve, resolveWake, set }
 }

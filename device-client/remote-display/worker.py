@@ -562,6 +562,8 @@ async def poll_controls(context, config, transport, stop):
             controls = await response.json()
             if "backlight_percent" in controls:
                 transport.set_backlight(controls["backlight_percent"])
+            if "wake_percent" in controls:
+                transport.set_wake(controls["wake_percent"], controls.get("wake_seconds", 30))
             transport.set_ambient_light(
                 controls.get("ambientLight"), controls.get("ambientLightData")
             )
