@@ -58,12 +58,16 @@ describe("agenda rendering", () => {
     })
   })
 
-  test("shows the empty notice when the day has no events", async () => {
+  test("draws the Ambient face when the day has no events", async () => {
     await mountCalendar([])
 
     expect(
-      screen.getByText("No upcoming events"),
-    ).toBeVisible()
+      document.querySelector(".ambient"),
+    ).not.toBeNull()
+    expect(document.querySelector(".calendar")).toBeNull()
+    expect(
+      screen.queryByText("No upcoming events"),
+    ).toBeNull()
   })
 })
 
@@ -169,8 +173,9 @@ describe("calendar weather", () => {
     )
 
     expect(screen.getByText("41°")).toBeVisible()
+    expect(screen.getByText("Snowy")).toBeVisible()
     expect(
-      screen.getByText("No upcoming events"),
-    ).toBeVisible()
+      document.querySelector(".ambient"),
+    ).not.toBeNull()
   })
 })

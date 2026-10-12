@@ -19,9 +19,9 @@ const frame = {
 }
 
 test.each([
-  { width: 480, height: 480, fontSize: 120 },
-  { width: 720, height: 720, fontSize: 180 },
-])("the ambient time takes the agenda's distance size at $width by $height", async ({
+  { width: 480, height: 480, fontSize: 163.2 },
+  { width: 720, height: 720, fontSize: 244.8 },
+])("the ambient time fills the panel at $width by $height", async ({
   width,
   height,
   fontSize,
@@ -72,7 +72,7 @@ test("the clock view's time takes the same size at 480 by 480", async () => {
     getComputedStyle(
       document.querySelector(".ambient-time")!,
     ).fontSize,
-  ).toBe("120px")
+  ).toBe("163.2px")
 })
 
 test("an ambient panel in a shared platform grid keeps 17vmin", async () => {
