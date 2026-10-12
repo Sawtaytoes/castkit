@@ -8,6 +8,8 @@ track's lyrics together.
 The view is not a Sendspin player. It controls players that Music Assistant
 already has; it plays no audio itself.
 
+![Side by side](images/music-player-side-by-side.png)
+
 ## Layouts
 
 The view's **Layout** setting picks one of two faces. Both share the same
@@ -17,6 +19,8 @@ controls, queue, and lyrics.
 | --- | --- |
 | **Side by side** (default) | The player on the left — artwork, title, waveform seek bar, transport, volume, and the player menu. The queue or lyrics fill the right. |
 | **Wide waveform** | One strip across the top — small artwork, title, and a full-width waveform — with the transport under it, and the queue or lyrics at full width below. |
+
+![Wide waveform](images/music-player-wide-waveform.png)
 
 Below 720 px wide the side panel is hidden and the player stands alone. Below
 480 px tall the artwork is hidden.
@@ -39,6 +43,8 @@ Synced (LRC) lyrics follow the position: the line being sung is brightest and
 stays centered, and selecting a line seeks to its time. Plain lyrics are shown
 as text and do not seek. The tab is disabled for a track without lyrics, and
 turning off the view's **Offer a Lyrics tab** setting hides it entirely.
+
+![Synced lyrics](images/music-player-lyrics.png)
 
 ## The player menu
 
