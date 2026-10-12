@@ -115,7 +115,7 @@ test("bundled sources and view libraries are independently registered plugins", 
     catalog.plugins.filter(
       (plugin) => plugin.adapters.length,
     ),
-  ).toHaveLength(10)
+  ).toHaveLength(11)
   const photos = catalog.plugins.find(
     (plugin) => plugin.id === "castkit.views.photos",
   )

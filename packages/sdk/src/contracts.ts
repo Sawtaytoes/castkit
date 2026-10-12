@@ -19,6 +19,7 @@ export const CONTRACT_TYPES = [
   "spools.v1",
   "ams.v1",
   "cutters.v1",
+  "music-player.v1",
 ] as const
 /** An independently configured provider; secrets never belong in this DTO. */
 export type SourceDefinition = {
@@ -459,9 +460,109 @@ const cutter = z.object({
   currentJob: cutterJob.optional(),
   recentJobs: z.array(cutterJob).max(10),
 })
+/**
+ * One row of a music queue. `queueItemId` is the source's own identifier for
+ * the row, so a request to play it names the row and never a position that
+ * may have moved since the panel drew it.
+ */
+const musicQueueItem = z.object({
+  queueItemId: z.string().min(1),
+  index: z.number().int().nonnegative(),
+  title: z.string(),
+  artist: z.string(),
+  album: z.string().optional(),
+  durationSeconds: finiteNumber.nonnegative().optional(),
+  artworkPath: safeUrl.optional(),
+  isAvailable: z.boolean(),
+})
+const musicPlayerState = z.enum([
+  "playing",
+  "paused",
+  "idle",
+  "unavailable",
+])
+/**
+ * A music player, its queue and what the current track carries: a waveform
+ * of loudness from 0 to 1 across the whole track, and lyrics. Synced lyric
+ * lines carry `startSeconds`; plain lyrics carry none, and a view must not
+ * offer to seek to them.
+ */
+const musicPlayer = z.object({
+  player: z
+    .object({
+      id: z.string().min(1),
+      name: z.string(),
+      state: musicPlayerState,
+      volume: finiteNumber.min(0).max(100).optional(),
+      isMuted: z.boolean().optional(),
+      isGroup: z.boolean(),
+      isMemberControlAvailable: z.boolean(),
+      members: z
+        .array(
+          z.object({
+            id: z.string().min(1),
+            name: z.string(),
+            isMember: z.boolean(),
+            isAvailable: z.boolean(),
+          }),
+        )
+        .max(200),
+    })
+    .optional(),
+  players: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        name: z.string(),
+        state: musicPlayerState,
+        isGroup: z.boolean(),
+      }),
+    )
+    .max(200),
+  isAutomaticSelection: z.boolean(),
+  queue: z
+    .object({
+      id: z.string().min(1),
+      itemCount: z.number().int().nonnegative(),
+      currentIndex: z
+        .number()
+        .int()
+        .nonnegative()
+        .optional(),
+      isShuffled: z.boolean(),
+      repeat: z.enum(["off", "one", "all"]),
+      items: z.array(musicQueueItem).max(100),
+    })
+    .optional(),
+  current: musicQueueItem
+    .extend({ isFavorite: z.boolean() })
+    .optional(),
+  positionSeconds: finiteNumber.nonnegative().optional(),
+  positionUpdatedAtMs: finiteNumber.optional(),
+  waveform: z
+    .array(finiteNumber.min(0).max(1))
+    .max(1000)
+    .optional(),
+  lyrics: z
+    .object({
+      isSynced: z.boolean(),
+      lines: z
+        .array(
+          z.object({
+            startSeconds: finiteNumber
+              .nonnegative()
+              .optional(),
+            text: z.string().max(1000),
+          }),
+        )
+        .max(2000),
+    })
+    .optional(),
+})
 export const builtinContractSchemas = {
   "ams.v1": z.object({ printers: z.array(spoolsPrinter) }),
   "cutters.v1": z.object({ cutters: z.array(cutter) }),
+  "music-player.v1": musicPlayer,
   "now-playing.v1": nowPlaying,
   "queue.v1": z.object({
     items: z.array(

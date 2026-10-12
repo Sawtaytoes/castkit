@@ -73,6 +73,9 @@ server during development.
 - [Cutter Status](docs/cutter-status-view.md) — a vinyl or paper cutter on a
   Cuttero server: its connection, the job it is cutting with an estimated
   finish and its cut lines, and its recent jobs
+- [Music Player](docs/music-player-view.md) — a compact Music Assistant
+  controller for a small desk display: the player beside its queue, a
+  waveform seek bar, synced lyrics, and speaker sync
 - [Filament Spool Scale](docs/filament-spool-scale-view.md) — the spool on the
   scale, its one-tap weight save, every AMS slot, and a three-tap assign
 

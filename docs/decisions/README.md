@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-12: The Music Player view reads Music Assistant directly](2026-10-12-the-music-player-view-reads-music-assistant-directly.md)
+
 - [2026-10-12: Task header aligns primary values in one row](2026-10-12-task-header-aligns-primary-values-in-one-row.md)
 
 - [2026-10-12: A dark touch panel wakes for thirty seconds on a tap](2026-10-12-a-dark-touch-panel-wakes-for-thirty-seconds-on-a-tap.md)

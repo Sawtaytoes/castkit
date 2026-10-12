@@ -10,6 +10,7 @@ import type { JSX } from "preact"
 import { AmsFilaments } from "../views/AmsFilaments.tsx"
 import { CutterStatus } from "../views/CutterStatus.tsx"
 import { FilamentSpoolScale } from "../views/FilamentSpoolScale.tsx"
+import { MusicPlayer } from "../views/MusicPlayer.tsx"
 import { TouchTest } from "../views/TouchTest.tsx"
 import { BuiltinView } from "./BuiltinView.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
@@ -88,6 +89,7 @@ export const Panel = ({
     panel.specId === "ams" ||
     panel.specId === "cutter-status" ||
     panel.specId === "filament-spool-scale" ||
+    panel.specId === "music-player" ||
     panel.specId === "touch-test"
   const declaredInputs =
     inputs ??
@@ -284,6 +286,40 @@ export const Panel = ({
             }
             onAction={requestAction}
             settings={panel.settings}
+          />
+        ) : panel.specId === "music-player" ? (
+          <MusicPlayer
+            data={
+              (source?.data as
+                | ContractData["music-player.v1"]
+                | undefined) ?? null
+            }
+            layout={
+              panel.settings.layout === "wide-waveform"
+                ? "wide-waveform"
+                : "side-by-side"
+            }
+            isLyricsTabVisible={
+              panel.settings.isLyricsTabVisible !== false
+            }
+            playedRowCount={
+              typeof panel.settings.playedRowCount ===
+              "number"
+                ? Math.min(
+                    10,
+                    Math.max(
+                      0,
+                      panel.settings.playedRowCount,
+                    ),
+                  )
+                : 2
+            }
+            isControlEnabled={
+              isControlEnabled &&
+              properties.isInteractive &&
+              isSourceReady
+            }
+            onAction={requestAction}
           />
         ) : panel.specId === "rip-deck" ? (
           <RipDeckView

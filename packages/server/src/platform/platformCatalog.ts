@@ -24,6 +24,7 @@ import {
   DEFAULT_KIDS_POINTS_STATE_TOPIC,
 } from "./sources/kidsPoints.ts"
 import { createMqttSource } from "./sources/mqtt.ts"
+import { createMusicAssistantSource } from "./sources/musicAssistant.ts"
 import {
   createPointsHistorySource,
   DEFAULT_POINTS_REPORT_REQUEST_TOPIC,
@@ -377,6 +378,48 @@ const adapters: AdapterDefinition[] = [
     actions: [],
   },
   {
+    id: "music-assistant",
+    name: "Music Assistant",
+    description:
+      "A Music Assistant player and its queue, with the current track's waveform and lyrics, transport and volume controls, and speaker sync.",
+    channelTypes: ["music-player.v1"],
+    settings: [
+      urlField,
+      {
+        key: "token",
+        label: "Long-lived token",
+        type: "secret",
+        isRequired: true,
+        description:
+          "Create one in Music Assistant under Settings → Profile → Long-lived tokens.",
+      },
+    ],
+    channelSettings: [
+      {
+        key: "playerIds",
+        label: "Players",
+        type: "string-list",
+        discoveryKey: "players",
+        isRequired: true,
+        description:
+          "In priority order. The view shows the first one that is playing; a person can pick another from the view.",
+      },
+    ],
+    actions: [
+      { id: "play_pause", name: "Play or pause" },
+      { id: "next", name: "Next track" },
+      { id: "previous", name: "Previous track" },
+      { id: "seek", name: "Seek" },
+      { id: "play_item", name: "Play a queued track" },
+      { id: "set_volume", name: "Set volume" },
+      { id: "shuffle", name: "Shuffle" },
+      { id: "repeat", name: "Repeat" },
+      { id: "favorite", name: "Favorite" },
+      { id: "set_member", name: "Sync a speaker" },
+      { id: "select_player", name: "Choose the player" },
+    ],
+  },
+  {
     id: "points-history",
     name: "Tally Marks History",
     description:
@@ -662,6 +705,60 @@ const viewSpecs: ViewSpec[] = [
         "Each cutter's connection, the job it is cutting with an estimated finish, its cut lines, and its recent jobs.",
     }),
     minimumRepaint: "fast",
+  },
+  {
+    ...view({
+      id: "music-player",
+      name: "Music Player",
+      type: "music-player.v1",
+      description:
+        "A full music player: artwork, a waveform seek bar, transport and volume, the played, current and upcoming queue, and synced lyrics.",
+    }),
+    renderers: ["browser"],
+    minimumRepaint: "instant",
+    actions: [
+      "play_pause",
+      "next",
+      "previous",
+      "seek",
+      "play_item",
+      "set_volume",
+      "shuffle",
+      "repeat",
+      "favorite",
+      "set_member",
+      "select_player",
+    ].map((id) => ({ id, name: id.replaceAll("_", " ") })),
+    settings: [
+      {
+        key: "layout",
+        label: "Layout",
+        type: "select",
+        defaultValue: "side-by-side",
+        options: [
+          {
+            value: "side-by-side",
+            label: "Side by side (player beside the queue)",
+          },
+          {
+            value: "wide-waveform",
+            label: "Wide waveform (queue below)",
+          },
+        ],
+      },
+      {
+        key: "isLyricsTabVisible",
+        label: "Offer a Lyrics tab",
+        type: "boolean",
+        defaultValue: true,
+      },
+      {
+        key: "playedRowCount",
+        label: "Played tracks to show",
+        type: "number",
+        defaultValue: 2,
+      },
+    ],
   },
   {
     ...view({ id: "touch-test", name: "Touch Test" }),
@@ -1234,6 +1331,7 @@ const sourceFactories: NonNullable<
   "rip-deck": createRipDeckSource,
   "ai-usage": createAiUsageSource,
   cuttero: createCutteroSource,
+  "music-assistant": createMusicAssistantSource,
   "kids-points": createKidsPointsSource,
   "points-history": createPointsHistorySource,
   clock: (context) => {
@@ -1263,7 +1361,7 @@ const viewGroups = [
   {
     id: "media",
     name: "Media playback",
-    specs: ["now-playing", "queue"],
+    specs: ["now-playing", "queue", "music-player"],
   },
   {
     id: "printers",
