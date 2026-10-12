@@ -524,7 +524,11 @@ const musicPlayer = z.object({
     .object({
       id: z.string().min(1),
       itemCount: z.number().int().nonnegative(),
-      currentIndex: z.number().int().nonnegative().optional(),
+      currentIndex: z
+        .number()
+        .int()
+        .nonnegative()
+        .optional(),
       isShuffled: z.boolean(),
       repeat: z.enum(["off", "one", "all"]),
       items: z.array(musicQueueItem).max(100),
@@ -535,14 +539,19 @@ const musicPlayer = z.object({
     .optional(),
   positionSeconds: finiteNumber.nonnegative().optional(),
   positionUpdatedAtMs: finiteNumber.optional(),
-  waveform: z.array(finiteNumber.min(0).max(1)).max(1000).optional(),
+  waveform: z
+    .array(finiteNumber.min(0).max(1))
+    .max(1000)
+    .optional(),
   lyrics: z
     .object({
       isSynced: z.boolean(),
       lines: z
         .array(
           z.object({
-            startSeconds: finiteNumber.nonnegative().optional(),
+            startSeconds: finiteNumber
+              .nonnegative()
+              .optional(),
             text: z.string().max(1000),
           }),
         )

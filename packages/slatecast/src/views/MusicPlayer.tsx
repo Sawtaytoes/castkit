@@ -812,7 +812,8 @@ export const MusicPlayer = ({
   const trackKey = current?.queueItemId ?? ""
   const [accent, setAccent] = useState<string | undefined>(
     () =>
-      trackKey ? getTrackAccentColor(trackKey) : undefined,
+      (trackKey ? getTrackAccentColor(trackKey) : null) ??
+      undefined,
   )
   useEffect(() => {
     const imageUrl = safeMediaUrl(current?.artworkPath)
