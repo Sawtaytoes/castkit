@@ -42,8 +42,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Node 24, not the repo's .nvmrc: Forge's zip maker uses cross-zip 4,
+      # which calls `fs.rmdir(..., { recursive: true })`, and Node 26 removed
+      # that option. Image-Viewer builds its installer on Node 24 too. Only
+      # this packaging job pins it; the app itself runs on Electron's Node.
       - uses: actions/setup-node@v6
-        with: { node-version-file: .nvmrc }
+        with: { node-version: 24 }
 
       - name: Install pinned pnpm
         run: |
