@@ -7,5 +7,8 @@ enableGlobalVirtualStore: false
 enablePrePostScripts: false
 verifyDepsBeforeRun: error
 allowBuilds:
+  # Squirrel's packager picks its bundled 7-Zip for the build machine's
+  # architecture in a postinstall; the Windows installer build needs it.
+  electron-winstaller: true
   esbuild: true
   msw: true
