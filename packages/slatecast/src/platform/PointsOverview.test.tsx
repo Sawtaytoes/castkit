@@ -59,13 +59,29 @@ test.each([
   })
   const idleHeight =
     pointsPanel.getBoundingClientRect().height
+  // Names, not initials: the initial alone is for a cell too narrow for one.
   expect(
     Array.from(
-      container.querySelectorAll(
+      container.querySelectorAll<HTMLElement>(
         ".kids-points-summary-values h3",
       ),
-    ).map((name) => name.textContent),
-  ).toEqual(["R", "S", "Q"])
+    ).map((name) => name.innerText),
+  ).toEqual(["Robin", "Sky", "Quinn"])
+  // Each child starts with its own identity stripe.
+  expect(
+    Array.from(
+      container.querySelectorAll<HTMLElement>(
+        ".kids-points-summary-child",
+      ),
+    ).map(
+      (child) =>
+        getComputedStyle(child).borderInlineStartColor,
+    ),
+  ).toEqual([
+    "rgb(38, 155, 83)",
+    "rgb(63, 127, 224)",
+    "rgb(217, 80, 63)",
+  ])
   rerender(content(true, true))
   await waitFor(() => {
     expect(

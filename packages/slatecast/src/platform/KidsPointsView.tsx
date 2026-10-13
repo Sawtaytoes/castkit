@@ -764,12 +764,26 @@ export const KidsPointsView = ({
             <KidOpenButton kid={kid} onSelect={onSelect} />
             <div class="kids-points-summary-values">
               <h3 title={kid.name}>
-                {Array.from(kid.name)[0]}
+                <span class="kids-points-summary-name">
+                  {kid.name}
+                </span>
+                <span
+                  class="kids-points-summary-initial"
+                  aria-hidden="true"
+                >
+                  {Array.from(kid.name)[0]}
+                </span>
               </h3>
               <strong>
                 {formatPoints(kid.pointsToday)}
               </strong>
+              {kid.goal === undefined ? null : (
+                <span class="kids-points-summary-goal">
+                  {`/ ${formatPoints(kid.goal)}`}
+                </span>
+              )}
             </div>
+            <GoalBar kid={kid} />
             {isRunning ? (
               <CompactActivity
                 kid={kid}
