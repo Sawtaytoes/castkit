@@ -15,7 +15,16 @@ type ProviderRows = ReturnType<
  */
 export const BASE_VIEW_HEADING_HEIGHT = 58
 export const BASE_PROVIDER_HEADING_HEIGHT = 34
-export const BASE_ROW_HEIGHT = 70
+export const BASE_ROW_HEIGHT = 48
+export const BASE_ESCALATED_ROW_HEIGHT = 70
+
+/** The compact headline and labeled warning rows reserve their actual heights. */
+export const getUsageRowHeight = (
+  row: ProviderRows["rows"][number],
+) =>
+  row.isEscalated
+    ? BASE_ESCALATED_ROW_HEIGHT
+    : BASE_ROW_HEIGHT
 export const BASE_COLUMN_GAP = 34
 
 /**
@@ -29,8 +38,7 @@ const MAX_SCALE = 2
 
 /**
  * A column narrower than this at scale 1 cannot hold a label and a percentage
- * on one line: "Weekly (all models)" at 15 px is about 150 px, "28% left" at
- * 17 px bold about 55 px, and the gap between them 12 px.
+ * on one line, while leaving room for provider names, icons and status notices.
  */
 const MIN_COLUMN_WIDTH = 220
 const MAX_COLUMN_COUNT = 3
@@ -126,7 +134,8 @@ const placeAtScale = ({
     (hasViewHeading ? BASE_VIEW_HEADING_HEIGHT * scale : 0)
   const providerHeadingHeight =
     BASE_PROVIDER_HEADING_HEIGHT * scale
-  const rowHeight = BASE_ROW_HEIGHT * scale
+  const rowHeight = (row: ProviderRows["rows"][number]) =>
+    getUsageRowHeight(row) * scale
 
   const prioritizedRows = providerRows
     .map((entry) => ({
@@ -156,7 +165,10 @@ const placeAtScale = ({
         }
         const fullHeight =
           providerHeadingHeight +
-          entry.rows.length * rowHeight
+          entry.rows.reduce(
+            (total, row) => total + rowHeight(row),
+            0,
+          )
         const hasNextColumn =
           accumulated.columnIndex < columnCount - 1
         /*
@@ -176,14 +188,25 @@ const placeAtScale = ({
         const heightLeft = isMoving
           ? columnHeight
           : accumulated.heightLeft
-        const rowCount = clamp({
-          value: Math.floor(
-            (heightLeft - providerHeadingHeight) /
-              rowHeight,
-          ),
-          minimum: 0,
-          maximum: entry.rows.length,
-        })
+        const rowCount = entry.rows.reduce(
+          (budget, row) => {
+            const height = rowHeight(row)
+            // CSS lengths may differ by floating-point dust after scaling.
+            return budget.isFull ||
+              budget.heightLeft < height - 0.001
+              ? { ...budget, isFull: true }
+              : {
+                  count: budget.count + 1,
+                  heightLeft: budget.heightLeft - height,
+                  isFull: false,
+                }
+          },
+          {
+            count: 0,
+            heightLeft: heightLeft - providerHeadingHeight,
+            isFull: false,
+          },
+        ).count
         if (rowCount === 0) {
           return {
             columns: accumulated.columns,
@@ -207,7 +230,10 @@ const placeAtScale = ({
           heightLeft:
             heightLeft -
             providerHeadingHeight -
-            rowCount * rowHeight,
+            section.rows.reduce(
+              (total, row) => total + rowHeight(row),
+              0,
+            ),
           shownRowCount:
             accumulated.shownRowCount + rowCount,
         }

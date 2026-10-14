@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-14: AI Usage headlines omit redundant quota labels](2026-10-14-ai-usage-headlines-omit-redundant-quota-labels.md)
+
 - [2026-10-13: Views may use CSS grid, and Satori is kept current](2026-10-13-views-may-use-css-grid-and-satori-is-current.md)
 
 - [2026-10-13: The desktop app finds CastKit servers by scanning, and groups pages by screen](2026-10-13-the-desktop-app-finds-castkit-servers-by-scanning-and-groups-pages-by-screen.md)

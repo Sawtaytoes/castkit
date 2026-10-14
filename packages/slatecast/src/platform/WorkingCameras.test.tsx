@@ -79,3 +79,27 @@ test.each([
     })
   })
 })
+
+test("a wide shallow camera composition keeps all three quotas visible", async () => {
+  await page.viewport(2024, 751)
+  document.documentElement.dataset.scheme = "dark"
+  render(
+    <main class="platform">
+      <DisplayComposition
+        snapshot={workingCameraSnapshot}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  await document.fonts.ready
+  await waitFor(() => {
+    const usage = document.querySelector(".ai-usage")
+    expect(
+      usage?.querySelectorAll(".ai-usage-window"),
+    ).toHaveLength(3)
+    expect(
+      usage?.querySelector(".ai-usage-compact"),
+    ).toBeNull()
+  })
+})

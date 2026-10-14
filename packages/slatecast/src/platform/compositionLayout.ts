@@ -3,7 +3,7 @@ import { selectPriorityLayout } from "@charcuterie/logic/core"
 import type { JSX } from "preact"
 import {
   BASE_PROVIDER_HEADING_HEIGHT,
-  BASE_ROW_HEIGHT,
+  getUsageRowHeight,
   placeSections,
 } from "./aiUsageLayout.ts"
 import type { selectProviderRows } from "./aiUsageRows.ts"
@@ -31,7 +31,10 @@ const usageHeight = (
   const heights = entries.map(
     (entry) =>
       (BASE_PROVIDER_HEADING_HEIGHT +
-        entry.rows.length * BASE_ROW_HEIGHT) *
+        entry.rows.reduce(
+          (total, row) => total + getUsageRowHeight(row),
+          0,
+        )) *
       0.65,
   )
   const candidates = heights
@@ -46,20 +49,23 @@ const usageHeight = (
     )
     .sort((first, second) => first - second)
   return (
-    (candidates.find(
-      (height) =>
-        placeSections({
-          providerRows: entries,
-          width: Math.max(
-            0,
-            width - (item.insetWidth ?? 0),
-          ),
-          height,
-          isAdaptive: true,
-          minimumScale: 0.65,
-          hasViewHeading: false,
-        }).hiddenRowCount === 0,
-    ) ?? item.minimumHeight) + (item.insetHeight ?? 0)
+    // clientHeight is rounded to whole pixels when the child measures its panel.
+    Math.ceil(
+      candidates.find(
+        (height) =>
+          placeSections({
+            providerRows: entries,
+            width: Math.max(
+              0,
+              width - (item.insetWidth ?? 0),
+            ),
+            height,
+            isAdaptive: true,
+            minimumScale: 0.65,
+            hasViewHeading: false,
+          }).hiddenRowCount === 0,
+      ) ?? item.minimumHeight,
+    ) + (item.insetHeight ?? 0)
   )
 }
 
