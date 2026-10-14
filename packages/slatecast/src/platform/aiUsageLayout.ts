@@ -191,8 +191,9 @@ const placeAtScale = ({
         const rowCount = entry.rows.reduce(
           (budget, row) => {
             const height = rowHeight(row)
+            // CSS lengths may differ by floating-point dust after scaling.
             return budget.isFull ||
-              budget.heightLeft < height
+              budget.heightLeft < height - 0.001
               ? { ...budget, isFull: true }
               : {
                   count: budget.count + 1,

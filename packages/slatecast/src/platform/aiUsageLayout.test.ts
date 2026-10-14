@@ -303,3 +303,17 @@ test("hidden subscriptions yield to the fullest selected limits", () => {
     ),
   ).toStrictEqual(["account-0", "account-1", "account-2"])
 })
+
+test("a strip at its fractional minimum height keeps every complete quota", () => {
+  const layout = placeSections({
+    providerRows: fiveProviders.slice(0, 3),
+    width: 1900,
+    height: 53.3,
+    isAdaptive: true,
+    minimumScale: 0.65,
+    hasViewHeading: false,
+  })
+  expect(layout.hiddenRowCount).toBe(0)
+  expect(layout.columnCount).toBe(3)
+  expect(layout.scale).toBe(0.65)
+})

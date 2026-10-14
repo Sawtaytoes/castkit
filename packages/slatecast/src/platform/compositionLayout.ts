@@ -49,20 +49,23 @@ const usageHeight = (
     )
     .sort((first, second) => first - second)
   return (
-    (candidates.find(
-      (height) =>
-        placeSections({
-          providerRows: entries,
-          width: Math.max(
-            0,
-            width - (item.insetWidth ?? 0),
-          ),
-          height,
-          isAdaptive: true,
-          minimumScale: 0.65,
-          hasViewHeading: false,
-        }).hiddenRowCount === 0,
-    ) ?? item.minimumHeight) + (item.insetHeight ?? 0)
+    // clientHeight is rounded to whole pixels when the child measures its panel.
+    Math.ceil(
+      candidates.find(
+        (height) =>
+          placeSections({
+            providerRows: entries,
+            width: Math.max(
+              0,
+              width - (item.insetWidth ?? 0),
+            ),
+            height,
+            isAdaptive: true,
+            minimumScale: 0.65,
+            hasViewHeading: false,
+          }).hiddenRowCount === 0,
+      ) ?? item.minimumHeight,
+    ) + (item.insetHeight ?? 0)
   )
 }
 
