@@ -133,6 +133,13 @@ export const KidTasksToday = ({
         ]
           .filter((text) => text !== undefined)
           .join(" · ")
+  const goBack = () => {
+    if (selected) {
+      setSelectedTaskName(undefined)
+    } else {
+      onBack()
+    }
+  }
   return (
     <section
       class="kids-points-tasks"
@@ -148,17 +155,23 @@ export const KidTasksToday = ({
               : "Back to all children"
           }
           data-castkit-target={`kids-points-back:${kid.id}:${selected ? "tasks" : "board"}`}
-          onClick={() => {
-            if (selected) {
-              setSelectedTaskName(undefined)
-            } else {
-              onBack()
-            }
-          }}
+          onClick={goBack}
         >
           <Icon path={ICON_PATHS.chevronLeft} size="32px" />
         </button>
-        <h2 title={kid.name}>{kid.name}</h2>
+        <h2 title={kid.name}>
+          {/* The name is the larger target for the same step back. It leaves
+            the tab order to the labeled button beside it. */}
+          <button
+            type="button"
+            class="kids-points-name"
+            tabIndex={-1}
+            data-castkit-target={`kids-points-name:${kid.id}:${selected ? "tasks" : "board"}`}
+            onClick={goBack}
+          >
+            {kid.name}
+          </button>
+        </h2>
         <p>
           <strong>
             {selected
