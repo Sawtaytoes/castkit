@@ -166,6 +166,13 @@ test("the browser-only device views are available as platform view specification
     inputs: [],
     renderers: ["browser"],
   })
+  expect(catalog.getViewSpec("display-test")).toMatchObject(
+    {
+      name: "Display Test",
+      inputs: [],
+      renderers: ["browser"],
+    },
+  )
 })
 
 test("text panels optionally bind entity states for visibility conditions", () => {
