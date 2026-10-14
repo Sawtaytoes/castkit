@@ -11,7 +11,7 @@ on:
 # six hours — reporting `cancelled`, a conclusion that reads like
 # infrastructure rather than like a broken build. It costs a concurrency slot
 # the whole time, and it takes the deploy with it: `docker-deploy` below
-# `needs: [typecheck, unit-tests]`, so a job that never concludes success
+# `needs: [typecheck, unit-tests, server-bundle]`, so a job that never concludes success
 # SKIPS the deploy rather than failing it. A skipped deploy logs as a no-op,
 # not as a missed release.
 #
@@ -266,9 +266,34 @@ jobs:
         rm -f "$VRT_ACTUAL_DIR/slatecast/overview-all-screens--every-view-every-panel.png"
     secrets: inherit
 
+  # Builds the production bundle and STARTS it. Every other gate runs from
+  # source, so on 2026-10-13 a Satori upgrade that gave the bundle two
+  # top-level `createRequire` bindings passed all of them, was published, and
+  # crash-looped production (#260, fixed in #262). In `docker-deploy`'s
+  # `needs`, so a bundle that cannot load is never published.
+  server-bundle:
+    needs: [changes]
+    # Skipped, not absent: this still posts its status context.
+    if: ${{ needs.changes.outputs.isDocsOnly != 'true' }}
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with: { node-version-file: .nvmrc }
+      # Node 26 uses the explicitly pinned native pnpm bootstrap.
+      - run: |
+          npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
+          pnpm_global_bin="$(npm prefix --global)/bin"
+          export PATH="$pnpm_global_bin:$PATH"
+          echo "$pnpm_global_bin" >> "$GITHUB_PATH"
+      - run: pnpm install --frozen-lockfile --store-dir ~/.local/share/pnpm/store
+      - run: pnpm build
+      - run: pnpm check:server-starts
+
   docker-deploy:
     # Build + push the runtime image to GHCR; TrueNAS pulls it from there.
-    needs: [typecheck, unit-tests]
+    needs: [typecheck, unit-tests, server-bundle]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     timeout-minutes: 20
     runs-on: ubuntu-latest
@@ -292,6 +317,29 @@ jobs:
             -t ghcr.io/sawtaytoes/castkit:latest \
             -t ghcr.io/sawtaytoes/castkit:${{ github.sha }} \
             .
+
+      # The image itself, with its own Chromium, must start before anything is
+      # pushed: `server-bundle` proves the bundle loads, this proves the image
+      # runs it. No MQTT and no config, exactly as a fresh install starts.
+      - name: Start the image
+        run: |
+          docker run -d --name castkit-start-check -p 127.0.0.1:8788:8788 \
+            -e INKCAST_RENDER_ENGINE=chromium \
+            ghcr.io/sawtaytoes/castkit:${{ github.sha }}
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8788/health > /dev/null; then
+              echo "/health answered after ${attempt} attempt(s)"
+              docker rm -f castkit-start-check > /dev/null
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' castkit-start-check)" != "true" ]; then
+              break
+            fi
+            sleep 1
+          done
+          echo "::error::the image did not answer /health"
+          docker logs castkit-start-check
+          exit 1
 
       - name: Push image
         run: |

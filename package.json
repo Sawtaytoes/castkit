@@ -11,6 +11,7 @@
     "bakeoff:views": "tsx --tsconfig packages/web/tsconfig.json scripts/bakeoff/allViews.ts",
     "bakeoff:views:compare": "tsx scripts/bakeoff/compareViews.ts",
     "build": "node scripts/build-server.mjs",
+    "check:server-starts": "node scripts/check-server-starts.mjs",
     "dev": "pnpm --filter @castkit/web dev",
     "dev:server": "pnpm --filter @castkit/server dev",
     "storybook": "pnpm --filter @castkit/web storybook",

@@ -251,6 +251,11 @@ which is the thing to read before touching any of this.
 
 - `pnpm lint` — Biome (`--write --unsafe`) then ESLint (`--fix`); re-stage changed files.
 - `pnpm typecheck` — full monorepo type check.
+- `pnpm build && pnpm check:server-starts` — when you change a dependency, the
+  build script, or anything the server imports at load. It starts the BUILT
+  bundle and waits for `/health`; every other gate runs from source, which is how
+  a Satori bump passed all of them and crash-looped production on 2026-10-13. CI
+  runs it as `server-bundle`, and `docker-deploy` starts the image before pushing.
 - `pnpm test` — Vitest. Four node projects plus `slatecast`, which runs in
   **real Chromium** (browser mode, Playwright provider) with MSW's `ws.link`
   standing in for the server socket. `pnpm vitest run` for one-shot/CI.
