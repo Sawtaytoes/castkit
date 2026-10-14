@@ -273,6 +273,7 @@ const SeekBar = ({
   const pointerId = useRef<number | null>(null)
   const data = nowPlaying.value
   const duration = data?.durationSeconds
+  const isScrubbing = scrubPositionSeconds.value !== null
   const position =
     scrubPositionSeconds.value ?? livePositionSeconds.value
   if (duration === undefined || position === null) {
@@ -332,7 +333,7 @@ const SeekBar = ({
         <div
           role="slider"
           tabIndex={0}
-          class="seek-track interactive"
+          class={`seek-track interactive${isScrubbing ? " is-scrubbing" : ""}`}
           aria-label="Seek"
           aria-valuemin={0}
           aria-valuemax={valueMax}
