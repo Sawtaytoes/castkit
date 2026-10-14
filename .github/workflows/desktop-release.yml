@@ -56,13 +56,11 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value $pnpmBin
           & "$pnpmBin\pnpm.cmd" --version
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --store-dir "$HOME/.cache/pnpm/store"
-
-      # Electron 44 has no postinstall; its binary is fetched on request.
-      - name: Install the Electron binary
-        run: pnpm --filter @castkit/desktop exec install-electron
-
+      # The version is decided and stamped BEFORE the install. pnpm checks the
+      # workspace against its last install before every `pnpm run`, and a
+      # package.json edited after the install fails that check with
+      # ERR_PNPM_VERIFY_DEPS_BEFORE_RUN, so a tag that differs from the
+      # committed version could never build.
       - name: Decide the version
         id: version
         shell: bash
@@ -84,6 +82,13 @@ jobs:
       - name: Stamp the version
         working-directory: packages/desktop
         run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --store-dir "$HOME/.cache/pnpm/store"
+
+      # Electron 44 has no postinstall; its binary is fetched on request.
+      - name: Install the Electron binary
+        run: pnpm --filter @castkit/desktop exec install-electron
 
       # Forge refuses pnpm's isolated linker because it expects to copy the
       # app's `node_modules` into the package. This app ships none: the build
