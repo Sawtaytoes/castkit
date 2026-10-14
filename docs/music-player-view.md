@@ -17,13 +17,29 @@ controls, queue, and lyrics.
 
 | Layout | Shape |
 | --- | --- |
-| **Side by side** (default) | The player on the left — artwork, title, waveform seek bar, transport, volume, and the player menu. The queue or lyrics fill the right. |
+| **Side by side** (default) | The player on the left — artwork, title, waveform seek bar, transport, volume, and the player menu. The artwork grows into whatever height the controls leave, as a square no wider than the column. The queue or lyrics fill the right. |
 | **Wide waveform** | One strip across the top — small artwork, title, and a full-width waveform — with the transport under it, and the queue or lyrics at full width below. |
 
 ![Wide waveform](images/music-player-wide-waveform.png)
 
-Below 720 px wide the side panel is hidden and the player stands alone. Below
-480 px tall the artwork is hidden.
+Below 720 px wide the side panel is hidden and the player stands alone. The
+artwork shrinks before any control does, and below 400 px tall it is hidden.
+
+## Transport and seeking
+
+The transport row is Favorite, Previous, Play/Pause, and Next. There is no
+shuffle or repeat button: Music Assistant already shuffles where it should, and
+the view does not offer either. The server still accepts both actions for any
+other client.
+
+Play/Pause needs only a player. A player that Music Assistant has not given a
+queue yet still plays and pauses through the player's own command, so Play
+works before anything was started from Music Assistant. Previous, Next, and
+Favorite act on the queue and wait for one.
+
+Pressing a point on the waveform seeks there. Dragging moves the position and
+its time label with the pointer, and seeks once on release. Seeking a paused
+or stopped track leaves it paused.
 
 ## The queue
 
@@ -33,15 +49,14 @@ count. The view draws only the rows that fit whole in the list; it never
 scrolls, so the row at the bottom edge is never cut in half. Selecting an
 upcoming or played row plays it. The current row is not a button.
 
-There is no autoplay switch on the queue face. Shuffle and repeat sit in the
-transport row; repeat steps off → all → one.
+There is no autoplay switch on the queue face.
 
 ## Lyrics
 
 The **Lyrics** tab shows the track's lyrics when Music Assistant has them.
 Synced (LRC) lyrics follow the position: the line being sung is brightest and
 stays centered, and selecting a line seeks to its time. Plain lyrics are shown
-as text and do not seek. The tab is disabled for a track without lyrics, and
+as text; they do not seek and do not react to the pointer. The tab is disabled for a track without lyrics, and
 turning off the view's **Offer a Lyrics tab** setting hides it entirely.
 
 ![Synced lyrics](images/music-player-lyrics.png)
@@ -72,7 +87,7 @@ token, and reconnects with a backoff of 1 to 30 seconds. It reads:
 | Command or event | Read for |
 | --- | --- |
 | `players/all`, `player_updated`, `player_added`, `player_removed` | Each configured player: name, state, volume, group members, and which speakers can join it |
-| `player_queues/get_active_queue` | The queue a player is playing from — its own, or a group's |
+| `player_queues/get_active_queue` | The queue a player is playing from — its own, or a group's. A player with no queue yet is asked again on the next update rather than remembered as queueless |
 | `player_queues/items`, `queue_updated`, `queue_items_updated` | A window of 3 played and 40 upcoming rows around the current row, plus shuffle and repeat |
 | `queue_time_updated` | The position, republished only when it jumps 2 seconds or more; the view runs the clock between updates |
 | `audio_analysis/wave_form` | The track's loudness, sampled to 300 peaks |
@@ -88,8 +103,9 @@ Every action is checked on the server before it is sent to Music Assistant.
 
 | Action | Payload | Music Assistant command |
 | --- | --- | --- |
-| `play_pause`, `next`, `previous` | — | `player_queues/<action>` |
-| `seek` | `positionSeconds` inside the track | `player_queues/seek` |
+| `play_pause` | — | `player_queues/play_pause`, or `players/cmd/play_pause` for a player with no queue |
+| `next`, `previous` | — | `player_queues/<action>` |
+| `seek` | `positionSeconds` inside the track | `player_queues/seek`, then `player_queues/pause` when the queue was not playing — Music Assistant's seek always restarts playback |
 | `play_item` | `queueItemId` from the rows the view was sent | `player_queues/play_index` |
 | `set_volume` | `volume` 0–100 | `players/cmd/volume_set`, or `group_volume` for a group |
 | `shuffle` | `isEnabled` | `player_queues/shuffle` |
