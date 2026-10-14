@@ -305,6 +305,12 @@ const getPhotoCropKnobKind = (edge: PhotoCropEdge) =>
  */
 const RETAINED_SETTLE_MILLISECONDS = 5_000
 
+// The image preloads jemalloc for this node process only (see the Dockerfile).
+// Remove it from the environment every child inherits — Chromium and the Python
+// stream workers keep their own allocators.
+delete process.env.LD_PRELOAD
+delete process.env.MALLOC_CONF
+
 const main = async () => {
   loadEnvironmentFile()
 
