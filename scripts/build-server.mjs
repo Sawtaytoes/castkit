@@ -22,7 +22,9 @@ await build({
   jsx: "automatic",
   // Externalized CJS deps require `require` in the ESM output.
   banner: {
-    js: "import{createRequire}from'node:module';const require=createRequire(import.meta.url);",
+    // Aliased: a bundled dependency (Satori 0.56) imports `createRequire` itself,
+    // and a second top-level binding of the same name is a SyntaxError at start.
+    js: "import{createRequire as castkitCreateRequire}from'node:module';const require=castkitCreateRequire(import.meta.url);",
   },
   external: [
     "playwright",
