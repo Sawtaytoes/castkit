@@ -25,7 +25,7 @@ const EnvSchema = z.object({
   INKCAST_API_TOKEN: z._default(z.string(), ""),
   INKCAST_RENDER_ENGINE: z._default(
     z.enum(["chromium", "satori"]),
-    "chromium",
+    "satori",
   ),
   INKCAST_DEVICES_FILE: z.optional(z.string()),
   CASTKIT_PLATFORM_FILE: z.optional(z.string()),

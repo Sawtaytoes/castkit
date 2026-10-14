@@ -119,7 +119,8 @@ non-trivial task. Highlights:
   SMB) — keep the working tree on a local drive.
 - **Views use inline style objects**, not Emotion/Tailwind — and CSS grid, block layout
   and filters are allowed; the old flexbox-only "Satori-safe" limit is gone because
-  Satori 0.43+ lays out grid through Taffy. Production renders with Chromium; check a
+  Satori 0.43+ lays out grid through Taffy. Production renders the image views with Satori
+  ([decision](docs/decisions/2026-10-14-image-views-render-with-satori-and-chromium-closes-when-idle.md)); check a
   view in Satori with `pnpm bakeoff:views` before relying on it
   ([decision](docs/decisions/2026-10-13-views-may-use-css-grid-and-satori-is-current.md)).
 - **⛔ A repeating list in a view draws only the rows that FINISH on the panel.**
@@ -233,8 +234,9 @@ Where it lands:
   display-facing applications.
 - Browser-mode display clients have a strict low-RAM budget. Do not add a React
   compatibility layer or other heavy browser dependency to Slatecast.
-- Chromium is a server-side render engine for image-mode devices. It generates
-  images inside CastKit; it is not a requirement for browser-mode displays.
+- Image-mode views render with Satori in production. Chromium is launched only to
+  capture a platform page for an image display (`renderPage`) and closes after two
+  idle minutes; it is not a requirement for browser-mode displays.
 - Keep server-side gzip and Brotli asset precompression. It reduces transfer size
   without adding browser runtime or RAM cost.
 - `@castkit/views` may use `@charcuterie/tokens/epaper` where its palette fits, but it is
