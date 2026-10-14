@@ -148,3 +148,42 @@ class AmbientTransportTests(unittest.IsolatedAsyncioTestCase):
                     self.transport.ambient_light,
                     control_state(CONTROLS) if "ambientLight" in document else None,
                 )
+                response.dispose.assert_awaited_once()
+
+    async def test_polling_disposes_every_controls_response(self):
+        # The Playwright driver keeps an undisposed APIResponse body for the
+        # life of the browser context, so each poll must release its response,
+        # including a refused one.
+        stop = asyncio.Event()
+        responses = []
+        for is_ok in (True, False):
+            response = AsyncMock()
+            response.url = "https://display.example/d/unit/controls.json"
+            response.ok = is_ok
+            response.json.return_value = {"backlight_percent": 2}
+            responses.append(response)
+
+        context = AsyncMock()
+        issued = []
+
+        async def request(url, timeout):
+            issued.append(responses[len(issued)])
+            if len(issued) == len(responses):
+                stop.set()
+            return issued[-1]
+
+        context.request.get.side_effect = request
+        with patch("worker.asyncio.sleep", new=AsyncMock()):
+            await poll_controls(
+                context,
+                {
+                    "manifest_url": "https://display.example/d/unit/castkit.json",
+                    "controls_url": responses[0].url,
+                },
+                self.transport,
+                stop,
+            )
+        self.assertEqual(len(issued), 2)
+        for response in responses:
+            response.dispose.assert_awaited_once()
+        responses[1].json.assert_not_awaited()
