@@ -133,8 +133,11 @@ const IconButton = ({
   </button>
 )
 
-const repeatOrder = ["off", "all", "one"] as const
-
+/**
+ * Favorite, Previous, Play/Pause, and Next. Play/Pause needs only a player:
+ * Music Assistant plays a player that has no queue yet through the player's
+ * own command. The rest act on the queue, so they wait for one.
+ */
 const Transport = ({
   data,
   isControlEnabled,
@@ -144,10 +147,8 @@ const Transport = ({
   isControlEnabled: boolean
   onAction: MusicAction
 }) => {
-  const queue = data.queue
   const isPlaying = data.player?.state === "playing"
-  const repeat = queue?.repeat ?? "off"
-  const isDisabled = !isControlEnabled || !queue
+  const isQueueDisabled = !isControlEnabled || !data.queue
   return (
     <div class="music-transport">
       <IconButton
@@ -162,7 +163,7 @@ const Transport = ({
             : ICON_PATHS.favoriteOutline
         }
         isOn={data.current?.isFavorite === true}
-        isDisabled={isDisabled || !data.current}
+        isDisabled={isQueueDisabled || !data.current}
         onClick={() =>
           void onAction("favorite", {
             isFavorite: !data.current?.isFavorite,
@@ -170,20 +171,9 @@ const Transport = ({
         }
       />
       <IconButton
-        label="Shuffle"
-        path={ICON_PATHS.shuffle}
-        isOn={queue?.isShuffled === true}
-        isDisabled={isDisabled}
-        onClick={() =>
-          void onAction("shuffle", {
-            isEnabled: !queue?.isShuffled,
-          })
-        }
-      />
-      <IconButton
         label="Previous track"
         path={ICON_PATHS.previous}
-        isDisabled={isDisabled}
+        isDisabled={isQueueDisabled}
         onClick={() => void onAction("previous")}
       />
       <IconButton
@@ -192,38 +182,14 @@ const Transport = ({
           isPlaying ? ICON_PATHS.pause : ICON_PATHS.play
         }
         isPrimary
-        isDisabled={isDisabled}
+        isDisabled={!isControlEnabled || !data.player}
         onClick={() => void onAction("play_pause")}
       />
       <IconButton
         label="Next track"
         path={ICON_PATHS.next}
-        isDisabled={isDisabled}
+        isDisabled={isQueueDisabled}
         onClick={() => void onAction("next")}
-      />
-      <IconButton
-        label={
-          repeat === "one"
-            ? "Repeat one"
-            : repeat === "all"
-              ? "Repeat all"
-              : "Repeat off"
-        }
-        path={
-          repeat === "one"
-            ? ICON_PATHS.repeatOne
-            : ICON_PATHS.repeat
-        }
-        isOn={repeat !== "off"}
-        isDisabled={isDisabled}
-        onClick={() =>
-          void onAction("repeat", {
-            mode: repeatOrder[
-              (repeatOrder.indexOf(repeat) + 1) %
-                repeatOrder.length
-            ],
-          })
-        }
       />
     </div>
   )
@@ -231,8 +197,9 @@ const Transport = ({
 
 /**
  * The seek bar. With a waveform it draws one bar per few pixels, colored up
- * to the position; without one it is a plain progress line. Selecting any
- * point seeks there.
+ * to the position; without one it is a plain progress line. Pressing any
+ * point seeks there; dragging moves the position and the time label with
+ * the pointer and seeks once, on release.
  */
 const SeekBar = ({
   data,
@@ -250,51 +217,94 @@ const SeekBar = ({
   const [hoverFraction, setHoverFraction] = useState<
     number | undefined
   >(undefined)
+  const [dragFraction, setDragFraction] = useState<
+    number | undefined
+  >(undefined)
+  const dragPointerId = useRef<number | null>(null)
   const duration = data.current?.durationSeconds ?? 0
+  const isSeekable = isControlEnabled && duration > 0
+  const isDragging = dragFraction !== undefined
+  const shownSeconds = isDragging
+    ? readSeekSeconds({
+        fraction: dragFraction,
+        durationSeconds: duration,
+      })
+    : positionSeconds
   const fraction =
     duration > 0
-      ? Math.min(1, Math.max(0, positionSeconds / duration))
+      ? Math.min(1, Math.max(0, shownSeconds / duration))
       : 0
   const bars = resampleWaveform({
     values: data.waveform ?? [],
     barCount: Math.floor(size.width / BAR_PITCH),
   })
-  const isSeekable = isControlEnabled && duration > 0
+  const labelFraction = dragFraction ?? hoverFraction
   const readFraction = (
-    event: JSX.TargetedMouseEvent<HTMLDivElement>,
+    event: JSX.TargetedPointerEvent<HTMLDivElement>,
   ) => {
     const box = event.currentTarget.getBoundingClientRect()
     return box.width > 0
-      ? (event.clientX - box.left) / box.width
+      ? Math.min(
+          1,
+          Math.max(
+            0,
+            (event.clientX - box.left) / box.width,
+          ),
+        )
       : 0
+  }
+  const endDrag = () => {
+    dragPointerId.current = null
+    setDragFraction(undefined)
   }
   return (
     <div class="music-seek">
       <div
         ref={reference}
-        class={`music-wave${bars.length ? "" : " is-plain"}${isSeekable ? " is-seekable" : ""}`}
+        class={`music-wave${bars.length ? "" : " is-plain"}${isSeekable ? " is-seekable" : ""}${isDragging ? " is-dragging" : ""}`}
         role="slider"
         aria-label="Seek"
         aria-valuemin={0}
         aria-valuemax={Math.round(duration)}
-        aria-valuenow={Math.round(positionSeconds)}
-        aria-valuetext={`${formatTime(positionSeconds)} of ${formatTime(duration)}`}
+        aria-valuenow={Math.round(shownSeconds)}
+        aria-valuetext={`${formatTime(shownSeconds)} of ${formatTime(duration)}`}
         tabIndex={isSeekable ? 0 : -1}
-        onMouseMove={(event) =>
-          setHoverFraction(readFraction(event))
-        }
-        onMouseLeave={() => setHoverFraction(undefined)}
-        onClick={(event) => {
-          if (!isSeekable) {
+        onPointerDown={(event) => {
+          if (!isSeekable || event.button !== 0) {
             return
           }
+          event.preventDefault()
+          dragPointerId.current = event.pointerId
+          event.currentTarget.setPointerCapture(
+            event.pointerId,
+          )
+          setDragFraction(readFraction(event))
+        }}
+        onPointerMove={(event) => {
+          if (dragPointerId.current === event.pointerId) {
+            setDragFraction(readFraction(event))
+            return
+          }
+          if (event.pointerType === "mouse") {
+            setHoverFraction(readFraction(event))
+          }
+        }}
+        onPointerUp={(event) => {
+          if (dragPointerId.current !== event.pointerId) {
+            return
+          }
+          const target = readSeekSeconds({
+            fraction: readFraction(event),
+            durationSeconds: duration,
+          })
+          endDrag()
           void onAction("seek", {
-            positionSeconds: readSeekSeconds({
-              fraction: readFraction(event),
-              durationSeconds: duration,
-            }),
+            positionSeconds: target,
           })
         }}
+        onPointerCancel={endDrag}
+        onLostPointerCapture={endDrag}
+        onPointerLeave={() => setHoverFraction(undefined)}
         onKeyDown={(event) => {
           if (
             !isSeekable ||
@@ -335,14 +345,14 @@ const SeekBar = ({
             style={{ width: `${fraction * 100}%` }}
           />
         )}
-        {hoverFraction !== undefined && isSeekable ? (
+        {labelFraction !== undefined && isSeekable ? (
           <span
             class="music-seek-hover"
-            style={{ left: `${hoverFraction * 100}%` }}
+            style={{ left: `${labelFraction * 100}%` }}
           >
             {formatTime(
               readSeekSeconds({
-                fraction: hoverFraction,
+                fraction: labelFraction,
                 durationSeconds: duration,
               }),
             )}
@@ -350,7 +360,7 @@ const SeekBar = ({
         ) : null}
       </div>
       <div class="music-times">
-        <span>{formatTime(positionSeconds)}</span>
+        <span>{formatTime(shownSeconds)}</span>
         <span>
           {duration > 0 ? formatTime(duration) : ""}
         </span>
@@ -979,10 +989,12 @@ export const MusicPlayer = ({
         ) : (
           <>
             <section class="music-main">
-              <Artwork
-                path={current?.artworkPath}
-                className="music-art"
-              />
+              <div class="music-art-frame">
+                <Artwork
+                  path={current?.artworkPath}
+                  className="music-art"
+                />
+              </div>
               {title}
               <SeekBar
                 {...controls}
