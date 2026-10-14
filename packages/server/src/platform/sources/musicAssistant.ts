@@ -988,14 +988,19 @@ export const buildMusicAssistantSource =
               }),
             )
             const queueId = textValue(queue.queue_id)
+            // A player Music Assistant has not given a queue yet is asked
+            // again on the next sync. Caching the empty answer under this key
+            // kept Play disabled until the player's source changed.
             if (queueId) {
               state.queues.set(queueId, queue)
+              state.channelQueues.set(channel.id, {
+                playerId,
+                key,
+                queueId,
+              })
+            } else {
+              state.channelQueues.delete(channel.id)
             }
-            state.channelQueues.set(channel.id, {
-              playerId,
-              key,
-              ...(queueId ? { queueId } : {}),
-            })
           }
           const queueId = state.channelQueues.get(
             channel.id,
@@ -1164,6 +1169,17 @@ export const buildMusicAssistantSource =
         readTarget(channelId)
       switch (action) {
         case "play_pause":
+          // A player with no queue yet still plays and pauses through its
+          // own command, so Play works before anything was queued from here.
+          return queueId
+            ? connection.send({
+                command: "player_queues/play_pause",
+                args: { queue_id: queueId },
+              })
+            : connection.send({
+                command: "players/cmd/play_pause",
+                args: { player_id: playerId },
+              })
         case "next":
         case "previous":
           return connection.send({
@@ -1185,12 +1201,28 @@ export const buildMusicAssistantSource =
               "The seek position is outside the track.",
             )
           }
-          return connection.send({
+          const seekQueueId = requireQueue(queueId)
+          // Music Assistant's seek restarts the stream at the new position,
+          // which starts a paused queue. It has no seek that stays paused,
+          // so a queue that was not playing is paused again right after.
+          const isPlaying =
+            (textValue(
+              state.queues.get(seekQueueId)?.state,
+            ) || textValue(player.playback_state)) ===
+            "playing"
+          await connection.send({
             command: "player_queues/seek",
             args: {
-              queue_id: requireQueue(queueId),
+              queue_id: seekQueueId,
               position: Math.round(position),
             },
+          })
+          if (isPlaying) {
+            return undefined
+          }
+          return connection.send({
+            command: "player_queues/pause",
+            args: { queue_id: seekQueueId },
           })
         }
         case "play_item": {

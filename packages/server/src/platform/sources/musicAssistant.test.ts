@@ -561,6 +561,96 @@ test("keeps a person's player choice until they return to automatic", async () =
   ).rejects.toThrow("not part of this channel")
 })
 
+test("asks again for a queue Music Assistant did not have, and plays a queueless player through its own command", async () => {
+  const lookups = { count: 0 }
+  const server = createFakeServer({
+    responses: {
+      "player_queues/get_active_queue": () => {
+        lookups.count += 1
+        return lookups.count === 1 ? null : QUEUE
+      },
+    },
+  })
+  const { source } = await startSource({ server })
+  await source.executeAction?.({
+    channelId: "desk-music",
+    action: "play_pause",
+    payload: {},
+  })
+  expect(server.sent.at(-1)).toEqual({
+    command: "players/cmd/play_pause",
+    args: { player_id: "group-1" },
+  })
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout"],
+  })
+  server.event({
+    event: "player_updated",
+    object_id: "group-1",
+    data: PLAYERS[0],
+  })
+  await vi.runAllTimersAsync()
+  vi.useRealTimers()
+  expect(lookups.count).toBe(2)
+  await source.executeAction?.({
+    channelId: "desk-music",
+    action: "play_pause",
+    payload: {},
+  })
+  expect(server.sent.at(-1)).toEqual({
+    command: "player_queues/play_pause",
+    args: { queue_id: "group-1" },
+  })
+})
+
+test("seeks a playing queue without pausing it", async () => {
+  const { server, source } = await startSource()
+  await source.executeAction?.({
+    channelId: "desk-music",
+    action: "seek",
+    payload: { positionSeconds: 60 },
+  })
+  expect(server.sent.at(-1)).toEqual({
+    command: "player_queues/seek",
+    args: { queue_id: "group-1", position: 60 },
+  })
+})
+
+test("seeks a paused queue and pauses it again so the seek does not start playback", async () => {
+  const server = createFakeServer({
+    responses: {
+      "players/all": () =>
+        PLAYERS.map((player) => ({
+          ...player,
+          playback_state:
+            player.player_id === "group-1"
+              ? "paused"
+              : player.playback_state,
+        })),
+      "player_queues/get_active_queue": () => ({
+        ...QUEUE,
+        state: "paused",
+      }),
+    },
+  })
+  const { source } = await startSource({ server })
+  await source.executeAction?.({
+    channelId: "desk-music",
+    action: "seek",
+    payload: { positionSeconds: 60 },
+  })
+  expect(server.sent.slice(-2)).toEqual([
+    {
+      command: "player_queues/seek",
+      args: { queue_id: "group-1", position: 60 },
+    },
+    {
+      command: "player_queues/pause",
+      args: { queue_id: "group-1" },
+    },
+  ])
+})
+
 test("rejects an action the source never advertised", async () => {
   const { source } = await startSource()
   await expect(

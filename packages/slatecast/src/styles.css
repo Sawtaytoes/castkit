@@ -4598,6 +4598,7 @@ html[data-grayscale-text="true"] {
 .music-main {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 10px;
   min-width: 0;
   min-height: 0;
@@ -4611,10 +4612,26 @@ html[data-grayscale-text="true"] {
   background: var(--surface);
   box-shadow: 0 6px 18px rgb(0 0 0 / 35%);
 }
-.music-main .music-art {
-  align-self: center;
-  width: min(208px, 36cqh);
-  height: min(208px, 36cqh);
+/*
+ * The artwork takes the height the controls below it leave, as a square no
+ * wider than the column. The frame asks for a square of the column's width
+ * and shrinks when the panel is too short for one; it is a size container,
+ * and the art is the smaller of its two sides. A column too narrow to use
+ * all the height centers the art and the controls as one group.
+ */
+.music-art-frame {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  container-type: size;
+}
+.music-art-frame .music-art {
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
 }
 .music-art-empty {
   display: flex;
@@ -4656,6 +4673,8 @@ html[data-grayscale-text="true"] {
 }
 .music-wave.is-seekable {
   cursor: pointer;
+  touch-action: none;
+  user-select: none;
 }
 .music-wave i {
   flex: 1;
@@ -4703,10 +4722,15 @@ html[data-grayscale-text="true"] {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+/*
+ * Five equal cells for four buttons, so Play sits on the column's center line
+ * under the title; Favorite takes the first cell and the last stays empty.
+ */
 .music-transport {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
-  justify-content: space-between;
+  justify-items: center;
   gap: 4px;
 }
 .music-player button.music-button {
@@ -5043,10 +5067,9 @@ html[data-grayscale-text="true"] {
   color: var(--fg);
   font-size: 26px;
 }
+/* Only a synced line seeks, so only a synced line reacts to the pointer. */
 .music-player
-  :is(button, p).music-lyric:hover:not(:disabled):not(
-    .is-current
-  ) {
+button.music-lyric:hover:not(:disabled):not(.is-current) {
   color: var(--fg-dim);
 }
 .music-player :is(button, p).music-lyric:disabled {
@@ -5088,8 +5111,9 @@ html[data-grayscale-text="true"] {
   gap: 16px;
 }
 .music-header-controls .music-transport {
-  width: 330px;
+  display: flex;
   flex: none;
+  gap: 24px;
 }
 .music-header-controls .music-volume {
   width: 180px;
@@ -5136,9 +5160,12 @@ html[data-grayscale-text="true"] {
     flex-wrap: wrap;
   }
 }
-/* A short display gives the artwork's height to the controls first. */
-@container music-player (max-height: 480px) {
-  .music-main .music-art {
+/*
+ * The artwork shrinks before any control does, so it stays until a display
+ * is too short to show more than a thumbnail of it.
+ */
+@container music-player (max-height: 400px) {
+  .music-art-frame {
     display: none;
   }
 }

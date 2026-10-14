@@ -5,9 +5,13 @@ import {
 } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
 import type { ComponentProps } from "preact"
-import { expect, test, vi } from "vitest"
-import { page } from "vitest/browser"
+import { expect, onTestFinished, test, vi } from "vitest"
+import {
+  userEvent as browserUser,
+  page,
+} from "vitest/browser"
 import { buildMusicPlayer } from "../__fixtures__/buildMusicPlayer.ts"
+import { formatTime } from "../formatTime.ts"
 import { MusicPlayer } from "./MusicPlayer.tsx"
 import "../styles.css"
 
@@ -81,19 +85,16 @@ test("plays a queued row by its queue item id", async () => {
   })
 })
 
-test("sends transport, shuffle, repeat, and favorite actions", async () => {
+test("sends transport and favorite actions and offers no shuffle or repeat", async () => {
   const { onAction, user } = await renderPlayer()
   await user.click(
     screen.getByRole("button", { name: "Pause" }),
   )
   await user.click(
+    screen.getByRole("button", { name: "Previous track" }),
+  )
+  await user.click(
     screen.getByRole("button", { name: "Next track" }),
-  )
-  await user.click(
-    screen.getByRole("button", { name: "Shuffle" }),
-  )
-  await user.click(
-    screen.getByRole("button", { name: "Repeat all" }),
   )
   await user.click(
     screen.getByRole("button", {
@@ -102,32 +103,119 @@ test("sends transport, shuffle, repeat, and favorite actions", async () => {
   )
   expect(onAction.mock.calls).toEqual([
     ["play_pause", undefined],
+    ["previous", undefined],
     ["next", undefined],
-    ["shuffle", { isEnabled: true }],
-    ["repeat", { mode: "one" }],
     ["favorite", { isFavorite: false }],
   ])
+  expect(
+    screen.queryByRole("button", { name: /Shuffle/ }),
+  ).toBeNull()
+  expect(
+    screen.queryByRole("button", { name: /Repeat/ }),
+  ).toBeNull()
 })
 
-test("seeks to the point selected on the waveform", async () => {
-  const { onAction } = await renderPlayer()
-  const wave = screen.getByRole("slider", { name: "Seek" })
-  const box = wave.getBoundingClientRect()
-  wave.dispatchEvent(
-    new MouseEvent("click", {
-      bubbles: true,
-      clientX: box.left + box.width / 2,
-      clientY: box.top + box.height / 2,
+test("Play works for a player that has no queue yet", async () => {
+  const { onAction, user } = await renderPlayer({
+    data: buildMusicPlayer({
+      nowMs: NOW_MS,
+      state: "idle",
+      overrides: { queue: undefined, current: undefined },
     }),
+  })
+  const play = screen.getByRole("button", { name: "Play" })
+  expect(play).toBeEnabled()
+  expect(
+    screen.getByRole("button", { name: "Previous track" }),
+  ).toBeDisabled()
+  expect(
+    screen.getByRole("button", { name: "Next track" }),
+  ).toBeDisabled()
+  expect(
+    screen.getByRole("button", {
+      name: "Add to favorites",
+    }),
+  ).toBeDisabled()
+  await user.click(play)
+  expect(onAction).toHaveBeenCalledWith(
+    "play_pause",
+    undefined,
   )
+})
+
+/** A pointer target on the waveform, `fraction` of the way across it. */
+const pointOnWave = ({
+  wave,
+  fraction,
+}: {
+  wave: HTMLElement
+  fraction: number
+}) => {
+  const box = wave.getBoundingClientRect()
+  return {
+    target: wave,
+    coords: {
+      clientX: box.left + box.width * fraction,
+      clientY: box.top + box.height / 2,
+    },
+  }
+}
+
+test("seeks to the point selected on the waveform", async () => {
+  const { onAction, user } = await renderPlayer()
+  const wave = screen.getByRole("slider", { name: "Seek" })
+  await user.pointer([
+    {
+      ...pointOnWave({ wave, fraction: 0.5 }),
+      keys: "[MouseLeft]",
+    },
+  ])
   const duration = buildMusicPlayer({ nowMs: NOW_MS })
     .current?.durationSeconds
-  expect(onAction).toHaveBeenCalledWith("seek", {
-    positionSeconds: Math.round((duration ?? 0) / 2),
-  })
+  expect(onAction.mock.calls).toEqual([
+    [
+      "seek",
+      { positionSeconds: Math.round((duration ?? 0) / 2) },
+    ],
+  ])
   expect(wave.querySelectorAll("i").length).toBeGreaterThan(
     80,
   )
+})
+
+test("dragging on the waveform moves the position and seeks once on release", async () => {
+  const { onAction, user } = await renderPlayer()
+  const wave = screen.getByRole("slider", { name: "Seek" })
+  const duration =
+    buildMusicPlayer({ nowMs: NOW_MS }).current
+      ?.durationSeconds ?? 0
+  await user.pointer([
+    {
+      ...pointOnWave({ wave, fraction: 0.2 }),
+      keys: "[MouseLeft>]",
+    },
+    pointOnWave({ wave, fraction: 0.75 }),
+  ])
+  expect(onAction).not.toHaveBeenCalled()
+  expect(wave).toHaveAttribute(
+    "aria-valuenow",
+    String(Math.round(duration * 0.75)),
+  )
+  expect(
+    wave.querySelector(".music-seek-hover"),
+  ).toHaveTextContent(
+    formatTime(Math.round(duration * 0.75)),
+  )
+  await user.pointer({
+    ...pointOnWave({ wave, fraction: 0.75 }),
+    keys: "[/MouseLeft]",
+  })
+  expect(onAction.mock.calls).toEqual([
+    [
+      "seek",
+      { positionSeconds: Math.round(duration * 0.75) },
+    ],
+  ])
 })
 
 test("lyrics follow the position and a line seeks to its time", async () => {
@@ -149,6 +237,43 @@ test("lyrics follow the position and a line seeks to its time", async () => {
   expect(onAction).toHaveBeenCalledWith("seek", {
     positionSeconds: 25,
   })
+})
+
+test("plain lyrics are text, not buttons, and do not react to the pointer", async () => {
+  // The palette tokens resolve only under a scheme; without one every color is black.
+  document.documentElement.dataset.scheme = "dark"
+  onTestFinished(() => {
+    delete document.documentElement.dataset.scheme
+  })
+  const { user } = await renderPlayer({
+    data: buildMusicPlayer({
+      nowMs: NOW_MS,
+      overrides: {
+        lyrics: {
+          isSynced: false,
+          lines: [
+            { text: "A plain line with no time" },
+            { text: "Another plain line" },
+          ],
+        },
+      },
+    }),
+  })
+  await user.click(
+    screen.getByRole("tab", { name: "Lyrics" }),
+  )
+  const line = screen.getByText("A plain line with no time")
+  expect(line.tagName).toBe("P")
+  expect(
+    screen.queryByRole("button", {
+      name: "A plain line with no time",
+    }),
+  ).toBeNull()
+  const restingColor = getComputedStyle(line).color
+  // The real mouse: `user.hover` dispatches events, which never set `:hover`.
+  await browserUser.hover(line)
+  expect(line.matches(":hover")).toBe(true)
+  expect(getComputedStyle(line).color).toBe(restingColor)
 })
 
 test("the Lyrics tab is disabled for a track without lyrics", async () => {
