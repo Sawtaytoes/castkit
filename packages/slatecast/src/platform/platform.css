@@ -3192,6 +3192,19 @@ html[data-repaint="instant"]
 .kids-points .kids-points-open:active {
   background: color-mix(in srgb, var(--fg) 8%, transparent);
 }
+/* A child opened from the summary strip covers the whole composition. */
+.platform-layout:has(> .kids-points-overlay) {
+  position: relative;
+}
+.kids-points-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: clamp(12px, 2vw, 28px);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 16px;
+  background: var(--surface);
+}
 .kids-points-tasks {
   display: flex;
   flex-direction: column;
@@ -3605,10 +3618,16 @@ html[data-repaint="instant"]
 }
 
 /* A busy overview reserves a small, permanent band for each child's earned points. */
+/*
+ * The strip a busy overview keeps the children in. Each child is a group
+ * that starts with its identity stripe, so a total reads with the name
+ * beside it and never with the next child's. The initial alone is the
+ * extreme fallback for a cell too narrow for a name.
+ */
 .kids-points-summary {
   display: flex;
   flex: 1;
-  gap: 12px;
+  gap: 16px;
   min-block-size: 0;
 }
 .kids-points-summary-child {
@@ -3619,44 +3638,77 @@ html[data-repaint="instant"]
   justify-content: center;
   gap: 6px;
   min-inline-size: 0;
+  padding-inline-start: 12px;
+  border-inline-start: 6px solid
+    var(--kid-color, var(--accent));
   container-type: size;
 }
 .kids-points-summary-child[data-running="true"] {
   flex: 2;
-  border-block-end: 3px solid
-    var(--kid-color, var(--accent));
 }
 .kids-points-summary-values {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
-  font-size: clamp(20px, 24cqi, 56px);
+  gap: 0.35em;
+  min-inline-size: 0;
+  font-size: clamp(18px, min(14cqi, 50cqb), 48px);
   font-weight: 900;
   line-height: 1;
 }
 .kids-points-summary-values h3 {
+  overflow: hidden;
+  min-inline-size: 0;
   font-size: 0.8em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .kids-points-summary-values strong {
+  flex: none;
   font-size: 1em;
   font-variant-numeric: tabular-nums;
+}
+.kids-points-summary-goal {
+  flex: none;
+  font-size: 0.5em;
+  font-weight: 700;
+  color: var(--fg-dim);
+}
+.kids-points-summary-initial {
+  display: none;
+}
+.kids-points-summary-child .kids-points-bar {
+  flex: none;
+  block-size: clamp(6px, 10cqb, 12px);
 }
 .kids-points-summary-child .kids-points-footnote {
   font-size: clamp(12px, 7cqi, 22px);
 }
-.kids-points-summary-child + .kids-points-summary-child {
-  border-inline-start: 1px solid var(--color-border-subtle);
-  padding-inline-start: 12px;
-}
 .kids-points-summary:has([data-running="true"])
   .kids-points-summary-child {
   justify-content: flex-start;
-  padding-block-start: 10px;
+  padding-block-start: 6px;
 }
-@container (width < 120px) {
+@container (width < 180px) {
+  .kids-points-summary-goal {
+    display: none;
+  }
+}
+/* A narrow cell stacks the name over the total before it gives up the name. */
+@container (width < 130px) {
   .kids-points-summary-values {
     flex-direction: column;
-    gap: 4px;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .kids-points-summary-values h3 {
+    max-inline-size: 100%;
+  }
+}
+@container (width < 56px) {
+  .kids-points-summary-name {
+    display: none;
+  }
+  .kids-points-summary-initial {
+    display: inline;
   }
 }

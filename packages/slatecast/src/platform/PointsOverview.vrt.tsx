@@ -42,3 +42,33 @@ test.each([
     path: `${inject("vrtActualDir")}/platform/points-overview-${name}.png`,
   })
 })
+
+test("desk overview: printing, child opened", async () => {
+  vi.useFakeTimers({
+    now: SCREENSHOT_EPOCH_MILLIS,
+    toFake: ["Date"],
+  })
+  await page.viewport(1024, 600)
+  document.documentElement.dataset.scheme = "dark"
+  const { container } = render(
+    <main class="platform" data-device="true">
+      <DisplayComposition
+        snapshot={pointsOverviewFixture({ isBusy: true })}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  await document.fonts.ready
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  container
+    .querySelector<HTMLButtonElement>(
+      '[aria-label="View Robin\'s tasks today"]',
+    )
+    ?.click()
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  await page.screenshot({
+    element: document.body,
+    path: `${inject("vrtActualDir")}/platform/points-overview-printing-child-open.png`,
+  })
+})

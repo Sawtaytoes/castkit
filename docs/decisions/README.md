@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-13: A busy overview keeps each child's name, color, and goal](2026-10-13-a-busy-overview-keeps-each-childs-name-color-and-goal.md)
+
 - [2026-10-12: The desktop app is an Electron shell whose windows are virtual devices](2026-10-12-the-desktop-app-is-an-electron-shell-whose-windows-are-virtual-devices.md)
 
 - [2026-10-12: The Music Player view reads Music Assistant directly](2026-10-12-the-music-player-view-reads-music-assistant-directly.md)

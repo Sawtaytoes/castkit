@@ -1,5 +1,6 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { getRunningKids } from "@castkit/sdk/kidsPointsScan"
+import { createPortal } from "preact/compat"
 import {
   useLayoutEffect,
   useRef,
@@ -705,6 +706,20 @@ export const KidsPointsView = ({
     observer.observe(root)
     return () => observer.disconnect()
   }, [])
+  /*
+   * A child's task list reads top to bottom. A summary strip is a short row,
+   * so a child opened from it takes the whole composition instead.
+   */
+  const [overlayHost, setOverlayHost] = useState<
+    HTMLElement | undefined
+  >()
+  useLayoutEffect(() => {
+    setOverlayHost(
+      element.current?.closest<HTMLElement>(
+        ".platform-layout",
+      ) ?? undefined,
+    )
+  }, [])
   const colorMode =
     properties.properties?.colorMode ?? "full"
   if (data.kids.length === 0) {
@@ -741,195 +756,250 @@ export const KidsPointsView = ({
         ? 128
         : undefined,
   })
-  const content = selectedKid ? (
-    <KidTasksToday
-      kid={selectedKid}
-      now={now}
-      onBack={() => setSelectedKidId(undefined)}
-    />
-  ) : settings?.isCompactSummary === true ? (
-    <div class="kids-points-summary">
-      {data.kids.map((kid) => {
-        const isRunning = runningKids.some(
-          (running) => running.id === kid.id,
-        )
-        return (
+  const isDetailOverlaid =
+    selectedKid !== undefined &&
+    settings?.isCompactSummary === true &&
+    overlayHost !== undefined
+  const animated =
+    properties.repaint === "instant" ||
+    properties.repaint === "fast"
+      ? "true"
+      : "false"
+  const content =
+    selectedKid && !isDetailOverlaid ? (
+      <KidTasksToday
+        kid={selectedKid}
+        now={now}
+        onBack={() => setSelectedKidId(undefined)}
+      />
+    ) : settings?.isCompactSummary === true ? (
+      <div class="kids-points-summary">
+        {data.kids.map((kid) => {
+          const isRunning = runningKids.some(
+            (running) => running.id === kid.id,
+          )
+          return (
+            <article
+              key={kid.id}
+              class="kids-points-summary-child"
+              style={kidStyle(kid)}
+              data-running={String(isRunning)}
+              aria-label={`${kid.name}: ${formatPoints(kid.pointsToday)} points today`}
+            >
+              <KidOpenButton
+                kid={kid}
+                onSelect={onSelect}
+              />
+              <div class="kids-points-summary-values">
+                <h3 title={kid.name}>
+                  <span class="kids-points-summary-name">
+                    {kid.name}
+                  </span>
+                  <span
+                    class="kids-points-summary-initial"
+                    aria-hidden="true"
+                  >
+                    {Array.from(kid.name)[0]}
+                  </span>
+                </h3>
+                <strong>
+                  {formatPoints(kid.pointsToday)}
+                </strong>
+                {kid.goal === undefined ? null : (
+                  <span class="kids-points-summary-goal">
+                    {`/ ${formatPoints(kid.goal)}`}
+                  </span>
+                )}
+              </div>
+              <GoalBar kid={kid} />
+              {isRunning ? (
+                <CompactActivity
+                  kid={kid}
+                  now={now}
+                  isLive={isLive}
+                  hasAccumulatedMinutes
+                />
+              ) : null}
+            </article>
+          )
+        })}
+      </div>
+    ) : settings?.isTotalsOnly === true ? (
+      <div class="kids-points-simple-totals">
+        {data.kids.map((kid) => (
           <article
             key={kid.id}
-            class="kids-points-summary-child"
-            style={kidStyle(kid)}
-            data-running={String(isRunning)}
-            aria-label={`${kid.name}: ${formatPoints(kid.pointsToday)} points today`}
+            class="kids-points-simple-row"
           >
             <KidOpenButton kid={kid} onSelect={onSelect} />
-            <div class="kids-points-summary-values">
-              <h3 title={kid.name}>
-                {Array.from(kid.name)[0]}
-              </h3>
-              <strong>
-                {formatPoints(kid.pointsToday)}
-              </strong>
-            </div>
-            {isRunning ? (
-              <CompactActivity
-                kid={kid}
-                now={now}
-                isLive={isLive}
-                hasAccumulatedMinutes
-              />
-            ) : null}
+            <h3 title={kid.name}>
+              {settings.nameStyle === "initial"
+                ? Array.from(kid.name)[0]
+                : kid.name}
+            </h3>
+            <strong>{formatPoints(kid.pointsToday)}</strong>
           </article>
-        )
-      })}
-    </div>
-  ) : settings?.isTotalsOnly === true ? (
-    <div class="kids-points-simple-totals">
-      {data.kids.map((kid) => (
-        <article
-          key={kid.id}
-          class="kids-points-simple-row"
-        >
-          <KidOpenButton kid={kid} onSelect={onSelect} />
-          <h3 title={kid.name}>
-            {settings.nameStyle === "initial"
-              ? Array.from(kid.name)[0]
-              : kid.name}
-          </h3>
-          <strong>{formatPoints(kid.pointsToday)}</strong>
-        </article>
-      ))}
-    </div>
-  ) : layout.isBoard ? (
-    <div
-      class="kids-points-board"
-      data-stacked={
-        layout.columnCount < data.kids.length
-          ? "true"
-          : "false"
-      }
-      style={{
-        gridTemplateColumns: `repeat(${layout.columnCount}, minmax(0, 1fr))`,
-      }}
-    >
-      {data.kids.map((kid) => (
-        <KidCard
-          onSelect={onSelect}
-          key={kid.id}
-          kid={kid}
-          scan={
-            scan && kid.id === scan.kidId ? scan : undefined
-          }
-          isDimmed={
-            scannedKid !== undefined &&
-            kid.id !== scannedKid.id &&
-            !runningKids.some(
+        ))}
+      </div>
+    ) : layout.isBoard ? (
+      <div
+        class="kids-points-board"
+        data-stacked={
+          layout.columnCount < data.kids.length
+            ? "true"
+            : "false"
+        }
+        style={{
+          gridTemplateColumns: `repeat(${layout.columnCount}, minmax(0, 1fr))`,
+        }}
+      >
+        {data.kids.map((kid) => (
+          <KidCard
+            onSelect={onSelect}
+            key={kid.id}
+            kid={kid}
+            scan={
+              scan && kid.id === scan.kidId
+                ? scan
+                : undefined
+            }
+            isDimmed={
+              scannedKid !== undefined &&
+              kid.id !== scannedKid.id &&
+              !runningKids.some(
+                (runningKid) => runningKid.id === kid.id,
+              )
+            }
+            isAnimated={isAnimated}
+            now={now}
+            isLive={isLive}
+            isStacked={
+              layout.columnCount < data.kids.length
+            }
+            isTimerShowing={runningKids.some(
               (runningKid) => runningKid.id === kid.id,
-            )
-          }
-          isAnimated={isAnimated}
-          now={now}
-          isLive={isLive}
-          isStacked={layout.columnCount < data.kids.length}
-          isTimerShowing={runningKids.some(
-            (runningKid) => runningKid.id === kid.id,
-          )}
-        />
-      ))}
-    </div>
-  ) : settings?.isAllChildrenVisible === true ? (
-    <div class="kids-points-rows" data-all-children="true">
-      {data.kids.slice(0, layout.rowCount).map((kid) => (
-        <KidRow
-          onSelect={onSelect}
-          key={kid.id}
-          kid={kid}
-          now={now}
-          isLive={isLive}
-          isTimerShowing={runningKids.some(
-            (runningKid) => runningKid.id === kid.id,
-          )}
-          scan={scan?.kidId === kid.id ? scan : undefined}
-        />
-      ))}
-      {layout.rowCount < data.kids.length ? (
-        <p class="kids-points-overflow">
-          {data.kids.length - layout.rowCount} more
-        </p>
-      ) : null}
-    </div>
-  ) : runningKids.length > 1 ? (
-    <div
-      class="kids-points-countdowns"
-      style={{
-        gridTemplateColumns: `repeat(${size.width >= size.height ? 2 : 1}, minmax(0, 1fr))`,
-      }}
-    >
-      {runningKids.map((kid) => (
-        <article
-          key={kid.id}
-          class="kids-points-timer-card"
-          style={kidStyle(kid)}
-        >
-          <KidOpenButton kid={kid} onSelect={onSelect} />
-          <h3>{kid.name}</h3>
-          <TimerProgress
+            )}
+          />
+        ))}
+      </div>
+    ) : settings?.isAllChildrenVisible === true ? (
+      <div
+        class="kids-points-rows"
+        data-all-children="true"
+      >
+        {data.kids.slice(0, layout.rowCount).map((kid) => (
+          <KidRow
+            onSelect={onSelect}
+            key={kid.id}
             kid={kid}
             now={now}
             isLive={isLive}
+            isTimerShowing={runningKids.some(
+              (runningKid) => runningKid.id === kid.id,
+            )}
+            scan={scan?.kidId === kid.id ? scan : undefined}
           />
-        </article>
-      ))}
-    </div>
-  ) : runningKid ? (
-    <article
-      class="kids-points-focus"
-      style={kidStyle(runningKid)}
-    >
-      <KidOpenButton kid={runningKid} onSelect={onSelect} />
-      <h3>{runningKid.name}</h3>
-      <TimerProgress
-        kid={runningKid}
-        now={now}
-        isLive={isLive}
-      />
-    </article>
-  ) : scan && scannedKid ? (
-    <KidFocus
-      onSelect={onSelect}
-      kid={scannedKid}
-      scan={scan}
-      isAnimated={isAnimated}
-    />
-  ) : (
-    <div class="kids-points-rows">
-      {data.kids.slice(0, layout.rowCount).map((kid) => (
-        <KidRow
-          key={kid.id}
-          kid={kid}
+        ))}
+        {layout.rowCount < data.kids.length ? (
+          <p class="kids-points-overflow">
+            {data.kids.length - layout.rowCount} more
+          </p>
+        ) : null}
+      </div>
+    ) : runningKids.length > 1 ? (
+      <div
+        class="kids-points-countdowns"
+        style={{
+          gridTemplateColumns: `repeat(${size.width >= size.height ? 2 : 1}, minmax(0, 1fr))`,
+        }}
+      >
+        {runningKids.map((kid) => (
+          <article
+            key={kid.id}
+            class="kids-points-timer-card"
+            style={kidStyle(kid)}
+          >
+            <KidOpenButton kid={kid} onSelect={onSelect} />
+            <h3>{kid.name}</h3>
+            <TimerProgress
+              kid={kid}
+              now={now}
+              isLive={isLive}
+            />
+          </article>
+        ))}
+      </div>
+    ) : runningKid ? (
+      <article
+        class="kids-points-focus"
+        style={kidStyle(runningKid)}
+      >
+        <KidOpenButton
+          kid={runningKid}
           onSelect={onSelect}
         />
-      ))}
-      {layout.rowCount < data.kids.length ? (
-        <p class="kids-points-overflow">
-          {data.kids.length - layout.rowCount} more
-        </p>
-      ) : null}
-    </div>
-  )
+        <h3>{runningKid.name}</h3>
+        <TimerProgress
+          kid={runningKid}
+          now={now}
+          isLive={isLive}
+        />
+      </article>
+    ) : scan && scannedKid ? (
+      <KidFocus
+        onSelect={onSelect}
+        kid={scannedKid}
+        scan={scan}
+        isAnimated={isAnimated}
+      />
+    ) : (
+      <div class="kids-points-rows">
+        {data.kids.slice(0, layout.rowCount).map((kid) => (
+          <KidRow
+            key={kid.id}
+            kid={kid}
+            onSelect={onSelect}
+          />
+        ))}
+        {layout.rowCount < data.kids.length ? (
+          <p class="kids-points-overflow">
+            {data.kids.length - layout.rowCount} more
+          </p>
+        ) : null}
+      </div>
+    )
   return (
-    <div
-      class="kids-points"
-      data-color-mode={colorMode}
-      data-detail={selectedKid ? selectedKid.id : undefined}
-      data-animated={
-        properties.repaint === "instant" ||
-        properties.repaint === "fast"
-          ? "true"
-          : "false"
-      }
-      ref={element}
-    >
-      {content}
-    </div>
+    <>
+      <div
+        class="kids-points"
+        data-color-mode={colorMode}
+        data-detail={
+          selectedKid && !isDetailOverlaid
+            ? selectedKid.id
+            : undefined
+        }
+        data-animated={animated}
+        ref={element}
+      >
+        {content}
+      </div>
+      {selectedKid && isDetailOverlaid && overlayHost
+        ? createPortal(
+            <div
+              class="kids-points kids-points-overlay"
+              data-color-mode={colorMode}
+              data-detail={selectedKid.id}
+              data-animated={animated}
+            >
+              <KidTasksToday
+                kid={selectedKid}
+                now={now}
+                onBack={() => setSelectedKidId(undefined)}
+              />
+            </div>,
+            overlayHost,
+          )
+        : null}
+    </>
   )
 }
