@@ -950,9 +950,15 @@
   flex-direction: column;
   justify-content: center;
   gap: calc(5px * var(--ai-usage-scale));
-  block-size: calc(70px * var(--ai-usage-scale));
+  block-size: calc(48px * var(--ai-usage-scale));
   flex: none;
   padding-block-end: calc(16px * var(--ai-usage-scale));
+}
+.ai-usage-window[data-escalated="true"] {
+  block-size: calc(70px * var(--ai-usage-scale));
+}
+.ai-usage-provider-head > .ai-usage-window-percent {
+  margin-inline-start: auto;
 }
 .ai-usage-window-head {
   display: flex;

@@ -117,14 +117,20 @@ test("each provider is represented by its weekly limit alone", () => {
   expect(screen.queryByText("Max")).toBeNull()
   expect(screen.getByText("Claude")).toBeVisible()
   expect(screen.getByText("Codex")).toBeVisible()
-  expect(screen.getAllByText("7-day limit")).toHaveLength(2)
+  expect(screen.queryByText("7-day limit")).toBeNull()
   /*
    * The five-hour limit is real and is deliberately not drawn. A quiet
    * short window is noise on a panel read from across a desk.
    */
   expect(screen.queryByText("5-hour limit")).toBeNull()
-  expect(screen.getByText("46% left")).toBeVisible()
-  expect(screen.getByText("7% left")).toBeVisible()
+  expect(screen.getByText("46%")).toBeVisible()
+  expect(
+    screen
+      .getByText("46%")
+      .closest(".ai-usage-provider-head")?.textContent,
+  ).toContain("Claude")
+  expect(screen.queryByText(/% left/)).toBeNull()
+  expect(screen.getByText("7%")).toBeVisible()
   expect(screen.queryByText(/more limits?/)).toBeNull()
 })
 
@@ -135,7 +141,7 @@ test("a nearly-spent session limit earns a second row", () => {
     repaint: "instant",
   })
   expect(screen.getByText("5-hour limit")).toBeVisible()
-  expect(screen.getByText("10% left")).toBeVisible()
+  expect(screen.getByText("10%")).toBeVisible()
 })
 
 test("the escalated row is marked, so a 1-bit panel can show it without color", () => {
@@ -172,13 +178,13 @@ test("a threshold outside 0-100 falls back to the default", () => {
 test("a short panel drops the rows it cannot finish and counts them", () => {
   /*
    * 58 for the heading and its reserved overflow line, 34 for a provider
-   * heading and 70 for a limit: this panel holds the fullest provider's
+   * heading and 48 for a limit: this panel holds the fullest provider's
    * heading and one row, no more.
    */
   renderInPanel({ panelHeight: 162, repaint: "instant" })
   expect(screen.getByText("Codex")).toBeVisible()
-  expect(screen.getByText("7% left")).toBeVisible()
-  expect(screen.getByText("7-day limit")).toBeVisible()
+  expect(screen.getByText("7%")).toBeVisible()
+  expect(screen.queryByText("7-day limit")).toBeNull()
   expect(screen.queryByText("Claude")).toBeNull()
   /*
    * One, not two. The five-hour limit was withheld by the rule, not lost to
@@ -190,7 +196,7 @@ test("a short panel drops the rows it cannot finish and counts them", () => {
 
 test("a panel too short for one whole row still names the closest to spent", () => {
   renderInPanel({ panelHeight: 60, repaint: "slow" })
-  expect(screen.getByText("Codex 7% left")).toBeVisible()
+  expect(screen.getByText("Codex 7%")).toBeVisible()
   expect(screen.queryByText(/more limits?/)).toBeNull()
 })
 
@@ -305,7 +311,7 @@ test("an unavailable provider keeps its row and says why", () => {
    * A monthly allowance is longer than a week and is the only window this
    * provider has, so it leads rather than being ruled out for being too long.
    */
-  expect(screen.getByText("Monthly limit")).toBeVisible()
+  expect(screen.queryByText("Monthly limit")).toBeNull()
 })
 
 test("a combined usage panel starts with account names without a redundant view heading", () => {
@@ -323,5 +329,5 @@ test("a combined usage panel starts with account names without a redundant view 
   expect(
     screen.getByRole("heading", { name: "Codex" }),
   ).toBeVisible()
-  expect(screen.getByText("46% left")).toBeVisible()
+  expect(screen.getByText("46%")).toBeVisible()
 })

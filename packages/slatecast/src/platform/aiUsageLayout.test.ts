@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest"
 import {
+  BASE_ESCALATED_ROW_HEIGHT,
   BASE_PROVIDER_HEADING_HEIGHT,
   BASE_ROW_HEIGHT,
   BASE_VIEW_HEADING_HEIGHT,
@@ -20,7 +21,7 @@ const provider = ({
     { length: rowCount },
     (_unused, index) => ({
       usageWindow: { id: `${id}-${index}`, label: id },
-      isEscalated: false,
+      isEscalated: index > 0,
     }),
   ),
 })
@@ -129,8 +130,8 @@ describe("placeSections", () => {
   test("a section moves whole to the next column rather than losing rows to a break", () => {
     /*
      * Kept under the scale reference height so every length is at scale 1.
-     * The column holds 150 px: `first` spends 104 on its heading and one
-     * row, leaving 46 — not enough for `second` at all. Without the move,
+     * The column holds 150 px: `first` spends 82 on its heading and one
+     * row, leaving 68 — not enough for `second` at all. Without the move,
      * `second` would be dropped and counted; with it, `second` is drawn.
      */
     const height = BASE_VIEW_HEADING_HEIGHT + 150
@@ -156,7 +157,8 @@ describe("placeSections", () => {
     const height =
       BASE_VIEW_HEADING_HEIGHT +
       BASE_PROVIDER_HEADING_HEIGHT +
-      BASE_ROW_HEIGHT * 2
+      BASE_ROW_HEIGHT +
+      BASE_ESCALATED_ROW_HEIGHT
     const layout = placeSections({
       providerRows: [provider({ id: "tall", rowCount: 5 })],
       width: 1200,
@@ -237,14 +239,14 @@ test("adaptive columns include their scaled gaps in the reading width", () => {
   })
   expect(layout.hiddenRowCount).toBe(0)
   expect(layout.columnCount).toBe(2)
-  expect(layout.scale).toBe(1)
+  expect(layout.scale).toBe(1.3)
 })
 
 test("a narrow adaptive rail shrinks to fit all three subscriptions", () => {
   const layout = placeSections({
     providerRows: fiveProviders.slice(0, 3),
     width: 102,
-    height: 200,
+    height: 155,
     isAdaptive: true,
     minimumScale: 0.65,
     hasViewHeading: false,
@@ -253,7 +255,7 @@ test("a narrow adaptive rail shrinks to fit all three subscriptions", () => {
   const taller = placeSections({
     providerRows: fiveProviders.slice(0, 3),
     width: 102,
-    height: 220,
+    height: 165,
     isAdaptive: true,
     minimumScale: 0.65,
     hasViewHeading: false,
@@ -300,4 +302,18 @@ test("hidden subscriptions yield to the fullest selected limits", () => {
       (section) => section.provider.id,
     ),
   ).toStrictEqual(["account-0", "account-1", "account-2"])
+})
+
+test("a strip at its fractional minimum height keeps every complete quota", () => {
+  const layout = placeSections({
+    providerRows: fiveProviders.slice(0, 3),
+    width: 1900,
+    height: 53.3,
+    isAdaptive: true,
+    minimumScale: 0.65,
+    hasViewHeading: false,
+  })
+  expect(layout.hiddenRowCount).toBe(0)
+  expect(layout.columnCount).toBe(3)
+  expect(layout.scale).toBe(0.65)
 })
