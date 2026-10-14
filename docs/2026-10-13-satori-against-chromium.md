@@ -36,6 +36,42 @@ upgrading `satori` from 0.26.0 to 0.56.1.
 - Peak process RSS (Chromium 808 MiB, Satori 746–764 MiB) is not a fair comparison: the
   Satori process also holds `tsx` and every loaded module. Satori does not start a browser.
 
+## Why Satori text sat lower, and the patch
+
+Satori 0.56.1 put the baseline at `round(A + (L - (A + D)) / 2)`: the exact CSS baseline,
+rounded to the nearest pixel (`src/font.ts:910-919` builds it,
+`src/text/index.ts:374,391` and `src/text/inline.ts:758,811` round it). Chromium rounds the
+ascent and descent first and floors the half-leading above the text
+(`CalculateLeadingSpace` in Blink): `round(A) + floor((L - round(A) - round(D)) / 2)`.
+Whenever the two disagree, Satori is exactly 1 CSS px lower — 2 or 4 image pixels after the
+2x and 4x supersample. Atkinson Hyperlegible's metrics are not the cause: hhea, typo and
+win all say 950 / -290 / 0, with `USE_TYPO_METRICS` set.
+
+A one-line `H` at 16 sizes x 7 line heights x 2 weights (224 cases) fits both formulas
+exactly, at 1x, 2x and 4x. Before the patch 96 of 224 baselines were 1 px low; after it, 0.
+
+`patches/satori@0.56.1.patch` (pnpm `patchedDependencies`) applies Chromium's rounding to
+Satori's `baseline` in `dist/index.js` and `dist/index.cjs`. The same change is prepared for
+upstream; drop the patch once a Satori release carries it.
+
+| | Median diff vs Chromium | Max diff | Cases improved | Cases worse |
+| --- | ---: | ---: | ---: | ---: |
+| Satori 0.56.1 | 1.25% | 9.3% | — | — |
+| Satori 0.56.1, patched | 1.0% | 7.9% | 17 of 40 | 0 |
+
+What still differs is not the baseline:
+
+- **Line boxes are rounded to whole pixels.** Satori rounds each text line's height
+  (`Math.round(engine.height(...))`, `src/text/index.ts:373,387`), so a stack of
+  `lineHeight: 1.1` rows drifts: in Clock (Agenda) on 250x122 the third event row starts at
+  94 px against Chromium's 93.375.
+- **Horizontal position.** Chromium on Linux advances glyphs by whole pixels and keeps
+  half-pixel centering; Satori uses exact advances and rounds box positions. "Partly cloudy"
+  is 95 px wide in Chromium and 93 px in Satori, and centered rows land 0.5–1.5 px apart.
+- **Glyph weight on the 250x122 panel.** Chromium (Skia) and resvg rasterize the same
+  outlines differently; cap tops still differ by one device pixel in about half of the
+  probe cases. Not investigated further.
+
 ## What it does not change
 
 - **`vrt` and CI.** The visual check captures Storybook in Chromium; Satori is not in that
