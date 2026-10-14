@@ -243,8 +243,24 @@ jobs:
       storybookStaticDirs: |
         web=packages/web/storybook-static
         slatecast=packages/slatecast/storybook-static
+      # Use the runner image's baked browsers when they are the revision this
+      # Playwright wants. Chrome for Testing downloads only from
+      # storage.googleapis.com, which the LAN DNS blocklist can block.
       captureCommand: |
-        pnpm playwright install chromium
+        missingBrowsers="$(
+          PLAYWRIGHT_BROWSERS_PATH="${VRT_IMAGE_BROWSERS_PATH:-/nonexistent}" \
+            pnpm exec playwright install --dry-run chromium \
+            | awk '/Install location:/ { print $3 }' \
+            | while read -r directory; do
+                [ -f "$directory/INSTALLATION_COMPLETE" ] || echo "$directory"
+              done
+        )"
+        if [ -n "${VRT_IMAGE_BROWSERS_PATH:-}" ] && [ -z "$missingBrowsers" ]; then
+          echo "Using the image's browsers in $VRT_IMAGE_BROWSERS_PATH"
+          export PLAYWRIGHT_BROWSERS_PATH="$VRT_IMAGE_BROWSERS_PATH"
+        else
+          pnpm playwright install chromium
+        fi
         pnpm vrt:capture
         node scripts/captureDitherComparison.mjs
         rm -f "$VRT_ACTUAL_DIR/slatecast/overview-all-screens--every-view-every-panel.png"
