@@ -16,11 +16,14 @@ import { join, resolve } from "node:path"
 // whole process tree — node plus every browser process it starts — so shared
 // pages are counted once.
 //
-// Usage: node scripts/bakeoff/serverMemory.mjs <chromium|satori> [rounds] [panel-id]
+// Usage: node scripts/bakeoff/serverMemory.mjs <chromium|satori> [rounds] [panel-id] [--concurrent]
 
 const engine = process.argv[2] ?? "chromium"
 const rounds = Number(process.argv[3] ?? 3)
-const panelFilter = process.argv[4]
+const isConcurrent = process.argv.includes("--concurrent")
+const panelFilter = process.argv
+  .slice(4)
+  .find((argument) => !argument.startsWith("--"))
 const port = 18790
 
 const panels = [
@@ -95,6 +98,9 @@ const server = spawn(
       PORT: String(port),
       INKCAST_RENDER_ENGINE: engine,
       NODE_OPTIONS: process.env.NODE_OPTIONS,
+      LD_PRELOAD: process.env.LD_PRELOAD,
+      MALLOC_ARENA_MAX: process.env.MALLOC_ARENA_MAX,
+      MALLOC_CONF: process.env.MALLOC_CONF,
       INKCAST_DEVICES_FILE: devicesFile,
       CASTKIT_PUBLIC_URL: `http://127.0.0.1:${port}`,
     },
@@ -185,20 +191,25 @@ const sampler = setInterval(() => {
 const renderStartedAt = Date.now()
 let renderCount = 0
 let failureCount = 0
-for (let round = 0; round < rounds; round++) {
-  for (const panel of panels) {
-    for (const viewName of viewNames) {
-      await api(`/api/devices/${panel.id}/view`, {
-        view: viewName,
-      })
-      const response = await api(
-        `/api/devices/${panel.id}/render`,
-        {},
-      )
-      if (response.ok) renderCount += 1
-      else failureCount += 1
-    }
+const renderPanel = async (panel) => {
+  for (const viewName of viewNames) {
+    await api(`/api/devices/${panel.id}/view`, {
+      view: viewName,
+    })
+    const response = await api(
+      `/api/devices/${panel.id}/render`,
+      {},
+    )
+    if (response.ok) renderCount += 1
+    else failureCount += 1
   }
+}
+for (let round = 0; round < rounds; round++) {
+  // Production renders several panels at once; `--concurrent` does the same,
+  // which is what spreads native allocations over many malloc arenas.
+  if (isConcurrent)
+    await Promise.all(panels.map(renderPanel))
+  else for (const panel of panels) await renderPanel(panel)
 }
 const renderMilliseconds = Date.now() - renderStartedAt
 clearInterval(sampler)
@@ -214,6 +225,12 @@ console.log(
   JSON.stringify({
     engine,
     rounds,
+    isConcurrent,
+    allocator: process.env.LD_PRELOAD
+      ? `jemalloc${process.env.MALLOC_CONF ? ` (${process.env.MALLOC_CONF})` : ""}`
+      : process.env.MALLOC_ARENA_MAX
+        ? `glibc, MALLOC_ARENA_MAX=${process.env.MALLOC_ARENA_MAX}`
+        : "glibc",
     renderCount,
     failureCount,
     renderMilliseconds,

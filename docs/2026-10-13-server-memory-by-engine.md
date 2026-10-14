@@ -38,3 +38,26 @@ dithering, not rendering: image-q's per-pixel `Point` objects (`__defNormalProp`
 (14.8%), and `quantize` (6.9%). Satori's own render was 3.3%. A Spectra 6 panel quantizes
 every frame twice (`quantizeWithNeutralProtection`: full palette, then black and white for
 neutral pixels), so a 1600x1200 frame builds about 3.8 million objects.
+
+## After switching production to Satori: the allocator (2026-10-14)
+
+With `INKCAST_RENDER_ENGINE=satori` in production, the server's node process settled near
+615 MiB PSS against about 426 MiB on Chromium. An inspector reading showed a 224 MiB V8 heap
+and 36 MiB of external buffers, so about 390 MiB was native memory. `/proc/<pid>/smaps` held
+at least 17 glibc malloc arenas (64 MiB-aligned anonymous heaps) with at least 228 MiB
+resident: with Satori, node itself handles the supersampled rasters in sharp's and resvg's
+native threads, and glibc keeps each thread's freed memory.
+
+`pnpm bakeoff:server-memory satori 3 --concurrent` (all four panels at once, as production
+renders them) in a throwaway container from the production image, limited to 2 CPUs:
+
+| Allocator | Peak | Settled (10 s after) | Time |
+| --- | ---: | ---: | ---: |
+| glibc | 532 / 567 MiB | 427 / 433 MiB | 51 / 62 s |
+| glibc, `MALLOC_ARENA_MAX=2` | 521 MiB | 351 MiB | 48 s |
+| jemalloc, defaults | 833 / 867 MiB | 274 / 363 MiB | 55 / 56 s |
+| jemalloc, `background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:0` | 580 MiB | 193 MiB | 53 s |
+
+The image now preloads jemalloc with the last configuration for the node server only; the
+server strips `LD_PRELOAD` and `MALLOC_CONF` from its environment at start, so Chromium and
+the Python stream workers keep their normal allocators.
