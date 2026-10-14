@@ -10,6 +10,8 @@ Superseded by: None
 
 On Linux WebKit, adapt touch contacts into the existing pointer handlers while preserving each contact's original DOM target through movement and release. Keep mouse events and native form controls on their normal path. Native Now Playing volume remains on its custom pointer path; saved Music Player range inputs retain native touch behavior. Suppress duplicate native touch pointers, premature pointer cancellation and compatibility clicks for dragged or cancelled contacts.
 
+Disable seek fill/knob transitions while a scrub contact is active. Restore the existing playback-progress smoothing on release or cancellation. A 400ms transition is appropriate for periodic playback updates but makes a manually dragged control trail the finger.
+
 ## Context
 
 WPE WebKit 2.48.3 with Cog 0.18.4 on Wayland accepted `setPointerCapture`, but moved pointer events to the element underneath a dragging finger once it left a narrow edge. It then sent pointer cancellation and released over that other element. Touch events continued to identify the original target. Five-position tap calibration passed while side pulls failed, so aligned taps alone did not qualify dragging.

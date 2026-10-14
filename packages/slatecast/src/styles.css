@@ -706,6 +706,12 @@ html[data-grayscale-text="true"] {
   }
 }
 
+/* A finger supplies the motion while scrubbing; easing would trail it. */
+.seek-track.is-scrubbing .seek-fill,
+.seek-track.is-scrubbing .seek-knob {
+  transition: none;
+}
+
 /* ————— Volume ————— */
 
 /* There is no transport row. The artwork is the transport on every touch

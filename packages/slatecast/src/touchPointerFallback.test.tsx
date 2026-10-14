@@ -144,7 +144,9 @@ test("opens the edge drawer after the finger leaves its narrow starting region",
   beginTouch({ target: edge, clientX: 3 })
   continueTouch({ target: edge, clientX: 80 })
   await waitUntil(() =>
-    screen.queryByRole("button", { name: "Now Playing" }),
+    Boolean(
+      screen.queryByRole("button", { name: "Now Playing" }),
+    ),
   )
   expect(
     screen.getByRole("button", { name: "Now Playing" }),
