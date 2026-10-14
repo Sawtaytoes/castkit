@@ -87,7 +87,7 @@ const quotas = (
           id: `quota-${rowIndex}`,
           label: "Weekly",
         },
-        isEscalated: false,
+        isEscalated: rowIndex > 0,
       }),
     ),
   })),
@@ -146,7 +146,7 @@ test("quota fit budgets keep an account's multiple rows together", () => {
   )
   const quotaMinimum =
     layout?.sections.at(-1)?.minimumHeight
-  expect(quotaMinimum).toBeCloseTo(184.6)
+  expect(quotaMinimum).toBeCloseTo(170.3)
   expect(
     layout?.sections.at(-1)?.height,
   ).toBeGreaterThanOrEqual(quotaMinimum ?? 0)

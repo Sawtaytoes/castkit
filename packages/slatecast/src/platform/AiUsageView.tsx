@@ -111,6 +111,31 @@ const getWindowIntent = (
   return percentUsed >= 75 ? "warning" : "neutral"
 }
 
+/** Remaining quota, rounded to the same precision on every row. */
+const remainingPercent = (usageWindow: UsageWindow) =>
+  usageWindow.percentUsed === undefined
+    ? undefined
+    : Math.max(
+        0,
+        Math.round((100 - usageWindow.percentUsed) * 10) /
+          10,
+      )
+
+const UsagePercent = ({
+  usageWindow,
+}: {
+  usageWindow?: UsageWindow
+}) => {
+  const percent = usageWindow
+    ? remainingPercent(usageWindow)
+    : undefined
+  return percent === undefined ? null : (
+    <strong class="ai-usage-window-percent">
+      {percent}%
+    </strong>
+  )
+}
+
 const UsageRow = ({
   usageWindow,
   isEscalated,
@@ -124,30 +149,20 @@ const UsageRow = ({
   hasRelativeTimes: boolean
   hasUsageDetail: boolean
 }) => {
-  const percentRemaining =
-    usageWindow.percentUsed === undefined
-      ? undefined
-      : Math.max(
-          0,
-          Math.round((100 - usageWindow.percentUsed) * 10) /
-            10,
-        )
   return (
     <div
       class="ai-usage-window"
       data-escalated={isEscalated ? "true" : "false"}
       data-intent={getWindowIntent(usageWindow.percentUsed)}
     >
-      <div class="ai-usage-window-head">
-        <span class="ai-usage-window-label">
-          {usageWindow.label}
-        </span>
-        {percentRemaining === undefined ? null : (
-          <strong class="ai-usage-window-percent">
-            {percentRemaining}% left
-          </strong>
-        )}
-      </div>
+      {isEscalated ? (
+        <div class="ai-usage-window-head">
+          <span class="ai-usage-window-label">
+            {usageWindow.label}
+          </span>
+          <UsagePercent usageWindow={usageWindow} />
+        </div>
+      ) : null}
       {hasUsageDetail &&
       usageWindow.percentUsed !== undefined ? (
         <div class="ai-usage-bar">
@@ -295,6 +310,12 @@ export const AiUsageView = ({
                     providerId={provider.id}
                   />
                   <h3>{provider.name}</h3>
+                  <UsagePercent
+                    usageWindow={
+                      rows.find((row) => !row.isEscalated)
+                        ?.usageWindow
+                    }
+                  />
                   {provider.isOk ? null : (
                     <span class="ai-usage-problem">
                       {provider.problemText ??
@@ -338,7 +359,7 @@ export const AiUsageView = ({
           {mostSpentWindow.usageWindow.percentUsed ===
           undefined
             ? mostSpentWindow.usageWindow.label
-            : `${Math.max(0, Math.round(100 - mostSpentWindow.usageWindow.percentUsed))}% left`}
+            : `${remainingPercent(mostSpentWindow.usageWindow)}%`}
         </p>
       ) : null}
       {hiddenRowCount > 0 && !isEmpty ? (
