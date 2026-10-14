@@ -12,3 +12,5 @@ allowBuilds:
   electron-winstaller: true
   esbuild: true
   msw: true
+patchedDependencies:
+  satori@0.56.1: patches/satori@0.56.1.patch

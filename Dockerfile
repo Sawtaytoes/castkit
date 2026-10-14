@@ -20,6 +20,8 @@ RUN npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
 
 # --- Dependency layer (only manifests, so source edits don't bust the install) ---
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# `patchedDependencies` in pnpm-workspace.yaml: the install applies these.
+COPY patches patches
 COPY packages/sdk/package.json packages/sdk/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/slatecast/package.json packages/slatecast/package.json
