@@ -30,7 +30,8 @@ export type ZoomRequest = "in" | "out" | "reset"
 
 type ManagedWindow = {
   record: SavedWindow
-  browserWindow: BrowserWindow
+  /** `null` while the window is closed: it is kept, and opens again on request. */
+  browserWindow: BrowserWindow | null
   reportedView: string | null
   /** True while the window sits on the primary display because its own monitor is missing. */
   isOnFallbackDisplay: boolean
@@ -107,7 +108,9 @@ export const createWindowManager = ({
   preloadPath,
   iconPath,
   onRecordsChanged,
-  onWindowContextMenu,
+  onWindowMenu,
+  attachSignIn,
+  detachSignIn,
   log,
 }: {
   readServerOrigin: () => string | null
@@ -115,19 +118,39 @@ export const createWindowManager = ({
   iconPath: string
   /** Called after any change a restart must remember, and after any change the menus show. */
   onRecordsChanged: () => void
-  /** A right click with the mouse opens the window's own menu. */
-  onWindowContextMenu: (windowId: string) => void
+  /**
+   * Open the window's own menu: a right click with the mouse puts it at the
+   * pointer, and Alt in fullscreen, where no menu bar shows, at the corner.
+   */
+  onWindowMenu: (request: {
+    windowId: string
+    isAtCorner: boolean
+  }) => void
+  /** Share the server sign-in with a window's partition before its page loads. */
+  attachSignIn: (partition: string) => Promise<void>
+  detachSignIn: (partition: string) => void
   log: (message: string) => void
 }) => {
   const managedWindows = new Map<string, ManagedWindow>()
   const lifecycle = { isQuitting: false }
 
+  /** The window's live `BrowserWindow`, or `null` while it is closed. */
+  const liveWindow = (
+    managed: ManagedWindow | undefined,
+  ) =>
+    managed?.browserWindow &&
+    !managed.browserWindow.isDestroyed()
+      ? managed.browserWindow
+      : null
+
+  const partitionOf = (windowId: string) =>
+    `persist:castkit-window-${windowId}`
+
   const findByWebContents = (webContents: WebContents) =>
     [...managedWindows.values()].find(
       (managed) =>
-        !managed.browserWindow.isDestroyed() &&
-        managed.browserWindow.webContents.id ===
-          webContents.id,
+        liveWindow(managed)?.webContents.id ===
+        webContents.id,
     )
 
   const updateRecord = ({
@@ -146,12 +169,13 @@ export const createWindowManager = ({
   }
 
   const applyZoom = (managed: ManagedWindow) => {
-    if (managed.browserWindow.isDestroyed()) {
+    const browserWindow = liveWindow(managed)
+    if (!browserWindow) {
       return
     }
     const viewKey = resolveViewKey({
       reportedView: managed.reportedView,
-      url: managed.browserWindow.webContents.getURL(),
+      url: browserWindow.webContents.getURL(),
     })
     const factor = readZoomFactor({
       zoomByView: managed.record.zoomByView,
@@ -162,7 +186,7 @@ export const createWindowManager = ({
       managed.appliedZoom = applied
       log(`Window ${managed.record.id} shows ${applied}.`)
     }
-    managed.browserWindow.webContents.setZoomFactor(factor)
+    browserWindow.webContents.setZoomFactor(factor)
   }
 
   const zoom = ({
@@ -173,10 +197,11 @@ export const createWindowManager = ({
     request: ZoomRequest
   }) => {
     const managed = managedWindows.get(windowId)
-    if (!managed || managed.browserWindow.isDestroyed()) {
+    const browserWindow = liveWindow(managed)
+    if (!managed || !browserWindow) {
       return
     }
-    const { webContents } = managed.browserWindow
+    const { webContents } = browserWindow
     const viewKey = resolveViewKey({
       reportedView: managed.reportedView,
       url: webContents.getURL(),
@@ -202,19 +227,18 @@ export const createWindowManager = ({
   }
 
   const toggleFullScreen = (windowId: string) => {
-    const managed = managedWindows.get(windowId)
-    if (managed && !managed.browserWindow.isDestroyed()) {
-      managed.browserWindow.setFullScreen(
-        !managed.browserWindow.isFullScreen(),
-      )
-    }
+    const browserWindow = liveWindow(
+      managedWindows.get(windowId),
+    )
+    browserWindow?.setFullScreen(
+      !browserWindow.isFullScreen(),
+    )
   }
 
   const reload = (windowId: string) => {
-    const managed = managedWindows.get(windowId)
-    if (managed && !managed.browserWindow.isDestroyed()) {
-      managed.browserWindow.webContents.reload()
-    }
+    liveWindow(
+      managedWindows.get(windowId),
+    )?.webContents.reload()
   }
 
   /**
@@ -260,28 +284,27 @@ export const createWindowManager = ({
     displayId: number
   }) => {
     const managed = managedWindows.get(windowId)
+    const browserWindow = liveWindow(managed)
     const display = screen
       .getAllDisplays()
       .find((candidate) => candidate.id === displayId)
-    if (
-      !managed ||
-      managed.browserWindow.isDestroyed() ||
-      !display
-    ) {
+    if (!managed || !browserWindow || !display) {
       return
     }
-    const isFullScreen =
-      managed.browserWindow.isFullScreen()
+    const isFullScreen = browserWindow.isFullScreen()
     managed.isOnFallbackDisplay = false
     placeOnDisplay({
-      browserWindow: managed.browserWindow,
+      browserWindow,
       bounds: display.workArea,
       isFullScreen,
       onPlaced: () => {
+        if (browserWindow.isDestroyed()) {
+          return
+        }
         updateRecord({
           windowId,
           change: {
-            ...capturePlacement(managed.browserWindow),
+            ...capturePlacement(browserWindow),
             isFullScreen,
           },
         })
@@ -347,7 +370,7 @@ export const createWindowManager = ({
     bounds: Rectangle
     isOnFallbackDisplay: boolean
   }) => {
-    const partition = `persist:castkit-window-${record.id}`
+    const partition = partitionOf(record.id)
     guardSession(partition)
     const browserWindow = new BrowserWindow({
       ...bounds,
@@ -371,7 +394,7 @@ export const createWindowManager = ({
       },
     })
     const managed: ManagedWindow = {
-      record,
+      record: { ...record, isClosed: false },
       browserWindow,
       reportedView: null,
       isOnFallbackDisplay,
@@ -438,7 +461,33 @@ export const createWindowManager = ({
       }
     })
 
+    // Alt pressed and released alone opens the window menu in fullscreen,
+    // where the menu bar that Alt shows in a window does not exist.
+    const altPress = { isAlone: false }
     webContents.on("before-input-event", (event, input) => {
+      if (input.key === "Alt") {
+        if (
+          input.type === "keyDown" &&
+          !input.isAutoRepeat
+        ) {
+          altPress.isAlone =
+            !input.control && !input.shift && !input.meta
+        } else if (
+          input.type === "keyUp" &&
+          altPress.isAlone &&
+          browserWindow.isFullScreen()
+        ) {
+          altPress.isAlone = false
+          onWindowMenu({
+            windowId: record.id,
+            isAtCorner: true,
+          })
+        }
+        return
+      }
+      if (input.type === "keyDown") {
+        altPress.isAlone = false
+      }
       const shortcut = readShortcut(input)
       if (!shortcut) {
         return
@@ -466,7 +515,10 @@ export const createWindowManager = ({
         params.menuSourceType === "mouse" ||
         params.menuSourceType === "keyboard"
       ) {
-        onWindowContextMenu(record.id)
+        onWindowMenu({
+          windowId: record.id,
+          isAtCorner: params.menuSourceType === "keyboard",
+        })
       }
     })
     webContents.on("did-navigate", () => {
@@ -493,7 +545,10 @@ export const createWindowManager = ({
           `Window ${record.id} could not load ${failedUrl} (${errorDescription}); retrying in ${reloadDelay / 1000} s.`,
         )
         setTimeout(() => {
-          if (!browserWindow.isDestroyed()) {
+          if (
+            !browserWindow.isDestroyed() &&
+            managed.browserWindow === browserWindow
+          ) {
             void browserWindow
               .loadURL(managed.record.url)
               .catch(() => undefined)
@@ -501,26 +556,68 @@ export const createWindowManager = ({
         }, reloadDelay)
       },
     )
-    browserWindow.on("page-title-updated", () => {
-      onRecordsChanged()
-    })
+    browserWindow.on(
+      "page-title-updated",
+      (_event, title) => {
+        updateRecord({
+          windowId: record.id,
+          change: {
+            title:
+              title === "CastKit"
+                ? ""
+                : title.slice(0, 200),
+          },
+        })
+      },
+    )
     browserWindow.on("closed", () => {
       // Quitting closes every window, and those windows must open again at
-      // the next launch. Any other close is the person removing the window.
-      if (!lifecycle.isQuitting) {
-        forget(record.id)
+      // the next launch. "Remove window" has already forgotten its window.
+      // Any other close is the X button: the window is kept, closed.
+      const current = managedWindows.get(record.id)
+      if (
+        lifecycle.isQuitting ||
+        current?.browserWindow !== browserWindow
+      ) {
+        return
       }
+      current.browserWindow = null
+      current.reportedView = null
+      current.appliedZoom = ""
+      updateRecord({
+        windowId: record.id,
+        change: { isClosed: true },
+      })
     })
 
+    // The page loads once the window's partition has the shared sign-in, so
+    // a new window does not ask for a PIN another window already took.
     // `did-fail-load` above logs a failure and schedules the retry.
-    void browserWindow
-      .loadURL(record.url)
+    void attachSignIn(partition)
+      .catch(() => undefined)
+      .then(() => {
+        if (!browserWindow.isDestroyed()) {
+          return browserWindow.loadURL(managed.record.url)
+        }
+        return undefined
+      })
       .catch(() => undefined)
     return managed
   }
 
   /** Open a saved window where it was, on the monitor it was on. */
   const restore = (record: SavedWindow) => {
+    if (record.isClosed) {
+      managedWindows.set(record.id, {
+        record,
+        browserWindow: null,
+        reportedView: null,
+        isOnFallbackDisplay: false,
+        isPlacing: false,
+        appliedZoom: "",
+      })
+      return
+    }
     const displays: DisplaySnapshot[] =
       screen.getAllDisplays()
     const { display, matchedBy } = matchDisplay({
@@ -552,10 +649,8 @@ export const createWindowManager = ({
     const displays = screen.getAllDisplays()
     const primaryDisplayId = screen.getPrimaryDisplay().id
     managedWindows.forEach((managed) => {
-      if (
-        !managed.isOnFallbackDisplay ||
-        managed.browserWindow.isDestroyed()
-      ) {
+      const browserWindow = liveWindow(managed)
+      if (!managed.isOnFallbackDisplay || !browserWindow) {
         return
       }
       const { display, matchedBy } = matchDisplay({
@@ -571,7 +666,7 @@ export const createWindowManager = ({
       )
       managed.isOnFallbackDisplay = false
       placeOnDisplay({
-        browserWindow: managed.browserWindow,
+        browserWindow,
         bounds: placeWindowBounds({
           placement: managed.record,
           display,
@@ -579,6 +674,25 @@ export const createWindowManager = ({
         isFullScreen: managed.record.isFullScreen,
       })
     })
+  }
+
+  /** Bring a window forward, or open a closed one again where it was. */
+  const open = (windowId: string) => {
+    const managed = managedWindows.get(windowId)
+    if (!managed) {
+      return
+    }
+    const browserWindow = liveWindow(managed)
+    if (browserWindow) {
+      if (browserWindow.isMinimized()) {
+        browserWindow.restore()
+      }
+      browserWindow.show()
+      browserWindow.focus()
+      return
+    }
+    restore({ ...managed.record, isClosed: false })
+    onRecordsChanged()
   }
 
   /** Open a new window on a display. */
@@ -607,6 +721,8 @@ export const createWindowManager = ({
       windowBounds: display.workArea,
       isFullScreen,
       zoomByView: {},
+      isClosed: false,
+      title: "",
     }
     createPageWindow({
       record,
@@ -616,24 +732,20 @@ export const createWindowManager = ({
     onRecordsChanged()
   }
 
-  /** Forget a closed window, with its zoom, cookies, and storage. */
-  const forget = (windowId: string) => {
-    if (!managedWindows.delete(windowId)) {
-      return
-    }
-    void session
-      .fromPartition(`persist:castkit-window-${windowId}`)
-      .clearData()
-    onRecordsChanged()
-  }
-
-  /** Close a window and forget it. */
+  /** Close a window if it is open, and forget it with its zoom, cookies, and storage. */
   const remove = (windowId: string) => {
     const managed = managedWindows.get(windowId)
-    if (managed && !managed.browserWindow.isDestroyed()) {
-      managed.browserWindow.destroy()
+    if (!managed) {
+      return
     }
-    forget(windowId)
+    // Forgotten first, so the `closed` handler does not keep it as closed.
+    managedWindows.delete(windowId)
+    liveWindow(managed)?.destroy()
+    detachSignIn(partitionOf(windowId))
+    void session
+      .fromPartition(partitionOf(windowId))
+      .clearData()
+    onRecordsChanged()
   }
 
   /** The page a view in a window reports, from its preload. */
@@ -660,29 +772,26 @@ export const createWindowManager = ({
         serverOrigin,
       })
       managed.record = { ...managed.record, url }
-      if (!managed.browserWindow.isDestroyed()) {
-        // `did-fail-load` logs a failure and schedules the retry.
-        void managed.browserWindow
-          .loadURL(url)
-          .catch(() => undefined)
-      }
+      // `did-fail-load` logs a failure and schedules the retry.
+      void liveWindow(managed)
+        ?.loadURL(url)
+        .catch(() => undefined)
     })
     onRecordsChanged()
   }
 
+  const readPath = (managed: ManagedWindow) => {
+    try {
+      return new URL(managed.record.url).pathname
+    } catch {
+      return managed.record.url
+    }
+  }
+
   const describeWindow = (managed: ManagedWindow) => {
-    const title = managed.browserWindow.isDestroyed()
-      ? ""
-      : managed.browserWindow.getTitle()
-    const path = (() => {
-      try {
-        return new URL(managed.record.url).pathname
-      } catch {
-        return managed.record.url
-      }
-    })()
-    return title && title !== "CastKit"
-      ? `${title} (${path})`
+    const path = readPath(managed)
+    return managed.record.title
+      ? `${managed.record.title} (${path})`
       : path
   }
 
@@ -692,6 +801,7 @@ export const createWindowManager = ({
       lifecycle.isQuitting = true
     },
     add,
+    open,
     remove,
     restore,
     returnWindowsToDisplays,
@@ -711,18 +821,19 @@ export const createWindowManager = ({
       [...managedWindows.values()].map((managed) => ({
         id: managed.record.id,
         label: describeWindow(managed),
+        title: managed.record.title,
+        path: readPath(managed),
         displayId: managed.record.displayId,
         isFullScreen: managed.record.isFullScreen,
+        isOpen: liveWindow(managed) !== null,
       })),
     /** The window a menu shortcut acts on. */
     readFocusedWindowId: () =>
-      [...managedWindows.values()].find(
-        (managed) =>
-          !managed.browserWindow.isDestroyed() &&
-          managed.browserWindow.isFocused(),
+      [...managedWindows.values()].find((managed) =>
+        liveWindow(managed)?.isFocused(),
       )?.record.id ?? null,
     readBrowserWindow: (windowId: string) =>
-      managedWindows.get(windowId)?.browserWindow ?? null,
+      liveWindow(managedWindows.get(windowId)),
   }
 }
 

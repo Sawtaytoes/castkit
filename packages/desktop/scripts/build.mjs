@@ -1,5 +1,4 @@
 import {
-  cpSync,
   mkdirSync,
   readFileSync,
   rmSync,
@@ -9,10 +8,12 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import sharp from "sharp"
+import { build as buildPage } from "vite"
 
 // Bundle the desktop app into `dist/`. Every dependency is bundled, so the
 // packaged app ships no `node_modules` at all — which is also what lets
-// Electron Forge package it straight out of a pnpm workspace.
+// Electron Forge package it straight out of a pnpm workspace. The settings
+// page is React with Charcuterie, built by Vite into `dist/settings/`.
 
 const packageDirectory = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -66,29 +67,14 @@ await Promise.all([
     format: "cjs",
     external: ["electron"],
   }),
-  build({
-    ...shared,
-    entryPoints: [
-      join(sourceDirectory, "settings", "settingsPage.ts"),
-    ],
-    outfile: join(
-      distDirectory,
-      "settings",
-      "settingsPage.js",
+  buildPage({
+    configFile: join(
+      packageDirectory,
+      "vite.settings.config.ts",
     ),
-    platform: "browser",
-    format: "iife",
+    logLevel: "warn",
   }),
 ])
-
-cpSync(
-  join(sourceDirectory, "settings", "settings.html"),
-  join(distDirectory, "settings", "settings.html"),
-)
-cpSync(
-  join(sourceDirectory, "settings", "settings.css"),
-  join(distDirectory, "settings", "settings.css"),
-)
 
 // The app icon is CastKit's canonical mark, rasterized — never redrawn. The
 // admin page's favicon is the byte-identical copy of that mark.

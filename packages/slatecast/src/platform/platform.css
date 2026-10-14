@@ -3259,6 +3259,22 @@ html[data-repaint="instant"]
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.platform .kids-points-name {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
 .kids-points-tasks-header p {
   margin: 0;
   display: contents;

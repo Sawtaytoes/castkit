@@ -8,12 +8,15 @@ export type WindowMenuEntry = {
   label: string
   displayId: number
   isFullScreen: boolean
+  /** False while the window is closed and kept. */
+  isOpen: boolean
 }
 
 /** What the menus can ask the app to do. */
 export type MenuActions = {
   openSettings: () => void
   identifyDisplays: () => void
+  openWindow: (windowId: string) => void
   toggleFullScreen: (windowId: string) => void
   reload: (windowId: string) => void
   zoom: (request: {
@@ -38,6 +41,29 @@ const shortcut = (accelerator: string) => ({
 
 /** The actions for one window, used in its own menu and in the tray. */
 export const buildWindowMenu = ({
+  entry,
+  displays,
+  actions,
+}: {
+  entry: WindowMenuEntry
+  displays: NumberedDisplay[]
+  actions: MenuActions
+}): MenuItemConstructorOptions[] =>
+  entry.isOpen
+    ? buildOpenWindowMenu({ entry, displays, actions })
+    : [
+        {
+          label: "Open window",
+          click: () => actions.openWindow(entry.id),
+        },
+        { type: "separator" },
+        {
+          label: "Remove window",
+          click: () => actions.removeWindow(entry.id),
+        },
+      ]
+
+const buildOpenWindowMenu = ({
   entry,
   displays,
   actions,
@@ -173,7 +199,9 @@ export const buildTrayMenu = ({
       ? [{ label: "No windows yet", enabled: false }]
       : entries.map(
           (entry): MenuItemConstructorOptions => ({
-            label: `${entry.label} on display ${displayNumber(entry.displayId) ?? "?"}`,
+            label: entry.isOpen
+              ? `${entry.label} on display ${displayNumber(entry.displayId) ?? "?"}`
+              : `${entry.label} (closed)`,
             submenu: buildWindowMenu({
               entry,
               displays,
@@ -226,5 +254,31 @@ export const buildWindowMenuBar = ({
         actions,
       }),
     },
+  ]
+}
+
+/**
+ * The menu a page window opens on a right click, and on Alt in fullscreen:
+ * the window's own actions, then the way to the settings window. In
+ * fullscreen it is the only menu, so it carries everything the bar would.
+ */
+export const buildWindowPopupMenu = ({
+  entry,
+  displays,
+  actions,
+}: {
+  entry: WindowMenuEntry
+  displays: NumberedDisplay[]
+  actions: MenuActions
+}): MenuItemConstructorOptions[] => {
+  const items = buildAppItems({
+    isLaunchedAtLogin: false,
+    actions,
+  })
+  return [
+    ...buildWindowMenu({ entry, displays, actions }),
+    { type: "separator" },
+    items.addWindow,
+    items.settings,
   ]
 }

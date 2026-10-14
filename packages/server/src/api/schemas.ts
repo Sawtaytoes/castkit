@@ -12,6 +12,15 @@ export const HealthResponseSchema = z.object({
   views: z.array(z.string()),
 })
 
+/**
+ * What a CastKit server says about itself, so a client scanning the network
+ * can tell a CastKit server from any other web server on the same port.
+ */
+export const IdentityResponseSchema = z.object({
+  product: z.literal("castkit"),
+  publicUrl: z.nullable(z.string()),
+})
+
 export const DeviceSummarySchema = z.object({
   id: z.string(),
   label: z.string(),

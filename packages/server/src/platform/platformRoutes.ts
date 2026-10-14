@@ -447,11 +447,15 @@ export const attachPlatformRoutes = ({
         })),
       screens: store
         .get()
-        .screens.map(({ id, name, access: policy }) => ({
-          id,
-          name,
-          access: policy,
-        })),
+        .screens.map(
+          ({ id, name, access: policy, viewIds }) => ({
+            id,
+            name,
+            access: policy,
+            // A picker groups the views under the screens that show them.
+            viewIds,
+          }),
+        ),
     }),
   )
   app.get("/api/manage/platform", (context) =>

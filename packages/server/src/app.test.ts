@@ -140,3 +140,43 @@ test("image previews identify the runtime rotation used by the renderer", async 
     PNG,
   )
 })
+
+describe("server identity", () => {
+  test("names the product and the public address a client should use", async () => {
+    const app = createApp({
+      config: {
+        ...loadConfig({}),
+        publicUrl: "https://castkit.example.test",
+      },
+      deviceStore: {
+        getActiveView: () => "Clock",
+      } as never,
+      deviceDefinitionStore: createDeviceDefinitionStore({
+        devices: loadConfig({}).devices,
+        browserDevices: [],
+        devicesFile: undefined,
+      }),
+      getDeviceSettings: () => ({ rotation: "0" }),
+      onDeviceDefinitionsChanged: () => {},
+      pushController: {
+        renderDevice: async () => null,
+      } as never,
+      renderTokenStore: createRenderTokenStore(),
+      setDeviceSetting: async () => false,
+    })
+    const response = await app.request("/api/identity")
+    expect(await response.json()).toEqual({
+      product: "castkit",
+      publicUrl: "https://castkit.example.test",
+    })
+  })
+
+  test("answers a null public address when none is configured", async () => {
+    const response =
+      await makeApp().request("/api/identity")
+    expect(await response.json()).toEqual({
+      product: "castkit",
+      publicUrl: null,
+    })
+  })
+})

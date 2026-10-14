@@ -115,6 +115,38 @@ const createFixture = async () => {
 }
 
 describe("platform access and saved compositions", () => {
+  test("the public page list names each screen's views so a picker can group them", async () => {
+    const fixture = await createFixture()
+    expect(
+      (
+        await fixture.save("screens", {
+          id: "office",
+          name: "Office",
+          defaultViewId: "workbench",
+          viewIds: ["workbench"],
+          access: "public",
+        })
+      ).status,
+    ).toBe(201)
+    const listed = await fixture.request("/api/views")
+    expect(await listed.json()).toEqual({
+      views: [
+        {
+          id: "workbench",
+          name: "Workbench",
+          access: fixture.view.access,
+        },
+      ],
+      screens: [
+        {
+          id: "office",
+          name: "Office",
+          access: "public",
+          viewIds: ["workbench"],
+        },
+      ],
+    })
+  })
   test("changing the management PIN revokes persistent sessions", async () => {
     const fixture = await createFixture()
     const changed = await fixture.request(

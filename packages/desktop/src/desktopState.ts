@@ -23,6 +23,14 @@ const savedWindowSchema = z.object({
   windowBounds: rectangleSchema,
   isFullScreen: z.boolean(),
   zoomByView: z.record(z.string(), z.number().positive()),
+  /**
+   * Closed with its X button: kept, with its sign-in and zoom, and opened
+   * again from the tray or the settings window. Only "Remove window" forgets
+   * a window. A file saved before windows could be closed reads as open.
+   */
+  isClosed: z.boolean().default(false),
+  /** The page's last title, so a closed window still has a name. */
+  title: z.string().max(200).default(""),
 })
 
 /** One desktop window: a virtual device showing one CastKit page. */

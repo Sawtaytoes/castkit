@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-12
 Type: Platform
 Supersedes: None
-Superseded by: None
+Superseded by: [2026-10-13-a-closed-desktop-window-is-kept-and-every-window-shares-one-sign-in.md](2026-10-13-a-closed-desktop-window-is-kept-and-every-window-shares-one-sign-in.md) (in part: the PIN cookie per window, and a close that removes the window)
 
 ## Decision
 
