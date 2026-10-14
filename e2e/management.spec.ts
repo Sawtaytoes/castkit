@@ -135,6 +135,70 @@ test.beforeEach(async ({ page }) => {
   )
 })
 
+test("toggling display capabilities keeps one checkbox each and waits for a saved capability before offering controls", async ({
+  page,
+}) => {
+  await page.route("**/api/manage/devices", (route) =>
+    route.fulfill({
+      json: {
+        devices: [
+          {
+            ...BROWSER_DEVICE,
+            hasMqttBacklight: false,
+            hasRemoteAmbientLight: false,
+          },
+        ],
+      },
+    }),
+  )
+  await page.goto(
+    "/manage/devices/device?device=e2e-square",
+  )
+  const backlight = page.getByRole("checkbox", {
+    name: "Backlight available",
+    exact: true,
+  })
+  const ambient = page.getByRole("checkbox", {
+    name: "Ambient LEDs available",
+    exact: true,
+  })
+  const expectSingleControls = async () => {
+    await expect(backlight).toHaveCount(1)
+    await expect(ambient).toHaveCount(1)
+  }
+  await expectSingleControls()
+  await backlight.check()
+  await expectSingleControls()
+  await backlight.uncheck()
+  await expectSingleControls()
+  await backlight.check()
+  await expectSingleControls()
+  await ambient.check()
+  await expectSingleControls()
+  await ambient.uncheck()
+  await expectSingleControls()
+  await page
+    .getByRole("link", { name: "Backlight", exact: true })
+    .click()
+  await expect(
+    page.getByText(
+      "Save device & restart to apply the capability change before using these controls.",
+    ),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("slider", {
+      name: "Brightness",
+      exact: true,
+    }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("button", {
+      name: "Save device & restart",
+      exact: true,
+    }),
+  ).toBeEnabled()
+})
+
 test("tabs preserve edits, browser Back restores the category, and only changed settings are saved", async ({
   page,
 }) => {

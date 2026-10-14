@@ -202,6 +202,16 @@ export const Devices = ({
   const section = sections.includes(requestedSection)
     ? requestedSection
     : "device"
+  const hasUnsavedControlCapability =
+    isBrowser &&
+    ((section === "updates" &&
+      (Boolean(selectedDevice?.hasMqttBacklight) !==
+        Boolean(savedDevice?.hasMqttBacklight) ||
+        Boolean(selectedDevice?.hasRemoteBacklight) !==
+          Boolean(savedDevice?.hasRemoteBacklight))) ||
+      (section === "ambient-light" &&
+        Boolean(selectedDevice?.hasRemoteAmbientLight) !==
+          Boolean(savedDevice?.hasRemoteAmbientLight)))
 
   useEffect(() => {
     const controller = new AbortController()
@@ -993,6 +1003,14 @@ export const Devices = ({
                         </Card>
                       ) : null}
                     </>
+                  ) : hasUnsavedControlCapability ? (
+                    <Card heading="Save the device first">
+                      <p>
+                        Save device &amp; restart to apply
+                        the capability change before using
+                        these controls.
+                      </p>
+                    </Card>
                   ) : isLoadingSettings ? (
                     <p>Load in progress…</p>
                   ) : hasSettingsError ? (
