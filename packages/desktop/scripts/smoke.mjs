@@ -1,8 +1,10 @@
 // Smoke test for the built desktop app: start it against a local stand-in for
 // a CastKit server and check the behavior a unit test cannot reach — a window
 // opens on its page, its zoom follows the view on screen, keys change and save
-// zoom, the page is sandboxed, navigation to another origin is refused, and
-// quitting keeps the window for the next launch.
+// zoom, the page is sandboxed, navigation to another origin is refused, a
+// sign-in in one window reaches the other, closing a window keeps it, the
+// settings page lists the server's pages, and quitting keeps every window for
+// the next launch.
 //
 // Needs Electron's binary (`pnpm exec install-electron`) and a display; on a
 // Linux machine without one, run it under `xvfb-run`. Run `pnpm build` first
@@ -45,8 +47,25 @@ const server = createServer((request, response) => {
     response.end(
       JSON.stringify({
         views: [],
-        screens: [{ id: "test", name: "Test" }],
+        screens: [
+          { id: "test", name: "Test", viewIds: [] },
+        ],
       }),
+    )
+    return
+  }
+  if (request.url === "/sign-in") {
+    response.writeHead(204, {
+      "set-cookie":
+        "castkit-session=smoke-token; HttpOnly; SameSite=Strict; Path=/; Max-Age=3600",
+    })
+    response.end()
+    return
+  }
+  if (request.url === "/screen/other") {
+    response.writeHead(200, { "content-type": "text/html" })
+    response.end(
+      '<!doctype html><title>Other</title><main data-view="other">Other</main>',
     )
     return
   }
@@ -93,6 +112,26 @@ writeFileSync(
         },
         isFullScreen: false,
         zoomByView: { "view:agenda": 1.25 },
+      },
+      {
+        id: "window-5a0e7e58",
+        url: `${serverOrigin}/screen/other`,
+        displayId: 424242,
+        displayLabel: "A monitor that is not connected",
+        displayBounds: {
+          x: 9000,
+          y: 0,
+          width: 800,
+          height: 480,
+        },
+        windowBounds: {
+          x: 9000,
+          y: 0,
+          width: 800,
+          height: 480,
+        },
+        isFullScreen: false,
+        zoomByView: {},
       },
     ],
   }),
@@ -154,8 +193,23 @@ const check = async (name, run) => {
   console.info(`ok - ${name}`)
 }
 
+mkdirSync(screenshotDirectory, { recursive: true })
+
 try {
-  const page = await app.firstWindow()
+  await waitFor(
+    () =>
+      app
+        .windows()
+        .some((candidate) =>
+          candidate.url().includes("/screen/test"),
+        ),
+    "the test window",
+  )
+  const page = app
+    .windows()
+    .find((candidate) =>
+      candidate.url().includes("/screen/test"),
+    )
   await page.waitForLoadState("domcontentloaded")
   const readZoom = () =>
     app.evaluate(({ webContents }) =>
@@ -296,6 +350,88 @@ try {
   )
 
   await check(
+    "a sign-in in one window reaches the other window",
+    async () => {
+      await page.evaluate(() =>
+        fetch("/sign-in", { credentials: "include" }),
+      )
+      await waitFor(
+        () =>
+          app.evaluate(async ({ session }) => {
+            const cookies = await session
+              .fromPartition(
+                "persist:castkit-window-window-5a0e7e58",
+              )
+              .cookies.get({ name: "castkit-session" })
+            return cookies[0]?.value === "smoke-token"
+          }),
+        "the sign-in cookie in the other window",
+      )
+    },
+  )
+
+  await check(
+    "closing a window keeps it, closed",
+    async () => {
+      await app.evaluate(({ BrowserWindow }) => {
+        BrowserWindow.getAllWindows()
+          .find((window) =>
+            window.webContents
+              .getURL()
+              .includes("/screen/other"),
+          )
+          ?.close()
+      })
+      await waitFor(
+        () => readState().windows[1]?.isClosed === true,
+        "isClosed in the state file",
+      )
+      assert.equal(readState().windows.length, 2)
+    },
+  )
+
+  await check(
+    "the settings page lists the server's pages",
+    async () => {
+      await app.evaluate(({ app: electronApp }) => {
+        electronApp.emit("second-instance")
+      })
+      await waitFor(
+        () =>
+          app
+            .windows()
+            .some((candidate) =>
+              candidate
+                .url()
+                .includes("settings/index.html"),
+            ),
+        "the settings window",
+      )
+      const settingsPage = app
+        .windows()
+        .find((candidate) =>
+          candidate.url().includes("settings/index.html"),
+        )
+      await settingsPage
+        .getByRole("button", {
+          name: "Open Test (/screen/test)",
+        })
+        .waitFor()
+      await settingsPage.screenshot({
+        path: join(
+          screenshotDirectory,
+          "desktop-settings.png",
+        ),
+      })
+      // Starting CastKit again opened the closed window too.
+      await waitFor(
+        () => readState().windows[1]?.isClosed === false,
+        "the closed window open again",
+      )
+    },
+  )
+
+  await check(
     "F11 enters fullscreen and saves it",
     async () => {
       await pressKey({ keyCode: "F11" })
@@ -306,7 +442,34 @@ try {
     },
   )
 
-  mkdirSync(screenshotDirectory, { recursive: true })
+  await check(
+    "Alt in fullscreen opens the window menu",
+    async () => {
+      // A native menu cannot be screenshotted; record the popup instead.
+      await app.evaluate(({ Menu }) => {
+        globalThis.smokePopupLabels = null
+        Menu.prototype.popup = function recordPopup() {
+          globalThis.smokePopupLabels = this.items.map(
+            (item) => item.label,
+          )
+        }
+      })
+      await pressKey({ keyCode: "Alt" })
+      await waitFor(
+        () =>
+          app.evaluate(
+            () => globalThis.smokePopupLabels !== null,
+          ),
+        "the window menu",
+      )
+      const labels = await app.evaluate(
+        () => globalThis.smokePopupLabels,
+      )
+      assert.ok(labels.includes("Move to display"))
+      assert.ok(labels.includes("Server and settings…"))
+    },
+  )
+
   await page.screenshot({
     path: join(screenshotDirectory, "desktop-smoke.png"),
   })
@@ -319,7 +482,7 @@ await check(
   "quitting keeps the window for the next launch",
   async () => {
     const state = readState()
-    assert.equal(state.windows.length, 1)
+    assert.equal(state.windows.length, 2)
     assert.equal(state.windows[0].id, "window-5a0e7e57")
     assert.equal(state.serverOrigin, serverOrigin)
   },

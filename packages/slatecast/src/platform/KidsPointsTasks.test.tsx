@@ -155,6 +155,34 @@ test("a full child card opens task totals, individual scans, and returns through
   ).toBeVisible()
 })
 
+test("the child's name steps back the same way as the back button", async () => {
+  document.documentElement.dataset.repaint = "instant"
+  render(drawing())
+  await openKid("Robin")
+  await userEvent.click(
+    screen.getByRole("button", {
+      name: "View Reading scans",
+    }),
+  )
+  expect(
+    screen.getByRole("heading", { name: "Robin" }),
+  ).toBeVisible()
+  await userEvent.click(
+    screen.getByRole("button", { name: "Robin" }),
+  )
+  expect(
+    screen.getByRole("heading", { name: "Today's tasks" }),
+  ).toBeVisible()
+  await userEvent.click(
+    screen.getByRole("button", { name: "Robin" }),
+  )
+  expect(
+    screen.getByRole("button", {
+      name: "View Robin's tasks today",
+    }),
+  ).toBeVisible()
+})
+
 test("image delivery groups practice and preserves zero-point scans and recorded totals", async () => {
   const value = {
     kids: [

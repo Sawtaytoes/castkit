@@ -56,6 +56,8 @@ const savedState: DesktopState = {
       },
       isFullScreen: true,
       zoomByView: { "view:agenda": 1.25 },
+      isClosed: false,
+      title: "Kitchen",
     },
   ],
 }
@@ -114,6 +116,32 @@ describe(loadDesktopState.name, () => {
     expect(loadDesktopState(filePath).state).toEqual(
       defaultDesktopState,
     )
+  })
+
+  test("a window saved before windows could be closed loads as open", () => {
+    const filePath = createStatePath()
+    const olderWindow = Object.fromEntries(
+      Object.entries(savedState.windows[0] ?? {}).filter(
+        ([key]) => key !== "isClosed" && key !== "title",
+      ),
+    )
+    writeFileSync(
+      filePath,
+      JSON.stringify({
+        ...savedState,
+        windows: [olderWindow],
+      }),
+      "utf8",
+    )
+    expect(
+      loadDesktopState(filePath).state.windows,
+    ).toEqual([
+      {
+        ...savedState.windows[0],
+        isClosed: false,
+        title: "",
+      },
+    ])
   })
 
   test("one invalid window is skipped and the others are kept", () => {
