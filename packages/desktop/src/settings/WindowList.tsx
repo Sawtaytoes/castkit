@@ -1,4 +1,4 @@
-import { Badge, Button, EmptyState } from "@charcuterie/ui"
+import { Button, EmptyState } from "@charcuterie/ui"
 import { readDesktopBridge } from "./desktopBridge.ts"
 import type { SettingsWindow } from "./settingsApi.ts"
 
@@ -32,18 +32,10 @@ export const WindowList = ({
             <div className="settings-row-text">
               <span className="settings-row-name">
                 <span title={name}>{name}</span>
-                <Badge
-                  intent={
-                    savedWindow.isOpen
-                      ? "success"
-                      : "neutral"
-                  }
-                >
-                  {savedWindow.isOpen ? "Open" : "Closed"}
-                </Badge>
               </span>
-              <span className="settings-row-detail">
+              <span className="settings-row-detail is-wrapping">
                 {[
+                  savedWindow.isOpen ? "Open" : "Closed",
                   savedWindow.title
                     ? savedWindow.path
                     : null,

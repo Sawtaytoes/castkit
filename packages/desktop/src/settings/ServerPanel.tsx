@@ -109,11 +109,12 @@ export const ServerPanel = ({
                   <span className="settings-row-name">
                     {describeOrigin(server.origin)}
                   </span>
-                  <span className="settings-row-detail">
-                    {server.origin === server.networkOrigin
-                      ? server.origin
-                      : `Found at ${server.networkOrigin}`}
-                  </span>
+                  {server.origin ===
+                  server.networkOrigin ? null : (
+                    <span className="settings-row-detail">
+                      {`Found at ${server.networkOrigin}`}
+                    </span>
+                  )}
                 </div>
                 <div className="settings-row-actions">
                   <Button

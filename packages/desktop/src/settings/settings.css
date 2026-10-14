@@ -182,6 +182,13 @@ body,
   white-space: nowrap;
 }
 
+/* A window's detail wraps, so its state, path, and monitor all stay readable. */
+.settings-row-detail.is-wrapping {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .settings-row-actions {
   display: flex;
   flex: none;
