@@ -172,7 +172,8 @@ describe("server identity", () => {
   })
 
   test("answers a null public address when none is configured", async () => {
-    const response = await makeApp().request("/api/identity")
+    const response =
+      await makeApp().request("/api/identity")
     expect(await response.json()).toEqual({
       product: "castkit",
       publicUrl: null,
