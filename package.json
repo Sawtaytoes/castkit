@@ -10,6 +10,7 @@
     "bakeoff": "pnpm bakeoff:render && pnpm bakeoff:dither",
     "bakeoff:views": "tsx --tsconfig packages/web/tsconfig.json scripts/bakeoff/allViews.ts",
     "bakeoff:views:compare": "tsx scripts/bakeoff/compareViews.ts",
+    "bakeoff:server-memory": "node scripts/bakeoff/serverMemory.mjs",
     "build": "node scripts/build-server.mjs",
     "check:server-starts": "node scripts/check-server-starts.mjs",
     "dev": "pnpm --filter @castkit/web dev",

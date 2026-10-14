@@ -166,6 +166,10 @@ discovery. Architecture + phase plan are in the README and
   every server view on every image panel size per engine, timed, pixel-compared with
   Chromium → `render-output/satori-bakeoff/index.html`. Results of 2026-10-13:
   [docs/2026-10-13-satori-against-chromium.md](docs/2026-10-13-satori-against-chromium.md).
+- `pnpm build` then `pnpm bakeoff:server-memory <chromium|satori> [rounds] [panel-id]` —
+  the BUILT server's process-tree PSS (node + every browser it starts) while it renders
+  every view on the four image panel sizes. Results:
+  [docs/2026-10-13-server-memory-by-engine.md](docs/2026-10-13-server-memory-by-engine.md).
 - `pnpm bakeoff:dither` — Decision 2: dithers card/gradient/photo with every
   algorithm × supersample factor, one contact sheet per (panel, image), mono and
   E Ink Spectra 6 separate → `render-output/dither/`.
