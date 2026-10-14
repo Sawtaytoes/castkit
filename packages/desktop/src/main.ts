@@ -11,8 +11,8 @@ import {
 import isSquirrelStartup from "electron-squirrel-startup"
 import {
   buildTrayMenu,
-  buildWindowMenu,
   buildWindowMenuBar,
+  buildWindowPopupMenu,
   type MenuActions,
 } from "./appMenus.ts"
 import {
@@ -31,6 +31,7 @@ import {
   writeLaunchAtLogin,
 } from "./launchAtLogin.ts"
 import { createSettingsWindow } from "./settingsWindow.ts"
+import { createSharedSignIn } from "./sharedSignIn.ts"
 import { createWindowManager } from "./windowManager.ts"
 
 const log = (message: string) => {
@@ -108,14 +109,20 @@ const start = () => {
     clearTimeout(saveTimer.handle)
     saveTimer.handle = setTimeout(saveNow, saveDelay)
     refreshMenus()
+    settingsWindow.notifyChanged()
   }
+
+  const sharedSignIn = createSharedSignIn({
+    readServerOrigin,
+    log,
+  })
 
   const windowManager = createWindowManager({
     readServerOrigin,
     preloadPath: join(distDirectory, "viewPreload.cjs"),
     iconPath,
     onRecordsChanged,
-    onWindowContextMenu: (windowId) => {
+    onWindowMenu: ({ windowId, isAtCorner }) => {
       const entry = windowManager
         .readMenuEntries()
         .find((candidate) => candidate.id === windowId)
@@ -123,14 +130,19 @@ const start = () => {
         windowManager.readBrowserWindow(windowId)
       if (entry && browserWindow) {
         Menu.buildFromTemplate(
-          buildWindowMenu({
+          buildWindowPopupMenu({
             entry,
             displays: readNumberedDisplays(),
             actions,
           }),
-        ).popup({ window: browserWindow })
+        ).popup({
+          window: browserWindow,
+          ...(isAtCorner ? { x: 16, y: 16 } : {}),
+        })
       }
     },
+    attachSignIn: sharedSignIn.attach,
+    detachSignIn: sharedSignIn.detach,
     log,
   })
 
@@ -154,11 +166,22 @@ const start = () => {
         isFullScreen,
       })
     },
+    readWindows: () =>
+      windowManager.readMenuEntries().map((entry) => ({
+        id: entry.id,
+        title: entry.title,
+        path: entry.path,
+        displayId: entry.displayId,
+        isOpen: entry.isOpen,
+      })),
+    openWindow: windowManager.open,
+    removeWindow: windowManager.remove,
   })
 
   const actions: MenuActions = {
     openSettings: settingsWindow.open,
     identifyDisplays,
+    openWindow: windowManager.open,
     toggleFullScreen: windowManager.toggleFullScreen,
     reload: windowManager.reload,
     zoom: windowManager.zoom,
@@ -202,16 +225,29 @@ const start = () => {
   // The tray keeps the app running with every window closed.
   app.on("window-all-closed", () => undefined)
 
+  // Starting CastKit again (the Start menu, the desktop shortcut) opens
+  // every closed window and the settings window, where any window can be
+  // opened or removed.
   app.on("second-instance", () => {
+    windowManager
+      .readMenuEntries()
+      .filter((entry) => !entry.isOpen)
+      .forEach((entry) => {
+        windowManager.open(entry.id)
+      })
     settingsWindow.open()
   })
 
+  const onDisplaysChanged = () => {
+    refreshMenus()
+    settingsWindow.notifyChanged()
+  }
   screen.on("display-added", () => {
     windowManager.returnWindowsToDisplays()
-    refreshMenus()
+    onDisplaysChanged()
   })
-  screen.on("display-removed", refreshMenus)
-  screen.on("display-metrics-changed", refreshMenus)
+  screen.on("display-removed", onDisplaysChanged)
+  screen.on("display-metrics-changed", onDisplaysChanged)
 
   tray.icon = new Tray(
     nativeImage
@@ -227,7 +263,7 @@ const start = () => {
   refreshMenus()
   if (
     settings.serverOrigin === null ||
-    loaded.state.windows.length === 0
+    loaded.state.windows.every((record) => record.isClosed)
   ) {
     settingsWindow.open()
   }
