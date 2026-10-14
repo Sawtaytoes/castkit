@@ -116,6 +116,19 @@ export type DeviceMetadata = {
    */
   imageDelivery?: "mqtt-image" | "http-pull"
   /**
+   * When the server renders this display's frame. Default `"update"`: on
+   * every clock minute, data push, platform change and setting change.
+   * `"request"`: only when the display asks on `<base>/refresh/set`, or an
+   * owner action (the HTTP refresh, a view select) asks for it.
+   *
+   * `"request"` is for firmware that deep-sleeps and asks for a frame each
+   * time it needs one (the Watchy Points page). A frame rendered while that
+   * client sleeps reaches nobody, and the render keeps the capture browser
+   * open. ⚠️ Do not set it on a client that does not ask on wake — the
+   * M5Paper stays connected and waits for pushes, so it would never repaint.
+   */
+  renderOn?: "update" | "request"
+  /**
    * Whether the panel carries a cell. A panel fact, not an installation:
    * the M5Paper has one whether or not this unit is running off it.
    *

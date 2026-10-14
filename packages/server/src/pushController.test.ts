@@ -14,6 +14,7 @@ const PNG = Buffer.from([
 const makeController = ({
   activeView = "Clock",
   imageDelivery,
+  renderOn,
   publicUrl = "",
   photoEncoding = { format: "png" },
   onRender,
@@ -21,6 +22,7 @@ const makeController = ({
 }: {
   activeView?: string
   imageDelivery?: "mqtt-image" | "http-pull"
+  renderOn?: "update" | "request"
   publicUrl?: string
   photoEncoding?: { format: string; quality?: number }
   /**
@@ -45,6 +47,7 @@ const makeController = ({
   const device = {
     ...IMPRESSION_DEVICE,
     ...(imageDelivery ? { imageDelivery } : {}),
+    ...(renderOn ? { renderOn } : {}),
   }
 
   const pushController = createPushController({
@@ -455,4 +458,141 @@ test("previews use delivery overrides without changing the selected view or publ
   expect(captures[1]?.margin).toMatchObject({ left: 10 })
   expect(currentView.value).toBe("Clock")
   expect(publishedTopics).toEqual([])
+})
+
+// The Watchy deep-sleeps and asks for its Points image on `refresh/set` when
+// the page wakes. Every other render reached nobody and kept Chromium open.
+describe('pushDevice — a renderOn: "request" display', () => {
+  const makeWatch = (renderOn?: "update" | "request") =>
+    makeController({
+      activeView: "Now Playing (Dashboard)",
+      imageDelivery: "http-pull",
+      renderOn,
+      publicUrl: "https://display.example.com",
+    })
+
+  test("renders nothing on the minute tick, a data push or a setting change", async () => {
+    const {
+      pushController,
+      publishedTopics,
+      renderedViews,
+    } = makeWatch("request")
+
+    // The clock ticker, the data topics, the platform scheduler and the knob
+    // handlers all call pushDevice with no options.
+    expect(
+      await pushController.pushDevice(IMPRESSION_DEVICE.id),
+    ).toBe(false)
+    expect(
+      await pushController.pushDevice(
+        IMPRESSION_DEVICE.id,
+        {
+          isForced: true,
+        },
+      ),
+    ).toBe(false)
+
+    expect(renderedViews).toEqual([])
+    expect(publishedTopics).toEqual([])
+  })
+
+  test("renders and publishes a fresh image URL when the display asks", async () => {
+    const { pushController, publishedPayloads } =
+      makeWatch("request")
+
+    // The `refresh/set` route passes both: the watch lost its RAM image.
+    expect(
+      await pushController.pushDevice(
+        IMPRESSION_DEVICE.id,
+        {
+          isForced: true,
+          isRequested: true,
+        },
+      ),
+    ).toBe(true)
+    expect(
+      await pushController.pushDevice(
+        IMPRESSION_DEVICE.id,
+        {
+          isForced: true,
+          isRequested: true,
+        },
+      ),
+    ).toBe(true)
+
+    expect(
+      publishedPayloads.filter(({ topic }) =>
+        topic.endsWith("/image_url"),
+      ),
+    ).toEqual([
+      {
+        topic: `castkit/${IMPRESSION_DEVICE.id}/image_url`,
+        payload:
+          "https://display.example.com/render/token.png",
+      },
+      {
+        topic: `castkit/${IMPRESSION_DEVICE.id}/image_url`,
+        payload:
+          "https://display.example.com/render/token.png",
+      },
+    ])
+  })
+
+  test("a view select still renders, because it is an explicit action", async () => {
+    const { pushController, renderedViews } =
+      makeWatch("request")
+
+    expect(
+      await pushController.setView({
+        deviceId: IMPRESSION_DEVICE.id,
+        viewName: "Clock",
+      }),
+    ).toBe(true)
+    // The fake device store ignores the select, so the render reads the
+    // view it already held. What matters here is that a render happened.
+    expect(renderedViews).toHaveLength(1)
+  })
+
+  test("a paused display stays paused even when it asks", async () => {
+    const {
+      pushController,
+      deviceConfigStore,
+      renderedViews,
+    } = makeWatch("request")
+    deviceConfigStore.setIsUpdatesEnabled({
+      deviceId: IMPRESSION_DEVICE.id,
+      isEnabled: false,
+    })
+
+    expect(
+      await pushController.pushDevice(
+        IMPRESSION_DEVICE.id,
+        {
+          isRequested: true,
+        },
+      ),
+    ).toBe(false)
+    expect(renderedViews).toEqual([])
+  })
+
+  test.each([
+    ["absent", undefined],
+    ['"update"', "update" as const],
+  ])("renderOn %s keeps rendering on every push", async (_label, renderOn) => {
+    const {
+      pushController,
+      renderedViews,
+      publishedTopics,
+    } = makeWatch(renderOn)
+
+    expect(
+      await pushController.pushDevice(IMPRESSION_DEVICE.id),
+    ).toBe(true)
+    expect(renderedViews).toEqual([
+      "Now Playing (Dashboard)",
+    ])
+    expect(publishedTopics).toContain(
+      `castkit/${IMPRESSION_DEVICE.id}/image_url`,
+    )
+  })
 })
