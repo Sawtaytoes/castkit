@@ -65,13 +65,15 @@ const panels = [
     },
   },
 ]
-  .filter((panel) => !panelFilter || panel.id === panelFilter)
+  .filter(
+    (panel) => !panelFilter || panel.id === panelFilter,
+  )
   .map((panel, index) => ({
-  ...panel,
-  label: `Bake-off Panel ${index + 1}`,
-  mac: `aa:bb:cc:00:10:0${index + 1}`,
-  rotation: 0,
-}))
+    ...panel,
+    label: `Bake-off Panel ${index + 1}`,
+    mac: `aa:bb:cc:00:10:0${index + 1}`,
+    rotation: 0,
+  }))
 
 const workingDirectory = mkdtempSync(
   join(tmpdir(), "castkit-server-memory-"),
@@ -152,9 +154,14 @@ const api = (path, body) =>
   })
 
 let viewNames = null
-for (let attempt = 0; attempt < 120 && !viewNames; attempt++) {
+for (
+  let attempt = 0;
+  attempt < 120 && !viewNames;
+  attempt++
+) {
   const response = await api("/health").catch(() => null)
-  if (response?.ok) viewNames = (await response.json()).views
+  if (response?.ok)
+    viewNames = (await response.json()).views
   else await delay(500)
 }
 if (!viewNames) {
