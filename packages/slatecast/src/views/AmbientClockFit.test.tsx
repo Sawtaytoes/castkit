@@ -53,8 +53,8 @@ test.each([
   ).toBeLessThanOrEqual(width * 0.9)
   expect(
     document
-      .querySelector(".ambient")!
-      .getBoundingClientRect().bottom,
+      .querySelector(".ambient")
+      ?.getBoundingClientRect().bottom,
   ).toBeLessThanOrEqual(height)
 })
 

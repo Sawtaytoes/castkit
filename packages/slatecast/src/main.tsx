@@ -7,7 +7,15 @@ import {
   readInlineDisplayTarget,
 } from "./platform/protocol.ts"
 import { connect } from "./state.ts"
+import {
+  getIsTouchPointerFallbackRequired,
+  installTouchPointerFallback,
+} from "./touchPointerFallback.ts"
 import "./styles.css"
+
+if (getIsTouchPointerFallbackRequired()) {
+  installTouchPointerFallback()
+}
 
 const routeTarget =
   readInlineDisplayTarget() ??
