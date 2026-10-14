@@ -36,7 +36,7 @@ RUN --mount=type=cache,id=castkit-pnpm,target=/pnpm/store,sharing=locked pnpm in
 
 # Chromium + its system libraries for the render engine.
 RUN pnpm exec playwright install --with-deps chromium
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3 python3-venv tini && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libjemalloc2 python3 python3-venv tini && rm -rf /var/lib/apt/lists/*
 
 # Managed native stream workers ship in the same app image. Python uses its
 # pinned browser build; connection files and credentials remain private mounts.
@@ -57,4 +57,12 @@ EXPOSE 8788
 # and stops managed workers before the server closes.
 WORKDIR /app/packages/server
 ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
-CMD ["node", "--enable-source-maps", "dist/index.js"]
+# jemalloc for the node server only. With Satori, node itself handles the
+# supersampled rasters (3200x2400 for a 1600x1200 panel) in sharp's and resvg's
+# native threads, and glibc kept ~17 per-thread arenas of freed memory (~230 MiB)
+# that it never returned. jemalloc returning dirty pages after 1 s settled at
+# 193 MiB against glibc's 433 MiB with the same peak
+# (docs/2026-10-13-server-memory-by-engine.md). The server removes LD_PRELOAD and
+# MALLOC_CONF from its own environment at start, so Chromium and the Python
+# stream workers keep their normal allocators.
+CMD ["env", "LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2", "MALLOC_CONF=background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:0", "node", "--enable-source-maps", "dist/index.js"]
