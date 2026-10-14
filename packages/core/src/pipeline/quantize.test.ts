@@ -5,7 +5,19 @@ import {
   type Palette,
   SPECTRA6_DEFAULT_PALETTE,
 } from "../panels/palette.ts"
-import { quantizeRgbaToPalette } from "./quantize.ts"
+import {
+  buildGoldenPixels,
+  GOLDEN_LARGE_SIZE,
+  GOLDEN_SMALL_SIZE,
+} from "./__fixtures__/quantizeGoldenInput.ts"
+import {
+  GOLDEN_LARGE_CHECKSUMS,
+  GOLDEN_SMALL_OUTPUTS,
+} from "./__fixtures__/quantizeGoldenOutputs.ts"
+import {
+  type QuantizeAlgorithm,
+  quantizeRgbaToPalette,
+} from "./quantize.ts"
 
 /** A flat field of one RGB color, as the RGBA pixels the quantizer takes. */
 const buildSolidPixels = ({
@@ -329,5 +341,123 @@ describe("GRAYSCALE16_PALETTE", () => {
         color,
       )
     })
+  })
+})
+
+/**
+ * A quantized buffer as one hex digit per pixel — the index of its palette
+ * entry — one string per row, the form `GOLDEN_SMALL_OUTPUTS` is written in.
+ * A pixel that is not an opaque palette entry reads as `?`.
+ */
+const encodePaletteIndexRows = ({
+  pixels,
+  palette,
+  width,
+  height,
+}: {
+  pixels: Uint8ClampedArray
+  palette: Palette
+  width: number
+  height: number
+}) =>
+  Array.from({ length: height }, (_unused, rowIndex) =>
+    Array.from(
+      { length: width },
+      (_unusedCell, columnIndex) => {
+        const byteOffset =
+          (rowIndex * width + columnIndex) * 4
+        const colorIndex = palette.findIndex(
+          (color) =>
+            color[0] === pixels[byteOffset] &&
+            color[1] === pixels[byteOffset + 1] &&
+            color[2] === pixels[byteOffset + 2],
+        )
+
+        return colorIndex < 0 ||
+          pixels[byteOffset + 3] !== 255
+          ? "?"
+          : colorIndex.toString(16)
+      },
+    ).join(""),
+  )
+
+/** 32-bit FNV-1a over every byte, as eight hex digits. */
+const getFnv1aChecksum = (bytes: Uint8ClampedArray) =>
+  (
+    bytes.reduce(
+      (hash, byte) => Math.imul(hash ^ byte, 0x01000193),
+      0x811c9dc5,
+    ) >>> 0
+  )
+    .toString(16)
+    .padStart(8, "0")
+
+const GOLDEN_PALETTES = {
+  monochrome: MONOCHROME_PALETTE,
+  grayscale16: GRAYSCALE16_PALETTE,
+  spectra6: SPECTRA6_DEFAULT_PALETTE,
+} as const
+
+const GOLDEN_ALGORITHMS: QuantizeAlgorithm[] = [
+  "threshold",
+  "ordered",
+  "floyd-steinberg",
+  "atkinson",
+  "stucki",
+  "sierra",
+]
+
+const GOLDEN_CASES = Object.entries(
+  GOLDEN_PALETTES,
+).flatMap(([paletteName, palette]) =>
+  GOLDEN_ALGORITHMS.map((algorithm) => ({
+    paletteName:
+      paletteName as keyof typeof GOLDEN_PALETTES,
+    palette,
+    algorithm,
+  })),
+)
+
+describe("quantizeRgbaToPalette matches the image-q output it replaced", () => {
+  test.each(
+    GOLDEN_CASES,
+  )("$paletteName with $algorithm, pixel by pixel", ({
+    paletteName,
+    palette,
+    algorithm,
+  }) => {
+    const result = quantizeRgbaToPalette({
+      rgbaPixels: buildGoldenPixels(GOLDEN_SMALL_SIZE),
+      ...GOLDEN_SMALL_SIZE,
+      palette,
+      algorithm,
+    })
+
+    expect(
+      encodePaletteIndexRows({
+        pixels: result,
+        palette,
+        ...GOLDEN_SMALL_SIZE,
+      }),
+    ).toEqual(GOLDEN_SMALL_OUTPUTS[paletteName][algorithm])
+  })
+
+  test.each(
+    GOLDEN_CASES,
+  )("$paletteName with $algorithm, by checksum", ({
+    paletteName,
+    palette,
+    algorithm,
+  }) => {
+    const result = quantizeRgbaToPalette({
+      rgbaPixels: buildGoldenPixels(GOLDEN_LARGE_SIZE),
+      ...GOLDEN_LARGE_SIZE,
+      palette,
+      algorithm,
+    })
+
+    expect(getFnv1aChecksum(result)).toBe(
+      GOLDEN_LARGE_CHECKSUMS[paletteName][algorithm],
+    )
   })
 })

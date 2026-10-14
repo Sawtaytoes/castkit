@@ -31,9 +31,9 @@ export const PALETTE_BY_COLOR_MODE: Record<
 }
 
 /**
- * The dithering kernels the pipeline can apply. Error-diffusion kernels
- * (floyd-steinberg … sierra) come from `image-q`; `ordered` and `threshold`
- * are implemented in-house. `off` skips our quantization entirely and sends
+ * The dithering kernels the pipeline can apply, all implemented in
+ * `pipeline/quantize.ts` (the error-diffusion ones reproduce `image-q` 4.0.0
+ * byte for byte, which is what they were before). `off` skips our quantization entirely and sends
  * the full-color downscaled image so the panel's own controller does the
  * dithering (brightness/saturation still apply). The best choice differs by
  * panel — mono vs E Ink Spectra 6 — so it is a per-device knob, not one global setting.
