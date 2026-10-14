@@ -158,6 +158,7 @@ describe("buildBrowserDiscoveryMessages", () => {
       "Printer Status",
       "Filament Spool Scale",
       "Touch Test",
+      "Display Test",
       "Disc App",
     ])
   })
