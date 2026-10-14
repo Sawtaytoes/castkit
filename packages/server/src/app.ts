@@ -92,6 +92,15 @@ export const createApp = ({
     context.json({ status: "ok", views: VIEW_NAMES }),
   )
 
+  // The desktop app scans the network for this answer to find CastKit
+  // servers, and prefers the public address to the one it found.
+  app.get("/api/identity", (context) =>
+    context.json({
+      product: "castkit",
+      publicUrl: config.publicUrl || null,
+    }),
+  )
+
   // OpenAPI spec + Scalar docs UI (public — no token needed to read the docs).
   app.get("/openapi.json", (context) =>
     context.json(buildOpenApiDocument({ config })),

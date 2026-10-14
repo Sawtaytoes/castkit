@@ -5,6 +5,7 @@ import {
   DevicesResponseSchema,
   ErrorResponseSchema,
   HealthResponseSchema,
+  IdentityResponseSchema,
   OkResponseSchema,
   SetViewRequestSchema,
 } from "./schemas.ts"
@@ -82,6 +83,9 @@ export const buildOpenApiDocument = ({
         HealthResponse: toComponentSchema(
           HealthResponseSchema,
         ),
+        IdentityResponse: toComponentSchema(
+          IdentityResponseSchema,
+        ),
         DevicesResponse: toComponentSchema(
           DevicesResponseSchema,
         ),
@@ -101,6 +105,16 @@ export const buildOpenApiDocument = ({
           security: [],
           responses: {
             "200": jsonResponse("HealthResponse", "OK"),
+          },
+        },
+      },
+      "/api/identity": {
+        get: {
+          summary:
+            "Identify this server as CastKit, with its public address when one is configured.",
+          security: [],
+          responses: {
+            "200": jsonResponse("IdentityResponse", "OK"),
           },
         },
       },

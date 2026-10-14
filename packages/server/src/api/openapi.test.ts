@@ -15,6 +15,7 @@ describe("buildOpenApiDocument", () => {
     expect(Object.keys(document.paths)).toEqual(
       expect.arrayContaining([
         "/health",
+        "/api/identity",
         "/api/devices",
         "/api/devices/{id}/image",
         "/api/devices/{id}/refresh",
