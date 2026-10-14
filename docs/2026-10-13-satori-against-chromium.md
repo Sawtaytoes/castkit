@@ -1,6 +1,8 @@
 # Satori against Chromium, every server view (2026-10-13)
 
-Production renders device images with Chromium (`INKCAST_RENDER_ENGINE=chromium`). This
+At the time of this bake-off, production rendered device images with Chromium. (Since
+2026-10-14 it renders them with Satori — see
+[the decision](decisions/2026-10-14-image-views-render-with-satori-and-chromium-closes-when-idle.md).) This
 bake-off asks what Satori would change if it rendered the same views, before and after
 upgrading `satori` from 0.26.0 to 0.56.1.
 

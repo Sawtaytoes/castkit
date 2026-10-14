@@ -4,7 +4,7 @@
 - **Date:** 2026-10-13
 - **Type:** technical
 - **Supersedes:** [Views use inline style objects (Satori-safe), not Emotion or Tailwind](2026-07-01-inline-styles-for-views.md) — the flexbox-only limit
-- **Superseded by:** —
+- **Superseded by:** [Image views render with Satori, and Chromium closes when idle](2026-10-14-image-views-render-with-satori-and-chromium-closes-when-idle.md) — item 4 only
 
 ## Decision
 

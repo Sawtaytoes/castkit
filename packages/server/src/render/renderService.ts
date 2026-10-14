@@ -21,11 +21,17 @@ import {
   type ClockConfig,
   renderViewElement,
 } from "../views/registry.ts"
+import { createIdleClosingBrowser } from "./idleClosingBrowser.ts"
 
 /**
  * Holds the configured render engine and turns a (device, view, view data)
- * into that device's panel-ready PNG. The engine is chosen at startup —
- * Chromium (default) or Satori — and reused across renders.
+ * into that device's panel-ready PNG.
+ *
+ * - `satori` (default): the image views render with Satori inside this
+ *   process. Chromium is only needed to capture a platform page
+ *   (`renderPage`), so it is launched on demand and closed after
+ *   `browserIdleCloseMilliseconds` without a capture.
+ * - `chromium`: one long-lived browser renders both.
  */
 export type RenderService = {
   renderDevice: (params: {
@@ -50,10 +56,15 @@ export type RenderService = {
   close: () => Promise<void>
 }
 
+/** Long enough that a display captured once a minute keeps its browser. */
+const DEFAULT_BROWSER_IDLE_CLOSE_MILLISECONDS = 120_000
+
 export const createRenderService = async ({
   engineName,
+  browserIdleCloseMilliseconds = DEFAULT_BROWSER_IDLE_CLOSE_MILLISECONDS,
 }: {
   engineName: "chromium" | "satori"
+  browserIdleCloseMilliseconds?: number
 }): Promise<RenderService> => {
   // Satori has no resources to release, so `close` only exists on Chromium.
   const engine: RenderEngine & {
@@ -62,6 +73,18 @@ export const createRenderService = async ({
     engineName === "satori"
       ? await createSatoriEngine()
       : await createChromiumEngine()
+
+  const pageBrowser =
+    engineName === "satori"
+      ? createIdleClosingBrowser({
+          launch: createChromiumEngine,
+          idleCloseMilliseconds:
+            browserIdleCloseMilliseconds,
+        })
+      : null
+
+  const renderUrl =
+    pageBrowser?.renderUrl ?? engine.renderUrl
 
   return {
     renderDevice: ({
@@ -116,11 +139,10 @@ export const createRenderService = async ({
       margin,
       adjustments,
     }) => {
-      if (!engine.renderUrl)
+      if (!renderUrl)
         throw new Error(
-          "Composed views on image displays require the Chromium render engine",
+          "Composed views on image displays need a browser to capture them",
         )
-      const renderUrl = engine.renderUrl
       return renderDeviceImage({
         device,
         margin,
@@ -141,6 +163,7 @@ export const createRenderService = async ({
       })
     },
     close: async () => {
+      await pageBrowser?.close()
       await engine.close?.()
     },
   }
