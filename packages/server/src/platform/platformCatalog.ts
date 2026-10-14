@@ -765,6 +765,13 @@ const viewSpecs: ViewSpec[] = [
     renderers: ["browser"],
     minimumRepaint: "fast",
   },
+  {
+    ...view({ id: "display-test", name: "Display Test" }),
+    description:
+      "Full black, white, gray and color patterns for checking a display's black level and uniformity. Does not change backlight brightness.",
+    renderers: ["browser"],
+    minimumRepaint: "fast",
+  },
   view({
     id: "rip-deck",
     name: "Rip Deck",
@@ -1382,6 +1389,11 @@ const viewGroups = [
     id: "touch",
     name: "Touch diagnostics",
     specs: ["touch-test"],
+  },
+  {
+    id: "display-test",
+    name: "Display diagnostics",
+    specs: ["display-test"],
   },
   { id: "rip-deck", name: "Rip Deck", specs: ["rip-deck"] },
   {

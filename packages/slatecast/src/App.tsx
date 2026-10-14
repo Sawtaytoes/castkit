@@ -14,6 +14,7 @@ import {
 import { Ambient } from "./views/Ambient.tsx"
 import { Calendar } from "./views/Calendar.tsx"
 import { Clock } from "./views/Clock.tsx"
+import { DisplayTest } from "./views/DisplayTest.tsx"
 import { ExternalView } from "./views/ExternalView.tsx"
 import { FilamentSpoolScale } from "./views/FilamentSpoolScale.tsx"
 import { NowPlaying } from "./views/NowPlaying.tsx"
@@ -40,6 +41,7 @@ export const viewByClientId: Record<string, ComponentType> =
     "printer-status": PrinterStatus,
     "filament-spool-scale": () => <FilamentSpoolScale />,
     "touch-test": TouchTest,
+    "display-test": DisplayTest,
   }
 
 /**

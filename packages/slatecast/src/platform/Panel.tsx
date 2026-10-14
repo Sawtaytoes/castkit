@@ -9,6 +9,7 @@ import type { ViewInput } from "@castkit/sdk/plugin"
 import type { JSX } from "preact"
 import { AmsFilaments } from "../views/AmsFilaments.tsx"
 import { CutterStatus } from "../views/CutterStatus.tsx"
+import { DisplayTest } from "../views/DisplayTest.tsx"
 import { FilamentSpoolScale } from "../views/FilamentSpoolScale.tsx"
 import { MusicPlayer } from "../views/MusicPlayer.tsx"
 import { TouchTest } from "../views/TouchTest.tsx"
@@ -90,7 +91,8 @@ export const Panel = ({
     panel.specId === "cutter-status" ||
     panel.specId === "filament-spool-scale" ||
     panel.specId === "music-player" ||
-    panel.specId === "touch-test"
+    panel.specId === "touch-test" ||
+    panel.specId === "display-test"
   const declaredInputs =
     inputs ??
     (Object.keys(panel.bindings).length
@@ -261,6 +263,8 @@ export const Panel = ({
           />
         ) : panel.specId === "touch-test" ? (
           <TouchTest />
+        ) : panel.specId === "display-test" ? (
+          <DisplayTest />
         ) : panel.specId === "printer-status" ? (
           <PrintersView
             data={

@@ -135,8 +135,8 @@ test("a child opened from the busy strip takes the whole composition", async () 
   container
     .querySelector<HTMLButtonElement>(
       '[aria-label="View Robin\'s tasks today"]',
-    )!
-    .click()
+    )
+    ?.click()
   const layout = container.querySelector<HTMLElement>(
     ".platform-layout",
   )!
@@ -145,10 +145,13 @@ test("a child opened from the busy strip takes the whole composition", async () 
       ".kids-points-overlay",
     )
     expect(overlay).not.toBeNull()
-    const overlayBox = overlay!.getBoundingClientRect()
+    const overlayBox = overlay?.getBoundingClientRect()
     const layoutBox = layout.getBoundingClientRect()
-    expect(overlayBox.width).toBeCloseTo(layoutBox.width, 0)
-    expect(overlayBox.height).toBeCloseTo(
+    expect(overlayBox?.width).toBeCloseTo(
+      layoutBox.width,
+      0,
+    )
+    expect(overlayBox?.height).toBeCloseTo(
       layoutBox.height,
       0,
     )
@@ -163,8 +166,8 @@ test("a child opened from the busy strip takes the whole composition", async () 
   container
     .querySelector<HTMLButtonElement>(
       "[aria-label='Back to all children']",
-    )!
-    .click()
+    )
+    ?.click()
   await waitFor(() => {
     expect(
       container.querySelector(".kids-points-overlay"),
