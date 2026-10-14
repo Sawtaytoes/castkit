@@ -117,7 +117,11 @@ non-trivial task. Highlights:
 - **Develop on a local disk (node-modules linker).** A mapped network share
   can't host dependency symlinks (both `node-modules` and PnP fail over
   SMB) — keep the working tree on a local drive.
-- **Views use inline style objects** (Satori-safe flexbox), not Emotion/Tailwind.
+- **Views use inline style objects**, not Emotion/Tailwind — and CSS grid, block layout
+  and filters are allowed; the old flexbox-only "Satori-safe" limit is gone because
+  Satori 0.43+ lays out grid through Taffy. Production renders with Chromium; check a
+  view in Satori with `pnpm bakeoff:views` before relying on it
+  ([decision](docs/decisions/2026-10-13-views-may-use-css-grid-and-satori-is-current.md)).
 - **⛔ A repeating list in a view draws only the rows that FINISH on the panel.**
   A panel has no scrollbar: a row the layout starts and the glass cuts in half
   stays cut until the next repaint, and on a centered column the overflow throws
@@ -158,6 +162,10 @@ discovery. Architecture + phase plan are in the README and
 
 - `pnpm bakeoff:render` — Decision 1: renders the now-playing card through
   Chromium AND Satori at both panels → `render-output/render/`.
+- `pnpm bakeoff:views <chromium|satori> [name]` then `pnpm bakeoff:views:compare` —
+  every server view on every image panel size per engine, timed, pixel-compared with
+  Chromium → `render-output/satori-bakeoff/index.html`. Results of 2026-10-13:
+  [docs/2026-10-13-satori-against-chromium.md](docs/2026-10-13-satori-against-chromium.md).
 - `pnpm bakeoff:dither` — Decision 2: dithers card/gradient/photo with every
   algorithm × supersample factor, one contact sheet per (panel, image), mono and
   E Ink Spectra 6 separate → `render-output/dither/`.

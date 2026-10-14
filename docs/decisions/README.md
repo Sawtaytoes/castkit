@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-13: Views may use CSS grid, and Satori is kept current](2026-10-13-views-may-use-css-grid-and-satori-is-current.md)
+
 - [2026-10-13: The desktop app finds CastKit servers by scanning, and groups pages by screen](2026-10-13-the-desktop-app-finds-castkit-servers-by-scanning-and-groups-pages-by-screen.md)
 
 - [2026-10-13: A closed desktop window is kept, and every window shares one sign-in](2026-10-13-a-closed-desktop-window-is-kept-and-every-window-shares-one-sign-in.md)
@@ -228,5 +230,5 @@ proposing a change; a settled decision here overrides default instinct.
 | 2026-07-01 | [Production runs an esbuild bundle with node, never tsx](2026-07-01-esbuild-bundle-not-tsx-in-prod.md) | Accepted |
 | 2026-07-01 | [Inkcast is a public open-source app, not a private repo](2026-07-01-public-oss-app-on-github.md) | Accepted |
 | 2026-07-01 | [Develop on a local disk with the node-modules linker (not a network share)](2026-07-01-local-drive-not-network-share.md) | Accepted |
-| 2026-07-01 | [Views use inline style objects (Satori-safe), not Emotion or Tailwind](2026-07-01-inline-styles-for-views.md) | Accepted |
+| 2026-07-01 | [Views use inline style objects (Satori-safe), not Emotion or Tailwind](2026-07-01-inline-styles-for-views.md) | Flexbox-only limit superseded 2026-10-13 |
 | 2026-07-01 | [Always use latest dependencies; never scaffold with old ones](2026-07-01-latest-dependencies.md) | Accepted |

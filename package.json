@@ -8,6 +8,8 @@
     "bakeoff:render": "tsx scripts/bakeoff-render.ts",
     "bakeoff:dither": "tsx scripts/bakeoff-dither.ts",
     "bakeoff": "pnpm bakeoff:render && pnpm bakeoff:dither",
+    "bakeoff:views": "tsx --tsconfig packages/web/tsconfig.json scripts/bakeoff/allViews.ts",
+    "bakeoff:views:compare": "tsx scripts/bakeoff/compareViews.ts",
     "build": "node scripts/build-server.mjs",
     "dev": "pnpm --filter @castkit/web dev",
     "dev:server": "pnpm --filter @castkit/server dev",

@@ -4,7 +4,7 @@
 - **Date:** 2026-07-01
 - **Type:** technical
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [Views may use CSS grid, and Satori is kept current](2026-10-13-views-may-use-css-grid-and-satori-is-current.md) — the flexbox-only limit
 
 ## Decision
 
@@ -36,6 +36,12 @@ flexbox.
   render the same way.
 - Each view is bespoke, so utility classes buy little; inline styles keep a view
   self-contained and readable.
+
+## Evidence
+
+The maintainer's words during the 2026-07-01 scaffolding, as quoted under Why above.
+This section was added on 2026-10-13 when the record was superseded, so the record
+passes the decision-record lint; the decision itself is unchanged.
 
 ## Consequences
 
