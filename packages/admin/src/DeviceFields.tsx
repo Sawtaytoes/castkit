@@ -150,7 +150,7 @@ export const DeviceFields = ({
             </p>
           ) : (
             <Checkbox
-              key={`${device.id}:${Boolean(device.hasMqttBacklight)}`}
+              key={`${device.id}:backlight:${Boolean(device.hasMqttBacklight)}`}
               isChecked={Boolean(device.hasMqttBacklight)}
               label="Backlight available"
               onChange={(isEnabled) =>
@@ -159,7 +159,7 @@ export const DeviceFields = ({
             />
           )}
           <Checkbox
-            key={`${device.id}:${Boolean(device.hasRemoteAmbientLight)}`}
+            key={`${device.id}:ambient-light:${Boolean(device.hasRemoteAmbientLight)}`}
             isChecked={Boolean(
               device.hasRemoteAmbientLight,
             )}
