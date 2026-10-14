@@ -26,7 +26,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v18-slider-ownership"
+BUILD_MARKER = "castkit-remote-display-v19-dispose-controls"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -556,10 +556,16 @@ async def poll_controls(context, config, transport, stop):
     while not stop.is_set():
         try:
             response = await context.request.get(config["controls_url"], timeout=5000)
-            same_origin_url(config["manifest_url"], response.url)
-            if not response.ok:
-                raise ConnectionError("Controls unavailable")
-            controls = await response.json()
+            try:
+                same_origin_url(config["manifest_url"], response.url)
+                if not response.ok:
+                    raise ConnectionError("Controls unavailable")
+                controls = await response.json()
+            finally:
+                # The Playwright driver keeps every APIResponse body and fetch log
+                # until it is disposed or the context closes. At two polls a second
+                # that grew each worker's driver by about 10 MiB a minute.
+                await response.dispose()
             if "backlight_percent" in controls:
                 transport.set_backlight(controls["backlight_percent"])
             if "wake_percent" in controls:
