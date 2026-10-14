@@ -37,6 +37,12 @@ flexbox.
 - Each view is bespoke, so utility classes buy little; inline styles keep a view
   self-contained and readable.
 
+## Evidence
+
+The maintainer's words during the 2026-07-01 scaffolding, as quoted under Why above.
+This section was added on 2026-10-13 when the record was superseded, so the record
+passes the decision-record lint; the decision itself is unchanged.
+
 ## Consequences
 
 - View components type their styles as `CSSProperties` and compose via `style={}`.
