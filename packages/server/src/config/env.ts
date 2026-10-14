@@ -169,6 +169,10 @@ const DeviceConfigSchema = z.object({
   imageDelivery: z.optional(
     z.enum(["mqtt-image", "http-pull"]),
   ),
+  // Optional: "request" renders only when the display asks on
+  // <base>/refresh/set (a deep-sleeping client such as the Watchy). Absent =
+  // "update", which re-renders on every clock minute and data change.
+  renderOn: z.optional(z.enum(["update", "request"])),
   // Optional: seeds the Photo Frame people filter when the broker has no
   // retained value. NOT a live setting — HA owns that. See DeviceMetadata.
   photoPeople: z.optional(z.array(z.string())),

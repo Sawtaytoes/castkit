@@ -233,6 +233,21 @@ tell you whether a panel is interactive, or fast, or color.
 
 ---
 
+### `renderOn` — when the server renders a pushed or pulled frame
+
+| Value | Example panels | What it changes |
+| --- | --- | --- |
+| `update` (default) | Inky panels, M5Paper, WT32-SC01 | CastKit re-renders on every clock minute, data push, platform change and setting change, and publishes when the bytes changed. |
+| `request` | Watchy | CastKit renders only when the display asks on `<base>/refresh/set`, or on the manual refresh or a view select. Every background render is skipped, so the capture browser can close between requests. |
+
+`request` is for a client that deep-sleeps and **asks for its frame on wake** — a frame
+rendered while it sleeps reaches nobody. ⚠️ It is not the same as `pulled-frames`: the
+M5Paper pulls its bytes but stays connected and waits for the server's `image_url`, so
+`request` would freeze it
+([decision](decisions/2026-10-14-a-watchy-image-renders-only-when-the-watch-asks.md)).
+
+---
+
 ### `pixelGrid` — the subpixel stripe
 
 | Value | What it changes |

@@ -54,8 +54,11 @@ and Back second to reset into the application. A successful flash or an
 esptool reset message alone does not prove that the application started.
 
 Register the CastKit device at its actual 200 x 200 size, `monochrome`,
-rotation 0, `imageDelivery: http-pull`, `hasBattery: true`, `repaint: fast`,
-and the appropriate power source. Assign a platform screen containing the
+rotation 0, `imageDelivery: http-pull`, `renderOn: request`, `hasBattery: true`,
+`repaint: fast`, and the appropriate power source. `renderOn: request` makes the
+server render this watch's image only when the watch asks for it, instead of every
+minute while it sleeps
+([decision](../../docs/decisions/2026-10-14-a-watchy-image-renders-only-when-the-watch-asks.md)). Assign a platform screen containing the
 chosen view. CastKit publishes its Home Assistant MQTT discovery automatically.
 The encrypted native ESPHome API can also be adopted in Home Assistant.
 
@@ -79,7 +82,10 @@ make synchronization and future OTA updates observable in Home Assistant.
 
 The device subscribes to `castkit/<device_id>/image_url`. Only while the CastKit
 page is selected does it request a fresh single-use PNG on
-`castkit/<device_id>/refresh/set` and download image updates. Local clock, timer,
+`castkit/<device_id>/refresh/set` and download image updates. With
+`renderOn: request` that request is the only thing that renders the image, so a
+watch that stays connected on USB sees new points when it next opens the page,
+not live. Local clock, timer,
 agenda, scores and binary pages need no image download or server render.
 The local clock still works without CastKit.
 A cold start without network time shows `Syncing time...` instead of a false date.

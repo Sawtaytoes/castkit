@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-14: A Watchy image renders only when the watch asks](2026-10-14-a-watchy-image-renders-only-when-the-watch-asks.md)
+
 - [2026-10-14: Image views render with Satori, and Chromium closes when idle](2026-10-14-image-views-render-with-satori-and-chromium-closes-when-idle.md)
 
 - [2026-10-14: AI Usage headlines omit redundant quota labels](2026-10-14-ai-usage-headlines-omit-redundant-quota-labels.md)

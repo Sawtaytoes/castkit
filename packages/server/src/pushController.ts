@@ -46,7 +46,7 @@ export type PushController = {
   }) => Promise<Buffer | null>
   pushDevice: (
     deviceId: string,
-    options?: { isForced?: boolean },
+    options?: { isForced?: boolean; isRequested?: boolean },
   ) => Promise<boolean>
   setView: (params: {
     deviceId: string
@@ -234,8 +234,22 @@ export const createPushController = ({
 
   const pushDevice = async (
     deviceId: string,
-    { isForced = false }: { isForced?: boolean } = {},
+    {
+      isForced = false,
+      isRequested = false,
+    }: { isForced?: boolean; isRequested?: boolean } = {},
   ) => {
+    // A `renderOn: "request"` display deep-sleeps between wakes and asks for
+    // its frame on `refresh/set`. A frame rendered for the clock tick, a data
+    // push or a setting change reaches nobody, and the render alone kept the
+    // capture browser open all day. Bail silently: these calls arrive every
+    // minute, and the next request renders the current state anyway.
+    if (
+      !isRequested &&
+      deviceById.get(deviceId)?.renderOn === "request"
+    ) {
+      return false
+    }
     // Paused (HA "Updates" switch off) — hold the last frame. Checked here
     // because every push path funnels through pushDevice: the clock tick, the
     // photo rotation, view selects, the Refresh button, and the HA data
@@ -362,7 +376,8 @@ export const createPushController = ({
     }
 
     deviceStore.setActiveView({ deviceId, viewName })
-    return pushDevice(deviceId)
+    // Selecting a view is an explicit action, so it renders on every display.
+    return pushDevice(deviceId, { isRequested: true })
   }
 
   return {

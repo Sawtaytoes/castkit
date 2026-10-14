@@ -1667,9 +1667,16 @@ const main = async () => {
         }
 
         if (route.kind === "refresh") {
-          // A sleeping client lost its RAM image and any previous single-use URL.
+          // A sleeping client lost its RAM image and any previous single-use
+          // URL. This is also the ONLY render a `renderOn: "request"` display
+          // gets, so log the arrival: the gap to the `push` line is the
+          // latency the watch waits through.
+          console.log(
+            `[inkcast] refresh requested for ${route.deviceId}`,
+          )
           await pushController.pushDevice(route.deviceId, {
             isForced: true,
+            isRequested: true,
           })
           return
         }
@@ -2308,7 +2315,12 @@ const main = async () => {
   const platformImageScheduler =
     createPlatformImageScheduler({
       platform,
-      deviceIds: config.devices.map((device) => device.id),
+      // A `renderOn: "request"` display renders only when it asks, so the
+      // scheduler must not keep offering it frames (pushDevice would refuse
+      // each one, and the scheduler would retry it all day).
+      deviceIds: config.devices
+        .filter((device) => device.renderOn !== "request")
+        .map((device) => device.id),
       push: pushController.pushDevice,
     })
   console.log(

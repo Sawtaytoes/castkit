@@ -368,8 +368,11 @@ export const createApp = ({
   })
 
   app.post("/api/devices/:id/refresh", async (context) => {
+    // A manual refresh is an explicit request, so it renders even a display
+    // that otherwise renders only when it asks.
     const isPushed = await pushController.pushDevice(
       context.req.param("id"),
+      { isRequested: true },
     )
     return isPushed
       ? context.json({ ok: true })
