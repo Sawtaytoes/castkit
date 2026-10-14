@@ -4,7 +4,7 @@
 - **Date:** 2026-07-01
 - **Type:** technical
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [Views may use CSS grid, and Satori is kept current](2026-10-13-views-may-use-css-grid-and-satori-is-current.md) — the flexbox-only limit
 
 ## Decision
 
