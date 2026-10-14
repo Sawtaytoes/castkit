@@ -113,3 +113,61 @@ test.each([
     ).toHaveTextContent("130")
   })
 })
+
+test("a child opened from the busy strip takes the whole composition", async () => {
+  const { container } = render(
+    <main class="platform" data-device="true">
+      <DisplayComposition
+        snapshot={pointsOverviewFixture({ isBusy: true })}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  await document.fonts.ready
+  await waitFor(() => {
+    expect(
+      container.querySelectorAll(
+        ".kids-points-summary-child",
+      ),
+    ).toHaveLength(3)
+  })
+  container
+    .querySelector<HTMLButtonElement>(
+      '[aria-label="View Robin\'s tasks today"]',
+    )!
+    .click()
+  const layout = container.querySelector<HTMLElement>(
+    ".platform-layout",
+  )!
+  await waitFor(() => {
+    const overlay = container.querySelector<HTMLElement>(
+      ".kids-points-overlay",
+    )
+    expect(overlay).not.toBeNull()
+    const overlayBox = overlay!.getBoundingClientRect()
+    const layoutBox = layout.getBoundingClientRect()
+    expect(overlayBox.width).toBeCloseTo(layoutBox.width, 0)
+    expect(overlayBox.height).toBeCloseTo(
+      layoutBox.height,
+      0,
+    )
+    expect(overlay).toHaveTextContent("Robin")
+  })
+  // The strip stays underneath, so going back returns to it unchanged.
+  expect(
+    container.querySelectorAll(
+      ".kids-points-summary-child",
+    ),
+  ).toHaveLength(3)
+  container
+    .querySelector<HTMLButtonElement>(
+      "[aria-label='Back to all children']",
+    )!
+    .click()
+  await waitFor(() => {
+    expect(
+      container.querySelector(".kids-points-overlay"),
+    ).toBeNull()
+  })
+})

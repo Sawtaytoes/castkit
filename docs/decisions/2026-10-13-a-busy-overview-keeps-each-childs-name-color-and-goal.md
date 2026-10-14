@@ -21,6 +21,11 @@ The cells are separated by the stripes, so a total never reads as belonging to
 the next child. A cell under 130 px stacks the name over the total. Only a cell
 under 56 px drops to the initial alone.
 
+A child opened from the strip (a tap on the name) shows that child's task
+list over the **whole composition**, not inside the strip. The list reads top
+to bottom and the strip is one short row. Back returns to the unchanged
+overview.
+
 The initial-only, color-free form is the watch form. It is for extreme cases: a
 watch face, or a cell too small for a name. A panel with room for more must not
 fall back to it.
@@ -49,3 +54,8 @@ monitor showing the initials-only strip:
 > because the colors were missing and the other kids' number was next to the
 > letter. We should fix that in this view. The "watch" view needs to be for
 > extreme situations
+
+Later the same day, with a screenshot of the task list squeezed into the strip:
+
+> Also, clicking the name shows some weird points view that's mean to be
+> vertically, not horizontal.

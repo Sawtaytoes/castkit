@@ -3192,6 +3192,19 @@ html[data-repaint="instant"]
 .kids-points .kids-points-open:active {
   background: color-mix(in srgb, var(--fg) 8%, transparent);
 }
+/* A child opened from the summary strip covers the whole composition. */
+.platform-layout:has(> .kids-points-overlay) {
+  position: relative;
+}
+.kids-points-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: clamp(12px, 2vw, 28px);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 16px;
+  background: var(--surface);
+}
 .kids-points-tasks {
   display: flex;
   flex-direction: column;

@@ -52,6 +52,11 @@ export const pointsOverviewFixture = ({
             pointsToday: 130,
             goal: 400,
             color: "#269b53",
+            tasksToday: [
+              { id: "reading", name: "Reading", atMs: Date.now() - 50 * 60_000, points: 80, minutes: 30 },
+              { id: "dishes", name: "Dishes", atMs: Date.now() - 25 * 60_000, points: 30 },
+              { id: "bed", name: "Make bed", atMs: Date.now() - 15 * 60_000, points: 20 },
+            ],
             ...(isRunning ? {
               activeTask: {
                 name: "Piano",
