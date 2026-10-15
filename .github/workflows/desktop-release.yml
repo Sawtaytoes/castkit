@@ -144,6 +144,7 @@ jobs:
   # dependency and has no native module, so Electron Packager only has to
   # fetch the other architecture's Electron.
   unix:
+    name: ${{ matrix.platform }}
     needs: version
     strategy:
       fail-fast: false
