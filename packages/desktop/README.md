@@ -104,6 +104,8 @@ monitor is plugged in again, so the app then looks for the same monitor name
 and position, then the same name and size. If the monitor is not connected,
 the window opens on the primary display, and it goes back by itself when the
 monitor is connected again.
+Disconnecting a monitor while CastKit is running preserves that placement too.
+If the monitor returns with a different id, the saved id and menus are updated.
 
 Closing a window with its X button keeps it, closed, with its page, monitor,
 zoom levels, and sign-in. Open it again from the tray menu (**Open window**),
@@ -121,6 +123,19 @@ from its agenda view to its music view switches zoom with it.
 The sign-in is shared: a PIN typed in one window unlocks every window, and a
 new window starts signed in. The app copies the server's sign-in cookie
 between the windows' sessions; zoom stays separate.
+Sign-in stays with its server when the server address changes. Removing a window
+does not sign out the other windows.
+
+The current page address, including its query and fragment, is saved as you
+navigate, so reopening the app returns to the page you last used.
+
+## Updating
+
+Desktop updates are manual. Download the latest desktop release and rerun its
+Windows installer, install the newer Linux package, or replace the extracted
+app on macOS and portable installations. Saved windows and sign-in stay in the
+user data folder. Updating the CastKit server updates its pages; it does not
+replace the installed desktop app.
 
 ## Launch at login
 
