@@ -215,8 +215,8 @@ export const BoardGoal: Story = {
 export const ShortBoardScan: Story = {
   render: () => (
     <ScanStage
-      width={976}
-      height={254}
+      width={1280}
+      height={320}
       kidId="robin"
       pointsToday={285}
       points={100}
