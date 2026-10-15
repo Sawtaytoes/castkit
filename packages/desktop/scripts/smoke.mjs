@@ -568,17 +568,24 @@ try {
         "the new server's third window",
       )
       const thirdId = readState().windows[2].id
-      // Wait for attach + initial load, then inspect the real cookie store.
+      // Identify the new partition: a rebased window can have the same URL
+      // before the newly added window has finished attaching its sign-in.
       await waitFor(
         () =>
-          app
-            .windows()
-            .some(
-              (candidate) =>
-                candidate.url() ===
-                `${otherOrigin}/screen/other`,
-            ),
-        "a page on the new server",
+          app.evaluate(
+            ({ BrowserWindow }, { partition, url }) =>
+              BrowserWindow.getAllWindows().some(
+                (window) =>
+                  window.webContents.session.storagePath?.includes(
+                    partition,
+                  ) && window.webContents.getURL() === url,
+              ),
+            {
+              partition: `castkit-window-${thirdId}`,
+              url: `${otherOrigin}/screen/other`,
+            },
+          ),
+        "the new window loaded on the new server",
       )
       const cookies = await app.evaluate(
         async ({ session }, { partition, origin }) =>
