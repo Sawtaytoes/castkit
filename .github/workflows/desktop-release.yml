@@ -104,6 +104,10 @@ jobs:
       - name: Install the Electron binary
         run: pnpm --filter @castkit/desktop exec install-electron
 
+      - name: Verify Windows login registration
+        working-directory: packages/desktop
+        run: node scripts/check-windows-login.mjs
+
       # Forge refuses pnpm's isolated linker because it expects to copy the
       # app's `node_modules` into the package. This app ships none: the build
       # bundles every dependency into `dist/`, and `forge.config.ts` packages

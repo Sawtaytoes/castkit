@@ -4,31 +4,87 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs"
-import { basename, dirname, join, resolve } from "node:path"
+import { dirname, join, win32 } from "node:path"
 import { app } from "electron"
 
 /**
  * A Squirrel install keeps each version in its own `app-<version>` folder, so
  * a login item that names the running executable breaks on the first update.
- * Electron's documented fix is to start through Squirrel's `Update.exe`, which
- * always launches the current version.
+ * Squirrel's stub beside Update.exe starts the current version without any
+ * command-line quoting. A portable build has no stub and starts directly.
  */
-const loginItemTarget = () => {
-  const updateExecutable = resolve(
-    dirname(process.execPath),
+const windowsLaunchers = () => {
+  if (process.platform !== "win32") {
+    return undefined
+  }
+  const installDirectory = win32.resolve(
+    win32.dirname(process.execPath),
     "..",
-    "Update.exe",
   )
-  return process.platform === "win32" &&
-    existsSync(updateExecutable)
-    ? {
-        path: updateExecutable,
-        args: [
-          "--processStart",
-          `"${basename(process.execPath)}"`,
-        ],
-      }
+  const executableName = win32.basename(process.execPath)
+  const updater = win32.join(installDirectory, "Update.exe")
+  const launcher = win32.join(
+    installDirectory,
+    executableName,
+  )
+  return existsSync(updater) && existsSync(launcher)
+    ? { updater, launcher, executableName }
+    : undefined
+}
+
+const loginItemTarget = () => {
+  const launchers = windowsLaunchers()
+  return launchers
+    ? { path: launchers.launcher, args: [] }
     : {}
+}
+
+// Electron 44.7 parses the approval lookup's path as a command line. Quote
+// it for that lookup when needed, while keeping the registration comparison
+// unquoted. Otherwise a space in the install path hides an enabled entry.
+const readWindowsLoginItemSettings = (target: {
+  path?: string
+  args?: string[]
+}) => {
+  const settings = app.getLoginItemSettings(target)
+  if (
+    !settings.openAtLogin ||
+    settings.executableWillLaunchAtLogin
+  ) {
+    return settings
+  }
+  const approval = app.getLoginItemSettings({
+    ...target,
+    path: `"${target.path ?? process.execPath}"`,
+  })
+  return {
+    ...settings,
+    executableWillLaunchAtLogin:
+      approval.executableWillLaunchAtLogin,
+  }
+}
+
+/** Repair the old double-quoted updater command, preserving Windows' disabled state. */
+export const migrateLaunchAtLogin = () => {
+  const launchers = windowsLaunchers()
+  if (!launchers) {
+    return
+  }
+  const legacy = readWindowsLoginItemSettings({
+    path: launchers.updater,
+    args: [
+      "--processStart",
+      `"${launchers.executableName}"`,
+    ],
+  })
+  if (!legacy.openAtLogin) {
+    return
+  }
+  app.setLoginItemSettings({
+    ...loginItemTarget(),
+    openAtLogin: true,
+    enabled: legacy.executableWillLaunchAtLogin,
+  })
 }
 
 /**
@@ -74,11 +130,20 @@ const autostartPath = () =>
   })
 
 /** Whether CastKit starts when this user signs in. */
-export const readLaunchAtLogin = () =>
-  process.platform === "linux"
-    ? existsSync(autostartPath())
-    : app.getLoginItemSettings(loginItemTarget())
-        .openAtLogin
+export const readLaunchAtLogin = () => {
+  if (process.platform === "linux") {
+    return existsSync(autostartPath())
+  }
+  const settings =
+    process.platform === "win32"
+      ? readWindowsLoginItemSettings(loginItemTarget())
+      : app.getLoginItemSettings(loginItemTarget())
+  return (
+    settings.openAtLogin &&
+    (process.platform !== "win32" ||
+      settings.executableWillLaunchAtLogin)
+  )
+}
 
 /** Start CastKit when this user signs in, or stop doing so. */
 export const writeLaunchAtLogin = (
@@ -88,6 +153,9 @@ export const writeLaunchAtLogin = (
     app.setLoginItemSettings({
       openAtLogin: isLaunchedAtLogin,
       ...loginItemTarget(),
+      ...(process.platform === "win32"
+        ? { enabled: isLaunchedAtLogin }
+        : {}),
     })
     return
   }
