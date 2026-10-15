@@ -29,6 +29,7 @@ import {
 } from "./identifyOverlay.ts"
 import { viewChannel } from "./ipcChannels.ts"
 import {
+  migrateLaunchAtLogin,
   readLaunchAtLogin,
   writeLaunchAtLogin,
 } from "./launchAtLogin.ts"
@@ -43,6 +44,7 @@ const log = (message: string) => {
 const saveDelay = 500
 
 const start = () => {
+  migrateLaunchAtLogin()
   const distDirectory = __dirname
   const iconPath = join(distDirectory, "icon.png")
   const stateFilePath =
