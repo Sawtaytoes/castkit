@@ -1,9 +1,24 @@
-import { describe, expect, test, vi } from "vitest"
+import { EventEmitter } from "node:events"
+import {
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest"
 
-vi.mock("electron", () => ({ session: {} }))
+const electron = vi.hoisted(() => ({
+  fromPartition: vi.fn(),
+}))
+vi.mock("electron", () => ({
+  session: { fromPartition: electron.fromPartition },
+}))
 
-const { decideCookieChange, signInCookieName } =
-  await import("./sharedSignIn.ts")
+const {
+  createSharedSignIn,
+  decideCookieChange,
+  signInCookieName,
+} = await import("./sharedSignIn.ts")
 
 const signIn = {
   name: signInCookieName,
@@ -98,5 +113,74 @@ describe("decideCookieChange", () => {
         sharedValue: null,
       }),
     ).toBe("share")
+  })
+})
+
+describe("shared session lifecycle", () => {
+  const makeCookies = (
+    ownCookie: typeof signIn | null = null,
+  ) =>
+    Object.assign(new EventEmitter(), {
+      get: vi.fn(async () =>
+        ownCookie ? [ownCookie] : [],
+      ),
+      set: vi.fn(async () => undefined),
+      remove: vi.fn(async () => undefined),
+    })
+  beforeEach(() => {
+    electron.fromPartition.mockReset()
+  })
+
+  test("an existing sign-in found at startup reaches a window attached earlier", async () => {
+    const first = makeCookies()
+    const second = makeCookies(signIn)
+    electron.fromPartition.mockImplementation(
+      (partition) => ({
+        cookies: partition === "first" ? first : second,
+      }),
+    )
+    const sharing = createSharedSignIn({
+      readServerOrigin: () =>
+        "https://castkit.example.test",
+      log: vi.fn(),
+    })
+    await sharing.attach("first")
+    await sharing.attach("second")
+    expect(first.set).toHaveBeenCalledWith(
+      expect.objectContaining({ value: "token-b" }),
+    )
+  })
+
+  test("changing servers never sends the previous server's sign-in to the new host", async () => {
+    const origin = { value: "https://castkit.example.test" }
+    const first = makeCookies(signIn)
+    const second = makeCookies()
+    electron.fromPartition.mockImplementation(
+      (partition) => ({
+        cookies: partition === "first" ? first : second,
+      }),
+    )
+    const sharing = createSharedSignIn({
+      readServerOrigin: () => origin.value,
+      log: vi.fn(),
+    })
+    await sharing.attach("first")
+    origin.value = "https://other.example.test"
+    await sharing.attach("second")
+    expect(second.set).not.toHaveBeenCalled()
+  })
+
+  test("detaching a removed window removes its cookie listener", async () => {
+    const cookies = makeCookies()
+    electron.fromPartition.mockReturnValue({ cookies })
+    const sharing = createSharedSignIn({
+      readServerOrigin: () =>
+        "https://castkit.example.test",
+      log: vi.fn(),
+    })
+    await sharing.attach("first")
+    expect(cookies.listenerCount("changed")).toBe(1)
+    sharing.detach("first")
+    expect(cookies.listenerCount("changed")).toBe(0)
   })
 })

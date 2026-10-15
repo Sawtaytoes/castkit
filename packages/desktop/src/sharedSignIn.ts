@@ -70,28 +70,30 @@ export const createSharedSignIn = ({
   readServerOrigin: () => string | null
   log: (message: string) => void
 }) => {
-  const watched = new Map<string, Session>()
-  const shared: { cookie: Cookie | null } = { cookie: null }
-
-  const readServerHost = () => {
-    const serverOrigin = readServerOrigin()
-    return serverOrigin
-      ? new URL(serverOrigin).hostname
-      : null
-  }
+  type CookieListener = (
+    event: Electron.Event,
+    cookie: Cookie,
+    cause: CookieChangeCause,
+    isRemoved: boolean,
+  ) => void
+  const watched = new Map<
+    string,
+    { partitionSession: Session; onChanged: CookieListener }
+  >()
+  // A remembered sign-in belongs to one server, never whichever host was
+  // selected most recently. Null remembers a sign-out, too.
+  const sharedByOrigin = new Map<string, Cookie | null>()
 
   const copyInto = ({
     target,
     cookie,
+    serverOrigin,
   }: {
     target: Session
     cookie: Cookie
-  }) => {
-    const serverOrigin = readServerOrigin()
-    if (!serverOrigin) {
-      return Promise.resolve()
-    }
-    return target.cookies
+    serverOrigin: string
+  }) =>
+    target.cookies
       .set({
         url: `${serverOrigin}/`,
         name: cookie.name,
@@ -107,74 +109,145 @@ export const createSharedSignIn = ({
       .catch((error: unknown) => {
         log(`Could not share the sign-in: ${String(error)}`)
       })
-  }
 
-  const removeFrom = (target: Session) => {
+  const removeFrom = ({
+    target,
+    serverOrigin,
+  }: {
+    target: Session
+    serverOrigin: string
+  }) =>
+    target.cookies
+      .remove(`${serverOrigin}/`, signInCookieName)
+      .catch(() => undefined)
+
+  const shareWithOthers = ({
+    partition,
+    cookie,
+    serverOrigin,
+  }: {
+    partition: string
+    cookie: Cookie | null
+    serverOrigin: string
+  }) =>
+    Promise.all(
+      [...watched.entries()]
+        .filter(
+          ([otherPartition]) =>
+            otherPartition !== partition,
+        )
+        .map(([, other]) =>
+          cookie
+            ? copyInto({
+                target: other.partitionSession,
+                cookie,
+                serverOrigin,
+              })
+            : removeFrom({
+                target: other.partitionSession,
+                serverOrigin,
+              }),
+        ),
+    )
+
+  const hydrate = async (partition: string) => {
+    const entry = watched.get(partition)
     const serverOrigin = readServerOrigin()
-    return serverOrigin
-      ? target.cookies
-          .remove(`${serverOrigin}/`, signInCookieName)
-          .catch(() => undefined)
-      : Promise.resolve()
-  }
-
-  /** Watch a window's partition, and start it with the shared sign-in. */
-  const attach = async (partition: string) => {
-    if (watched.has(partition)) {
+    if (!entry || !serverOrigin) {
       return
     }
-    const partitionSession =
-      session.fromPartition(partition)
-    watched.set(partition, partitionSession)
-    partitionSession.cookies.on(
-      "changed",
-      (_event, cookie, cause, isRemoved) => {
+    const [ownCookie] = await entry.partitionSession.cookies
+      .get({ url: serverOrigin, name: signInCookieName })
+      .catch(() => [])
+    if (
+      watched.get(partition) !== entry ||
+      serverOrigin !== readServerOrigin()
+    ) {
+      return
+    }
+    if (sharedByOrigin.has(serverOrigin)) {
+      const cookie = sharedByOrigin.get(serverOrigin)
+      if (cookie && ownCookie?.value !== cookie.value) {
+        await copyInto({
+          target: entry.partitionSession,
+          cookie,
+          serverOrigin,
+        })
+      } else if (!cookie && ownCookie) {
+        await removeFrom({
+          target: entry.partitionSession,
+          serverOrigin,
+        })
+      }
+    } else if (ownCookie) {
+      sharedByOrigin.set(serverOrigin, ownCookie)
+      // Also reach windows which finished attaching before the signed-in one.
+      await shareWithOthers({
+        partition,
+        cookie: ownCookie,
+        serverOrigin,
+      })
+    }
+  }
+
+  /** Watch a window's partition, and start it with the current server's sign-in. */
+  const attach = async (partition: string) => {
+    if (!watched.has(partition)) {
+      const partitionSession =
+        session.fromPartition(partition)
+      const onChanged: CookieListener = (
+        _event,
+        cookie,
+        cause,
+        isRemoved,
+      ) => {
+        const serverOrigin = readServerOrigin()
+        if (!serverOrigin) {
+          return
+        }
         const decision = decideCookieChange({
           cookie,
           cause,
           isRemoved,
-          serverHost: readServerHost(),
-          sharedValue: shared.cookie?.value ?? null,
+          serverHost: new URL(serverOrigin).hostname,
+          sharedValue:
+            sharedByOrigin.get(serverOrigin)?.value ?? null,
         })
         if (decision === "ignore") {
           return
         }
-        shared.cookie = decision === "share" ? cookie : null
-        watched.forEach((other, otherPartition) => {
-          if (otherPartition === partition) {
-            return
-          }
-          void (decision === "share"
-            ? copyInto({ target: other, cookie })
-            : removeFrom(other))
-        })
-      },
-    )
-    const serverOrigin = readServerOrigin()
-    if (!serverOrigin) {
-      return
-    }
-    const [ownCookie] = await partitionSession.cookies
-      .get({ url: serverOrigin, name: signInCookieName })
-      .catch(() => [])
-    if (shared.cookie) {
-      if (ownCookie?.value !== shared.cookie.value) {
-        await copyInto({
-          target: partitionSession,
-          cookie: shared.cookie,
+        const sharedCookie =
+          decision === "share" ? cookie : null
+        sharedByOrigin.set(serverOrigin, sharedCookie)
+        void shareWithOthers({
+          partition,
+          cookie: sharedCookie,
+          serverOrigin,
         })
       }
-    } else if (ownCookie) {
-      // The first window that is already signed in at launch is the one the
-      // others copy when they next need a sign-in.
-      shared.cookie = ownCookie
+      watched.set(partition, {
+        partitionSession,
+        onChanged,
+      })
+      partitionSession.cookies.on("changed", onChanged)
     }
+    await hydrate(partition)
   }
 
-  /** Stop watching a removed window's partition. */
+  /** Stop watching a removed window before its partition is cleared. */
   const detach = (partition: string) => {
+    const entry = watched.get(partition)
+    entry?.partitionSession.cookies.off(
+      "changed",
+      entry.onChanged,
+    )
     watched.delete(partition)
   }
 
-  return { attach, detach }
+  /** Load and share the newly selected server's own cookie before its pages open. */
+  const refresh = async () => {
+    await Promise.all([...watched.keys()].map(hydrate))
+  }
+
+  return { attach, detach, refresh }
 }

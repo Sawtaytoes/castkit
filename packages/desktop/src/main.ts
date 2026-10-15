@@ -180,8 +180,12 @@ const start = () => {
         return
       }
       settings.serverOrigin = serverOrigin
-      windowManager.rebaseAll(serverOrigin)
-      saveNow()
+      void sharedSignIn.refresh().then(() => {
+        if (settings.serverOrigin === serverOrigin) {
+          windowManager.rebaseAll(serverOrigin)
+          saveNow()
+        }
+      })
     },
     addWindow: ({ url, displayId, isFullScreen }) => {
       windowManager.add({
@@ -278,13 +282,11 @@ const start = () => {
   }
 
   const onDisplaysChanged = () => {
+    windowManager.returnWindowsToDisplays()
     refreshMenus()
     settingsWindow.notifyChanged()
   }
-  screen.on("display-added", () => {
-    windowManager.returnWindowsToDisplays()
-    onDisplaysChanged()
-  })
+  screen.on("display-added", onDisplaysChanged)
   screen.on("display-removed", onDisplaysChanged)
   screen.on("display-metrics-changed", onDisplaysChanged)
 

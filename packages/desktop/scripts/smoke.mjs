@@ -62,6 +62,14 @@ const server = createServer((request, response) => {
     response.end()
     return
   }
+  if (request.url === "/sign-out") {
+    response.writeHead(204, {
+      "set-cookie":
+        "castkit-session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
+    })
+    response.end()
+    return
+  }
   if (request.url === "/screen/other") {
     response.writeHead(200, { "content-type": "text/html" })
     response.end(
@@ -78,7 +86,7 @@ const server = createServer((request, response) => {
   response.end("Not found")
 })
 await new Promise((resolve) =>
-  server.listen(0, "127.0.0.1", resolve),
+  server.listen(0, "0.0.0.0", resolve),
 )
 const { port } = server.address()
 const serverOrigin = `http://127.0.0.1:${port}`
@@ -151,13 +159,37 @@ const waitFor = async (check, description) => {
 }
 
 const logLines = []
-const app = await electron.launch({
-  args: [packageDirectory, "--no-sandbox"],
-  env: {
-    ...process.env,
-    CASTKIT_DESKTOP_STATE_FILE: stateFile,
-  },
+// Isolate the actual Electron userData, not just the JSON state: sessions,
+// cookies, the single-instance lock and Chromium storage belong to this run.
+const entryFile = join(stateDirectory, "smoke-main.cjs")
+writeFileSync(
+  entryFile,
+  `
+const { app, session, shell } = require("electron")
+const { existsSync, writeFileSync } = require("node:fs")
+app.setPath("userData", ${JSON.stringify(join(stateDirectory, "profile"))})
+shell.openExternal = async (url) => { globalThis.smokeExternalUrl = url }
+void app.whenReady().then(async () => {
+  const marker = ${JSON.stringify(join(stateDirectory, "seeded"))}
+  if (!existsSync(marker)) {
+    await session.fromPartition("persist:castkit-window-window-5a0e7e58").cookies.set({
+      url: ${JSON.stringify(serverOrigin)}, name: "castkit-session", value: "restored-token", path: "/", httpOnly: true,
+    })
+    writeFileSync(marker, "seeded")
+  }
+  require(${JSON.stringify(join(packageDirectory, "dist", "main.cjs"))})
 })
+`,
+)
+const launch = () =>
+  electron.launch({
+    args: [entryFile, "--no-sandbox"],
+    env: {
+      ...process.env,
+      CASTKIT_DESKTOP_STATE_FILE: stateFile,
+    },
+  })
+const app = await launch()
 app
   .process()
   .stdout.on("data", (chunk) =>
@@ -350,6 +382,24 @@ try {
   )
 
   await check(
+    "a saved sign-in in the second window unlocks the first window at startup",
+    async () => {
+      await waitFor(
+        () =>
+          app.evaluate(async ({ session }) => {
+            const [cookie] = await session
+              .fromPartition(
+                "persist:castkit-window-window-5a0e7e57",
+              )
+              .cookies.get({ name: "castkit-session" })
+            return cookie?.value === "restored-token"
+          }),
+        "the restored sign-in in the first window",
+      )
+    },
+  )
+
+  await check(
     "a sign-in in one window reaches the other window",
     async () => {
       await page.evaluate(() =>
@@ -431,6 +481,152 @@ try {
     },
   )
 
+  const settingsPage = app
+    .windows()
+    .find((candidate) =>
+      candidate.url().includes("settings/index.html"),
+    )
+  await check(
+    "removing a signed-in window keeps the other windows signed in",
+    async () => {
+      const before = await settingsPage.evaluate(() =>
+        window.castkitDesktop.readSettings(),
+      )
+      const result = await settingsPage.evaluate(
+        (displayId) =>
+          window.castkitDesktop.addWindow({
+            page: "/screen/other",
+            displayId,
+            isFullScreen: false,
+          }),
+        before.displays[0].id,
+      )
+      assert.equal(result.isDone, true)
+      await waitFor(
+        () => readState().windows.length === 3,
+        "the third window",
+      )
+      const thirdId = readState().windows[2].id
+      await waitFor(
+        () =>
+          app.evaluate(async ({ session }, partition) => {
+            const [cookie] = await session
+              .fromPartition(partition)
+              .cookies.get({ name: "castkit-session" })
+            return cookie?.value === "smoke-token"
+          }, `persist:castkit-window-${thirdId}`),
+        "the third window signed in",
+      )
+      await settingsPage.evaluate(
+        (windowId) =>
+          window.castkitDesktop.removeWindow(windowId),
+        thirdId,
+      )
+      await waitFor(
+        () => readState().windows.length === 2,
+        "the third window removed",
+      )
+      const [cookie] = await app.evaluate(
+        async ({ session }) =>
+          session
+            .fromPartition(
+              "persist:castkit-window-window-5a0e7e57",
+            )
+            .cookies.get({ name: "castkit-session" }),
+      )
+      assert.equal(cookie?.value, "smoke-token")
+    },
+  )
+
+  await check(
+    "changing servers does not copy the old server's sign-in to a newly opened window",
+    async () => {
+      const otherOrigin = `http://127.0.0.2:${port}`
+      await settingsPage.evaluate(
+        (origin) =>
+          window.castkitDesktop.saveServerOrigin(origin),
+        otherOrigin,
+      )
+      await waitFor(
+        () => readState().serverOrigin === otherOrigin,
+        "the new server address",
+      )
+      const current = await settingsPage.evaluate(() =>
+        window.castkitDesktop.readSettings(),
+      )
+      await settingsPage.evaluate(
+        (displayId) =>
+          window.castkitDesktop.addWindow({
+            page: "/screen/other",
+            displayId,
+            isFullScreen: false,
+          }),
+        current.displays[0].id,
+      )
+      await waitFor(
+        () => readState().windows.length === 3,
+        "the new server's third window",
+      )
+      const thirdId = readState().windows[2].id
+      // Wait for attach + initial load, then inspect the real cookie store.
+      await waitFor(
+        () =>
+          app
+            .windows()
+            .some(
+              (candidate) =>
+                candidate.url() ===
+                `${otherOrigin}/screen/other`,
+            ),
+        "a page on the new server",
+      )
+      const cookies = await app.evaluate(
+        async ({ session }, { partition, origin }) =>
+          session.fromPartition(partition).cookies.get({
+            url: origin,
+            name: "castkit-session",
+          }),
+        {
+          partition: `persist:castkit-window-${thirdId}`,
+          origin: otherOrigin,
+        },
+      )
+      assert.equal(cookies.length, 0)
+      await settingsPage.evaluate(
+        (windowId) =>
+          window.castkitDesktop.removeWindow(windowId),
+        thirdId,
+      )
+      await settingsPage.evaluate(
+        (origin) =>
+          window.castkitDesktop.saveServerOrigin(origin),
+        serverOrigin,
+      )
+      await page.waitForURL(`${serverOrigin}/screen/test`)
+    },
+  )
+
+  await check(
+    "signing out removes the cookie from every window",
+    async () => {
+      await page.evaluate(() =>
+        fetch("/sign-out", { credentials: "include" }),
+      )
+      await waitFor(
+        () =>
+          app.evaluate(async ({ session }) => {
+            const cookies = await session
+              .fromPartition(
+                "persist:castkit-window-window-5a0e7e58",
+              )
+              .cookies.get({ name: "castkit-session" })
+            return cookies.length === 0
+          }),
+        "sign-out in the other window",
+      )
+    },
+  )
+
   await check(
     "F11 enters fullscreen and saves it",
     async () => {
@@ -473,9 +669,27 @@ try {
   await page.screenshot({
     path: join(screenshotDirectory, "desktop-smoke.png"),
   })
+  await check(
+    "navigation is saved for restart, including an in-page change",
+    async () => {
+      await page.goto(`${serverOrigin}/screen/other`)
+      await page.evaluate(() =>
+        history.pushState(
+          {},
+          "",
+          "/screen/other?mode=board#details",
+        ),
+      )
+      await waitFor(
+        () =>
+          readState().windows[0].url ===
+          `${serverOrigin}/screen/other?mode=board#details`,
+        "the navigated URL in saved state",
+      )
+    },
+  )
 } finally {
   await app.close()
-  server.close()
 }
 
 await check(
@@ -488,6 +702,41 @@ await check(
   },
 )
 
-rmSync(stateDirectory, { recursive: true, force: true })
+const restarted = await launch()
+try {
+  await check(
+    "a fresh Electron process restores the navigated page and fullscreen state",
+    async () => {
+      await waitFor(
+        () =>
+          restarted
+            .windows()
+            .some(
+              (candidate) =>
+                candidate.url() ===
+                `${serverOrigin}/screen/other?mode=board#details`,
+            ),
+        "the saved page after restart",
+      )
+      await waitFor(
+        () =>
+          restarted.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows().some(
+              (window) =>
+                window.webContents
+                  .getURL()
+                  .includes("?mode=board#details") &&
+                window.isFullScreen(),
+            ),
+          ),
+        "fullscreen after restart",
+      )
+    },
+  )
+} finally {
+  await restarted.close()
+  server.close()
+  rmSync(stateDirectory, { recursive: true, force: true })
+}
 console.info(`\n${results.length} checks passed.`)
 console.info(logLines.join("").trim())
