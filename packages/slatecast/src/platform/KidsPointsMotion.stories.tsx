@@ -211,6 +211,21 @@ export const BoardGoal: Story = {
   ),
 }
 
+/** A short composition card keeps the name clear of the scan feedback. */
+export const ShortBoardScan: Story = {
+  render: () => (
+    <ScanStage
+      width={976}
+      height={254}
+      kidId="robin"
+      pointsToday={285}
+      points={100}
+      taskName="Schoolwork"
+      repaint="fast"
+    />
+  ),
+}
+
 /**
  * A slow panel does not animate: it draws the points the scan earned and the
  * new total, and holds them for ten repaints.

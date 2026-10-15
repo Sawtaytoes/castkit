@@ -1403,6 +1403,45 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+/* A short board card budgets scan feedback by its height. Otherwise the
+   extra scan lines squeeze the name and footnote into clipped slivers. */
+@container (max-height: 300px) {
+  .kids-points-card[data-scanned="true"] > h3 {
+    flex: none;
+    font-size: clamp(18px, min(13cqi, 12cqh), 36px);
+  }
+  .kids-points-card > .kids-points-scan {
+    flex: none;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 2cqi;
+  }
+  .kids-points-card .kids-points-scan-headline {
+    flex: none;
+    font-size: clamp(24px, 18cqmin, 64px);
+  }
+  .kids-points-card .kids-points-scan-detail {
+    font-size: clamp(14px, 8cqmin, 28px);
+    line-height: 1.2;
+  }
+  .kids-points-card[data-scanned="true"]
+    > .kids-points-total
+    strong,
+  .kids-points-card[data-scanned="true"]
+    > .kids-points-total
+    .kids-points-number {
+    font-size: clamp(36px, 28cqmin, 120px);
+  }
+  .kids-points-card[data-scanned="true"]
+    > .kids-points-total
+    .kids-points-total-label {
+    font-size: clamp(14px, 8cqmin, 28px);
+  }
+  .kids-points-card:has(> .kids-points-scan)
+    > .kids-points-footnote {
+    display: none;
+  }
+}
 /*
  * The whole panel for the child who just scanned: the view's own box is the
  * size container here, so a 480 px porthole and a 480 x 320 strip both scale
