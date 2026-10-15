@@ -1,4 +1,5 @@
 import { FuseV1Options, FuseVersion } from "@electron/fuses"
+import { MakerDeb } from "@electron-forge/maker-deb"
 import { MakerSquirrel } from "@electron-forge/maker-squirrel"
 import { MakerZIP } from "@electron-forge/maker-zip"
 import { FusesPlugin } from "@electron-forge/plugin-fuses"
@@ -15,7 +16,11 @@ const config: ForgeConfig = {
     asar: true,
     name: "CastKit",
     executableName: "CastKit",
+    // No extension: Forge adds .ico on Windows, .icns on macOS, and .png on
+    // Linux, and `scripts/build.mjs` writes all three.
     icon: "dist/icon",
+    appBundleId: "io.github.sawtaytoes.castkit",
+    appCategoryType: "public.app-category.utilities",
     prune: false,
     ignore: (path) =>
       path !== "" && !packagedPaths.test(path),
@@ -28,7 +33,24 @@ const config: ForgeConfig = {
       authors: "CastKit contributors",
       setupIcon: "dist/icon.ico",
     }),
-    new MakerZIP({}, ["win32", "linux"]),
+    // Linux: a .deb for Debian and Ubuntu. The maker sets Electron's
+    // `chrome-sandbox` helper setuid root, which Ubuntu 24.04 needs because
+    // it blocks the unprivileged namespaces the sandbox would otherwise use.
+    new MakerDeb({
+      options: {
+        name: "castkit",
+        productName: "CastKit",
+        genericName: "Display viewer",
+        bin: "CastKit",
+        icon: "dist/icon.png",
+        categories: ["Utility"],
+        maintainer: "CastKit contributors",
+        homepage: "https://github.com/Sawtaytoes/castkit",
+      },
+    }),
+    // Every platform gets a .zip that runs without installing; it is the
+    // only macOS package, because an unsigned .dmg adds nothing to it.
+    new MakerZIP({}, ["win32", "linux", "darwin"]),
   ],
   plugins: [
     // Electron Fuses harden the packaged app: no running it as plain Node,
@@ -36,6 +58,11 @@ const config: ForgeConfig = {
     // integrity-checked ASAR.
     new FusesPlugin({
       version: FuseVersion.V1,
+      // Flipping a fuse edits the Electron binary, which breaks its ad-hoc
+      // signature, and Apple silicon refuses to start an unsigned binary.
+      // Re-sign ad hoc after the edit. This needs `codesign`, so only on a Mac.
+      resetAdHocDarwinSignature:
+        process.platform === "darwin",
       [FuseV1Options.RunAsNode]: false,
       [FuseV1Options.EnableCookieEncryption]: true,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,

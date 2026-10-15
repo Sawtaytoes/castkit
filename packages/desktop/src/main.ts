@@ -1,6 +1,7 @@
 import { join } from "node:path"
 import {
   app,
+  BrowserWindow,
   ipcMain,
   Menu,
   nativeImage,
@@ -10,6 +11,7 @@ import {
 } from "electron"
 import isSquirrelStartup from "electron-squirrel-startup"
 import {
+  buildApplicationMenu,
   buildTrayMenu,
   buildWindowMenuBar,
   buildWindowPopupMenu,
@@ -91,6 +93,27 @@ const start = () => {
         }),
       ),
     )
+    if (process.platform === "darwin") {
+      const focusedWindow = BrowserWindow.getFocusedWindow()
+      Menu.setApplicationMenu(
+        Menu.buildFromTemplate(
+          buildApplicationMenu({
+            entry:
+              entries.find(
+                (entry) =>
+                  focusedWindow !== null &&
+                  windowManager.readBrowserWindow(
+                    entry.id,
+                  ) === focusedWindow,
+              ) ?? null,
+            displays,
+            isLaunchedAtLogin,
+            actions,
+          }),
+        ),
+      )
+      return
+    }
     entries.forEach((entry) => {
       windowManager.readBrowserWindow(entry.id)?.setMenu(
         Menu.buildFromTemplate(
@@ -228,7 +251,7 @@ const start = () => {
   // Starting CastKit again (the Start menu, the desktop shortcut) opens
   // every closed window and the settings window, where any window can be
   // opened or removed.
-  app.on("second-instance", () => {
+  const reopenEverything = () => {
     windowManager
       .readMenuEntries()
       .filter((entry) => !entry.isOpen)
@@ -236,7 +259,21 @@ const start = () => {
         windowManager.open(entry.id)
       })
     settingsWindow.open()
+  }
+  app.on("second-instance", reopenEverything)
+  // macOS does not start a second instance: a click on the Dock icon or
+  // opening the app again raises `activate` on the running one. It also
+  // fires at the first launch, so it only brings up the settings window,
+  // and only when nothing is showing; closed windows stay closed.
+  app.on("activate", (_event, hasVisibleWindows) => {
+    if (!hasVisibleWindows) {
+      settingsWindow.open()
+    }
   })
+  // The macOS menu bar belongs to whichever window has the focus.
+  if (process.platform === "darwin") {
+    app.on("browser-window-focus", refreshMenus)
+  }
 
   const onDisplaysChanged = () => {
     refreshMenus()
@@ -249,10 +286,12 @@ const start = () => {
   screen.on("display-removed", onDisplaysChanged)
   screen.on("display-metrics-changed", onDisplaysChanged)
 
+  // `tray.png` is 16 px and `tray@2x.png` beside it is 32 px; Electron picks
+  // the sharper one on a high-density display by itself.
   tray.icon = new Tray(
-    nativeImage
-      .createFromPath(join(distDirectory, "tray.png"))
-      .resize({ width: 16, height: 16 }),
+    nativeImage.createFromPath(
+      join(distDirectory, "tray.png"),
+    ),
   )
   tray.icon.setToolTip("CastKit")
   tray.icon.on("click", () => {
