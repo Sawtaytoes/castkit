@@ -126,8 +126,10 @@ between the windows' sessions; zoom stays separate.
 
 Turn on **Launch at login** in the tray menu. It is off until you turn it on.
 
-- **Windows:** the installed app starts through the installer's `Update.exe`,
-  so the setting survives updates.
+- **Windows:** the installed app starts through the stable `CastKit.exe` launcher
+  beside `Update.exe`, so the setting survives updates. Older updater commands
+  are repaired when the app starts. The checkbox also reflects whether Windows
+  has disabled the startup entry in Task Manager or Settings.
 - **macOS:** CastKit is added to the user's login items.
 - **Linux:** Electron's login items do not cover Linux, so CastKit writes
   `~/.config/autostart/castkit.desktop` (under `$XDG_CONFIG_HOME` when set),
