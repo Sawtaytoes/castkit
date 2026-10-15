@@ -1,17 +1,24 @@
 name: Desktop release
 
-# Builds the CastKit desktop app's Windows installer (Squirrel `Setup.exe`
-# plus a `.zip`) on a Windows runner, the same way Image-Viewer does.
+# Builds the CastKit desktop app for every platform, each on its own runner:
 #
-# - A `desktop-v<version>` tag publishes a GitHub release with both files.
+# - Windows: the Squirrel `Setup.exe` and a `.zip`, the same way Image-Viewer
+#   does.
+# - Linux: a `.deb` and a `.zip`, for x64 and arm64.
+# - macOS: a `.zip` holding `CastKit.app`, for Apple silicon (arm64) and Intel
+#   (x64). It is NOT signed with an Apple Developer ID, so macOS warns on the
+#   first start; the README says how to open it.
+#
+# - A `desktop-v<version>` tag publishes ONE GitHub release with every file.
 # - A manual run with a version does the same, and creates the tag.
 # - A pull request that changes the desktop package only BUILDS, and uploads
-#   the files as a workflow artifact, so a broken installer is caught before
-#   it merges.
+#   the files as workflow artifacts, so a broken package is caught before it
+#   merges.
 #
-# It does not run on other pull requests: a Windows build takes minutes and the
-# server's CI does not depend on it. That is why `paths:` is safe here — this is
-# not a required check, so a workflow that never starts holds nothing pending.
+# It does not run on other pull requests: these builds take minutes and the
+# server's CI does not depend on them. That is why `paths:` is safe here — this
+# is not a required check, so a workflow that never starts holds nothing
+# pending.
 
 on:
   push:
@@ -33,34 +40,15 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  windows:
+  version:
     if: ${{ github.server_url == 'https://github.com' }}
-    runs-on: windows-latest
-    timeout-minutes: 30
-    permissions:
-      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
 
-      # Node 24, not the repo's .nvmrc: Forge's zip maker uses cross-zip 4,
-      # which calls `fs.rmdir(..., { recursive: true })`, and Node 26 removed
-      # that option. Image-Viewer builds its installer on Node 24 too. Only
-      # this packaging job pins it; the app itself runs on Electron's Node.
-      - uses: actions/setup-node@v6
-        with: { node-version: 24 }
-
-      - name: Install pinned pnpm
-        run: |
-          npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
-          $pnpmBin = npm prefix -g
-          Add-Content -Path $env:GITHUB_PATH -Value $pnpmBin
-          & "$pnpmBin\pnpm.cmd" --version
-
-      # The version is decided and stamped BEFORE the install. pnpm checks the
-      # workspace against its last install before every `pnpm run`, and a
-      # package.json edited after the install fails that check with
-      # ERR_PNPM_VERIFY_DEPS_BEFORE_RUN, so a tag that differs from the
-      # committed version could never build.
       - name: Decide the version
         id: version
         shell: bash
@@ -79,9 +67,35 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+  windows:
+    needs: version
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node 24, not the repo's .nvmrc: Forge's zip maker uses cross-zip 4,
+      # which calls `fs.rmdir(..., { recursive: true })`, and Node 26 removed
+      # that option. Image-Viewer builds its installer on Node 24 too. Only
+      # the packaging jobs pin it; the app itself runs on Electron's Node.
+      - uses: actions/setup-node@v6
+        with: { node-version: 24 }
+
+      - name: Install pinned pnpm
+        run: |
+          npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
+          $pnpmBin = npm prefix -g
+          Add-Content -Path $env:GITHUB_PATH -Value $pnpmBin
+          & "$pnpmBin\pnpm.cmd" --version
+
+      # The version is stamped BEFORE the install. pnpm checks the workspace
+      # against its last install before every `pnpm run`, and a package.json
+      # edited after the install fails that check with
+      # ERR_PNPM_VERIFY_DEPS_BEFORE_RUN, so a tag that differs from the
+      # committed version could never build.
       - name: Stamp the version
         working-directory: packages/desktop
-        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+        run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --store-dir "$HOME/.cache/pnpm/store"
@@ -117,7 +131,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: castkit-desktop-windows-${{ steps.version.outputs.version }}
+          name: castkit-desktop-windows-${{ needs.version.outputs.version }}
           path: |
             packages/desktop/out/make/squirrel.windows/x64/*Setup.exe
             packages/desktop/out/make/squirrel.windows/x64/*.nupkg
@@ -125,18 +139,135 @@ jobs:
             packages/desktop/out/make/zip/win32/x64/*.zip
           if-no-files-found: error
 
-      - name: Publish the release
-        if: ${{ github.event_name != 'pull_request' }}
-        shell: bash
+  # Linux and macOS share one job shape. Each runner builds for its own
+  # architecture first and then cross-builds the other: the app bundles every
+  # dependency and has no native module, so Electron Packager only has to
+  # fetch the other architecture's Electron.
+  unix:
+    name: ${{ matrix.platform }}
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-latest
+            architectures: "x64 arm64"
+            files: |
+              packages/desktop/out/make/deb/*/*.deb
+              packages/desktop/out/make/zip/linux/*/*.zip
+          # The macOS runner is Apple silicon. `codesign` there re-signs the
+          # fused Electron binary ad hoc, which Apple silicon requires.
+          - platform: macos
+            runner: macos-latest
+            architectures: "arm64 x64"
+            files: |
+              packages/desktop/out/make/zip/darwin/*/*.zip
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with: { node-version: 24 }
+
+      - name: Install pinned pnpm
+        run: |
+          npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
+          pnpm --version
+
+      - name: Stamp the version
+        working-directory: packages/desktop
+        run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install the Electron binary
+        run: pnpm --filter @castkit/desktop exec install-electron
+
+      - name: Skip Forge's node_modules layout check
+        run: touch "$HOME/.skip-forge-system-check"
+
+      - name: Build the packages
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
+          ARCHITECTURES: ${{ matrix.architectures }}
         run: |
           set -euo pipefail
+          pnpm --filter @castkit/desktop build
+          for arch in $ARCHITECTURES; do
+            pnpm --filter @castkit/desktop exec electron-forge make --arch="$arch"
+          done
+
+      # Never publish an empty release: one .deb and one .zip per architecture
+      # on Linux, one .zip per architecture on macOS.
+      - name: Verify the packages exist
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          ARCHITECTURES: ${{ matrix.architectures }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          make=packages/desktop/out/make
+          missing=0
+          for arch in $ARCHITECTURES; do
+            if [ "$PLATFORM" = linux ]; then
+              debArch=$([ "$arch" = x64 ] && echo amd64 || echo "$arch")
+              expected=("$make"/deb/"$arch"/*_"$debArch".deb "$make"/zip/linux/"$arch"/*.zip)
+              wanted=2
+            else
+              expected=("$make"/zip/darwin/"$arch"/*.zip)
+              wanted=1
+            fi
+            if [ ${#expected[@]} -lt "$wanted" ]; then
+              echo "::error::No complete $PLATFORM $arch build."
+              missing=1
+            fi
+            printf 'Built: %s\n' "${expected[@]}"
+          done
+          if [ "$missing" -ne 0 ]; then
+            find "$make" -type f || true
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: castkit-desktop-${{ matrix.platform }}-${{ needs.version.outputs.version }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  publish:
+    if: ${{ github.event_name != 'pull_request' }}
+    needs: [version, windows, unix]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+          pattern: castkit-desktop-*
+
+      # The Squirrel .nupkg and RELEASES feed are uploaded as artifacts for
+      # debugging only; the release carries what a person downloads.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=(artifacts/**/*Setup.exe artifacts/**/*.zip artifacts/**/*.deb)
+          printf 'Publishing: %s\n' "${files[@]}"
           tag="desktop-v${VERSION}"
           gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "CastKit desktop ${VERSION}" \
-            --notes "The CastKit desktop app for Windows. Run the Setup.exe to install, or unzip the .zip to run without installing." \
-            packages/desktop/out/make/squirrel.windows/x64/*Setup.exe \
-            packages/desktop/out/make/zip/win32/x64/*.zip
+            --notes "The CastKit desktop app.
+
+          - **Windows:** run \`CastKit-${VERSION}.Setup.exe\` to install, or unzip the \`win32\` .zip to run without installing.
+          - **Linux (Debian, Ubuntu):** install the \`.deb\` for your architecture (amd64 or arm64). The \`linux\` .zip runs without installing.
+          - **macOS:** unzip the \`darwin-arm64\` .zip (Apple silicon) or the \`darwin-x64\` .zip (Intel) and move CastKit to Applications. The app is not signed with an Apple Developer ID; see the desktop README for how to open it the first time." \
+            "${files[@]}"

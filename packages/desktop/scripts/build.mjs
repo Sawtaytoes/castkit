@@ -106,8 +106,14 @@ writeFileSync(
   join(distDirectory, "icon.png"),
   pngBySize.get(256),
 )
+// The tray icon is drawn at 16 px; Electron takes `tray@2x.png` beside it on
+// a high-density display, which is every Mac and most laptops.
 writeFileSync(
   join(distDirectory, "tray.png"),
+  pngBySize.get(16),
+)
+writeFileSync(
+  join(distDirectory, "tray@2x.png"),
   pngBySize.get(32),
 )
 
@@ -146,4 +152,49 @@ writeFileSync(
     ...entries,
     ...iconSizes.map((size) => pngBySize.get(size)),
   ]),
+)
+
+// A macOS `.icns` holds PNG images directly too: the 4-byte `icns` magic and
+// the file's length, then per image a 4-byte type code, the entry's length
+// (header included), and the PNG. Every length is big-endian.
+const icnsTypes = [
+  ["icp4", 16],
+  ["icp5", 32],
+  ["icp6", 64],
+  ["ic07", 128],
+  ["ic08", 256],
+  ["ic09", 512],
+  ["ic10", 1024],
+  ["ic11", 32],
+  ["ic12", 64],
+  ["ic13", 256],
+  ["ic14", 512],
+]
+const icnsPngBySize = new Map(
+  await Promise.all(
+    [...new Set(icnsTypes.map(([, size]) => size))].map(
+      async (size) => [size, await renderMark(size)],
+    ),
+  ),
+)
+const icnsEntries = icnsTypes.map(([type, size]) => {
+  const png = icnsPngBySize.get(size)
+  const entryHeader = Buffer.alloc(8)
+  entryHeader.write(type, 0, "ascii")
+  entryHeader.writeUInt32BE(8 + png.length, 4)
+  return Buffer.concat([entryHeader, png])
+})
+const icnsHeader = Buffer.alloc(8)
+icnsHeader.write("icns", 0, "ascii")
+icnsHeader.writeUInt32BE(
+  8 +
+    icnsEntries.reduce(
+      (total, entry) => total + entry.length,
+      0,
+    ),
+  4,
+)
+writeFileSync(
+  join(distDirectory, "icon.icns"),
+  Buffer.concat([icnsHeader, ...icnsEntries]),
 )

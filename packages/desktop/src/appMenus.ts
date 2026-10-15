@@ -282,3 +282,57 @@ export const buildWindowPopupMenu = ({
     items.settings,
   ]
 }
+
+/**
+ * The macOS menu bar. macOS has one menu bar for the whole app, not one per
+ * window, so it follows the focused window: the CastKit menu, Edit (without
+ * it, Command-C and Command-V do nothing in the settings fields), and the
+ * focused page window's own menu when a page window has the focus.
+ */
+export const buildApplicationMenu = ({
+  entry,
+  displays,
+  isLaunchedAtLogin,
+  actions,
+}: {
+  entry: WindowMenuEntry | null
+  displays: NumberedDisplay[]
+  isLaunchedAtLogin: boolean
+  actions: MenuActions
+}): MenuItemConstructorOptions[] => {
+  const items = buildAppItems({
+    isLaunchedAtLogin,
+    actions,
+  })
+  return [
+    {
+      label: "CastKit",
+      submenu: [
+        items.addWindow,
+        items.settings,
+        items.identify,
+        { type: "separator" },
+        items.launchAtLogin,
+        { type: "separator" },
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { ...items.quit, accelerator: "Command+Q" },
+      ],
+    },
+    { role: "editMenu" },
+    ...(entry === null
+      ? []
+      : [
+          {
+            label: "Window",
+            submenu: buildWindowMenu({
+              entry,
+              displays,
+              actions,
+            }),
+          },
+        ]),
+  ]
+}

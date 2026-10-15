@@ -14,13 +14,37 @@ equivalent of a kiosk panel. See the
 
 ## Install
 
-Windows builds are published as GitHub releases tagged `desktop-v<version>`.
-Download `CastKit-<version> Setup.exe` and run it. The installer needs no
-administrator rights; it installs for the current user and adds a Start menu
-shortcut. A `.zip` of the same build runs without installing.
+Builds for Windows, Linux, and macOS are published as one GitHub release per
+version, tagged `desktop-v<version>`.
 
-The app runs from the notification area (system tray). Closing every window
-does not quit it; use **Quit CastKit** in the tray menu.
+- **Windows:** download `CastKit-<version>.Setup.exe` and run it. The
+  installer needs no administrator rights; it installs for the current user
+  and adds a Start menu shortcut. The `win32` `.zip` runs without installing.
+- **Linux (Debian, Ubuntu):** install the `.deb` for your machine,
+  `castkit_<version>_amd64.deb` or `castkit_<version>_arm64.deb`, for example
+  with `sudo apt install ./castkit_<version>_amd64.deb`. It adds CastKit to the
+  applications menu and a `castkit` command. The `linux` `.zip` runs without
+  installing, but on Ubuntu 24.04 and later an unzipped build cannot start its
+  sandbox, so use the `.deb` there.
+- **macOS:** download the `darwin-arm64` `.zip` for Apple silicon or the
+  `darwin-x64` `.zip` for an Intel Mac, unzip it, and move **CastKit** to
+  Applications. The app is **not signed** with an Apple Developer ID, so macOS
+  refuses the first start of a downloaded copy. Remove the download mark once,
+  in Terminal:
+
+  ```sh
+  xattr -dr com.apple.quarantine /Applications/CastKit.app
+  ```
+
+The app runs from the notification area (system tray; the menu bar on macOS).
+Closing every window does not quit it; use **Quit CastKit** in the tray menu.
+On Linux the tray icon needs a desktop with a system tray: GNOME shows one only
+with the AppIndicator extension, which Ubuntu turns on by default. Without a
+tray, start CastKit again to bring up the settings window.
+
+On macOS the menu bar at the top of the screen follows the focused window:
+**CastKit**, **Edit**, and the focused page window's **Window** menu. A click
+on the Dock icon opens the settings window when no window is showing.
 
 ## Connect to your server
 
@@ -100,13 +124,21 @@ between the windows' sessions; zoom stays separate.
 
 ## Launch at login
 
-Turn on **Launch at login** in the tray menu. The installed app starts through
-the installer's `Update.exe`, so the setting survives updates.
+Turn on **Launch at login** in the tray menu. It is off until you turn it on.
+
+- **Windows:** the installed app starts through the installer's `Update.exe`,
+  so the setting survives updates.
+- **macOS:** CastKit is added to the user's login items.
+- **Linux:** Electron's login items do not cover Linux, so CastKit writes
+  `~/.config/autostart/castkit.desktop` (under `$XDG_CONFIG_HOME` when set),
+  which every XDG desktop starts at sign-in. It names the running executable,
+  so turn the setting off and on again after moving an unzipped build.
 
 ## Where settings are stored
 
 Everything is in one file, `desktop-state.json`, in the app's user data
-folder (`%APPDATA%\CastKit` on Windows). The file is written atomically. If it
+folder: `%APPDATA%\CastKit` on Windows, `~/.config/CastKit` on Linux, and
+`~/Library/Application Support/CastKit` on macOS. The file is written atomically. If it
 cannot be read, the app moves it to `desktop-state.json.corrupt` and starts
 with no windows. Set `CASTKIT_DESKTOP_STATE_FILE` to use another file, for
 example to test.
@@ -126,10 +158,14 @@ with esbuild, builds the settings page (React with `@charcuterie/ui`) with Vite
 from `vite.settings.config.ts`, and renders the app icons from CastKit's mark.
 The packaged app contains only `package.json` and `dist/`.
 
-The release workflow (`.github/workflows/desktop-release.yml`) builds the
-Windows installer. A push of a `desktop-v<version>` tag publishes a release; a
-manual run with a version does the same; a pull request that changes this
-package only builds and uploads the installer as a workflow artifact.
+The release workflow (`.github/workflows/desktop-release.yml`) builds every
+platform on its own runner: Windows (Squirrel installer and `.zip`), Linux
+(`.deb` and `.zip`, x64 and arm64), and macOS (`.zip`, arm64 and x64). A push
+of a `desktop-v<version>` tag publishes one release with all of them; a manual
+run with a version does the same; a pull request that changes this package
+only builds and uploads them as workflow artifacts. `make` here builds only for
+the machine it runs on; a `.deb` needs `dpkg`, and the macOS build must run on
+a Mac, because `codesign` re-signs the fused Electron binary.
 
 ## Security
 
