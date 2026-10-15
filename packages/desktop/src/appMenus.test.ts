@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest"
 import {
+  buildApplicationMenu,
   buildTrayMenu,
   buildWindowPopupMenu,
   type MenuActions,
@@ -97,5 +98,45 @@ describe(buildWindowPopupMenu.name, () => {
       "Add window…",
       "Server and settings…",
     ])
+  })
+})
+
+describe(buildApplicationMenu.name, () => {
+  test("carries Edit, and the focused window's menu only when a page window has the focus", () => {
+    const withWindow = buildApplicationMenu({
+      entry,
+      displays,
+      isLaunchedAtLogin: true,
+      actions,
+    })
+    expect(
+      withWindow.map((item) => item.label ?? item.role),
+    ).toEqual(["CastKit", "editMenu", "Window"])
+
+    const withoutWindow = buildApplicationMenu({
+      entry: null,
+      displays,
+      isLaunchedAtLogin: true,
+      actions,
+    })
+    expect(
+      withoutWindow.map((item) => item.label ?? item.role),
+    ).toEqual(["CastKit", "editMenu"])
+  })
+
+  test("Command-Q quits", () => {
+    const [castkitMenu] = buildApplicationMenu({
+      entry: null,
+      displays,
+      isLaunchedAtLogin: false,
+      actions,
+    })
+    const quit = (
+      castkitMenu?.submenu as {
+        label?: string
+        accelerator?: string
+      }[]
+    ).find((item) => item.label === "Quit CastKit")
+    expect(quit?.accelerator).toBe("Command+Q")
   })
 })
