@@ -35,8 +35,8 @@ mkdirSync(join(directory, "app-1.2.3"), { recursive: true })
 ;[executable, launcher, updater].forEach(path => writeFileSync(path, ""))
 Object.defineProperty(process, "execPath", { value: executable })
 const entryName = "CastKit.LoginTest." + process.pid
+app.setAppUserModelId(entryName)
 const nativeSet = app.setLoginItemSettings.bind(app)
-app.setLoginItemSettings = settings => nativeSet({ ...settings, name: entryName })
 const target = { path: launcher, args: [] }
 const legacyTarget = { path: updater, args: ["--processStart", '"CastKit.exe"'] }
 const registryCommand = () => execFileSync("reg.exe", ["query", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", entryName], { encoding: "utf8" })

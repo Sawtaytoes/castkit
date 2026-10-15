@@ -181,3 +181,22 @@ test("macOS keeps Electron's native login item behavior", () => {
     mocks.setLoginItemSettings,
   ).toHaveBeenCalledExactlyOnceWith({ openAtLogin: true })
 })
+
+test("Windows approval lookup handles an install path containing spaces", () => {
+  mocks.getLoginItemSettings
+    .mockReturnValueOnce({
+      openAtLogin: true,
+      executableWillLaunchAtLogin: false,
+    })
+    .mockReturnValueOnce({
+      openAtLogin: false,
+      executableWillLaunchAtLogin: true,
+    })
+  expect(readLaunchAtLogin()).toBe(true)
+  expect(
+    mocks.getLoginItemSettings,
+  ).toHaveBeenLastCalledWith({
+    path: `"${launcherPath}"`,
+    args: [],
+  })
+})

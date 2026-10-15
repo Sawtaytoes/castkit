@@ -39,13 +39,38 @@ const loginItemTarget = () => {
     : {}
 }
 
+// Electron 44.7 parses the approval lookup's path as a command line. Quote
+// it for that lookup when needed, while keeping the registration comparison
+// unquoted. Otherwise a space in the install path hides an enabled entry.
+const readWindowsLoginItemSettings = (target: {
+  path?: string
+  args?: string[]
+}) => {
+  const settings = app.getLoginItemSettings(target)
+  if (
+    !settings.openAtLogin ||
+    settings.executableWillLaunchAtLogin
+  ) {
+    return settings
+  }
+  const approval = app.getLoginItemSettings({
+    ...target,
+    path: `"${target.path ?? process.execPath}"`,
+  })
+  return {
+    ...settings,
+    executableWillLaunchAtLogin:
+      approval.executableWillLaunchAtLogin,
+  }
+}
+
 /** Repair the old double-quoted updater command, preserving Windows' disabled state. */
 export const migrateLaunchAtLogin = () => {
   const launchers = windowsLaunchers()
   if (!launchers) {
     return
   }
-  const legacy = app.getLoginItemSettings({
+  const legacy = readWindowsLoginItemSettings({
     path: launchers.updater,
     args: [
       "--processStart",
@@ -109,9 +134,10 @@ export const readLaunchAtLogin = () => {
   if (process.platform === "linux") {
     return existsSync(autostartPath())
   }
-  const settings = app.getLoginItemSettings(
-    loginItemTarget(),
-  )
+  const settings =
+    process.platform === "win32"
+      ? readWindowsLoginItemSettings(loginItemTarget())
+      : app.getLoginItemSettings(loginItemTarget())
   return (
     settings.openAtLogin &&
     (process.platform !== "win32" ||
