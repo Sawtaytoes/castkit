@@ -35,10 +35,11 @@ type ManagedWindow = {
   reportedView: string | null
   /** True while the window sits on the primary display because its own monitor is missing. */
   isOnFallbackDisplay: boolean
-  /** True until the restored window is shown, so its own placement does not overwrite the saved one. */
+  /** True during programmatic placement, so intermediate events are not saved. */
   isPlacing: boolean
   /** The last view and factor logged, so a repeated report is not logged again. */
   appliedZoom: string
+  placementGeneration: number
 }
 
 const reloadDelay = 10_000
@@ -230,9 +231,13 @@ export const createWindowManager = ({
     const browserWindow = liveWindow(
       managedWindows.get(windowId),
     )
-    browserWindow?.setFullScreen(
-      !browserWindow.isFullScreen(),
-    )
+    if (browserWindow) {
+      const isFullScreen = !browserWindow.isFullScreen()
+      // A deliberate request also applies while the saved monitor is absent;
+      // the OS moving a window off a disconnected monitor must not change it.
+      updateRecord({ windowId, change: { isFullScreen } })
+      browserWindow.setFullScreen(isFullScreen)
+    }
   }
 
   const reload = (windowId: string) => {
@@ -250,28 +255,39 @@ export const createWindowManager = ({
    * lands exactly. Fullscreen is entered last, on the right monitor.
    */
   const placeOnDisplay = ({
-    browserWindow,
+    managed,
     bounds,
     isFullScreen,
     onPlaced,
   }: {
-    browserWindow: BrowserWindow
+    managed: ManagedWindow
     bounds: Rectangle
     isFullScreen: boolean
     onPlaced?: () => void
   }) => {
+    const browserWindow = liveWindow(managed)
+    if (!browserWindow) {
+      return
+    }
+    managed.isPlacing = true
+    const generation = managed.placementGeneration + 1
+    managed.placementGeneration = generation
     if (browserWindow.isFullScreen()) {
       browserWindow.setFullScreen(false)
     }
     browserWindow.setBounds(bounds)
     setTimeout(() => {
-      if (browserWindow.isDestroyed()) {
+      if (
+        browserWindow.isDestroyed() ||
+        managed.placementGeneration !== generation
+      ) {
         return
       }
       browserWindow.setBounds(bounds)
       if (isFullScreen) {
         browserWindow.setFullScreen(true)
       }
+      managed.isPlacing = false
       onPlaced?.()
     }, secondPlacementDelay)
   }
@@ -294,7 +310,7 @@ export const createWindowManager = ({
     const isFullScreen = browserWindow.isFullScreen()
     managed.isOnFallbackDisplay = false
     placeOnDisplay({
-      browserWindow,
+      managed,
       bounds: display.workArea,
       isFullScreen,
       onPlaced: () => {
@@ -400,6 +416,7 @@ export const createWindowManager = ({
       isOnFallbackDisplay,
       isPlacing: true,
       appliedZoom: "",
+      placementGeneration: 0,
     }
     managedWindows.set(record.id, managed)
     const { webContents } = browserWindow
@@ -416,11 +433,16 @@ export const createWindowManager = ({
       hasStartedPlacing.value = true
       browserWindow.show()
       placeOnDisplay({
-        browserWindow,
+        managed,
         bounds,
         isFullScreen: record.isFullScreen,
         onPlaced: () => {
-          managed.isPlacing = false
+          if (!managed.isOnFallbackDisplay) {
+            updateRecord({
+              windowId: record.id,
+              change: capturePlacement(browserWindow),
+            })
+          }
         },
       })
     }
@@ -429,10 +451,22 @@ export const createWindowManager = ({
     // window would stay hidden; show it anyway after a short wait.
     setTimeout(finishPlacing, showDeadline)
 
+    const isWaitingForDisplay = () => {
+      if (
+        matchDisplay({
+          displays: screen.getAllDisplays(),
+          placement: managed.record,
+          primaryDisplayId: screen.getPrimaryDisplay().id,
+        }).matchedBy === "primary-fallback"
+      ) {
+        managed.isOnFallbackDisplay = true
+      }
+      return managed.isOnFallbackDisplay
+    }
     const savePlacement = () => {
       if (
         managed.isPlacing ||
-        managed.isOnFallbackDisplay ||
+        isWaitingForDisplay() ||
         browserWindow.isDestroyed()
       ) {
         return
@@ -445,7 +479,7 @@ export const createWindowManager = ({
     browserWindow.on("move", savePlacement)
     browserWindow.on("resize", savePlacement)
     browserWindow.on("enter-full-screen", () => {
-      if (!managed.isPlacing) {
+      if (!managed.isPlacing && !isWaitingForDisplay()) {
         updateRecord({
           windowId: record.id,
           change: { isFullScreen: true },
@@ -453,7 +487,7 @@ export const createWindowManager = ({
       }
     })
     browserWindow.on("leave-full-screen", () => {
-      if (!managed.isPlacing) {
+      if (!managed.isPlacing && !isWaitingForDisplay()) {
         updateRecord({
           windowId: record.id,
           change: { isFullScreen: false },
@@ -521,10 +555,31 @@ export const createWindowManager = ({
         })
       }
     })
-    webContents.on("did-navigate", () => {
+    const rememberUrl = (url: string) => {
+      const serverOrigin = readServerOrigin()
+      if (
+        serverOrigin &&
+        isAllowedNavigation({ url, serverOrigin })
+      ) {
+        updateRecord({
+          windowId: record.id,
+          change: { url },
+        })
+      }
+    }
+    webContents.on("did-navigate", (_event, url) => {
+      rememberUrl(url)
       managed.reportedView = null
       applyZoom(managed)
     })
+    webContents.on(
+      "did-navigate-in-page",
+      (_event, url, isMainFrame) => {
+        if (isMainFrame) {
+          rememberUrl(url)
+        }
+      },
+    )
     webContents.on("did-finish-load", () => {
       applyZoom(managed)
     })
@@ -615,6 +670,7 @@ export const createWindowManager = ({
         isOnFallbackDisplay: false,
         isPlacing: false,
         appliedZoom: "",
+        placementGeneration: 0,
       })
       return
     }
@@ -644,13 +700,13 @@ export const createWindowManager = ({
     })
   }
 
-  /** A monitor came back: return the windows that were waiting for it. */
+  /** Preserve a missing monitor's placement and return windows when it reconnects. */
   const returnWindowsToDisplays = () => {
     const displays = screen.getAllDisplays()
     const primaryDisplayId = screen.getPrimaryDisplay().id
     managedWindows.forEach((managed) => {
       const browserWindow = liveWindow(managed)
-      if (!managed.isOnFallbackDisplay || !browserWindow) {
+      if (!browserWindow) {
         return
       }
       const { display, matchedBy } = matchDisplay({
@@ -659,6 +715,11 @@ export const createWindowManager = ({
         primaryDisplayId,
       })
       if (matchedBy === "primary-fallback") {
+        managed.isOnFallbackDisplay = true
+        managed.placementGeneration += 1
+        return
+      }
+      if (!managed.isOnFallbackDisplay) {
         return
       }
       log(
@@ -666,12 +727,18 @@ export const createWindowManager = ({
       )
       managed.isOnFallbackDisplay = false
       placeOnDisplay({
-        browserWindow,
+        managed,
         bounds: placeWindowBounds({
           placement: managed.record,
           display,
         }),
         isFullScreen: managed.record.isFullScreen,
+        onPlaced: () => {
+          updateRecord({
+            windowId: managed.record.id,
+            change: capturePlacement(browserWindow),
+          })
+        },
       })
     })
   }

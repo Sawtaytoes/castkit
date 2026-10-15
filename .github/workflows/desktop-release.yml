@@ -119,6 +119,10 @@ jobs:
       - name: Build the Windows installer
         run: pnpm --filter @castkit/desktop make
 
+      - name: Verify the built desktop app in Electron
+        working-directory: packages/desktop
+        run: node scripts/smoke.mjs
+
       # Never publish an empty release: fail when make produced no installer.
       - name: Verify the installer exists
         shell: bash
@@ -201,6 +205,15 @@ jobs:
           pnpm --filter @castkit/desktop build
           for arch in $ARCHITECTURES; do
             pnpm --filter @castkit/desktop exec electron-forge make --arch="$arch"
+          done
+
+      - name: Verify the built desktop app in four display sizes
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
+          for size in 384x824 1080x1920 1920x1080 3440x1440; do
+            echo "Desktop smoke: $size"
+            xvfb-run -a -s "-screen 0 ${size}x24" node packages/desktop/scripts/smoke.mjs
           done
 
       # Never publish an empty release: one .deb and one .zip per architecture
