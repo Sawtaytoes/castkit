@@ -5,6 +5,7 @@ import base64
 import struct
 import types
 import unittest
+import unittest.mock
 import zlib
 from unittest.mock import AsyncMock
 
@@ -54,6 +55,39 @@ class NativePrestoTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.transport.frames_drawn, 1)
         self.assertTrue(calls[-1].args[1]["final_chunk"])
         self.assertTrue(all(not c.args[1]["final_chunk"] for c in calls[:-1]))
+
+    async def test_a_touch_showing_the_pending_frame_confirms_it(self):
+        # ESPHome keeps only the newest queued state per entity, so a swipe's touch event
+        # can replace the queued frame acknowledgement on a congested link.
+        raw = bytes(480 * 480 * 2)
+        sending = asyncio.create_task(self.transport.send_frame(42, 5, raw))
+        await self.wait_calls(1)
+        self.event("touch,9,1,20,20,0,41,0")
+        await asyncio.sleep(0)
+        self.assertFalse(sending.done())
+        self.event("touch,10,1,24,20,0,42,0")
+        response = await sending
+        self.assertEqual(response, ["frame", "42", "5", "0", "0", "0", "0"])
+        self.assertEqual(self.transport.base_id, 42)
+        self.assertEqual(self.transport.base_pixels, raw)
+        self.assertEqual(self.transport.frames_drawn, 1)
+
+    async def test_an_unacknowledged_frame_names_itself_in_the_timeout(self):
+        raw = bytes(480 * 480 * 2)
+        real_wait_for = asyncio.wait_for
+
+        async def expire(awaitable, timeout):
+            if timeout == 6:
+                raise TimeoutError
+            return await real_wait_for(awaitable, timeout)
+
+        with (
+            unittest.mock.patch("esphome_presto.asyncio.wait_for", expire),
+            self.assertRaisesRegex(TimeoutError, "did not acknowledge frame 42"),
+        ):
+            await self.transport.send_frame(42, 5, raw)
+        self.assertEqual(self.transport.base_id, 0)
+        self.assertIsNone(self.transport.base_pixels)
 
     async def test_rejected_patch_clears_base_and_next_frame_is_full(self):
         raw = bytes(480 * 480 * 2)
