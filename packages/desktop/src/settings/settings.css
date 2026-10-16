@@ -5,7 +5,7 @@
 @import "@charcuterie/ui/styles.css";
 @source "../../node_modules/@charcuterie/ui/dist";
 
-/* Layout and the page and window rows; every control is Charcuterie. */
+/* Layout and the server and window rows; every control is Charcuterie. */
 html,
 body,
 #root {
@@ -38,6 +38,11 @@ body,
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
+  /* A page group's heading stays at the top of the list while its rows
+     scroll under it, so it needs the panel's own surface behind it. */
+  --charcuterie-grouped-list-heading-surface: var(
+    --color-surface-raised
+  );
 }
 
 .settings-panel h2 {
@@ -107,24 +112,6 @@ body,
 
 .settings-error {
   color: var(--color-intent-danger-content);
-}
-
-.page-group + .page-group {
-  margin-block-start: 1rem;
-}
-
-.page-group h3 {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: 1;
-  margin: 0;
-  padding: 0.25rem 0.5rem;
-  background: var(--color-surface-raised);
-  color: var(--color-content-secondary);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 
 .settings-rows {

@@ -1,7 +1,7 @@
 {
   "name": "@castkit/desktop",
   "productName": "CastKit",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "description": "The CastKit desktop app: an Electron shell that shows CastKit pages in windows that remember their display, fullscreen state, and zoom.",
   "license": "MIT",
@@ -17,9 +17,9 @@
     "smoke": "node scripts/build.mjs && node scripts/smoke.mjs"
   },
   "devDependencies": {
-    "@charcuterie/logic": "^2.9.0",
+    "@charcuterie/logic": "^2.10.0",
     "@charcuterie/tokens": "^1.10.2",
-    "@charcuterie/ui": "^4.10.1",
+    "@charcuterie/ui": "^4.24.0",
     "@charcuterie/vite-config": "^1.1.0",
     "@electron-forge/cli": "8.0.1",
     "@electron-forge/maker-deb": "8.0.1",
