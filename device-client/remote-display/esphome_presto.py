@@ -102,6 +102,7 @@ class ESPHomePrestoTransport(PrestoTransport):
                     return
             except ValueError:
                 return
+            self.confirm_shown_frame(shown)
             self.effects.touch_event(phase, x, y)
             if len(self.touch_received_at) >= 128:
                 self.touch_received_at.clear()
@@ -117,6 +118,21 @@ class ESPHomePrestoTransport(PrestoTransport):
                 self.reported_backlight_percent = percent
                 self.reported_ambient_light = state_snapshot
                 future.set_result(None)
+
+    def confirm_shown_frame(self, shown):
+        # Every board event shares one "Display Events" sensor, and ESPHome keeps only the
+        # newest queued state per entity while its send buffer is full. On a weak Wi-Fi
+        # link a swipe's touch event can replace the queued frame acknowledgement, so the
+        # touch's shown-frame field is the only confirmation that ever arrives.
+        if (
+            self.frame is not None
+            and shown == self.frame["id"]
+            and self.pending is not None
+            and not self.pending.done()
+        ):
+            self.pending.set_result(
+                ["frame", str(shown), str(self.frame["touch_id"]), "0", "0", "0", "0"]
+            )
 
     async def disconnect(self):
         if self.control_task is not None:
@@ -160,7 +176,10 @@ class ESPHomePrestoTransport(PrestoTransport):
                         "colors": base64.b64encode(identity[1]).decode("ascii"),
                     },
                 )
-                await asyncio.wait_for(future, timeout=3)
+                try:
+                    await asyncio.wait_for(future, timeout=3)
+                except TimeoutError as error:
+                    raise TimeoutError("Presto did not acknowledge display controls") from error
                 self.control_sent = identity
                 self.control_pending = None
             await asyncio.sleep(0.05)
@@ -208,7 +227,12 @@ class ESPHomePrestoTransport(PrestoTransport):
                 )
                 # Yield/backpressure instead of buffering a full frame in native RAM.
                 await asyncio.sleep(0.003)
-            response = await asyncio.wait_for(self.pending, timeout=6)
+            try:
+                response = await asyncio.wait_for(self.pending, timeout=6)
+            except TimeoutError as error:
+                raise TimeoutError(
+                    f"Presto did not acknowledge frame {frame_id} ({len(packet)} bytes)"
+                ) from error
             self.base_id, self.base_pixels = frame_id, raw
             self.frames_drawn += 1
             self.last_ack = {

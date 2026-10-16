@@ -26,7 +26,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v19-dispose-controls"
+BUILD_MARKER = "castkit-remote-display-v20-touch-confirms-frame"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -471,9 +471,11 @@ class DisplaySession:
                     # without rebuilding the encrypted device session.
                     await asyncio.sleep(0.05)
                     continue
-                except TimeoutError:
+                except TimeoutError as error:
                     if document_revision == self.document_revision:
-                        raise
+                        # Name the stall so a reconnect log separates a browser capture
+                        # stall from a board that never acknowledged its frame.
+                        raise TimeoutError("Browser capture stalled") from error
                     continue
                 if document_revision != self.document_revision or before != after:
                     continue
