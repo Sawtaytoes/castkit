@@ -9,6 +9,7 @@ import unittest.mock
 import zlib
 from unittest.mock import AsyncMock
 
+import esphome_presto
 from aioesphomeapi import TextSensorState
 from esphome_presto import ESPHomePrestoTransport
 
@@ -72,12 +73,18 @@ class NativePrestoTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.transport.base_pixels, raw)
         self.assertEqual(self.transport.frames_drawn, 1)
 
-    async def test_an_unacknowledged_frame_names_itself_in_the_timeout(self):
+    def header(self, call):
+        packet = base64.b64decode(call.args[1]["image_data"])
+        return struct.unpack(">IHHHHB", packet[:13])[0:5]
+
+    async def test_an_unacknowledged_frame_names_itself_after_every_attempt(self):
         raw = bytes(480 * 480 * 2)
+        self.transport.base_id, self.transport.base_pixels = 12, raw
         real_wait_for = asyncio.wait_for
 
         async def expire(awaitable, timeout):
-            if timeout == 6:
+            if timeout == esphome_presto.FRAME_ACK_SECONDS:
+                awaitable.cancel()
                 raise TimeoutError
             return await real_wait_for(awaitable, timeout)
 
@@ -86,28 +93,66 @@ class NativePrestoTests(unittest.IsolatedAsyncioTestCase):
             self.assertRaisesRegex(TimeoutError, "did not acknowledge frame 42"),
         ):
             await self.transport.send_frame(42, 5, raw)
+        calls = self.transport.api.execute_service.call_args_list
+        self.assertEqual(len(calls), esphome_presto.FRAME_ATTEMPTS)
+        # The first attempt is a patch on the old base; every resend is a full frame.
+        self.assertEqual(self.header(calls[0])[0], 12)
+        self.assertTrue(all(self.header(call) == (0, 0, 0, 480, 480) for call in calls[1:]))
         self.assertEqual(self.transport.base_id, 0)
         self.assertIsNone(self.transport.base_pixels)
 
-    async def test_rejected_patch_clears_base_and_next_frame_is_full(self):
+    async def test_a_lost_acknowledgement_is_resent_in_full_on_the_same_link(self):
+        # A Wi-Fi stall loses the acknowledgement without dropping the connection.
+        raw = bytes(480 * 480 * 2)
+        self.transport.base_id, self.transport.base_pixels = 12, raw
+        real_wait_for = asyncio.wait_for
+        expired = []
+
+        async def expire_once(awaitable, timeout):
+            if timeout == esphome_presto.FRAME_ACK_SECONDS and not expired:
+                expired.append(True)
+                awaitable.cancel()
+                raise TimeoutError
+            return await real_wait_for(awaitable, timeout)
+
+        with unittest.mock.patch("esphome_presto.asyncio.wait_for", expire_once):
+            sending = asyncio.create_task(self.transport.send_frame(13, 0, raw))
+            await self.wait_calls(2)
+            self.event("frame,13,0,0,0,1,2")
+            await sending
+        calls = self.transport.api.execute_service.call_args_list
+        self.assertEqual(self.header(calls[1]), (0, 0, 0, 480, 480))
+        self.assertEqual(self.transport.base_id, 13)
+        self.assertEqual(self.transport.base_pixels, raw)
+        self.assertEqual(self.transport.frames_drawn, 1)
+
+    async def test_a_rejected_patch_is_resent_in_full_and_names_its_reason(self):
         raw = bytes(480 * 480 * 2)
         self.transport.base_id, self.transport.base_pixels = 12, raw
         sending = asyncio.create_task(self.transport.send_frame(13, 0, raw))
         await self.wait_calls(1)
-        self.event("error,invalid_packet_or_base")
-        with self.assertRaisesRegex(ValueError, "rejected"):
+        with self.assertLogs("castkit.remote-display", "WARNING") as logs:
+            self.event("error,invalid_packet_or_base")
+            await self.wait_calls(2)
+        self.assertIn("rejected frame: invalid_packet_or_base", logs.output[0])
+        calls = self.transport.api.execute_service.call_args_list
+        self.assertEqual(self.header(calls[0])[0], 12)
+        self.assertEqual(self.header(calls[1]), (0, 0, 0, 480, 480))
+        self.event("frame,13,0,0,0,1,2")
+        await sending
+        self.assertEqual(self.transport.base_id, 13)
+
+    async def test_repeated_rejection_still_ends_the_session(self):
+        raw = bytes(480 * 480 * 2)
+        sending = asyncio.create_task(self.transport.send_frame(13, 0, raw))
+        for attempt in range(1, esphome_presto.FRAME_ATTEMPTS + 1):
+            await self.wait_calls(attempt)
+            await asyncio.sleep(0)
+            self.event("error,invalid_packet_or_base")
+        with self.assertRaisesRegex(ValueError, "rejected frame"):
             await sending
         self.assertEqual(self.transport.base_id, 0)
         self.assertIsNone(self.transport.base_pixels)
-        self.transport.api.execute_service.reset_mock()
-        retry = asyncio.create_task(self.transport.send_frame(14, 0, raw))
-        await self.wait_calls(1)
-        packet = base64.b64decode(
-            self.transport.api.execute_service.call_args.args[1]["image_data"]
-        )
-        self.assertEqual(struct.unpack(">IHHHHB", packet[:13])[0:5], (0, 0, 0, 480, 480))
-        self.event("frame,14,0,0,0,1,2")
-        await retry
 
     async def test_controls_require_matching_revision_and_applied_brightness(self):
         self.transport.control_task.cancel()
