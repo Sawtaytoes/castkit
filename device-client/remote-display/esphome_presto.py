@@ -5,6 +5,7 @@ import base64
 import contextlib
 import importlib.util
 import json
+import logging
 import pathlib
 import struct
 import time
@@ -13,6 +14,19 @@ from aioesphomeapi import APIClient, TextSensorState
 from aiohttp import web
 from codec import encode_presto_patch
 from presto_transport import PrestoTransport
+
+LOG = logging.getLogger("castkit.remote-display")
+
+# A weak 2.4 GHz link stalls for several seconds without dropping the association. The
+# board blanks to a red line 7 s after its last frame, and a reconnect costs a page reload,
+# a new encrypted session and the loading frame, so a missed acknowledgement is resent in
+# full on the same link first. A dead link still fails the send with APIConnectionError.
+FRAME_ATTEMPTS = 3
+FRAME_ACK_SECONDS = 6
+
+
+class FrameRejectedError(ValueError):
+    """The board reported an error event while a frame was pending."""
 
 
 class ESPHomePrestoTransport(PrestoTransport):
@@ -88,7 +102,8 @@ class ESPHomePrestoTransport(PrestoTransport):
                 self.pending.set_result(parts)
         elif parts[0] == "error":
             if self.pending is not None and not self.pending.done():
-                self.pending.set_exception(ValueError("Presto rejected frame"))
+                reason = parts[1] if len(parts) > 1 else "unknown"
+                self.pending.set_exception(FrameRejectedError(f"Presto rejected frame: {reason}"))
         elif parts[0] == "touch" and len(parts) == 8:
             try:
                 sequence, phase, x, y, shown = map(int, [*parts[1:5], parts[6]])
@@ -200,6 +215,19 @@ class ESPHomePrestoTransport(PrestoTransport):
         )
 
     async def send_frame(self, frame_id, touch_id, raw):
+        for attempt in range(1, FRAME_ATTEMPTS + 1):
+            try:
+                return await self.deliver_frame(frame_id, touch_id, raw)
+            except (TimeoutError, FrameRejectedError) as error:
+                # A failed attempt has cleared the base, so the retry is a full frame,
+                # which the board accepts even after its offline blank reset its base.
+                # An error event carries no frame id, so a late one from the previous
+                # attempt or a reconnect's state replay costs one retry, not the session.
+                if attempt == FRAME_ATTEMPTS:
+                    raise
+                LOG.warning("%s; resending in full on the same link", error)
+
+    async def deliver_frame(self, frame_id, touch_id, raw):
         if self.control_task.done():
             self.control_task.result()
         started = time.monotonic()
@@ -228,7 +256,7 @@ class ESPHomePrestoTransport(PrestoTransport):
                 # Yield/backpressure instead of buffering a full frame in native RAM.
                 await asyncio.sleep(0.003)
             try:
-                response = await asyncio.wait_for(self.pending, timeout=6)
+                response = await asyncio.wait_for(self.pending, timeout=FRAME_ACK_SECONDS)
             except TimeoutError as error:
                 raise TimeoutError(
                     f"Presto did not acknowledge frame {frame_id} ({len(packet)} bytes)"
