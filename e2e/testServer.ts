@@ -150,6 +150,17 @@ export const startTestServer = async ({
     ],
     channels: [
       {
+        id: "range/fixture",
+        name: "Range controls",
+        sourceId: "events",
+        type: "entities.v1",
+        settings: {
+          actions: ["turn_on", "turn_off"],
+          commandTopic:
+            "castkit/channels/range/fixture/command",
+        },
+      },
+      {
         id: "points/task-totals",
         name: "Task total fixture",
         sourceId: "events",
@@ -172,6 +183,22 @@ export const startTestServer = async ({
       },
     ],
     views: [
+      {
+        id: "range-controls",
+        name: "Range controls",
+        layout: "single",
+        theme: "dark",
+        access: "public",
+        isControlEnabled: true,
+        panels: [
+          {
+            id: "light",
+            specId: "entities",
+            bindings: { data: "range/fixture" },
+            settings: {},
+          },
+        ],
+      },
       {
         id: "task-totals",
         name: "Task totals",

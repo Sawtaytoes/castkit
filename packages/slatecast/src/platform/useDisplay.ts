@@ -50,14 +50,14 @@ export const useDisplay = (
     const channel = new BroadcastChannel("castkit-access")
     authChannel.current = channel
     channel.onmessage = refresh
-    window.addEventListener("focus", refresh)
+    // Embedded controls also focus the window. Reconnecting here removes
+    // their enabled DOM during a drag; visibility/access events already resync.
     document.addEventListener(
       "visibilitychange",
       onVisibility,
     )
     return () => {
       channel.close()
-      window.removeEventListener("focus", refresh)
       document.removeEventListener(
         "visibilitychange",
         onVisibility,
