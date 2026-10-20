@@ -3,6 +3,7 @@ import {
   render,
   screen,
 } from "@testing-library/preact"
+import { useState } from "preact/hooks"
 import { afterEach, expect, test, vi } from "vitest"
 import {
   buildDeviceProfile,
@@ -11,7 +12,7 @@ import {
 } from "./__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
-import { EntityControls } from "./platform/EntityControls.tsx"
+import { EntitiesView } from "./platform/EntitiesView.tsx"
 import {
   getIsTouchPointerFallbackRequired,
   installTouchPointerFallback,
@@ -297,21 +298,35 @@ test("respects range direction, step and cancellation without changing mouse inp
   range.remove()
 })
 
-test("a brightness range follows the touch and reports updated control values", () => {
+test("a brightness range keeps its drag local and sends only the release value", () => {
   const request = vi.fn()
-  render(
-    <EntityControls
-      entity={{
-        id: "light.test",
-        name: "Test light",
-        domain: "light",
-        state: "on",
-        attributes: { brightness: 128 },
-        actions: ["turn_on", "turn_off"],
-      }}
-      request={request}
-    />,
-  )
+  const PendingControls = () => {
+    const [isPending, setIsPending] = useState(false)
+    return (
+      <EntitiesView
+        data={{
+          entities: [
+            {
+              id: "light.test",
+              name: "Test light",
+              domain: "light",
+              state: "on",
+              attributes: { brightness: 128 },
+              actions: ["turn_on", "turn_off"],
+            },
+          ],
+        }}
+        mode="entities"
+        now={0}
+        isControlEnabled={!isPending}
+        onAction={async (action, payload) => {
+          setIsPending(true)
+          request({ action, payload })
+        }}
+      />
+    )
+  }
+  render(<PendingControls />)
   install()
   const range = screen.getByRole("slider", {
     name: "Brightness",
@@ -324,17 +339,15 @@ test("a brightness range follows the touch and reports updated control values", 
     clientX: bounds.left + 150,
   })
   expect(range.value).toBe("192")
-  expect(request).toHaveBeenLastCalledWith({
-    action: "turn_on",
-    payload: { brightness: 192 },
-  })
+  expect(range.isConnected).toBe(true)
+  expect(request).not.toHaveBeenCalled()
   continueTouch({
     target: range,
     clientX: bounds.right + 40,
     type: "touchend",
   })
-  expect(request).toHaveBeenLastCalledWith({
+  expect(request).toHaveBeenCalledExactlyOnceWith({
     action: "turn_on",
-    payload: { brightness: 255 },
+    payload: { brightness: 255, entityId: "light.test" },
   })
 })

@@ -1,6 +1,7 @@
 import type { ContractData } from "@castkit/sdk/contracts"
-import { useState } from "preact/hooks"
+import { useId, useState } from "preact/hooks"
 import { DeferredHomeControl } from "./DeferredHomeControl.tsx"
+import { RangeInput } from "./RangeInput.tsx"
 
 type Entity =
   ContractData["entities.v1"]["entities"][number]
@@ -29,6 +30,7 @@ export const EntityControls = ({
     payload?: Record<string, unknown>
   }) => void
 }) => {
+  const controlId = useId()
   const [draftValue, setDraftValue] = useState(entity.state)
   const [duration, setDuration] = useState(5)
   const temperature = Number(entity.attributes.temperature)
@@ -71,38 +73,53 @@ export const EntityControls = ({
     step?: number
   }) =>
     entity.actions.includes(action) ? (
-      <label>
+      <label htmlFor={`${controlId}-${parameter}`}>
         {label}
-        <input
-          type={
-            isHome &&
-            [
-              "set_percentage",
-              "set_cover_position",
-              "volume_set",
-            ].includes(action)
-              ? "range"
-              : "number"
-          }
-          min={minimum}
-          max={maximum}
-          step={step}
-          value={Number(
-            entity.attributes[attribute] ?? minimum,
-          )}
-          onChange={(event) => {
-            if (event.currentTarget.validity.valid) {
+        {isHome &&
+        [
+          "set_percentage",
+          "set_cover_position",
+          "volume_set",
+        ].includes(action) ? (
+          <RangeInput
+            id={`${controlId}-${parameter}`}
+            min={minimum}
+            max={maximum}
+            step={step}
+            value={Number(
+              entity.attributes[attribute] ?? minimum,
+            )}
+            onChange={(value) =>
               request({
                 action,
-                payload: {
-                  [parameter]: Number(
-                    event.currentTarget.value,
-                  ),
-                },
+                payload: { [parameter]: value },
               })
             }
-          }}
-        />
+          />
+        ) : (
+          <input
+            id={`${controlId}-${parameter}`}
+            type="number"
+            min={minimum}
+            max={maximum}
+            step={step}
+            value={Number(
+              entity.attributes[attribute] ?? minimum,
+            )}
+            onChange={(event) => {
+              if (event.currentTarget.validity.valid) {
+                request({
+                  action,
+                  payload: {
+                    [parameter]: Number(
+                      event.currentTarget.value,
+                    ),
+                  },
+                })
+              }
+            }}
+          />
+        )}
       </label>
     ) : null
   const choiceControl = ({
@@ -351,23 +368,19 @@ export const EntityControls = ({
             request={request}
           />
         ) : (
-          <label>
+          <label htmlFor={`${controlId}-brightness`}>
             Brightness
-            <input
-              type="range"
+            <RangeInput
+              id={`${controlId}-brightness`}
               min={1}
               max={255}
               value={Number(
                 entity.attributes.brightness ?? 255,
               )}
-              onChange={(event) =>
+              onChange={(brightness) =>
                 request({
                   action: "turn_on",
-                  payload: {
-                    brightness: Number(
-                      event.currentTarget.value,
-                    ),
-                  },
+                  payload: { brightness },
                 })
               }
             />
