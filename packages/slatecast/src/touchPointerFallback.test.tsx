@@ -1,4 +1,8 @@
-import { fireEvent, screen } from "@testing-library/preact"
+import {
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/preact"
 import { afterEach, expect, test, vi } from "vitest"
 import {
   buildDeviceProfile,
@@ -7,6 +11,7 @@ import {
 } from "./__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
+import { EntityControls } from "./platform/EntityControls.tsx"
 import {
   getIsTouchPointerFallbackRequired,
   installTouchPointerFallback,
@@ -192,10 +197,10 @@ test("keeps scrubbing local and emits one seek at the final touch position", asy
   ])
 })
 
-test("does not consume native range input or synthesize a click after cancellation", () => {
+test("does not consume native text input or synthesize a click after cancellation", () => {
   install()
   const range = document.createElement("input")
-  range.type = "range"
+  range.type = "text"
   document.body.append(range)
   const listener = vi.fn()
   range.addEventListener("pointerdown", listener)
@@ -215,4 +220,121 @@ test("does not consume native range input or synthesize a click after cancellati
   })
   expect(click).not.toHaveBeenCalled()
   button.remove()
+})
+
+test("tracks native range drags after pointers leave the control and commits once on release", () => {
+  install()
+  const range = document.createElement("input")
+  range.type = "range"
+  range.min = "1"
+  range.max = "255"
+  range.value = "128"
+  range.style.width = "200px"
+  document.body.append(range)
+  const changed = vi.fn()
+  const input = vi.fn()
+  range.addEventListener("change", changed)
+  range.addEventListener("input", input)
+  const bounds = range.getBoundingClientRect()
+  beginTouch({ target: range, clientX: bounds.left + 100 })
+  continueTouch({
+    target: range,
+    clientX: bounds.left + 150,
+  })
+  expect(range.value).toBe("192")
+  expect(input).toHaveBeenCalledTimes(1)
+  expect(changed).not.toHaveBeenCalled()
+  continueTouch({
+    target: range,
+    clientX: bounds.right + 100,
+    type: "touchend",
+  })
+  expect(range.value).toBe("255")
+  expect(changed).toHaveBeenCalledTimes(1)
+  range.remove()
+})
+
+test("respects range direction, step and cancellation without changing mouse input", () => {
+  install()
+  const range = document.createElement("input")
+  range.type = "range"
+  range.min = "2000"
+  range.max = "6500"
+  range.step = "50"
+  range.value = "4250"
+  range.style.width = "200px"
+  range.style.direction = "rtl"
+  document.body.append(range)
+  const changed = vi.fn()
+  const pointerDown = vi.fn()
+  range.addEventListener("change", changed)
+  range.addEventListener("pointerdown", pointerDown)
+  fireEvent.pointerDown(range, { pointerType: "mouse" })
+  expect(pointerDown).toHaveBeenCalledTimes(1)
+  const bounds = range.getBoundingClientRect()
+  beginTouch({ target: range, clientX: bounds.left + 100 })
+  continueTouch({
+    target: range,
+    clientX: bounds.left + 151,
+  })
+  expect(range.value).toBe("3100")
+  continueTouch({
+    target: range,
+    clientX: bounds.left,
+    type: "touchcancel",
+  })
+  expect(range.value).toBe("3100")
+  expect(changed).not.toHaveBeenCalled()
+  range.disabled = true
+  beginTouch({ target: range, clientX: bounds.left })
+  continueTouch({
+    target: range,
+    clientX: bounds.left,
+    type: "touchend",
+  })
+  expect(range.value).toBe("3100")
+  expect(changed).not.toHaveBeenCalled()
+  range.remove()
+})
+
+test("a brightness range follows the touch and reports updated control values", () => {
+  const request = vi.fn()
+  render(
+    <EntityControls
+      entity={{
+        id: "light.test",
+        name: "Test light",
+        domain: "light",
+        state: "on",
+        attributes: { brightness: 128 },
+        actions: ["turn_on", "turn_off"],
+      }}
+      request={request}
+    />,
+  )
+  install()
+  const range = screen.getByRole("slider", {
+    name: "Brightness",
+  }) as HTMLInputElement
+  range.style.width = "200px"
+  const bounds = range.getBoundingClientRect()
+  beginTouch({ target: range, clientX: bounds.left + 100 })
+  continueTouch({
+    target: range,
+    clientX: bounds.left + 150,
+  })
+  expect(range.value).toBe("192")
+  expect(request).toHaveBeenLastCalledWith({
+    action: "turn_on",
+    payload: { brightness: 192 },
+  })
+  continueTouch({
+    target: range,
+    clientX: bounds.right + 40,
+    type: "touchend",
+  })
+  expect(request).toHaveBeenLastCalledWith({
+    action: "turn_on",
+    payload: { brightness: 255 },
+  })
 })
