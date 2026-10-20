@@ -1,5 +1,7 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { useId } from "preact/hooks"
 import { HomePicker } from "./HomePicker.tsx"
+import { RangeInput } from "./RangeInput.tsx"
 
 type Entity =
   ContractData["entities.v1"]["entities"][number]
@@ -21,6 +23,7 @@ export const LightControls = ({
     payload?: Record<string, unknown>
   }) => void
 }) => {
+  const controlId = useId()
   const modes = stringValues(
     entity.attributes.supported_color_modes,
   )
@@ -71,7 +74,7 @@ export const LightControls = ({
   return (
     <div class="home-light-controls">
       {hasBrightness ? (
-        <label>
+        <label htmlFor={`${controlId}-brightness`}>
           Brightness{" "}
           <output>
             {entity.state === "off"
@@ -81,18 +84,15 @@ export const LightControls = ({
                 ? `${brightness}%`
                 : "Unknown"}
           </output>
-          <input
+          <RangeInput
+            id={`${controlId}-brightness`}
             aria-label={`${entity.name} brightness`}
-            type="range"
             min={
               entity.actions.includes("turn_off") ? 0 : 1
             }
             max={100}
             value={entity.state === "off" ? 0 : brightness}
-            onChange={(event) => {
-              const percent = Number(
-                event.currentTarget.value,
-              )
+            onChange={(percent) => {
               request(
                 percent === 0
                   ? { action: "turn_off" }
@@ -139,7 +139,7 @@ export const LightControls = ({
             </label>
           ) : null}
           {hasTemperature ? (
-            <label>
+            <label htmlFor={`${controlId}-temperature`}>
               White temperature{" "}
               <output>
                 {String(
@@ -147,9 +147,9 @@ export const LightControls = ({
                 )}{" "}
                 K
               </output>
-              <input
+              <RangeInput
+                id={`${controlId}-temperature`}
                 aria-label={`${entity.name} white temperature`}
-                type="range"
                 min={Number(
                   entity.attributes.min_color_temp_kelvin ??
                     2000,
@@ -165,13 +165,11 @@ export const LightControls = ({
                       .min_color_temp_kelvin ??
                     2000,
                 )}
-                onChange={(event) =>
+                onChange={(temperature) =>
                   request({
                     action: "turn_on",
                     payload: {
-                      color_temp_kelvin: Number(
-                        event.currentTarget.value,
-                      ),
+                      color_temp_kelvin: temperature,
                     },
                   })
                 }
