@@ -640,6 +640,46 @@ const viewSpecs: ViewSpec[] = [
     type: "weather.v1",
   }),
   {
+    ...view({
+      id: "idle-dashboard",
+      name: "Idle dashboard",
+      description:
+        "A large clock beside today's agenda, with household points along the bottom.",
+    }),
+    renderers: ["browser"],
+    minimumRepaint: "fast",
+    inputs: [
+      {
+        key: "data",
+        label: "Agenda",
+        type: "agenda.v1",
+        isRequired: false,
+      },
+      optionalWeatherInput,
+      {
+        key: "points",
+        label: "Points",
+        type: "kids-points.v1",
+        isRequired: false,
+      },
+    ],
+    settings: [
+      {
+        key: "timeZone",
+        label: "Time zone",
+        type: "text",
+        description:
+          "IANA time zone, such as America/Chicago. Leave empty for the display's local time.",
+      },
+      {
+        key: "hour12",
+        label: "12-hour clock",
+        type: "boolean",
+        defaultValue: true,
+      },
+    ],
+  },
+  {
     ...view({ id: "calendar", name: "Agenda" }),
     inputs: [
       {
@@ -1361,7 +1401,12 @@ const viewGroups = [
   {
     id: "clock-weather",
     name: "Clock and weather",
-    specs: ["clock", "ambient", "weather"],
+    specs: [
+      "clock",
+      "ambient",
+      "weather",
+      "idle-dashboard",
+    ],
   },
   { id: "agenda", name: "Agenda", specs: ["calendar"] },
   { id: "photos", name: "Photos", specs: ["photo-frame"] },

@@ -19,6 +19,7 @@ import { AiUsageView } from "./AiUsageView.tsx"
 import { DeferredCamerasView } from "./DeferredCamerasView.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { EntitiesView } from "./EntitiesView.tsx"
+import { IdleDashboard } from "./IdleDashboard.tsx"
 import { KidsPointsView } from "./KidsPointsView.tsx"
 import { PointsHistoryView } from "./PointsHistoryView.tsx"
 import { safeMediaUrl } from "./protocol.ts"
@@ -118,6 +119,7 @@ export const BuiltinView = ({
   data,
   weather,
   snapshots,
+  points,
   isControlEnabled,
   onAction,
 }: {
@@ -125,6 +127,7 @@ export const BuiltinView = ({
   data: unknown
   /** The optional `weather` binding the clock and agenda faces carry. */
   weather?: ContractData["weather.v1"]
+  points?: ContractData["kids-points.v1"]
   snapshots?: ContractData["cameras.v1"]
   isControlEnabled: boolean
   onAction: (
@@ -136,6 +139,24 @@ export const BuiltinView = ({
   const properties = useDisplayProperties()
   const isShortPanel = useIsShortPanel()
   switch (panel.specId) {
+    case "idle-dashboard":
+      return (
+        <IdleDashboard
+          now={now}
+          clock={{
+            ...readClockConfig(panel.settings),
+            timeZone:
+              typeof panel.settings.timeZone === "string"
+                ? panel.settings.timeZone
+                : undefined,
+          }}
+          agenda={
+            data as ContractData["agenda.v1"] | undefined
+          }
+          weather={weather}
+          points={points}
+        />
+      )
     case "text":
       return (
         <ReportContent

@@ -1,0 +1,213 @@
+.platform:has(
+  > .platform-layout[data-layout="single"]
+    > [data-spec="idle-dashboard"]
+) {
+  padding: 0;
+}
+.platform-panel[data-spec="idle-dashboard"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+}
+.idle-dashboard-frame {
+  container-type: size;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
+.idle-dashboard {
+  --idle-unit: min(0.09765625cqw, 0.16666667cqh);
+  display: grid;
+  grid-template-columns: minmax(0, 580fr) minmax(0, 390fr);
+  grid-template-rows: minmax(0, 354fr) minmax(0, 192fr);
+  gap: calc(14 * var(--idle-unit));
+  padding: calc(20 * var(--idle-unit));
+  width: 100%;
+  height: 100%;
+  color: var(--fg);
+  font-family: "Baloo 2", var(--font-sans);
+}
+.idle-dashboard[data-has-points="false"] {
+  grid-template-rows: minmax(0, 1fr);
+}
+.idle-dashboard section {
+  min-width: 0;
+  min-height: 0;
+}
+.idle-dashboard-clock,
+.idle-dashboard-agenda,
+.idle-dashboard-points article {
+  background: var(--surface);
+  border-radius: calc(16 * var(--idle-unit));
+  padding: calc(22 * var(--idle-unit));
+}
+.idle-dashboard-clock {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.idle-dashboard-reading {
+  display: flex;
+  align-items: baseline;
+  gap: calc(5 * var(--idle-unit));
+  white-space: nowrap;
+}
+.idle-dashboard-time {
+  font-size: calc(210 * var(--idle-unit));
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: calc(-4 * var(--idle-unit));
+}
+.idle-dashboard-meridiem {
+  font-size: calc(32 * var(--idle-unit));
+}
+.idle-dashboard-date {
+  font-size: calc(22 * var(--idle-unit));
+  line-height: 1.1;
+  margin-top: calc(12 * var(--idle-unit));
+}
+.idle-dashboard-weather {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin-top: calc(12 * var(--idle-unit));
+}
+.idle-dashboard-weather strong {
+  font-size: calc(29 * var(--idle-unit));
+  line-height: 1.2;
+}
+.idle-dashboard-weather span {
+  font-size: calc(20 * var(--idle-unit));
+  line-height: 1.1;
+  color: var(--fg-dim);
+}
+.idle-dashboard-agenda h2 {
+  font-size: calc(26 * var(--idle-unit));
+  line-height: 1.2;
+  margin: 0 0 calc(14 * var(--idle-unit));
+}
+.idle-dashboard-agenda ul {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  gap: calc(12 * var(--idle-unit));
+  margin: 0;
+  padding: 0;
+}
+.idle-dashboard-agenda li {
+  display: grid;
+  grid-template-columns: calc(85 * var(--idle-unit)) minmax(
+      0,
+      1fr
+    );
+  gap: calc(12 * var(--idle-unit));
+  font-size: calc(24 * var(--idle-unit));
+  line-height: 1.12;
+}
+.idle-dashboard-agenda li time {
+  color: var(--accent);
+}
+.idle-dashboard-agenda li span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.idle-dashboard-empty {
+  color: var(--fg-dim);
+  font-size: calc(22 * var(--idle-unit));
+}
+.idle-dashboard-points {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: calc(14 * var(--idle-unit));
+}
+.idle-dashboard-points article {
+  border-top: calc(5 * var(--idle-unit)) solid
+    var(--kid-color);
+  padding: calc(12 * var(--idle-unit))
+    calc(18 * var(--idle-unit));
+  min-width: 0;
+}
+.idle-dashboard-points h2 {
+  font-size: calc(25 * var(--idle-unit));
+  line-height: 1.1;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.idle-dashboard-score {
+  display: flex;
+  align-items: baseline;
+  gap: calc(9 * var(--idle-unit));
+  line-height: 1.15;
+}
+.idle-dashboard-score strong {
+  font-size: calc(43 * var(--idle-unit));
+}
+.idle-dashboard-score span {
+  color: var(--fg-dim);
+  font-size: calc(18 * var(--idle-unit));
+}
+.idle-dashboard-points progress {
+  display: block;
+  width: 100%;
+  height: calc(8 * var(--idle-unit));
+  border: 0;
+  border-radius: 4px;
+  background: var(--bg);
+  accent-color: var(--kid-color);
+}
+.idle-dashboard-points progress::-webkit-progress-bar {
+  background: var(--bg);
+  border-radius: 4px;
+}
+.idle-dashboard-points progress::-webkit-progress-value {
+  background: var(--kid-color);
+  border-radius: 4px;
+}
+.idle-dashboard-points p {
+  margin: calc(9 * var(--idle-unit)) 0 0;
+  font-size: calc(18 * var(--idle-unit));
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-dim);
+}
+@container (max-aspect-ratio: 5 / 4) {
+  .idle-dashboard {
+    --idle-unit: min(0.16cqw, 0.16666667cqh);
+    height: auto;
+    min-height: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+  .idle-dashboard-clock {
+    min-height: calc(300 * var(--idle-unit));
+  }
+  .idle-dashboard-time {
+    font-size: calc(180 * var(--idle-unit));
+  }
+  .idle-dashboard-points {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .idle-dashboard-points article {
+    min-height: calc(165 * var(--idle-unit));
+  }
+}
+
+.idle-dashboard-kid-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: calc(10 * var(--idle-unit));
+}
