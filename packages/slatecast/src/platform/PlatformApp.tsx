@@ -17,6 +17,7 @@ import { useRenderReadiness } from "./RenderReadiness.ts"
 import { useCompositionLayout } from "./useCompositionLayout.ts"
 import { useDisplay } from "./useDisplay.ts"
 import "./platform.css"
+import "./idleDashboard.css"
 import { ViewTabs } from "./ViewTabs.tsx"
 
 /** Pure composition surface shared by the live client and preview stories. */

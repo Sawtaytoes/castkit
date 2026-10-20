@@ -85,6 +85,7 @@ export const Panel = ({
   const isClock =
     panel.specId === "clock" ||
     panel.specId === "ambient" ||
+    panel.specId === "idle-dashboard" ||
     panel.specId === "text"
   const isLocalView =
     panel.specId === "ams" ||
@@ -346,6 +347,11 @@ export const Panel = ({
               channels[panel.bindings.snapshots ?? ""]
                 ?.data as
                 | ContractData["cameras.v1"]
+                | undefined
+            }
+            points={
+              channels[panel.bindings.points ?? ""]?.data as
+                | ContractData["kids-points.v1"]
                 | undefined
             }
             weather={
