@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-20: Native view navigation retains content and clock presentation](2026-10-20-native-view-navigation-retains-content-and-clock-presentation.md)
+
 - [2026-10-20: Navigation recalculates priority and animates reflow](2026-10-20-navigation-recalculates-priority-and-animates-reflow.md)
 
 - [2026-10-14: The desktop app ships for Linux and macOS, and the Mac build is unsigned](2026-10-14-the-desktop-app-ships-for-linux-and-macos-and-the-mac-build-is-unsigned.md)

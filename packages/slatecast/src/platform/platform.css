@@ -121,7 +121,7 @@
  * back to the raised color, since the panel is no longer one.
  */
 .platform[data-device="true"]:has(
-  > .platform-layout[data-layout="single"]
+  .platform-layout[data-layout="single"]
     > .platform-panel:is(
       [data-spec="ambient"],
       [data-spec="clock"],
@@ -131,7 +131,7 @@
   padding: 0;
 }
 .platform[data-device="true"]
-  > .platform-layout[data-layout="single"]
+  .platform-layout[data-layout="single"]
   > .platform-panel:is(
     [data-spec="ambient"],
     [data-spec="clock"],
@@ -143,7 +143,7 @@
   background: var(--bg);
 }
 .platform[data-device="true"]
-  > .platform-layout[data-layout="single"]
+  .platform-layout[data-layout="single"]
   > .platform-panel
   :is(.calendar-event, .date-tile) {
   background: var(--surface);
@@ -3217,7 +3217,7 @@ html[data-repaint="instant"]
 .kids-points-focus {
   position: relative;
 }
-.kids-points .kids-points-open {
+:is(.kids-points, .idle-dashboard) .kids-points-open {
   position: absolute;
   inset: 0;
   z-index: 2;
@@ -3230,11 +3230,13 @@ html[data-repaint="instant"]
   cursor: pointer;
   touch-action: manipulation;
 }
-.kids-points .kids-points-open:focus-visible {
+:is(.kids-points, .idle-dashboard)
+  .kids-points-open:focus-visible {
   outline: 3px solid var(--accent-content);
   outline-offset: -3px;
 }
-.kids-points .kids-points-open:active {
+:is(.kids-points, .idle-dashboard)
+  .kids-points-open:active {
   background: color-mix(in srgb, var(--fg) 8%, transparent);
 }
 /* A child opened from the summary strip covers the whole composition. */
@@ -3803,4 +3805,56 @@ html[data-repaint="instant"]
   overflow: hidden;
   background: var(--surface);
   border-radius: 16px;
+}
+
+/* Keep the previous composition readable while its successor is fetched. */
+.platform-view {
+  display: flex;
+  flex: 1;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+.platform-loading {
+  position: relative;
+}
+.platform-loading-label {
+  position: absolute;
+  inset-block-start: 24px;
+  inset-inline-start: 30px;
+  color: var(--fg-dim);
+  font-size: 16px;
+  z-index: 1;
+}
+.platform-loading-panels {
+  flex: 1;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: 1fr 1fr;
+}
+.platform-loading-panel {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 54px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.platform-loading-panel:first-child {
+  grid-column: 1 / -1;
+}
+.platform-loading-panel span {
+  display: block;
+  block-size: 16px;
+  inline-size: 65%;
+  border-radius: 6px;
+  background: var(--fg-dim);
+  opacity: 0.12;
+}
+.platform-loading-panel span:first-child {
+  inline-size: 35%;
+  block-size: 26px;
+}
+.platform-loading-panel span:last-child {
+  inline-size: 85%;
 }
