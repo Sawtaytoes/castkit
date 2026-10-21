@@ -1,7 +1,8 @@
 import type { ContractData } from "@castkit/sdk/contracts"
-import { useRef, useState } from "preact/hooks"
+import { useContext, useRef, useState } from "preact/hooks"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
 import { formatClockTime } from "../time.ts"
+import { CompositionNavigation } from "./CompositionNavigation.ts"
 import { formatPointsDelta } from "./kidsPointsLayout.ts"
 
 type KidEntry =
@@ -41,6 +42,12 @@ export const KidTasksToday = ({
   now: number
   onBack: () => void
 }) => {
+  const navigation = useContext(CompositionNavigation)
+  const selectTask = (name: string | undefined) => {
+    const update = () => setSelectedTaskName(name)
+    if (navigation) navigation.navigate(update, true)
+    else update()
+  }
   const [selectedTaskName, setSelectedTaskName] = useState<
     string | undefined
   >()
@@ -135,7 +142,7 @@ export const KidTasksToday = ({
           .join(" · ")
   const goBack = () => {
     if (selected) {
-      setSelectedTaskName(undefined)
+      selectTask(undefined)
     } else {
       onBack()
     }
@@ -266,7 +273,7 @@ export const KidTasksToday = ({
                   }}
                   onClick={() => {
                     if (!hasDragged.current) {
-                      setSelectedTaskName(summary.name)
+                      selectTask(summary.name)
                     }
                   }}
                 >

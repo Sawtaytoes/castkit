@@ -13,6 +13,7 @@ import {
   selectProviderRows,
 } from "./aiUsageRows.ts"
 import { chooseCompositionLayout } from "./compositionLayout.ts"
+import { chooseFocusedCompositionLayout } from "./focusedCompositionLayout.ts"
 import { measurePrinterFacts } from "./printerContentFit.ts"
 
 /** Measure actual content, then spend remaining space in priority order. */
@@ -20,29 +21,51 @@ export const useCompositionLayout = ({
   panels,
   mode,
   data,
+  focusedKey,
+  navigationRevision = 0,
 }: {
   panels: { key: string; panel: ViewPanel }[]
   mode: string
+  focusedKey?: string
+  navigationRevision?: number
   data: Record<string, unknown>
 }) => {
   const element = useRef<HTMLDivElement>(null)
-  const [layout, setLayout] =
-    useState<ReturnType<typeof chooseCompositionLayout>>()
+  const [committed, setCommitted] = useState<{
+    layout:
+      | ReturnType<typeof chooseCompositionLayout>
+      | ReturnType<typeof chooseFocusedCompositionLayout>
+    revision: number
+  }>()
   useLayoutEffect(() => {
     const container = element.current
+    if (!container) return
     if (
-      !container ||
+      !focusedKey &&
       !["cards", "rail", "adaptive"].includes(mode)
-    )
+    ) {
+      setCommitted({
+        layout: undefined,
+        revision: navigationRevision,
+      })
       return
+    }
     const measure = () => {
       const computed = getComputedStyle(container)
       const gap =
         Number.parseFloat(computed.columnGap) || 12
-      const items = panels.map(({ key, panel }, index) => {
-        const child = container.children[index] as
-          | HTMLElement
-          | undefined
+      const renderedPanels = new Map(
+        Array.from(
+          container.querySelectorAll<HTMLElement>(
+            "[data-composition-key]",
+          ),
+        ).map((panel) => [
+          panel.dataset.compositionKey,
+          panel,
+        ]),
+      )
+      const items = panels.map(({ key, panel }) => {
+        const child = renderedPanels.get(key)
         const image = child?.querySelector<
           HTMLImageElement | HTMLVideoElement
         >(".platform-printer-image")
@@ -130,7 +153,9 @@ export const useCompositionLayout = ({
         }
       })
       const measured = new Map<string, number>()
-      const next = chooseCompositionLayout({
+      const input: Parameters<
+        typeof chooseCompositionLayout
+      >[0] = {
         width: container.clientWidth,
         height: container.clientHeight,
         gap,
@@ -140,17 +165,12 @@ export const useCompositionLayout = ({
           const cacheKey = `${key}:${width}:${detailLevel}`
           const cached = measured.get(cacheKey)
           if (cached !== undefined) return cached
-          const index = panels.findIndex(
-            (panel) => panel.key === key,
-          )
+          const panelElement = renderedPanels.get(key)
           const body =
-            container.children[
-              index
-            ]?.querySelector<HTMLElement>(".printer-body")
-          if (!body) return 220
-          const panelElement = container.children[
-            index
-          ] as HTMLElement
+            panelElement?.querySelector<HTMLElement>(
+              ".printer-body",
+            )
+          if (!body || !panelElement) return 220
           const panelStyle = getComputedStyle(panelElement)
           const insetWidth =
             Number.parseFloat(panelStyle.paddingLeft) +
@@ -171,11 +191,20 @@ export const useCompositionLayout = ({
           measured.set(cacheKey, height)
           return height
         },
-      })
-      setLayout((previous) =>
-        JSON.stringify(previous) === JSON.stringify(next)
+      }
+      const next =
+        (focusedKey
+          ? chooseFocusedCompositionLayout({
+              ...input,
+              focusedKey,
+            })
+          : undefined) ?? chooseCompositionLayout(input)
+      setCommitted((previous) =>
+        previous?.revision === navigationRevision &&
+        JSON.stringify(previous.layout) ===
+          JSON.stringify(next)
           ? previous
-          : next,
+          : { layout: next, revision: navigationRevision },
       )
     }
     const pending = { frame: 0, isDisposed: false }
@@ -205,6 +234,16 @@ export const useCompositionLayout = ({
         true,
       )
     }
-  }, [mode, JSON.stringify(panels), JSON.stringify(data)])
-  return { element, layout }
+  }, [
+    mode,
+    focusedKey,
+    navigationRevision,
+    JSON.stringify(panels),
+    JSON.stringify(data),
+  ])
+  return {
+    element,
+    layout: committed?.layout,
+    navigationRevision: committed?.revision ?? 0,
+  }
 }
