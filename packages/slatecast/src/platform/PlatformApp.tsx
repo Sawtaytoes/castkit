@@ -10,7 +10,10 @@ import {
 } from "./CompositionNavigation.ts"
 import { DeferredHomeDashboard } from "./DeferredHomeDashboard.tsx"
 import { DisplayContext } from "./DisplayContext.ts"
-import { DisplayPropertiesContext } from "./displayProperties.ts"
+import {
+  type DisplayProperties,
+  DisplayPropertiesContext,
+} from "./displayProperties.ts"
 import { Panel } from "./Panel.tsx"
 import { PinKeypad } from "./PinKeypad.tsx"
 import type {
@@ -23,7 +26,9 @@ import { useCompositionLayout } from "./useCompositionLayout.ts"
 import { useDisplay } from "./useDisplay.ts"
 import "./platform.css"
 import "./idleDashboard.css"
+import { DisplayLoading } from "./DisplayLoading.tsx"
 import { ViewTabs } from "./ViewTabs.tsx"
+import { ViewTransition } from "./ViewTransition.tsx"
 
 /** Pure composition surface shared by the live client and preview stories. */
 export const DisplayComposition = ({
@@ -295,12 +300,16 @@ export const DisplayComposition = ({
 export const PlatformApp = ({
   target,
   isDeviceShell = false,
+  deviceProperties,
 }: {
+  deviceProperties?: DisplayProperties
   target: DisplayTarget
   isDeviceShell?: boolean
 }) => {
   const display = useDisplay(target, isDeviceShell)
   const isReady = useRenderReadiness(display.snapshot)
+  const properties =
+    display.snapshot?.displayProperties ?? deviceProperties
   useEffect(() => {
     if (
       new URLSearchParams(window.location.search).get(
@@ -332,16 +341,12 @@ export const PlatformApp = ({
           : (display.snapshot?.view.theme ?? "dark")
     }
     document.documentElement.dataset.repaint =
-      display.snapshot?.displayProperties?.repaint ??
-      "instant"
+      properties?.repaint ?? "instant"
     apply()
     preference.addEventListener("change", apply)
     return () =>
       preference.removeEventListener("change", apply)
-  }, [
-    display.snapshot?.view.theme,
-    display.snapshot?.displayProperties?.repaint,
-  ])
+  }, [display.snapshot?.view.theme, properties?.repaint])
   if (display.isLocked) {
     return (
       <PinKeypad
@@ -353,17 +358,7 @@ export const PlatformApp = ({
     )
   }
   if (!display.snapshot) {
-    return (
-      <main
-        class="platform-lock"
-        data-connection={display.connectionStatus}
-      >
-        <h1>CastKit</h1>
-        <p role="status">
-          {display.error || "Connecting…"}
-        </p>
-      </main>
-    )
+    return <DisplayLoading error={display.error} />
   }
   const availableViews =
     display.snapshot.availableViews ?? []
@@ -371,9 +366,8 @@ export const PlatformApp = ({
     !display.isPreview &&
     target.kind === "screen" &&
     availableViews.length > 0 &&
-    (!target.deviceId ||
-      display.snapshot.displayProperties?.hasViewDrawer ===
-        true)
+    (!(target.deviceId || deviceProperties) ||
+      properties?.hasViewDrawer === true)
   const navigate = (
     event: JSX.TargetedMouseEvent<HTMLElement>,
   ) => {
@@ -423,7 +417,9 @@ export const PlatformApp = ({
       class="platform"
       style={viewAppearance(display.snapshot.view)}
       data-connection={display.connectionStatus}
-      data-device={String(Boolean(target.deviceId))}
+      data-device={String(
+        Boolean(target.deviceId || deviceProperties),
+      )}
       data-screen-navigation={String(hasScreenNavigation)}
       // The view on screen now. A screen switches views without changing its
       // URL, so the desktop app reads this to keep a zoom per view.
@@ -459,22 +455,32 @@ export const PlatformApp = ({
               ? "Connecting…"
               : "Connected"}
       </span>
-      {display.error && display.isConnected ? (
+      {display.error ? (
         <p class="platform-notice" role="alert">
           {display.error}
         </p>
       ) : null}
-      <DisplayComposition
-        snapshot={display.snapshot}
-        isConnected={display.isConnected}
-        isPending={display.isPending}
-        controlDisabledReason={
-          display.isPreview
-            ? "Preview · Controls disabled"
-            : undefined
-        }
-        onAction={display.requestAction}
-      />
+      <ViewTransition
+        revision={display.snapshot.view.id}
+        properties={properties}
+        isPending={display.isLoadingTarget}
+      >
+        <DisplayComposition
+          key={display.snapshot.view.id}
+          snapshot={{
+            ...display.snapshot,
+            displayProperties: properties,
+          }}
+          isConnected={display.isConnected}
+          isPending={display.isPending}
+          controlDisabledReason={
+            display.isPreview
+              ? "Preview · Controls disabled"
+              : undefined
+          }
+          onAction={display.requestAction}
+        />
+      </ViewTransition>
     </main>
   )
 }

@@ -3,6 +3,7 @@ import {
   screen,
   within,
 } from "@testing-library/preact"
+import userEvent from "@testing-library/user-event"
 import { expect, onTestFinished, test } from "vitest"
 import { IdleDashboard } from "./IdleDashboard.tsx"
 import "../styles.css"
@@ -245,4 +246,104 @@ test("keeps all dashboard sections inside the available window", async () => {
       )
     }),
   ).toBe(true)
+})
+
+test("opens a child's tasks locally and returns to the overview", async () => {
+  render(
+    <IdleDashboard
+      now={now}
+      clock={clock}
+      points={{
+        kids: [
+          {
+            id: "robin",
+            name: "Robin",
+            pointsToday: 80,
+            tasksToday: [
+              {
+                id: "task",
+                name: "Reading",
+                points: 80,
+                atMs: now,
+              },
+            ],
+          },
+        ],
+      }}
+    />,
+  )
+  const card = screen.getByRole("article", {
+    name: "Robin's points",
+  })
+  const opener = screen.getByRole("button", {
+    name: "View Robin's tasks today",
+  })
+  expect(
+    Math.abs(
+      opener.getBoundingClientRect().width -
+        card.clientWidth,
+    ),
+  ).toBeLessThan(1)
+  await userEvent.setup().click(opener)
+  expect(screen.getByText("Today's tasks")).toBeVisible()
+  expect(screen.getByText("Reading")).toBeVisible()
+  expect(
+    screen.queryByRole("region", {
+      name: "Time and weather",
+    }),
+  ).toBeNull()
+  await userEvent.setup().click(
+    screen.getByRole("button", {
+      name: "Back to all children",
+    }),
+  )
+  expect(
+    screen.getByRole("region", {
+      name: "Time and weather",
+    }),
+  ).toBeVisible()
+})
+
+test("matches the standalone clock font and draws an inline weather icon and condition", async () => {
+  const { page } = await import("vitest/browser")
+  await page.viewport(1024, 600)
+  render(
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        fontFamily: "var(--font-sans)",
+      }}
+    >
+      <IdleDashboard
+        now={now}
+        clock={clock}
+        weather={{
+          temperatureText: "62°",
+          conditionText: "Partly cloudy",
+          condition: "partlycloudy",
+        }}
+      />
+    </div>,
+  )
+  const temperature = screen
+    .getByText("62°")
+    .getBoundingClientRect()
+  const condition = screen
+    .getByText("Partly cloudy")
+    .getBoundingClientRect()
+  expect(
+    document.querySelector(".idle-dashboard-weather svg"),
+  ).toBeVisible()
+  expect(condition.left).toBeGreaterThan(temperature.right)
+  expect(
+    Math.abs(
+      (condition.top + condition.bottom) / 2 -
+        (temperature.top + temperature.bottom) / 2,
+    ),
+  ).toBeLessThan(2)
+  expect(
+    getComputedStyle(screen.getByText("12:45")).fontFamily,
+  ).not.toContain("Baloo")
 })

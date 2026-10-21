@@ -16,6 +16,7 @@ const clock = {
 const weather = {
   temperatureText: "72°",
   conditionText: "Sunny",
+  condition: "sunny" as const,
 }
 const agenda = {
   events: [

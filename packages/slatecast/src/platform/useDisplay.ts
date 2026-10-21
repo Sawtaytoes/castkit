@@ -3,7 +3,12 @@ import {
   connectionTransitions,
   createStatus,
 } from "@charcuterie/logic/core"
-import { useEffect, useRef, useState } from "preact/hooks"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks"
 import { reloadPage } from "../reloadPage.ts"
 import type {
   DisplaySnapshot,
@@ -26,6 +31,13 @@ export const useDisplay = (
     ) === "1"
   const [snapshot, setSnapshot] =
     useState<DisplaySnapshot | null>(null)
+  const targetKey = JSON.stringify([
+    target.kind,
+    target.id,
+    target.deviceId,
+  ])
+  const [loadedTargetKey, setLoadedTargetKey] = useState("")
+  const isLoadingTarget = loadedTargetKey !== targetKey
   const [isLocked, setIsLocked] = useState(false)
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting")
@@ -79,7 +91,7 @@ export const useDisplay = (
     setIsLocked(true)
     setConnectionStatus("disconnected")
   }
-  useEffect(() => {
+  useLayoutEffect(() => {
     const lifecycle: {
       isDisposed: boolean
       timer?: number
@@ -109,6 +121,9 @@ export const useDisplay = (
         connection.transitionTo("disconnected")
       }
     }
+    setConnectionStatus("connecting")
+    setError("")
+    setIsLocked(false)
     const controller = new AbortController()
     const accept = (value: DisplaySnapshot) => {
       if (lifecycle.isDisposed) {
@@ -123,6 +138,7 @@ export const useDisplay = (
         return
       }
       lifecycle.buildId = value.buildId
+      setLoadedTargetKey(targetKey)
       setSnapshot(
         isPreview ? { ...value, canControl: false } : value,
       )
@@ -204,9 +220,11 @@ export const useDisplay = (
         )
         lifecycle.socket = socket
         socket.onopen = () => {
+          if (lifecycle.isDisposed) return
           connected()
         }
         socket.onmessage = (event) => {
+          if (lifecycle.isDisposed) return
           try {
             const message = JSON.parse(event.data)
             if (message.type === "reload") {
@@ -227,6 +245,7 @@ export const useDisplay = (
         }
         socket.onerror = () => socket.close()
         socket.onclose = (event) => {
+          if (lifecycle.isDisposed) return
           if (event.code === 4401 || event.code === 4403) {
             lockState()
             void load()
@@ -264,6 +283,7 @@ export const useDisplay = (
     isCapture,
     displayQuery,
     isDeviceShell,
+    targetKey,
   ])
   const unlock = async (pin: string) => {
     setIsPending(true)
@@ -299,6 +319,7 @@ export const useDisplay = (
       target.kind !== "screen" ||
       isPreview ||
       !isConnected ||
+      isLoadingTarget ||
       actionPending.current ||
       !snapshot?.availableViews?.some(
         (view) => view.id === viewId,
@@ -347,6 +368,7 @@ export const useDisplay = (
       !snapshot?.canControl ||
       isPreview ||
       !isConnected ||
+      isLoadingTarget ||
       actionPending.current
     ) {
       return
@@ -387,7 +409,8 @@ export const useDisplay = (
     isPreview,
     snapshot,
     isLocked,
-    isConnected,
+    isConnected: isConnected && !isLoadingTarget,
+    isLoadingTarget,
     connectionStatus,
     isPending,
     error,
