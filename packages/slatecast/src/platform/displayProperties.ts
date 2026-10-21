@@ -16,7 +16,7 @@ export type DisplayProperties = {
   hasTouch?: boolean
   hasViewDrawer?: boolean
   colorMode?: string
-  contrast?: "standard" | "high"
+  contrast?: "standard" | "darker" | "high"
 }
 /** Browser links have instant repaint and interactive controls unless assigned a physical display. */
 export const DisplayPropertiesContext = createContext<

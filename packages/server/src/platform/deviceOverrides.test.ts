@@ -369,6 +369,22 @@ test("temporary screen tests preserve assignments, allow alerts, and dismiss onl
   expect(
     platform.getDeviceProperties("desk")?.contrast,
   ).toBe("high")
+
+  const darker = await app.request(path, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({
+      testId: first.testId,
+      contrast: "darker",
+    }),
+  })
+  expect(darker.status).toBe(200)
+  expect((await darker.json()).test.expiresAt).toBe(
+    first.expiresAt,
+  )
+  expect(
+    platform.getDeviceProperties("desk")?.contrast,
+  ).toBe("darker")
   expect(
     platform.getDeviceProperties("mantle")?.contrast,
   ).toBe("standard")

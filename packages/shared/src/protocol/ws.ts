@@ -94,7 +94,7 @@ export type BrowserDeviceProfile = {
   /** Whether this installation exposes the panel-local edge view drawer. */
   hasViewDrawer: boolean
   /** Installation palette preference, independent of panel color depth. */
-  contrast?: "standard" | "high"
+  contrast?: "standard" | "darker" | "high"
   /** Printer gestures are enabled when this installation binds a print queue. */
   hasPrinterNavigation?: boolean
   /** Optional installation-selected view request for a leftward swipe. */
