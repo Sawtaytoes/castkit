@@ -54,7 +54,7 @@ test("the cache evicts old combinations rather than accumulating display setting
     const minute = ((index % 4) * 15)
       .toString()
       .padStart(2, "0")
-    getDateTimeFormatter({
+    return getDateTimeFormatter({
       locale: "en-US",
       options: {
         timeZone: `+${hour}:${minute}`,
