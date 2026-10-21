@@ -1,8 +1,13 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { selectPanelData } from "@castkit/sdk/panelSelection"
+import { getEffectiveRepaint } from "@castkit/shared/panels/repaint"
 import type { JSX } from "preact"
-import { useEffect } from "preact/hooks"
+import { useEffect, useState } from "preact/hooks"
 import { viewAppearance } from "./appearance.ts"
+import {
+  CompositionNavigation,
+  useCompositionTransition,
+} from "./CompositionNavigation.ts"
 import { DeferredHomeDashboard } from "./DeferredHomeDashboard.tsx"
 import { DisplayContext } from "./DisplayContext.ts"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
@@ -130,18 +135,38 @@ export const DisplayComposition = ({
       },
     ]
   })
+  const [focusedKey, setFocusedKey] = useState<string>()
+  const [navigationRevision, setNavigationRevision] =
+    useState(0)
   const combined = useCompositionLayout({
+    focusedKey,
+    navigationRevision,
     panels: displayedPanels,
     mode: snapshot.view.layout,
     data: Object.fromEntries(
       displayedPanels.map((item) => [item.key, item.data]),
     ),
   })
-  const layout = isCombined
-    ? (combined.layout?.id ?? "cards")
-    : snapshot.view.isActiveOnly && panels.length <= 1
-      ? "single"
-      : snapshot.view.layout
+  const captureNavigation = useCompositionTransition({
+    element: combined.element,
+    revision: combined.navigationRevision,
+    isAnimated: ["instant", "fast"].includes(
+      getEffectiveRepaint({
+        repaint:
+          snapshot.displayProperties?.repaint ?? "instant",
+        power: snapshot.displayProperties?.power ?? "wired",
+      }),
+    ),
+  })
+  const hasFocusedLayout =
+    focusedKey !== undefined &&
+    displayedPanels.some((item) => item.key === focusedKey)
+  const layout =
+    isCombined || hasFocusedLayout
+      ? (combined.layout?.id ?? "cards")
+      : snapshot.view.isActiveOnly && panels.length <= 1
+        ? "single"
+        : snapshot.view.layout
   const isHome = panels.some(
     (panel) => typeof panel.settings.homeGroup === "string",
   )
@@ -149,51 +174,78 @@ export const DisplayComposition = ({
     key,
     panel,
   }: (typeof displayedPanels)[number]) => (
-    <Panel
+    <CompositionNavigation.Provider
       key={key}
-      layoutStyle={
-        isCombined ? combined.layout?.cells[key] : undefined
-      }
-      panel={
-        isCombined && panel.specId === "printer-status"
-          ? {
-              ...panel,
-              settings: {
-                ...panel.settings,
-                minimumDetailLevel:
-                  combined.layout?.detailLevel ?? 0,
-              },
-            }
-          : panel
-      }
-      browserEntry={
-        snapshot.viewSpecs?.find(
-          (spec) => spec.id === panel.specId,
-        )?.browserEntry
-      }
-      inputs={
-        snapshot.viewSpecs?.find(
-          (spec) => spec.id === panel.specId,
-        )?.inputs
-      }
-      channels={snapshot.channels}
-      isControlEnabled={
-        snapshot.canControl && isConnected && !isPending
-      }
-      controlDisabledReason={
-        controlDisabledReason ??
-        (!isConnected
-          ? "Connection lost · Controls disabled"
-          : isPending
-            ? "Please wait · Action in progress"
-            : !snapshot.view.isControlEnabled
-              ? "Controls disabled for this view"
-              : !snapshot.canControl
-                ? "Sign in to control"
-                : undefined)
-      }
-      onAction={onAction}
-    />
+      value={{
+        navigate: (update, isDetailOpen) => {
+          captureNavigation()
+          update()
+          setFocusedKey(isDetailOpen ? key : undefined)
+          setNavigationRevision((revision) => revision + 1)
+        },
+        release: () =>
+          setFocusedKey((current) =>
+            current === key ? undefined : current,
+          ),
+      }}
+    >
+      <Panel
+        compositionKey={key}
+        layoutStyle={
+          isCombined || hasFocusedLayout
+            ? combined.layout?.cells[key]
+            : undefined
+        }
+        panel={
+          isCombined && panel.specId === "printer-status"
+            ? {
+                ...panel,
+                settings: {
+                  ...panel.settings,
+                  minimumDetailLevel:
+                    combined.layout?.detailLevel ?? 0,
+                },
+              }
+            : hasFocusedLayout &&
+                panel.specId === "ai-usage"
+              ? {
+                  ...panel,
+                  settings: {
+                    ...panel.settings,
+                    isAdaptiveLayout: true,
+                  },
+                }
+              : panel
+        }
+        browserEntry={
+          snapshot.viewSpecs?.find(
+            (spec) => spec.id === panel.specId,
+          )?.browserEntry
+        }
+        inputs={
+          snapshot.viewSpecs?.find(
+            (spec) => spec.id === panel.specId,
+          )?.inputs
+        }
+        channels={snapshot.channels}
+        isControlEnabled={
+          snapshot.canControl && isConnected && !isPending
+        }
+        controlDisabledReason={
+          controlDisabledReason ??
+          (!isConnected
+            ? "Connection lost · Controls disabled"
+            : isPending
+              ? "Please wait · Action in progress"
+              : !snapshot.view.isControlEnabled
+                ? "Controls disabled for this view"
+                : !snapshot.canControl
+                  ? "Sign in to control"
+                  : undefined)
+        }
+        onAction={onAction}
+      />
+    </CompositionNavigation.Provider>
   )
   return (
     <DisplayPropertiesContext.Provider
@@ -205,9 +257,14 @@ export const DisplayComposition = ({
           ref={combined.element}
           style={{
             ...viewAppearance(snapshot.view),
-            ...(isCombined ? combined.layout?.style : {}),
+            ...(isCombined || hasFocusedLayout
+              ? combined.layout?.style
+              : {}),
           }}
           data-layout={layout}
+          data-navigation-focus={
+            hasFocusedLayout ? focusedKey : undefined
+          }
           data-home-dashboard={String(isHome)}
           data-priority-layout={String(isCombined)}
         >

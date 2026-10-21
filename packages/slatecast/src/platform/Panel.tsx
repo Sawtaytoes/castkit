@@ -25,6 +25,7 @@ import { structuredSetting } from "./viewSettings.ts"
 export const Panel = ({
   panel,
   layoutStyle,
+  compositionKey,
   channels,
   isControlEnabled,
   controlDisabledReason,
@@ -32,6 +33,7 @@ export const Panel = ({
   browserEntry,
   inputs,
 }: {
+  compositionKey?: string
   layoutStyle?: JSX.CSSProperties
   panel: ViewPanel
   channels: Record<string, ChannelSnapshot>
@@ -174,6 +176,7 @@ export const Panel = ({
       style={layoutStyle}
       aria-label={title}
       data-spec={panel.specId}
+      data-composition-key={compositionKey}
     >
       {typeof panel.settings.title === "string" &&
       panel.settings.title ? (

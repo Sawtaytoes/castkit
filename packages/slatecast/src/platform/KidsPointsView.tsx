@@ -2,10 +2,12 @@ import type { ContractData } from "@castkit/sdk/contracts"
 import { getRunningKids } from "@castkit/sdk/kidsPointsScan"
 import { createPortal } from "preact/compat"
 import {
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
 } from "preact/hooks"
+import { CompositionNavigation } from "./CompositionNavigation.ts"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { KidTasksToday } from "./KidTasksToday.tsx"
 import {
@@ -684,12 +686,25 @@ export const KidsPointsView = ({
   const [selectedKidId, setSelectedKidId] = useState<
     string | undefined
   >()
+  const navigation = useContext(CompositionNavigation)
+  const selectKid = (id: string | undefined) => {
+    const update = () => setSelectedKidId(id)
+    if (navigation)
+      navigation.navigate(update, id !== undefined)
+    else update()
+  }
   const onSelect = properties.isInteractive
-    ? setSelectedKidId
+    ? selectKid
     : undefined
   const selectedKid = properties.isInteractive
     ? data.kids.find((kid) => kid.id === selectedKidId)
     : undefined
+  const releaseFocus = useRef(navigation?.release)
+  releaseFocus.current = navigation?.release
+  useLayoutEffect(() => {
+    if (!selectedKid) releaseFocus.current?.()
+  }, [selectedKid?.id])
+  useLayoutEffect(() => () => releaseFocus.current?.(), [])
   const [size, setSize] = useState({ width: 0, height: 0 })
   useLayoutEffect(() => {
     const root = element.current
@@ -758,6 +773,7 @@ export const KidsPointsView = ({
   })
   const isDetailOverlaid =
     selectedKid !== undefined &&
+    navigation === undefined &&
     settings?.isCompactSummary === true &&
     overlayHost !== undefined
   const animated =
@@ -770,7 +786,7 @@ export const KidsPointsView = ({
       <KidTasksToday
         kid={selectedKid}
         now={now}
-        onBack={() => setSelectedKidId(undefined)}
+        onBack={() => selectKid(undefined)}
       />
     ) : settings?.isCompactSummary === true ? (
       <div class="kids-points-summary">
@@ -994,7 +1010,7 @@ export const KidsPointsView = ({
               <KidTasksToday
                 kid={selectedKid}
                 now={now}
-                onBack={() => setSelectedKidId(undefined)}
+                onBack={() => selectKid(undefined)}
               />
             </div>,
             overlayHost,
