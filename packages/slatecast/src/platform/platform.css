@@ -3773,3 +3773,34 @@ html[data-repaint="instant"]
     display: inline;
   }
 }
+
+/* Navigation gives detail the height first and keeps its reading measure bounded. */
+.platform-layout[data-navigation-focus] .kids-points-tasks {
+  max-width: 780px;
+  width: 100%;
+  margin-inline: auto;
+}
+.platform-layout [data-composition-key] {
+  transform-origin: top left;
+}
+
+/* Group wrappers stay mounted while detail temporarily owns the composition grid. */
+.platform-layout[data-home-dashboard="true"][data-navigation-focus] {
+  display: grid;
+  overflow: hidden;
+}
+.platform-layout[data-navigation-focus]
+  :is(.home-dashboard, .home-group) {
+  display: contents;
+}
+.platform-layout[data-navigation-focus] .home-group-title {
+  display: none;
+}
+.platform-layout[data-navigation-focus]
+  .home-group
+  > .platform-panel {
+  margin: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border-radius: 16px;
+}
