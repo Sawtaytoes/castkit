@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-20: Displays have temporary tests and installation contrast](2026-10-20-displays-have-temporary-tests-and-installation-contrast.md)
+
 - [2026-10-20: Native view navigation retains content and clock presentation](2026-10-20-native-view-navigation-retains-content-and-clock-presentation.md)
 
 - [2026-10-20: Navigation recalculates priority and animates reflow](2026-10-20-navigation-recalculates-priority-and-animates-reflow.md)

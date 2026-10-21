@@ -174,12 +174,14 @@ test("reads a browser display's ordered view list and local drawer choice", () =
         height: 720,
         hasTouch: true,
         hasViewDrawer: true,
+        contrast: "high",
         views: ["Now Playing", "Calendar", "Touch Test"],
       },
     ]),
   })
 
   expect(config.browserDevices[0]).toMatchObject({
+    contrast: "high",
     hasViewDrawer: true,
     views: ["Now Playing", "Calendar", "Touch Test"],
   })

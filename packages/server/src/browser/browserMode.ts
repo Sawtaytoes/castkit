@@ -594,6 +594,7 @@ export const createBrowserMode = ({
         shape: device.shape,
         hasTouch: device.hasTouch,
         hasViewDrawer: device.hasViewDrawer,
+        contrast: device.contrast ?? "standard",
         hasPrinterNavigation: Boolean(
           device.printQueueChannel,
         ),

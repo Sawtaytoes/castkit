@@ -146,6 +146,7 @@ export const App = () => {
     }
     const { dataset } = document.documentElement
     dataset.repaint = profile.repaint
+    dataset.contrast = profile.contrast ?? "standard"
     dataset.panelDithering = String(
       profile.hasPanelDithering,
     )
@@ -173,6 +174,7 @@ export const App = () => {
   }, [
     orientation,
     profile?.delivery,
+    profile?.contrast,
     profile?.hasPanelDithering,
     profile?.hasTouch,
     profile?.height,

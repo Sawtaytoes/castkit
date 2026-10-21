@@ -209,6 +209,7 @@ const BrowserDeviceConfigSchema = z.object({
   // The edge drawer is an installation choice. Touch capability alone must
   // not place navigation controls over every view on every panel.
   hasViewDrawer: z._default(z.boolean(), false),
+  contrast: z.optional(z.enum(["standard", "high"])),
   color: z._default(
     z.enum(["monochrome", "grayscale", "spectra6", "full"]),
     "full",

@@ -347,3 +347,63 @@ test("matches the standalone clock font and draws an inline weather icon and con
     getComputedStyle(screen.getByText("12:45")).fontFamily,
   ).not.toContain("Baloo")
 })
+
+test.each([
+  "dark",
+  "light",
+])("high contrast %s uses distinct text and surfaces without recoloring identity", (scheme) => {
+  const root = document.documentElement
+  const previous = {
+    scheme: root.dataset.scheme,
+    contrast: root.dataset.contrast,
+  }
+  onTestFinished(() => {
+    if (previous.scheme)
+      root.dataset.scheme = previous.scheme
+    else delete root.dataset.scheme
+    if (previous.contrast)
+      root.dataset.contrast = previous.contrast
+    else delete root.dataset.contrast
+  })
+  root.dataset.scheme = scheme
+  root.dataset.contrast = "high"
+  const { container } = render(
+    <IdleDashboard
+      now={now}
+      clock={clock}
+      points={{
+        kids: [
+          {
+            id: "sample",
+            name: "Robin",
+            pointsToday: 10,
+            goal: 500,
+            color: "#2a9d50",
+          },
+        ],
+      }}
+    />,
+  )
+  const card = container.querySelector(
+    ".idle-dashboard-clock",
+  )
+  const kid = container.querySelector(
+    ".idle-dashboard-points article",
+  )
+  if (!card || !kid)
+    throw new Error("Missing dashboard card")
+  expect(getComputedStyle(card).backgroundColor).toBe(
+    scheme === "dark"
+      ? "rgb(0, 0, 0)"
+      : "rgb(255, 255, 255)",
+  )
+  expect(getComputedStyle(kid).borderTopColor).toBe(
+    "rgb(42, 157, 80)",
+  )
+  root.dataset.contrast = "standard"
+  expect(getComputedStyle(card).backgroundColor).not.toBe(
+    scheme === "dark"
+      ? "rgb(0, 0, 0)"
+      : "rgb(255, 255, 255)",
+  )
+})

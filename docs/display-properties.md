@@ -300,6 +300,21 @@ real stylesheet.
 These belong to one unit on one wall. Two units of the same model can differ in
 every one of them.
 
+### `contrast`
+
+An installation preference for displays that render CastKit's browser views, including
+browser pages captured for frame delivery. It is independent of panel color depth,
+backlight level, and repaint speed. Set it in **Devices → Device → Display → Contrast**.
+
+| Value | What changes |
+| --- | --- |
+| `standard` (default) | Existing theme and per-view surface colors. |
+| `high` | Dark themes use black semantic backgrounds and surfaces, white primary text, and brighter secondary text. Light themes use white surfaces and black/darker text. Card boundaries and accent text remain readable. Photos, artwork, and identity colors are unchanged. |
+
+The property arrives with the device profile and composition properties, and is stamped
+as `data-contrast` on the document root. Plain shareable view links retain standard
+contrast. It does not change static image-view renderers or alter the panel backlight.
+
 ### `orientation`
 
 How this unit is mounted. It fixes **the layout box** — the width and height a

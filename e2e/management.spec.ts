@@ -108,6 +108,10 @@ test.beforeEach(async ({ page }) => {
       },
     }),
   )
+  await page.route(
+    "**/api/manage/platform/devices/*/test",
+    (route) => route.fulfill({ json: { test: null } }),
+  )
   await page.route("**/api/manage/devices", (route) =>
     route.fulfill({
       json: { devices: [IMAGE_DEVICE, BROWSER_DEVICE] },
@@ -1243,4 +1247,164 @@ test("Ambient LED effect, slider, power and demo apply immediately and reflect M
   await expect(
     page.getByText("No unsaved changes", { exact: true }),
   ).toBeVisible()
+})
+
+test("display testing starts and ends without saving or restarting the device", async ({
+  page,
+}) => {
+  const state: {
+    test: null | {
+      testId: string
+      target: { kind: string; id: string }
+      contrast?: string
+      expiresAt: number
+    }
+  } = { test: null }
+  const mutations: { method: string; body: unknown }[] = []
+  await page.route("**/api/manage/platform", (route) =>
+    route.fulfill({
+      json: {
+        deviceScreens: {},
+        screens: [
+          {
+            id: "daily",
+            name: "Daily",
+            viewIds: ["clock"],
+            defaultViewId: "clock",
+          },
+        ],
+        sources: [],
+        channels: [],
+        views: [{ id: "clock", name: "Clock" }],
+        plugins: [],
+        adapters: [],
+        viewSpecs: [],
+        presets: [],
+        channelStates: {},
+      },
+    }),
+  )
+  await page.route(
+    "**/api/manage/platform/devices/e2e-square/test",
+    async (route) => {
+      const method = route.request().method()
+      if (method !== "GET") {
+        const body = route.request().postDataJSON()
+        mutations.push({ method, body })
+        state.test =
+          method === "POST"
+            ? {
+                testId: "test-one",
+                target: body.target,
+                contrast: body.contrast,
+                expiresAt:
+                  Date.now() + body.durationSeconds * 1000,
+              }
+            : method === "PATCH" && state.test
+              ? { ...state.test, contrast: body.contrast }
+              : null
+      }
+      await route.fulfill({
+        json: { test: state.test, isShowing: true },
+      })
+    },
+  )
+  const deviceWrites: string[] = []
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      /api\/manage\/(devices|restart|platform\/device-screens)/.test(
+        request.url(),
+      )
+    )
+      deviceWrites.push(request.url())
+  })
+  await page.goto(
+    "/manage/devices/device?device=e2e-square",
+  )
+  await page
+    .getByRole("button", {
+      name: "Screen or view to test: Choose a screen or view",
+    })
+    .click()
+  await page
+    .getByRole("option", {
+      name: "View: Clock",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("button", {
+      name: "Start test",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByText(/Testing Clock until/),
+  ).toBeVisible()
+  expect(mutations[0]).toEqual({
+    method: "POST",
+    body: {
+      target: { kind: "view", id: "clock" },
+      durationSeconds: 300,
+      contrast: "standard",
+    },
+  })
+  const deadline = state.test?.expiresAt
+  await page
+    .getByRole("button", {
+      name: "Test contrast: Standard",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("option", { name: "High", exact: true })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: "Test contrast: High",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect.poll(() => mutations.length).toBe(2)
+  expect(mutations[1]).toEqual({
+    method: "PATCH",
+    body: { testId: "test-one", contrast: "high" },
+  })
+  expect(state.test?.expiresAt).toBe(deadline)
+  await page.reload()
+  await expect(
+    page.getByRole("button", {
+      name: "End test",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", { name: "End test", exact: true })
+    .click()
+  await expect(
+    page.getByText(
+      "Test ended. Normal display operation restored.",
+    ),
+  ).toBeVisible()
+  expect(mutations[2]).toEqual({
+    method: "DELETE",
+    body: { testId: "test-one" },
+  })
+  expect(deviceWrites).toEqual([])
+  await page
+    .getByRole("button", {
+      name: "Contrast: Standard",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("option", { name: "High", exact: true })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: "Save device & restart",
+      exact: true,
+    }),
+  ).toBeEnabled()
 })

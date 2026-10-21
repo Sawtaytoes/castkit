@@ -12,6 +12,7 @@ import type {
 import { getRepaintForDevice } from "../views/viewsForDevice.ts"
 import { createChannelHub } from "./channelHub.ts"
 import { createDeviceOverrides } from "./deviceOverrides.ts"
+import { createDeviceTests } from "./deviceTests.ts"
 import { getDisplayCompatibility } from "./displayCompatibility.ts"
 import { createPausedMusic } from "./pausedMusic.ts"
 import { createPlatformAccess } from "./platformAccess.ts"
@@ -111,6 +112,9 @@ export const createPlatform = async ({
     listeners.forEach((listener) => {
       listener()
     })
+  const deviceTests = createDeviceTests({
+    onChanged: notify,
+  })
   const runtime = createSourceRuntime({
     hub,
     catalog,
@@ -349,6 +353,11 @@ export const createPlatform = async ({
         "hasViewDrawer" in device
           ? Boolean(device.hasViewDrawer)
           : false,
+      contrast:
+        deviceTests.get(deviceId)?.contrast ??
+        ("contrast" in device
+          ? device.contrast
+          : "standard"),
       colorMode:
         "colorMode" in device
           ? device.colorMode
@@ -387,7 +396,15 @@ export const createPlatform = async ({
   ):
     | { kind: "view" | "screen"; id: string }
     | undefined => {
-    const viewId = deviceOverrides.getViewId(deviceId)
+    const override = deviceOverrides.getActive(deviceId)
+    const test = deviceTests.get(deviceId)
+    if (
+      test &&
+      (!override || override.priority < 60) &&
+      getTarget(test.target)
+    )
+      return test.target
+    const viewId = override?.viewId
     if (
       viewId &&
       store.get().views.some((view) => view.id === viewId)
@@ -453,6 +470,64 @@ export const createPlatform = async ({
     })
     return seconds
   }
+  const testOnDevice = ({
+    deviceId,
+    target,
+    durationSeconds,
+    contrast,
+  }: {
+    deviceId: string
+    target: { kind: "view" | "screen"; id: string }
+    durationSeconds: number
+    contrast?: "standard" | "high"
+  }) => {
+    const display = getDeviceProperties(deviceId)
+    if (!display) throw new Error("Unknown display")
+    const resolved = getTarget(target)
+    if (!resolved) throw new Error("Unknown screen or view")
+    if (
+      !Number.isFinite(durationSeconds) ||
+      durationSeconds < 1 ||
+      durationSeconds > 3600
+    )
+      throw new Error(
+        "Test duration must be between 1 second and 1 hour",
+      )
+    const viewIds = resolved.screen?.viewIds ?? [
+      resolved.view.id,
+    ]
+    const durations = viewIds.map((viewId) => {
+      const view = store
+        .get()
+        .views.find((item) => item.id === viewId)
+      if (!view)
+        throw new Error(
+          "The screen contains an unknown view",
+        )
+      const compatibility = getDisplayCompatibility({
+        view,
+        catalog,
+        display,
+      })
+      if (!compatibility.isCompatible)
+        throw new Error(compatibility.reasons.join(" "))
+      const seconds = getTemporaryViewSeconds({
+        repaint: compatibility.capabilities.repaint,
+        requestedSeconds: durationSeconds,
+      })
+      if (seconds === undefined)
+        throw new Error(
+          "A super-slow display does not take a temporary test.",
+        )
+      return seconds
+    })
+    return deviceTests.start({
+      deviceId,
+      target,
+      durationSeconds: Math.max(...durations),
+      contrast,
+    })
+  }
   const channelsForView = (view: ViewDefinition) =>
     Object.fromEntries(
       Array.from(
@@ -486,6 +561,8 @@ export const createPlatform = async ({
     getTarget,
     getDeviceTarget,
     showOnDevice,
+    testOnDevice,
+    deviceTests,
     deviceOverrides,
     channelsForView,
     refresh,
@@ -501,6 +578,7 @@ export const createPlatform = async ({
       const saved = runtime.dispose()
       screens.dispose()
       deviceOverrides.dispose()
+      deviceTests.dispose()
       pausedMusic.dispose()
       scanActivity.dispose()
       hub.dispose()

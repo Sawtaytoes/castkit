@@ -1016,6 +1016,105 @@ export const attachPlatformRoutes = ({
       }
     },
   )
+  app.get(
+    "/api/manage/platform/devices/:id/test",
+    (context) => {
+      const deviceId = context.req.param("id")
+      if (!platform.getDeviceProperties(deviceId))
+        return context.json(
+          { error: "Unknown display" },
+          404,
+        )
+      const test = platform.deviceTests.get(deviceId)
+      const target = platform.getDeviceTarget(deviceId)
+      return context.json({
+        test,
+        isShowing: Boolean(
+          test &&
+            target?.kind === test.target.kind &&
+            target.id === test.target.id,
+        ),
+      })
+    },
+  )
+  app.post(
+    "/api/manage/platform/devices/:id/test",
+    async (context) => {
+      const parsed = z
+        .object({
+          target: z.object({
+            kind: z.enum(["view", "screen"]),
+            id: z.string().min(1),
+          }),
+          durationSeconds: z.number().min(1).max(3600),
+          contrast: z.enum(["standard", "high"]).optional(),
+        })
+        .safeParse(
+          await context.req.json().catch(() => null),
+        )
+      if (!parsed.success)
+        return context.json(
+          { error: "Invalid display test" },
+          400,
+        )
+      try {
+        const test = platform.testOnDevice({
+          deviceId: context.req.param("id"),
+          ...parsed.data,
+        })
+        return context.json({ test })
+      } catch (error) {
+        return context.json({ error: getError(error) }, 400)
+      }
+    },
+  )
+  app.patch(
+    "/api/manage/platform/devices/:id/test",
+    async (context) => {
+      const parsed = z
+        .object({
+          testId: z.string().min(1),
+          contrast: z.enum(["standard", "high"]),
+        })
+        .safeParse(
+          await context.req.json().catch(() => null),
+        )
+      if (!parsed.success)
+        return context.json(
+          { error: "Invalid display contrast test" },
+          400,
+        )
+      try {
+        const test = platform.deviceTests.setContrast({
+          deviceId: context.req.param("id"),
+          ...parsed.data,
+        })
+        return context.json({ test })
+      } catch (error) {
+        return context.json({ error: getError(error) }, 409)
+      }
+    },
+  )
+  app.delete(
+    "/api/manage/platform/devices/:id/test",
+    async (context) => {
+      const parsed = z
+        .object({ testId: z.string().min(1) })
+        .safeParse(
+          await context.req.json().catch(() => null),
+        )
+      if (!parsed.success)
+        return context.json(
+          { error: "Invalid display test" },
+          400,
+        )
+      platform.deviceTests.end({
+        deviceId: context.req.param("id"),
+        testId: parsed.data.testId,
+      })
+      return context.json({ ok: true })
+    },
+  )
   app.post(
     "/api/manage/platform/devices/:id/show",
     async (context) => {

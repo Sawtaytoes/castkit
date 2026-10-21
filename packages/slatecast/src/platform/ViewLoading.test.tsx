@@ -177,6 +177,7 @@ test("the device shell opens local CastKit links in place and survives a tempora
   const { answer } = await setup()
   device.value = buildDeviceProfile({
     id: "test-panel",
+    contrast: "high",
     externalViews: [
       {
         name: "Activity",
@@ -196,6 +197,9 @@ test("the device shell opens local CastKit links in place and survives a tempora
   )
   await screen.findByText("Printer One")
   expect(document.querySelector("iframe")).toBeNull()
+  expect(document.documentElement.dataset.contrast).toBe(
+    "high",
+  )
   const shell = document.querySelector(".platform")
   deviceDisplayTarget.value = {
     kind: "view",
@@ -223,6 +227,9 @@ test("the device shell opens local CastKit links in place and survives a tempora
     ).toBe("kids-points"),
   )
   expect(document.querySelector(".platform")).toBe(shell)
+  expect(document.documentElement.dataset.contrast).toBe(
+    "high",
+  )
 })
 
 test("external origins and decorated or unavailable links keep their external view behavior", () => {

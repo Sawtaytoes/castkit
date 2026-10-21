@@ -42,6 +42,7 @@ export const DeviceApp = () => {
           height: profile.height,
           hasTouch: profile.hasTouch,
           hasViewDrawer: profile.hasViewDrawer,
+          contrast: profile.contrast,
         }}
       />
     </DeviceViewNavigation>
