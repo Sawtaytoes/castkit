@@ -1,5 +1,6 @@
 import { compactClockTime } from "@castkit/shared/compactClockTime"
 import type { BrowserClockConfig } from "@castkit/shared/protocol/ws"
+import { getDateTimeFormatter } from "./formatters.ts"
 
 /**
  * Client-side clock formatting shared by every browser view that shows a clock
@@ -31,15 +32,21 @@ const formatSafely = ({
 }) => {
   const date = new Date(millis)
   if (!timeZone) {
-    return date.toLocaleString("en-US", options)
+    return getDateTimeFormatter({
+      locale: "en-US",
+      options,
+    }).format(date)
   }
   try {
-    return date.toLocaleString("en-US", {
-      ...options,
-      timeZone,
-    })
+    return getDateTimeFormatter({
+      locale: "en-US",
+      options: { ...options, timeZone },
+    }).format(date)
   } catch {
-    return date.toLocaleString("en-US", options)
+    return getDateTimeFormatter({
+      locale: "en-US",
+      options,
+    }).format(date)
   }
 }
 
@@ -58,21 +65,21 @@ const formatPartsSafely = ({
 }) => {
   const date = new Date(millis)
   if (!timeZone) {
-    return new Intl.DateTimeFormat(
-      "en-US",
+    return getDateTimeFormatter({
+      locale: "en-US",
       options,
-    ).formatToParts(date)
+    }).formatToParts(date)
   }
   try {
-    return new Intl.DateTimeFormat("en-US", {
-      ...options,
-      timeZone,
+    return getDateTimeFormatter({
+      locale: "en-US",
+      options: { ...options, timeZone },
     }).formatToParts(date)
   } catch {
-    return new Intl.DateTimeFormat(
-      "en-US",
+    return getDateTimeFormatter({
+      locale: "en-US",
       options,
-    ).formatToParts(date)
+    }).formatToParts(date)
   }
 }
 

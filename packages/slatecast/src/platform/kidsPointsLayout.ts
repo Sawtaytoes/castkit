@@ -1,6 +1,10 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { getIsScanRecent } from "@castkit/sdk/kidsPointsScan"
 import { selectPriorityLayout } from "@charcuterie/logic/core"
+import {
+  formatNumber,
+  getDateTimeFormatter,
+} from "../formatters.ts"
 
 export {
   DEFAULT_SCAN_SECONDS,
@@ -251,8 +255,8 @@ export const getGoalPercent = (kid: KidEntry) =>
 /** A signed amount, the way a points sheet writes it. */
 export const formatPointsDelta = (points: number) =>
   points > 0
-    ? `+${points.toLocaleString("en-US")}`
-    : points.toLocaleString("en-US")
+    ? `+${formatNumber(points)}`
+    : formatNumber(points)
 
 /**
  * The big line and the small line for a scan.
@@ -296,8 +300,8 @@ export const getScanText = (scan: KidScan) => {
 /** A clock time for a fact that stays true until the next scan. */
 export const formatClockTime = (milliseconds: number) =>
   compactClockTime(
-    new Date(milliseconds).toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    }),
+    getDateTimeFormatter({
+      locale: "en-US",
+      options: { hour: "numeric", minute: "2-digit" },
+    }).format(new Date(milliseconds)),
   )

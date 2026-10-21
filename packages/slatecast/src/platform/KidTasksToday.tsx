@@ -1,5 +1,9 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { useContext, useRef, useState } from "preact/hooks"
+import {
+  formatNumber,
+  getDateTimeFormatter,
+} from "../formatters.ts"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
 import { formatClockTime } from "../time.ts"
 import { CompositionNavigation } from "./CompositionNavigation.ts"
@@ -17,17 +21,23 @@ export const getTaskDay = ({
   timeZone?: string
 }) => {
   try {
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
+    return getDateTimeFormatter({
+      locale: "en-CA",
+      options: {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      },
     }).format(new Date(atMs))
   } catch {
-    return new Intl.DateTimeFormat("en-CA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
+    return getDateTimeFormatter({
+      locale: "en-CA",
+      options: {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      },
     }).format(new Date(atMs))
   }
 }
@@ -135,7 +145,7 @@ export const KidTasksToday = ({
       : [
           summary.minutes === undefined
             ? undefined
-            : `${summary.minutes.toLocaleString("en-US")} min total`,
+            : `${formatNumber(summary.minutes)} min total`,
           scanCount(summary.entries.length),
         ]
           .filter((text) => text !== undefined)
@@ -185,7 +195,7 @@ export const KidTasksToday = ({
               ? hasHistory
                 ? formatPointsDelta(selected.points)
                 : "—"
-              : kid.pointsToday.toLocaleString("en-US")}
+              : formatNumber(kid.pointsToday)}
           </strong>
           <span>today</span>
         </p>
@@ -330,7 +340,7 @@ export const KidTasksToday = ({
                       {task.minutes === undefined ||
                       task.minutes === 0
                         ? null
-                        : ` · ${task.minutes.toLocaleString("en-US")} min`}
+                        : ` · ${formatNumber(task.minutes)} min`}
                     </p>
                   </div>
                   <strong>

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { formatNumber } from "../formatters.ts"
 import { CompositionNavigation } from "./CompositionNavigation.ts"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { KidOpenButton } from "./KidOpenButton.tsx"
@@ -40,7 +41,7 @@ const kidStyle = (kid: KidEntry) =>
   kid.color ? { "--kid-color": kid.color } : undefined
 
 const formatPoints = (points: number) =>
-  points.toLocaleString("en-US")
+  formatNumber(points)
 
 /**
  * What a scan did to one child's card: nothing, or a motion from the total

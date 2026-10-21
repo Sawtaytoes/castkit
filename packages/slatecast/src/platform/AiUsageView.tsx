@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { getDateTimeFormatter } from "../formatters.ts"
 import { AiUsageProviderIcon } from "./AiUsageProviderIcon.tsx"
 import { placeSections } from "./aiUsageLayout.ts"
 import {
@@ -77,10 +78,10 @@ const formatResetAt = ({
   }
   const resetsAt = new Date(resetsAtMs)
   const timeText = compactClockTime(
-    resetsAt.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    }),
+    getDateTimeFormatter({
+      locale: "en-US",
+      options: { hour: "numeric", minute: "2-digit" },
+    }).format(resetsAt),
   )
   if (
     resetsAt.toDateString() === new Date(now).toDateString()
@@ -88,14 +89,9 @@ const formatResetAt = ({
     return `Resets ${timeText}`
   }
   if (remainingMilliseconds < WEEK_MILLISECONDS) {
-    return `Resets ${resetsAt.toLocaleDateString([], {
-      weekday: "short",
-    })} ${timeText}`
+    return `Resets ${getDateTimeFormatter({ options: { weekday: "short" } }).format(resetsAt)} ${timeText}`
   }
-  return `Resets ${resetsAt.toLocaleDateString([], {
-    month: "short",
-    day: "numeric",
-  })}`
+  return `Resets ${getDateTimeFormatter({ options: { month: "short", day: "numeric" } }).format(resetsAt)}`
 }
 
 /** Nearly-spent windows earn the warning and danger surfaces. */

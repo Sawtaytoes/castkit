@@ -11,10 +11,11 @@ import {
 } from "preact/hooks"
 
 type HistoryData = ContractData["points-history.v1"]
+const pointsFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+})
 const points = (value: number) =>
-  new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 1,
-  }).format(value)
+  pointsFormatter.format(value)
 /** One portable chart, fed exclusively by producer-calculated history, for browser and image deliveries. */
 export const PointsHistoryView = ({
   data,
