@@ -11,6 +11,7 @@ export type Device = {
   shape?: "square" | "round" | "rectangle"
   hasTouch?: boolean
   hasViewDrawer?: boolean
+  contrast?: "standard" | "high"
   printQueueChannel?: string
   leftSwipeViewId?: string
   /** A backlight agent listens on the device's MQTT light topics. */

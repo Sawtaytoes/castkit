@@ -324,3 +324,147 @@ describe("a temporary view on one display", () => {
     })
   })
 })
+
+test("temporary screen tests preserve assignments, allow alerts, and dismiss only their own test", async () => {
+  const { platform, app } = await createFixture()
+  const headers = {
+    Authorization: "Bearer test-machine-token",
+    "Content-Type": "application/json",
+  }
+  const path = "/api/manage/platform/devices/desk/test"
+  expect(
+    (
+      await app.request(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target: { kind: "view", id: "points" },
+          durationSeconds: 60,
+        }),
+      })
+    ).status,
+  ).toBe(401)
+  const start = await app.request(path, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      target: { kind: "view", id: "points" },
+      durationSeconds: 60,
+    }),
+  })
+  expect(start.status).toBe(200)
+  const first = (await start.json()).test
+  const contrast = await app.request(path, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({
+      testId: first.testId,
+      contrast: "high",
+    }),
+  })
+  expect(contrast.status).toBe(200)
+  expect((await contrast.json()).test.expiresAt).toBe(
+    first.expiresAt,
+  )
+  expect(
+    platform.getDeviceProperties("desk")?.contrast,
+  ).toBe("high")
+  expect(
+    platform.getDeviceProperties("mantle")?.contrast,
+  ).toBe("standard")
+
+  expect(platform.getDeviceTarget("desk")).toEqual({
+    kind: "view",
+    id: "points",
+  })
+  expect(platform.store.get().deviceScreens).toEqual({
+    desk: "desk-screen",
+  })
+  platform.showOnDevice({
+    deviceId: "desk",
+    viewId: "home",
+    durationSeconds: 60,
+    priority: 100,
+  })
+  expect(platform.getDeviceTarget("desk")).toEqual({
+    kind: "view",
+    id: "home",
+  })
+  expect(
+    (await (await app.request(path, { headers })).json())
+      .isShowing,
+  ).toBe(false)
+  platform.deviceOverrides.clear({
+    deviceId: "desk",
+    viewId: "home",
+  })
+  expect(platform.getDeviceTarget("desk")).toEqual({
+    kind: "view",
+    id: "points",
+  })
+  const second = platform.testOnDevice({
+    deviceId: "desk",
+    target: { kind: "screen", id: "desk-screen" },
+    durationSeconds: 60,
+  })
+  await app.request(path, {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify({ testId: first.testId }),
+  })
+  expect(platform.deviceTests.get("desk")?.testId).toBe(
+    second.testId,
+  )
+  await app.request(path, {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify({ testId: second.testId }),
+  })
+  expect(platform.deviceTests.get("desk")).toBeNull()
+  expect(
+    platform.getDeviceProperties("desk")?.contrast,
+  ).toBe("standard")
+  expect(
+    (
+      await app.request(path, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          testId: first.testId,
+          contrast: "high",
+        }),
+      })
+    ).status,
+  ).toBe(409)
+
+  expect(platform.getDeviceTarget("desk")).toEqual({
+    kind: "screen",
+    id: "desk-screen",
+  })
+  expect(() =>
+    platform.testOnDevice({
+      deviceId: "mantle",
+      target: { kind: "view", id: "points" },
+      durationSeconds: 60,
+    }),
+  ).toThrow("super-slow")
+  expect(() =>
+    platform.testOnDevice({
+      deviceId: "desk",
+      target: { kind: "screen", id: "missing" },
+      durationSeconds: 60,
+    }),
+  ).toThrow("Unknown")
+  expect(
+    (
+      await app.request(path, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          target: { kind: "view", id: "points" },
+          durationSeconds: 3601,
+        }),
+      })
+    ).status,
+  ).toBe(400)
+})

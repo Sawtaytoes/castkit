@@ -5169,3 +5169,36 @@ button.music-lyric:hover:not(:disabled):not(.is-current) {
     display: none;
   }
 }
+
+/* Installation contrast applies to semantic surfaces, never a filter over artwork. */
+:root[data-contrast="high"],
+:root[data-contrast="high"] .platform,
+:root[data-contrast="high"] .platform-panel {
+  --bg: #000;
+  --surface: #000;
+  --fg: #fff;
+  --fg-dim: #e6e6e6;
+  --accent-content: #c8c0ff;
+}
+:root[data-contrast="high"][data-scheme="light"],
+:root[data-contrast="high"][data-scheme="light"] .platform,
+:root[data-contrast="high"][data-scheme="light"]
+  .platform-panel {
+  --bg: #fff;
+  --surface: #fff;
+  --fg: #000;
+  --fg-dim: #222;
+  --accent-content: #38208a;
+}
+:root[data-contrast="high"]
+  :is(
+    .platform-panel,
+    .idle-dashboard-agenda,
+    .idle-dashboard-kid
+  ) {
+  outline: 1px solid var(--fg-dim);
+  outline-offset: -1px;
+}
+:root[data-contrast="high"] .idle-dashboard-agenda li time {
+  color: var(--accent-content);
+}

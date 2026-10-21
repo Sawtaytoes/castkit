@@ -139,6 +139,7 @@ export const buildDevicePageHtml = ({
    */
   const panelStamp = [
     `data-repaint="${device.repaint}"`,
+    `data-contrast="${device.contrast ?? "standard"}"`,
     `data-panel-dithering="${device.hasPanelDithering}"`,
     `data-pixel-grid="${device.pixelGrid}"`,
     `data-delivery="${device.delivery}"`,
