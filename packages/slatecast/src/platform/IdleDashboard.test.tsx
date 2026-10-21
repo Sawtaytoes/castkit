@@ -407,3 +407,90 @@ test.each([
       : "rgb(255, 255, 255)",
   )
 })
+
+test.each([
+  "dark",
+  "light",
+])("darker contrast %s preserves text and identity while switching surfaces live", (scheme) => {
+  const root = document.documentElement
+  const previous = {
+    scheme: root.dataset.scheme,
+    contrast: root.dataset.contrast,
+  }
+  onTestFinished(() => {
+    if (previous.scheme)
+      root.dataset.scheme = previous.scheme
+    else delete root.dataset.scheme
+    if (previous.contrast)
+      root.dataset.contrast = previous.contrast
+    else delete root.dataset.contrast
+  })
+  root.dataset.scheme = scheme
+  root.dataset.contrast = "standard"
+  const { container } = render(
+    <main className="platform">
+      <section
+        className="platform-panel"
+        style={{
+          "--bg": "#131822",
+          "--surface": "#1e2633",
+        }}
+      >
+        <IdleDashboard
+          now={now}
+          clock={clock}
+          points={{
+            kids: [
+              {
+                id: "sample",
+                name: "Robin",
+                pointsToday: 10,
+                goal: 500,
+                color: "#2a9d50",
+              },
+            ],
+          }}
+        />
+      </section>
+    </main>,
+  )
+  const clockCard = container.querySelector(
+    ".idle-dashboard-clock",
+  )
+  const kid = container.querySelector(
+    ".idle-dashboard-points article",
+  )
+  if (!clockCard || !kid)
+    throw new Error("Missing dashboard card")
+  const standard = {
+    background: getComputedStyle(clockCard).backgroundColor,
+    surface: getComputedStyle(kid).backgroundColor,
+    foreground: getComputedStyle(kid).color,
+  }
+  root.dataset.contrast = "high"
+  root.dataset.contrast = "darker"
+  expect(getComputedStyle(clockCard).backgroundColor).toBe(
+    scheme === "dark"
+      ? "rgb(13, 17, 24)"
+      : standard.background,
+  )
+  expect(getComputedStyle(kid).backgroundColor).toBe(
+    scheme === "dark"
+      ? "rgb(23, 29, 39)"
+      : standard.surface,
+  )
+  expect(getComputedStyle(kid).color).toBe(
+    standard.foreground,
+  )
+  expect(getComputedStyle(kid).borderTopColor).toBe(
+    "rgb(42, 157, 80)",
+  )
+  expect(getComputedStyle(kid).outlineStyle).toBe("none")
+  root.dataset.contrast = "standard"
+  expect(getComputedStyle(clockCard).backgroundColor).toBe(
+    standard.background,
+  )
+  expect(getComputedStyle(kid).backgroundColor).toBe(
+    standard.surface,
+  )
+})

@@ -61,11 +61,16 @@ test.each([
   "before",
   "after",
   "high-contrast",
+  "darker",
 ])("distance idle dashboard %s", async (mode) => {
   await page.viewport(1024, 600)
   document.documentElement.dataset.scheme = "dark"
   document.documentElement.dataset.contrast =
-    mode === "high-contrast" ? "high" : "standard"
+    mode === "high-contrast"
+      ? "high"
+      : mode === "darker"
+        ? "darker"
+        : "standard"
   render(
     <div
       style={{

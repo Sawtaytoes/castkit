@@ -5171,6 +5171,26 @@ button.music-lyric:hover:not(:disabled):not(.is-current) {
 }
 
 /* Installation contrast applies to semantic surfaces, never a filter over artwork. */
+/* A gentler dark palette for installations where raised surfaces look washed out.
+ * Preserve soft foregrounds, identity colors, and the distinction between layers.
+ * Light mode retains its standard palette; this preference never dims the backlight. */
+:root[data-contrast="darker"]:where(
+  :not([data-scheme="light"])
+),
+:root[data-contrast="darker"]:where(
+    :not([data-scheme="light"])
+  )
+  .platform,
+:root[data-contrast="darker"]:where(
+    :not([data-scheme="light"])
+  )
+  .platform-panel {
+  /* biome-ignore lint/complexity/noImportantStyles: Installation contrast must override a view's inline background. */
+  --bg: #0d1118 !important;
+  /* biome-ignore lint/complexity/noImportantStyles: Installation contrast must override a view's inline surface. */
+  --surface: #171d27 !important;
+}
+
 :root[data-contrast="high"],
 :root[data-contrast="high"] .platform,
 :root[data-contrast="high"] .platform-panel {
@@ -5200,5 +5220,12 @@ button.music-lyric:hover:not(:disabled):not(.is-current) {
   outline-offset: -1px;
 }
 :root[data-contrast="high"] .idle-dashboard-agenda li time {
+  color: var(--accent-content);
+}
+
+:root[data-contrast="darker"]
+  .idle-dashboard-agenda
+  li
+  time {
   color: var(--accent-content);
 }

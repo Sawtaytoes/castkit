@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 type DisplayTest = {
   testId: string
   target: { kind: "view" | "screen"; id: string }
-  contrast?: "standard" | "high"
+  contrast?: "standard" | "darker" | "high"
   expiresAt: number
 }
 
@@ -31,7 +31,7 @@ export const createDeviceTests = ({
     deviceId: string
     target: DisplayTest["target"]
     durationSeconds: number
-    contrast?: "standard" | "high"
+    contrast?: "standard" | "darker" | "high"
   }) => {
     const current = {
       testId: randomUUID(),
@@ -61,7 +61,7 @@ export const createDeviceTests = ({
   }: {
     deviceId: string
     testId: string
-    contrast: "standard" | "high"
+    contrast: "standard" | "darker" | "high"
   }) => {
     const current = get(deviceId)
     if (!current || current.testId !== testId)
