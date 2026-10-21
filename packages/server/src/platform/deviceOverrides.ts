@@ -30,14 +30,16 @@ export const createDeviceOverrides = ({
     listeners.forEach((listener) => {
       listener()
     })
-  const getViewId = (deviceId: string) =>
+  const getActive = (deviceId: string) =>
     (overrides.get(deviceId) ?? [])
       .filter((item) => item.expiresAt > now())
       .toSorted(
         (left, right) =>
           right.priority - left.priority ||
           right.sequence - left.sequence,
-      )[0]?.viewId
+      )[0]
+  const getViewId = (deviceId: string) =>
+    getActive(deviceId)?.viewId
   const show = ({
     deviceId,
     viewId,
@@ -115,6 +117,7 @@ export const createDeviceOverrides = ({
     show,
     clear,
     getViewId,
+    getActive,
     subscribe: (listener: () => void) => {
       listeners.add(listener)
       return () => {

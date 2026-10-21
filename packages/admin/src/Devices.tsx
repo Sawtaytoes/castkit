@@ -21,6 +21,7 @@ import { AmbientLightControls } from "./AmbientLightControls.tsx"
 import { DeviceFields } from "./DeviceFields.tsx"
 import { DevicePreview } from "./DevicePreview.tsx"
 import { DeviceSettingsFields } from "./DeviceSettingsFields.tsx"
+import { DeviceTestControls } from "./DeviceTestControls.tsx"
 import type {
   AutomationSettings,
   Device,
@@ -962,45 +963,60 @@ export const Devices = ({
                         onChange={updateDevice}
                       />
                       {!isNewDevice ? (
-                        <Card
-                          className="assigned-screen"
-                          heading="Assigned screen"
-                        >
-                          <div className="setting-fields">
-                            <SettingField
-                              label="Screen"
-                              value={screenId}
-                              onChange={setScreenId}
-                              width="wide"
-                              options={[
-                                {
-                                  label:
-                                    "Use existing device views",
-                                  value: "",
-                                },
-                                ...platform.screens.map(
-                                  (screen) => ({
-                                    label: screen.name,
-                                    value: screen.id,
-                                  }),
-                                ),
-                              ]}
-                            />
-                            <Button
-                              appearance="outline"
-                              isDisabled={
-                                isBusy ||
-                                screenId ===
-                                  assignedScreenId
-                              }
-                              onClick={() =>
-                                void saveScreen()
-                              }
-                            >
-                              Assign screen
-                            </Button>
-                          </div>
-                        </Card>
+                        <>
+                          <DeviceTestControls
+                            key={savedId}
+                            deviceId={savedId ?? ""}
+                            savedContrast={
+                              savedDevice?.contrast
+                            }
+                            platform={platform}
+                            onChanged={() =>
+                              setPreviewRevision(
+                                (current) => current + 1,
+                              )
+                            }
+                          />
+                          <Card
+                            className="assigned-screen"
+                            heading="Assigned screen"
+                          >
+                            <div className="setting-fields">
+                              <SettingField
+                                label="Screen"
+                                value={screenId}
+                                onChange={setScreenId}
+                                width="wide"
+                                options={[
+                                  {
+                                    label:
+                                      "Use existing device views",
+                                    value: "",
+                                  },
+                                  ...platform.screens.map(
+                                    (screen) => ({
+                                      label: screen.name,
+                                      value: screen.id,
+                                    }),
+                                  ),
+                                ]}
+                              />
+                              <Button
+                                appearance="outline"
+                                isDisabled={
+                                  isBusy ||
+                                  screenId ===
+                                    assignedScreenId
+                                }
+                                onClick={() =>
+                                  void saveScreen()
+                                }
+                              >
+                                Assign screen
+                              </Button>
+                            </div>
+                          </Card>
+                        </>
                       ) : null}
                     </>
                   ) : hasUnsavedControlCapability ? (

@@ -340,13 +340,19 @@ export const PlatformApp = ({
             : "light"
           : (display.snapshot?.view.theme ?? "dark")
     }
+    document.documentElement.dataset.contrast =
+      properties?.contrast ?? "standard"
     document.documentElement.dataset.repaint =
       properties?.repaint ?? "instant"
     apply()
     preference.addEventListener("change", apply)
     return () =>
       preference.removeEventListener("change", apply)
-  }, [display.snapshot?.view.theme, properties?.repaint])
+  }, [
+    display.snapshot?.view.theme,
+    properties?.repaint,
+    properties?.contrast,
+  ])
   if (display.isLocked) {
     return (
       <PinKeypad

@@ -144,6 +144,20 @@ export const DeviceFields = ({
       </div>
       {device.renderer === "browser" ? (
         <>
+          <SettingField
+            label="Contrast"
+            value={device.contrast ?? "standard"}
+            options={[
+              { label: "Standard", value: "standard" },
+              { label: "High", value: "high" },
+            ]}
+            description="High contrast uses black backgrounds and brighter text in dark mode, or white backgrounds and darker text in light mode. Applies to this display only."
+            onChange={(contrast) =>
+              onChange({
+                contrast: contrast as Device["contrast"],
+              })
+            }
+          />
           {device.hasRemoteBacklight ? (
             <p className="text-content-secondary text-sm">
               Backlight supported
