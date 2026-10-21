@@ -309,6 +309,7 @@ backlight level, and repaint speed. Set it in **Devices → Device → Display �
 | Value | What changes |
 | --- | --- |
 | `standard` (default) | Existing theme and per-view surface colors. |
+| `darker` | Dark themes use deeper charcoal backgrounds (`#0d1118`) and raised surfaces (`#171d27`), keeping the standard soft foreground text and colored accents. Agenda times use the readable accent-text color. No extra outlines. Light themes retain their standard palette. |
 | `high` | Dark themes use black semantic backgrounds and surfaces, white primary text, and brighter secondary text. Light themes use white surfaces and black/darker text. Card boundaries and accent text remain readable. Photos, artwork, and identity colors are unchanged. |
 
 The property arrives with the device profile and composition properties, and is stamped

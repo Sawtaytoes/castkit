@@ -149,9 +149,10 @@ export const DeviceFields = ({
             value={device.contrast ?? "standard"}
             options={[
               { label: "Standard", value: "standard" },
+              { label: "Darker", value: "darker" },
               { label: "High", value: "high" },
             ]}
-            description="High contrast uses black backgrounds and brighter text in dark mode, or white backgrounds and darker text in light mode. Applies to this display only."
+            description="Darker deepens dark-mode backgrounds while keeping soft text and card shading. High uses black/white surfaces and stronger text. Applies to this display only; backlight is unchanged."
             onChange={(contrast) =>
               onChange({
                 contrast: contrast as Device["contrast"],

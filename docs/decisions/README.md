@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-20: Darker contrast keeps soft text and layered surfaces](2026-10-20-darker-contrast-keeps-soft-text-and-layered-surfaces.md)
+
 - [2026-10-20: Displays have temporary tests and installation contrast](2026-10-20-displays-have-temporary-tests-and-installation-contrast.md)
 
 - [2026-10-20: Native view navigation retains content and clock presentation](2026-10-20-native-view-navigation-retains-content-and-clock-presentation.md)

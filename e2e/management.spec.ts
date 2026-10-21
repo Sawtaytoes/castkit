@@ -1372,7 +1372,34 @@ test("display testing starts and ends without saving or restarting the device", 
     body: { testId: "test-one", contrast: "high" },
   })
   expect(state.test?.expiresAt).toBe(deadline)
+  await page
+    .getByRole("button", {
+      name: "Test contrast: High",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("option", { name: "Darker", exact: true })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: "Test contrast: Darker",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect.poll(() => mutations.length).toBe(3)
+  expect(mutations[2]).toEqual({
+    method: "PATCH",
+    body: { testId: "test-one", contrast: "darker" },
+  })
+  expect(state.test?.expiresAt).toBe(deadline)
   await page.reload()
+  await expect(
+    page.getByRole("button", {
+      name: "Test contrast: Darker",
+      exact: true,
+    }),
+  ).toBeVisible()
   await expect(
     page.getByRole("button", {
       name: "End test",
@@ -1387,7 +1414,7 @@ test("display testing starts and ends without saving or restarting the device", 
       "Test ended. Normal display operation restored.",
     ),
   ).toBeVisible()
-  expect(mutations[2]).toEqual({
+  expect(mutations[3]).toEqual({
     method: "DELETE",
     body: { testId: "test-one" },
   })
@@ -1399,7 +1426,7 @@ test("display testing starts and ends without saving or restarting the device", 
     })
     .click()
   await page
-    .getByRole("option", { name: "High", exact: true })
+    .getByRole("option", { name: "Darker", exact: true })
     .click()
   await expect(
     page.getByRole("button", {

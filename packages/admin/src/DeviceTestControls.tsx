@@ -11,7 +11,7 @@ type TestStatus = {
   test: {
     testId: string
     target: { kind: "view" | "screen"; id: string }
-    contrast?: "standard" | "high"
+    contrast?: "standard" | "darker" | "high"
     expiresAt: number
   } | null
   isShowing?: boolean
@@ -25,7 +25,7 @@ export const DeviceTestControls = ({
   savedContrast = "standard",
 }: {
   deviceId: string
-  savedContrast?: "standard" | "high"
+  savedContrast?: "standard" | "darker" | "high"
   platform: Platform
   onChanged: () => void
 }) => {
@@ -106,7 +106,7 @@ export const DeviceTestControls = ({
     }
   }
   const previewContrast = async (
-    next: "standard" | "high",
+    next: "standard" | "darker" | "high",
   ) => {
     setContrast(next)
     if (!status.test) return
@@ -182,11 +182,12 @@ export const DeviceTestControls = ({
           onChange={(value) => {
             if (!isPending)
               void previewContrast(
-                value as "standard" | "high",
+                value as "standard" | "darker" | "high",
               )
           }}
           options={[
             { label: "Standard", value: "standard" },
+            { label: "Darker", value: "darker" },
             { label: "High", value: "high" },
           ]}
           description="Switch during a test to compare on the actual display. The saved contrast setting stays unchanged."

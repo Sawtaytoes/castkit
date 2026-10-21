@@ -479,7 +479,7 @@ export const createPlatform = async ({
     deviceId: string
     target: { kind: "view" | "screen"; id: string }
     durationSeconds: number
-    contrast?: "standard" | "high"
+    contrast?: "standard" | "darker" | "high"
   }) => {
     const display = getDeviceProperties(deviceId)
     if (!display) throw new Error("Unknown display")

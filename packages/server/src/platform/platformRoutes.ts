@@ -1047,7 +1047,9 @@ export const attachPlatformRoutes = ({
             id: z.string().min(1),
           }),
           durationSeconds: z.number().min(1).max(3600),
-          contrast: z.enum(["standard", "high"]).optional(),
+          contrast: z
+            .enum(["standard", "darker", "high"])
+            .optional(),
         })
         .safeParse(
           await context.req.json().catch(() => null),
@@ -1074,7 +1076,7 @@ export const attachPlatformRoutes = ({
       const parsed = z
         .object({
           testId: z.string().min(1),
-          contrast: z.enum(["standard", "high"]),
+          contrast: z.enum(["standard", "darker", "high"]),
         })
         .safeParse(
           await context.req.json().catch(() => null),
