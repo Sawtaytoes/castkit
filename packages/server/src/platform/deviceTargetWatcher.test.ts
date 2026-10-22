@@ -62,3 +62,26 @@ test("a browser display receives target changes both ways, and an image display 
     onImageTargetRemoved,
   ).toHaveBeenCalledExactlyOnceWith("desk")
 })
+
+test("new preparation metadata reaches a browser even when the authoritative target stays the same", () => {
+  const fixture = createPlatform()
+  const history = { ids: [] as string[] }
+  const onBrowserTargetChanged = vi.fn()
+  watchDeviceTargets({
+    platform: {
+      ...fixture.platform,
+      getDevicePreloadViewIds: () => history.ids,
+    },
+    browserDeviceIds: ["square"],
+    imageDeviceIds: [],
+    onBrowserTargetChanged,
+    onImageTargetRemoved: vi.fn(),
+  })
+  history.ids = ["points"]
+  fixture.notify()
+  expect(
+    onBrowserTargetChanged,
+  ).toHaveBeenCalledExactlyOnceWith("square")
+  fixture.notify()
+  expect(onBrowserTargetChanged).toHaveBeenCalledOnce()
+})

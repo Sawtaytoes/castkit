@@ -9,6 +9,7 @@ import {
 } from "preact/hooks"
 import { formatNumber } from "../formatters.ts"
 import { CompositionNavigation } from "./CompositionNavigation.ts"
+import { useCompositionVisibility } from "./CompositionVisibility.ts"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { KidOpenButton } from "./KidOpenButton.tsx"
 import { KidTasksToday } from "./KidTasksToday.tsx"
@@ -663,6 +664,10 @@ export const KidsPointsView = ({
     if (!selectedKid) releaseFocus.current?.()
   }, [selectedKid?.id])
   useLayoutEffect(() => () => releaseFocus.current?.(), [])
+  const isVisible = useCompositionVisibility()
+  useLayoutEffect(() => {
+    if (!isVisible) setSelectedKidId(undefined)
+  }, [isVisible])
   const [size, setSize] = useState({ width: 0, height: 0 })
   useLayoutEffect(() => {
     const root = element.current
@@ -682,10 +687,11 @@ export const KidsPointsView = ({
       )
     }
     measure()
+    if (!isVisible) return
     const observer = new ResizeObserver(measure)
     observer.observe(root)
     return () => observer.disconnect()
-  }, [])
+  }, [isVisible])
   /*
    * A child's task list reads top to bottom. A summary strip is a short row,
    * so a child opened from it takes the whole composition instead.

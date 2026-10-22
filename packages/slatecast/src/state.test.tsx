@@ -15,7 +15,12 @@ import { swipeToNextTrack } from "./__tests__/setup/dragArtwork.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
 import { __setPageReloaderForTests } from "./reloadPage.ts"
-import { connectionStatus, nowPlaying } from "./state.ts"
+import {
+  connectionStatus,
+  device,
+  deviceDisplayTarget,
+  nowPlaying,
+} from "./state.ts"
 
 // The artwork is the play/pause button; its name carries the title too.
 const pauseButton = () =>
@@ -364,4 +369,26 @@ describe("a deploy under a live panel", () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(reload).not.toHaveBeenCalled()
   })
+})
+
+test("automation preparation metadata updates without selecting its remembered view", async () => {
+  const { server } = await mountSlatecast()
+  server.push({
+    type: "display_target",
+    target: null,
+    preloadViewIds: ["room-points"],
+  })
+  await waitFor(() =>
+    expect(device.value?.preloadViewIds).toEqual([
+      "room-points",
+    ]),
+  )
+  expect(deviceDisplayTarget.value).toBeNull()
+  server.push({ type: "display_target", target: null })
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => resolve()),
+  )
+  expect(device.value?.preloadViewIds).toEqual([
+    "room-points",
+  ])
 })

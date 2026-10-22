@@ -144,6 +144,7 @@ export type PlatformState = {
   sessions: Session[]
   disabledPluginIds: string[]
   deviceScreens: Record<string, string>
+  deviceRecentViews?: Record<string, string[]>
   deviceAmbientLights?: Record<string, AmbientLightState>
   deviceBacklights?: Record<
     string,
@@ -213,6 +214,12 @@ export const createPlatformStore = ({
         )
       },
     )
+    if (loaded.deviceRecentViews) {
+      z.record(
+        z.string(),
+        z.array(z.string()).max(8),
+      ).parse(loaded.deviceRecentViews)
+    }
     if (loaded.deviceAmbientLights) {
       z.record(z.string(), ambientLightSchema).parse(
         loaded.deviceAmbientLights,

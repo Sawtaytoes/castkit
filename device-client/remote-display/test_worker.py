@@ -307,6 +307,17 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await context.cookies(), [])
         await context.close()
 
+    async def test_prepared_hidden_compositions_never_advertise_touch_targets(self):
+        await self.page.set_content("""<main>
+            <button data-castkit-target="active">Active</button>
+            <div inert><button data-castkit-target="standby">Standby</button></div>
+            <div aria-hidden="true"><button data-castkit-target="hidden">Hidden</button></div>
+            </main>""")
+        targets = await self.page.evaluate(
+            TARGETS_SCRIPT, {"attribute": "data-castkit-target", "width": 480, "height": 320}
+        )
+        self.assertEqual([target["identity"] for target in targets], ["active"])
+
     async def test_square_panel_keeps_bottom_touch_targets_and_reboot_resets_sequence(self):
         context = await create_browser_context(
             self.browser, {"viewport": {"width": 480, "height": 480}}

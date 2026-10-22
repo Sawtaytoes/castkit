@@ -6,8 +6,17 @@ import type {
 
 const entries = new Map<
   string,
-  { snapshot: DisplaySnapshot; expiresAt: number }
+  {
+    snapshot: DisplaySnapshot
+    target: DisplayTarget
+    expiresAt: number
+  }
 >()
+const listeners = new Set<() => void>()
+const changed = () =>
+  listeners.forEach((listener) => {
+    listener()
+  })
 const access = { revision: 0 }
 const MAX_VIEWS = 8
 const MAX_AGE_MS = 60_000
@@ -26,15 +35,18 @@ export const rememberDisplay = ({
 }) => {
   if (target.kind !== "view") return
   const key = displayCacheKey(target)
+  const hasNewTarget = !entries.has(key)
   entries.delete(key)
   entries.set(key, {
     snapshot,
+    target,
     expiresAt: Date.now() + MAX_AGE_MS,
   })
   if (entries.size > MAX_VIEWS) {
     const oldestKey = entries.keys().next().value
     if (oldestKey) entries.delete(oldestKey)
   }
+  if (hasNewTarget) changed()
 }
 
 /** A warm view can draw immediately; its new socket must authorize controls. */
@@ -58,7 +70,7 @@ export const isDisplayRefreshDue = (
 
 /** An unavailable destination must not evict other authorized prepared views. */
 export const forgetDisplay = (target: DisplayTarget) => {
-  entries.delete(displayCacheKey(target))
+  if (entries.delete(displayCacheKey(target))) changed()
 }
 
 /** Access changes invalidate every cached composition, including prefetched ones. */
@@ -66,7 +78,31 @@ export const clearDisplayCache = () => {
   access.revision += 1
   entries.clear()
   clearMediaCache()
+  changed()
 }
 
 /** Prevent an older in-flight warm-up from repopulating a cache after lock/sign-out. */
 export const displayCacheRevision = () => access.revision
+
+/** Only matching device contexts may supply standby DOM; expired private data is excluded. */
+export const listPreparedDisplays = (
+  target: DisplayTarget,
+) =>
+  [...entries.values()]
+    .reverse()
+    .filter(
+      (entry) =>
+        entry.target.deviceId === target.deviceId &&
+        entry.expiresAt > Date.now(),
+    )
+    .map((entry) => entry.snapshot)
+
+/** Notify view hosts when standby destinations appear or access invalidates them. */
+export const subscribePreparedDisplays = (
+  listener: () => void,
+) => {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}

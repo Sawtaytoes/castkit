@@ -380,6 +380,12 @@ const applyMessage = (message: ServerToClientMessage) => {
     return
   }
   if (message.type === "display_target") {
+    const profile = device.peek()
+    if (profile && message.preloadViewIds)
+      device.value = {
+        ...profile,
+        preloadViewIds: message.preloadViewIds,
+      }
     deviceDisplayTarget.value = message.target
     return
   }

@@ -16,6 +16,7 @@ import { CalendarFace } from "../views/Calendar.tsx"
 import { ClockFace } from "../views/Clock.tsx"
 import { AgendaView } from "./AgendaView.tsx"
 import { AiUsageView } from "./AiUsageView.tsx"
+import { useCompositionVisibility } from "./CompositionVisibility.ts"
 import { DeferredCamerasView } from "./DeferredCamerasView.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { EntitiesView } from "./EntitiesView.tsx"
@@ -28,15 +29,17 @@ import { TimersView } from "./TimersView.tsx"
 import { WeatherView } from "./WeatherView.tsx"
 
 const useClock = () => {
+  const isVisible = useCompositionVisibility()
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
+    if (!isVisible) return
     const timer = setInterval(
       () => setNow(Date.now()),
       1000,
     )
     return () => clearInterval(timer)
-  }, [])
-  return now
+  }, [isVisible])
+  return isVisible ? Date.now() : now
 }
 
 /** A panel's own clock settings, in the shape the device-page faces format with. */

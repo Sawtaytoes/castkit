@@ -13,21 +13,27 @@ import "../styles.css"
 import "./platform.css"
 
 afterEach(() => vi.restoreAllMocks())
+const now = new Date()
+now.setHours(12, 0, 0, 0)
+const drawingTime = now.getTime()
 const drawing = (
   isBusy = false,
   repaint: "instant" | "slow" = "instant",
-) => (
-  <main class="platform" data-device="true">
-    <DisplayComposition
-      snapshot={{
-        ...pointsOverviewFixture({ isBusy }),
-        displayProperties: { repaint, hasTouch: true },
-      }}
-      isConnected
-      onAction={async () => undefined}
-    />
-  </main>
-)
+) => {
+  vi.spyOn(Date, "now").mockReturnValue(drawingTime)
+  return (
+    <main class="platform" data-device="true">
+      <DisplayComposition
+        snapshot={{
+          ...pointsOverviewFixture({ isBusy }),
+          displayProperties: { repaint, hasTouch: true },
+        }}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  )
+}
 const openChild = async () => {
   await userEvent.click(
     screen.getByRole("button", {

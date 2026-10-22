@@ -468,6 +468,24 @@ export const createPlatform = async ({
       durationSeconds: seconds,
       priority,
     })
+    const previous =
+      store.get().deviceRecentViews?.[deviceId] ?? []
+    const recent = [
+      view.id,
+      ...previous.filter((id) => id !== view.id),
+    ].slice(0, 8)
+    if (
+      JSON.stringify(previous) !== JSON.stringify(recent)
+    ) {
+      store.update((state) => ({
+        ...state,
+        deviceRecentViews: {
+          ...state.deviceRecentViews,
+          [deviceId]: recent,
+        },
+      }))
+      notify()
+    }
     return seconds
   }
   const testOnDevice = ({
@@ -547,6 +565,36 @@ export const createPlatform = async ({
       ]),
     ) as Record<string, ChannelSnapshot>
   await refresh()
+  const getDevicePreloadViewIds = (deviceId: string) => {
+    if (!getDeviceProperties(deviceId)) return []
+    const screenId = store.get().deviceScreens[deviceId]
+    const screen = store
+      .get()
+      .screens.find((item) => item.id === screenId)
+    return [
+      ...new Set([
+        ...(store.get().deviceRecentViews?.[deviceId] ??
+          []),
+        ...(screen?.viewIds ?? []),
+      ]),
+    ]
+      .filter((id) => {
+        const view = store
+          .get()
+          .views.find((item) => item.id === id)
+        const display = getDeviceProperties(deviceId)
+        return (
+          view &&
+          display &&
+          getDisplayCompatibility({
+            view,
+            display,
+            catalog,
+          }).isCompatible
+        )
+      })
+      .slice(0, 8)
+  }
   const getIsAssignedDeviceView = ({
     deviceId,
     viewId,
@@ -560,6 +608,8 @@ export const createPlatform = async ({
       (item) => item.id === deviceId,
     )
     if (!device) return false
+    if (getDevicePreloadViewIds(deviceId).includes(viewId))
+      return true
     const screenId = store.get().deviceScreens[deviceId]
     if (
       store
@@ -590,6 +640,7 @@ export const createPlatform = async ({
   return {
     getDeviceProperties,
     getIsAssignedDeviceView,
+    getDevicePreloadViewIds,
     pluginRuntime,
     renderKey,
     store,

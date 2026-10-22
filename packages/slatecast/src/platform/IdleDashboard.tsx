@@ -4,12 +4,17 @@ import {
   WEATHER_CONDITION_CODES,
   type WeatherConditionCode,
 } from "@castkit/shared/viewData/types"
+import { useSignalEffect } from "@preact/signals"
 import {
   useContext,
   useLayoutEffect,
   useRef,
   useState,
 } from "preact/hooks"
+import {
+  finishNavigation,
+  navigationFeedback,
+} from "../navigationFeedback.ts"
 import {
   formatClockDate,
   formatClockTimeParts,
@@ -18,6 +23,7 @@ import {
 import { ClockReading } from "../views/ClockReading.tsx"
 import { WeatherMark } from "../WeatherMark.tsx"
 import { CompositionNavigation } from "./CompositionNavigation.ts"
+import { useCompositionVisibility } from "./CompositionVisibility.ts"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { KidOpenButton } from "./KidOpenButton.tsx"
 import { KidTasksToday } from "./KidTasksToday.tsx"
@@ -36,10 +42,30 @@ export const IdleDashboard = ({
   weather?: ContractData["weather.v1"]
   points?: ContractData["kids-points.v1"]
 }) => {
+  const isVisible = useCompositionVisibility()
   const navigation = useContext(CompositionNavigation)
   const { isInteractive } = useDisplayProperties()
   const [selectedKidId, setSelectedKidId] =
     useState<string>()
+  useLayoutEffect(() => {
+    if (!isVisible) setSelectedKidId(undefined)
+  }, [isVisible])
+  useSignalEffect(() => {
+    const feedback = navigationFeedback.value
+    if (
+      isVisible &&
+      feedback?.phase === "loading" &&
+      ["ambient", "calendar"].includes(
+        feedback.requestedView ?? "",
+      )
+    ) {
+      const update = () => setSelectedKidId(undefined)
+      if (selectedKidId && navigation)
+        navigation.navigate(update, false)
+      else update()
+      finishNavigation()
+    }
+  })
   const selectedKid = isInteractive
     ? points?.kids.find((kid) => kid.id === selectedKidId)
     : undefined

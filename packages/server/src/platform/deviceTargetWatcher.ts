@@ -20,7 +20,8 @@ export const watchDeviceTargets = ({
   platform: Pick<
     Platform,
     "getDeviceTarget" | "store" | "subscribe"
-  >
+  > &
+    Partial<Pick<Platform, "getDevicePreloadViewIds">>
   browserDeviceIds: readonly string[]
   imageDeviceIds: readonly string[]
   onBrowserTargetChanged: (deviceId: string) => void
@@ -40,7 +41,17 @@ export const watchDeviceTargets = ({
       ).map((deviceId) => [
         deviceId,
         JSON.stringify(
-          platform.getDeviceTarget(deviceId) ?? null,
+          imageIds.has(deviceId)
+            ? (platform.getDeviceTarget(deviceId) ?? null)
+            : {
+                target:
+                  platform.getDeviceTarget(deviceId) ??
+                  null,
+                preloadViewIds:
+                  platform.getDevicePreloadViewIds?.(
+                    deviceId,
+                  ),
+              },
         ),
       ]),
     )
