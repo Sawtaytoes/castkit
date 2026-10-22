@@ -12,6 +12,7 @@ import {
   readAlertPercent,
   selectProviderRows,
 } from "./aiUsageRows.ts"
+import { useCompositionVisibility } from "./CompositionVisibility.ts"
 import { chooseCompositionLayout } from "./compositionLayout.ts"
 import { chooseFocusedCompositionLayout } from "./focusedCompositionLayout.ts"
 import { measurePrinterFacts } from "./printerContentFit.ts"
@@ -30,6 +31,7 @@ export const useCompositionLayout = ({
   navigationRevision?: number
   data: Record<string, unknown>
 }) => {
+  const isVisible = useCompositionVisibility()
   const element = useRef<HTMLDivElement>(null)
   const [committed, setCommitted] = useState<{
     layout:
@@ -212,6 +214,10 @@ export const useCompositionLayout = ({
           : { layout: next, revision: navigationRevision },
       )
     }
+    if (!isVisible) {
+      measure()
+      return
+    }
     const pending = { frame: 0, isDisposed: false }
     const schedule = () => {
       if (pending.isDisposed) return
@@ -240,6 +246,7 @@ export const useCompositionLayout = ({
       )
     }
   }, [
+    isVisible,
     mode,
     focusedKey,
     navigationRevision,

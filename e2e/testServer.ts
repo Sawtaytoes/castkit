@@ -403,6 +403,8 @@ export const startTestServer = async ({
   const { injectWebSocket, upgradeWebSocket } =
     browserMode.attach(app, {
       getPlatformTarget: platform.getDeviceTarget,
+      getDevicePreloadViewIds:
+        platform.getDevicePreloadViewIds,
     })
   attachPlatformSockets({ app, platform, upgradeWebSocket })
   watchDeviceTargets({

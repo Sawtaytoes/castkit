@@ -441,3 +441,70 @@ test("a scan panel appears in an active-only monitor and disappears without furt
     page.getByText("Nothing active", { exact: true }),
   ).toBeVisible()
 })
+
+test("automation-only views prepare after a document reload and switch without another bootstrap", async ({
+  page,
+  request,
+}) => {
+  await publishPrinters(request)
+  const select = () =>
+    request.post("/__test__/mqtt", {
+      data: {
+        topic: "castkit/e2e-preview/override/set",
+        payload: {
+          viewId: "lab",
+          durationSeconds: 30,
+          priority: 50,
+        },
+      },
+    })
+  const clear = () =>
+    request.post("/__test__/mqtt", {
+      data: {
+        topic: "castkit/e2e-preview/override/clear",
+        payload: { viewId: "lab" },
+      },
+    })
+  await select()
+  await page.goto("/d/e2e-preview")
+  await expect(page.locator(".platform")).toHaveAttribute(
+    "data-view",
+    "lab",
+  )
+  await clear()
+  await expect(page.locator(".platform")).toHaveCount(0)
+  const preparing = page.waitForResponse((response) =>
+    response
+      .url()
+      .includes(
+        "/api/display/view/lab?device=e2e-preview&preload=1",
+      ),
+  )
+  await page.reload()
+  const prepared = await preparing
+  expect(prepared.status()).toBe(200)
+  await prepared.finished()
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => resolve()),
+        ),
+      ),
+  )
+  const requests: string[] = []
+  page.on("request", (request) => {
+    if (
+      request.url().includes("/api/display/view/lab") &&
+      !request.url().includes("preload=1")
+    )
+      requests.push(request.url())
+  })
+  await select()
+  await expect(page.locator(".platform")).toHaveAttribute(
+    "data-view",
+    "lab",
+  )
+  expect(requests).toEqual([])
+  await clear()
+})

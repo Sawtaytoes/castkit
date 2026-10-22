@@ -1,5 +1,8 @@
 .platform:has(
-  .platform-layout[data-layout="single"]
+  .platform-layout[data-layout="single"]:not(
+      .platform-composition[data-composition-visible="false"]
+        *
+    )
     > [data-spec="idle-dashboard"]
 ) {
   padding: 0;

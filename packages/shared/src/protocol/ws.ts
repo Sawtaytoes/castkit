@@ -140,6 +140,8 @@ export type BrowserDeviceProfile = {
   colour?: "mono" | "greyscale" | "e6" | "full"
   /** @deprecated See `colour`. */
   legacyShape?: "square" | "round" | "rect"
+  /** Recent automation-assigned views to prepare; this never changes the offered navigation. */
+  preloadViewIds?: readonly string[]
   externalViews: readonly BrowserExternalView[]
   /** Every view this panel is configured to offer. */
   views: readonly {
@@ -185,6 +187,7 @@ export type ServerToClientMessage =
     }
   | {
       type: "display_target"
+      preloadViewIds?: readonly string[]
       target: { kind: "view" | "screen"; id: string } | null
     }
   | { type: "view"; view: string }

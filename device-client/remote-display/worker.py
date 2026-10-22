@@ -32,6 +32,7 @@ TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) =>
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
 return gestures.concat(Array.from(document.querySelectorAll(`[${attribute}]`)).filter(element => {
+  if (element.closest('[inert],[aria-hidden="true"]')) return false;
   const bounds = element.getBoundingClientRect();
   return bounds.width && bounds.height && bounds.left >= 0 && bounds.top >= 0 && bounds.right <= width && bounds.bottom <= height && !element.matches(':disabled,[aria-disabled="true"]');
 }).map(element => { const bounds = element.getBoundingClientRect(); return {
