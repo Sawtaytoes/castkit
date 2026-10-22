@@ -1,6 +1,10 @@
 import { getEffectiveRepaint } from "@castkit/shared/panels/repaint"
 import type { ComponentChildren } from "preact"
 import { useLayoutEffect, useRef } from "preact/hooks"
+import {
+  finishNavigation,
+  navigationFeedback,
+} from "../navigationFeedback.ts"
 import type { DisplayProperties } from "./displayProperties.ts"
 
 /** Animate a new composition once; live data updates keep their existing DOM. */
@@ -16,14 +20,20 @@ export const ViewTransition = ({
   children: ComponentChildren
 }) => {
   const element = useRef<HTMLDivElement>(null)
-  const previousRevision = useRef(revision)
+  const previousRevision = useRef<string | undefined>(
+    navigationFeedback.peek()?.phase === "loading"
+      ? undefined
+      : revision,
+  )
   const repaint = getEffectiveRepaint({
     repaint: properties?.repaint ?? "instant",
     power: properties?.power ?? "wired",
   })
   useLayoutEffect(() => {
+    if (isPending) return
     const hasChanged = previousRevision.current !== revision
     previousRevision.current = revision
+    if (hasChanged) finishNavigation()
     if (
       !hasChanged ||
       repaint !== "instant" ||
@@ -33,21 +43,29 @@ export const ViewTransition = ({
       return
     const animation = element.current?.animate(
       [
-        { opacity: 0, transform: "translateY(8px)" },
+        { opacity: 0.35, transform: "translateY(24px)" },
         { opacity: 1, transform: "none" },
       ],
-      { duration: 220, easing: "ease-out" },
+      { duration: 280, easing: "ease-out" },
     )
     return () => animation?.cancel()
-  }, [revision, repaint])
+  }, [revision, repaint, isPending])
   return (
-    <div
-      ref={element}
-      class="platform-view"
-      aria-busy={isPending}
-      inert={isPending}
-    >
-      {children}
-    </div>
+    <>
+      <div
+        ref={element}
+        class="platform-view"
+        aria-busy={isPending}
+        inert={isPending}
+      >
+        {children}
+      </div>
+      {isPending && !navigationFeedback.value ? (
+        <div class="view-loading-feedback" role="status">
+          <span aria-hidden="true" />
+          Loading view…
+        </div>
+      ) : null}
+    </>
   )
 }

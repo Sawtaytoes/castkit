@@ -16,6 +16,10 @@ import { buildDeviceProfile } from "../__fixtures__/buildSnapshot.ts"
 import { DeviceApp } from "../DeviceApp.tsx"
 import { readLocalDisplayTarget } from "../localDisplayTarget.ts"
 import {
+  finishNavigation,
+  showNavigationLoading,
+} from "../navigationFeedback.ts"
+import {
   activeView,
   device,
   deviceDisplayTarget,
@@ -31,8 +35,13 @@ import "../styles.css"
 afterEach(() => vi.restoreAllMocks())
 const setup = async () => {
   const link = ws.link("*/view/*/ws*")
+  const clients = new Set<{
+    send: (data: string) => void
+  }>()
   const worker = setupWorker(
-    link.addEventListener("connection", () => undefined),
+    link.addEventListener("connection", ({ client }) => {
+      clients.add(client)
+    }),
   )
   await worker.start({
     quiet: true,
@@ -63,7 +72,11 @@ const setup = async () => {
       new Response(JSON.stringify(body), { status }),
     )
   }
-  return { answer, fetch }
+  const push = (body: unknown) =>
+    clients.forEach((client) => {
+      client.send(JSON.stringify(body))
+    })
+  return { answer, fetch, push }
 }
 
 test("retains the old view while loading, disables its controls, and ignores a superseded response", async () => {
@@ -106,7 +119,7 @@ test("retains the old view while loading, disables its controls, and ignores a s
       .querySelector(".platform-view")
       ?.hasAttribute("inert"),
   ).toBe(true)
-  expect(screen.queryByText("Loading view")).toBeNull()
+  expect(screen.getByText("Loading view…")).toBeVisible()
   mounted.rerender(
     <PlatformApp
       target={{ kind: "view", id: "kids-points" }}
@@ -263,25 +276,30 @@ test("external origins and decorated or unavailable links keep their external vi
 })
 
 test("view motion runs once per navigation, and respects repaint and reduced motion", () => {
+  showNavigationLoading({
+    label: "First",
+    requestedView: "first",
+  })
+  onTestFinished(() => finishNavigation())
   const animate = vi.spyOn(HTMLElement.prototype, "animate")
   const mounted = render(
     <ViewTransition revision="one" isPending={false}>
       <p>First</p>
     </ViewTransition>,
   )
-  expect(animate).toHaveBeenCalledTimes(0)
+  expect(animate).toHaveBeenCalledTimes(1)
   mounted.rerender(
     <ViewTransition revision="one" isPending={false}>
       <p>Updated</p>
     </ViewTransition>,
   )
-  expect(animate).toHaveBeenCalledTimes(0)
+  expect(animate).toHaveBeenCalledTimes(1)
   mounted.rerender(
     <ViewTransition revision="two" isPending={false}>
       <p>Second</p>
     </ViewTransition>,
   )
-  expect(animate).toHaveBeenCalledTimes(1)
+  expect(animate).toHaveBeenCalledTimes(2)
   mounted.rerender(
     <ViewTransition
       revision="three"
@@ -291,7 +309,7 @@ test("view motion runs once per navigation, and respects repaint and reduced mot
       <p>Third</p>
     </ViewTransition>,
   )
-  expect(animate).toHaveBeenCalledTimes(1)
+  expect(animate).toHaveBeenCalledTimes(2)
   vi.spyOn(window, "matchMedia").mockReturnValue({
     matches: true,
   } as MediaQueryList)
@@ -300,5 +318,103 @@ test("view motion runs once per navigation, and respects repaint and reduced mot
       <p>Fourth</p>
     </ViewTransition>,
   )
-  expect(animate).toHaveBeenCalledTimes(1)
+  expect(animate).toHaveBeenCalledTimes(2)
+})
+
+test("a brief controller handoff keeps the same mounted composition and cancels its fallback", async () => {
+  const previous = {
+    device: device.value,
+    view: activeView.value,
+    target: deviceDisplayTarget.value,
+  }
+  onTestFinished(() => {
+    device.value = previous.device
+    activeView.value = previous.view
+    deviceDisplayTarget.value = previous.target
+  })
+  const { answer, fetch } = await setup()
+  device.value = buildDeviceProfile({ id: "test-panel" })
+  deviceDisplayTarget.value = {
+    kind: "view",
+    id: "activity",
+  }
+  const mounted = render(<DeviceApp />)
+  onTestFinished(() => {
+    mounted.unmount()
+  })
+  await answer(
+    "/api/display/view/activity?device=test-panel",
+    compositionFixture,
+  )
+  await screen.findByText("Printer One")
+  const shell = document.querySelector(".platform")
+  deviceDisplayTarget.value = null
+  activeView.value = "ambient"
+  await waitFor(() =>
+    expect(
+      document
+        .querySelector(".platform-view")
+        ?.hasAttribute("inert"),
+    ).toBe(true),
+  )
+  expect(document.querySelector(".platform")).toBe(shell)
+  deviceDisplayTarget.value = {
+    kind: "view",
+    id: "kids-points",
+  }
+  await answer(
+    "/api/display/view/kids-points?device=test-panel",
+    kidsPointsFixture({ hasScan: false }),
+  )
+  await screen.findByRole("button", {
+    name: "View Quinn's tasks today",
+  })
+  expect(document.querySelector(".platform")).toBe(shell)
+  expect(
+    fetch.mock.calls.map(([path]) => String(path)),
+  ).toEqual([
+    "/api/display/view/activity?device=test-panel",
+    "/api/display/view/kids-points?device=test-panel",
+  ])
+})
+
+test("the identical socket bootstrap does not restart rendering or readiness", async () => {
+  const { answer, push } = await setup()
+  const mounted = render(
+    <PlatformApp
+      target={{ kind: "view", id: "activity" }}
+    />,
+  )
+  onTestFinished(() => {
+    mounted.unmount()
+  })
+  await answer(
+    "/api/display/view/activity",
+    compositionFixture,
+  )
+  await screen.findByText("Printer One")
+  await waitFor(() =>
+    expect(
+      document
+        .querySelector(".platform")
+        ?.getAttribute("data-castkit-ready"),
+    ).toBe("true"),
+  )
+  const changes: string[] = []
+  const observer = new MutationObserver((records) => {
+    records.forEach((record) => {
+      if (record.oldValue) changes.push(record.oldValue)
+    })
+  })
+  observer.observe(document.querySelector(".platform")!, {
+    attributes: true,
+    attributeFilter: ["data-castkit-ready"],
+    attributeOldValue: true,
+  })
+  onTestFinished(() => observer.disconnect())
+  push({ type: "snapshot", ...compositionFixture })
+  await new Promise<void>((resolve) =>
+    setTimeout(resolve, 100),
+  )
+  expect(changes).toEqual([])
 })

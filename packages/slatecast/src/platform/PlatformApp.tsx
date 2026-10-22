@@ -300,11 +300,13 @@ export const DisplayComposition = ({
 export const PlatformApp = ({
   target,
   isDeviceShell = false,
+  isTargetPending = false,
   deviceProperties,
 }: {
   deviceProperties?: DisplayProperties
   target: DisplayTarget
   isDeviceShell?: boolean
+  isTargetPending?: boolean
 }) => {
   const display = useDisplay(target, isDeviceShell)
   const isReady = useRenderReadiness(display.snapshot)
@@ -469,7 +471,9 @@ export const PlatformApp = ({
       <ViewTransition
         revision={display.snapshot.view.id}
         properties={properties}
-        isPending={display.isLoadingTarget}
+        isPending={
+          display.isLoadingTarget || isTargetPending
+        }
       >
         <DisplayComposition
           key={display.snapshot.view.id}
@@ -478,7 +482,7 @@ export const PlatformApp = ({
             displayProperties: properties,
           }}
           isConnected={display.isConnected}
-          isPending={display.isPending}
+          isPending={display.isPending || isTargetPending}
           controlDisabledReason={
             display.isPreview
               ? "Preview · Controls disabled"

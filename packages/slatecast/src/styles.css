@@ -5229,3 +5229,63 @@ button.music-lyric:hover:not(:disabled):not(.is-current) {
   time {
   color: var(--accent-content);
 }
+
+/* Input acknowledgement lives above content but never owns the next touch. */
+.navigation-feedback,
+.view-loading-feedback {
+  position: fixed;
+  inset-block-start: 28px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-inline-size: calc(100vw - 48px);
+  padding: 14px 22px;
+  border: 1px solid var(--fg-dim);
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: clamp(18px, 3.4vmin, 26px);
+  cursor: none;
+  pointer-events: none;
+  overflow: hidden;
+}
+.navigation-feedback-progress {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: 3px;
+  background: var(--accent);
+  transform-origin: left;
+}
+.navigation-feedback-spinner,
+.view-loading-feedback > span {
+  inline-size: 20px;
+  block-size: 20px;
+  flex: 0 0 20px;
+  border: 3px solid var(--fg-dim);
+  border-inline-end-color: var(--accent);
+  border-radius: 50%;
+}
+.navigation-feedback[data-phase="pulling"]
+  .navigation-feedback-spinner {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-repaint="instant"]
+    .navigation-feedback[data-phase="loading"]
+    .navigation-feedback-spinner,
+  html[data-repaint="instant"]
+    .view-loading-feedback
+    > span {
+    animation: navigation-wait 900ms linear infinite;
+  }
+}
+@keyframes navigation-wait {
+  to {
+    transform: rotate(360deg);
+  }
+}

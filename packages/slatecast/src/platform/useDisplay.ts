@@ -99,6 +99,7 @@ export const useDisplay = (
       socket?: WebSocket
       failures: number
       buildId?: string
+      snapshotJson?: string
     } = { isDisposed: false, failures: 0 }
     const connection = createStatus<ConnectionStatus>({
       initialState: "connecting",
@@ -138,6 +139,11 @@ export const useDisplay = (
         return
       }
       lifecycle.buildId = value.buildId
+      // The HTTP bootstrap and first socket frame usually contain the same
+      // composition. Do not build and measure it twice on a small browser.
+      const snapshotJson = JSON.stringify(value)
+      if (lifecycle.snapshotJson === snapshotJson) return
+      lifecycle.snapshotJson = snapshotJson
       setLoadedTargetKey(targetKey)
       setSnapshot(
         isPreview ? { ...value, canControl: false } : value,
@@ -237,7 +243,8 @@ export const useDisplay = (
               return
             }
             if (message.type === "snapshot") {
-              accept(message.snapshot ?? message)
+              const { type: _type, ...snapshot } = message
+              accept(message.snapshot ?? snapshot)
             }
           } catch {
             setError("CastKit received an invalid update.")

@@ -21,6 +21,12 @@ import {
 } from "@charcuterie/logic/core"
 import { createStoreFromSignals } from "@charcuterie/logic/signals"
 import { computed, signal } from "@preact/signals"
+import {
+  cancelNavigationPull,
+  finishNavigation,
+  hasNavigationRequest,
+  showNavigationLoading,
+} from "./navigationFeedback.ts"
 import { reloadPage } from "./reloadPage.ts"
 
 /**
@@ -378,6 +384,11 @@ const applyMessage = (message: ServerToClientMessage) => {
     return
   }
   if (message.type === "view") {
+    if (
+      activeView.peek() === message.view &&
+      !deviceDisplayTarget.peek()
+    )
+      finishNavigation()
     activeView.value = message.view
     return
   }
@@ -445,6 +456,22 @@ let socket: WebSocket | null = null
 export const sendCommand = (command: DeviceCommand) => {
   if (socket?.readyState !== WebSocket.OPEN) {
     return
+  }
+  if (command.action === "view") {
+    const requested = String(command.value)
+    if (hasNavigationRequest(requested)) return
+    const label =
+      device
+        .peek()
+        ?.views.find((view) => view.clientId === requested)
+        ?.name ??
+      (requested === "kids-points"
+        ? "Points"
+        : requested.replaceAll("-", " "))
+    showNavigationLoading({
+      label,
+      requestedView: requested,
+    })
   }
   const message: ClientToServerMessage = {
     type: "command",
@@ -765,6 +792,7 @@ export const connect = (deviceId = device.value?.id) => {
       scheduleRetry()
     }
     socket.onclose = () => {
+      finishNavigation()
       // Straight to `reconnecting` rather than via `disconnected`: a retry is
       // already armed, so "lost it, getting it back" is true from this instant.
       // The machine allows that edge for the same reason.
@@ -809,6 +837,8 @@ export const __resetStateForTests = () => {
   connection.isStopped = false
   connectionStatus.reset()
 
+  finishNavigation()
+  cancelNavigationPull()
   const snapshot = readInlineSnapshot()
   bundleBuild.bootstrapBuildId = snapshot?.buildId
   bundleBuild.hasReloaded = false
