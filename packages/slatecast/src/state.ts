@@ -20,11 +20,13 @@ import {
   createStatus,
 } from "@charcuterie/logic/core"
 import { createStoreFromSignals } from "@charcuterie/logic/signals"
-import { computed, signal } from "@preact/signals"
+import { computed, effect, signal } from "@preact/signals"
 import {
   cancelNavigationPull,
   finishNavigation,
   hasNavigationRequest,
+  hasNavigationTimedOut,
+  navigationRequestId,
   showNavigationLoading,
 } from "./navigationFeedback.ts"
 import { reloadPage } from "./reloadPage.ts"
@@ -129,6 +131,40 @@ const reloadWhenBuildChanged = (
 export const deviceDisplayTarget = signal<
   Snapshot["displayTarget"]
 >(inlineSnapshot?.displayTarget ?? null)
+
+// IDs belong only to this page's own requests. Other controllers stay authoritative.
+const localNavigation = signal<readonly string[]>([])
+const deferredTarget = signal<{
+  target: Snapshot["displayTarget"]
+} | null>(null)
+const applyDisplayTarget = (
+  target: Snapshot["displayTarget"],
+) => {
+  const navigationId = target?.navigationId
+  const requests = localNavigation.peek()
+  if (
+    navigationId &&
+    requests.includes(navigationId) &&
+    navigationId !== requests.at(-1)
+  ) {
+    if (navigationRequestId.peek())
+      deferredTarget.value = { target }
+    return
+  }
+  deferredTarget.value = null
+  deviceDisplayTarget.value = target ?? null
+}
+// If the current request times out, reconcile with the most recent deferred truth.
+effect(() => {
+  const pending = navigationRequestId.value
+  const deferred = deferredTarget.value
+  const hasTimedOut = hasNavigationTimedOut.value
+  if (!pending && deferred) {
+    deferredTarget.value = null
+    if (hasTimedOut)
+      deviceDisplayTarget.value = deferred.target ?? null
+  }
+})
 
 export const device = signal<BrowserDeviceProfile | null>(
   inlineSnapshot?.device ?? null,
@@ -363,8 +399,7 @@ const isPredictionConfirmed = ({
 const applyMessage = (message: ServerToClientMessage) => {
   if (message.type === "snapshot") {
     reloadWhenBuildChanged(message.buildId)
-    deviceDisplayTarget.value =
-      message.displayTarget ?? null
+    applyDisplayTarget(message.displayTarget ?? null)
     device.value = message.device
     settings.value = message.settings
     activeView.value = message.view
@@ -386,7 +421,7 @@ const applyMessage = (message: ServerToClientMessage) => {
         ...profile,
         preloadViewIds: message.preloadViewIds,
       }
-    deviceDisplayTarget.value = message.target
+    applyDisplayTarget(message.target)
     return
   }
   if (message.type === "view") {
@@ -474,10 +509,23 @@ export const sendCommand = (command: DeviceCommand) => {
       (requested === "kids-points"
         ? "Points"
         : requested.replaceAll("-", " "))
-    showNavigationLoading({
+    deferredTarget.value = null
+    const navigationId = showNavigationLoading({
       label,
       requestedView: requested,
     })
+    localNavigation.value = [
+      ...localNavigation.peek(),
+      navigationId,
+    ].slice(-128)
+    socket.send(
+      JSON.stringify({
+        type: "command",
+        command,
+        navigationId,
+      } satisfies ClientToServerMessage),
+    )
+    return
   }
   const message: ClientToServerMessage = {
     type: "command",
@@ -843,6 +891,8 @@ export const __resetStateForTests = () => {
   connection.isStopped = false
   connectionStatus.reset()
 
+  deferredTarget.value = null
+  localNavigation.value = []
   finishNavigation()
   cancelNavigationPull()
   const snapshot = readInlineSnapshot()

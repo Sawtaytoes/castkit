@@ -35,6 +35,14 @@ assigned a screen. Send the display, not a screen:
 {"viewId":"kids-points-kitchen","durationSeconds":15,"priority":100}
 ```
 
+Browser view commands include an optional `navigationId`. When a controller answers
+that command with a temporary device override, copy the same ID into the override
+JSON. It is a nonempty string of at most 128 characters. The browser uses it to
+ignore replies to its superseded local swipes; it does not change priority, expiry
+or view caching. Omit it for independent automation selections. Controllers and
+clients that omit the field retain their existing behavior.
+
+
 The equivalent HTTP endpoint is
 `POST /api/manage/platform/devices/<device-id>/show`, which answers with the
 seconds granted. The highest priority wins and a more recent request wins a tie,

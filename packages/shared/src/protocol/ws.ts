@@ -170,6 +170,7 @@ export type ServerToClientMessage =
       displayTarget?: {
         kind: "view" | "screen"
         id: string
+        navigationId?: string
       } | null
       data: ViewDataState
       /**
@@ -188,7 +189,11 @@ export type ServerToClientMessage =
   | {
       type: "display_target"
       preloadViewIds?: readonly string[]
-      target: { kind: "view" | "screen"; id: string } | null
+      target: {
+        kind: "view" | "screen"
+        id: string
+        navigationId?: string
+      } | null
     }
   | { type: "view"; view: string }
   | { type: "now_playing"; data: NowPlayingData }
@@ -213,4 +218,5 @@ export type ServerToClientMessage =
 export type ClientToServerMessage = {
   type: "command"
   command: DeviceCommand
+  navigationId?: string
 }

@@ -5,6 +5,7 @@ type Feedback = {
   progress: number
   phase: "pulling" | "loading" | "error"
   requestedView?: string
+  navigationId?: string
 }
 const pull = signal<Feedback | null>(null)
 const request = signal<Feedback | null>(null)
@@ -13,6 +14,18 @@ const lifetime = { timer: 0 }
 /** Local input feedback is independent of the controller's navigation policy. */
 export const navigationFeedback = computed(
   () => pull.value ?? request.value,
+)
+
+/** The outstanding local request, independently of a new pull preview. */
+export const navigationRequestId = computed(() =>
+  request.value?.phase === "loading"
+    ? (request.value.navigationId ?? null)
+    : null,
+)
+
+/** Only an expired controller wait may restore a deferred response. */
+export const hasNavigationTimedOut = computed(
+  () => request.value?.phase === "error",
 )
 
 /** A pull previews the next destination while an earlier request can still finish. */
@@ -49,7 +62,13 @@ export const showNavigationLoading = ({
   requestedView: string
 }) => {
   clearTimeout(lifetime.timer)
+  // getRandomValues also works on LAN HTTP origins where randomUUID is unavailable.
+  const navigationId = Array.from(
+    crypto.getRandomValues(new Uint32Array(4)),
+    (value) => value.toString(16),
+  ).join("-")
   request.value = {
+    navigationId,
     label,
     requestedView,
     progress: 1,
@@ -63,6 +82,7 @@ export const showNavigationLoading = ({
       phase: "error",
     }
   }, 8000)
+  return navigationId
 }
 
 /** Cancelling a contact restores feedback for any running request. */

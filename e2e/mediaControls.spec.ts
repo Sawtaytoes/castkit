@@ -307,7 +307,13 @@ test.describe("Media Controls end to end", () => {
       .poll(async () =>
         (await readCommands(page)).slice(before.length),
       )
-      .toEqual([{ action: "view", value: "ambient" }])
+      .toEqual([
+        {
+          action: "view",
+          value: "ambient",
+          navigationId: expect.any(String),
+        },
+      ])
     await expect(
       page.getByRole("slider", { name: "Volume" }),
     ).toBeHidden()
@@ -405,7 +411,13 @@ test.describe("Media Controls end to end", () => {
       .poll(async () =>
         (await readCommands(page)).slice(before.length),
       )
-      .toEqual([{ action: "view", value: "touch-test" }])
+      .toEqual([
+        {
+          action: "view",
+          value: "touch-test",
+          navigationId: expect.any(String),
+        },
+      ])
   })
 })
 
