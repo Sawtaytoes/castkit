@@ -14,12 +14,17 @@ import {
 import { swipeToNextTrack } from "./__tests__/setup/dragArtwork.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
+import {
+  finishNavigation,
+  navigationRequestId,
+} from "./navigationFeedback.ts"
 import { __setPageReloaderForTests } from "./reloadPage.ts"
 import {
   connectionStatus,
   device,
   deviceDisplayTarget,
   nowPlaying,
+  sendCommand,
 } from "./state.ts"
 
 // The artwork is the play/pause button; its name carries the title too.
@@ -391,4 +396,96 @@ test("automation preparation metadata updates without selecting its remembered v
   expect(device.value?.preloadViewIds).toEqual([
     "room-points",
   ])
+})
+
+test("late replies cannot replay earlier local swipes, while other controllers stay authoritative", async () => {
+  const { server, view } = await mountSlatecast()
+  view.unmount()
+  sendCommand({ action: "view", value: "calendar" })
+  const earlier = navigationRequestId.peek()
+  sendCommand({ action: "view", value: "now-playing" })
+  const latest = navigationRequestId.peek()
+  expect(latest).not.toBe(earlier)
+  server.push({
+    type: "display_target",
+    target: {
+      kind: "view",
+      id: "old",
+      navigationId: earlier!,
+    },
+  })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(deviceDisplayTarget.peek()).toBeNull()
+  server.push({
+    type: "display_target",
+    target: {
+      kind: "view",
+      id: "new",
+      navigationId: latest!,
+    },
+  })
+  await waitFor(() =>
+    expect(deviceDisplayTarget.peek()?.id).toBe("new"),
+  )
+  finishNavigation()
+  server.push({
+    type: "display_target",
+    target: {
+      kind: "view",
+      id: "old",
+      navigationId: earlier!,
+    },
+  })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(deviceDisplayTarget.peek()?.id).toBe("new")
+  server.push({
+    type: "display_target",
+    target: { kind: "view", id: "doorbell" },
+  })
+  await waitFor(() =>
+    expect(deviceDisplayTarget.peek()?.id).toBe("doorbell"),
+  )
+})
+
+test("only a controller timeout reconciles a deferred target; local completion discards it", async () => {
+  const timer = vi.spyOn(window, "setTimeout")
+  onTestFinished(() => timer.mockRestore())
+  const { server, view } = await mountSlatecast()
+  view.unmount()
+  sendCommand({ action: "view", value: "calendar" })
+  const earlier = navigationRequestId.peek()
+  sendCommand({ action: "view", value: "now-playing" })
+  server.push({
+    ...buildSnapshot(),
+    displayTarget: {
+      kind: "view",
+      id: "fallback",
+      navigationId: earlier!,
+    },
+  })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(deviceDisplayTarget.peek()).toBeNull()
+  const expire = timer.mock.calls
+    .filter(([, delay]) => delay === 8000)
+    .at(-1)?.[0]
+  if (typeof expire !== "function")
+    throw new Error("Missing navigation timeout")
+  expire()
+  await waitFor(() =>
+    expect(deviceDisplayTarget.peek()?.id).toBe("fallback"),
+  )
+  finishNavigation()
+  sendCommand({ action: "view", value: "calendar" })
+  server.push({
+    type: "display_target",
+    target: {
+      kind: "view",
+      id: "stale",
+      navigationId: earlier!,
+    },
+  })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  finishNavigation()
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(deviceDisplayTarget.peek()?.id).toBe("fallback")
 })

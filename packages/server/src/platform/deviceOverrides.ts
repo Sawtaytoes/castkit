@@ -1,5 +1,6 @@
 type Override = {
   viewId: string
+  navigationId?: string
   priority: number
   expiresAt: number
   sequence: number
@@ -45,11 +46,13 @@ export const createDeviceOverrides = ({
     viewId,
     durationSeconds,
     priority = 0,
+    navigationId,
   }: {
     deviceId: string
     viewId: string
     durationSeconds: number
     priority?: number
+    navigationId?: string
   }) => {
     if (
       !Number.isFinite(priority) ||
@@ -70,6 +73,7 @@ export const createDeviceOverrides = ({
       ),
       {
         viewId,
+        ...(navigationId ? { navigationId } : {}),
         priority,
         expiresAt: now() + durationSeconds * 1000,
         sequence: counter.value,

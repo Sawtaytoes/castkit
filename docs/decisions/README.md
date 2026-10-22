@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-22: Correlate manual navigation replies](2026-10-22-correlate-manual-navigation-replies.md)
+
 - [2026-10-22: Prepare view data before background artwork](2026-10-22-prepare-view-data-before-background-artwork.md)
 
 - [2026-10-22: Retain prepared compositions and learn automation destinations](2026-10-22-retain-prepared-compositions-and-learn-automation-destinations.md)

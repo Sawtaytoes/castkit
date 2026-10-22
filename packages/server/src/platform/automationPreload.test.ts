@@ -42,6 +42,7 @@ const fixture = async () => {
     throw new Error("Expected browser renderer")
   const options = {
     file: join(directory, "platform.json"),
+    apiToken: "test-token",
     browserDevices: [device],
     publisher: {
       isEnabled: false,
@@ -160,4 +161,42 @@ test("history is bounded, records validated destinations only, and does not chan
   expect(
     platform.getDevicePreloadViewIds("panel"),
   ).not.toContain("view-9")
+})
+
+test("navigation metadata crosses the override API but does not persist as a selection", async () => {
+  const { platform } = await fixture()
+  const app = new Hono()
+  attachPlatformRoutes({ app, platform })
+  const response = await app.request(
+    "/api/manage/platform/devices/panel/show",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer test-token",
+      },
+      body: JSON.stringify({
+        viewId: "points",
+        durationSeconds: 30,
+        navigationId: "latest-swipe",
+      }),
+    },
+  )
+  expect(response.status).toBe(200)
+  expect(platform.getDeviceTarget("panel")).toEqual({
+    kind: "view",
+    id: "points",
+    navigationId: "latest-swipe",
+  })
+  expect(() =>
+    platform.showOnDevice({
+      deviceId: "panel",
+      viewId: "points",
+      durationSeconds: 30,
+      navigationId: "",
+    }),
+  ).toThrow()
+  expect(
+    JSON.stringify(platform.store.get()),
+  ).not.toContain("latest-swipe")
 })

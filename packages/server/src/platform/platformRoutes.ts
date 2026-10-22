@@ -1137,6 +1137,11 @@ export const attachPlatformRoutes = ({
           viewId: z.string(),
           durationSeconds: z.number().positive(),
           priority: z.number().optional(),
+          navigationId: z
+            .string()
+            .min(1)
+            .max(128)
+            .optional(),
         })
         .safeParse(
           await context.req.json().catch(() => null),

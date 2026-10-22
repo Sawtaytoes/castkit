@@ -484,3 +484,30 @@ test("temporary screen tests preserve assignments, allow alerts, and dismiss onl
     ).status,
   ).toBe(400)
 })
+
+test("override correlation belongs to the winning selection and never changes priority", () => {
+  const overrides = createDeviceOverrides()
+  overrides.show({
+    deviceId: "panel",
+    viewId: "music",
+    durationSeconds: 30,
+    priority: 50,
+    navigationId: "swipe-two",
+  })
+  expect(overrides.getActive("panel")?.navigationId).toBe(
+    "swipe-two",
+  )
+  overrides.show({
+    deviceId: "panel",
+    viewId: "doorbell",
+    durationSeconds: 30,
+    priority: 100,
+  })
+  expect(overrides.getActive("panel")?.viewId).toBe(
+    "doorbell",
+  )
+  expect(
+    overrides.getActive("panel")?.navigationId,
+  ).toBeUndefined()
+  overrides.dispose()
+})
