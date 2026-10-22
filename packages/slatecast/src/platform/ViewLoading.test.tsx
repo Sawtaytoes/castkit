@@ -17,6 +17,7 @@ import { DeviceApp } from "../DeviceApp.tsx"
 import { readLocalDisplayTarget } from "../localDisplayTarget.ts"
 import {
   finishNavigation,
+  navigationFeedback,
   showNavigationLoading,
 } from "../navigationFeedback.ts"
 import {
@@ -417,4 +418,41 @@ test("the identical socket bootstrap does not restart rendering or readiness", a
     setTimeout(resolve, 100),
   )
   expect(changes).toEqual([])
+  push(null)
+  await screen.findByText(
+    "CastKit received an invalid update.",
+  )
+  push({ type: "snapshot", ...compositionFixture })
+  await waitFor(() =>
+    expect(
+      screen.queryByText(
+        "CastKit received an invalid update.",
+      ),
+    ).toBeNull(),
+  )
+  expect(changes).toEqual([])
+})
+
+test("a completed handoff to the same composition clears its waiting indicator", () => {
+  const mounted = render(
+    <ViewTransition revision="one" isPending={false}>
+      <p>Current view</p>
+    </ViewTransition>,
+  )
+  showNavigationLoading({
+    label: "Current view",
+    requestedView: "one",
+  })
+  mounted.rerender(
+    <ViewTransition revision="one" isPending>
+      <p>Current view</p>
+    </ViewTransition>,
+  )
+  expect(navigationFeedback.value?.phase).toBe("loading")
+  mounted.rerender(
+    <ViewTransition revision="one" isPending={false}>
+      <p>Current view</p>
+    </ViewTransition>,
+  )
+  expect(navigationFeedback.value).toBeNull()
 })

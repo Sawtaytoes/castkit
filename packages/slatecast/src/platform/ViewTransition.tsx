@@ -33,7 +33,7 @@ export const ViewTransition = ({
     if (isPending) return
     const hasChanged = previousRevision.current !== revision
     previousRevision.current = revision
-    if (hasChanged) finishNavigation()
+    finishNavigation()
     if (
       !hasChanged ||
       repaint !== "instant" ||

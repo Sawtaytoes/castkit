@@ -142,15 +142,15 @@ export const useDisplay = (
       // The HTTP bootstrap and first socket frame usually contain the same
       // composition. Do not build and measure it twice on a small browser.
       const snapshotJson = JSON.stringify(value)
-      if (lifecycle.snapshotJson === snapshotJson) return
-      lifecycle.snapshotJson = snapshotJson
       setLoadedTargetKey(targetKey)
-      setSnapshot(
-        isPreview ? { ...value, canControl: false } : value,
-      )
       setIsLocked(false)
       setError("")
       setName(value.view.name)
+      if (lifecycle.snapshotJson === snapshotJson) return
+      lifecycle.snapshotJson = snapshotJson
+      setSnapshot(
+        isPreview ? { ...value, canControl: false } : value,
+      )
     }
     const reconnect = () => {
       if (lifecycle.isDisposed) {
