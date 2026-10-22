@@ -6,10 +6,17 @@ import {
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "preact/hooks"
 import { reloadPage } from "../reloadPage.ts"
+import {
+  clearDisplayCache,
+  displayCacheKey,
+  recallDisplay,
+  rememberDisplay,
+} from "./displayCache.ts"
 import type {
   DisplaySnapshot,
   DisplayTarget,
@@ -29,22 +36,42 @@ export const useDisplay = (
     new URLSearchParams(window.location.search).get(
       "capture",
     ) === "1"
-  const [snapshot, setSnapshot] =
-    useState<DisplaySnapshot | null>(null)
-  const targetKey = JSON.stringify([
-    target.kind,
-    target.id,
-    target.deviceId,
-  ])
+  const targetKey = displayCacheKey(target)
+  const [revision, setRevision] = useState(0)
+  const cachedSnapshot = useMemo(
+    () =>
+      isDeviceShell && !isPreview && !isCapture
+        ? recallDisplay(target)
+        : null,
+    [
+      targetKey,
+      revision,
+      isDeviceShell,
+      isPreview,
+      isCapture,
+    ],
+  )
+  const [received, setReceived] = useState<{
+    key: string
+    snapshot: DisplaySnapshot | null
+  } | null>(null)
   const [loadedTargetKey, setLoadedTargetKey] = useState("")
-  const isLoadingTarget = loadedTargetKey !== targetKey
+  const snapshot =
+    received?.key === targetKey &&
+    (!cachedSnapshot || loadedTargetKey === targetKey)
+      ? received.snapshot
+      : (cachedSnapshot ?? received?.snapshot ?? null)
+  const setSnapshot = (value: DisplaySnapshot | null) =>
+    setReceived({ key: targetKey, snapshot: value })
+  const isLoadingTarget =
+    loadedTargetKey !== targetKey && !cachedSnapshot
+  const isCurrentTarget = loadedTargetKey === targetKey
   const [isLocked, setIsLocked] = useState(false)
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting")
   const isConnected = connectionStatus === "connected"
   const [error, setError] = useState("")
   const [name, setName] = useState("Private view")
-  const [revision, setRevision] = useState(0)
   const [isPending, setIsPending] = useState(false)
   const actionPending = useRef(false)
   const authChannel = useRef<BroadcastChannel | null>(null)
@@ -52,8 +79,10 @@ export const useDisplay = (
     if (isPreview) {
       return
     }
-    const refresh = () =>
+    const refresh = () => {
+      clearDisplayCache()
       setRevision((current) => current + 1)
+    }
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         refresh()
@@ -87,6 +116,7 @@ export const useDisplay = (
   const displayQuery = `${deviceQuery}${modeQuery ? `${deviceQuery ? "&" : "?"}${modeQuery}` : ""}`
   const path = `/api/display/${target.kind}/${encodeURIComponent(target.id)}`
   const lockState = () => {
+    clearDisplayCache()
     setSnapshot(null)
     setIsLocked(true)
     setConnectionStatus("disconnected")
@@ -100,7 +130,16 @@ export const useDisplay = (
       failures: number
       buildId?: string
       snapshotJson?: string
-    } = { isDisposed: false, failures: 0 }
+      hasAcceptedSnapshot: boolean
+    } = {
+      isDisposed: false,
+      failures: 0,
+      hasAcceptedSnapshot: false,
+      buildId: cachedSnapshot?.buildId,
+      snapshotJson: cachedSnapshot
+        ? JSON.stringify(cachedSnapshot)
+        : undefined,
+    }
     const connection = createStatus<ConnectionStatus>({
       initialState: "connecting",
       transitions: connectionTransitions,
@@ -142,11 +181,22 @@ export const useDisplay = (
       // The HTTP bootstrap and first socket frame usually contain the same
       // composition. Do not build and measure it twice on a small browser.
       const snapshotJson = JSON.stringify(value)
+      const isInitialSnapshot =
+        !lifecycle.hasAcceptedSnapshot
+      lifecycle.hasAcceptedSnapshot = true
       setLoadedTargetKey(targetKey)
+      if (isDeviceShell && !isPreview && !isCapture)
+        rememberDisplay({ snapshot: value, target })
+      if (lifecycle.socket?.readyState === WebSocket.OPEN)
+        connected()
       setIsLocked(false)
       setError("")
       setName(value.view.name)
-      if (lifecycle.snapshotJson === snapshotJson) return
+      if (lifecycle.snapshotJson === snapshotJson) {
+        if (isInitialSnapshot && cachedSnapshot)
+          setSnapshot(cachedSnapshot)
+        return
+      }
       lifecycle.snapshotJson = snapshotJson
       setSnapshot(
         isPreview ? { ...value, canControl: false } : value,
@@ -176,6 +226,49 @@ export const useDisplay = (
         ),
       )
     }
+    const connectSocket = () => {
+      if (lifecycle.isDisposed) return
+      const socket = new WebSocket(
+        `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/${target.kind}/${encodeURIComponent(target.id)}/ws${displayQuery}`,
+      )
+      lifecycle.socket = socket
+      socket.onopen = () => {
+        if (lifecycle.isDisposed) return
+        // A cached frame is read-only until this subscription confirms access.
+        if (!cachedSnapshot) connected()
+      }
+      socket.onmessage = (event) => {
+        if (lifecycle.isDisposed) return
+        try {
+          const message = JSON.parse(event.data)
+          if (message.type === "reload") {
+            if (!isDeviceShell) reloadPage()
+            return
+          }
+          if (message.type === "locked") {
+            lockState()
+            socket.close()
+            return
+          }
+          if (message.type === "snapshot") {
+            const { type: _type, ...snapshot } = message
+            accept(message.snapshot ?? snapshot)
+          }
+        } catch {
+          setError("CastKit received an invalid update.")
+        }
+      }
+      socket.onerror = () => socket.close()
+      socket.onclose = (event) => {
+        if (lifecycle.isDisposed) return
+        if (event.code === 4401 || event.code === 4403) {
+          lockState()
+          void load()
+          return
+        }
+        reconnect()
+      }
+    }
     const load = async () => {
       try {
         const response = await fetch(
@@ -190,7 +283,8 @@ export const useDisplay = (
           return
         }
         if (response.status === 409) {
-          if (!isDeviceShell) reloadPage()
+          if (isDeviceShell) reconnect()
+          else reloadPage()
           return
         }
         if (
@@ -221,45 +315,7 @@ export const useDisplay = (
           connected()
           return
         }
-        const socket = new WebSocket(
-          `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/${target.kind}/${encodeURIComponent(target.id)}/ws${displayQuery}`,
-        )
-        lifecycle.socket = socket
-        socket.onopen = () => {
-          if (lifecycle.isDisposed) return
-          connected()
-        }
-        socket.onmessage = (event) => {
-          if (lifecycle.isDisposed) return
-          try {
-            const message = JSON.parse(event.data)
-            if (message.type === "reload") {
-              if (!isDeviceShell) reloadPage()
-              return
-            }
-            if (message.type === "locked") {
-              lockState()
-              socket.close()
-              return
-            }
-            if (message.type === "snapshot") {
-              const { type: _type, ...snapshot } = message
-              accept(message.snapshot ?? snapshot)
-            }
-          } catch {
-            setError("CastKit received an invalid update.")
-          }
-        }
-        socket.onerror = () => socket.close()
-        socket.onclose = (event) => {
-          if (lifecycle.isDisposed) return
-          if (event.code === 4401 || event.code === 4403) {
-            lockState()
-            void load()
-            return
-          }
-          reconnect()
-        }
+        connectSocket()
       } catch (failure) {
         if (lifecycle.isDisposed) {
           return
@@ -272,7 +328,8 @@ export const useDisplay = (
         reconnect()
       }
     }
-    void load()
+    if (cachedSnapshot && revision === 0) connectSocket()
+    else void load()
     return () => {
       lifecycle.isDisposed = true
       controller.abort()
@@ -326,7 +383,7 @@ export const useDisplay = (
       target.kind !== "screen" ||
       isPreview ||
       !isConnected ||
-      isLoadingTarget ||
+      !isCurrentTarget ||
       actionPending.current ||
       !snapshot?.availableViews?.some(
         (view) => view.id === viewId,
@@ -375,7 +432,7 @@ export const useDisplay = (
       !snapshot?.canControl ||
       isPreview ||
       !isConnected ||
-      isLoadingTarget ||
+      !isCurrentTarget ||
       actionPending.current
     ) {
       return
@@ -416,7 +473,7 @@ export const useDisplay = (
     isPreview,
     snapshot,
     isLocked,
-    isConnected: isConnected && !isLoadingTarget,
+    isConnected: isConnected && isCurrentTarget,
     isLoadingTarget,
     connectionStatus,
     isPending,

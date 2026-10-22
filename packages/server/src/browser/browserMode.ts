@@ -200,6 +200,9 @@ export const createBrowserMode = ({
   const { baseTopic } = config.mqtt
   const globalTopics = buildGlobalTopics(baseTopic)
   const stateStore = createBrowserStateStore({ devices })
+  const definitionRotations = new Map(
+    devices.map((device) => [device.id, device.rotation]),
+  )
   const viewDataStore = createViewDataStore()
   const artworkMedia = createBrowserArtworkMedia()
   const photoConfigStore = createBrowserPhotoConfigStore()
@@ -447,21 +450,6 @@ export const createBrowserMode = ({
    * after; a channel in `waiting` or `error` keeps the last value on the glass
    * rather than blanking it, the same way a retained MQTT payload would.
    */
-  const spoolsDeviceIdsByChannelId = new Map<
-    string,
-    string[]
-  >()
-  devices.forEach((device) => {
-    if (!device.spoolsChannel) {
-      return
-    }
-    spoolsDeviceIdsByChannelId.set(device.spoolsChannel, [
-      ...(spoolsDeviceIdsByChannelId.get(
-        device.spoolsChannel,
-      ) ?? []),
-      device.id,
-    ])
-  })
   const applySpoolsSnapshot = (
     snapshot: ChannelSnapshot,
   ) => {
@@ -486,11 +474,13 @@ export const createBrowserMode = ({
           })
         }
       })
-    const deviceIds = spoolsDeviceIdsByChannelId.get(
-      snapshot.id,
-    )
+    const deviceIds = devices
+      .filter(
+        (device) => device.spoolsChannel === snapshot.id,
+      )
+      .map((device) => device.id)
     if (
-      !deviceIds ||
+      deviceIds.length === 0 ||
       snapshot.data === null ||
       snapshot.data === undefined ||
       (snapshot.status !== "ready" &&
@@ -510,19 +500,15 @@ export const createBrowserMode = ({
   const spoolsSubscription = {
     unsubscribe: undefined as (() => void) | undefined,
   }
-  if (
-    platform &&
-    (spoolsDeviceIdsByChannelId.size > 0 ||
-      devices.some((device) => device.printQueueChannel))
-  ) {
-    spoolsDeviceIdsByChannelId.forEach(
-      (_ids, channelId) => {
+  if (platform) {
+    devices
+      .flatMap((device) =>
+        device.spoolsChannel ? [device.spoolsChannel] : [],
+      )
+      .forEach((channelId) => {
         const snapshot = platform.hub.get(channelId)
-        if (snapshot) {
-          applySpoolsSnapshot(snapshot)
-        }
-      },
-    )
+        if (snapshot) applySpoolsSnapshot(snapshot)
+      })
     spoolsSubscription.unsubscribe = platform.hub.subscribe(
       applySpoolsSnapshot,
     )
@@ -1854,6 +1840,63 @@ export const createBrowserMode = ({
   }
 
   return {
+    /** Send live definition edits to this page and refresh its discovery metadata. */
+    refreshDeviceDefinition: async (deviceId: string) => {
+      const device = stateStore.deviceById.get(deviceId)
+      if (!device) return
+      const hasRotationChanged =
+        definitionRotations.get(deviceId) !==
+        device.rotation
+      if (hasRotationChanged) {
+        definitionRotations.set(deviceId, device.rotation)
+        knobSetByDeviceId.rotation.add(deviceId)
+        stateStore.setSettings({
+          deviceId,
+          settings: { orientation: device.rotation },
+        })
+      }
+      externalViewHealth.replaceHealthUrls(
+        devices.flatMap((item) =>
+          item.externalViews.flatMap((view) =>
+            view.healthUrl ? [view.healthUrl] : [],
+          ),
+        ),
+      )
+      void externalViewHealth.start()
+      const spools = device.spoolsChannel
+        ? platform?.hub.get(device.spoolsChannel)
+        : undefined
+      if (spools) applySpoolsSnapshot(spools)
+      const snapshot = buildSnapshot(deviceId)
+      if (snapshot)
+        hub.broadcast({ deviceId, message: snapshot })
+      if (!publisher.isEnabled) return
+      if (hasRotationChanged) {
+        const topics = topicsByDeviceId.get(deviceId)
+        if (topics)
+          await publisher.publish({
+            topic: topics.rotationState,
+            payload: String(device.rotation),
+            isRetained: true,
+          })
+      }
+      await Promise.all(
+        buildBrowserDiscoveryMessages({
+          device,
+          config: {
+            discoveryPrefix: config.mqtt.discoveryPrefix,
+            nodeId: config.mqtt.nodeId,
+            baseTopic,
+          },
+        }).map((message) =>
+          publisher.publish({
+            topic: message.topic,
+            payload: JSON.stringify(message.payload),
+            isRetained: message.isRetained,
+          }),
+        ),
+      )
+    },
     refreshDeviceTarget: (deviceId: string) =>
       hub.broadcast({
         deviceId,

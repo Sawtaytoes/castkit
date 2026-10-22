@@ -39,12 +39,12 @@ export const createExternalViewHealth = ({
   /** Overridable so a test can answer without a network. */
   fetchHealth?: typeof fetch
 }) => {
-  const distinctHealthUrls = Array.from(new Set(healthUrls))
+  const distinctHealthUrls = new Set(healthUrls)
 
   // Every URL starts unavailable: a panel must not frame an application
   // nobody has seen answer yet.
   const availabilityByHealthUrl = new Map(
-    distinctHealthUrls.map((healthUrl) => [
+    [...distinctHealthUrls].map((healthUrl) => [
       healthUrl,
       false,
     ]),
@@ -70,12 +70,13 @@ export const createExternalViewHealth = ({
 
   const probeAll = async () => {
     const results = await Promise.all(
-      distinctHealthUrls.map(async (healthUrl) => ({
+      [...distinctHealthUrls].map(async (healthUrl) => ({
         healthUrl,
         isAvailable: await probe(healthUrl),
       })),
     )
     results.forEach(({ healthUrl, isAvailable }) => {
+      if (!distinctHealthUrls.has(healthUrl)) return
       if (
         availabilityByHealthUrl.get(healthUrl) ===
         isAvailable
@@ -102,11 +103,22 @@ export const createExternalViewHealth = ({
   }
 
   return {
+    /** Refresh the URLs after a live device edit without adding another probe cadence. */
+    replaceHealthUrls: (urls: readonly string[]) => {
+      distinctHealthUrls.clear()
+      urls.forEach((url) => {
+        distinctHealthUrls.add(url)
+      })
+      availabilityByHealthUrl.forEach((_value, url) => {
+        if (!distinctHealthUrls.has(url))
+          availabilityByHealthUrl.delete(url)
+      })
+    },
     /** Starts probing now. Resolves when the first round has finished. */
     start: async () => {
       if (
         schedule.isRunning ||
-        distinctHealthUrls.length === 0
+        distinctHealthUrls.size === 0
       ) {
         return
       }

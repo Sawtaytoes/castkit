@@ -289,6 +289,16 @@ const expandDevice = (
   palette: PALETTE_BY_COLOR_MODE[deviceConfig.colorMode],
 })
 
+/** Validate saved definitions with the same rules used at startup. */
+export const parseDeviceDefinition = (value: unknown) => {
+  const entry = migrateLegacyDeviceEntry(
+    z.record(z.string(), z.unknown()).parse(value),
+  )
+  return entry.renderer === "browser"
+    ? BrowserDeviceConfigSchema.parse(entry)
+    : expandDevice(DeviceConfigSchema.parse(entry))
+}
+
 /**
  * Load the real devices from the config file, or fall back to the examples.
  * One file holds both client modes; `renderer: "browser"` entries become

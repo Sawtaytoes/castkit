@@ -1,5 +1,9 @@
 # CastKit decision records
 
+- [2026-10-22: Routine device settings apply live without a server restart](2026-10-22-routine-device-settings-apply-live-without-a-server-restart.md)
+
+- [2026-10-22: Browser devices warm assigned views before navigation](2026-10-22-browser-devices-warm-assigned-views-before-navigation.md)
+
 - [2026-10-22: Browser navigation acknowledges input and preserves motion](2026-10-22-browser-navigation-acknowledges-input-and-preserves-motion.md)
 
 - [2026-10-20: Darker contrast keeps soft text and layered surfaces](2026-10-20-darker-contrast-keeps-soft-text-and-layered-surfaces.md)

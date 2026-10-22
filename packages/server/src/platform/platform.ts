@@ -547,8 +547,49 @@ export const createPlatform = async ({
       ]),
     ) as Record<string, ChannelSnapshot>
   await refresh()
+  const getIsAssignedDeviceView = ({
+    deviceId,
+    viewId,
+    origin,
+  }: {
+    deviceId: string
+    viewId: string
+    origin: string
+  }) => {
+    const device = browserDevices.find(
+      (item) => item.id === deviceId,
+    )
+    if (!device) return false
+    const screenId = store.get().deviceScreens[deviceId]
+    if (
+      store
+        .get()
+        .screens.find((screen) => screen.id === screenId)
+        ?.viewIds.includes(viewId)
+    )
+      return true
+    return device.externalViews.some((view) => {
+      if (view.zoom) return false
+      try {
+        const url = new URL(view.url)
+        const expectedOrigin = publicUrl
+          ? new URL(publicUrl).origin
+          : origin
+        return (
+          url.origin === expectedOrigin &&
+          !url.search &&
+          !url.hash &&
+          url.pathname.replace(/\/$/, "") ===
+            `/view/${encodeURIComponent(viewId)}`
+        )
+      } catch {
+        return false
+      }
+    })
+  }
   return {
     getDeviceProperties,
+    getIsAssignedDeviceView,
     pluginRuntime,
     renderKey,
     store,

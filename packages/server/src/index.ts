@@ -40,6 +40,7 @@ import { createPushController } from "./pushController.ts"
 import { fetchArtworkDataUri } from "./render/artworkFetch.ts"
 import { createRenderService } from "./render/renderService.ts"
 import { startClockTicker } from "./schedulers/clockTicker.ts"
+import { applyDeviceDefinitions } from "./state/applyDeviceDefinitions.ts"
 import {
   type ClockDateStyle,
   type ClockDateStyleSetting,
@@ -2222,6 +2223,91 @@ const main = async () => {
       }
     },
     onDeviceDefinitionsChanged: () => {
+      const previousRotations = new Map(
+        config.devices.map((device) => [
+          device.id,
+          device.rotation,
+        ]),
+      )
+      const changes = applyDeviceDefinitions({
+        config,
+        definitions: deviceDefinitionStore.getAll(),
+      })
+      if (changes) {
+        platform.notify()
+        changes.forEach((deviceId) => {
+          void browserMode
+            .refreshDeviceDefinition(deviceId)
+            .catch((error: unknown) =>
+              console.error(
+                "[castkit] device discovery refresh failed",
+                error,
+              ),
+            )
+          const device =
+            pushController.deviceById.get(deviceId)
+          if (device) {
+            if (
+              previousRotations.get(deviceId) !==
+              device.rotation
+            ) {
+              deviceConfigStore.setRotationOverride({
+                deviceId,
+                rotation: device.rotation,
+              })
+              if (publisher.isEnabled) {
+                const topics = buildDeviceTopics({
+                  baseTopic,
+                  device,
+                })
+                void publisher
+                  .publish({
+                    topic: topics.rotationState,
+                    payload: String(device.rotation),
+                    isRetained: true,
+                  })
+                  .catch((error: unknown) =>
+                    console.error(
+                      "[castkit] rotation state refresh failed",
+                      error,
+                    ),
+                  )
+              }
+            }
+            void pushController.pushDevice(deviceId)
+            if (publisher.isEnabled) {
+              void Promise.all(
+                buildDiscoveryMessages({
+                  device,
+                  viewNames: getViewsForDevice(
+                    getRepaintFactsForDevice(device),
+                  ),
+                  config: {
+                    discoveryPrefix:
+                      config.mqtt.discoveryPrefix,
+                    nodeId: config.mqtt.nodeId,
+                    baseTopic,
+                  },
+                }).map((message) =>
+                  publisher.publish({
+                    topic: message.topic,
+                    payload: JSON.stringify(
+                      message.payload,
+                    ),
+                    isRetained: message.isRetained,
+                  }),
+                ),
+              ).catch((error: unknown) =>
+                console.error(
+                  "[castkit] device discovery refresh failed",
+                  error,
+                ),
+              )
+            }
+          }
+        })
+        return false
+      }
       setTimeout(() => {
         process.kill(process.pid, "SIGTERM")
       }, 100)

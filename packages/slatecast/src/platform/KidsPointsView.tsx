@@ -669,11 +669,18 @@ export const KidsPointsView = ({
     if (!root) {
       return
     }
-    const measure = () =>
-      setSize({
+    const measure = () => {
+      const next = {
         width: root.clientWidth,
         height: root.clientHeight,
-      })
+      }
+      setSize((previous) =>
+        previous.width === next.width &&
+        previous.height === next.height
+          ? previous
+          : next,
+      )
+    }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(root)

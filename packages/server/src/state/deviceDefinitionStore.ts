@@ -21,8 +21,8 @@ const toPersistedDevice = (device: DeviceDefinition) => {
 
 /**
  * The static device registry is stored in the persistent devices JSON file.
- * A saved definition takes effect after the process restarts, which is what
- * also wires its MQTT subscriptions and Home Assistant discovery entities.
+ * Routine edits also update the existing runtime references. Registry/transport
+ * changes reinitialize the process to wire subscriptions and workers.
  */
 export const createDeviceDefinitionStore = ({
   browserDevices,
@@ -38,7 +38,9 @@ export const createDeviceDefinitionStore = ({
     ...browserDevices,
   ]
 
-  const persist = () => {
+  const persist = (
+    nextDefinitions: readonly DeviceDefinition[],
+  ) => {
     if (!devicesFile) {
       throw new Error(
         "Device editing needs INKCAST_DEVICES_FILE to point to persistent storage.",
@@ -47,7 +49,7 @@ export const createDeviceDefinitionStore = ({
     const temporaryFile = `${devicesFile}.next`
     writeFileSync(
       temporaryFile,
-      `${JSON.stringify(definitions.map(toPersistedDevice), null, 2)}\n`,
+      `${JSON.stringify(nextDefinitions.map(toPersistedDevice), null, 2)}\n`,
       "utf8",
     )
     renameSync(temporaryFile, devicesFile)
@@ -56,12 +58,12 @@ export const createDeviceDefinitionStore = ({
   return {
     getAll: () => definitions,
     replaceAll: (nextDefinitions) => {
+      persist(nextDefinitions)
       definitions.splice(
         0,
         definitions.length,
         ...nextDefinitions,
       )
-      persist()
     },
   }
 }

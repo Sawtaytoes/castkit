@@ -1,3 +1,4 @@
+import { hasRestartingDeviceChanges } from "@castkit/shared/deviceDefinitionChanges"
 import {
   Button,
   Card,
@@ -134,6 +135,14 @@ export const Devices = ({
   const savedDevice =
     devices.find((device) => device.id === selectedId) ??
     (isNewDevice ? undefined : devices[0])
+  const hasRestartingChanges = Boolean(
+    selectedDevice &&
+      savedDevice &&
+      hasRestartingDeviceChanges({
+        previous: savedDevice,
+        next: selectedDevice,
+      }),
+  )
   const savedId = savedDevice?.id
   const activeBacklightDevice = useRef(savedId)
   useEffect(() => {
@@ -213,6 +222,58 @@ export const Devices = ({
       (section === "ambient-light" &&
         Boolean(selectedDevice?.hasRemoteAmbientLight) !==
           Boolean(savedDevice?.hasRemoteAmbientLight)))
+
+  useEffect(() => {
+    if (!hasRestartPending) return
+    const controller = new AbortController()
+    const lifecycle = { timer: 0, attempts: 0 }
+    const recover = async () => {
+      lifecycle.attempts += 1
+      try {
+        const response = await fetch(
+          "/api/manage/devices",
+          {
+            headers: getRequestHeaders(apiToken),
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        )
+        if (!response.ok)
+          throw new Error("Waiting for CastKit")
+        const body = (await response.json()) as {
+          devices: Device[]
+        }
+        if (controller.signal.aborted) return
+        setDevices(body.devices)
+        setHasRestartPending(false)
+        setPreviewRevision((current) => current + 1)
+        setMessage("Device saved. CastKit is ready.")
+        await onRefresh().catch(() => undefined)
+        return
+      } catch {
+        if (controller.signal.aborted) return
+      }
+      if (lifecycle.attempts >= 45) {
+        setHasRestartPending(false)
+        setMessage(
+          "Changes were saved, but CastKit has not returned. Use Reload devices to retry.",
+        )
+        return
+      }
+      lifecycle.timer = window.setTimeout(
+        () => void recover(),
+        1000,
+      )
+    }
+    lifecycle.timer = window.setTimeout(
+      () => void recover(),
+      1500,
+    )
+    return () => {
+      controller.abort()
+      clearTimeout(lifecycle.timer)
+    }
+  }, [hasRestartPending, apiToken, onRefresh])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -591,17 +652,24 @@ export const Devices = ({
       )
       const body = (await response
         .json()
-        .catch(() => ({}))) as { error?: string }
+        .catch(() => ({}))) as {
+        error?: string
+        isRestarting?: boolean
+      }
       if (!response.ok) {
         throw new Error(
           body.error ??
             "Could not save the device. Your edits are still here.",
         )
       }
-      setHasRestartPending(true)
+      setHasRestartPending(body.isRestarting === true)
       setMessage(
-        "Device saved. CastKit is restarting. Reload devices when it is ready.",
+        body.isRestarting
+          ? "Device saved. Waiting for CastKit to return…"
+          : "Device saved. Changes are live.",
       )
+      if (!body.isRestarting)
+        await onRefresh().catch(() => undefined)
       setDevices((current) =>
         isNewDevice
           ? current.concat(selectedDevice)
@@ -1022,9 +1090,8 @@ export const Devices = ({
                   ) : hasUnsavedControlCapability ? (
                     <Card heading="Save the device first">
                       <p>
-                        Save device &amp; restart to apply
-                        the capability change before using
-                        these controls.
+                        Save device to apply the capability
+                        change before using these controls.
                       </p>
                     </Card>
                   ) : isLoadingSettings ? (
@@ -1068,10 +1135,10 @@ export const Devices = ({
                     <p>
                       {pendingSettings.length > 0 &&
                       hasDeviceChanges
-                        ? "Save the settings before the device restart."
-                        : hasDeviceChanges
-                          ? "Device changes restart CastKit."
-                          : "Setting changes apply without a restart."}
+                        ? "Save settings before saving device changes."
+                        : hasRestartingChanges
+                          ? "This connection, renderer or viewport change restarts CastKit. This page reconnects automatically."
+                          : "Changes apply live without a restart."}
                     </p>
                   </div>
                   <div className="save-buttons">
@@ -1109,7 +1176,7 @@ export const Devices = ({
                     >
                       {isNewDevice
                         ? "Create device"
-                        : "Save device & restart"}
+                        : "Save device"}
                     </Button>
                   </div>
                 </div>

@@ -44,10 +44,15 @@ export const useCompositionLayout = ({
       !focusedKey &&
       !["cards", "rail", "adaptive"].includes(mode)
     ) {
-      setCommitted({
-        layout: undefined,
-        revision: navigationRevision,
-      })
+      setCommitted((previous) =>
+        previous?.layout === undefined &&
+        (previous?.revision ?? 0) === navigationRevision
+          ? previous
+          : {
+              layout: undefined,
+              revision: navigationRevision,
+            },
+      )
       return
     }
     const measure = () => {
