@@ -104,6 +104,7 @@ const Artwork = ({
   const [failedSource, setFailedSource] = useState<string>()
   return source && source !== failedSource ? (
     <img
+      data-castkit-media-readiness="optional"
       class={className}
       src={source}
       alt=""

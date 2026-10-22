@@ -314,3 +314,68 @@ test("a locked configured view does not block warming the other assigned views",
     }),
   ).toBeNull()
 })
+
+test("slow artwork cannot delay preparing the next assigned composition", async () => {
+  const next = {
+    kind: "view" as const,
+    id: "next-prepared",
+  }
+  const artwork = "/api/display/view/music/media/cover"
+  const fetch = vi
+    .spyOn(window, "fetch")
+    .mockImplementation(async (path, options) => {
+      if (String(path) === artwork)
+        return new Promise<Response>((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            "abort",
+            () =>
+              reject(
+                new DOMException("Aborted", "AbortError"),
+              ),
+            { once: true },
+          )
+        })
+      const isFirst = String(path).includes(target.id)
+      return new Response(
+        JSON.stringify({
+          ...snapshot,
+          target: isFirst ? target : next,
+          view: {
+            ...snapshot.view,
+            id: isFirst ? target.id : next.id,
+            panels: isFirst
+              ? [
+                  {
+                    id: "music",
+                    specId: "music-player",
+                    settings: {},
+                    bindings: { data: "music" },
+                  },
+                ]
+              : [],
+          },
+          channels: isFirst
+            ? {
+                music: {
+                  id: "music",
+                  type: "now-playing.v1",
+                  status: "ready",
+                  data: { artworkPath: artwork },
+                },
+              }
+            : {},
+        }),
+      )
+    })
+  render(<Warmer targets={[target, next]} />)
+  await waitFor(
+    () => expect(fetch).toHaveBeenCalledTimes(3),
+    { timeout: 3000 },
+  )
+  expect(fetch.mock.calls.map(([path]) => path)).toEqual([
+    `/api/display/view/${target.id}`,
+    `/api/display/view/${next.id}`,
+    artwork,
+  ])
+  expect(recallDisplay(next)?.view.id).toBe(next.id)
+})
