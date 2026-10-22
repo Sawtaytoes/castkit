@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-22: Browser navigation acknowledges input and preserves motion](2026-10-22-browser-navigation-acknowledges-input-and-preserves-motion.md)
+
 - [2026-10-20: Darker contrast keeps soft text and layered surfaces](2026-10-20-darker-contrast-keeps-soft-text-and-layered-surfaces.md)
 
 - [2026-10-20: Displays have temporary tests and installation contrast](2026-10-20-displays-have-temporary-tests-and-installation-contrast.md)

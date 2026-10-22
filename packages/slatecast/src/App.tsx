@@ -1,7 +1,8 @@
 import { getIsGrayscaleTextRequired } from "@castkit/shared/panels/pixelGrid"
 import type { ComponentType } from "preact"
-import { useEffect } from "preact/hooks"
+import { useEffect, useLayoutEffect } from "preact/hooks"
 import { HandBackEdge } from "./HandBackEdge.tsx"
+import { finishNavigation } from "./navigationFeedback.ts"
 import { activeView, device, settings } from "./state.ts"
 import { ViewSwipeEdges } from "./ViewSwipeEdges.tsx"
 import { ViewSwitcher } from "./ViewSwitcher.tsx"
@@ -83,6 +84,10 @@ const UnknownView = () => (
 
 export const App = () => {
   const profile = device.value
+  useLayoutEffect(
+    () => finishNavigation(),
+    [activeView.value],
+  )
   const { orientation, theme } = settings.value
   const isSideways =
     orientation === 90 || orientation === 270
