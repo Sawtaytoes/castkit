@@ -62,7 +62,7 @@ const Surface = ({
 }
 
 test("a warm device view paints without HTTP and enables controls only after a fresh socket snapshot", async () => {
-  rememberDisplay(snapshot)
+  rememberDisplay({ snapshot })
   const connection: { send?: (value: string) => void } = {}
   const worker = setupWorker(
     ws
@@ -125,14 +125,16 @@ test("a second warm target replaces the previous view before its network reply",
     kind: "view",
     id: "second-warm-view",
   }
-  rememberDisplay(snapshot)
+  rememberDisplay({ snapshot })
   rememberDisplay({
-    ...snapshot,
-    target: secondTarget,
-    view: {
-      ...snapshot.view,
-      id: secondTarget.id,
-      name: "Second view",
+    snapshot: {
+      ...snapshot,
+      target: secondTarget,
+      view: {
+        ...snapshot.view,
+        id: secondTarget.id,
+        name: "Second view",
+      },
     },
   })
   const worker = setupWorker(
@@ -160,7 +162,7 @@ test("a second warm target replaces the previous view before its network reply",
 
 test("the memory cache expires, isolates device context, and retains only eight views", () => {
   vi.useFakeTimers()
-  rememberDisplay(snapshot)
+  rememberDisplay({ snapshot })
   expect(
     recallDisplay({
       ...target,
@@ -170,8 +172,10 @@ test("the memory cache expires, isolates device context, and retains only eight 
   Array.from({ length: 8 }, (_, index) => index).forEach(
     (index) => {
       rememberDisplay({
-        ...snapshot,
-        target: { kind: "view", id: `view-${index}` },
+        snapshot: {
+          ...snapshot,
+          target: { kind: "view", id: `view-${index}` },
+        },
       })
     },
   )
@@ -249,4 +253,64 @@ test("assigned local compositions preload before they are selected", async () =>
       cache: "no-store",
     }),
   )
+})
+
+test("a device-context warm-up keeps its request identity when the wire target omits the device", async () => {
+  const contextual = {
+    ...target,
+    deviceId: "configured-display",
+  }
+  const fetch = vi
+    .spyOn(window, "fetch")
+    .mockResolvedValue(
+      new Response(
+        JSON.stringify({ ...snapshot, channels: {} }),
+      ),
+    )
+  render(<Warmer targets={[contextual]} />)
+  await waitFor(
+    () =>
+      expect(recallDisplay(contextual)?.view.id).toBe(
+        target.id,
+      ),
+    { timeout: 3000 },
+  )
+  expect(recallDisplay(target)).toBeNull()
+  expect(fetch).toHaveBeenCalledWith(
+    "/api/display/view/warm-navigation?device=configured-display&preload=1",
+    expect.anything(),
+  )
+})
+
+test("a locked configured view does not block warming the other assigned views", async () => {
+  vi.spyOn(window, "fetch")
+    .mockResolvedValueOnce(
+      new Response("{}", { status: 401 }),
+    )
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ ...snapshot, channels: {} }),
+      ),
+    )
+  render(
+    <Warmer
+      targets={[
+        { kind: "view", id: "locked-assignment" },
+        target,
+      ]}
+    />,
+  )
+  await waitFor(
+    () =>
+      expect(recallDisplay(target)?.view.id).toBe(
+        target.id,
+      ),
+    { timeout: 3000 },
+  )
+  expect(
+    recallDisplay({
+      kind: "view",
+      id: "locked-assignment",
+    }),
+  ).toBeNull()
 })

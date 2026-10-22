@@ -17,11 +17,15 @@ export const displayCacheKey = (target: DisplayTarget) =>
   JSON.stringify([target.kind, target.id, target.deviceId])
 
 /** Keep a small, memory-only set of recently authorized device compositions. */
-export const rememberDisplay = (
-  snapshot: DisplaySnapshot,
-) => {
-  if (snapshot.target.kind !== "view") return
-  const key = displayCacheKey(snapshot.target)
+export const rememberDisplay = ({
+  snapshot,
+  target = snapshot.target,
+}: {
+  snapshot: DisplaySnapshot
+  target?: DisplayTarget
+}) => {
+  if (target.kind !== "view") return
+  const key = displayCacheKey(target)
   entries.delete(key)
   entries.set(key, {
     snapshot,
@@ -51,6 +55,11 @@ export const isDisplayRefreshDue = (
 ) =>
   (entries.get(displayCacheKey(target))?.expiresAt ?? 0) <=
   Date.now() + 30_000
+
+/** An unavailable destination must not evict other authorized prepared views. */
+export const forgetDisplay = (target: DisplayTarget) => {
+  entries.delete(displayCacheKey(target))
+}
 
 /** Access changes invalidate every cached composition, including prefetched ones. */
 export const clearDisplayCache = () => {

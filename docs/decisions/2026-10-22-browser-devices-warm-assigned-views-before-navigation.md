@@ -11,7 +11,11 @@ Superseded by: None
 Browser devices and the browser renderers serving image-stream devices prepare
 their configured local CastKit views in the background.
 A warm composition draws from memory immediately and opens its live subscription
-directly, without another HTTP bootstrap. The new subscription must confirm access
+directly, without another HTTP bootstrap. Prepare both ordinary links and their
+device-context variants: automation-selected targets carry that context. The
+preparation API accepts only configured local views or assigned screen members,
+retains PIN checks, and never enables actions. Cache entries use the request
+identity even when a legacy wire snapshot omits its device ID. The new subscription must confirm access
 and current data before controls become available. Loading feedback and animations
 remain available for cold or unavailable targets.
 

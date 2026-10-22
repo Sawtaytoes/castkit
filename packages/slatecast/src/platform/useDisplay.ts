@@ -186,7 +186,7 @@ export const useDisplay = (
       lifecycle.hasAcceptedSnapshot = true
       setLoadedTargetKey(targetKey)
       if (isDeviceShell && !isPreview && !isCapture)
-        rememberDisplay(value)
+        rememberDisplay({ snapshot: value, target })
       if (lifecycle.socket?.readyState === WebSocket.OPEN)
         connected()
       setIsLocked(false)

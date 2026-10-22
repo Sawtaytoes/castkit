@@ -18,7 +18,9 @@ const DeviceContent = () => {
   useWarmDeviceViews(
     (profile?.externalViews ?? []).flatMap((view) => {
       const target = readLocalDisplayTarget(view)
-      return target ? [target] : []
+      return target && profile
+        ? [target, { ...target, deviceId: profile.id }]
+        : []
     }),
   )
   const externalIndex = /^external-view:(\d+)$/.exec(

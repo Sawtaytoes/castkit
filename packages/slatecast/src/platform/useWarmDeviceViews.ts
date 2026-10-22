@@ -1,7 +1,7 @@
 import { useEffect } from "preact/hooks"
 import {
-  clearDisplayCache,
   displayCacheRevision,
+  forgetDisplay,
   isDisplayRefreshDue,
   recallDisplay,
   rememberDisplay,
@@ -51,7 +51,7 @@ export const useWarmDeviceViews = (
           }
           try {
             const response = await fetch(
-              `/api/display/${target.kind}/${encodeURIComponent(target.id)}${target.deviceId ? `?device=${encodeURIComponent(target.deviceId)}` : ""}`,
+              `/api/display/${target.kind}/${encodeURIComponent(target.id)}${target.deviceId ? `?device=${encodeURIComponent(target.deviceId)}&preload=1` : ""}`,
               {
                 credentials: "same-origin",
                 cache: "no-store",
@@ -67,7 +67,7 @@ export const useWarmDeviceViews = (
               response.status === 401 ||
               response.status === 403
             ) {
-              clearDisplayCache()
+              forgetDisplay(target)
               return
             }
             if (!response.ok) return
@@ -80,7 +80,7 @@ export const useWarmDeviceViews = (
               return
             // A foreground subscription may have supplied newer data during fetch.
             if (isDisplayRefreshDue(target))
-              rememberDisplay(snapshot)
+              rememberDisplay({ snapshot, target })
             await warmViewAssets({
               snapshot,
               signal: controller.signal,
