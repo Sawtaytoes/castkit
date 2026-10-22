@@ -9,6 +9,7 @@ import { safeMediaUrl } from "./protocol.ts"
 afterEach(() => {
   clearMediaCache()
   vi.restoreAllMocks()
+  vi.useRealTimers()
 })
 
 test("authorized static media survives no-store in memory and is released on access changes", async () => {
@@ -71,5 +72,29 @@ test("an outstanding image load cannot repopulate media after access changes", a
     }),
   )
   await warm
+  expect(recallMediaUrl(path)).toBe(path)
+})
+
+test("background image requests time out without retaining a partial asset", async () => {
+  vi.useFakeTimers()
+  const path = "/api/display/view/room/media/slow-cover"
+  vi.spyOn(window, "fetch").mockImplementation(
+    (_path, options) =>
+      new Promise<Response>((_resolve, reject) => {
+        options?.signal?.addEventListener(
+          "abort",
+          () =>
+            reject(
+              new DOMException("Aborted", "AbortError"),
+            ),
+          { once: true },
+        )
+      }),
+  )
+  const pending = expect(
+    warmMedia({ path }),
+  ).rejects.toThrow("Aborted")
+  await vi.advanceTimersByTimeAsync(2500)
+  await pending
   expect(recallMediaUrl(path)).toBe(path)
 })
