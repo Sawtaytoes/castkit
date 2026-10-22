@@ -68,11 +68,18 @@ const useElementSize = <
     if (!element) {
       return undefined
     }
-    const measure = () =>
-      setSize({
+    const measure = () => {
+      const next = {
         width: element.clientWidth,
         height: element.clientHeight,
-      })
+      }
+      setSize((previous) =>
+        previous.width === next.width &&
+        previous.height === next.height
+          ? previous
+          : next,
+      )
+    }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(element)

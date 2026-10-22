@@ -34,6 +34,45 @@ import { ViewTransition } from "./ViewTransition.tsx"
 import "../styles.css"
 
 afterEach(() => vi.restoreAllMocks())
+
+test("a device composition retries a transient target conflict after server recovery", async () => {
+  const worker = setupWorker(
+    ws
+      .link("*/view/recovering/ws")
+      .addEventListener("connection", () => undefined),
+  )
+  await worker.start({
+    quiet: true,
+    onUnhandledRequest: "bypass",
+  })
+  onTestFinished(() => worker.stop())
+  const fetch = vi
+    .spyOn(window, "fetch")
+    .mockResolvedValueOnce(
+      new Response("{}", { status: 409 }),
+    )
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify(compositionFixture)),
+    )
+  render(
+    <PlatformApp
+      target={{ kind: "view", id: "recovering" }}
+      isDeviceShell
+    />,
+  )
+  await waitFor(
+    () =>
+      expect(
+        document.querySelector(".platform"),
+      ).toHaveAttribute(
+        "data-view",
+        compositionFixture.view.id,
+      ),
+    { timeout: 5000 },
+  )
+  expect(fetch).toHaveBeenCalledTimes(2)
+})
+
 const setup = async () => {
   const link = ws.link("*/view/*/ws*")
   const clients = new Set<{
