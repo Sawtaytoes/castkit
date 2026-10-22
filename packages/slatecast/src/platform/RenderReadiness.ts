@@ -6,8 +6,12 @@ export const useRenderReadiness = (revision: unknown) => {
   useLayoutEffect(() => {
     const lifecycle = { isDisposed: false }
     setIsReady(false)
+    const renderRoot = () =>
+      document.querySelector(
+        '[data-composition-visible="true"]',
+      ) ?? document
     const stampControls = () =>
-      document
+      renderRoot()
         .querySelectorAll<HTMLElement>(
           ".platform button, .platform input, .platform select, .platform a, .platform-lock button",
         )
@@ -46,7 +50,7 @@ export const useRenderReadiness = (revision: unknown) => {
       }
       const check = () => {
         if (
-          !document.querySelector(
+          !renderRoot().querySelector(
             '[data-castkit-plugin-ready="false"]',
           )
         )
@@ -70,7 +74,7 @@ export const useRenderReadiness = (revision: unknown) => {
         ),
       )
       const images = Array.from(
-        document.querySelectorAll<HTMLImageElement>(
+        renderRoot().querySelectorAll<HTMLImageElement>(
           ".platform img",
         ),
       )

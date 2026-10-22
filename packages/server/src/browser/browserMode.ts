@@ -125,6 +125,7 @@ export type BrowserMode = ReturnType<
 /** The slice of the platform the device page reads channels and actions through. */
 export type BrowserModePlatform = {
   subscribe?: (listener: () => void) => () => void
+  getDevicePreloadViewIds?: (deviceId: string) => string[]
   getDeviceTarget?: (
     deviceId: string,
   ) => { kind: "view" | "screen"; id: string } | undefined
@@ -553,7 +554,10 @@ export const createBrowserMode = ({
     clock: getGlobalClockConfig(),
   })
 
-  const targetReader = { get: platform?.getDeviceTarget }
+  const targetReader = {
+    get: platform?.getDeviceTarget,
+    preloadViewIds: platform?.getDevicePreloadViewIds,
+  }
 
   const buildSnapshot = (
     deviceId: string,
@@ -595,6 +599,8 @@ export const createBrowserMode = ({
             ? "rect"
             : device.shape,
         externalViews: toClientExternalViews(device),
+        preloadViewIds:
+          targetReader.preloadViewIds?.(deviceId),
         views: browserViews.map(({ name, clientId }) => ({
           name,
           clientId,
@@ -1332,6 +1338,9 @@ export const createBrowserMode = ({
   const attach = (
     app: Hono,
     options?: {
+      getDevicePreloadViewIds?: (
+        deviceId: string,
+      ) => string[]
       getPlatformTarget?: (
         deviceId: string,
       ) =>
@@ -1341,6 +1350,9 @@ export const createBrowserMode = ({
   ) => {
     targetReader.get =
       options?.getPlatformTarget ?? targetReader.get
+    targetReader.preloadViewIds =
+      options?.getDevicePreloadViewIds ??
+      targetReader.preloadViewIds
     const { injectWebSocket, upgradeWebSocket } =
       createNodeWebSocket({ app })
 
@@ -1902,6 +1914,8 @@ export const createBrowserMode = ({
         deviceId,
         message: {
           type: "display_target",
+          preloadViewIds:
+            targetReader.preloadViewIds?.(deviceId),
           target: targetReader.get?.(deviceId) ?? null,
         },
       }),

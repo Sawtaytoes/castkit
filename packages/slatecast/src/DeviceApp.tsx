@@ -3,6 +3,7 @@ import { App } from "./App.tsx"
 import { DeviceViewNavigation } from "./DeviceViewNavigation.tsx"
 import { readLocalDisplayTarget } from "./localDisplayTarget.ts"
 import { NavigationFeedback } from "./NavigationFeedback.tsx"
+import { displayCacheKey } from "./platform/displayCache.ts"
 import { PlatformApp } from "./platform/PlatformApp.tsx"
 import { useWarmDeviceViews } from "./platform/useWarmDeviceViews.ts"
 import {
@@ -15,14 +16,29 @@ import {
 const DeviceContent = () => {
   const profile = device.value
   const assignedTarget = deviceDisplayTarget.value
-  useWarmDeviceViews(
-    (profile?.externalViews ?? []).flatMap((view) => {
-      const target = readLocalDisplayTarget(view)
-      return target && profile
-        ? [target, { ...target, deviceId: profile.id }]
-        : []
-    }),
-  )
+  const preparedTargets = profile
+    ? [
+        ...(profile.preloadViewIds ?? []).map((id) => ({
+          kind: "view" as const,
+          id,
+          deviceId: profile.id,
+        })),
+        ...profile.externalViews.flatMap((view) => {
+          const target = readLocalDisplayTarget(view)
+          return target
+            ? [{ ...target, deviceId: profile.id }, target]
+            : []
+        }),
+      ]
+    : []
+  useWarmDeviceViews([
+    ...new Map(
+      preparedTargets.map((target) => [
+        displayCacheKey(target),
+        target,
+      ]),
+    ).values(),
+  ])
   const externalIndex = /^external-view:(\d+)$/.exec(
     activeView.value,
   )?.[1]

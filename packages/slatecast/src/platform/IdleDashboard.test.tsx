@@ -1,10 +1,15 @@
 import {
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
 import { expect, onTestFinished, test } from "vitest"
+import {
+  finishNavigation,
+  showNavigationLoading,
+} from "../navigationFeedback.ts"
 import { IdleDashboard } from "./IdleDashboard.tsx"
 import "../styles.css"
 import "./platform.css"
@@ -493,4 +498,46 @@ test.each([
   expect(getComputedStyle(kid).backgroundColor).toBe(
     standard.surface,
   )
+})
+
+test("one return-to-time request closes local child details even when the main view stays selected", async () => {
+  onTestFinished(finishNavigation)
+  render(
+    <IdleDashboard
+      now={now}
+      clock={clock}
+      points={{
+        kids: [
+          {
+            id: "sam",
+            name: "Sam",
+            pointsToday: 25,
+            goal: 100,
+          },
+        ],
+      }}
+    />,
+  )
+  await userEvent.click(
+    screen.getByRole("button", {
+      name: "View Sam's tasks today",
+    }),
+  )
+  expect(
+    screen.getByRole("button", {
+      name: "Back to all children",
+    }),
+  ).toBeVisible()
+  showNavigationLoading({
+    label: "Time",
+    requestedView: "calendar",
+  })
+  await waitFor(() =>
+    expect(screen.getByText("12:45")).toBeVisible(),
+  )
+  expect(
+    screen.queryByRole("button", {
+      name: "Back to all children",
+    }),
+  ).toBeNull()
 })

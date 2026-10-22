@@ -121,7 +121,10 @@
  * back to the raised color, since the panel is no longer one.
  */
 .platform[data-device="true"]:has(
-  .platform-layout[data-layout="single"]
+  .platform-layout[data-layout="single"]:not(
+      .platform-composition[data-composition-visible="false"]
+        *
+    )
     > .platform-panel:is(
       [data-spec="ambient"],
       [data-spec="clock"],
@@ -3610,7 +3613,10 @@ html[data-repaint="instant"]
 
 /* Camera alerts preserve the entire image and leave only a small status band. */
 .platform[data-device="true"]:has(
-  .platform-panel[data-spec="camera-alert"]
+  .platform-panel[data-spec="camera-alert"]:not(
+      .platform-composition[data-composition-visible="false"]
+        *
+    )
 ) {
   padding: 0;
 }
@@ -3809,6 +3815,7 @@ html[data-repaint="instant"]
 
 /* Keep the previous composition readable while its successor is fetched. */
 .platform-view {
+  position: relative;
   display: flex;
   flex: 1;
   min-block-size: 0;

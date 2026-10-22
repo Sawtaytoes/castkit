@@ -4,6 +4,7 @@ import { getEffectiveRepaint } from "@castkit/shared/panels/repaint"
 import type { JSX } from "preact"
 import { useEffect, useState } from "preact/hooks"
 import { viewAppearance } from "./appearance.ts"
+import { CompositionDeck } from "./CompositionDeck.tsx"
 import {
   CompositionNavigation,
   useCompositionTransition,
@@ -475,21 +476,50 @@ export const PlatformApp = ({
           display.isLoadingTarget || isTargetPending
         }
       >
-        <DisplayComposition
-          key={display.snapshot.view.id}
-          snapshot={{
-            ...display.snapshot,
-            displayProperties: properties,
-          }}
-          isConnected={display.isConnected}
-          isPending={display.isPending || isTargetPending}
-          controlDisabledReason={
-            display.isPreview
-              ? "Preview · Controls disabled"
-              : undefined
-          }
-          onAction={display.requestAction}
-        />
+        {isDeviceShell ? (
+          <CompositionDeck
+            snapshot={display.snapshot}
+            target={target}
+            renderComposition={({
+              snapshot,
+              isVisible,
+            }) => (
+              <DisplayComposition
+                snapshot={{
+                  ...snapshot,
+                  displayProperties:
+                    snapshot.displayProperties ??
+                    deviceProperties,
+                }}
+                isConnected={
+                  isVisible && display.isConnected
+                }
+                isPending={
+                  !isVisible ||
+                  display.isPending ||
+                  isTargetPending
+                }
+                onAction={display.requestAction}
+              />
+            )}
+          />
+        ) : (
+          <DisplayComposition
+            key={display.snapshot.view.id}
+            snapshot={{
+              ...display.snapshot,
+              displayProperties: properties,
+            }}
+            isConnected={display.isConnected}
+            isPending={display.isPending || isTargetPending}
+            controlDisabledReason={
+              display.isPreview
+                ? "Preview · Controls disabled"
+                : undefined
+            }
+            onAction={display.requestAction}
+          />
+        )}
       </ViewTransition>
     </main>
   )

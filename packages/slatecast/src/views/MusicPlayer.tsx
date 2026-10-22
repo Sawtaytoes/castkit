@@ -11,6 +11,7 @@ import {
 } from "../accentColor.ts"
 import { formatTime } from "../formatTime.ts"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
+import { useCompositionVisibility } from "../platform/CompositionVisibility.ts"
 import { safeMediaUrl } from "../platform/protocol.ts"
 import {
   countUpcomingRows,
@@ -42,10 +43,11 @@ const useNowMs = ({
   isActive: boolean
   intervalMs: number
 }) => {
+  const isVisible = useCompositionVisibility()
   const [nowMs, setNowMs] = useState(Date.now())
   useEffect(() => {
     setNowMs(Date.now())
-    if (!isActive) {
+    if (!isActive || !isVisible) {
       return undefined
     }
     const timer = setInterval(
@@ -53,14 +55,15 @@ const useNowMs = ({
       intervalMs,
     )
     return () => clearInterval(timer)
-  }, [isActive, intervalMs])
-  return nowMs
+  }, [isActive, intervalMs, isVisible])
+  return isVisible ? Date.now() : nowMs
 }
 
 /** An element's content box, kept current as the panel resizes. */
 const useElementSize = <
   ElementType extends HTMLElement,
 >() => {
+  const isVisible = useCompositionVisibility()
   const reference = useRef<ElementType>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
   useLayoutEffect(() => {
@@ -81,10 +84,11 @@ const useElementSize = <
       )
     }
     measure()
+    if (!isVisible) return
     const observer = new ResizeObserver(measure)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [])
+  }, [isVisible])
   return { reference, size }
 }
 
