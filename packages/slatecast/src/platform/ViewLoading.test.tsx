@@ -394,12 +394,16 @@ test("the identical socket bootstrap does not restart rendering or readiness", a
     compositionFixture,
   )
   await screen.findByText("Printer One")
-  await waitFor(() =>
-    expect(
-      document
-        .querySelector(".platform")
-        ?.getAttribute("data-castkit-ready"),
-    ).toBe("true"),
+  // Readiness allows up to eight seconds for media/fonts. The assertion
+  // must wait for that contract before observing duplicate-frame behavior.
+  await waitFor(
+    () =>
+      expect(
+        document
+          .querySelector(".platform")
+          ?.getAttribute("data-castkit-ready"),
+      ).toBe("true"),
+    { timeout: 10_000 },
   )
   const changes: string[] = []
   const observer = new MutationObserver((records) => {
