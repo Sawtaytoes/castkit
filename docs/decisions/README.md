@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-22: Prepare view data before background artwork](2026-10-22-prepare-view-data-before-background-artwork.md)
+
 - [2026-10-22: Retain prepared compositions and learn automation destinations](2026-10-22-retain-prepared-compositions-and-learn-automation-destinations.md)
 
 - [2026-10-22: Routine device settings apply live without a server restart](2026-10-22-routine-device-settings-apply-live-without-a-server-restart.md)

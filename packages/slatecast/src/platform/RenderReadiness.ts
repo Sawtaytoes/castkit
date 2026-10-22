@@ -1,6 +1,6 @@
 import { useLayoutEffect, useState } from "preact/hooks"
 
-/** A captured frame becomes ready after its fonts and current images settle. */
+/** A captured frame becomes ready after its fonts and required images settle. */
 export const useRenderReadiness = (revision: unknown) => {
   const [isReady, setIsReady] = useState(false)
   useLayoutEffect(() => {
@@ -75,7 +75,7 @@ export const useRenderReadiness = (revision: unknown) => {
       )
       const images = Array.from(
         renderRoot().querySelectorAll<HTMLImageElement>(
-          ".platform img",
+          '.platform img:not([data-castkit-media-readiness="optional"])',
         ),
       )
       await Promise.allSettled([

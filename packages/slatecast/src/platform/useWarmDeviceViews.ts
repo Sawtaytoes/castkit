@@ -40,15 +40,7 @@ export const useWarmDeviceViews = (
             document.visibilityState === "hidden"
           )
             return
-          if (!isDisplayRefreshDue(target)) {
-            const snapshot = recallDisplay(target)
-            if (snapshot)
-              await warmViewAssets({
-                snapshot,
-                signal: controller.signal,
-              })
-            return
-          }
+          if (!isDisplayRefreshDue(target)) return
           try {
             const response = await fetch(
               `/api/display/${target.kind}/${encodeURIComponent(target.id)}${target.deviceId ? `?device=${encodeURIComponent(target.deviceId)}&preload=1` : ""}`,
@@ -81,13 +73,28 @@ export const useWarmDeviceViews = (
             // A foreground subscription may have supplied newer data during fetch.
             if (isDisplayRefreshDue(target))
               rememberDisplay({ snapshot, target })
+          } catch {
+            // A warm-up failure never blocks the active view or the next swipe.
+          }
+        }, Promise.resolve())
+      // A slow artwork proxy must not hold the next composition behind it.
+      // Keep media work bounded and sequential after every snapshot is available.
+      await targets
+        .slice(0, 8)
+        .reduce(async (previous, target) => {
+          await previous
+          if (
+            lifecycle.isDisposed ||
+            accessRevision !== displayCacheRevision() ||
+            document.visibilityState === "hidden"
+          )
+            return
+          const snapshot = recallDisplay(target)
+          if (snapshot)
             await warmViewAssets({
               snapshot,
               signal: controller.signal,
             })
-          } catch {
-            // A warm-up failure never blocks the active view or the next swipe.
-          }
         }, Promise.resolve())
     }
     const schedule = (delay: number) => {
