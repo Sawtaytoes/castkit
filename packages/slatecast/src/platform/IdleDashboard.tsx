@@ -11,7 +11,10 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
-import { navigationFeedback } from "../navigationFeedback.ts"
+import {
+  finishNavigation,
+  navigationFeedback,
+} from "../navigationFeedback.ts"
 import {
   formatClockDate,
   formatClockTimeParts,
@@ -56,7 +59,11 @@ export const IdleDashboard = ({
         feedback.requestedView ?? "",
       )
     ) {
-      setSelectedKidId(undefined)
+      const update = () => setSelectedKidId(undefined)
+      if (selectedKidId && navigation)
+        navigation.navigate(update, false)
+      else update()
+      finishNavigation()
     }
   })
   const selectedKid = isInteractive

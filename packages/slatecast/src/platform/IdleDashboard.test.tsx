@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event"
 import { expect, onTestFinished, test } from "vitest"
 import {
   finishNavigation,
+  navigationFeedback,
   showNavigationLoading,
 } from "../navigationFeedback.ts"
 import { IdleDashboard } from "./IdleDashboard.tsx"
@@ -540,4 +541,5 @@ test("one return-to-time request closes local child details even when the main v
       name: "Back to all children",
     }),
   ).toBeNull()
+  expect(navigationFeedback.peek()).toBeNull()
 })
