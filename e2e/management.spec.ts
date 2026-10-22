@@ -186,7 +186,7 @@ test("toggling display capabilities keeps one checkbox each and waits for a save
     .click()
   await expect(
     page.getByText(
-      "Save device & restart to apply the capability change before using these controls.",
+      "Save device to apply the capability change before using these controls.",
     ),
   ).toBeVisible()
   await expect(
@@ -197,7 +197,7 @@ test("toggling display capabilities keeps one checkbox each and waits for a save
   ).toHaveCount(0)
   await expect(
     page.getByRole("button", {
-      name: "Save device & restart",
+      name: "Save device",
       exact: true,
     }),
   ).toBeEnabled()
@@ -230,7 +230,7 @@ test("tabs preserve edits, browser Back restores the category, and only changed 
   ).toHaveValue("landscape")
   await expect(
     page.getByRole("button", {
-      name: "Save device & restart",
+      name: "Save device",
     }),
   ).toBeDisabled()
   const saved = page.waitForRequest(
@@ -249,7 +249,7 @@ test("tabs preserve edits, browser Back restores the category, and only changed 
   })
   await expect(
     page.getByRole("button", {
-      name: "Save device & restart",
+      name: "Save device",
     }),
   ).toBeEnabled()
   await page
@@ -576,7 +576,7 @@ test("a renderer change still lets pending image settings save before the restar
   ).toBeEnabled()
   await expect(
     page.getByRole("button", {
-      name: "Save device & restart",
+      name: "Save device",
     }),
   ).toBeDisabled()
   await page
@@ -587,7 +587,7 @@ test("a renderer change still lets pending image settings save before the restar
     .click()
   await expect(
     page.getByRole("button", {
-      name: "Save device & restart",
+      name: "Save device",
     }),
   ).toBeEnabled()
 })
@@ -1430,8 +1430,138 @@ test("display testing starts and ends without saving or restarting the device", 
     .click()
   await expect(
     page.getByRole("button", {
-      name: "Save device & restart",
+      name: "Save device",
       exact: true,
     }),
   ).toBeEnabled()
+})
+
+test("routine device edits apply to an open display without restarting its document", async ({
+  page,
+  context,
+}) => {
+  await page.request.post("/api/access/login", {
+    data: { pin: "2468" },
+  })
+  const previous = (
+    await (
+      await page.request.get("/api/manage/devices")
+    ).json()
+  ).devices.find(
+    (device: { id: string }) => device.id === "e2e-square",
+  )
+  await page.unroute("**/api/manage/devices")
+  await page.goto(
+    "/manage/devices/device?device=e2e-square",
+  )
+  const display = await context.newPage()
+  await display.goto("/d/e2e-square")
+  await display.locator(".stage").waitFor()
+  const timeOrigin = await display.evaluate(
+    () => performance.timeOrigin,
+  )
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Live display edit")
+  await page
+    .getByRole("button", {
+      name: "Contrast: Standard",
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole("option", { name: "Darker", exact: true })
+    .click()
+  const saved = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .endsWith("/api/manage/devices/e2e-square") &&
+      response.request().method() === "PUT",
+  )
+  await page
+    .getByRole("button", {
+      name: "Save device",
+      exact: true,
+    })
+    .click()
+  expect(await (await saved).json()).toEqual({
+    isRestarting: false,
+  })
+  await expect(
+    page.getByText("Device saved. Changes are live."),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("textbox", {
+      name: "Name",
+      exact: true,
+    }),
+  ).toBeEnabled()
+  await expect(display.locator("html")).toHaveAttribute(
+    "data-contrast",
+    "darker",
+  )
+  await page.request.put("/api/manage/devices/e2e-square", {
+    data: previous,
+  })
+  expect(
+    await display.evaluate(() => performance.timeOrigin),
+  ).toBe(timeOrigin)
+})
+
+test("device editing recovers automatically after a required restart", async ({
+  page,
+}) => {
+  const recovery = { isSaved: false, checks: 0 }
+  await page.route("**/api/manage/devices", (route) => {
+    if (recovery.isSaved) recovery.checks += 1
+    return recovery.isSaved && recovery.checks === 1
+      ? route.fulfill({ status: 503, body: "Starting" })
+      : route.fulfill({
+          json: {
+            devices: [
+              {
+                ...BROWSER_DEVICE,
+                label: recovery.isSaved
+                  ? "Restarted display"
+                  : BROWSER_DEVICE.label,
+              },
+            ],
+          },
+        })
+  })
+  await page.route(
+    "**/api/manage/devices/e2e-square",
+    (route) => {
+      recovery.isSaved = true
+      return route.fulfill({ json: { isRestarting: true } })
+    },
+  )
+  await page.goto(
+    "/manage/devices/device?device=e2e-square",
+  )
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Restarted display")
+  await page
+    .getByRole("button", {
+      name: "Save device",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByText(
+      "Device saved. Waiting for CastKit to return…",
+    ),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Device saved. CastKit is ready."),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("textbox", {
+      name: "Name",
+      exact: true,
+    }),
+  ).toBeEnabled()
+  expect(recovery.checks).toBeGreaterThanOrEqual(2)
 })
