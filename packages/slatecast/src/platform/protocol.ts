@@ -5,6 +5,7 @@ import type {
 } from "@castkit/sdk/contracts"
 import type { ViewInput } from "@castkit/sdk/plugin"
 import type { DisplayProperties } from "./displayProperties.ts"
+import { recallMediaUrl } from "./mediaCache.ts"
 
 /** The same target identity controls page data, media, sessions, and actions. */
 export type DisplayTarget = {
@@ -78,7 +79,7 @@ export const safeMediaUrl = (value: unknown) =>
   value.startsWith("/") &&
   !value.startsWith("//") &&
   !value.includes("\\")
-    ? value
+    ? recallMediaUrl(value)
     : undefined
 
 /** A physical display can bind a named screen while its installed URL stays fixed. */

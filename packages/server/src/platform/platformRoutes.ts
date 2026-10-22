@@ -53,11 +53,22 @@ export const getDisplay = ({
   id: string
 }) => {
   const deviceId = context.req.query("device")
+  const isPreload = Boolean(
+    deviceId &&
+      kind === "view" &&
+      context.req.query("preload") === "1" &&
+      platform.getIsAssignedDeviceView({
+        deviceId,
+        viewId: id,
+        origin: new URL(context.req.url).origin,
+      }),
+  )
   const deviceTarget = deviceId
     ? platform.getDeviceTarget(deviceId)
     : undefined
   if (
     deviceId &&
+    !isPreload &&
     !(
       (context.req.query("preview") === "1" ||
         context.req.query("capture") === "1") &&
@@ -164,6 +175,7 @@ export const getDisplay = ({
       ),
       isAuthenticated: platform.access.isAdmin(context),
       canControl:
+        !isPreload &&
         view.isControlEnabled &&
         (!view.panels.some(
           (panel) => panel.specId === "printer-status",

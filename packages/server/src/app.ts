@@ -7,7 +7,10 @@ import { Hono } from "hono"
 import { bearerAuth } from "hono/bearer-auth"
 import { buildOpenApiDocument } from "./api/openapi.ts"
 import { SetViewRequestSchema } from "./api/schemas.ts"
-import type { InkcastConfig } from "./config/env.ts"
+import {
+  type InkcastConfig,
+  parseDeviceDefinition,
+} from "./config/env.ts"
 import type { Platform } from "./platform/platform.ts"
 import { buildLandingPage } from "./platform/platformPages.ts"
 import { attachPlatformRoutes } from "./platform/platformRoutes.ts"
@@ -47,7 +50,7 @@ export const createApp = ({
   getDeviceSettings: (
     deviceId: string,
   ) => Record<string, string> | null
-  onDeviceDefinitionsChanged: () => void
+  onDeviceDefinitionsChanged: () => boolean | undefined
   setDeviceSetting: (params: {
     deviceId: string
     kind: string
@@ -173,8 +176,10 @@ export const createApp = ({
     if (new Set(deviceIds).size !== deviceIds.length) {
       throw new Error("Each device must have a unique id.")
     }
-    deviceDefinitionStore.replaceAll(definitions)
-    onDeviceDefinitionsChanged()
+    deviceDefinitionStore.replaceAll(
+      definitions.map(parseDeviceDefinition),
+    )
+    return onDeviceDefinitionsChanged() !== false
   }
 
   app.get("/api/manage/devices", (context) =>
@@ -194,11 +199,11 @@ export const createApp = ({
       )
     }
     try {
-      saveDeviceDefinitions([
+      const isRestarting = saveDeviceDefinitions([
         ...deviceDefinitionStore.getAll(),
         definition,
       ])
-      return context.json({ isRestarting: true }, 201)
+      return context.json({ isRestarting }, 201)
     } catch (error) {
       return context.json(
         {
@@ -233,12 +238,12 @@ export const createApp = ({
       return context.json({ error: "unknown device" }, 404)
     }
     try {
-      saveDeviceDefinitions(
+      const isRestarting = saveDeviceDefinitions(
         definitions.map((device) =>
           device.id === deviceId ? definition : device,
         ),
       )
-      return context.json({ isRestarting: true })
+      return context.json({ isRestarting })
     } catch (error) {
       return context.json(
         {
@@ -261,12 +266,12 @@ export const createApp = ({
       return context.json({ error: "unknown device" }, 404)
     }
     try {
-      saveDeviceDefinitions(
+      const isRestarting = saveDeviceDefinitions(
         definitions.filter(
           (device) => device.id !== deviceId,
         ),
       )
-      return context.json({ isRestarting: true })
+      return context.json({ isRestarting })
     } catch (error) {
       return context.json(
         {

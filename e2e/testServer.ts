@@ -13,6 +13,7 @@ import { watchDeviceTargets } from "../packages/server/src/platform/deviceTarget
 import { createPlatform } from "../packages/server/src/platform/platform.ts"
 import { attachPlatformSockets } from "../packages/server/src/platform/platformSockets.ts"
 import { hashPin } from "../packages/server/src/platform/platformStore.ts"
+import { applyDeviceDefinitions } from "../packages/server/src/state/applyDeviceDefinitions.ts"
 import { createDeviceDefinitionStore } from "../packages/server/src/state/deviceDefinitionStore.ts"
 import { createDeviceStore } from "../packages/server/src/state/deviceStore.ts"
 import { createRenderTokenStore } from "../packages/server/src/state/renderTokenStore.ts"
@@ -314,17 +315,31 @@ export const startTestServer = async ({
     ),
   }))
   await platform.refresh()
+  const deviceDefinitionStore = createDeviceDefinitionStore(
+    {
+      devices: config.devices,
+      browserDevices: config.browserDevices,
+      devicesFile,
+    },
+  )
   const app = createApp({
     config,
     platform,
     deviceStore: createDeviceStore({ deviceIds: [] }),
-    deviceDefinitionStore: createDeviceDefinitionStore({
-      devices: config.devices,
-      browserDevices: config.browserDevices,
-      devicesFile,
-    }),
+    deviceDefinitionStore,
     getDeviceSettings: browserMode.getDeviceSettings,
-    onDeviceDefinitionsChanged: () => {},
+    onDeviceDefinitionsChanged: () => {
+      const changes = applyDeviceDefinitions({
+        config,
+        definitions: deviceDefinitionStore.getAll(),
+      })
+      if (!changes) return true
+      platform.notify()
+      changes.forEach((deviceId) => {
+        void browserMode.refreshDeviceDefinition(deviceId)
+      })
+      return false
+    },
     setDeviceSetting: browserMode.setDeviceSetting,
     pushController: {
       deviceById: new Map(),

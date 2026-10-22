@@ -3,9 +3,11 @@ import { viewports } from "@charcuterie/vitest-config/viewports.js"
 import { cleanup } from "@testing-library/preact"
 import { afterEach, inject } from "vitest"
 import { page } from "vitest/browser"
+import { clearDisplayCache } from "./src/platform/displayCache.ts"
 
 afterEach(async () => {
   cleanup()
+  clearDisplayCache()
   /*
    * Hand the window back. A test that sizes the page to a panel with
    * `page.viewport()` is right to — Slatecast lays out in `vw`/`vh`, so the
