@@ -411,7 +411,13 @@ test.describe("Media Controls end to end", () => {
       .poll(async () =>
         (await readCommands(page)).slice(before.length),
       )
-      .toEqual([{ action: "view", value: "touch-test" }])
+      .toEqual([
+        {
+          action: "view",
+          value: "touch-test",
+          navigationId: expect.any(String),
+        },
+      ])
   })
 })
 
