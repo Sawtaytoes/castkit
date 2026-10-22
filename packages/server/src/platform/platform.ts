@@ -394,7 +394,11 @@ export const createPlatform = async ({
   const getDeviceTarget = (
     deviceId: string,
   ):
-    | { kind: "view" | "screen"; id: string }
+    | {
+        kind: "view" | "screen"
+        id: string
+        navigationId?: string
+      }
     | undefined => {
     const override = deviceOverrides.getActive(deviceId)
     const test = deviceTests.get(deviceId)
@@ -409,7 +413,13 @@ export const createPlatform = async ({
       viewId &&
       store.get().views.some((view) => view.id === viewId)
     )
-      return { kind: "view", id: viewId }
+      return {
+        kind: "view",
+        id: viewId,
+        ...(override?.navigationId
+          ? { navigationId: override.navigationId }
+          : {}),
+      }
     const screenId = store.get().deviceScreens[deviceId]
     return screenId
       ? { kind: "screen", id: screenId }
@@ -426,11 +436,13 @@ export const createPlatform = async ({
     viewId,
     durationSeconds,
     priority,
+    navigationId,
   }: {
     deviceId: string
     viewId: unknown
     durationSeconds: unknown
     priority?: unknown
+    navigationId?: unknown
   }) => {
     const display = getDeviceProperties(deviceId)
     if (!display) throw new Error("Unknown display")
@@ -441,6 +453,10 @@ export const createPlatform = async ({
     if (
       typeof durationSeconds !== "number" ||
       !(durationSeconds > 0) ||
+      (navigationId !== undefined &&
+        (typeof navigationId !== "string" ||
+          navigationId.length === 0 ||
+          navigationId.length > 128)) ||
       (priority !== undefined &&
         typeof priority !== "number")
     )
@@ -467,6 +483,9 @@ export const createPlatform = async ({
       viewId: view.id,
       durationSeconds: seconds,
       priority,
+      ...(typeof navigationId === "string"
+        ? { navigationId }
+        : {}),
     })
     const previous =
       store.get().deviceRecentViews?.[deviceId] ?? []

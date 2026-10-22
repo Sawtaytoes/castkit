@@ -126,9 +126,13 @@ export type BrowserMode = ReturnType<
 export type BrowserModePlatform = {
   subscribe?: (listener: () => void) => () => void
   getDevicePreloadViewIds?: (deviceId: string) => string[]
-  getDeviceTarget?: (
-    deviceId: string,
-  ) => { kind: "view" | "screen"; id: string } | undefined
+  getDeviceTarget?: (deviceId: string) =>
+    | {
+        kind: "view" | "screen"
+        id: string
+        navigationId?: string
+      }
+    | undefined
   getTarget?: (target: {
     kind: "view" | "screen"
     id: string
@@ -1341,10 +1345,12 @@ export const createBrowserMode = ({
       getDevicePreloadViewIds?: (
         deviceId: string,
       ) => string[]
-      getPlatformTarget?: (
-        deviceId: string,
-      ) =>
-        | { kind: "view" | "screen"; id: string }
+      getPlatformTarget?: (deviceId: string) =>
+        | {
+            kind: "view" | "screen"
+            id: string
+            navigationId?: string
+          }
         | undefined
     },
   ) => {
@@ -1593,7 +1599,11 @@ export const createBrowserMode = ({
             const parsed = parseJsonPayload(
               String(event.data),
             ) as
-              | { type?: string; command?: unknown }
+              | {
+                  type?: string
+                  command?: unknown
+                  navigationId?: unknown
+                }
               | undefined
             if (parsed?.type !== "command") {
               return
@@ -1605,6 +1615,13 @@ export const createBrowserMode = ({
             if (!command || !topics) {
               return
             }
+            const navigationId =
+              command.action === "view" &&
+              typeof parsed.navigationId === "string" &&
+              parsed.navigationId.length > 0 &&
+              parsed.navigationId.length <= 128
+                ? parsed.navigationId
+                : undefined
             /*
              * A view request from the panel is already inside CastKit's
              * authenticated device socket. Apply it here so the screen can
@@ -1661,6 +1678,7 @@ export const createBrowserMode = ({
                 topic: topics.command,
                 payload: JSON.stringify({
                   ...command,
+                  ...(navigationId ? { navigationId } : {}),
                   ts: new Date().toISOString(),
                 }),
               })
