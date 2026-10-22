@@ -201,3 +201,53 @@ describe("shell navigation from all four edges", () => {
     expect(server.commands).toEqual([])
   })
 })
+
+test("a pull acknowledges locally, keeps loading feedback through a cancelled pull, and deduplicates retries", async () => {
+  const { server } = await mountExternal()
+  const target = screen.getByRole("button", {
+    name: "Pull inward from the bottom for time",
+  })
+  fireEvent.pointerDown(target, {
+    pointerId: 7,
+    clientX: 100,
+    clientY: 200,
+  })
+  fireEvent.pointerMove(target, {
+    pointerId: 7,
+    clientX: 100,
+    clientY: 175,
+  })
+  expect(
+    await screen.findByText("Release for time"),
+  ).toBeVisible()
+  fireEvent.pointerMove(target, {
+    pointerId: 7,
+    clientX: 100,
+    clientY: 120,
+  })
+  fireEvent.pointerUp(target, {
+    pointerId: 7,
+    clientX: 100,
+    clientY: 120,
+  })
+  expect(
+    await screen.findByText("Opening ambient…"),
+  ).toBeVisible()
+  drag({
+    target,
+    startX: 100,
+    startY: 200,
+    endY: 180,
+    isCancelled: true,
+  })
+  expect(screen.getByText("Opening ambient…")).toBeVisible()
+  drag({ target, startX: 100, startY: 200, endY: 120 })
+  await waitUntil(() => server.commands.length > 0)
+  expect(server.commands).toEqual([
+    { action: "view", value: "ambient" },
+  ])
+  server.push({ type: "view", view: "ambient" })
+  await waitUntil(
+    () => screen.queryByText("Opening ambient…") === null,
+  )
+})

@@ -1,6 +1,8 @@
+import { useLayoutEffect, useState } from "preact/hooks"
 import { App } from "./App.tsx"
 import { DeviceViewNavigation } from "./DeviceViewNavigation.tsx"
 import { readLocalDisplayTarget } from "./localDisplayTarget.ts"
+import { NavigationFeedback } from "./NavigationFeedback.tsx"
 import { PlatformApp } from "./platform/PlatformApp.tsx"
 import {
   activeView,
@@ -9,13 +11,13 @@ import {
 } from "./state.ts"
 
 /** Keep the device socket and browser document alive across temporary compositions. */
-export const DeviceApp = () => {
+const DeviceContent = () => {
   const profile = device.value
   const assignedTarget = deviceDisplayTarget.value
   const externalIndex = /^external-view:(\d+)$/.exec(
     activeView.value,
   )?.[1]
-  const target =
+  const requestedTarget =
     assignedTarget && profile
       ? { ...assignedTarget, deviceId: profile.id }
       : readLocalDisplayTarget(
@@ -23,6 +25,18 @@ export const DeviceApp = () => {
             ? undefined
             : profile?.externalViews[Number(externalIndex)],
         )
+  const targetKey = JSON.stringify(requestedTarget)
+  const [target, setTarget] = useState(requestedTarget)
+  useLayoutEffect(() => {
+    // Controller handoffs may briefly clear an override before the next one
+    // arrives. Keep the mounted composition through that gap, and let a newer
+    // target cancel the fallback instead of constructing a throwaway view.
+    const timer = window.setTimeout(
+      () => setTarget(requestedTarget),
+      requestedTarget ? 0 : 160,
+    )
+    return () => clearTimeout(timer)
+  }, [targetKey])
   if (!target || !profile) return <App />
   return (
     <DeviceViewNavigation
@@ -32,6 +46,9 @@ export const DeviceApp = () => {
       <PlatformApp
         target={target}
         isDeviceShell
+        isTargetPending={
+          targetKey !== JSON.stringify(target)
+        }
         deviceProperties={{
           repaint: profile.repaint,
           delivery:
@@ -48,3 +65,11 @@ export const DeviceApp = () => {
     </DeviceViewNavigation>
   )
 }
+
+/** Keep input acknowledgement mounted across both native and composed views. */
+export const DeviceApp = () => (
+  <>
+    <DeviceContent />
+    <NavigationFeedback />
+  </>
+)

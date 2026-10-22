@@ -665,6 +665,13 @@ export const createBrowserMode = ({
     })
     if (device.hasRemoteAmbientLight)
       mirrorAmbientLight(deviceId)
+    // Navigation paints before the broker acknowledges retained persistence.
+    // Otherwise concurrent requests can broadcast in acknowledgement order,
+    // replaying an older choice after the newest one.
+    hub.broadcast({
+      deviceId,
+      message: { type: "view", view: view.clientId },
+    })
     if (!isRestore) {
       const topics = topicsByDeviceId.get(deviceId)
       if (topics) {
@@ -675,10 +682,6 @@ export const createBrowserMode = ({
         })
       }
     }
-    hub.broadcast({
-      deviceId,
-      message: { type: "view", view: view.clientId },
-    })
   }
 
   type RouteKind =

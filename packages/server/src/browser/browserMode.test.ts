@@ -14,6 +14,7 @@ import {
 } from "vitest"
 import { loadConfig } from "../config/env.ts"
 import { createBrowserMode } from "./browserMode.ts"
+import * as browserHub from "./hub.ts"
 
 /**
  * The backlight LEVEL path through browser mode, with the broker swapped for a
@@ -117,7 +118,13 @@ const startBrowserMode = async () => {
   const publishedTo = (topic: string) =>
     published.filter((message) => message.topic === topic)
 
-  return { browserMode, published, publishedTo, receive }
+  return {
+    browserMode,
+    publisher,
+    published,
+    publishedTo,
+    receive,
+  }
 }
 
 afterEach(() => {
@@ -461,4 +468,51 @@ test("management power uses the legacy agent contract and tracks its reported st
       backlightEffective: "35",
     },
   )
+})
+
+test("navigation broadcasts before MQTT persistence and cannot replay an older delayed acknowledgement", async () => {
+  const createHub = vi.spyOn(browserHub, "createBrowserHub")
+  const { browserMode, publisher, receive } =
+    await startBrowserMode()
+  const hub = createHub.mock.results[0]
+    ?.value as ReturnType<
+    typeof browserHub.createBrowserHub
+  >
+  const broadcast = vi.spyOn(hub, "broadcast")
+  const acknowledgements = new Map<string, () => void>()
+  vi.spyOn(publisher, "publish").mockImplementation(
+    ({ payload }) =>
+      new Promise<void>((resolve) => {
+        acknowledgements.set(String(payload), resolve)
+      }),
+  )
+  try {
+    const first = receive({
+      topic: `castkit/${BACKLIT_ID}/view/set`,
+      payload: "Ambient",
+    })
+    const second = receive({
+      topic: `castkit/${BACKLIT_ID}/view/set`,
+      payload: "Calendar",
+    })
+    const views = () =>
+      broadcast.mock.calls
+        .filter(([event]) => event.message.type === "view")
+        .map(([event]) => event.message)
+    expect(views()).toEqual([
+      { type: "view", view: "ambient" },
+      { type: "view", view: "calendar" },
+    ])
+    acknowledgements.get("Calendar")?.()
+    await second
+    acknowledgements.get("Ambient")?.()
+    await first
+    expect(views()).toEqual([
+      { type: "view", view: "ambient" },
+      { type: "view", view: "calendar" },
+    ])
+  } finally {
+    browserMode.stop()
+    vi.restoreAllMocks()
+  }
 })
