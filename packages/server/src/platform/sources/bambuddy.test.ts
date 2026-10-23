@@ -1306,3 +1306,164 @@ test("printer queue excludes finished jobs and preserves scheduler order and man
     ],
   })
 })
+
+test("Hot Plate named cameras keep credentials upstream and enforce channel printer selection", async () => {
+  const fetchRequest = vi
+    .fn<typeof fetch>()
+    .mockImplementation(async (url) => {
+      const path = new URL(String(url)).pathname
+      const data = path.endsWith("/printers/")
+        ? [
+            { id: 2, name: "Printer" },
+            { id: 3, name: "Other" },
+          ]
+        : path.endsWith("/printer-metadata")
+          ? [
+              {
+                id: 2,
+                name: "Printer",
+                cameras: [
+                  {
+                    id: "primary-2",
+                    name: "Chamber",
+                    is_primary: true,
+                  },
+                  {
+                    id: "detail",
+                    name: "Toolhead",
+                    is_primary: false,
+                  },
+                ],
+              },
+              {
+                id: 3,
+                name: "Other",
+                cameras: [
+                  {
+                    id: "detail",
+                    name: "Toolhead",
+                    is_primary: false,
+                  },
+                ],
+              },
+            ]
+          : path.endsWith("/stream-token")
+            ? { token: "fixture-token" }
+            : { id: 2, connected: true, state: "RUNNING" }
+      return new Response(JSON.stringify(data))
+    })
+  const context = sourceContext({
+    source: {
+      id: "source",
+      name: "Hot Plate",
+      adapter: "bambuddy",
+      settings: {
+        url: "https://service.example",
+        includeNamedCameras: true,
+      },
+      isEnabled: true,
+    },
+    fetch: fetchRequest,
+    channels: [
+      {
+        id: "cameras",
+        name: "Cameras",
+        sourceId: "source",
+        type: "cameras.v1",
+        settings: { printerIds: ["2"] },
+      },
+      {
+        id: "extras",
+        name: "Extra cameras",
+        sourceId: "source",
+        type: "cameras.v1",
+        settings: {
+          printerIds: ["2"],
+          includePrimaryCameras: false,
+        },
+      },
+      {
+        id: "printers",
+        name: "Printers",
+        sourceId: "source",
+        type: "printers.v1",
+        settings: { printerIds: ["2"] },
+      },
+    ],
+  })
+  const adapter = createBambuddySource(context)
+  try {
+    await adapter.start?.()
+    expect(context.publish).toHaveBeenCalledWith({
+      channelId: "extras",
+      data: {
+        cameras: [
+          {
+            id: "2:detail",
+            name: "Printer · Toolhead",
+            url: "/api/platform/channels/extras/media/2%3Adetail?kind=named-stream",
+            isLive: true,
+          },
+        ],
+      },
+    })
+    expect(context.publish).toHaveBeenCalledWith({
+      channelId: "cameras",
+      data: {
+        cameras: [
+          {
+            id: "2",
+            name: "Printer",
+            url: "/api/platform/channels/cameras/media/2?kind=stream",
+            isLive: true,
+          },
+          {
+            id: "2:detail",
+            name: "Printer · Toolhead",
+            url: "/api/platform/channels/cameras/media/2%3Adetail?kind=named-stream",
+            isLive: true,
+          },
+        ],
+      },
+    })
+    await adapter.getMedia?.({
+      channelId: "cameras",
+      assetId: "2:detail",
+      kind: "named-stream",
+    })
+    expect(fetchRequest.mock.calls.at(-1)?.[0]).toBe(
+      "https://service.example/api/v1/hotplate/printer-metadata/2/cameras/detail/stream?fps=2&token=fixture-token",
+    )
+    await adapter.getMedia?.({
+      channelId: "cameras",
+      assetId: "2:detail",
+      kind: "named-camera",
+    })
+    expect(fetchRequest.mock.calls.at(-1)?.[0]).toBe(
+      "https://service.example/api/v1/hotplate/printer-metadata/2/cameras/detail/snapshot?token=fixture-token",
+    )
+    await expect(
+      adapter.getMedia?.({
+        channelId: "cameras",
+        assetId: "3:detail",
+        kind: "named-stream",
+      }),
+    ).rejects.toThrow("selected printers")
+    await expect(
+      adapter.getMedia?.({
+        channelId: "printers",
+        assetId: "2:detail",
+        kind: "named-stream",
+      }),
+    ).rejects.toThrow("selected printers")
+    await expect(
+      adapter.getMedia?.({
+        channelId: "cameras",
+        assetId: "2:missing",
+        kind: "named-stream",
+      }),
+    ).rejects.toThrow("selected printers")
+  } finally {
+    adapter.dispose()
+  }
+})
