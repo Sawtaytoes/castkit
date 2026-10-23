@@ -62,6 +62,20 @@ export const QueuePicker = ({
     lastTouch.current = Date.now()
     request("touch")
   }
+  const touchBackground = ({
+    target,
+  }: {
+    target: EventTarget | null
+  }) => {
+    // Button actions already renew or close the selection. Starting a separate
+    // request on pointer/key down locks the button before its click can run.
+    if (
+      target instanceof Element &&
+      target.closest("button")
+    )
+      return
+    touch()
+  }
   const pages = Math.max(
     1,
     Math.ceil(data.queues.length / rows),
@@ -70,8 +84,8 @@ export const QueuePicker = ({
   return (
     <section
       class="queue-picker"
-      onPointerDown={touch}
-      onKeyDown={touch}
+      onPointerDown={touchBackground}
+      onKeyDown={touchBackground}
       aria-label="Queue chooser"
     >
       <header>

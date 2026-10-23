@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
+import { useState } from "preact/hooks"
 import { expect, test, vi } from "vitest"
 import { QueuePicker } from "./QueuePicker.tsx"
 import "../styles.css"
@@ -120,4 +121,43 @@ test("expired data cannot leave stale queues actionable", () => {
     screen.getByText("Scan a person card to begin."),
   ).toBeVisible()
   expect(onAction).not.toHaveBeenCalled()
+})
+
+test.each([
+  ["Remove Ada", "remove"],
+  ["Movies 1", "choose"],
+  ["Reset", "reset"],
+  ["Close", "dismiss"],
+])("the first tap on %s survives the display action lock", async (name, action) => {
+  const onAction = vi.fn()
+  const Harness = () => {
+    const [isPending, setIsPending] = useState(false)
+    return (
+      <div style={{ width: 480, height: 480 }}>
+        <QueuePicker
+          data={data}
+          now={100_000}
+          isControlEnabled={!isPending}
+          onAction={async (requested, payload) => {
+            setIsPending(true)
+            onAction(requested, payload)
+          }}
+        />
+      </div>
+    )
+  }
+  render(<Harness />)
+  const user = userEvent.setup()
+  const button = screen.getByRole("button", {
+    name,
+    exact: name !== "Movies 1",
+  })
+  await user.pointer([
+    { target: button, keys: "[MouseLeft>]" },
+    { keys: "[/MouseLeft]" },
+  ])
+  expect(onAction).toHaveBeenCalledExactlyOnceWith(
+    action,
+    expect.objectContaining({ sessionId: "session-one" }),
+  )
 })
