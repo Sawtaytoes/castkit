@@ -62,6 +62,25 @@ never written to disk.
    one entry per device to entries per key with a device → key index, so identical
    keys share one render and one buffer. Apply the same store to update-display pushes
    so a burst of identical renders in one second renders once.
+   - **Built 2026-10-23.** `packages/server/src/render/frameStore.ts` holds entries per
+     key plus a device → key index. An entry lives only while some display's current key
+     names it, so the store never holds more entries than displays (plus renders in
+     flight); no LRU of released entries, because no measured state returns to an old
+     key soon enough to pay for one. The platform key (`platformFrameKey.ts`) and the
+     render settings name no device: `id`, `label`, `mac`, `photoPeople` and `renderOn`
+     are dropped. A Satori view's key is its inputs by value (each display's own Home
+     Assistant data included), the minute, and the agenda's upcoming count, and the
+     render draws at the instant the key read. `pushDevice` renders every image display
+     through the store, so the clock tick and an identical data push in one minute render
+     once; the unchanged-image skips are untouched.
+   - **Why one capture can serve two displays.** The capture URL's `?device=` only picks
+     the display properties (already in the key) and passes the assignment check; the
+     page's device socket (`/d/<id>/ws`) refuses an image display; every channel a view
+     reads is named in the view. `sharedCapture.test.ts` checks the server half: two
+     identical displays on one screen get one key and byte-identical capture snapshots
+     that never name either display. Locally, two real Chromium captures of two such
+     displays were byte-identical (913 bytes, same SHA-256). A view that resolves content
+     BY device must add the device ID to the platform key.
 2. **Pre-rendered stream frames — DEFERRED (2026-10-23).** The measurement above shows it
    would save 30–60 ms on a native swipe, for a Chromium that never closes and a render
    of every clock view each minute. It was built (server capture in the worker's context,

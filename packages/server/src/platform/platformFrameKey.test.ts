@@ -1,6 +1,6 @@
 import type { ChannelSnapshot } from "@castkit/sdk/contracts"
 import { describe, expect, test } from "vitest"
-import { readRequestFrameKey } from "./requestFrameKey.ts"
+import { readPlatformFrameKey } from "./platformFrameKey.ts"
 
 const NOW = Date.UTC(2026, 9, 23, 15, 0, 0)
 const MINUTE = 60_000
@@ -49,7 +49,7 @@ const createWatchPlatform = ({
   return {
     channels,
     read: (now: number) =>
-      readRequestFrameKey({
+      readPlatformFrameKey({
         platform: platform as never,
         deviceId: "watch",
         now,
@@ -70,7 +70,7 @@ const KID = {
   pointsToday: 12,
 }
 
-describe("readRequestFrameKey — kids points", () => {
+describe("readPlatformFrameKey — kids points", () => {
   test("a totals list is the same frame until the points change", () => {
     const watch = createWatchPlatform({
       specId: "kids-points",
@@ -130,7 +130,7 @@ describe("readRequestFrameKey — kids points", () => {
   })
 })
 
-describe("readRequestFrameKey — agenda", () => {
+describe("readPlatformFrameKey — agenda", () => {
   const agenda = createWatchPlatform({
     specId: "calendar",
     channel: {
@@ -182,7 +182,7 @@ describe("readRequestFrameKey — agenda", () => {
   })
 })
 
-describe("readRequestFrameKey — nothing to keep", () => {
+describe("readPlatformFrameKey — nothing to keep", () => {
   test("a panel without a written-down time rule is treated as time-driven", () => {
     const watch = createWatchPlatform({
       specId: "clock",
@@ -216,5 +216,79 @@ describe("readRequestFrameKey — nothing to keep", () => {
     })
 
     expect(watch.read(NOW)).toBeUndefined()
+  })
+})
+
+describe("readPlatformFrameKey — the key names no device", () => {
+  const createFleetPlatform = (
+    propertiesByDevice: Record<
+      string,
+      { width: number; height: number; contrast?: string }
+    >,
+  ) => ({
+    getDeviceTarget: () => ({
+      kind: "screen" as const,
+      id: "watches",
+    }),
+    getTarget: () => ({
+      view: {
+        id: "totals",
+        name: "Totals",
+        panels: [
+          {
+            id: "panel",
+            specId: "kids-points",
+            bindings: { data: "kids-points/house" },
+            settings: { isTotalsOnly: true },
+          },
+        ],
+      },
+      screen: undefined,
+    }),
+    getDeviceProperties: (deviceId: string) => ({
+      ...propertiesByDevice[deviceId],
+      repaint: "slow" as const,
+    }),
+    channelsForView: () => ({
+      "kids-points/house": kidsPoints({ kids: [KID] }),
+    }),
+  })
+  const read = ({
+    platform,
+    deviceId,
+  }: {
+    platform: ReturnType<typeof createFleetPlatform>
+    deviceId: string
+  }) =>
+    readPlatformFrameKey({
+      platform: platform as never,
+      deviceId,
+      now: NOW,
+    })
+
+  test("two displays with the same properties on the same screen get one key", () => {
+    const platform = createFleetPlatform({
+      "watch-one": { width: 200, height: 200 },
+      "watch-two": { width: 200, height: 200 },
+    })
+
+    expect(read({ platform, deviceId: "watch-one" })).toBe(
+      read({ platform, deviceId: "watch-two" }),
+    )
+  })
+
+  test("a display property that changes pixels splits the key", () => {
+    const platform = createFleetPlatform({
+      "watch-one": { width: 200, height: 200 },
+      "watch-two": {
+        width: 200,
+        height: 200,
+        contrast: "high",
+      },
+    })
+
+    expect(
+      read({ platform, deviceId: "watch-one" }),
+    ).not.toBe(read({ platform, deviceId: "watch-two" }))
   })
 })

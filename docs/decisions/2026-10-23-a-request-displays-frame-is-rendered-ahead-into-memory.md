@@ -4,7 +4,7 @@
 - **Date:** 2026-10-23
 - **Type:** Owner decision / rendering latency and resource use
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** in part — item 1 (one entry per display) by [A cached frame is keyed by what changes its pixels](2026-10-23-a-cached-frame-is-keyed-by-what-changes-its-pixels.md): entries are now per key and shared between identical displays.
 
 Builds on [A Watchy image renders only when the watch asks](2026-10-14-a-watchy-image-renders-only-when-the-watch-asks.md)
 and keeps its rule: nothing renders a Watchy on the clock.

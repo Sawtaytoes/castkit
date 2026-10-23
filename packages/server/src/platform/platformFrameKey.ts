@@ -132,14 +132,20 @@ const getPanelTimeState = ({
 }
 
 /**
- * Everything a `renderOn: "request"` display's platform frame is drawn from,
- * as one string, or `undefined` when no frame can be kept for it: the display
- * shows its own views, or its platform view is time-driven at `now`.
+ * Everything an image display's platform frame is drawn from, as one string,
+ * or `undefined` when no frame can be kept for it: the display shows its own
+ * views, or its platform view is time-driven at `now`.
  *
- * Two frames with the same key are the same picture, so a frame rendered
- * ahead answers a request whose key matches.
+ * ⚠️ The key names no device. Two displays with the same panel properties on
+ * the same target, view and channel data get the same picture, so they share
+ * one capture. That holds because nothing a capture draws is scoped to the
+ * device: the capture URL's `?device=` only selects the display properties
+ * (already in the key) and passes the assignment check, the page's device
+ * socket refuses an image display, and every channel a view reads is named in
+ * the view itself. A view that ever resolves content BY device must put the
+ * device ID into this key, or one room's data reaches another room's panel.
  */
-export const readRequestFrameKey = ({
+export const readPlatformFrameKey = ({
   platform,
   deviceId,
   now,

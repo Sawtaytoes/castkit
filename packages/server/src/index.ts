@@ -35,8 +35,8 @@ import {
 import { watchDeviceTargets } from "./platform/deviceTargetWatcher.ts"
 import { createPlatformImageScheduler } from "./platform/imageScheduler.ts"
 import { createPlatform } from "./platform/platform.ts"
+import { readPlatformFrameKey } from "./platform/platformFrameKey.ts"
 import { attachPlatformSockets } from "./platform/platformSockets.ts"
-import { readRequestFrameKey } from "./platform/requestFrameKey.ts"
 import { createPushController } from "./pushController.ts"
 import { fetchArtworkDataUri } from "./render/artworkFetch.ts"
 import { createRenderService } from "./render/renderService.ts"
@@ -480,8 +480,8 @@ const main = async () => {
   renderTokenStore.startSweeper()
 
   const pushController = createPushController({
-    getRequestFrameKey: (deviceId) =>
-      readRequestFrameKey({
+    getPlatformFrameKey: (deviceId) =>
+      readPlatformFrameKey({
         platform,
         deviceId,
         now: Date.now(),
