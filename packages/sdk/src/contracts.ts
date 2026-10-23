@@ -4,6 +4,7 @@ import { z } from "zod"
 export const CONTRACT_TYPES = [
   "now-playing.v1",
   "queue.v1",
+  "queue-picker.v1",
   "printers.v1",
   "rip-deck.v1",
   "agenda.v1",
@@ -637,6 +638,19 @@ export const builtinContractSchemas = {
         }),
       )
       .optional(),
+  }),
+  "queue-picker.v1": z.object({
+    sessionId: z.string(),
+    revision: z.string(),
+    isActive: z.boolean(),
+    expiresAt: finiteNumber,
+    people: z.array(
+      z.object({ id: z.string(), name: z.string() }),
+    ),
+    queues: z.array(
+      z.object({ id: z.string(), title: z.string() }),
+    ),
+    message: z.string().optional(),
   }),
   "entities.v1": z.object({ entities: z.array(entity) }),
   "cameras.v1": z.object({
