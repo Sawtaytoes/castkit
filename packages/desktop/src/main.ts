@@ -50,6 +50,7 @@ const log = (message: string) => {
 }
 
 const saveDelay = 500
+const quitTimeout = 5000
 
 const start = () => {
   migrateLaunchAtLogin()
@@ -310,7 +311,19 @@ const start = () => {
     pcAudioSender.stop()
     windowManager.beginQuit()
   }
-  app.on("before-quit", finishBeforeQuit)
+  app.on("before-quit", () => {
+    finishBeforeQuit()
+    // The state is saved, so nothing is lost by ending the process. A quit
+    // that does not finish leaves a CastKit with no windows that holds the
+    // single-instance lock, so the next start does nothing; on Windows the
+    // desktop-v0.4.0 release smoke run waited 30 minutes for one.
+    setTimeout(() => {
+      log(
+        `Quitting took over ${quitTimeout} ms, so CastKit ends now.`,
+      )
+      app.exit(0)
+    }, quitTimeout).unref()
+  })
   // Windows does not raise `before-quit` when the session ends at sign-out
   // or shutdown, so save there too: `session-end` on Windows, `shutdown` on
   // the other platforms.
