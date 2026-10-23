@@ -83,7 +83,10 @@ last complete frame for up to `SETTLE_HOLD_SECONDS`, after which the loading sta
 sent so a view that never settles cannot freeze the glass. During a hold the heartbeat
 repeats the frame already shown and does not acknowledge newer touches. An image
 panel needs about half a second to decode and draw any frame, so a loading frame also
-delayed the finished view behind it.
+delayed the finished view behind it. A held page is looked at again every
+`HOLD_POLL_SECONDS` (20 ms), not once per capture cycle: a swipe between native views
+shows its loading state for only 15–40 ms, and waiting out a 125 ms cycle added most of
+a cycle to every swipe.
 
 The top document is kept on the kiosk origin by Chromium's `Fetch` interception,
 limited to `Document` requests in the main frame. A Playwright `page.route("**/*")`
