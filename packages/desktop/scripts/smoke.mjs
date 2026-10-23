@@ -10,6 +10,7 @@
 // Linux machine without one, run it under `xvfb-run`. Run `pnpm build` first
 // (`pnpm smoke` does both).
 import assert from "node:assert/strict"
+import { execFileSync } from "node:child_process"
 import { createSocket } from "node:dgram"
 import {
   mkdirSync,
@@ -225,7 +226,72 @@ const launch = async () => {
     .stderr.on("data", (chunk) =>
       logLines.push(String(chunk)),
     )
+  launched.process().on("exit", (code, signal) => {
+    exitTimes.set(launched, {
+      at: Date.now(),
+      code,
+      signal,
+    })
+  })
   return launched
+}
+const exitTimes = new WeakMap()
+// What is still running when a quit stalls: the main process, or a child
+// it left behind. Windows does not end a process's children with it.
+const describeLeftovers = (launched, startedAt) => {
+  const exit = exitTimes.get(launched)
+  const lines = [
+    exit
+      ? `The main process exited after ${exit.at - startedAt} ms (code ${exit.code}, signal ${exit.signal}).`
+      : "The main process is still running.",
+  ]
+  if (process.platform === "win32") {
+    try {
+      lines.push(
+        execFileSync(
+          "powershell",
+          [
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process -Filter \"Name='electron.exe'\" | ForEach-Object { \"$($_.ProcessId) parent $($_.ParentProcessId): $($_.CommandLine -replace '^.*?(--type=\\S+).*$', '$1')\" }",
+          ],
+          { encoding: "utf8", timeout: 15_000 },
+        ).trim() || "No electron.exe is running.",
+      )
+    } catch (error) {
+      lines.push(
+        `Could not list processes: ${String(error)}`,
+      )
+    }
+  }
+  lines.push(
+    "The app's last output:",
+    logLines
+      .join("")
+      .trim()
+      .split("\n")
+      .slice(-30)
+      .join("\n"),
+  )
+  return lines.join("\n")
+}
+const endProcessTree = (launched) => {
+  const { pid } = launched.process()
+  if (process.platform === "win32" && pid !== undefined) {
+    try {
+      execFileSync(
+        "taskkill",
+        ["/pid", String(pid), "/t", "/f"],
+        {
+          stdio: "ignore",
+          timeout: 15_000,
+        },
+      )
+    } catch {
+      // The main process has already exited; its children are listed above.
+    }
+  }
+  launched.process().kill()
 }
 // A quit that never finishes would hold this script until the job's
 // timeout with no output; the desktop-v0.4.0 release run waited 30 minutes
@@ -248,7 +314,8 @@ const closeWithin = async (launched, description) => {
       }),
     ])
   } catch (error) {
-    launched.process().kill()
+    console.error(describeLeftovers(launched, startedAt))
+    endProcessTree(launched)
     throw error
   } finally {
     clearTimeout(timer)
@@ -877,7 +944,13 @@ try {
 } finally {
   server.close()
   vbanListener.close()
-  rmSync(stateDirectory, { recursive: true, force: true })
+  // A process that was ended by force can hold its profile for a moment.
+  rmSync(stateDirectory, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 500,
+  })
 }
 console.info(`\n${results.length} checks passed.`)
 console.info(logLines.join("").trim())
