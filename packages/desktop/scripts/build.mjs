@@ -1,4 +1,5 @@
 import {
+  copyFileSync,
   mkdirSync,
   readFileSync,
   rmSync,
@@ -24,6 +25,9 @@ const sourceDirectory = join(packageDirectory, "src")
 
 rmSync(distDirectory, { recursive: true, force: true })
 mkdirSync(join(distDirectory, "settings"), {
+  recursive: true,
+})
+mkdirSync(join(distDirectory, "audioCapture"), {
   recursive: true,
 })
 
@@ -67,6 +71,43 @@ await Promise.all([
     format: "cjs",
     external: ["electron"],
   }),
+  // The hidden audio-capture page: a preload like the others, and one
+  // browser script beside its static HTML.
+  build({
+    ...shared,
+    entryPoints: [
+      join(
+        sourceDirectory,
+        "audioCapture",
+        "capturePreload.ts",
+      ),
+    ],
+    outfile: join(
+      distDirectory,
+      "audioCapture",
+      "capturePreload.cjs",
+    ),
+    platform: "node",
+    format: "cjs",
+    external: ["electron"],
+  }),
+  build({
+    ...shared,
+    entryPoints: [
+      join(
+        sourceDirectory,
+        "audioCapture",
+        "captureMain.ts",
+      ),
+    ],
+    outfile: join(
+      distDirectory,
+      "audioCapture",
+      "captureMain.js",
+    ),
+    platform: "browser",
+    format: "iife",
+  }),
   buildPage({
     configFile: join(
       packageDirectory,
@@ -75,6 +116,11 @@ await Promise.all([
     logLevel: "warn",
   }),
 ])
+
+copyFileSync(
+  join(sourceDirectory, "audioCapture", "index.html"),
+  join(distDirectory, "audioCapture", "index.html"),
+)
 
 // The app icon is CastKit's canonical mark, rasterized — never redrawn. The
 // admin page's favicon is the byte-identical copy of that mark.

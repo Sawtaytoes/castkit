@@ -22,6 +22,7 @@ import {
   readPagesChannel,
   readSettingsChannel,
   removeWindowChannel,
+  savePcAudioChannel,
   saveServerOriginChannel,
   scanServersChannel,
   settingsChangedChannel,
@@ -33,6 +34,7 @@ import {
 } from "./serverDiscovery.ts"
 import type {
   PagesResult,
+  PcAudioSnapshot,
   ScanResult,
   SettingsResult,
   SettingsSnapshot,
@@ -62,6 +64,8 @@ export const createSettingsWindow = ({
   readWindows,
   openWindow,
   removeWindow,
+  readPcAudio,
+  changePcAudio,
 }: {
   distDirectory: string
   iconPath: string
@@ -75,6 +79,8 @@ export const createSettingsWindow = ({
   readWindows: () => WindowSummary[]
   openWindow: (windowId: string) => void
   removeWindow: (windowId: string) => void
+  readPcAudio: () => PcAudioSnapshot
+  changePcAudio: (change: unknown) => SettingsResult
 }) => {
   const current: { window: BrowserWindow | null } = {
     window: null,
@@ -123,8 +129,17 @@ export const createSettingsWindow = ({
             )?.number ?? null,
           isOpen: summary.isOpen,
         })),
+        pcAudio: readPcAudio(),
       }
     },
+  )
+
+  ipcMain.handle(
+    savePcAudioChannel,
+    (event, change: unknown): SettingsResult =>
+      isFromSettings(event.sender.id)
+        ? changePcAudio(change)
+        : refused,
   )
 
   ipcMain.handle(

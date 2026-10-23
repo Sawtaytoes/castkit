@@ -1,7 +1,7 @@
 {
   "name": "@castkit/desktop",
   "productName": "CastKit",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "private": true,
   "description": "The CastKit desktop app: an Electron shell that shows CastKit pages in windows that remember their display, fullscreen state, and zoom.",
   "license": "MIT",

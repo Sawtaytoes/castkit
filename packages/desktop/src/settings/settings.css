@@ -25,7 +25,7 @@ body,
 .settings-columns {
   display: grid;
   gap: 1rem;
-  grid-template-areas: "options" "pages" "windows";
+  grid-template-areas: "options" "pages" "windows" "audio";
 }
 
 .settings-panel {
@@ -63,9 +63,38 @@ body,
   grid-area: windows;
 }
 
+.settings-audio {
+  grid-area: audio;
+}
+
+.settings-pair {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+.settings-facts {
+  display: grid;
+  gap: 0.25rem 1rem;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+}
+
+.settings-facts dt {
+  color: var(--color-content-secondary);
+}
+
+.settings-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 /* A window tall and wide enough holds everything at once: the page fills
-   it with no scrollbar of its own, and only the page list and the window
-   list scroll. A smaller window is one column that scrolls as a whole. */
+   it with no scrollbar of its own, and only the page list, the window list
+   and an opened audio panel scroll. The audio panel sits under the page list,
+   where the wider column keeps it short and the page list still scrolls; in
+   the narrow right column it took the window list's whole height. A smaller
+   window is one column that scrolls as a whole. */
 @media (min-width: 880px) and (min-height: 560px) {
   .settings-app {
     block-size: 100dvh;
@@ -74,8 +103,18 @@ body,
     flex: 1;
     min-block-size: 0;
     grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas: "pages options" "pages windows";
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "pages options" "pages windows" "audio windows";
+  }
+  .settings-audio {
+    max-block-size: 45dvh;
+    overflow-y: auto;
+  }
+  /* The panel scrolls as a whole; its sections keep their height instead of
+     shrinking and clipping an opened section. */
+  .settings-audio > *,
+  .settings-audio > .settings-stack > * {
+    flex-shrink: 0;
   }
   .settings-fill {
     flex: 1;

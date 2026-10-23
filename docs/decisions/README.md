@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-23: The desktop app sends this computer's audio as VBAN when the person turns it on](2026-10-23-the-desktop-app-sends-this-computers-audio-as-vban-when-the-person-turns-it-on.md)
+
 - [2026-10-22: Correlate manual navigation replies](2026-10-22-correlate-manual-navigation-replies.md)
 
 - [2026-10-22: Prepare view data before background artwork](2026-10-22-prepare-view-data-before-background-artwork.md)
