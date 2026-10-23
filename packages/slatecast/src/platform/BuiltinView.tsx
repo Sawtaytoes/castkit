@@ -24,6 +24,7 @@ import { IdleDashboard } from "./IdleDashboard.tsx"
 import { KidsPointsView } from "./KidsPointsView.tsx"
 import { PointsHistoryView } from "./PointsHistoryView.tsx"
 import { safeMediaUrl } from "./protocol.ts"
+import { QueuePicker } from "./QueuePicker.tsx"
 import { ReportContent } from "./ReportContent.tsx"
 import { TimersView } from "./TimersView.tsx"
 import { WeatherView } from "./WeatherView.tsx"
@@ -403,6 +404,15 @@ export const BuiltinView = ({
         </div>
       )
     }
+    case "queue-picker":
+      return (
+        <QueuePicker
+          data={data as ContractData["queue-picker.v1"]}
+          now={now}
+          isControlEnabled={isControlEnabled}
+          onAction={onAction}
+        />
+      )
     case "timers":
       return (
         <TimersView
