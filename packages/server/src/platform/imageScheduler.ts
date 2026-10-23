@@ -7,18 +7,121 @@ type RenderState = {
   lastRenderedAt: number
   isRendering: boolean
 }
+type PrerenderState = {
+  /** The key last seen, and when it was first seen: the settle timer. */
+  key: string
+  keySeenAt: number
+  /** When the held frame first went stale: the longest a burst may defer it. */
+  staleSince: number
+  /** A key whose render failed is left to the request path until it changes. */
+  failedKey?: string
+}
+
+/** A key that holds this long is a settled change worth one render. */
+export const PRERENDER_SETTLE_MILLISECONDS = 2000
+/** A display whose content keeps changing still gets a frame this often. */
+export const PRERENDER_MAXIMUM_DEFER_MILLISECONDS = 10_000
+
+/**
+ * The displays that render only when they ask (`renderOn: "request"`). The
+ * scheduler never pushes to them; it renders their frame AHEAD, into memory,
+ * when what the frame is drawn from changes, so the request is answered from
+ * the buffer.
+ */
+type RequestDisplays = {
+  deviceIds: readonly string[]
+  /** The key a render would produce now, or `undefined` when none is wanted. */
+  getPrerenderKey: (deviceId: string) => string | undefined
+  prerender: (deviceId: string) => Promise<boolean>
+}
+
 /** Coalesce channel updates into useful frames at each image display's repaint rate. */
 export const createPlatformImageScheduler = ({
   platform,
   deviceIds,
   push,
+  requestDisplays,
 }: {
   platform: Platform
   deviceIds: readonly string[]
   push: (deviceId: string) => Promise<boolean>
+  requestDisplays?: RequestDisplays
 }) => {
   const states = new Map<string, RenderState>()
+  const prerenderStates = new Map<string, PrerenderState>()
   const lifecycle = { isDisposed: false, isBusy: false }
+  /**
+   * The request display whose frame should be rendered ahead now: its key
+   * changed, then held still for the settle time (or a burst outlasted the
+   * longest deferral). Content changes, never the clock, start these renders.
+   */
+  const findPrerenderCandidate = () => {
+    const now = Date.now()
+    // `filter`, not `find`: every display's settle timer starts on the tick
+    // its key changed, even when another display renders first.
+    return requestDisplays?.deviceIds.filter((deviceId) => {
+      const key = requestDisplays.getPrerenderKey(deviceId)
+      if (key === undefined) {
+        prerenderStates.delete(deviceId)
+        return false
+      }
+      const previous = prerenderStates.get(deviceId)
+      const state: PrerenderState =
+        previous?.key === key
+          ? previous
+          : {
+              key,
+              keySeenAt: now,
+              // A failed render starts a fresh burst rather than letting
+              // the next key skip the settle time.
+              staleSince:
+                previous && previous.failedKey === undefined
+                  ? previous.staleSince
+                  : now,
+              failedKey: previous?.failedKey,
+            }
+      prerenderStates.set(deviceId, state)
+      return (
+        state.failedKey !== key &&
+        (now - state.keySeenAt >=
+          PRERENDER_SETTLE_MILLISECONDS ||
+          now - state.staleSince >=
+            PRERENDER_MAXIMUM_DEFER_MILLISECONDS)
+      )
+    })[0]
+  }
+  const markFailed = (deviceId: string) => {
+    const state = prerenderStates.get(deviceId)
+    if (state) {
+      prerenderStates.set(deviceId, {
+        ...state,
+        failedKey: state.key,
+      })
+    }
+  }
+  const prerender = async (deviceId: string) => {
+    lifecycle.isBusy = true
+    try {
+      const isReady =
+        (await requestDisplays?.prerender(deviceId)) ??
+        false
+      if (isReady) {
+        prerenderStates.delete(deviceId)
+      } else {
+        markFailed(deviceId)
+      }
+    } catch (error) {
+      markFailed(deviceId)
+      console.warn(
+        `[platform] Frame ahead failed for ${deviceId}`,
+        error instanceof Error
+          ? error.message
+          : "unknown error",
+      )
+    } finally {
+      lifecycle.isBusy = false
+    }
+  }
   const tick = async () => {
     if (lifecycle.isDisposed || lifecycle.isBusy) return
     const candidate = deviceIds
@@ -124,7 +227,15 @@ export const createPlatformImageScheduler = ({
           : null
       })
       .find(Boolean)
-    if (!candidate) return
+    if (!candidate) {
+      // A display showing a frame now goes first; a frame kept for a watch
+      // that may ask later waits for a quiet tick.
+      const prerenderDeviceId = findPrerenderCandidate()
+      if (prerenderDeviceId) {
+        await prerender(prerenderDeviceId)
+      }
+      return
+    }
     lifecycle.isBusy = true
     try {
       const isPushed = await push(candidate.deviceId)
@@ -161,6 +272,7 @@ export const createPlatformImageScheduler = ({
       lifecycle.isDisposed = true
       clearInterval(timer)
       states.clear()
+      prerenderStates.clear()
     },
   }
 }

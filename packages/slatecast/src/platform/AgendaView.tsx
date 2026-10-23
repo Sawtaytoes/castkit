@@ -1,3 +1,4 @@
+import { getUpcomingAgendaEvents } from "@castkit/sdk/agendaWindow"
 import type { ContractData } from "@castkit/sdk/contracts"
 import {
   useLayoutEffect,
@@ -36,10 +37,10 @@ export const AgendaView = ({
     observer.observe(panel)
     return () => observer.disconnect()
   }, [])
-  const upcoming = data.events.filter(
-    (event) =>
-      event.isAllDay || event.startMs >= now - 3_600_000,
-  )
+  const upcoming = getUpcomingAgendaEvents({
+    events: data.events,
+    now,
+  })
   const visible = upcoming.slice(0, rowCount)
   return (
     <div

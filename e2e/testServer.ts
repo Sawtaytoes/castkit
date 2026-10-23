@@ -357,6 +357,8 @@ export const startTestServer = async ({
         ),
       pushDevice: async () => false,
       setView: async () => false,
+      getPrerenderKey: () => undefined,
+      prerenderDevice: async () => false,
     },
     renderTokenStore: createRenderTokenStore(),
   })

@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-23: A request display's frame is rendered ahead into memory](2026-10-23-a-request-displays-frame-is-rendered-ahead-into-memory.md)
+
 - [2026-10-23: Image streams hold loading states and capture only on change](2026-10-23-image-streams-hold-loading-states-and-capture-only-on-change.md)
 
 - [2026-10-23: The desktop app sends this computer's audio as VBAN when the person turns it on](2026-10-23-the-desktop-app-sends-this-computers-audio-as-vban-when-the-person-turns-it-on.md)
