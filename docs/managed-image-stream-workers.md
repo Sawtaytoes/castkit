@@ -66,6 +66,32 @@ That preserves loaded assets and avoids the navigation/capture stall. Existing
 unchanged-frame detection suppresses redundant transmissions. Extra storage does
 not repair a capture timeout or a lost execution context.
 
+## Capture cadence, loading holds and the navigation guard
+
+Each cycle first runs one small page evaluation (`PAGE_STATE_SCRIPT`). It counts
+DOM mutations and load, animation, scroll and resize events, reports content that
+repaints without them (`video`, `canvas`, `iframe`, an MJPEG image, a running
+animation), and reports whether the shell shows a loading state. A worker captures
+and encodes only when that count moved, live content is present, a touch is held or
+forced a frame, or `IDLE_CAPTURE_SECONDS` (or the heartbeat, if shorter) passed.
+Before this, every worker captured, decoded and re-encoded a full frame at its
+`max_fps` while nothing changed; the five workers used about 1.6-1.9 cores at idle.
+
+A loading state (`data-castkit-ready="false"`, `.platform-loading`, a busy
+`.platform-view`, or loading navigation feedback) is never sent. The panel keeps the
+last complete frame for up to `SETTLE_HOLD_SECONDS`, after which the loading state is
+sent so a view that never settles cannot freeze the glass. During a hold the heartbeat
+repeats the frame already shown and does not acknowledge newer touches. An image
+panel needs about half a second to decode and draw any frame, so a loading frame also
+delayed the finished view behind it.
+
+The top document is kept on the kiosk origin by Chromium's `Fetch` interception,
+limited to `Document` requests in the main frame. A Playwright `page.route("**/*")`
+did this before, and it made every subresource request a Request, Response and Route
+object that the driver and the worker keep until the driver's 10,000-per-type cap.
+With view preparation's background requests that grew each driver by 100 MiB or more
+in a day.
+
 Future reusable frame caching must key by dimensions, orientation, panel properties,
 view/target and channel revisions, and expire changing clocks/timers. Cached touch
 rectangles must belong to the exact acknowledged image: sending stale action

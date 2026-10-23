@@ -26,7 +26,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v21-resend-on-the-same-link"
+BUILD_MARKER = "castkit-remote-display-v22-hold-loading-and-skip-idle-captures"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -61,6 +61,35 @@ SCROLL_HIT_SCRIPT = """({x,y}) => {
    } catch { return false; }
  };
  return hasScrollTarget(document,x,y);
+}"""
+# Longest the panel keeps the last complete view while the page shows a loading
+# state. Past it the loading state is sent, so a view that never settles cannot
+# freeze the glass. It stays under BROWSER_TIMEOUT_SECONDS.
+SETTLE_HOLD_SECONDS = 3
+# A page that reports no change is still captured this often: changes the page
+# cannot observe (a decoded image frame, a canvas) reach the panel within it.
+IDLE_CAPTURE_SECONDS = 1
+# One cheap evaluation per cycle decides whether a capture is worth its cost.
+# `changes` counts DOM mutations and load/animation/scroll events since the
+# document started; `isLive` names content that repaints without them; and
+# `isSettled` is false while the shell is showing a loading state.
+PAGE_STATE_SCRIPT = """() => {
+ if (!window.__castkitPageChanges) {
+   const state = window.__castkitPageChanges = {count: 1};
+   const bump = () => { state.count += 1 };
+   new MutationObserver(bump).observe(document, {subtree:true, childList:true, attributes:true, characterData:true});
+   for (const type of ['load','error','animationstart','animationend','transitionend','scroll']) document.addEventListener(type, bump, true);
+   addEventListener('resize', bump);
+   document.fonts?.addEventListener?.('loadingdone', bump);
+ }
+ const root = document.querySelector('[data-castkit-ready]');
+ return {
+   changes: window.__castkitPageChanges.count,
+   isLive: Boolean(document.querySelector('video, canvas, iframe, img[src*="mjpeg" i]'))
+     || document.getAnimations().some(animation => animation.playState === 'running'),
+   isSettled: (!root || root.dataset.castkitReady === 'true')
+     && !document.querySelector('.platform-loading, .platform-view[aria-busy="true"], .navigation-feedback[data-phase="loading"]'),
+ };
 }"""
 
 
@@ -129,6 +158,8 @@ class DisplaySession:
         self.last_report = time.monotonic()
         self.document_revision = 0
         self.document_changed_at = 0
+        self.held_since = None
+        self.captures = 0
 
     def state_changed(self, state):
         if not isinstance(state, TextSensorState) or state.key != self.event_key:
@@ -419,6 +450,15 @@ class DisplaySession:
         finally:
             self.pending.pop(frame_id, None)
 
+    async def wait_for_cycle(self, cycle, is_holding=False):
+        delay = max(0, 1 / self.config["max_fps"] - (time.monotonic() - cycle))
+        if is_holding:
+            # A touch left the force flag set; waking on it would spin the hold.
+            await asyncio.sleep(delay)
+            return
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(self.force_frame.wait(), timeout=delay)
+
     async def run(self, event_key, loading_frame):
         self.event_key = event_key
         self.cdp = await self.page.context.new_cdp_session(self.page)
@@ -428,7 +468,10 @@ class DisplaySession:
             await self.send_frame(loading_frame, 0, [], format_id=3)
         input_task = asyncio.create_task(self.input_loop())
         previous_payload = None
+        previous_targets = []
         last_sent = time.monotonic()
+        last_capture = 0
+        captured_changes = None
         previous_touch = -1
         try:
             while not self.stop.is_set():
@@ -439,6 +482,50 @@ class DisplaySession:
                     raise TimeoutError("No stable frame captured")
                 touch_id = self.processed_touch
                 document_revision = self.document_revision
+                try:
+                    page_state = await asyncio.wait_for(
+                        self.page.evaluate(PAGE_STATE_SCRIPT),
+                        timeout=BROWSER_TIMEOUT_SECONDS,
+                    )
+                except BrowserError as error:
+                    if not is_navigation_error(error):
+                        raise
+                    await asyncio.sleep(0.05)
+                    continue
+                except TimeoutError as error:
+                    if document_revision == self.document_revision:
+                        raise TimeoutError("Browser capture stalled") from error
+                    continue
+                if page_state["isSettled"]:
+                    self.held_since = None
+                elif self.held_since is None:
+                    self.held_since = cycle
+                # An image panel costs about half a second to show any frame, so
+                # a loading state on the glass both looks broken and delays the
+                # finished view behind it. Keep the last complete view instead.
+                is_holding = (
+                    self.held_since is not None and cycle - self.held_since < SETTLE_HOLD_SECONDS
+                )
+                is_capture_due = (
+                    self.force_frame.is_set()
+                    or self.contact is not None
+                    or page_state["isLive"]
+                    or page_state["changes"] != captured_changes
+                    or previous_payload is None
+                    or cycle - last_capture
+                    >= min(IDLE_CAPTURE_SECONDS, self.config["heartbeat_seconds"])
+                )
+                if is_holding or not is_capture_due:
+                    if (
+                        previous_payload is not None
+                        and cycle - last_sent >= self.config["heartbeat_seconds"]
+                    ):
+                        # The heartbeat repeats what the panel already shows; it
+                        # never acknowledges a touch the held page has not drawn.
+                        await self.send_frame(previous_payload, previous_touch, previous_targets)
+                        last_sent = time.monotonic()
+                    await self.wait_for_cycle(cycle, is_holding)
+                    continue
                 try:
                     before = await asyncio.wait_for(
                         self.page.evaluate(TARGETS_SCRIPT, self.target_options),
@@ -465,6 +552,14 @@ class DisplaySession:
                         self.page.evaluate(TARGETS_SCRIPT, self.target_options),
                         timeout=BROWSER_TIMEOUT_SECONDS,
                     )
+                    # A loading state that began during the capture would
+                    # otherwise reach the glass for one frame.
+                    is_settled_after = (
+                        await asyncio.wait_for(
+                            self.page.evaluate(PAGE_STATE_SCRIPT),
+                            timeout=BROWSER_TIMEOUT_SECONDS,
+                        )
+                    )["isSettled"]
                 except BrowserError as error:
                     if not is_navigation_error(error):
                         raise
@@ -480,6 +575,11 @@ class DisplaySession:
                     continue
                 if document_revision != self.document_revision or before != after:
                     continue
+                if not is_settled_after and self.held_since is None:
+                    self.held_since = time.monotonic()
+                    continue
+                self.captures += 1
+                captured_changes, last_capture = page_state["changes"], capture_started
                 self.preview.set_frame(png)
                 needs_palette = (
                     isinstance(self.client, PrestoTransport)
@@ -513,24 +613,24 @@ class DisplaySession:
                     or cycle - last_sent >= self.config["heartbeat_seconds"]
                 ):
                     response = await self.send_frame(payload, touch_id, after)
-                    previous_payload, last_sent, previous_touch = (
+                    previous_payload, previous_targets, last_sent, previous_touch = (
                         payload,
+                        after,
                         time.monotonic(),
                         touch_id,
                     )
                     self.frames += 1
                     if time.monotonic() - self.last_report >= 30:
                         LOG.info(
-                            "frames=%s payload=%s decode_ms=%.1f draw_ms=%.1f",
+                            "frames=%s captures=%s payload=%s decode_ms=%.1f draw_ms=%.1f",
                             self.frames,
+                            self.captures,
                             len(payload),
                             int(response[5]) / 1000,
                             int(response[6]) / 1000,
                         )
                         self.last_report = time.monotonic()
-                delay = max(0, 1 / self.config["max_fps"] - (time.monotonic() - cycle))
-                with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(self.force_frame.wait(), timeout=delay)
+                await self.wait_for_cycle(cycle)
         finally:
             self.page.remove_listener("framenavigated", self.document_changed)
             input_task.cancel()
@@ -552,6 +652,42 @@ async def create_browser_context(browser, config):
         accept_downloads=False,
         storage_state=config.get("browser_storage_state"),
     )
+
+
+async def guard_navigation(page, origin):
+    """Keep the top document on the kiosk origin; leave every subresource alone.
+
+    `page.route("**/*")` did this before, but a Playwright route turns EVERY
+    request into a Request, Response and Route object that the driver and this
+    process both keep until the driver's per-type cap of 10,000. View preparation
+    made that a steady stream of image and data requests, so each driver grew by
+    100 MiB or more over a day. Chromium's own interception, limited to
+    documents, sees only navigations and creates no Playwright objects.
+    """
+    cdp = await page.context.new_cdp_session(page)
+    main_frame_id = (await cdp.send("Page.getFrameTree"))["frameTree"]["frame"]["id"]
+
+    async def decide(event):
+        requested = urlsplit(event["request"]["url"])
+        is_blocked = (
+            event.get("frameId") == main_frame_id and (requested.scheme, requested.netloc) != origin
+        )
+        # A request for a page that has since closed has nobody left to answer.
+        with contextlib.suppress(Exception):
+            if is_blocked:
+                await cdp.send(
+                    "Fetch.failRequest",
+                    {"requestId": event["requestId"], "errorReason": "BlockedByClient"},
+                )
+            else:
+                await cdp.send("Fetch.continueRequest", {"requestId": event["requestId"]})
+
+    cdp.on("Fetch.requestPaused", lambda event: asyncio.ensure_future(decide(event)))
+    await cdp.send(
+        "Fetch.enable",
+        {"patterns": [{"urlPattern": "*", "resourceType": "Document", "requestStage": "Request"}]},
+    )
+    return cdp
 
 
 async def poll_controls(context, config, transport, stop):
@@ -628,20 +764,9 @@ async def serve(config):
             if config.get("controls_url"):
                 controls_task = asyncio.create_task(poll_controls(context, config, presto, stop))
         page = await context.new_page()
-        origin = urlsplit(config["url"])
-
-        async def route_request(route):
-            requested = urlsplit(route.request.url)
-            if (
-                route.request.is_navigation_request()
-                and route.request.frame == page.main_frame
-                and (requested.scheme, requested.netloc) != (origin.scheme, origin.netloc)
-            ):
-                await route.abort()
-            else:
-                await route.continue_()
-
-        await page.route("**/*", route_request)
+        requested_origin = urlsplit(config["url"])
+        origin = (requested_origin.scheme, requested_origin.netloc)
+        await guard_navigation(page, origin)
         loading_frame = None
         if config["cache_url"]:
             loading = await context.new_page()
@@ -665,7 +790,7 @@ async def serve(config):
                 try:
                     if page.is_closed():
                         page = await context.new_page()
-                        await page.route("**/*", route_request)
+                        await guard_navigation(page, origin)
                     if page.url == "about:blank" or (
                         config["ready_selector"]
                         and not await page.locator(config["ready_selector"]).count()
