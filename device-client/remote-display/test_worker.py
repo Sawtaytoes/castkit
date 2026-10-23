@@ -9,6 +9,7 @@ import types
 import unittest
 from unittest.mock import AsyncMock, patch
 
+from aiohttp import web
 from codec import presto_frame_pixels
 from interaction import Target
 from PIL import Image
@@ -20,6 +21,7 @@ from worker import (
     TARGETS_SCRIPT,
     DisplaySession,
     create_browser_context,
+    guard_navigation,
     is_navigation_error,
     serve,
 )
@@ -242,6 +244,154 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
     async def task_cancel_for_capture_test(self):
         self.task.cancel()
         await asyncio.gather(self.task, return_exceptions=True)
+
+    async def start_capture_session(self, content, max_fps=20):
+        """A Presto session over `content` that records each acknowledged frame."""
+        await self.task_cancel_for_capture_test()
+        await self.page.set_viewport_size({"width": 480, "height": 480})
+        await self.page.set_content(content)
+        transport = PrestoTransport({"mac": "020000000001"}, "a" * 32)
+        session = DisplaySession(
+            {"viewport": {"width": 480, "height": 480}, "max_fps": max_fps, "heartbeat_seconds": 2},
+            self.page,
+            transport,
+            {},
+            asyncio.Event(),
+            PreviewServer("test", max_fps),
+        )
+        sent = []
+
+        async def acknowledge(frame_id, touch_id, payload):
+            sent.append(payload)
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
+
+        transport.send_frame = acknowledge
+        task = asyncio.create_task(session.run(1, None))
+        self.addAsyncCleanup(self.stop_capture_session, session, task)
+        await self.wait_until(lambda: sent)
+        return session, sent
+
+    async def stop_capture_session(self, session, task):
+        session.stop.set()
+        await asyncio.gather(task, return_exceptions=True)
+
+    async def wait_until(self, condition, timeout=3):
+        async with asyncio.timeout(timeout):
+            while not condition():
+                await asyncio.sleep(0.01)
+
+    async def test_unchanged_page_is_not_recaptured_until_it_changes(self):
+        session, sent = await self.start_capture_session("<p>Points</p>")
+        # The document's own navigation event forces one more frame; start after it.
+        await asyncio.sleep(0.2)
+        captures, sends = session.captures, len(sent)
+        # Twenty cycles a second used to mean twenty captures and encodes a second.
+        await asyncio.sleep(0.6)
+        self.assertEqual(session.captures, captures)
+        await self.page.evaluate("document.querySelector('p').textContent = 'Music'")
+        await self.wait_until(lambda: len(sent) == sends + 1, timeout=1)
+        self.assertEqual(session.captures, captures + 1)
+        self.assertEqual(sent[-1], presto_frame_pixels(session.preview.latest_png))
+
+    async def test_unchanged_page_is_still_sampled_for_changes_it_cannot_observe(self):
+        session, _ = await self.start_capture_session("<p>Points</p>")
+        with patch("worker.IDLE_CAPTURE_SECONDS", 0.2):
+            await self.wait_until(lambda: session.captures >= 3, timeout=1.5)
+
+    async def test_live_media_keeps_the_full_capture_rate(self):
+        session, _ = await self.start_capture_session("<canvas width=10 height=10></canvas>")
+        await asyncio.sleep(0.6)
+        self.assertGreater(session.captures, 4)
+
+    async def test_loading_state_is_held_and_the_finished_view_is_sent_next(self):
+        session, sent = await self.start_capture_session(
+            '<main data-castkit-ready="true"><p>Points</p></main>'
+        )
+        await asyncio.sleep(0.2)
+        points, sends, captures = sent[-1], len(sent), session.captures
+        await self.page.evaluate("""() => {
+            const main = document.querySelector('main');
+            main.dataset.castkitReady = 'false';
+            main.classList.add('platform-loading');
+            main.querySelector('p').textContent = 'Loading view';
+        }""")
+        await asyncio.sleep(0.5)
+        self.assertEqual(sent[sends - 1 :], [points])
+        self.assertEqual(session.captures, captures)
+        await self.page.evaluate("""() => {
+            const main = document.querySelector('main');
+            main.classList.remove('platform-loading');
+            main.querySelector('p').textContent = 'Music';
+            main.dataset.castkitReady = 'true';
+        }""")
+        await self.wait_until(lambda: len(sent) == sends + 1, timeout=1)
+        self.assertEqual(session.captures, captures + 1)
+        self.assertNotEqual(sent[-1], points)
+        self.assertEqual(sent[-1], presto_frame_pixels(session.preview.latest_png))
+
+    async def test_a_view_that_never_settles_is_sent_after_the_hold_limit(self):
+        _, sent = await self.start_capture_session(
+            '<main data-castkit-ready="true"><p>Points</p></main>'
+        )
+        await asyncio.sleep(0.2)
+        sends = len(sent)
+        with patch("worker.SETTLE_HOLD_SECONDS", 0.3):
+            await self.page.evaluate("""() => {
+                const main = document.querySelector('main');
+                main.dataset.castkitReady = 'false';
+                main.querySelector('p').textContent = 'Opening Music';
+            }""")
+            await asyncio.sleep(0.2)
+            self.assertEqual(len(sent), sends)
+            await self.wait_until(lambda: len(sent) == sends + 1, timeout=1)
+
+    async def test_navigation_guard_blocks_only_top_level_documents_from_other_origins(self):
+        async def page(request):
+            return web.Response(text="<p>Kiosk</p>", content_type="text/html")
+
+        async def pixel(request):
+            return web.Response(body=b"GIF89a", content_type="image/gif")
+
+        runners, origins = [], []
+        for _ in range(2):
+            application = web.Application()
+            application.add_routes([web.get("/", page), web.get("/pixel.gif", pixel)])
+            runner = web.AppRunner(application)
+            await runner.setup()
+            site = web.TCPSite(runner, "127.0.0.1", 0)
+            await site.start()
+            runners.append(runner)
+            origins.append(f"http://127.0.0.1:{site._server.sockets[0].getsockname()[1]}")
+        try:
+            kiosk, other = origins
+            page_under_test = await self.context.new_page()
+            cdp = await guard_navigation(page_under_test, ("http", kiosk.removeprefix("http://")))
+            paused = []
+            cdp.on("Fetch.requestPaused", lambda event: paused.append(event["request"]["url"]))
+            await page_under_test.goto(kiosk + "/")
+            await page_under_test.evaluate(
+                """other => new Promise(resolve => {
+                    const image = new Image();
+                    image.onload = image.onerror = resolve;
+                    image.src = other + '/pixel.gif';
+                    const frame = document.createElement('iframe');
+                    frame.src = other + '/';
+                    frame.onload = resolve;
+                    document.body.append(image, frame);
+                })""",
+                other,
+            )
+            await self.wait_until(lambda: len(page_under_test.frames) == 2)
+            await self.wait_until(lambda: page_under_test.frames[1].url == other + "/")
+            with contextlib.suppress(BrowserError):
+                await page_under_test.goto(other + "/", timeout=2000)
+            self.assertEqual(page_under_test.url, kiosk + "/")
+            # Documents only: the image from the other origin was never paused.
+            self.assertEqual(sorted(paused), sorted([kiosk + "/", other + "/", other + "/"]))
+            await page_under_test.close()
+        finally:
+            for runner in runners:
+                await runner.cleanup()
 
     async def test_presto_palette_capture_reuses_pixels_and_preserves_artwork_colors(self):
         await self.task_cancel_for_capture_test()
