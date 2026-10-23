@@ -238,13 +238,14 @@ tell you whether a panel is interactive, or fast, or color.
 | Value | Example panels | What it changes |
 | --- | --- | --- |
 | `update` (default) | Inky panels, M5Paper, WT32-SC01 | CastKit re-renders on every clock minute, data push, platform change and setting change, and publishes when the bytes changed. |
-| `request` | Watchy | CastKit renders only when the display asks on `<base>/refresh/set`, or on the manual refresh or a view select. Every background render is skipped, so the capture browser can close between requests. |
+| `request` | Watchy | CastKit publishes only when the display asks on `<base>/refresh/set`, or on the manual refresh or a view select. A platform frame is rendered ahead into memory when its content changes, never on the clock, so the request is answered from the buffer; a time-driven view renders on the request. The capture browser still closes between bursts. |
 
 `request` is for a client that deep-sleeps and **asks for its frame on wake** — a frame
 rendered while it sleeps reaches nobody. ⚠️ It is not the same as `pulled-frames`: the
 M5Paper pulls its bytes but stays connected and waits for the server's `image_url`, so
 `request` would freeze it
-([decision](decisions/2026-10-14-a-watchy-image-renders-only-when-the-watch-asks.md)).
+([decision](decisions/2026-10-14-a-watchy-image-renders-only-when-the-watch-asks.md),
+[render ahead](decisions/2026-10-23-a-request-displays-frame-is-rendered-ahead-into-memory.md)).
 
 ---
 

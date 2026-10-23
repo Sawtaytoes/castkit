@@ -120,6 +120,8 @@ const fixture = async () => {
     renderDevice: async () => null,
     pushDevice: async () => false,
     setView: async () => false,
+    getPrerenderKey: () => undefined,
+    prerenderDevice: async () => false,
   }
   const app = new Hono()
   attachPlatformRoutes({ app, platform })

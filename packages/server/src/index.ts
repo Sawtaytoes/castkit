@@ -36,6 +36,7 @@ import { watchDeviceTargets } from "./platform/deviceTargetWatcher.ts"
 import { createPlatformImageScheduler } from "./platform/imageScheduler.ts"
 import { createPlatform } from "./platform/platform.ts"
 import { attachPlatformSockets } from "./platform/platformSockets.ts"
+import { readRequestFrameKey } from "./platform/requestFrameKey.ts"
 import { createPushController } from "./pushController.ts"
 import { fetchArtworkDataUri } from "./render/artworkFetch.ts"
 import { createRenderService } from "./render/renderService.ts"
@@ -479,6 +480,12 @@ const main = async () => {
   renderTokenStore.startSweeper()
 
   const pushController = createPushController({
+    getRequestFrameKey: (deviceId) =>
+      readRequestFrameKey({
+        platform,
+        deviceId,
+        now: Date.now(),
+      }),
     getPlatformSelection: (deviceId) => {
       const target = platform.getDeviceTarget(deviceId)
       return target
@@ -2414,6 +2421,15 @@ const main = async () => {
         .filter((device) => device.renderOn !== "request")
         .map((device) => device.id),
       push: pushController.pushDevice,
+      // It renders their frame AHEAD instead, into memory, when the content
+      // changes — never on the clock — so the request is answered at once.
+      requestDisplays: {
+        deviceIds: config.devices
+          .filter((device) => device.renderOn === "request")
+          .map((device) => device.id),
+        getPrerenderKey: pushController.getPrerenderKey,
+        prerender: pushController.prerenderDevice,
+      },
     })
   console.log(
     `[castkit] serving on :${config.port} (engine=${config.renderEngine}, mqtt=${publisher.isEnabled ? "on" : "off"}, imageDevices=${config.devices.length}, browserDevices=${browserMode.deviceCount})`,
