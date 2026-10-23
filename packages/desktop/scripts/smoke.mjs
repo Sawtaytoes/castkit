@@ -203,8 +203,8 @@ void app.whenReady().then(async () => {
 })
 `,
 )
-const launch = () =>
-  electron.launch({
+const launch = async () => {
+  const launched = await electron.launch({
     args: [
       entryFile,
       "--no-sandbox",
@@ -215,17 +215,47 @@ const launch = () =>
       CASTKIT_DESKTOP_STATE_FILE: stateFile,
     },
   })
+  launched
+    .process()
+    .stdout.on("data", (chunk) =>
+      logLines.push(String(chunk)),
+    )
+  launched
+    .process()
+    .stderr.on("data", (chunk) =>
+      logLines.push(String(chunk)),
+    )
+  return launched
+}
+// A quit that never finishes would hold this script until the job's
+// timeout with no output; the desktop-v0.4.0 release run waited 30 minutes
+// on Windows. Fail with a reason instead, and end the process.
+const quitLimit = 20_000
+const closeWithin = async (launched, description) => {
+  const startedAt = Date.now()
+  let timer
+  try {
+    await Promise.race([
+      launched.close(),
+      new Promise((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new Error(
+              `${description} did not quit within ${quitLimit} ms.`,
+            ),
+          )
+        }, quitLimit)
+      }),
+    ])
+  } catch (error) {
+    launched.process().kill()
+    throw error
+  } finally {
+    clearTimeout(timer)
+  }
+  return Date.now() - startedAt
+}
 const app = await launch()
-app
-  .process()
-  .stdout.on("data", (chunk) =>
-    logLines.push(String(chunk)),
-  )
-app
-  .process()
-  .stderr.on("data", (chunk) =>
-    logLines.push(String(chunk)),
-  )
 
 // Playwright's keyboard goes through the DevTools protocol, which skips
 // Electron's `before-input-event`; `sendInputEvent` is the native input path
@@ -769,7 +799,7 @@ try {
     },
   )
 } finally {
-  await app.close()
+  await closeWithin(app, "The first app")
 }
 
 await check(
@@ -782,39 +812,69 @@ await check(
   },
 )
 
-const restarted = await launch()
 try {
+  const restarted = await launch()
+  try {
+    await check(
+      "a fresh Electron process restores the navigated page and fullscreen state",
+      async () => {
+        await waitFor(
+          () =>
+            restarted
+              .windows()
+              .some(
+                (candidate) =>
+                  candidate.url() ===
+                  `${serverOrigin}/screen/other?mode=board#details`,
+              ),
+          "the saved page after restart",
+        )
+        await waitFor(
+          () =>
+            restarted.evaluate(({ BrowserWindow }) =>
+              BrowserWindow.getAllWindows().some(
+                (window) =>
+                  window.webContents
+                    .getURL()
+                    .includes("?mode=board#details") &&
+                  window.isFullScreen(),
+              ),
+            ),
+          "fullscreen after restart",
+        )
+      },
+    )
+  } finally {
+    await closeWithin(restarted, "The restarted app")
+  }
+
+  // The saved state still sends audio, so each launch starts the capture,
+  // and a quit lands while that capture is starting or running.
   await check(
-    "a fresh Electron process restores the navigated page and fullscreen state",
+    "quitting while it sends audio ends the app every time",
     async () => {
-      await waitFor(
-        () =>
-          restarted
-            .windows()
-            .some(
-              (candidate) =>
-                candidate.url() ===
-                `${serverOrigin}/screen/other?mode=board#details`,
-            ),
-        "the saved page after restart",
-      )
-      await waitFor(
-        () =>
-          restarted.evaluate(({ BrowserWindow }) =>
-            BrowserWindow.getAllWindows().some(
-              (window) =>
-                window.webContents
-                  .getURL()
-                  .includes("?mode=board#details") &&
-                window.isFullScreen(),
-            ),
-          ),
-        "fullscreen after restart",
+      for (let attempt = 1; attempt <= 5; attempt += 1) {
+        const launched = await launch()
+        if (attempt % 2 === 0) {
+          await launched.firstWindow()
+        }
+        const duration = await closeWithin(
+          launched,
+          `Launch ${attempt}`,
+        )
+        console.info(
+          `  launch ${attempt} quit in ${duration} ms`,
+        )
+      }
+      const forcedQuits =
+        logLines.join("").split("so CastKit ends now")
+          .length - 1
+      console.info(
+        `  quits ended by the 5-second limit: ${forcedQuits}`,
       )
     },
   )
 } finally {
-  await restarted.close()
   server.close()
   vbanListener.close()
   rmSync(stateDirectory, { recursive: true, force: true })
