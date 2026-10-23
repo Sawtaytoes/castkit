@@ -625,6 +625,13 @@ const viewSpecs: ViewSpec[] = [
   }),
   view({ id: "queue", name: "Queue", type: "queue.v1" }),
   view({
+    id: "queue-picker",
+    name: "Queue chooser",
+    type: "queue-picker.v1",
+    description:
+      "Choose a queue for the scanned people. The source owns matching and the idle deadline.",
+  }),
+  view({
     id: "print-queue",
     name: "Print Queue",
     type: "queue.v1",
@@ -1413,7 +1420,12 @@ const viewGroups = [
   {
     id: "media",
     name: "Media playback",
-    specs: ["now-playing", "queue", "music-player"],
+    specs: [
+      "now-playing",
+      "queue",
+      "music-player",
+      "queue-picker",
+    ],
   },
   {
     id: "printers",
