@@ -112,6 +112,14 @@ const adapters: AdapterDefinition[] = [
         description:
           "Leave empty to include every printer.",
       },
+      {
+        key: "includePrimaryCameras",
+        label: "Include primary cameras",
+        type: "boolean",
+        defaultValue: true,
+        description:
+          "For Cameras channels. Turn off to show only additional named views alongside a Printer Status panel that already shows primary cameras.",
+      },
     ],
     actions: [
       { id: "clear_plate", name: "Clear plate" },

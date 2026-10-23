@@ -1190,8 +1190,11 @@ export const createBambuddySource: SourceFactory = (
           channelId: channel.id,
           data: {
             cameras: state.printers
-              .filter((printer) =>
-                selection.includes(String(printer.id)),
+              .filter(
+                (printer) =>
+                  channel.settings.includePrimaryCameras !==
+                    false &&
+                  selection.includes(String(printer.id)),
               )
               .map((printer) => ({
                 id: String(printer.id),

@@ -1373,6 +1373,16 @@ test("Hot Plate named cameras keep credentials upstream and enforce channel prin
         settings: { printerIds: ["2"] },
       },
       {
+        id: "extras",
+        name: "Extra cameras",
+        sourceId: "source",
+        type: "cameras.v1",
+        settings: {
+          printerIds: ["2"],
+          includePrimaryCameras: false,
+        },
+      },
+      {
         id: "printers",
         name: "Printers",
         sourceId: "source",
@@ -1384,6 +1394,19 @@ test("Hot Plate named cameras keep credentials upstream and enforce channel prin
   const adapter = createBambuddySource(context)
   try {
     await adapter.start?.()
+    expect(context.publish).toHaveBeenCalledWith({
+      channelId: "extras",
+      data: {
+        cameras: [
+          {
+            id: "2:detail",
+            name: "Printer · Toolhead",
+            url: "/api/platform/channels/extras/media/2%3Adetail?kind=named-stream",
+            isLive: true,
+          },
+        ],
+      },
+    })
     expect(context.publish).toHaveBeenCalledWith({
       channelId: "cameras",
       data: {

@@ -5,6 +5,8 @@ The Bambuddy source adapter also reads Hot Plate 3D installations. Enable
 3D, then bind a Cameras view to a `cameras.v1` channel from that source. The
 channel's printer selection applies to both primary and additional cameras.
 Leave the option off for a Bambuddy installation without the named-camera API.
+Turn off **Include primary cameras** on the Cameras channel when its view is
+beside a Printer Status panel that already shows the primary cameras.
 
 Enabled extra views appear with their printer and camera names. Their identities
 come from Hot Plate's metadata API; camera addresses and printer access codes
