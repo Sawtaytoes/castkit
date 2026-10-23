@@ -51,6 +51,9 @@ test("management uploads, reviews, installs, and removes a package with its reta
       renderPreview: async () => null,
       pushDevice: async () => false,
       setView: async () => false,
+
+      getPrerenderKey: () => undefined,
+      prerenderDevice: async () => false,
     },
     renderTokenStore: createRenderTokenStore(),
   })

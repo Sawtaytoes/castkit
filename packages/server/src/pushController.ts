@@ -9,6 +9,7 @@ import type { ConfiguredDevice } from "./config/env.ts"
 import { buildDeviceTopics } from "./homeAssistant/discovery.ts"
 import type { MqttPublisher } from "./mqtt/publisher.ts"
 import type { RenderService } from "./render/renderService.ts"
+import { createRequestFrameCache } from "./render/requestFrameCache.ts"
 import type { DeviceConfigStore } from "./state/deviceConfigStore.ts"
 import type { DeviceStore } from "./state/deviceStore.ts"
 import type { RenderTokenStore } from "./state/renderTokenStore.ts"
@@ -52,6 +53,15 @@ export type PushController = {
     deviceId: string
     viewName: ViewName
   }) => Promise<boolean>
+  /**
+   * The key a frame rendered ahead for a `renderOn: "request"` display would
+   * carry now, or `undefined` when the held frame is current or none can be
+   * kept (another delivery mode, paused, no platform target, or a
+   * time-driven view). The platform image scheduler polls this.
+   */
+  getPrerenderKey: (deviceId: string) => string | undefined
+  /** Render a request display's frame into memory so its next request is instant. */
+  prerenderDevice: (deviceId: string) => Promise<boolean>
 }
 
 export const createPushController = ({
@@ -68,7 +78,15 @@ export const createPushController = ({
   publicUrl,
   renderPlatform,
   getPlatformSelection,
+  getRequestFrameKey,
 }: {
+  /**
+   * What a request display's platform frame is drawn from
+   * (`readRequestFrameKey`), or `undefined` when it cannot be kept.
+   */
+  getRequestFrameKey?: (
+    deviceId: string,
+  ) => string | undefined
   getPlatformSelection?: (
     deviceId: string,
   ) => string | undefined
@@ -116,6 +134,10 @@ export const createPushController = ({
     string,
     string
   >()
+
+  // The latest frame of each `renderOn: "request"` display, in memory only.
+  // A watch's request is answered from it instead of a Chromium capture.
+  const requestFrames = createRequestFrameCache()
 
   const getRenderSettings = (
     deviceId: string,
@@ -232,6 +254,65 @@ export const createPushController = ({
     })
   }
 
+  /**
+   * The full key of a request display's frame: the platform frame plus every
+   * render setting, so a changed margin, rotation, dither or color mode never
+   * serves a frame drawn under the old one.
+   */
+  const readFrameKey = (deviceId: string) => {
+    if (deviceById.get(deviceId)?.renderOn !== "request") {
+      return undefined
+    }
+    const platformKey = getRequestFrameKey?.(deviceId)
+    return platformKey === undefined
+      ? undefined
+      : JSON.stringify({
+          platformKey,
+          settings: getRenderSettings(deviceId),
+        })
+  }
+
+  const getPrerenderKey = (deviceId: string) => {
+    const key = readFrameKey(deviceId)
+    if (key === undefined) {
+      // No frame can be kept, so the one held is stale for good.
+      requestFrames.forget(deviceId)
+      return undefined
+    }
+    if (!deviceConfigStore.getIsUpdatesEnabled(deviceId)) {
+      return undefined
+    }
+    return requestFrames.getHasFrame({ deviceId, key })
+      ? undefined
+      : key
+  }
+
+  const prerenderDevice = async (deviceId: string) => {
+    const key = readFrameKey(deviceId)
+    if (
+      key === undefined ||
+      !deviceConfigStore.getIsUpdatesEnabled(deviceId)
+    ) {
+      return false
+    }
+    const isAlreadyHeld = requestFrames.getHasFrame({
+      deviceId,
+      key,
+    })
+    const startedAt = performance.now()
+    const isReady = await requestFrames.prepare({
+      deviceId,
+      key,
+      renderFrame: () => renderDevice(deviceId),
+    })
+    if (!isAlreadyHeld) {
+      console.log(
+        `[inkcast] frame ahead ${deviceId} (${Math.round(performance.now() - startedAt)} ms)`,
+      )
+    }
+    return isReady
+  }
+
   const pushDevice = async (
     deviceId: string,
     {
@@ -271,12 +352,31 @@ export const createPushController = ({
       deviceStore.getActiveView(deviceId)
     const platformAtRenderStart =
       getPlatformSelection?.(deviceId)
-    const image = await renderDevice(
-      deviceId,
-      viewAtRenderStart,
-    )
+    // A request display is answered from the frame kept in memory when it is
+    // still current, or joins the render already running for it.
+    const frameKey = readFrameKey(deviceId)
+    const startedAt = performance.now()
+    const { image, source } = frameKey
+      ? await requestFrames.read({
+          deviceId,
+          key: frameKey,
+          renderFrame: () =>
+            renderDevice(deviceId, viewAtRenderStart),
+        })
+      : {
+          image: await renderDevice(
+            deviceId,
+            viewAtRenderStart,
+          ),
+          source: undefined,
+        }
     if (!device || !image) {
       return false
+    }
+    if (source) {
+      console.log(
+        `[inkcast] frame ${deviceId} ${source} in ${Math.round(performance.now() - startedAt)} ms`,
+      )
     }
 
     // Re-check what was true when the render STARTED. The check at the top of
@@ -395,5 +495,7 @@ export const createPushController = ({
     },
     pushDevice,
     setView,
+    getPrerenderKey,
+    prerenderDevice,
   }
 }

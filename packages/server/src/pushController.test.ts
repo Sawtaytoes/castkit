@@ -19,7 +19,11 @@ const makeController = ({
   photoEncoding = { format: "png" },
   onRender,
   renderPlatform,
+  getRequestFrameKey,
 }: {
+  getRequestFrameKey?: (
+    deviceId: string,
+  ) => string | undefined
   activeView?: string
   imageDelivery?: "mqtt-image" | "http-pull"
   renderOn?: "update" | "request"
@@ -52,6 +56,7 @@ const makeController = ({
 
   const pushController = createPushController({
     renderPlatform,
+    getRequestFrameKey,
     devices: [device] as never,
     deviceStore: {
       getActiveView: () => currentView.value,
@@ -594,5 +599,221 @@ describe('pushDevice — a renderOn: "request" display', () => {
     expect(publishedTopics).toContain(
       `castkit/${IMPRESSION_DEVICE.id}/image_url`,
     )
+  })
+})
+
+// The watch's request used to wait for a Chromium capture. The frame is now
+// rendered ahead when its content changes and kept in memory, so the request
+// is answered from the buffer.
+describe('pushDevice — a renderOn: "request" display answers from its frame kept in memory', () => {
+  const makeWatchWithPlatform = ({
+    frameKey,
+  }: {
+    frameKey: { value: string | undefined }
+  }) => {
+    const capture = {
+      callCount: 0,
+      finish: () => {},
+      isManual: false,
+    }
+    const harness = makeController({
+      activeView: "Now Playing (Dashboard)",
+      imageDelivery: "http-pull",
+      renderOn: "request",
+      publicUrl: "https://display.example.com",
+      getRequestFrameKey: () => frameKey.value,
+      renderPlatform: () => {
+        capture.callCount += 1
+        return capture.isManual
+          ? new Promise<Buffer>((resolve) => {
+              capture.finish = () => resolve(PNG)
+            })
+          : Promise.resolve(PNG)
+      },
+    })
+    return { ...harness, capture }
+  }
+  const requestFrame = (
+    pushController: ReturnType<
+      typeof makeController
+    >["pushController"],
+  ) =>
+    pushController.pushDevice(IMPRESSION_DEVICE.id, {
+      isForced: true,
+      isRequested: true,
+    })
+
+  test("a request after the frame was rendered ahead captures nothing", async () => {
+    const { pushController, capture, publishedPayloads } =
+      makeWatchWithPlatform({
+        frameKey: { value: "points-12" },
+      })
+
+    expect(
+      pushController.getPrerenderKey(IMPRESSION_DEVICE.id),
+    ).toBeDefined()
+    expect(
+      await pushController.prerenderDevice(
+        IMPRESSION_DEVICE.id,
+      ),
+    ).toBe(true)
+    expect(capture.callCount).toBe(1)
+    expect(
+      pushController.getPrerenderKey(IMPRESSION_DEVICE.id),
+    ).toBeUndefined()
+
+    expect(await requestFrame(pushController)).toBe(true)
+    expect(await requestFrame(pushController)).toBe(true)
+
+    expect(capture.callCount).toBe(1)
+    expect(
+      publishedPayloads.filter(({ topic }) =>
+        topic.endsWith("/image_url"),
+      ),
+    ).toHaveLength(2)
+  })
+
+  test("a request while the frame renders ahead joins that render", async () => {
+    const { pushController, capture, publishedTopics } =
+      makeWatchWithPlatform({
+        frameKey: { value: "points-12" },
+      })
+    capture.isManual = true
+
+    const preparing = pushController.prerenderDevice(
+      IMPRESSION_DEVICE.id,
+    )
+    const requesting = requestFrame(pushController)
+    capture.finish()
+
+    expect(await preparing).toBe(true)
+    expect(await requesting).toBe(true)
+    expect(capture.callCount).toBe(1)
+    expect(publishedTopics).toContain(
+      `castkit/${IMPRESSION_DEVICE.id}/image_url`,
+    )
+  })
+
+  test("content that changed since the frame ahead renders on the request", async () => {
+    const frameKey = {
+      value: "points-12" as string | undefined,
+    }
+    const { pushController, capture } =
+      makeWatchWithPlatform({ frameKey })
+
+    await pushController.prerenderDevice(
+      IMPRESSION_DEVICE.id,
+    )
+    frameKey.value = "points-13"
+
+    expect(await requestFrame(pushController)).toBe(true)
+    expect(capture.callCount).toBe(2)
+    // The frame the request rendered is the one kept now.
+    expect(await requestFrame(pushController)).toBe(true)
+    expect(capture.callCount).toBe(2)
+  })
+
+  test("a changed render setting never serves the frame drawn under the old one", async () => {
+    const { pushController, capture, deviceConfigStore } =
+      makeWatchWithPlatform({
+        frameKey: { value: "points-12" },
+      })
+
+    await pushController.prerenderDevice(
+      IMPRESSION_DEVICE.id,
+    )
+    deviceConfigStore.setDitherAlgorithm({
+      deviceId: IMPRESSION_DEVICE.id,
+      algorithm: "atkinson",
+    })
+
+    expect(
+      pushController.getPrerenderKey(IMPRESSION_DEVICE.id),
+    ).toBeDefined()
+    expect(await requestFrame(pushController)).toBe(true)
+    expect(capture.callCount).toBe(2)
+  })
+
+  test("a time-driven view keeps nothing and renders on every request", async () => {
+    const { pushController, capture } =
+      makeWatchWithPlatform({
+        frameKey: { value: undefined },
+      })
+
+    expect(
+      pushController.getPrerenderKey(IMPRESSION_DEVICE.id),
+    ).toBeUndefined()
+    expect(
+      await pushController.prerenderDevice(
+        IMPRESSION_DEVICE.id,
+      ),
+    ).toBe(false)
+    expect(await requestFrame(pushController)).toBe(true)
+    expect(await requestFrame(pushController)).toBe(true)
+    expect(capture.callCount).toBe(2)
+  })
+
+  test("the held frame is dropped once no frame can be kept", async () => {
+    const frameKey = {
+      value: "points-12" as string | undefined,
+    }
+    const { pushController, capture } =
+      makeWatchWithPlatform({ frameKey })
+
+    await pushController.prerenderDevice(
+      IMPRESSION_DEVICE.id,
+    )
+    // The platform screen was unassigned, then assigned again unchanged.
+    frameKey.value = undefined
+    expect(
+      pushController.getPrerenderKey(IMPRESSION_DEVICE.id),
+    ).toBeUndefined()
+    frameKey.value = "points-12"
+
+    expect(
+      pushController.getPrerenderKey(IMPRESSION_DEVICE.id),
+    ).toBeDefined()
+    expect(await requestFrame(pushController)).toBe(true)
+    expect(capture.callCount).toBe(2)
+  })
+
+  test("a paused display renders nothing ahead", async () => {
+    const { pushController, capture, deviceConfigStore } =
+      makeWatchWithPlatform({
+        frameKey: { value: "points-12" },
+      })
+    deviceConfigStore.setIsUpdatesEnabled({
+      deviceId: IMPRESSION_DEVICE.id,
+      isEnabled: false,
+    })
+
+    expect(
+      pushController.getPrerenderKey(IMPRESSION_DEVICE.id),
+    ).toBeUndefined()
+    expect(
+      await pushController.prerenderDevice(
+        IMPRESSION_DEVICE.id,
+      ),
+    ).toBe(false)
+    expect(capture.callCount).toBe(0)
+  })
+
+  test("a display that renders on every update keeps no frame", async () => {
+    const harness = makeController({
+      renderOn: "update",
+      getRequestFrameKey: () => "points-12",
+      renderPlatform: async () => PNG,
+    })
+
+    expect(
+      harness.pushController.getPrerenderKey(
+        IMPRESSION_DEVICE.id,
+      ),
+    ).toBeUndefined()
+    expect(
+      await harness.pushController.prerenderDevice(
+        IMPRESSION_DEVICE.id,
+      ),
+    ).toBe(false)
   })
 })
