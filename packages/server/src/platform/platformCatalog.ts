@@ -93,6 +93,14 @@ const adapters: AdapterDefinition[] = [
         description:
           'Optional. Enables direct H.264 video for configured printers. Example: {"1":"code"}.',
       },
+      {
+        key: "includeNamedCameras",
+        label: "Include Hot Plate 3D named cameras",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "Add enabled extra camera views to camera channels. Requires a Hot Plate 3D source URL; printer status keeps its primary camera.",
+      },
       pollingField,
     ],
     channelSettings: [
@@ -103,6 +111,14 @@ const adapters: AdapterDefinition[] = [
         discoveryKey: "printers",
         description:
           "Leave empty to include every printer.",
+      },
+      {
+        key: "includePrimaryCameras",
+        label: "Include primary cameras",
+        type: "boolean",
+        defaultValue: true,
+        description:
+          "For Cameras channels. Turn off to show only additional named views alongside a Printer Status panel that already shows primary cameras.",
       },
     ],
     actions: [

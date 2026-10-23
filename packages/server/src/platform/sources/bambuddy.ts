@@ -767,6 +767,7 @@ export const createBambuddySource: SourceFactory = (
   const state = {
     printers: [] as Record<string, unknown>[],
     statusById: new Map<string, unknown>(),
+    namedCameras: [] as Record<string, unknown>[],
     spools: [] as Record<string, unknown>[],
     assignments: [] as BambuddyAssignment[],
     /** Per-slot filament lists by archive id; an archive never changes. */
@@ -992,6 +993,39 @@ export const createBambuddySource: SourceFactory = (
   })
   const poll = async () => {
     await listPrinters()
+    if (
+      context.source.settings.includeNamedCameras === true
+    ) {
+      const response = await sourceRequest({
+        context,
+        headers,
+        path: "/api/v1/hotplate/printer-metadata",
+      })
+      const metadata: unknown = await response.json()
+      if (!Array.isArray(metadata)) {
+        throw new Error("Invalid named camera metadata.")
+      }
+      state.namedCameras = metadata.flatMap((entry) => {
+        const printer = record(entry)
+        return (
+          Array.isArray(printer.cameras)
+            ? printer.cameras
+            : []
+        )
+          .map(record)
+          .filter(
+            (camera) =>
+              camera.is_primary === false &&
+              textValue(camera.id),
+          )
+          .map((camera) => ({
+            id: `${printer.id}:${camera.id}`,
+            printerId: String(printer.id),
+            cameraId: textValue(camera.id),
+            name: `${textValue(printer.name)} · ${textValue(camera.name)}`,
+          }))
+      })
+    }
     const ids = Array.from(
       new Set(
         context.channels.flatMap((channel) =>
@@ -1156,8 +1190,11 @@ export const createBambuddySource: SourceFactory = (
           channelId: channel.id,
           data: {
             cameras: state.printers
-              .filter((printer) =>
-                selection.includes(String(printer.id)),
+              .filter(
+                (printer) =>
+                  channel.settings.includePrimaryCameras !==
+                    false &&
+                  selection.includes(String(printer.id)),
               )
               .map((printer) => ({
                 id: String(printer.id),
@@ -1173,7 +1210,25 @@ export const createBambuddySource: SourceFactory = (
                 ...(cameraCode(String(printer.id))
                   ? { format: "hls" as const }
                   : {}),
-              })),
+              }))
+              .concat(
+                state.namedCameras
+                  .filter((camera) =>
+                    selection.includes(
+                      String(camera.printerId),
+                    ),
+                  )
+                  .map((camera) => ({
+                    id: String(camera.id),
+                    name: textValue(camera.name),
+                    url: mediaUrl({
+                      channelId: channel.id,
+                      printerId: String(camera.id),
+                      kind: "named-stream",
+                    }),
+                    isLive: true,
+                  })),
+              ),
           },
         })
       } else {
@@ -1474,6 +1529,35 @@ export const createBambuddySource: SourceFactory = (
         throw new Error(
           "The AMS channel only provides printer product images.",
         )
+      }
+      if (
+        kind === "named-stream" ||
+        kind === "named-camera"
+      ) {
+        const camera = state.namedCameras.find(
+          (entry) => entry.id === assetId,
+        )
+        const channel = context.channels.find(
+          (entry) => entry.id === channelId,
+        )
+        if (
+          !camera ||
+          channel?.type !== "cameras.v1" ||
+          !selectedIds(channelId).includes(
+            String(camera.printerId),
+          )
+        ) {
+          throw new Error(
+            "This camera is not part of the selected printers.",
+          )
+        }
+        return sourceRequest({
+          context,
+          headers,
+          path: `/api/v1/hotplate/printer-metadata/${encodeURIComponent(String(camera.printerId))}/cameras/${encodeURIComponent(String(camera.cameraId))}/${kind === "named-stream" ? "stream?fps=2&" : "snapshot?"}token=${encodeURIComponent(await getCameraToken())}`,
+          timeoutMilliseconds: 20000,
+          isStream: kind === "named-stream",
+        })
       }
       if (
         !selectedIds(channelId).includes(assetId) ||
