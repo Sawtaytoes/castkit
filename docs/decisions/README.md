@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-23: A cached frame is keyed by what changes its pixels](2026-10-23-a-cached-frame-is-keyed-by-what-changes-its-pixels.md)
+
 - [2026-10-23: A request display's frame is rendered ahead into memory](2026-10-23-a-request-displays-frame-is-rendered-ahead-into-memory.md)
 
 - [2026-10-23: Image streams hold loading states and capture only on change](2026-10-23-image-streams-hold-loading-states-and-capture-only-on-change.md)
