@@ -24,6 +24,23 @@ Measured on a 480×480 Presto stream (2026-10-22 and 2026-10-23):
 Loading states were also sent as frames, each costing the board ~0.5 s before the real
 view; #297 holds them back.
 
+**Correction (2026-10-23, measured).** The ~0.6 s "builds the destination view" row is
+wrong for every swipe a panel makes today. In a browser with the worker's exact context
+(480×480, scale 1, touch, mobile, reduced motion) against the e2e server, timed from the
+`touchEnd` the worker dispatches:
+
+| Swipe | Loading state shown | New view in the DOM and settled |
+| --- | ---: | ---: |
+| Native view (Now Playing, Queue, Calendar, Ambient), 5 runs | 15–27 ms | 33–67 ms |
+| Composed view opened, already prepared (2 runs) | — | 24–41 ms |
+| Composed view closed (2 runs) | — | 172–179 ms (160 ms is `DeviceContent`'s deliberate hand-off delay) |
+
+So the browser is not the slow part. What is left of a swipe is the worker's own cycle
+(up to 125 ms at 8 fps, because a held page waited out a whole cycle before it looked
+again — fixed in the same pull request as this correction by polling a held page every
+20 ms) and the board: a full changed frame costs ~0.15 s to inflate and ~0.37 s to draw,
+and a production patch of 432×336 was acknowledged in 387–434 ms.
+
 Identical panels: several installations share one panel model, the same display
 properties and the same view list. Each runs its own worker and browser, so the same
 view is built, captured and encoded once per panel, and a shared camera snapshot is
@@ -45,7 +62,12 @@ never written to disk.
    one entry per device to entries per key with a device → key index, so identical
    keys share one render and one buffer. Apply the same store to update-display pushes
    so a burst of identical renders in one second renders once.
-2. **Pre-rendered stream frames.** The server renders the panel-ready frame (the exact
+2. **Pre-rendered stream frames — DEFERRED (2026-10-23).** The measurement above shows it
+   would save 30–60 ms on a native swipe, for a Chromium that never closes and a render
+   of every clock view each minute. It was built (server capture in the worker's context,
+   key-addressed store, a `/d/<id>/stream-frame/<view>` route, worker send at release)
+   and set aside unmerged. Revisit only if a view is found whose build is slow on the
+   panel's own browser. The original plan: The server renders the panel-ready frame (the exact
    payload the worker sends, plus its touch targets) for each key reachable from an
    image-stream panel's assigned views, and refreshes it when the key changes. At a
    swipe release the worker sends the destination's cached frame at once, then lets its
@@ -59,7 +81,7 @@ never written to disk.
    encoded once per panel profile and sent to every panel showing it, without a browser
    capture per panel. The board's inflate + draw (~0.5 s per full frame) then limits the
    frame rate, which phase 4 addresses.
-4. **Panel firmware.** (a) Measure and shorten the board's inflate and draw path
+4. **Panel firmware — the main remaining cost of a swipe.** (a) Measure and shorten the board's inflate and draw path
    (partial regions, faster copy) — this is the camera frame rate. (b) Frame slots in
    PSRAM: the worker preloads the destination frame of each swipe direction, and the
    board swaps locally on the gesture with no network round trip. Requires OTA of each
