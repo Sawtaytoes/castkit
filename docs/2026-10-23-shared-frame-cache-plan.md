@@ -86,6 +86,11 @@ never written to disk.
    PSRAM: the worker preloads the destination frame of each swipe direction, and the
    board swaps locally on the gesture with no network round trip. Requires OTA of each
    panel; the worker is paused first.
+   Study and proposal (measured, prototyped, not flashed):
+   [`2026-10-23-presto-firmware-frame-path-study.md`](2026-10-23-presto-firmware-frame-path-study.md).
+   Inflate is ~4% of a full frame; the rest is PSRAM copies, pauses and the swap.
+   Decoding straight into the back buffer with a lazy second-buffer sync is expected to
+   take a full frame from ~0.53 s to ~0.2 s with no wire-format change.
 
 ## Verification for each phase
 
