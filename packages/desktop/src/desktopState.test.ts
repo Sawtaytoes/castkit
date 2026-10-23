@@ -60,6 +60,13 @@ const savedState: DesktopState = {
       title: "Kitchen",
     },
   ],
+  pcAudio: {
+    isSending: true,
+    host: "music.example",
+    port: 6980,
+    streamName: "CastKit",
+    inputDeviceLabel: null,
+  },
 }
 
 describe(saveDesktopState.name, () => {
@@ -142,6 +149,19 @@ describe(loadDesktopState.name, () => {
         title: "",
       },
     ])
+  })
+
+  test("a file saved before audio could be sent loads with sending off", () => {
+    const filePath = createStatePath()
+    const { pcAudio: _pcAudio, ...olderState } = savedState
+    writeFileSync(
+      filePath,
+      JSON.stringify(olderState),
+      "utf8",
+    )
+    expect(
+      loadDesktopState(filePath).state.pcAudio,
+    ).toEqual(defaultDesktopState.pcAudio)
   })
 
   test("one invalid window is skipped and the others are kept", () => {

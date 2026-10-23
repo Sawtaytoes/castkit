@@ -1,4 +1,8 @@
 import type { CastkitPage } from "../castkitTargets.ts"
+import type {
+  PcAudioSettings,
+  PcAudioStatus,
+} from "../pcAudioSettings.ts"
 import type { FoundServer } from "../serverDiscovery.ts"
 
 /** A monitor as the settings page lists it. */
@@ -21,11 +25,22 @@ export type SettingsWindow = {
   isOpen: boolean
 }
 
+/** Sending this computer's audio, as the settings page shows it. */
+export type PcAudioSnapshot = {
+  settings: PcAudioSettings
+  status: PcAudioStatus
+  /** Only Windows can capture everything the computer plays. */
+  isSystemAudioCapturable: boolean
+  /** This computer's IPv4 addresses: the receiver accepts packets from one of them. */
+  computerAddresses: string[]
+}
+
 /** What the settings page shows when it opens. */
 export type SettingsSnapshot = {
   serverOrigin: string | null
   displays: SettingsDisplay[]
   windows: SettingsWindow[]
+  pcAudio: PcAudioSnapshot
 }
 
 /** The server's pages, or why there are none. */
@@ -66,6 +81,10 @@ export type CastkitDesktopApi = {
   openWindow: (windowId: string) => Promise<SettingsResult>
   removeWindow: (
     windowId: string,
+  ) => Promise<SettingsResult>
+  /** Change how this computer's audio is sent; only the fields given change. */
+  savePcAudio: (
+    change: Partial<PcAudioSettings>,
   ) => Promise<SettingsResult>
   highlightDisplay: (displayId: number | null) => void
   /** Call `onChange` whenever the windows or the displays change. Returns the unsubscribe. */

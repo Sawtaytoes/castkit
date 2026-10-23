@@ -151,6 +151,44 @@ Turn on **Launch at login** in the tray menu. It is off until you turn it on.
   which every XDG desktop starts at sign-in. It names the running executable,
   so turn the setting off and on again after moving an unzipped build.
 
+## Send this computer's audio
+
+CastKit can send what this computer plays to Music Assistant, which then
+plays it on any of its speakers or groups. It is off until you turn it on,
+and nothing is captured or sent while it is off.
+
+The audio goes as a [VBAN](https://vb-audio.com/Voicemeeter/vban.htm) stream
+(16-bit PCM, 48 kHz, stereo) to Music Assistant's **VBAN Receiver** plugin.
+This computer's own speakers keep playing as before; the room plays the same
+audio about 1 to 2 seconds later, because Music Assistant buffers it. That
+delay makes it a fit for music and video sound in another room, not for
+games or for lip-sync in the same room.
+
+1. In the settings window, under **Send this computer's audio**, open **Where
+   to send, and what to capture**. Enter the address of the computer that runs
+   Music Assistant, and change the port or the stream name if you need to.
+   Select **Save**.
+2. Under **Capture from**, choose what to send:
+   - **Everything this computer plays** (Windows only): every app's sound,
+     including notifications.
+   - **An input device**: a microphone, a line-in, or a virtual cable. With
+     [VB-CABLE](https://vb-audio.com/Cable/) installed, Windows has a
+     "CABLE Input" playback device; send one app to it in Windows' volume
+     mixer, choose **CABLE Output** here, and only that app's sound goes to
+     the room.
+3. In Music Assistant, add a **VBAN Receiver** plugin with the values that
+   **Set up Music Assistant** lists: the same port and stream name, this
+   computer's address as the sender, `S16LE`, `48000`, and `2` channels.
+4. Turn on **Send this computer's audio**, here or in the tray menu.
+5. In Music Assistant, select a speaker or a group, open **Browse**, and play
+   the VBAN Receiver. Do not play it on a group that contains this computer,
+   or the audio loops back to itself.
+
+The tray menu shows what sending is doing under the switch. If the capture
+stops, for example because the device was unplugged, CastKit tries again
+every 5 seconds for as long as the switch is on. The switch is remembered
+across restarts.
+
 ## Where settings are stored
 
 Everything is in one file, `desktop-state.json`, in the app's user data
