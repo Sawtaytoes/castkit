@@ -160,28 +160,37 @@ export const PcAudioPanel = ({
             label: "Where to send, and what to capture",
             content: (
               <div className="settings-stack">
-                <Picker
+                <Field
                   label="Capture from"
-                  placeholder="Choose an input device"
-                  options={captureOptions}
-                  value={
-                    settings.inputDeviceLabel === null
-                      ? pcAudio.isSystemAudioCapturable
-                        ? systemAudioValue
-                        : undefined
-                      : `${devicePrefix}${settings.inputDeviceLabel}`
+                  description={
+                    pcAudio.isSystemAudioCapturable
+                      ? "Everything this computer plays, or one input device such as a virtual cable."
+                      : "An input device, such as a virtual cable. Only Windows can capture everything this computer plays."
                   }
-                  onChange={(value) =>
-                    void save({
-                      inputDeviceLabel:
-                        value === systemAudioValue
-                          ? null
-                          : value.slice(
-                              devicePrefix.length,
-                            ),
-                    })
-                  }
-                />
+                >
+                  <Picker
+                    label="Capture from"
+                    placeholder="Choose an input device"
+                    options={captureOptions}
+                    value={
+                      settings.inputDeviceLabel === null
+                        ? pcAudio.isSystemAudioCapturable
+                          ? systemAudioValue
+                          : undefined
+                        : `${devicePrefix}${settings.inputDeviceLabel}`
+                    }
+                    onChange={(value) =>
+                      void save({
+                        inputDeviceLabel:
+                          value === systemAudioValue
+                            ? null
+                            : value.slice(
+                                devicePrefix.length,
+                              ),
+                      })
+                    }
+                  />
+                </Field>
                 <form
                   className="settings-stack"
                   onSubmit={(event) => {
