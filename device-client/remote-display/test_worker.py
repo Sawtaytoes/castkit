@@ -329,6 +329,29 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(sent[-1], points)
         self.assertEqual(sent[-1], presto_frame_pixels(session.preview.latest_png))
 
+    async def test_the_finished_view_is_sent_without_waiting_out_the_cycle(self):
+        # Two cycles a second: a held page that waited for the next cycle would
+        # send the finished view up to half a second after it settled.
+        session, sent = await self.start_capture_session(
+            '<main data-castkit-ready="true"><p>Points</p></main>', max_fps=2
+        )
+        await asyncio.sleep(0.6)
+        sends = len(sent)
+        await self.page.evaluate("""() => {
+            const main = document.querySelector('main');
+            main.dataset.castkitReady = 'false';
+            main.querySelector('p').textContent = 'Opening Music';
+        }""")
+        await self.wait_until(lambda: session.held_since is not None, timeout=1)
+        await self.page.evaluate("""() => {
+            const main = document.querySelector('main');
+            main.querySelector('p').textContent = 'Music';
+            main.dataset.castkitReady = 'true';
+        }""")
+        settled_at = asyncio.get_running_loop().time()
+        await self.wait_until(lambda: len(sent) == sends + 1, timeout=1)
+        self.assertLess(asyncio.get_running_loop().time() - settled_at, 0.25)
+
     async def test_a_view_that_never_settles_is_sent_after_the_hold_limit(self):
         _, sent = await self.start_capture_session(
             '<main data-castkit-ready="true"><p>Points</p></main>'

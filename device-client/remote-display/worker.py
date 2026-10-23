@@ -26,7 +26,7 @@ from preview import PreviewServer, validate_preview_port
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v22-hold-loading-and-skip-idle-captures"
+BUILD_MARKER = "castkit-remote-display-v23-poll-a-held-loading-state"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -66,6 +66,10 @@ SCROLL_HIT_SCRIPT = """({x,y}) => {
 # state. Past it the loading state is sent, so a view that never settles cannot
 # freeze the glass. It stays under BROWSER_TIMEOUT_SECONDS.
 SETTLE_HOLD_SECONDS = 3
+# How often a held page is looked at again. A swipe between native views shows
+# its loading state for 20-40 ms, so waiting out a whole capture cycle (125 ms
+# at 8 fps) added most of a cycle to every swipe. The look is one evaluation.
+HOLD_POLL_SECONDS = 0.02
 # A page that reports no change is still captured this often: changes the page
 # cannot observe (a decoded image frame, a canvas) reach the panel within it.
 IDLE_CAPTURE_SECONDS = 1
@@ -454,7 +458,7 @@ class DisplaySession:
         delay = max(0, 1 / self.config["max_fps"] - (time.monotonic() - cycle))
         if is_holding:
             # A touch left the force flag set; waking on it would spin the hold.
-            await asyncio.sleep(delay)
+            await asyncio.sleep(min(delay, HOLD_POLL_SECONDS))
             return
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self.force_frame.wait(), timeout=delay)
