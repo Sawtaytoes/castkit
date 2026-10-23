@@ -8,13 +8,30 @@ import {
 import type { ConfiguredDevice } from "./config/env.ts"
 import { buildDeviceTopics } from "./homeAssistant/discovery.ts"
 import type { MqttPublisher } from "./mqtt/publisher.ts"
+import { createFrameStore } from "./render/frameStore.ts"
 import type { RenderService } from "./render/renderService.ts"
-import { createRequestFrameCache } from "./render/requestFrameCache.ts"
 import type { DeviceConfigStore } from "./state/deviceConfigStore.ts"
 import type { DeviceStore } from "./state/deviceStore.ts"
 import type { RenderTokenStore } from "./state/renderTokenStore.ts"
 import type { ViewDataStore } from "./state/viewDataStore.ts"
 import type { ClockConfig } from "./views/registry.ts"
+
+/*
+ * Who a display is never changes a pixel, so these never enter a frame key:
+ * two installations of one panel model at the same settings share frames.
+ */
+const IDENTITY_FIELDS = new Set([
+  "id",
+  "label",
+  "mac",
+  "photoPeople",
+  "renderOn",
+])
+
+const hashFrameKey = (value: unknown) =>
+  createHash("sha256")
+    .update(JSON.stringify(value))
+    .digest("hex")
 
 /** Effective image-rendering settings shared by delivery and read-only previews. */
 export type DeviceRenderSettings = {
@@ -78,13 +95,13 @@ export const createPushController = ({
   publicUrl,
   renderPlatform,
   getPlatformSelection,
-  getRequestFrameKey,
+  getPlatformFrameKey,
 }: {
   /**
-   * What a request display's platform frame is drawn from
-   * (`readRequestFrameKey`), or `undefined` when it cannot be kept.
+   * What a display's platform frame is drawn from (`readPlatformFrameKey`),
+   * naming no device, or `undefined` when it cannot be kept.
    */
-  getRequestFrameKey?: (
+  getPlatformFrameKey?: (
     deviceId: string,
   ) => string | undefined
   getPlatformSelection?: (
@@ -135,9 +152,10 @@ export const createPushController = ({
     string
   >()
 
-  // The latest frame of each `renderOn: "request"` display, in memory only.
-  // A watch's request is answered from it instead of a Chromium capture.
-  const requestFrames = createRequestFrameCache()
+  // Rendered frames in memory, addressed by what changes their pixels. Two
+  // displays whose keys match share one render and one Buffer; a watch's
+  // request is answered from it instead of a Chromium capture.
+  const frames = createFrameStore()
 
   const getRenderSettings = (
     deviceId: string,
@@ -198,23 +216,20 @@ export const createPushController = ({
   }
 
   /**
-   * `viewName` pins which view to render. `pushDevice` passes the view it read
-   * before starting, so the rendered bytes, the logged name and the published
-   * `view` state all describe the same frame even if the owner switches views
-   * mid-render. Callers that just want "whatever is current" omit it.
+   * Everything a Satori view of this display is drawn from, read once so the
+   * frame's key and its render see the same values. The data is per display
+   * (Home Assistant pushes each one its own payloads), and it enters the key
+   * BY VALUE: two displays share a frame only when their data is equal.
    */
-  const renderDevice = async (
-    deviceId: string,
-    viewName?: ViewName,
-  ) => {
-    const settings = getRenderSettings(deviceId)
-    if (!settings) return null
-    const { device, margin, adjustments } = settings
-    const effectiveDevice = device
-
-    // EVERY view honors the mat's safe-area crop, photos included.
-    const activeView =
-      viewName ?? deviceStore.getActiveView(deviceId)
+  const readViewInputs = ({
+    deviceId,
+    viewName,
+    settings,
+  }: {
+    deviceId: string
+    viewName: ViewName
+    settings: DeviceRenderSettings
+  }) => {
     // A "http-pull" panel is an ESPHome `online_image`, whose decoder is chosen
     // at COMPILE time (`format: png`) — it sniffs the magic bytes and rejects
     // anything else with "Incorrect PNG signature". So the photo-format knobs
@@ -223,24 +238,16 @@ export const createPushController = ({
     // blank until someone noticed. Force PNG here rather than relying on a
     // retained per-device override a future session could set back to "Auto".
     const isFormatLockedToPng =
-      device.imageDelivery === "http-pull"
+      settings.device.imageDelivery === "http-pull"
     // Only a photo view may ship a lossy full-color frame; every other view
     // stays lossless PNG (exact text + palette colors).
     const fullColorEncoding: FullColorEncoding =
-      getIsLossyEncodableView(activeView) &&
+      getIsLossyEncodableView(viewName) &&
       !isFormatLockedToPng
         ? resolvePhotoEncoding(deviceId)
         : { format: "png" }
-
-    const platformImage = await renderPlatform?.({
-      device: effectiveDevice,
-      margin,
-      adjustments,
-    })
-    if (platformImage) return platformImage
-    return renderService.renderDevice({
-      device: effectiveDevice,
-      viewName: activeView,
+    return {
+      viewName,
       clock: resolveClockConfig(deviceId),
       // HA pushes each display its own now-playing / weather / agenda payload,
       // all keyed by device id.
@@ -248,62 +255,146 @@ export const createPushController = ({
       photoFrame: viewDataStore.getPhotoFrame(deviceId),
       weather: viewDataStore.getWeather(deviceId),
       agenda: viewDataStore.getAgenda(deviceId),
+      fullColorEncoding,
+    }
+  }
+
+  const renderFrame = async ({
+    settings,
+    inputs,
+    now,
+  }: {
+    settings: DeviceRenderSettings
+    inputs: ReturnType<typeof readViewInputs>
+    now: Date
+  }) => {
+    const { device, margin, adjustments } = settings
+    const platformImage = await renderPlatform?.({
+      device,
+      margin,
+      adjustments,
+    })
+    if (platformImage) return platformImage
+    // EVERY view honors the mat's safe-area crop, photos included.
+    return renderService.renderDevice({
+      device,
+      ...inputs,
       adjustments,
       ...(margin ? { margin } : {}),
-      fullColorEncoding,
+      now,
     })
   }
 
   /**
-   * The full key of a request display's frame: the platform frame plus every
-   * render setting, so a changed margin, rotation, dither or color mode never
-   * serves a frame drawn under the old one.
+   * `viewName` pins which view to render. `pushDevice` passes the view it read
+   * before starting, so the rendered bytes, the logged name and the published
+   * `view` state all describe the same frame even if the owner switches views
+   * mid-render. Callers that just want "whatever is current" omit it.
+   *
+   * The plan carries the frame's KEY — everything that changes its pixels,
+   * and never who the display is — or no key when the frame cannot be kept
+   * (a platform view that is time-driven). `isPlatform` marks a key that time
+   * alone never changes, the only kind worth rendering ahead.
    */
-  const readFrameKey = (deviceId: string) => {
+  const planFrame = ({
+    deviceId,
+    viewName,
+  }: {
+    deviceId: string
+    viewName?: ViewName
+  }) => {
+    const settings = getRenderSettings(deviceId)
+    if (!settings) return undefined
+    const now = new Date()
+    const inputs = readViewInputs({
+      deviceId,
+      viewName:
+        viewName ?? deviceStore.getActiveView(deviceId),
+      settings,
+    })
+    const render = () =>
+      renderFrame({ settings, inputs, now })
+    const pixelSettings = {
+      device: Object.fromEntries(
+        Object.entries(settings.device).filter(
+          ([name]) => !IDENTITY_FIELDS.has(name),
+        ),
+      ),
+      margin: settings.margin,
+      adjustments: settings.adjustments,
+    }
+    const platformKey = getPlatformFrameKey?.(deviceId)
+    if (platformKey !== undefined) {
+      return {
+        key: hashFrameKey({ platformKey, pixelSettings }),
+        isPlatform: true,
+        render,
+      }
+    }
+    // On the platform, but time-driven: render every time, keep nothing.
+    if (getPlatformSelection?.(deviceId) !== undefined) {
+      return { key: undefined, isPlatform: false, render }
+    }
+    // A Satori view reads the clock to the minute, and an agenda drops an
+    // event the moment it starts (`buildAgendaEvents`).
+    return {
+      key: hashFrameKey({
+        pixelSettings,
+        inputs,
+        minute: Math.floor(now.getTime() / 60_000),
+        upcomingAgendaEventCount:
+          inputs.agenda?.events.filter(
+            (event) =>
+              event.isAllDay ||
+              event.startMs >= now.getTime(),
+          ).length,
+      }),
+      isPlatform: false,
+      render,
+    }
+  }
+
+  const renderDevice = async (deviceId: string) =>
+    (await planFrame({ deviceId })?.render()) ?? null
+
+  const getPrerenderKey = (deviceId: string) => {
     if (deviceById.get(deviceId)?.renderOn !== "request") {
       return undefined
     }
-    const platformKey = getRequestFrameKey?.(deviceId)
-    return platformKey === undefined
-      ? undefined
-      : JSON.stringify({
-          platformKey,
-          settings: getRenderSettings(deviceId),
-        })
-  }
-
-  const getPrerenderKey = (deviceId: string) => {
-    const key = readFrameKey(deviceId)
-    if (key === undefined) {
+    const plan = planFrame({ deviceId })
+    if (!plan?.key || !plan.isPlatform) {
       // No frame can be kept, so the one held is stale for good.
-      requestFrames.forget(deviceId)
+      frames.forget(deviceId)
       return undefined
     }
     if (!deviceConfigStore.getIsUpdatesEnabled(deviceId)) {
       return undefined
     }
-    return requestFrames.getHasFrame({ deviceId, key })
+    // Pointing the display at its key now lets a frame another display
+    // already holds serve it, with no render at all.
+    return frames.link({ deviceId, key: plan.key })
       ? undefined
-      : key
+      : plan.key
   }
 
   const prerenderDevice = async (deviceId: string) => {
-    const key = readFrameKey(deviceId)
+    const plan =
+      deviceById.get(deviceId)?.renderOn === "request"
+        ? planFrame({ deviceId })
+        : undefined
     if (
-      key === undefined ||
+      !plan?.key ||
+      !plan.isPlatform ||
       !deviceConfigStore.getIsUpdatesEnabled(deviceId)
     ) {
       return false
     }
-    const isAlreadyHeld = requestFrames.getHasFrame({
-      deviceId,
-      key,
-    })
+    const isAlreadyHeld = frames.getHasFrame(plan.key)
     const startedAt = performance.now()
-    const isReady = await requestFrames.prepare({
+    const isReady = await frames.prepare({
       deviceId,
-      key,
-      renderFrame: () => renderDevice(deviceId),
+      key: plan.key,
+      renderFrame: plan.render,
     })
     if (!isAlreadyHeld) {
       console.log(
@@ -352,28 +443,34 @@ export const createPushController = ({
       deviceStore.getActiveView(deviceId)
     const platformAtRenderStart =
       getPlatformSelection?.(deviceId)
-    // A request display is answered from the frame kept in memory when it is
-    // still current, or joins the render already running for it.
-    const frameKey = readFrameKey(deviceId)
+    // A frame whose key is already held — rendered ahead for a watch, or by
+    // a push a moment ago to this or an identical display — is reused, and a
+    // render already running for the same key is joined.
+    const plan = planFrame({
+      deviceId,
+      viewName: viewAtRenderStart,
+    })
     const startedAt = performance.now()
-    const { image, source } = frameKey
-      ? await requestFrames.read({
+    const { image, source } = plan?.key
+      ? await frames.read({
           deviceId,
-          key: frameKey,
-          renderFrame: () =>
-            renderDevice(deviceId, viewAtRenderStart),
+          key: plan.key,
+          renderFrame: plan.render,
         })
       : {
-          image: await renderDevice(
-            deviceId,
-            viewAtRenderStart,
-          ),
-          source: undefined,
+          image: (await plan?.render()) ?? null,
+          source: "rendered" as const,
         }
+    if (!plan?.key) {
+      frames.forget(deviceId)
+    }
     if (!device || !image) {
       return false
     }
-    if (source) {
+    if (
+      device.renderOn === "request" ||
+      source !== "rendered"
+    ) {
       console.log(
         `[inkcast] frame ${deviceId} ${source} in ${Math.round(performance.now() - startedAt)} ms`,
       )

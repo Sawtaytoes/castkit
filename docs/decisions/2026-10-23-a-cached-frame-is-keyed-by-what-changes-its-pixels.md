@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-23
 - **Type:** Performance and architecture
-- **Supersedes:** None
+- **Supersedes:** item 1 (one entry per display) of [A request display's frame is rendered ahead into memory](2026-10-23-a-request-displays-frame-is-rendered-ahead-into-memory.md)
 - **Superseded by:** None
 
 ## Decision
