@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- The PCM tap runs as an AudioWorklet loaded from a blob: URL. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' blob:"
+    />
+    <title>CastKit audio capture</title>
+  </head>
+  <body>
+    <script src="./captureMain.js"></script>
+  </body>
+</html>

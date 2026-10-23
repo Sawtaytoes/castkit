@@ -1,3 +1,4 @@
+import { networkInterfaces } from "node:os"
 import { join } from "node:path"
 import {
   app,
@@ -33,6 +34,13 @@ import {
   readLaunchAtLogin,
   writeLaunchAtLogin,
 } from "./launchAtLogin.ts"
+import { createPcAudioSender } from "./pcAudioSender.ts"
+import {
+  applyPcAudioChange,
+  canCaptureSystemAudio,
+  describePcAudioStatus,
+  type PcAudioSettings,
+} from "./pcAudioSettings.ts"
 import { createSettingsWindow } from "./settingsWindow.ts"
 import { createSharedSignIn } from "./sharedSignIn.ts"
 import { createWindowManager } from "./windowManager.ts"
@@ -55,8 +63,12 @@ const start = () => {
   if (loaded.problem) {
     log(loaded.problem)
   }
-  const settings: { serverOrigin: string | null } = {
+  const settings: {
+    serverOrigin: string | null
+    pcAudio: PcAudioSettings
+  } = {
     serverOrigin: loaded.state.serverOrigin,
+    pcAudio: loaded.state.pcAudio,
   }
   const saveTimer: {
     handle?: ReturnType<typeof setTimeout>
@@ -71,6 +83,7 @@ const start = () => {
       version: 1,
       serverOrigin: settings.serverOrigin,
       windows: windowManager.readRecords(),
+      pcAudio: settings.pcAudio,
     }
     try {
       saveDesktopState({ filePath: stateFilePath, state })
@@ -91,6 +104,12 @@ const start = () => {
           entries,
           displays,
           isLaunchedAtLogin,
+          pcAudio: {
+            isSending: settings.pcAudio.isSending,
+            statusText: describePcAudioStatus(
+              pcAudioSender.readStatus(),
+            ),
+          },
           actions,
         }),
       ),
@@ -135,6 +154,31 @@ const start = () => {
     saveTimer.handle = setTimeout(saveNow, saveDelay)
     refreshMenus()
     settingsWindow.notifyChanged()
+  }
+
+  const pcAudioSender = createPcAudioSender({
+    distDirectory,
+    onStatusChanged: () => {
+      refreshMenus()
+      settingsWindow.notifyChanged()
+    },
+    log,
+  })
+
+  const changePcAudio = (change: unknown) => {
+    const result = applyPcAudioChange({
+      current: settings.pcAudio,
+      change,
+    })
+    if ("error" in result) {
+      return { isDone: false as const, error: result.error }
+    }
+    settings.pcAudio = result.settings
+    pcAudioSender.apply(result.settings)
+    saveNow()
+    refreshMenus()
+    settingsWindow.notifyChanged()
+    return { isDone: true as const }
   }
 
   const sharedSignIn = createSharedSignIn({
@@ -205,6 +249,23 @@ const start = () => {
       })),
     openWindow: windowManager.open,
     removeWindow: windowManager.remove,
+    readPcAudio: () => ({
+      settings: settings.pcAudio,
+      status: pcAudioSender.readStatus(),
+      isSystemAudioCapturable: canCaptureSystemAudio(
+        process.platform,
+      ),
+      computerAddresses: Object.values(networkInterfaces())
+        .flat()
+        .filter(
+          (address) =>
+            address !== undefined &&
+            address.family === "IPv4" &&
+            !address.internal,
+        )
+        .map((address) => address?.address ?? ""),
+    }),
+    changePcAudio,
   })
 
   const actions: MenuActions = {
@@ -219,6 +280,15 @@ const start = () => {
     setLaunchAtLogin: (isLaunchedAtLogin) => {
       writeLaunchAtLogin(isLaunchedAtLogin)
       refreshMenus()
+    },
+    // With nowhere to send yet, the switch opens the settings instead.
+    setPcAudioSending: (isSending) => {
+      if (isSending && settings.pcAudio.host === "") {
+        settingsWindow.open()
+        refreshMenus()
+        return
+      }
+      changePcAudio({ isSending })
     },
     quit: () => {
       app.quit()
@@ -237,6 +307,7 @@ const start = () => {
 
   const finishBeforeQuit = () => {
     saveNow()
+    pcAudioSender.stop()
     windowManager.beginQuit()
   }
   app.on("before-quit", finishBeforeQuit)
@@ -303,6 +374,7 @@ const start = () => {
   })
 
   loaded.state.windows.forEach(windowManager.restore)
+  pcAudioSender.apply(settings.pcAudio)
   refreshMenus()
   if (
     settings.serverOrigin === null ||

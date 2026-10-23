@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react"
 import { DisplayPicker } from "./DisplayPicker.tsx"
 import { readDesktopBridge } from "./desktopBridge.ts"
 import { PageList } from "./PageList.tsx"
+import { PcAudioPanel } from "./PcAudioPanel.tsx"
 import { ServerPanel } from "./ServerPanel.tsx"
 import type {
   PagesResult,
@@ -189,6 +190,15 @@ export const SettingsApp = () => {
               }
             />
           </div>
+        </section>
+        <section
+          className="settings-panel settings-audio"
+          aria-labelledby="audio-heading"
+        >
+          <h2 id="audio-heading">
+            Send this computer's audio
+          </h2>
+          <PcAudioPanel pcAudio={snapshot.pcAudio} />
         </section>
       </div>
     </div>

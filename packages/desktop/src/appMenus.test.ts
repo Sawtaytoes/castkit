@@ -18,6 +18,7 @@ const actions: MenuActions = {
   moveToDisplay: vi.fn(),
   removeWindow: vi.fn(),
   setLaunchAtLogin: vi.fn(),
+  setPcAudioSending: vi.fn(),
   quit: vi.fn(),
 }
 
@@ -53,6 +54,7 @@ describe(buildTrayMenu.name, () => {
       ],
       displays,
       isLaunchedAtLogin: false,
+      pcAudio: { isSending: false, statusText: null },
       actions,
     })
     const windows = menu.filter((item) => item.submenu)
@@ -74,6 +76,55 @@ describe(buildTrayMenu.name, () => {
     expect(actions.openWindow).toHaveBeenCalledWith(
       "window-2",
     )
+  })
+
+  test("sending this computer's audio is a switch, with what it is doing under it", () => {
+    const menu = buildTrayMenu({
+      entries: [],
+      displays,
+      isLaunchedAtLogin: false,
+      pcAudio: {
+        isSending: true,
+        statusText:
+          "Sending everything this computer plays to music.local:6980.",
+      },
+      actions,
+    })
+    const switchIndex = menu.findIndex(
+      (item) => item.label === "Send this computer's audio",
+    )
+    const audioSwitch = menu[switchIndex]
+    expect(audioSwitch).toMatchObject({
+      type: "checkbox",
+      checked: true,
+    })
+    expect(menu[switchIndex + 1]).toEqual({
+      label:
+        "Sending everything this computer plays to music.local:6980.",
+      enabled: false,
+    })
+    ;(audioSwitch?.click as (...args: unknown[]) => void)({
+      checked: false,
+    })
+    expect(actions.setPcAudioSending).toHaveBeenCalledWith(
+      false,
+    )
+  })
+
+  test("while sending is off, the switch has no status line", () => {
+    const menu = buildTrayMenu({
+      entries: [],
+      displays,
+      isLaunchedAtLogin: false,
+      pcAudio: { isSending: false, statusText: null },
+      actions,
+    })
+    const switchIndex = menu.findIndex(
+      (item) => item.label === "Send this computer's audio",
+    )
+    expect(menu[switchIndex + 1]).toEqual({
+      type: "separator",
+    })
   })
 })
 

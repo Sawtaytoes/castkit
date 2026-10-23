@@ -34,3 +34,15 @@ export const highlightDisplayChannel =
 /** The main process tells the settings page that the windows or displays changed. */
 export const settingsChangedChannel =
   "castkit-desktop:settings-changed"
+
+/** The settings page reads and changes how this computer's audio is sent. */
+export const savePcAudioChannel =
+  "castkit-desktop:save-pc-audio"
+
+/** The hidden audio-capture page sends a chunk of 16-bit PCM. */
+export const capturePcmChannel =
+  "castkit-desktop:capture-pcm"
+
+/** The hidden audio-capture page reports that its capture started or failed. */
+export const captureStatusChannel =
+  "castkit-desktop:capture-status"

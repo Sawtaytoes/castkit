@@ -29,7 +29,15 @@ export type MenuActions = {
   }) => void
   removeWindow: (windowId: string) => void
   setLaunchAtLogin: (isLaunchedAtLogin: boolean) => void
+  setPcAudioSending: (isSending: boolean) => void
   quit: () => void
+}
+
+/** Sending this computer's audio, as the tray shows it. */
+export type PcAudioMenuState = {
+  isSending: boolean
+  /** One line that says what sending is doing, or `null` while it is off. */
+  statusText: string | null
 }
 
 // The page windows handle these keys themselves (`before-input-event`), so
@@ -176,11 +184,13 @@ export const buildTrayMenu = ({
   entries,
   displays,
   isLaunchedAtLogin,
+  pcAudio,
   actions,
 }: {
   entries: WindowMenuEntry[]
   displays: NumberedDisplay[]
   isLaunchedAtLogin: boolean
+  pcAudio: PcAudioMenuState
   actions: MenuActions
 }): MenuItemConstructorOptions[] => {
   const items = buildAppItems({
@@ -209,6 +219,17 @@ export const buildTrayMenu = ({
             }),
           }),
         )),
+    { type: "separator" },
+    {
+      label: "Send this computer's audio",
+      type: "checkbox",
+      checked: pcAudio.isSending,
+      click: (item) =>
+        actions.setPcAudioSending(item.checked),
+    },
+    ...(pcAudio.statusText === null
+      ? []
+      : [{ label: pcAudio.statusText, enabled: false }]),
     { type: "separator" },
     items.launchAtLogin,
     items.quit,

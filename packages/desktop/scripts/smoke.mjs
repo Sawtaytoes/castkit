@@ -10,6 +10,7 @@
 // Linux machine without one, run it under `xvfb-run`. Run `pnpm build` first
 // (`pnpm smoke` does both).
 import assert from "node:assert/strict"
+import { createSocket } from "node:dgram"
 import {
   mkdirSync,
   mkdtempSync,
@@ -91,6 +92,20 @@ await new Promise((resolve) =>
 const { port } = server.address()
 const serverOrigin = `http://127.0.0.1:${port}`
 
+// Sending this computer's audio: a UDP listener stands in for Music
+// Assistant's VBAN Receiver, and Chromium's fake capture device stands in for
+// a real input, so the whole path from capture to packet runs on any runner.
+const fakeInputLabel = "Fake Default Audio Input"
+const vbanPackets = []
+const vbanListener = createSocket("udp4")
+vbanListener.on("message", (packet) => {
+  vbanPackets.push(packet)
+})
+await new Promise((resolve) =>
+  vbanListener.bind(0, "127.0.0.1", resolve),
+)
+const vbanPort = vbanListener.address().port
+
 const stateDirectory = mkdtempSync(
   join(tmpdir(), "castkit-desktop-smoke-"),
 )
@@ -142,6 +157,13 @@ writeFileSync(
         zoomByView: {},
       },
     ],
+    pcAudio: {
+      isSending: true,
+      host: "127.0.0.1",
+      port: vbanPort,
+      streamName: "Smoke",
+      inputDeviceLabel: fakeInputLabel,
+    },
   }),
 )
 const readState = () =>
@@ -183,7 +205,11 @@ void app.whenReady().then(async () => {
 )
 const launch = () =>
   electron.launch({
-    args: [entryFile, "--no-sandbox"],
+    args: [
+      entryFile,
+      "--no-sandbox",
+      "--use-fake-device-for-media-stream",
+    ],
     env: {
       ...process.env,
       CASTKIT_DESKTOP_STATE_FILE: stateFile,
@@ -278,6 +304,53 @@ try {
             ),
           ),
         "a visible window on the primary display",
+      )
+    },
+  )
+
+  await check(
+    "sending this computer's audio delivers VBAN packets",
+    async () => {
+      await waitFor(
+        () => vbanPackets.length >= 200,
+        "200 VBAN packets",
+      ).catch((error) => {
+        throw new Error(
+          `${error.message} ${vbanPackets.length} arrived. App log:\n${logLines.join("").trim()}`,
+        )
+      })
+      const packets = vbanPackets.slice(0, 200)
+      packets.forEach((packet) => {
+        assert.equal(
+          packet.subarray(0, 4).toString(),
+          "VBAN",
+        )
+        // Audio, 48 kHz; 256 frames; 2 channels; INT16 PCM.
+        assert.deepEqual(
+          [...packet.subarray(4, 8)],
+          [3, 255, 1, 1],
+        )
+        assert.equal(
+          packet
+            .subarray(8, 24)
+            .toString()
+            .replace(/\0+$/, ""),
+          "Smoke",
+        )
+        assert.equal(packet.length, 28 + 1024)
+      })
+      const counters = packets.map((packet) =>
+        packet.readUInt32LE(24),
+      )
+      counters.slice(1).forEach((counter, index) => {
+        assert.equal(counter, (counters[index] ?? 0) + 1)
+      })
+      // The fake device beeps: some of what arrived is not silence.
+      assert.ok(
+        vbanPackets.some((packet) =>
+          packet.subarray(28).some((byte) => byte !== 0),
+        ),
+        "every packet was silent",
       )
     },
   )
@@ -743,6 +816,7 @@ try {
 } finally {
   await restarted.close()
   server.close()
+  vbanListener.close()
   rmSync(stateDirectory, { recursive: true, force: true })
 }
 console.info(`\n${results.length} checks passed.`)

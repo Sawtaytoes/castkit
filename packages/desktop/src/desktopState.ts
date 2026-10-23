@@ -6,6 +6,11 @@ import {
   writeFileSync,
 } from "node:fs"
 import { z } from "zod"
+import {
+  defaultPcAudioSettings,
+  type PcAudioSettings,
+  readSavedPcAudioSettings,
+} from "./pcAudioSettings.ts"
 
 const rectangleSchema = z.object({
   x: z.number(),
@@ -41,6 +46,8 @@ export type DesktopState = {
   version: 1
   serverOrigin: string | null
   windows: SavedWindow[]
+  /** Sending this computer's audio to a VBAN receiver. */
+  pcAudio: PcAudioSettings
 }
 
 /** The state of a first launch: no server yet, no windows. */
@@ -48,12 +55,14 @@ export const defaultDesktopState: DesktopState = {
   version: 1,
   serverOrigin: null,
   windows: [],
+  pcAudio: defaultPcAudioSettings,
 }
 
 const stateFileSchema = z.object({
   version: z.literal(1),
   serverOrigin: z.string().nullable(),
   windows: z.array(z.unknown()),
+  pcAudio: z.unknown().optional(),
 })
 
 /**
@@ -79,6 +88,9 @@ export const parseDesktopState = (
       version: 1,
       serverOrigin: parsed.data.serverOrigin,
       windows,
+      pcAudio: readSavedPcAudioSettings(
+        parsed.data.pcAudio,
+      ),
     },
     droppedWindowCount:
       parsed.data.windows.length - windows.length,

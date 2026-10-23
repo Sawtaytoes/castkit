@@ -9,6 +9,7 @@ import {
   readPagesChannel,
   readSettingsChannel,
   removeWindowChannel,
+  savePcAudioChannel,
   saveServerOriginChannel,
   scanServersChannel,
   settingsChangedChannel,
@@ -29,6 +30,8 @@ const api: CastkitDesktopApi = {
     ipcRenderer.invoke(openWindowChannel, windowId),
   removeWindow: (windowId) =>
     ipcRenderer.invoke(removeWindowChannel, windowId),
+  savePcAudio: (change) =>
+    ipcRenderer.invoke(savePcAudioChannel, change),
   highlightDisplay: (displayId) => {
     ipcRenderer.send(highlightDisplayChannel, displayId)
   },
