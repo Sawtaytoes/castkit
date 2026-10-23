@@ -1,7 +1,14 @@
 import { IMPRESSION_DEVICE } from "@castkit/core/devices/device"
-import { describe, expect, test } from "vitest"
+import {
+  afterEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest"
 import { createPushController } from "./pushController.ts"
 import { createDeviceConfigStore } from "./state/deviceConfigStore.ts"
+import { createViewDataStore } from "./state/viewDataStore.ts"
 
 const PNG = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -19,9 +26,13 @@ const makeController = ({
   photoEncoding = { format: "png" },
   onRender,
   renderPlatform,
-  getRequestFrameKey,
+  getPlatformFrameKey,
+  getPlatformSelection,
 }: {
-  getRequestFrameKey?: (
+  getPlatformSelection?: (
+    deviceId: string,
+  ) => string | undefined
+  getPlatformFrameKey?: (
     deviceId: string,
   ) => string | undefined
   activeView?: string
@@ -56,7 +67,8 @@ const makeController = ({
 
   const pushController = createPushController({
     renderPlatform,
-    getRequestFrameKey,
+    getPlatformFrameKey,
+    getPlatformSelection,
     devices: [device] as never,
     deviceStore: {
       getActiveView: () => currentView.value,
@@ -621,7 +633,9 @@ describe('pushDevice — a renderOn: "request" display answers from its frame ke
       imageDelivery: "http-pull",
       renderOn: "request",
       publicUrl: "https://display.example.com",
-      getRequestFrameKey: () => frameKey.value,
+      getPlatformFrameKey: () => frameKey.value,
+      // The watch shows a platform screen; a time-driven view has no key.
+      getPlatformSelection: () => "watch-view",
       renderPlatform: () => {
         capture.callCount += 1
         return capture.isManual
@@ -801,7 +815,7 @@ describe('pushDevice — a renderOn: "request" display answers from its frame ke
   test("a display that renders on every update keeps no frame", async () => {
     const harness = makeController({
       renderOn: "update",
-      getRequestFrameKey: () => "points-12",
+      getPlatformFrameKey: () => "points-12",
       renderPlatform: async () => PNG,
     })
 
@@ -815,5 +829,321 @@ describe('pushDevice — a renderOn: "request" display answers from its frame ke
         IMPRESSION_DEVICE.id,
       ),
     ).toBe(false)
+  })
+})
+
+// Several installations share one panel model at the same settings. A frame
+// is keyed by what changes its pixels, never by who the display is, so
+// identical displays share one render and one Buffer.
+describe("pushDevice — identical displays share frames", () => {
+  afterEach(() => vi.useRealTimers())
+
+  const makeFleet = ({
+    devices,
+    platformFrameKeyByDevice,
+  }: {
+    devices: readonly Record<string, unknown>[]
+    platformFrameKeyByDevice?: Record<string, string>
+  }) => {
+    const deviceConfigStore = createDeviceConfigStore()
+    const viewDataStore = createViewDataStore()
+    const satoriRenders: string[] = []
+    const captures: string[] = []
+    const publishedImages: {
+      topic: string
+      payload: unknown
+    }[] = []
+    const render = { finish: () => {}, isManual: false }
+    const waitForFinish = () =>
+      render.isManual
+        ? new Promise<void>((resolve) => {
+            render.finish = resolve
+          })
+        : Promise.resolve()
+    const pushController = createPushController({
+      devices: devices as never,
+      deviceStore: {
+        getActiveView: () => "Clock (Agenda)",
+        setActiveView: () => {},
+      } as never,
+      deviceConfigStore,
+      viewDataStore,
+      renderService: {
+        renderDevice: async ({
+          device,
+        }: {
+          device: { id: string }
+        }) => {
+          satoriRenders.push(device.id)
+          await waitForFinish()
+          return Buffer.from(
+            `satori-${satoriRenders.length}`,
+          )
+        },
+      } as never,
+      publisher: {
+        publish: async ({
+          topic,
+          payload,
+        }: {
+          topic: string
+          payload: unknown
+        }) => {
+          if (topic.endsWith("/image")) {
+            publishedImages.push({ topic, payload })
+          }
+        },
+      } as never,
+      baseTopic: "castkit",
+      resolvePhotoEncoding: () => ({ format: "png" }),
+      resolveClockConfig: () =>
+        ({
+          timeZone: "America/Chicago",
+          isTwelveHour: true,
+          isNumericDate: false,
+        }) as never,
+      renderTokenStore: {
+        createToken: () => "token",
+      } as never,
+      publicUrl: "",
+      ...(platformFrameKeyByDevice
+        ? {
+            getPlatformFrameKey: (deviceId: string) =>
+              platformFrameKeyByDevice[deviceId],
+            getPlatformSelection: () => "screen",
+            renderPlatform: async ({
+              device,
+            }: {
+              device: { id: string }
+            }) => {
+              captures.push(device.id)
+              await waitForFinish()
+              return Buffer.from(
+                `capture-${captures.length}`,
+              )
+            },
+          }
+        : {}),
+    })
+    return {
+      pushController,
+      viewDataStore,
+      deviceConfigStore,
+      satoriRenders,
+      captures,
+      publishedImages,
+      render,
+    }
+  }
+  const panel = (id: string, overrides = {}) => ({
+    ...IMPRESSION_DEVICE,
+    id,
+    label: `Panel ${id}`,
+    mac: `02:00:00:00:00:${id.length}`,
+    ...overrides,
+  })
+  const AGENDA = {
+    events: [
+      {
+        startMs: Date.UTC(2026, 9, 23, 18, 0),
+        summary: "Practice",
+        isAllDay: false,
+      },
+    ],
+  }
+
+  test("two panels with the same model, settings and data render once and share the Buffer", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(Date.UTC(2026, 9, 23, 13, 0, 0))
+    const fleet = makeFleet({
+      devices: [panel("kitchen"), panel("hallway")],
+    })
+    fleet.viewDataStore.setAgenda({
+      deviceId: "kitchen",
+      data: AGENDA,
+    })
+    fleet.viewDataStore.setAgenda({
+      deviceId: "hallway",
+      data: AGENDA,
+    })
+    fleet.render.isManual = true
+
+    const pushes = [
+      fleet.pushController.pushDevice("kitchen"),
+      fleet.pushController.pushDevice("hallway"),
+    ]
+    // Both pushes are in flight before the first render finishes.
+    await vi.waitFor(() => {
+      expect(fleet.satoriRenders).toHaveLength(1)
+    })
+    fleet.render.finish()
+
+    expect(await Promise.all(pushes)).toEqual([true, true])
+    expect(fleet.satoriRenders).toEqual(["kitchen"])
+    expect(fleet.publishedImages).toHaveLength(2)
+    expect(fleet.publishedImages[1]?.payload).toBe(
+      fleet.publishedImages[0]?.payload,
+    )
+  })
+
+  test("panels whose own data differs never share a frame", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(Date.UTC(2026, 9, 23, 13, 0, 0))
+    const fleet = makeFleet({
+      devices: [panel("kitchen"), panel("hallway")],
+    })
+    fleet.viewDataStore.setAgenda({
+      deviceId: "kitchen",
+      data: AGENDA,
+    })
+    fleet.viewDataStore.setAgenda({
+      deviceId: "hallway",
+      data: {
+        events: [
+          { ...AGENDA.events[0], summary: "Dentist" },
+        ],
+      } as never,
+    })
+
+    await fleet.pushController.pushDevice("kitchen")
+    await fleet.pushController.pushDevice("hallway")
+
+    expect(fleet.satoriRenders).toEqual([
+      "kitchen",
+      "hallway",
+    ])
+  })
+
+  test("a differing panel setting never shares a frame", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(Date.UTC(2026, 9, 23, 13, 0, 0))
+    const fleet = makeFleet({
+      devices: [
+        panel("kitchen"),
+        panel("hallway", { rotation: 180 }),
+      ],
+    })
+
+    await fleet.pushController.pushDevice("kitchen")
+    await fleet.pushController.pushDevice("hallway")
+    fleet.deviceConfigStore.setDitherAlgorithm({
+      deviceId: "kitchen",
+      algorithm: "atkinson",
+    })
+    await fleet.pushController.pushDevice("kitchen")
+
+    expect(fleet.satoriRenders).toEqual([
+      "kitchen",
+      "hallway",
+      "kitchen",
+    ])
+  })
+
+  test("the clock tick and a data push in the same minute render once; the next minute renders again", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(Date.UTC(2026, 9, 23, 13, 0, 0))
+    const fleet = makeFleet({ devices: [panel("kitchen")] })
+    fleet.viewDataStore.setAgenda({
+      deviceId: "kitchen",
+      data: AGENDA,
+    })
+
+    await fleet.pushController.pushDevice("kitchen")
+    // Home Assistant republishes the same agenda half a second later.
+    vi.setSystemTime(Date.UTC(2026, 9, 23, 13, 0, 0, 500))
+    fleet.viewDataStore.setAgenda({
+      deviceId: "kitchen",
+      data: { events: [...AGENDA.events] },
+    })
+    await fleet.pushController.pushDevice("kitchen")
+    expect(fleet.satoriRenders).toEqual(["kitchen"])
+    // Both pushes still published: the unchanged-image skips stay where they were.
+    expect(fleet.publishedImages).toHaveLength(2)
+
+    vi.setSystemTime(Date.UTC(2026, 9, 23, 13, 1, 0))
+    await fleet.pushController.pushDevice("kitchen")
+    expect(fleet.satoriRenders).toEqual([
+      "kitchen",
+      "kitchen",
+    ])
+  })
+
+  test("an agenda event that starts inside the minute changes the frame", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(Date.UTC(2026, 9, 23, 18, 0, 0) - 1)
+    const fleet = makeFleet({ devices: [panel("kitchen")] })
+    fleet.viewDataStore.setAgenda({
+      deviceId: "kitchen",
+      data: AGENDA,
+    })
+
+    await fleet.pushController.pushDevice("kitchen")
+    vi.setSystemTime(Date.UTC(2026, 9, 23, 18, 0, 0))
+    await fleet.pushController.pushDevice("kitchen")
+
+    expect(fleet.satoriRenders).toHaveLength(2)
+  })
+
+  test("two watches on the same platform frame share one capture", async () => {
+    const fleet = makeFleet({
+      devices: [
+        panel("watch-one", {
+          renderOn: "request",
+          imageDelivery: "http-pull",
+        }),
+        panel("watch-two", {
+          renderOn: "request",
+          imageDelivery: "http-pull",
+        }),
+      ],
+      platformFrameKeyByDevice: {
+        "watch-one": "totals",
+        "watch-two": "totals",
+      },
+    })
+
+    expect(
+      await fleet.pushController.prerenderDevice(
+        "watch-one",
+      ),
+    ).toBe(true)
+    // The second watch's key is already held, so nothing renders for it.
+    expect(
+      fleet.pushController.getPrerenderKey("watch-two"),
+    ).toBeUndefined()
+    expect(
+      await fleet.pushController.pushDevice("watch-two", {
+        isForced: true,
+        isRequested: true,
+      }),
+    ).toBe(true)
+
+    expect(fleet.captures).toEqual(["watch-one"])
+  })
+
+  test("watches on different platform content never share a capture", async () => {
+    const fleet = makeFleet({
+      devices: [
+        panel("watch-one", { renderOn: "request" }),
+        panel("watch-two", { renderOn: "request" }),
+      ],
+      platformFrameKeyByDevice: {
+        "watch-one": "totals-for-one",
+        "watch-two": "agenda-for-two",
+      },
+    })
+
+    await fleet.pushController.prerenderDevice("watch-one")
+    expect(
+      fleet.pushController.getPrerenderKey("watch-two"),
+    ).toBeDefined()
+    await fleet.pushController.pushDevice("watch-two", {
+      isRequested: true,
+    })
+
+    expect(fleet.captures).toEqual([
+      "watch-one",
+      "watch-two",
+    ])
   })
 })

@@ -45,6 +45,8 @@ export type RenderService = {
     adjustments?: DitherAdjustments
     margin?: PanelMargin
     fullColorEncoding?: FullColorEncoding
+    /** The instant the view draws; the frame's key read the same one. */
+    now?: Date
   }) => Promise<Buffer>
   renderPage: (params: {
     device: DeviceMetadata
@@ -98,6 +100,7 @@ export const createRenderService = async ({
       adjustments,
       margin,
       fullColorEncoding,
+      now = new Date(),
     }) => {
       // The view must be laid out in the safe box (device minus the mat
       // inset), not the full panel, so its text reflows to what stays
@@ -119,7 +122,7 @@ export const createRenderService = async ({
         element: renderViewElement({
           viewName,
           device: contentDevice,
-          now: new Date(),
+          now,
           clock,
           nowPlaying,
           photoFrame,
