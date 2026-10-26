@@ -87,6 +87,12 @@ export const startStreamFrameService = ({
             height,
           },
         })
+        if (!Array.isArray(read)) {
+          // A frame the worker cannot map a touch onto is no frame at all.
+          throw new Error(
+            "The capture read no touch targets",
+          )
+        }
         return { png, targets: read as StreamTarget[] }
       } finally {
         capture.close()
