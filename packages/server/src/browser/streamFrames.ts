@@ -82,6 +82,20 @@ const MINUTE_VIEW_IDS = new Set([
 ])
 
 /**
+ * The data a clock view draws from. Every other room's music, queue and
+ * printers are in the same snapshot but never reach these views' pixels, so
+ * leaving them out lets panels playing different music share one clock frame
+ * and keeps a track change from drawing the clock again. A view not listed
+ * here keys on all of the snapshot's data.
+ */
+const VIEW_DATA_KEYS: Partial<
+  Record<string, (keyof DeviceSnapshot["data"])[]>
+> = {
+  ambient: ["weather"],
+  calendar: ["agenda", "weather"],
+}
+
+/**
  * The snapshot as a key: what draws the panel, without what names it.
  *
  * The device id, label and preload list draw nothing, and Now Playing's
@@ -102,6 +116,20 @@ const readSnapshotContent = (snapshot: DeviceSnapshot) => {
     positionUpdatedAtMs: _positionUpdatedAtMs,
     ...stillNowPlaying
   } = nowPlaying ?? {}
+  const dataKeys = VIEW_DATA_KEYS[snapshot.view]
+  const data = dataKeys
+    ? Object.fromEntries(
+        dataKeys.map((key) => [
+          key,
+          snapshot.data[key] ?? null,
+        ]),
+      )
+    : {
+        ...snapshot.data,
+        ...(nowPlaying
+          ? { nowPlaying: stillNowPlaying }
+          : {}),
+      }
   return JSON.stringify({
     device,
     settings: snapshot.settings,
@@ -112,14 +140,7 @@ const readSnapshotContent = (snapshot: DeviceSnapshot) => {
           id: snapshot.displayTarget.id,
         }
       : null,
-    data: snapshot.displayTarget
-      ? null
-      : {
-          ...snapshot.data,
-          ...(nowPlaying
-            ? { nowPlaying: stillNowPlaying }
-            : {}),
-        },
+    data: snapshot.displayTarget ? null : data,
     buildId: snapshot.buildId,
   })
     .split(deviceId)
