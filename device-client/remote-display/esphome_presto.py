@@ -23,6 +23,10 @@ LOG = logging.getLogger("castkit.remote-display")
 # full on the same link first. A dead link still fails the send with APIConnectionError.
 FRAME_ATTEMPTS = 3
 FRAME_ACK_SECONDS = 6
+# The patch header's codec byte. JPEG is lossy: after a JPEG patch the board's
+# pixels inside it only approximate `base_pixels`, which is harmless because the
+# next camera frame replaces the whole rectangle and any other frame differs there.
+PATCH_CODECS = {"zlib": 0, "rle": 1, "jpeg": 2}
 # Firmware that holds frames on the board names these three actions. A board
 # without them keeps today's path: every frame travels when it is shown.
 SLOT_ACTIONS = frozenset({"slot_chunk", "show_slot", "drop_slots"})
@@ -59,6 +63,9 @@ class ESPHomePrestoTransport(PrestoTransport):
         self.wake_requested_at = None
         self.unsubscribe = None
         self.has_slots = False
+        # Firmware with a JPEG patch decoder reports `zlib,rle,jpeg` on "Display Codecs".
+        self.codecs_key = None
+        self.has_jpeg = False
         # slot -> {"view", "key", "frame_id", "pixels", "targets"}: what the board holds.
         self.slots = {}
         self.slot_pending = None
@@ -104,6 +111,10 @@ class ESPHomePrestoTransport(PrestoTransport):
         self.slot_event_key = next(
             (entity.key for entity in entities if entity.name == "Display Slot Events"), None
         )
+        self.codecs_key = next(
+            (entity.key for entity in entities if entity.name == "Display Codecs"), None
+        )
+        self.has_jpeg = False
         self.build_marker = f"esphome-presto-rgb565-v1 {info.compilation_time}"
         self.base_id, self.base_pixels = 0, None
         # Slot firmware reports uploads only on "Display Slot Events"; without that
@@ -126,6 +137,9 @@ class ESPHomePrestoTransport(PrestoTransport):
 
     def native_state(self, state):
         if not isinstance(state, TextSensorState):
+            return
+        if self.codecs_key is not None and state.key == self.codecs_key:
+            self.has_jpeg = "jpeg" in state.state.split(",")
             return
         parts = state.state.split(",")
         if state.key == self.slot_event_key and state.key != self.event_key:
@@ -294,9 +308,11 @@ class ESPHomePrestoTransport(PrestoTransport):
 
     def can_use_prepared(self, prepared):
         """A server patch replaces only its rectangle, so the board must already show
-        a frame whose pixels outside it are the same: a camera frame of that layout."""
+        a frame whose pixels outside it are the same: a camera frame of that layout.
+        A JPEG patch also needs firmware that decodes one."""
         return (
             prepared is not None
+            and (prepared.get("codec", "zlib") != "jpeg" or self.has_jpeg)
             and self.base_pixels is not None
             and self.base_id != 0
             and self.base_layout == prepared["layout"]
@@ -308,7 +324,11 @@ class ESPHomePrestoTransport(PrestoTransport):
         started = time.monotonic()
         if self.can_use_prepared(prepared):
             # Compressed once on the server for every panel of this size.
-            body, encoding, rectangle = prepared["body"], "zlib", tuple(prepared["patch"])
+            body, encoding, rectangle = (
+                prepared["body"],
+                prepared.get("codec", "zlib"),
+                tuple(prepared["patch"]),
+            )
         else:
             body, encoding, rectangle = await asyncio.to_thread(
                 encode_presto_patch, raw, self.base_pixels
@@ -322,7 +342,7 @@ class ESPHomePrestoTransport(PrestoTransport):
             else None
         )
         self.patch_prepare_ms = round((time.monotonic() - started) * 1000, 1)
-        packet = struct.pack(">IHHHHB", self.base_id, *rectangle, int(encoding == "rle")) + body
+        packet = struct.pack(">IHHHHB", self.base_id, *rectangle, PATCH_CODECS[encoding]) + body
         encoded = base64.b64encode(packet).decode("ascii")
         self.pending = asyncio.get_running_loop().create_future()
         self.frame = {"id": frame_id, "touch_id": touch_id, "created": time.monotonic()}

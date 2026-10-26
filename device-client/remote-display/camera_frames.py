@@ -24,6 +24,9 @@ RETRY_SECONDS = (0.5, 1, 2, 5)
 # Without a new picture for this long the alert falls back to page capture, so
 # a stalled camera never freezes the glass on an old picture.
 STALE_SECONDS = 4
+# zlib of big-endian RGB565 for every board; baseline JPEG for a board that reports
+# a decoder for it (about a fifth of the bytes of a camera picture).
+FRAME_CODECS = ("zlib", "jpeg")
 
 
 def parse_frame(headers, body):
@@ -32,9 +35,11 @@ def parse_frame(headers, body):
     patch = tuple(int(value) for value in headers["x-castkit-frame-patch"].split(","))
     if len(patch) != 4 or pixel_count <= 0 or pixel_count > len(body):
         raise ValueError("Malformed camera frame")
-    if headers.get("x-castkit-frame-codec") != "zlib":
+    codec = headers.get("x-castkit-frame-codec")
+    if codec not in FRAME_CODECS:
         raise ValueError("Unsupported camera frame codec")
     return {
+        "codec": codec,
         "sequence": int(headers["x-castkit-frame-sequence"]),
         "pixels": bytes(body[:pixel_count]),
         "patch": patch,
@@ -44,16 +49,20 @@ def parse_frame(headers, body):
     }
 
 
-def frames_url(base, width, height, after):
+def frames_url(base, width, height, after, codec="zlib"):
     separator = "&" if "?" in base else "?"
-    return f"{base}{separator}{urlencode({'width': width, 'height': height, 'after': after})}"
+    query = {"width": width, "height": height, "after": after}
+    if codec != "zlib":
+        query["codec"] = codec
+    return f"{base}{separator}{urlencode(query)}"
 
 
 class CameraFrameFeed:
     """Hold one request open for the newest frame; keep only the latest."""
 
-    def __init__(self, url, cookie_header, width, height, session_factory=None):
+    def __init__(self, url, cookie_header, width, height, session_factory=None, codec="zlib"):
         self.url = url
+        self.codec = codec
         self.cookie_header = cookie_header
         self.width = width
         self.height = height
@@ -91,7 +100,8 @@ class CameraFrameFeed:
                 after = self.latest["sequence"] if self.latest else 0
                 try:
                     async with session.get(
-                        frames_url(self.url, self.width, self.height, after), headers=headers
+                        frames_url(self.url, self.width, self.height, after, self.codec),
+                        headers=headers,
                     ) as response:
                         if response.status == 204:
                             continue

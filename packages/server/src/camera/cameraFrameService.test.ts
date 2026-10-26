@@ -260,3 +260,41 @@ test("nobody reading stops the decoder, so an idle server decodes nothing", asyn
   expect(handle.stop).toHaveBeenCalledTimes(1)
   expect(service.listSessions()).toHaveLength(0)
 })
+
+test("a JPEG reader and a zlib reader of one size get separate bodies from one decode", async () => {
+  const { handle, startDecoder } = createFakeDecoder()
+  const service = createService({ startDecoder })
+  const zlibFrame = service.waitForFrame({
+    source: videoSource,
+    width: 480,
+    height: 480,
+    label: "Door",
+  })
+  const jpegFrame = service.waitForFrame({
+    source: videoSource,
+    width: 480,
+    height: 480,
+    label: "Door",
+    codec: "jpeg",
+  })
+  await vi.waitFor(() => expect(handle.starts).toBe(1))
+  handle.emit(syntheticPicture(90))
+  const [zlibResult, jpegResult] = await Promise.all([
+    zlibFrame,
+    jpegFrame,
+  ])
+  expect(zlibResult?.codec).toBe("zlib")
+  expect(jpegResult?.codec).toBe("jpeg")
+  // JPEG starts with its SOI marker; both describe the same patch and layout.
+  expect([
+    ...(jpegResult?.body.subarray(0, 2) ?? []),
+  ]).toEqual([0xff, 0xd8])
+  expect(jpegResult?.patch).toEqual(zlibResult?.patch)
+  expect(jpegResult?.layout).toBe(zlibResult?.layout)
+  expect(
+    jpegResult?.pixels.equals(
+      zlibResult?.pixels ?? Buffer.alloc(0),
+    ),
+  ).toBe(true)
+  expect(handle.starts).toBe(1)
+})

@@ -1,5 +1,6 @@
 import { promisify } from "node:util"
 import { deflate } from "node:zlib"
+import sharp from "sharp"
 
 const deflateAsync = promisify(deflate)
 
@@ -10,6 +11,16 @@ export type FrameRectangle = {
   width: number
   height: number
 }
+
+/**
+ * How a patch body is compressed: `zlib` of big-endian RGB565, which every
+ * image-stream board draws, or baseline `jpeg` of the patch, for a board that
+ * reports it can decode one (a camera picture is about a fifth of the bytes).
+ */
+export type PatchCodec = "zlib" | "jpeg"
+
+/** JPEG quality for camera patches; the picture is a moving camera, not text. */
+export const CAMERA_JPEG_QUALITY = 75
 
 /** A text coverage mask, 0 = background and 255 = solid glyph. */
 export type TextMask = {
@@ -195,7 +206,7 @@ export const cropRgb565 = ({
 /**
  * Compose one panel frame: the camera picture (already scaled to the layout's
  * camera rectangle), the label, and the truthful receipt time. Returns the
- * whole frame as big-endian RGB565 plus the zlib body of the patch rectangle,
+ * whole frame as big-endian RGB565 plus the patch rectangle's body in `codec`,
  * which every panel of this profile sends unchanged.
  */
 export const composeCameraFrame = async ({
@@ -205,6 +216,7 @@ export const composeCameraFrame = async ({
   status,
   time,
   renderText,
+  codec = "zlib",
 }: {
   layout: CameraFrameLayout
   camera: Buffer
@@ -212,6 +224,7 @@ export const composeCameraFrame = async ({
   status: string
   time: string
   renderText: RenderTextMask
+  codec?: PatchCodec
 }) => {
   const canvas = Buffer.alloc(
     layout.width * layout.height * 3,
@@ -308,13 +321,34 @@ export const composeCameraFrame = async ({
     })
   }
   const pixels = toRgb565(canvas)
-  const body = await deflateAsync(
-    cropRgb565({
-      pixels,
-      width: layout.width,
-      rectangle: layout.patch,
-    }),
-    { level: 1 },
-  )
+  const body =
+    codec === "jpeg"
+      ? await sharp(canvas, {
+          raw: {
+            width: layout.width,
+            height: layout.height,
+            channels: 3,
+          },
+        })
+          .extract({
+            left: layout.patch.x,
+            top: layout.patch.y,
+            width: layout.patch.width,
+            height: layout.patch.height,
+          })
+          .jpeg({
+            quality: CAMERA_JPEG_QUALITY,
+            progressive: false,
+            mozjpeg: false,
+          })
+          .toBuffer()
+      : await deflateAsync(
+          cropRgb565({
+            pixels,
+            width: layout.width,
+            rectangle: layout.patch,
+          }),
+          { level: 1 },
+        )
   return { pixels, body }
 }

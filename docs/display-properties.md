@@ -628,7 +628,9 @@ does not capture the alert page. When the page marks its section with
 unchanged. The server decodes the camera's Home Assistant low-latency HLS once per camera
 (ffmpeg, 10 pictures per second, at most 480 px), composes the label, the live or
 snapshot state, and the receipt time once per panel profile, and hands the newest frame to
-every reader. A slow panel skips to the newest frame and never queues old ones. Stills
+every reader. A slow panel skips to the newest frame and never queues old ones. A
+Presto whose firmware reports `jpeg` on its `Display Codecs` entity receives the camera
+rectangle as a baseline JPEG instead of zlib, about a fifth of the bytes. Stills
 cover the first seconds while the video starts. Decoding stops 15 s after the last read,
 so a server with no alert decodes nothing. The page itself still runs, so its touch
 targets, swipes, and dismiss work as before; a stale feed (4 s) or a touch returns the

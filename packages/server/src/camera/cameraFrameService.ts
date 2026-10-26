@@ -9,6 +9,7 @@ import {
   composeCameraFrame,
   type FrameRectangle,
   getCameraFrameLayout,
+  type PatchCodec,
   type RenderTextMask,
   type TextMask,
 } from "./cameraFrameLayout.ts"
@@ -34,8 +35,9 @@ export type CameraPanelFrame = {
   pixels: Buffer
   /** The rectangle `body` replaces. */
   patch: FrameRectangle
-  /** zlib of the patch rectangle's pixels. */
+  /** The patch rectangle's pixels in `codec`. */
   body: Buffer
+  codec: PatchCodec
   /** Changes when anything outside the patch changes. */
   layout: string
   origin: "video" | "still"
@@ -319,11 +321,13 @@ export const createCameraFrameService = ({
     width,
     height,
     label,
+    codec,
   }: {
     picture: Picture
     width: number
     height: number
     label: string
+    codec: PatchCodec
   }): Promise<CameraPanelFrame> => {
     const layout: CameraFrameLayout = getCameraFrameLayout({
       width,
@@ -360,12 +364,14 @@ export const createCameraFrameService = ({
       status,
       time: formatTime(picture.receivedAt),
       renderText: cachedText,
+      codec,
     })
     return {
       sequence: picture.sequence,
       pixels,
       patch: layout.patch,
       body,
+      codec,
       layout: createHash("sha256")
         .update(
           JSON.stringify([
@@ -386,11 +392,13 @@ export const createCameraFrameService = ({
     width,
     height,
     label,
+    codec,
   }: {
     session: Session
     width: number
     height: number
     label: string
+    codec: PatchCodec
   }) => {
     const picture = session.latest
     if (!picture) return undefined
@@ -398,11 +406,18 @@ export const createCameraFrameService = ({
       width,
       height,
       label,
+      codec,
     ])
     const held = session.profiles.get(profileKey)
     if (held?.sequence === picture.sequence)
       return held.frame
-    const frame = render({ picture, width, height, label })
+    const frame = render({
+      picture,
+      width,
+      height,
+      label,
+      codec,
+    })
     if (
       !session.profiles.has(profileKey) &&
       session.profiles.size >= MAXIMUM_PROFILES
@@ -431,6 +446,7 @@ export const createCameraFrameService = ({
       width,
       height,
       label,
+      codec = "zlib",
       after = 0,
       timeoutMilliseconds = 5000,
       signal,
@@ -439,6 +455,8 @@ export const createCameraFrameService = ({
       width: number
       height: number
       label: string
+      /** The body's compression; a JPEG profile is cached apart from zlib. */
+      codec?: PatchCodec
       after?: number
       timeoutMilliseconds?: number
       signal?: AbortSignal
@@ -471,7 +489,13 @@ export const createCameraFrameService = ({
         (session.latest?.sequence ?? 0) <= after
       )
         return undefined
-      return frameFor({ session, width, height, label })
+      return frameFor({
+        session,
+        width,
+        height,
+        label,
+        codec,
+      })
     },
     /** Sessions running now, for health reports and tests. */
     listSessions: () =>

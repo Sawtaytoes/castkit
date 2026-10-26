@@ -141,6 +141,19 @@ never written to disk.
      `camera_frames.py` long-polls that URL with the page's cookie, and the worker sends
      each frame unchanged while the feed is fresh (4 s), the page is settled, and no touch
      is active; otherwise it captures the page as before.
+   - **Measured on panels, 2026-10-26** (one Presto per run, a 25–45 s test override).
+     A healthy link: 1.39 FPS steady, 56 frames in 40 s, every frame the server's
+     480x360 patch (~161 KB zlib). Per frame ~650 ms: ~450 ms on the link, ~165 ms inflate
+     (`decode_us`), ~40 ms draw. Before this change the same panels drew 0.69–0.99 FPS.
+     Server: the frame service at one panel's rate costs ~10% of one core plus ffmpeg ~7–8%
+     (measured in the running container); it decoded 9.9 pictures per second for three
+     readers at ~43% of one core. A weaker link drew 1.28 FPS in one run, but in two of three
+     runs its first 160 KB patch stalled the link past the board's 3 s chunk limit and the
+     board left the network for ~75 s. The link is the limit, so phase 4 adds a JPEG patch.
+   - **JPEG patches (codec 2).** A board whose firmware reports `jpeg` on its
+     `Display Codecs` entity gets the camera rectangle as a baseline JPEG (quality 75, about
+     a fifth of the bytes); every other board keeps zlib. The server encodes each profile's
+     JPEG once, only when a reader asks for it (`codec=jpeg`).
 4. **Panel firmware — the main remaining cost of a swipe.** (a) Measure and shorten the board's inflate and draw path
    (partial regions, faster copy) — this is the camera frame rate. (b) Frame slots in
    PSRAM: the worker preloads the destination frame of each swipe direction, and the
