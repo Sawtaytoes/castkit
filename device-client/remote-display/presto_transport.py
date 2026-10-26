@@ -17,8 +17,19 @@ from ambient_light import control_state, metadata
 from codec import encode_presto_patch
 
 
+class FrameSupersededError(Exception):
+    """A released swipe took the panel over before this frame was acknowledged."""
+
+
+class SlotUnavailableError(Exception):
+    """The board holds nothing in that slot, so the picture did not change."""
+
+
 class PrestoTransport:
     transport_build = "castkit-presto-transport-v6-raw-pixels"
+    # Firmware with frame slots holds swipe destinations on the board. The HTTP
+    # receiver has none; ESPHomePrestoTransport turns them on when it finds them.
+    has_slots = False
 
     def __init__(self, config, token):
         if not isinstance(token, str) or len(token) < 32:
@@ -52,6 +63,10 @@ class PrestoTransport:
         self.ambient_palette = [[0, 0, 0] for _ in range(7)]
         self.frames_drawn = 0
         self.touches_received = 0
+        # The last swipe release that had a destination ready, written by the session.
+        self.last_release = None
+        # How many swipe destinations the server has drawn ahead for this panel.
+        self.frames_ahead = 0
         self.runner = None
 
     @web.middleware
@@ -84,6 +99,15 @@ class PrestoTransport:
         self.last_seen = time.monotonic()
         self.connected.set()
         return await handler(request)
+
+    def supersede_live(self):
+        """A pulled frame cannot be recalled; a newer frame simply replaces it."""
+
+    def find_slot(self, view, key):
+        return None
+
+    def deferred_slots(self):
+        return frozenset()
 
     def report(self, value):
         if self.callback is not None:
@@ -345,6 +369,12 @@ class PrestoTransport:
                 "encode_ms": self.encode_ms,
                 "patch_prepare_ms": self.patch_prepare_ms,
                 "last_touch_to_ack_ms": self.last_touch_latency_ms,
+                "has_slots": self.has_slots,
+                "slots": {
+                    str(slot): held["view"] for slot, held in getattr(self, "slots", {}).items()
+                },
+                "frames_ahead": self.frames_ahead,
+                "last_release": self.last_release,
             }
         )
 

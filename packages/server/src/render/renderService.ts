@@ -6,7 +6,11 @@ import type {
   FullColorEncoding,
 } from "@castkit/core/pipeline/dither"
 import { createChromiumEngine } from "@castkit/render/chromiumEngine"
-import type { RenderEngine } from "@castkit/render/engine"
+import type {
+  RenderEngine,
+  StreamFrameCapture,
+  StreamFrameRequest,
+} from "@castkit/render/engine"
 import { renderDeviceImage } from "@castkit/render/renderDeviceImage"
 import { createSatoriEngine } from "@castkit/render/satoriEngine"
 import type { ViewName } from "@castkit/shared/views/viewNames"
@@ -55,6 +59,10 @@ export type RenderService = {
     margin?: PanelMargin
     adjustments?: DitherAdjustments
   }) => Promise<Buffer>
+  /** Render an image-stream panel's view ahead, as its worker would capture it. */
+  captureStreamFrame: (
+    request: StreamFrameRequest,
+  ) => Promise<StreamFrameCapture>
   close: () => Promise<void>
 }
 
@@ -87,6 +95,9 @@ export const createRenderService = async ({
 
   const renderUrl =
     pageBrowser?.renderUrl ?? engine.renderUrl
+  const captureStreamFrame =
+    pageBrowser?.captureStreamFrame ??
+    engine.captureStreamFrame
 
   return {
     renderDevice: ({
@@ -164,6 +175,13 @@ export const createRenderService = async ({
         },
         fullColorEncoding: { format: "png" },
       })
+    },
+    captureStreamFrame: (request) => {
+      if (!captureStreamFrame)
+        throw new Error(
+          "Stream frames need a browser to capture them",
+        )
+      return captureStreamFrame(request)
     },
     close: async () => {
       await pageBrowser?.close()

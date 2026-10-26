@@ -32,8 +32,14 @@ export type BrowserHub = ReturnType<typeof createBrowserHub>
 
 export const createBrowserHub = ({
   onConnectionCountChange,
+  onBroadcast,
   keepaliveIntervalMs = KEEPALIVE_INTERVAL_MS,
 }: {
+  /**
+   * Fires with the device id of every broadcast, sockets or not: anything a
+   * device's page is sent changes what that page draws.
+   */
+  onBroadcast?: (deviceId: string) => void
   /** Fires with the new count when a device gains/loses its first/last socket. */
   onConnectionCountChange: (params: {
     deviceId: string
@@ -142,6 +148,7 @@ export const createBrowserHub = ({
       socketsByDeviceId.get(deviceId)?.forEach((socket) => {
         send(socket, message)
       })
+      onBroadcast?.(deviceId)
     },
     getConnectionCount,
     /** Stops the keepalive so a test (or shutdown) can settle. */

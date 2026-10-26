@@ -14,6 +14,7 @@ import { serve } from "@hono/node-server"
 import { createPhotoFrameAdapter } from "./adapters/photoFrameAdapter.ts"
 import { createApp } from "./app.ts"
 import { createBrowserMode } from "./browser/browserMode.ts"
+import { startStreamFrameService } from "./browser/streamFrameService.ts"
 import {
   type ConfiguredDevice,
   loadConfig,
@@ -2376,9 +2377,16 @@ const main = async () => {
       return true
     },
   })
+  const streamFrameService = startStreamFrameService({
+    browserMode,
+    platform,
+    captureStreamFrame: renderService.captureStreamFrame,
+    port: config.port,
+  })
   const { injectWebSocket, upgradeWebSocket } =
     browserMode.attach(app, {
       getPlatformTarget: platform.getDeviceTarget,
+      streamFrames: streamFrameService.streamFrames,
     })
   attachPlatformSockets({ app, platform, upgradeWebSocket })
   watchDeviceTargets({
@@ -2438,6 +2446,7 @@ const main = async () => {
   const shutdown = async () => {
     console.log("[inkcast] shutting down")
     await managedWorkers.stop()
+    streamFrameService.stop()
     server.close()
     platformImageScheduler.dispose()
     platform.dispose()

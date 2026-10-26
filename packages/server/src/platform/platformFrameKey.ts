@@ -132,6 +132,59 @@ const getPanelTimeState = ({
 }
 
 /**
+ * Everything a display's platform target draws from, as one string, and
+ * whether time alone also changes it (a running clock or timer at `now`).
+ * `undefined` when the target or the display is unknown.
+ *
+ * ⚠️ The content names no device; see `readPlatformFrameKey`.
+ */
+export const readPlatformTargetContent = ({
+  platform,
+  deviceId,
+  deviceTarget,
+  now,
+}: {
+  platform: Pick<
+    Platform,
+    "getTarget" | "getDeviceProperties" | "channelsForView"
+  >
+  deviceId: string
+  deviceTarget: { kind: "view" | "screen"; id: string }
+  now: number
+}) => {
+  const target = platform.getTarget(deviceTarget)
+  const display = platform.getDeviceProperties(deviceId)
+  if (!target || !display) {
+    return undefined
+  }
+  const channels = platform.channelsForView(target.view)
+  const panelStates = target.view.panels.map((panel) =>
+    getPanelTimeState({ panel, channels, display, now }),
+  )
+  return {
+    content: JSON.stringify({
+      target: deviceTarget,
+      screen: target.screen,
+      view: target.view,
+      display,
+      channels: Object.values(channels).map((channel) => ({
+        id: channel.id,
+        status: channel.status,
+        data: channel.data,
+      })),
+      panelStates,
+    }),
+    channelIds: Object.values(channels).map(
+      (channel) => channel.id,
+    ),
+    isTimeDriven:
+      Object.values(channels).some(
+        (channel) => channel.type === "time.v1",
+      ) || panelStates.some((panel) => panel.isTimeDriven),
+  }
+}
+
+/**
  * Everything an image display's platform frame is drawn from, as one string,
  * or `undefined` when no frame can be kept for it: the display shows its own
  * views, or its platform view is time-driven at `now`.
@@ -161,37 +214,16 @@ export const readPlatformFrameKey = ({
   now: number
 }) => {
   const deviceTarget = platform.getDeviceTarget(deviceId)
-  const target = deviceTarget
-    ? platform.getTarget(deviceTarget)
-    : null
-  const display = platform.getDeviceProperties(deviceId)
-  if (!deviceTarget || !target || !display) {
+  if (!deviceTarget) {
     return undefined
   }
-  const channels = platform.channelsForView(target.view)
-  if (
-    Object.values(channels).some(
-      (channel) => channel.type === "time.v1",
-    )
-  ) {
-    return undefined
-  }
-  const panelStates = target.view.panels.map((panel) =>
-    getPanelTimeState({ panel, channels, display, now }),
-  )
-  if (panelStates.some((panel) => panel.isTimeDriven)) {
-    return undefined
-  }
-  return JSON.stringify({
-    target: deviceTarget,
-    screen: target.screen,
-    view: target.view,
-    display,
-    channels: Object.values(channels).map((channel) => ({
-      id: channel.id,
-      status: channel.status,
-      data: channel.data,
-    })),
-    panelStates,
+  const content = readPlatformTargetContent({
+    platform,
+    deviceId,
+    deviceTarget,
+    now,
   })
+  return content && !content.isTimeDriven
+    ? content.content
+    : undefined
 }

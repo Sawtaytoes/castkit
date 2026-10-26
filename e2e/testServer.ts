@@ -1,6 +1,7 @@
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { createChromiumEngine } from "@castkit/render/chromiumEngine"
 import type {
   CommandHandler,
   MqttPublisher,
@@ -8,11 +9,13 @@ import type {
 import { serve } from "@hono/node-server"
 import { createApp } from "../packages/server/src/app.ts"
 import { createBrowserMode } from "../packages/server/src/browser/browserMode.ts"
+import { startStreamFrameService } from "../packages/server/src/browser/streamFrameService.ts"
 import { loadConfig } from "../packages/server/src/config/env.ts"
 import { watchDeviceTargets } from "../packages/server/src/platform/deviceTargetWatcher.ts"
 import { createPlatform } from "../packages/server/src/platform/platform.ts"
 import { attachPlatformSockets } from "../packages/server/src/platform/platformSockets.ts"
 import { hashPin } from "../packages/server/src/platform/platformStore.ts"
+import { createIdleClosingBrowser } from "../packages/server/src/render/idleClosingBrowser.ts"
 import { applyDeviceDefinitions } from "../packages/server/src/state/applyDeviceDefinitions.ts"
 import { createDeviceDefinitionStore } from "../packages/server/src/state/deviceDefinitionStore.ts"
 import { createDeviceStore } from "../packages/server/src/state/deviceStore.ts"
@@ -31,6 +34,9 @@ import { createRenderTokenStore } from "../packages/server/src/state/renderToken
  */
 
 export const E2E_DEVICE_ID = "e2e-square"
+
+/** A 480x480 touch panel like the image-stream Prestos, for frames drawn ahead. */
+export const E2E_STREAM_DEVICE_ID = "e2e-stream"
 
 /** Pinned rather than left to the env default, so the specs read literally. */
 export const E2E_BASE_TOPIC = "castkit"
@@ -98,6 +104,23 @@ export const startTestServer = async ({
             name: "Disc App",
             url: `http://localhost:${port}/__test__/external`,
           },
+        ],
+      },
+      {
+        renderer: "browser",
+        id: E2E_STREAM_DEVICE_ID,
+        label: "Stream test display",
+        mac: "02:00:00:00:00:04",
+        width: 480,
+        height: 480,
+        shape: "square",
+        hasTouch: true,
+        color: "full",
+        views: [
+          "Now Playing",
+          "Queue",
+          "Calendar",
+          "Ambient",
         ],
       },
       {
@@ -402,11 +425,24 @@ export const startTestServer = async ({
     ),
   )
 
+  // The same capture the server makes for an image-stream worker, in its own
+  // browser, which closes when no frame has been drawn for a while.
+  const streamBrowser = createIdleClosingBrowser({
+    launch: createChromiumEngine,
+    idleCloseMilliseconds: 30_000,
+  })
+  const streamFrameService = startStreamFrameService({
+    browserMode,
+    platform,
+    captureStreamFrame: streamBrowser.captureStreamFrame,
+    port,
+  })
   const { injectWebSocket, upgradeWebSocket } =
     browserMode.attach(app, {
       getPlatformTarget: platform.getDeviceTarget,
       getDevicePreloadViewIds:
         platform.getDevicePreloadViewIds,
+      streamFrames: streamFrameService.streamFrames,
     })
   attachPlatformSockets({ app, platform, upgradeWebSocket })
   watchDeviceTargets({
@@ -423,6 +459,8 @@ export const startTestServer = async ({
 
   return {
     close: async () => {
+      streamFrameService.stop()
+      await streamBrowser.close()
       platform.dispose()
       await new Promise<void>((resolve) => {
         server.close(() => {
