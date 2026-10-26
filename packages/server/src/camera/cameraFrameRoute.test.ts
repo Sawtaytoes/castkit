@@ -85,6 +85,7 @@ test("the panel's video and still channels and label feed the frame; the body is
     pixels: Buffer.alloc(8, 1),
     patch: { x: 0, y: 60, width: 480, height: 360 },
     body: Buffer.from([9, 9]),
+    codec: "zlib" as const,
     layout: "abc",
     origin: "video" as const,
     receivedAt: 1000,
@@ -111,9 +112,13 @@ test("the panel's video and still channels and label feed the frame; the body is
       width: 480,
       height: 480,
       label: "Door",
+      codec: "zlib",
       after: 6,
     }),
   )
+  expect(
+    response.headers.get("x-castkit-frame-codec"),
+  ).toBe("zlib")
   expect(
     response.headers.get("x-castkit-frame-patch"),
   ).toBe("0,60,480,360")
@@ -123,6 +128,36 @@ test("the panel's video and still channels and label feed the frame; the body is
   expect([
     ...new Uint8Array(await response.arrayBuffer()),
   ]).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 9, 9])
+})
+
+test("a board that decodes JPEG asks for it; any other codec name gets zlib", async () => {
+  const waitForFrame = vi.fn(
+    async ({ codec }: { codec: "zlib" | "jpeg" }) => ({
+      sequence: 8,
+      pixels: Buffer.alloc(8, 1),
+      patch: { x: 0, y: 60, width: 480, height: 360 },
+      body: Buffer.from([0xff, 0xd8]),
+      codec,
+      layout: "abc",
+      origin: "video" as const,
+      receivedAt: 1000,
+    }),
+  )
+  const app = createApp({
+    waitForFrame,
+  } as unknown as CameraFrameService)
+  const jpeg = await app.request(
+    "/frames/door%2Fvideo/camera.door?width=480&height=480&codec=jpeg",
+  )
+  expect(jpeg.headers.get("x-castkit-frame-codec")).toBe(
+    "jpeg",
+  )
+  const unknown = await app.request(
+    "/frames/door%2Fvideo/camera.door?width=480&height=480&codec=webp",
+  )
+  expect(unknown.headers.get("x-castkit-frame-codec")).toBe(
+    "zlib",
+  )
 })
 
 test("no newer picture answers 204, and an unbounded size is refused", async () => {

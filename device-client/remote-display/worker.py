@@ -29,7 +29,7 @@ from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v26-direct-camera-frames"
+BUILD_MARKER = "castkit-remote-display-v27-camera-jpeg"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -711,15 +711,18 @@ class DisplaySession:
         resolved = same_origin_url(self.config["manifest_url"], url)
         cookies = await self.page.context.cookies([resolved])
         viewport = self.config.get("viewport", {"width": 480, "height": 320})
+        # A board with a JPEG decoder gets about a fifth of the bytes per picture.
+        codec = "jpeg" if getattr(self.client, "has_jpeg", False) else "zlib"
         self.camera = CameraFrameFeed(
             resolved,
             "; ".join(f"{cookie['name']}={cookie['value']}" for cookie in cookies),
             viewport["width"],
             viewport["height"],
+            codec=codec,
         )
         self.camera_task = asyncio.create_task(self.camera.run())
         self.camera_started = time.monotonic()
-        LOG.info("Camera frames started")
+        LOG.info("Camera frames started: codec=%s", codec)
 
     async def camera_cycle(self, cycle, touch_id, generation):
         """Send the newest server camera frame, or wait briefly for one.
@@ -755,13 +758,19 @@ class DisplaySession:
         is_presto = isinstance(self.client, PrestoTransport)
         if is_presto:
             payload = frame["pixels"]
-            prepared = {"patch": frame["patch"], "body": frame["body"], "layout": frame["layout"]}
+            prepared = {
+                "patch": frame["patch"],
+                "body": frame["body"],
+                "layout": frame["layout"],
+                "codec": frame["codec"],
+            }
         else:
             # The WT32 takes one zlib frame of the whole panel; the server sends
             # exactly that when the patch covers the panel.
             payload = (
                 frame["body"]
-                if frame["patch"]
+                if frame["codec"] == "zlib"
+                and frame["patch"]
                 == (0, 0, self.target_options["width"], self.target_options["height"])
                 else await asyncio.to_thread(zlib.compress, frame["pixels"], 1)
             )
@@ -785,6 +794,7 @@ class DisplaySession:
             "fps": round(self.camera_sent / elapsed, 2),
             "send_ms": round((time.monotonic() - started) * 1000, 1),
             "origin": frame["origin"],
+            "codec": frame["codec"],
             "bytes": len(frame["body"]),
         }
         if response is not None and len(response) >= 7:
