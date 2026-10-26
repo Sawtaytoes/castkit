@@ -186,6 +186,13 @@ test("a frame drawn ahead is byte-identical to the worker's own capture of that 
     page,
     "now-playing",
   )
+  // The worker shows a frame only with the touch targets read from it.
+  expect(nowPlaying.targets).toContainEqual(
+    expect.objectContaining({
+      identity: "view-gesture:now-playing",
+      loading: false,
+    }),
+  )
   expect(
     (await captureLikeWorker(context, panel)).equals(
       nowPlaying.png,

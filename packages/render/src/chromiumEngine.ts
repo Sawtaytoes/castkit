@@ -299,9 +299,10 @@ export const createChromiumEngine = async (): Promise<
             optimizeForSpeed: true,
           },
         )) as { data: string }
+        // Node's Playwright evaluates a string as an expression and does not
+        // call a function it yields (Python's does), so the call is written out.
         const read: unknown = await page.evaluate(
-          readScript,
-          readArgument,
+          `(${readScript})(${JSON.stringify(readArgument)})`,
         )
         return {
           png: Buffer.from(shot.data, "base64"),

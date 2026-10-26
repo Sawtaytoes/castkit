@@ -64,6 +64,11 @@ class StreamFrameFeed:
         if not isinstance(document, dict) or document.get("key") != key:
             # Drawn again since the index was read; the next index names it.
             return None
+        if not isinstance(document.get("targets"), list):
+            # A frame without its touch targets cannot be shown: a touch on it
+            # would have nothing to land on.
+            LOG.warning("Stream frame %s has no touch targets; skipped", view)
+            return None
         png = base64.b64decode(document["png"])
         pixels = await asyncio.to_thread(self.prepare, png)
         return {

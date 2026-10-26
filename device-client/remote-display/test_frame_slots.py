@@ -403,6 +403,25 @@ class StreamFrameFeedTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(feed.read("queue"))
         self.assertEqual(feed.version, 0)
 
+    async def test_a_frame_without_touch_targets_is_skipped_and_the_rest_are_kept(self):
+        _, queue = self.frame_document("queue", "a")
+        del queue["targets"]
+        routes = {
+            "http://castkit.test/d/panel/stream-frame/queue": (200, queue),
+            "http://castkit.test/d/panel/stream-frame/calendar": self.frame_document(
+                "calendar", "a"
+            ),
+        }
+        feed, _ = self.build_feed(routes)
+        await feed.apply_index(
+            {
+                "tag": "t1",
+                "frames": [{"view": "queue", "key": "a"}, {"view": "calendar", "key": "a"}],
+            }
+        )
+        self.assertIsNone(feed.read("queue"))
+        self.assertEqual(feed.read("calendar")["key"], "a")
+
     async def test_a_server_without_frames_ahead_is_not_asked_again_soon(self):
         feed, responses = self.build_feed({self.INDEX: (404, None)})
         stop = asyncio.Event()
