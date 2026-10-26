@@ -16,7 +16,7 @@ from manifest import parse_manifest
 from presto_transport import FrameSupersededError, SlotUnavailableError
 from preview import PreviewServer
 from stream_frames import StreamFrameFeed, plan_slots
-from worker import DisplaySession
+from worker import SETTLE_HOLD_SECONDS, DisplaySession
 
 FRAME_BYTES = 480 * 480 * 2
 # Incompressible, so a patch of it takes many chunks.
@@ -476,7 +476,7 @@ class ReleaseTests(unittest.IsolatedAsyncioTestCase):
         )
         self.transport.control_task = asyncio.create_task(asyncio.sleep(3600))
         self.queue = build_frame("queue", "a")
-        self.page = types.SimpleNamespace(evaluate=AsyncMock(return_value="queue"))
+        self.page = types.SimpleNamespace(evaluate=AsyncMock(return_value=self.request("queue")))
         self.session = DisplaySession(
             {"viewport": {"width": 480, "height": 480}},
             self.page,
@@ -512,8 +512,11 @@ class ReleaseTests(unittest.IsolatedAsyncioTestCase):
         self.transport.control_task.cancel()
         await asyncio.gather(self.transport.control_task, return_exceptions=True)
 
-    async def release(self):
-        await self.session.release_swipe(12)
+    def request(self, view, request_id="request-1"):
+        return {"id": request_id, "view": view}
+
+    async def release(self, touch_id=12, contact=None):
+        await self.session.release_swipe(touch_id, contact or {"navigation": None})
         await asyncio.gather(*self.session.release_tasks)
 
     async def test_a_fresh_slot_is_shown_at_release(self):
@@ -552,7 +555,7 @@ class ReleaseTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.transport.last_release["path"], "frame")
 
     async def test_a_view_not_drawn_ahead_waits_for_the_live_capture(self):
-        self.page.evaluate = AsyncMock(return_value="calendar")
+        self.page.evaluate = AsyncMock(return_value=self.request("calendar"))
         generation = self.session.release_generation
         await self.release()
         self.assertEqual((self.shown, self.sent), ([], []))
@@ -593,11 +596,78 @@ class ReleaseTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(loading, return_exceptions=True)
 
     async def test_a_newer_release_wins_over_an_older_one(self):
-        self.page.evaluate = AsyncMock(return_value="queue")
-        await self.session.release_swipe(12)
-        await self.session.release_swipe(13)
+        await self.session.release_swipe(12, {"navigation": None})
+        self.page.evaluate = AsyncMock(return_value=self.request("queue", "request-2"))
+        await self.session.release_swipe(13, {"navigation": self.request("queue")})
         await asyncio.gather(*self.session.release_tasks)
         self.assertEqual(len(self.sent), 1)
+
+    async def test_a_request_the_contact_started_with_is_not_a_release(self):
+        generation = self.session.release_generation
+        await self.release(contact={"navigation": self.request("queue")})
+        self.assertEqual((self.shown, self.sent), ([], []))
+        self.assertEqual(self.session.release_generation, generation)
+        self.assertIsNone(self.session.release_hold)
+
+    async def test_a_contact_that_asked_for_nothing_is_not_a_release(self):
+        self.page.evaluate = AsyncMock(return_value=None)
+        await self.release()
+        self.assertEqual((self.shown, self.sent), ([], []))
+
+    async def test_the_gesture_release_passes_its_request_without_asking_again(self):
+        self.page.evaluate = AsyncMock(side_effect=AssertionError("evaluated again"))
+        await self.session.release_swipe(12, {"navigation": None}, self.request("queue"))
+        await asyncio.gather(*self.session.release_tasks)
+        self.assertEqual(self.sent, [self.queue["pixels"]])
+
+    async def test_the_destination_is_held_until_the_built_view_is_quiet(self):
+        await self.release()
+        hold = self.session.release_hold
+        self.assertIsNotNone(hold)
+        now = time.monotonic()
+        settled = {"changes": 5, "isSettled": True, "hasPendingImages": False}
+        # The house has not answered yet, then the artwork is still loading.
+        self.assertTrue(self.session.is_release_holding({**settled, "isSettled": False}, now))
+        self.assertTrue(
+            self.session.is_release_holding({**settled, "hasPendingImages": True}, now + 0.2)
+        )
+        # Loaded: quiet for RELEASE_QUIET_SECONDS first, as the accent follows the load.
+        self.assertTrue(self.session.is_release_holding({**settled, "changes": 6}, now + 0.3))
+        self.assertTrue(self.session.is_release_holding({**settled, "changes": 6}, now + 0.4))
+        self.assertFalse(self.session.is_release_holding({**settled, "changes": 6}, now + 0.5))
+        self.assertIsNone(self.session.release_hold)
+
+    async def test_a_view_that_never_settles_is_held_no_longer_than_the_limit(self):
+        await self.release()
+        unsettled = {"changes": 5, "isSettled": False, "hasPendingImages": True}
+        now = time.monotonic()
+        self.assertTrue(self.session.is_release_holding(unsettled, now))
+        self.assertFalse(self.session.is_release_holding(unsettled, now + SETTLE_HOLD_SECONDS))
+
+    async def test_nothing_is_held_without_a_destination_drawn_ahead(self):
+        self.page.evaluate = AsyncMock(return_value=self.request("calendar"))
+        await self.release()
+        self.assertIsNone(self.session.release_hold)
+
+    async def test_a_destination_that_failed_to_show_is_not_held(self):
+        async def broken(frame_id, touch_id, raw):
+            raise RuntimeError("link lost")
+
+        self.transport.send_frame = broken
+        await self.release()
+        self.assertIsNone(self.session.release_hold)
+
+    async def test_a_new_contact_ends_the_hold(self):
+        await self.release()
+        self.page.evaluate = AsyncMock(return_value=None)
+        await self.session.touches.put(["touch", "13", "0", "10", "10", "0", "999", "0"])
+        task = asyncio.create_task(self.session.process_input())
+        async with asyncio.timeout(3):
+            while self.session.last_sequence != 13:
+                await asyncio.sleep(0.01)
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        self.assertIsNone(self.session.release_hold)
 
 
 if __name__ == "__main__":

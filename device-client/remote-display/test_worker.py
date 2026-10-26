@@ -5,6 +5,7 @@ import contextlib
 import io
 import os
 import tempfile
+import time
 import types
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -925,3 +926,245 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         await self.session.send_frame(b"cached skeleton", 0, [], format_id=3)
         self.assertIsNone(self.session.guard.match(self.session.frame_id, 30, 25, "slot:one"))
         self.assertFalse(self.session.pending)
+
+
+SWIPE_PATHS_PAGE = """<meta name="viewport" content="width=device-width,initial-scale=1">
+<div class="stage" data-view="now-playing"
+  style="position:absolute;inset:0;touch-action:none">
+  <button data-castkit-target="now-playing-artwork"
+    style="position:absolute;left:140px;top:60px;width:200px;height:200px;touch-action:none">Art</button>
+  <div role="slider" data-castkit-target="now-playing-seek"
+    style="position:absolute;left:40px;top:290px;width:400px;height:30px;touch-action:none"></div>
+  <section data-castkit-target="scroll:list" data-castkit-scroll="true"
+    style="position:absolute;left:40px;top:330px;width:300px;height:110px;overflow:auto;touch-action:none">
+    <div style="height:600px">List</div></section>
+  <button data-castkit-target="navigation-edge:top"
+    style="position:absolute;left:32px;right:32px;top:0;height:24px;touch-action:none"></button>
+  <button data-castkit-target="navigation-edge:right"
+    style="position:absolute;right:0;top:24px;bottom:24px;width:24px;touch-action:none"></button>
+</div>
+<script>
+  // Stand-ins for Slatecast's handlers: each records the request the way
+  // navigationFeedback.ts does, in the same task as the release.
+  let count = 0;
+  const ask = view => { window.__castkitNavigation = {id: `request-${++count}`, view}; };
+  const stage = document.querySelector('.stage');
+  let start;
+  stage.addEventListener('pointerdown', event => { start = event.clientY; });
+  stage.addEventListener('pointerup', event => {
+    if (start !== undefined && Math.abs(event.clientY - start) >= 48)
+      ask(event.clientY > start ? 'queue' : 'calendar');
+    start = undefined;
+  });
+  for (const [selector, view] of [
+    ['[data-castkit-target="navigation-edge:top"]', 'queue'],
+    ['[data-castkit-target="navigation-edge:right"]', 'kids-points'],
+    ['section', 'queue'],
+    ['[role="slider"]', null],
+  ]) {
+    const element = document.querySelector(selector);
+    element.addEventListener('pointerdown', event => {
+      event.stopPropagation();
+      element.setPointerCapture(event.pointerId);
+    });
+    element.addEventListener('pointermove', event => event.stopPropagation());
+    element.addEventListener('pointerup', event => {
+      event.stopPropagation();
+      if (view) ask(view);
+    });
+  }
+</script>"""
+
+
+class SwipeReleasePathTests(unittest.IsolatedAsyncioTestCase):
+    """Every touch path that asks for a view shows the destination drawn ahead, once."""
+
+    async def asyncSetUp(self):
+        from esphome_presto import ESPHomePrestoTransport
+        from test_frame_slots import FakeFeed, build_frame
+
+        self.playwright = await async_playwright().start()
+        executable = os.environ.get("CASTKIT_TEST_CHROMIUM")
+        self.browser = await self.playwright.chromium.launch(
+            **({"executable_path": executable} if executable else {}),
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        viewport = {"width": 480, "height": 480}
+        self.context = await create_browser_context(self.browser, {"viewport": viewport})
+        self.page = await self.context.new_page()
+        await self.page.set_content(SWIPE_PATHS_PAGE)
+        self.transport = ESPHomePrestoTransport(
+            {"mac": "02:00:00:00:00:01", "host": "127.0.0.1", "controls_url": "unused"},
+            "a" * 44,
+        )
+        self.transport.control_task = asyncio.create_task(asyncio.sleep(3600))
+        self.transport.has_slots = True
+        frames = [build_frame(view, "a") for view in ("queue", "calendar", "kids-points")]
+        self.transport.slots = {
+            slot: {**frame, "frame_id": 300 + slot} for slot, frame in enumerate(frames)
+        }
+        self.shown, self.sent = [], []
+
+        async def show_slot(slot, touch_id):
+            self.shown.append(self.transport.slots[slot]["view"])
+            frame_id = self.transport.slots[slot]["frame_id"]
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "0", "1"]
+
+        async def send_frame(frame_id, touch_id, raw):
+            self.sent.append(raw)
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "1", "1"]
+
+        self.transport.show_slot = show_slot
+        self.transport.send_frame = send_frame
+        self.session = DisplaySession(
+            {"viewport": viewport},
+            self.page,
+            self.transport,
+            {},
+            asyncio.Event(),
+            PreviewServer("test", 8),
+            feed=FakeFeed(frames),
+        )
+        self.session.cdp = await self.context.new_cdp_session(self.page)
+        targets = await self.page.evaluate(
+            TARGETS_SCRIPT, {"attribute": "data-castkit-target", **viewport}
+        )
+        self.session.guard.remember(
+            50,
+            [
+                Target(**{key: value for key, value in target.items() if key != "loading"})
+                for target in targets
+            ],
+        )
+        self.task = asyncio.create_task(self.session.input_loop())
+        self.sequence = 0
+
+    async def asyncTearDown(self):
+        self.task.cancel()
+        await asyncio.gather(self.task, *self.session.release_tasks, return_exceptions=True)
+        self.transport.control_task.cancel()
+        await asyncio.gather(self.transport.control_task, return_exceptions=True)
+        await self.browser.close()
+        await self.playwright.stop()
+
+    async def contact(self, points):
+        """One contact through `points`, released; returns the views shown at release."""
+        shown, generation = len(self.shown), self.session.release_generation
+        for index, (x, y) in enumerate([*points, (0, 0)]):
+            self.sequence += 1
+            phase = 0 if index == 0 else 2 if index == len(points) else 1
+            await self.session.touches.put(
+                ["touch", str(self.sequence), str(phase), str(x), str(y), "0", "50", "0"]
+            )
+            async with asyncio.timeout(3):
+                while self.session.processed_touch != self.sequence:
+                    if self.task.done():
+                        self.task.result()
+                    await asyncio.sleep(0.01)
+        await asyncio.gather(*self.session.release_tasks)
+        views = self.shown[shown:]
+        # One release per request: a second show would move the generation twice.
+        self.assertEqual(self.session.release_generation - generation, len(views))
+        return views
+
+    async def test_the_stage_gesture_shows_its_destination_once(self):
+        self.assertEqual(
+            await self.contact([(100, 280), (100, 300), (100, 360), (100, 420)]), ["queue"]
+        )
+
+    async def test_a_pull_from_the_top_edge_shows_its_destination(self):
+        # Native touch: an edge owns its contact and never becomes the stage gesture.
+        self.assertEqual(await self.contact([(240, 10), (240, 60), (240, 160)]), ["queue"])
+
+    async def test_a_pull_from_the_right_edge_shows_the_left_swipe_view(self):
+        self.assertEqual(await self.contact([(470, 200), (420, 200), (300, 200)]), ["kids-points"])
+
+    async def test_a_drag_that_starts_on_a_scroll_list_and_asks_for_a_view_shows_it(self):
+        self.assertEqual(await self.contact([(100, 420), (100, 380), (100, 340)]), ["queue"])
+
+    async def test_a_vertical_drag_from_the_artwork_shows_its_destination(self):
+        self.assertEqual(await self.contact([(240, 220), (240, 170), (240, 100)]), ["calendar"])
+
+    async def test_a_contact_that_asks_for_nothing_shows_nothing(self):
+        # A slider adjustment, a horizontal artwork drag, and a pull that returned.
+        self.assertEqual(await self.contact([(100, 305), (300, 305), (420, 250)]), [])
+        self.assertEqual(await self.contact([(300, 150), (250, 150), (160, 150)]), [])
+        self.assertEqual(await self.contact([(100, 280), (100, 340), (100, 290)]), [])
+        self.assertEqual(self.sent, [])
+
+    async def test_a_request_made_before_the_contact_is_not_shown_again(self):
+        self.assertEqual(await self.contact([(240, 10), (240, 60), (240, 160)]), ["queue"])
+        # A tap on the scroll list asks for nothing new; the earlier request stays.
+        await self.page.evaluate(
+            "document.querySelector('section').replaceWith(document.createElement('section'))"
+        )
+        self.assertEqual(await self.contact([(100, 420)]), [])
+
+    async def test_the_destination_stays_until_the_built_view_has_its_artwork(self):
+        """No loading picture reaches the glass after a release shows a destination."""
+        from test_frame_slots import build_frame, solid
+
+        self.task.cancel()
+        await asyncio.gather(self.task, return_exceptions=True)
+        artwork = io.BytesIO()
+        Image.new("RGB", (8, 8), (32, 96, 208)).save(artwork, "PNG")
+        is_artwork_sent = asyncio.Event()
+
+        async def slow_artwork(route):
+            await asyncio.sleep(0.6)
+            await route.fulfill(body=artwork.getvalue(), content_type="image/png")
+            is_artwork_sent.set()
+
+        await self.page.route("http://castkit.test/artwork.png", slow_artwork)
+        await self.page.set_content(
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<main data-castkit-ready="true" style="position:absolute;inset:0;background:#111">'
+            "<p>Queue</p></main>"
+        )
+        destination = build_frame("now-playing", "a", solid(9))
+        self.session.feed = type(self.session.feed)([destination])
+        # Firmware without slots: the destination goes as a frame, and no slot
+        # loader shares the link with this test.
+        self.transport.has_slots = False
+        self.transport.slots = {}
+        self.session.config.update(max_fps=20, heartbeat_seconds=30)
+        sent = []
+
+        async def acknowledge(frame_id, touch_id, raw):
+            sent.append((time.monotonic(), raw, self.session.preview.latest_png))
+            return ["frame", str(frame_id), str(touch_id), "0", "0", "1", "1"]
+
+        self.transport.send_frame = acknowledge
+        running = asyncio.create_task(self.session.run(1, None))
+        try:
+            async with asyncio.timeout(3):
+                while not sent:
+                    await asyncio.sleep(0.01)
+            await asyncio.sleep(0.3)
+            before = len(sent)
+            await self.session.release_swipe(
+                7, {"navigation": None}, {"id": "request-1", "view": "now-playing"}
+            )
+            # The page builds the view the way Slatecast does: at once, with its
+            # artwork still on the way.
+            await self.page.evaluate("""() => {
+              document.querySelector('main').innerHTML =
+                '<img src="http://castkit.test/artwork.png" style="width:300px;height:300px">'
+                + '<p>Now Playing</p>';
+            }""")
+            await asyncio.wait_for(is_artwork_sent.wait(), timeout=3)
+            loaded_at = time.monotonic()
+            async with asyncio.timeout(3):
+                while len(sent) < before + 2:
+                    await asyncio.sleep(0.01)
+            await asyncio.sleep(0.3)
+        finally:
+            self.session.stop.set()
+            await asyncio.gather(running, return_exceptions=True)
+        after = sent[before:]
+        self.assertEqual(after[0][1], destination["pixels"])
+        # One live frame follows, after the artwork arrived, and it carries it.
+        self.assertEqual(len(after), 2)
+        self.assertGreater(after[1][0], loaded_at)
+        picture = Image.open(io.BytesIO(after[1][2])).convert("RGB")
+        self.assertEqual(picture.getpixel((150, 150)), (32, 96, 208))

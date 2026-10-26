@@ -169,6 +169,33 @@ describe("a vertical swipe asks the house for a view", () => {
     ])
   })
 
+  test("a released swipe names its request before the release returns", async () => {
+    // An image-stream worker reads this right after it dispatches the release,
+    // before a loopback answer can take the loading feedback away.
+    await mountView()
+    const stage = document.querySelector(
+      ".stage",
+    ) as HTMLElement
+    const before = window.__castkitNavigation
+    const point = (clientY: number) => ({
+      pointerId: 1,
+      clientX: 100,
+      clientY,
+    })
+    fireEvent.pointerDown(stage, point(100))
+    fireEvent.pointerMove(
+      stage,
+      point(100 + SWIPE_COMMIT_PIXELS + 10),
+    )
+    fireEvent.pointerUp(
+      stage,
+      point(100 + SWIPE_COMMIT_PIXELS + 10),
+    )
+    const request = window.__castkitNavigation
+    expect(request?.view).toBe("now-playing")
+    expect(request?.id).not.toBe(before?.id)
+  })
+
   test("swiping up asks for ambient on an empty day", async () => {
     const { server } = await mountView({
       view: "now-playing",
