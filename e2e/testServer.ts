@@ -415,6 +415,28 @@ export const startTestServer = async ({
       { "Content-Type": "image/svg+xml" },
     ),
   )
+  // The same artwork from a slow upstream: a music server resizing a cover
+  // answers in hundreds of milliseconds, every time, and the server proxies
+  // each request without a cache of its own.
+  app.get("/__test__/slow-artwork.svg", async (context) => {
+    const delayMilliseconds = Math.min(
+      Number(context.req.query("ms") ?? 800),
+      5000,
+    )
+    const color = /^[0-9a-f]{6}$/i.test(
+      context.req.query("color") ?? "",
+    )
+      ? context.req.query("color")
+      : "2060d0"
+    await new Promise((resolve) =>
+      setTimeout(resolve, delayMilliseconds),
+    )
+    return context.body(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#${color}"/></svg>`,
+      200,
+      { "Content-Type": "image/svg+xml" },
+    )
+  })
   // Everything the server has published to the broker, for command assertions.
   app.get("/__test__/published", (context) =>
     context.json(published),
