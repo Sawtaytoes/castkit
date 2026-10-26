@@ -62,6 +62,9 @@ def parse_manifest(document, url, viewport=None, max_cache_entries=1):
         if document.get("controls_url")
         else None,
         "cache_url": same_origin_url(url, cached.get("url")) if cached else None,
+        "stream_frames_url": same_origin_url(url, document["stream_frames_url"])
+        if document.get("stream_frames_url")
+        else None,
         "loading_selector": cached["on_tap"] if cached else None,
         "ready_selector": ready,
         "target_attribute": attribute,

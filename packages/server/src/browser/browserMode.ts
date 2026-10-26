@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import type {
   ChannelSnapshot,
   ContractData,
@@ -74,6 +75,7 @@ import { createRemoteAmbientLight } from "./remoteAmbientLight.ts"
 import { createRemoteAmbientLightMqtt } from "./remoteAmbientLightMqtt.ts"
 import { createRemoteBacklight } from "./remoteBacklight.ts"
 import { createRemoteBacklightMqtt } from "./remoteBacklightMqtt.ts"
+import type { StreamFrameCache } from "./streamFrames.ts"
 
 /**
  * Browser-mode (Slatecast) wiring: HA discovery + MQTT routes for the
@@ -117,6 +119,11 @@ const parseJsonPayload = (payload: string): unknown => {
     return undefined
   }
 }
+
+type DeviceSnapshot = Extract<
+  ServerToClientMessage,
+  { type: "snapshot" }
+>
 
 export type BrowserMode = ReturnType<
   typeof createBrowserMode
@@ -317,7 +324,15 @@ export const createBrowserMode = ({
     ]),
   )
 
+  const deviceChangeListeners = new Set<
+    (deviceId: string) => void
+  >()
   const hub = createBrowserHub({
+    onBroadcast: (deviceId) => {
+      deviceChangeListeners.forEach((listener) => {
+        listener(deviceId)
+      })
+    },
     onConnectionCountChange: ({
       deviceId,
       connectionCount,
@@ -621,6 +636,50 @@ export const createBrowserMode = ({
       // after a deploy carries a different id and the panel reloads itself.
       buildId: resolveSlatecastBuildId(),
     }
+  }
+
+  /**
+   * Snapshots a stream-frame capture page renders, by one-time token. The page
+   * draws exactly the snapshot its frame was keyed from, so a change that
+   * lands while it loads cannot put one key's name on another key's pixels.
+   */
+  const captureSnapshots = new Map<
+    string,
+    { deviceId: string; snapshot: DeviceSnapshot }
+  >()
+
+  /**
+   * What the house showed when this panel asked for a view it does not own
+   * itself (the left swipe's composed view): requested view → target. Learned
+   * from the navigation id the answer carries back, kept in memory only.
+   */
+  const learnedTargets = new Map<
+    string,
+    Map<string, { kind: "view" | "screen"; id: string }>
+  >()
+  const pendingRequests = new Map<
+    string,
+    { navigationId: string; requested: string }
+  >()
+
+  const learnTarget = (deviceId: string) => {
+    const pending = pendingRequests.get(deviceId)
+    const target = targetReader.get?.(deviceId)
+    if (
+      !pending ||
+      !target ||
+      target.navigationId !== pending.navigationId
+    ) {
+      return
+    }
+    pendingRequests.delete(deviceId)
+    const learned =
+      learnedTargets.get(deviceId) ?? new Map()
+    learned.set(pending.requested, {
+      kind: target.kind,
+      id: target.id,
+    })
+    learnedTargets.set(deviceId, learned)
   }
 
   const applyView = async ({
@@ -1352,6 +1411,8 @@ export const createBrowserMode = ({
             navigationId?: string
           }
         | undefined
+      /** Swipe destinations drawn ahead for image-stream workers. */
+      streamFrames?: StreamFrameCache
     },
   ) => {
     targetReader.get =
@@ -1403,9 +1464,21 @@ export const createBrowserMode = ({
     }
 
     app.get("/d/:id", (context) => {
-      const snapshot = buildSnapshot(
-        context.req.param("id") ?? "",
-      )
+      const deviceId = context.req.param("id") ?? ""
+      // A capture page draws one swipe destination ahead, from the snapshot
+      // its token names, and opens no socket (see slatecast's main.tsx).
+      const captureToken = context.req.query("capture")
+      const capture = captureToken
+        ? captureSnapshots.get(captureToken)
+        : undefined
+      if (captureToken && capture?.deviceId !== deviceId) {
+        return context.json(
+          { error: "unknown capture" },
+          404,
+        )
+      }
+      const snapshot =
+        capture?.snapshot ?? buildSnapshot(deviceId)
       if (!snapshot) {
         return context.json(
           { error: "unknown device" },
@@ -1413,6 +1486,51 @@ export const createBrowserMode = ({
         )
       }
       return context.html(buildDevicePageHtml({ snapshot }))
+    })
+
+    /**
+     * The frames drawn ahead for this panel's swipes, as an index. With
+     * `?after=<tag>` it answers once the tag differs, or after 25 seconds, so a
+     * worker holds one request open and hears about a new frame at once.
+     */
+    app.get("/d/:id/stream-frames", async (context) => {
+      const deviceId = context.req.param("id") ?? ""
+      const streamFrames = options?.streamFrames
+      if (
+        !streamFrames ||
+        !stateStore.deviceById.has(deviceId)
+      ) {
+        return context.json({ error: "no frames" }, 404)
+      }
+      const index = await streamFrames.waitForIndex({
+        deviceId,
+        after: context.req.query("after"),
+        timeoutMilliseconds: 25_000,
+        signal: context.req.raw.signal,
+      })
+      return context.json(index, 200, {
+        "Cache-Control": "no-store",
+      })
+    })
+
+    app.get("/d/:id/stream-frame/:viewId", (context) => {
+      const frame = options?.streamFrames?.read(
+        context.req.param("id") ?? "",
+        context.req.param("viewId") ?? "",
+      )
+      if (!frame) {
+        return context.json({ error: "no frame" }, 404)
+      }
+      return context.json(
+        {
+          key: frame.key,
+          view: frame.viewId,
+          targets: frame.targets,
+          png: frame.png.toString("base64"),
+        },
+        200,
+        { "Cache-Control": "no-store" },
+      )
     })
 
     app.get("/d/:id/artwork/:assetId", (context) => {
@@ -1445,6 +1563,11 @@ export const createBrowserMode = ({
         device.hasRemoteAmbientLight
           ? {
               controls_url: `/d/${device.id}/controls.json`,
+            }
+          : {}),
+        ...(options?.streamFrames
+          ? {
+              stream_frames_url: `/d/${device.id}/stream-frames`,
             }
           : {}),
         ready_selector: "[data-castkit-ready]",
@@ -1641,6 +1764,12 @@ export const createBrowserMode = ({
                       view.clientId === command.value,
                   )
                 : undefined
+              if (!requestedView && navigationId) {
+                pendingRequests.set(deviceId, {
+                  navigationId,
+                  requested: command.value,
+                })
+              }
               if (requestedView) {
                 applyView({
                   deviceId,
@@ -1927,7 +2056,8 @@ export const createBrowserMode = ({
         ),
       )
     },
-    refreshDeviceTarget: (deviceId: string) =>
+    refreshDeviceTarget: (deviceId: string) => {
+      learnTarget(deviceId)
       hub.broadcast({
         deviceId,
         message: {
@@ -1936,7 +2066,8 @@ export const createBrowserMode = ({
             targetReader.preloadViewIds?.(deviceId),
           target: targetReader.get?.(deviceId) ?? null,
         },
-      }),
+      })
+    },
     reloadDevice: (deviceId: string) =>
       hub.broadcast({
         deviceId,
@@ -1953,6 +2084,40 @@ export const createBrowserMode = ({
       hub.stop()
     },
     attach,
+    /** The panel's snapshot as its page would receive it now. */
+    readDeviceSnapshot: (deviceId: string) =>
+      buildSnapshot(deviceId) ?? undefined,
+    /** The target the house chose for this panel's `requested` view. */
+    readLearnedTarget: (
+      deviceId: string,
+      requested: string,
+    ) => learnedTargets.get(deviceId)?.get(requested),
+    /** Serve `snapshot` to one capture page; release it when done. */
+    openCapture: ({
+      deviceId,
+      snapshot,
+    }: {
+      deviceId: string
+      snapshot: DeviceSnapshot
+    }) => {
+      const token = randomBytes(16).toString("hex")
+      captureSnapshots.set(token, { deviceId, snapshot })
+      return {
+        token,
+        close: () => {
+          captureSnapshots.delete(token)
+        },
+      }
+    },
+    /** Called with a device id whenever its page is sent a change. */
+    onDeviceChange: (
+      listener: (deviceId: string) => void,
+    ) => {
+      deviceChangeListeners.add(listener)
+      return () => {
+        deviceChangeListeners.delete(listener)
+      }
+    },
     getDeviceSettings,
     setDeviceSetting,
   }

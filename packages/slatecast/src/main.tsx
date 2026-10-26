@@ -45,5 +45,12 @@ if (displayTarget) {
     connect(displayTarget.deviceId)
 } else {
   render(<DeviceApp />, document.getElementById("app")!)
-  connect()
+  // A capture page renders one view from its inlined snapshot and never
+  // registers as the panel: the server uses it to render stream frames ahead.
+  if (
+    !new URLSearchParams(window.location.search).has(
+      "capture",
+    )
+  )
+    connect()
 }

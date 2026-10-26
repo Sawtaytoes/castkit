@@ -8,6 +8,9 @@ export const NavigationFeedback = () => {
     <div
       class="navigation-feedback"
       data-phase={feedback.phase}
+      // An image-stream worker reads the destination here and sends its
+      // pre-rendered frame while the view is still being built.
+      data-requested-view={feedback.requestedView}
       role="status"
       aria-live="polite"
     >

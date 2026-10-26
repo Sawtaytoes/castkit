@@ -1,3 +1,7 @@
+import {
+  getHasRemainingAgenda,
+  getSwipeDestination,
+} from "@castkit/shared/views/swipeDestinations"
 import { signal } from "@preact/signals"
 import {
   cancelNavigationPull,
@@ -140,6 +144,8 @@ export const trackViewSwipe = (event: PointerEvent) => {
  *
  * The audio gesture cycles Now Playing and Queue. The printer gesture cycles
  * Printer Status and Print Queue. The time gesture follows the remaining agenda.
+ * The rule is `getSwipeDestination`, which the server also reads to render
+ * each destination ahead for an image-stream panel.
  */
 export const endViewSwipe = (
   event: PointerEvent,
@@ -182,34 +188,22 @@ export const endViewSwipe = (
   if (!isVertical && !isPrinterPull && !isLeftPull) {
     return
   }
-  const view = currentView
-  const hasAgenda = (agenda.value?.events ?? []).some(
-    (event) =>
-      event.isAllDay ||
-      event.startMs >= nowMs.value - 60 * 60 * 1000,
-  )
-  const requested = isLeftPull
-    ? device.value?.leftSwipeViewId
-    : Math.abs(distanceX) > Math.abs(distanceY)
-      ? view === "printer-status"
-        ? "print-queue"
-        : "printer-status"
-      : distanceY > 0
-        ? view === "now-playing"
-          ? "queue"
-          : "now-playing"
-        : hasAgenda
-          ? "calendar"
-          : "ambient"
+  const requested = getSwipeDestination({
+    direction: isLeftPull
+      ? "left"
+      : Math.abs(distanceX) > Math.abs(distanceY)
+        ? "right"
+        : distanceY > 0
+          ? "down"
+          : "up",
+    currentView,
+    hasAgenda: getHasRemainingAgenda({
+      events: agenda.value?.events ?? [],
+      nowMs: nowMs.value,
+    }),
+    device: device.value ?? { views: [] },
+  })
   if (!requested) return
-  if (
-    !isLeftPull &&
-    !device.value?.views.some(
-      (offered) => offered.clientId === requested,
-    )
-  ) {
-    return
-  }
   sendCommand({ action: "view", value: requested })
 }
 

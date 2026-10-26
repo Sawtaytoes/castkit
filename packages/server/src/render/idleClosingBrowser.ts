@@ -1,4 +1,7 @@
-import type { RenderEngine } from "@castkit/render/engine"
+import type {
+  RenderEngine,
+  StreamFrameRequest,
+} from "@castkit/render/engine"
 
 type BrowserEngine = RenderEngine & {
   close: () => Promise<void>
@@ -52,7 +55,10 @@ export const createIdleClosingBrowser = ({
     idleTimer.unref?.()
   }
 
-  const renderUrl = async (request: RenderUrlRequest) => {
+  // Every capture shares one launch, and the idle timer runs only between them.
+  const withEngine = async <Result>(
+    capture: (engine: BrowserEngine) => Promise<Result>,
+  ) => {
     clearIdleTimer()
     inFlightCount += 1
     try {
@@ -63,20 +69,36 @@ export const createIdleClosingBrowser = ({
           enginePromise = null
         })
       }
-      const engine = await enginePromise
-      if (!engine.renderUrl)
-        throw new Error(
-          "the browser engine cannot capture pages",
-        )
-      return await engine.renderUrl(request)
+      return await capture(await enginePromise)
     } finally {
       inFlightCount -= 1
       if (inFlightCount === 0) scheduleIdleClose()
     }
   }
 
+  const renderUrl = (request: RenderUrlRequest) =>
+    withEngine((engine) => {
+      if (!engine.renderUrl)
+        throw new Error(
+          "the browser engine cannot capture pages",
+        )
+      return engine.renderUrl(request)
+    })
+
+  const captureStreamFrame = (
+    request: StreamFrameRequest,
+  ) =>
+    withEngine((engine) => {
+      if (!engine.captureStreamFrame)
+        throw new Error(
+          "the browser engine cannot capture stream frames",
+        )
+      return engine.captureStreamFrame(request)
+    })
+
   return {
     renderUrl,
+    captureStreamFrame,
     getIsOpen: () => enginePromise !== null,
     close: closeEngine,
   }

@@ -16,17 +16,18 @@ import yaml
 from aioesphomeapi import APIClient, TextSensorState
 from ambient_light import artwork_bounds
 from codec import encode_frame, presto_frame_pixels, presto_frame_pixels_with_palette
-from esphome_presto import ESPHomePrestoTransport
+from esphome_presto import SLOT_COUNT, ESPHomePrestoTransport
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
 from playwright.async_api import Error as BrowserError
 from playwright.async_api import async_playwright
-from presto_transport import PrestoTransport
+from presto_transport import FrameSupersededError, PrestoTransport, SlotUnavailableError
 from preview import PreviewServer, validate_preview_port
+from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v23-poll-a-held-loading-state"
+BUILD_MARKER = "castkit-remote-display-v24-instant-swipe-slots"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -73,6 +74,13 @@ HOLD_POLL_SECONDS = 0.02
 # A page that reports no change is still captured this often: changes the page
 # cannot observe (a decoded image frame, a canvas) reach the panel within it.
 IDLE_CAPTURE_SECONDS = 1
+# The view a released swipe asked for. Slatecast sets it in the same handler
+# that sends the request, so it is in the DOM by the next evaluation.
+REQUESTED_VIEW_SCRIPT = """() => document.querySelector(
+ '.navigation-feedback[data-phase="loading"]')?.dataset.requestedView ?? null"""
+# A slot loads only after the panel has been quiet this long: no live frame, no
+# touch. It is the lowest-priority work on the link and must never delay a frame.
+SLOT_QUIET_SECONDS = 0.5
 # One cheap evaluation per cycle decides whether a capture is worth its cost.
 # `changes` counts DOM mutations and load/animation/scroll events since the
 # document started; `isLive` names content that repaints without them; and
@@ -133,7 +141,7 @@ def read_config(path):
 
 
 class DisplaySession:
-    def __init__(self, config, page, client, services, stop, preview):
+    def __init__(self, config, page, client, services, stop, preview, feed=None):
         self.config, self.page, self.client, self.services, self.stop = (
             config,
             page,
@@ -164,6 +172,21 @@ class DisplaySession:
         self.document_changed_at = 0
         self.held_since = None
         self.captures = 0
+        self.feed = feed
+        # What the panel shows now, as the capture loop compares against it. A
+        # swipe release that shows a destination drawn ahead writes it too.
+        self.previous_payload = None
+        self.previous_targets = []
+        self.previous_touch = -1
+        self.last_sent = time.monotonic()
+        # Live frames, slot shows and slot loads share one link to the board.
+        self.delivery_lock = asyncio.Lock()
+        # Moves on every released swipe: a frame captured before it shows the
+        # view being left, and is dropped instead of sent.
+        self.release_generation = 0
+        self.release_tasks = set()
+        self.last_live_activity = 0
+        self.releases_ahead = 0
 
     def state_changed(self, state):
         if not isinstance(state, TextSensorState) or state.key != self.event_key:
@@ -175,6 +198,7 @@ class DisplaySession:
                 if future is not None and not future.done():
                     future.set_result(parts)
             elif parts[0] == "touch" and len(parts) >= 8:
+                self.last_live_activity = time.monotonic()
                 if self.touches.full():
                     while not self.touches.empty():
                         self.touches.get_nowait()
@@ -329,6 +353,7 @@ class DisplaySession:
                 )
                 if phase == 2:
                     self.contact = None
+                    await self.release_swipe(sequence)
                 else:
                     self.contact.update(x=x, y=y)
                 self.processed_touch = sequence
@@ -401,12 +426,89 @@ class DisplaySession:
             self.processed_touch = sequence
             self.force_frame.set()
 
-    async def send_frame(self, payload, touch_id, targets, format_id=2):
+    async def release_swipe(self, touch_id):
+        """A swipe was released: put its destination on the glass now if it is ready.
+
+        Whatever the panel was still sending for the pull (its "Release for ..."
+        hint) is stopped, and frames captured before the release are dropped, so
+        the destination never waits behind them.
+        """
+        if self.feed is None or not isinstance(self.client, PrestoTransport):
+            return
+        view = await self.page.evaluate(REQUESTED_VIEW_SCRIPT)
+        if not view:
+            return
+        self.release_generation += 1
+        self.client.supersede_live()
+        task = asyncio.create_task(self.show_destination(view, touch_id, self.release_generation))
+        self.release_tasks.add(task)
+        task.add_done_callback(self.release_tasks.discard)
+
+    async def show_destination(self, view, touch_id, generation):
+        frame = self.feed.read(view)
+        if frame is None:
+            return
+        started = time.monotonic()
+        try:
+            async with self.delivery_lock:
+                if generation != self.release_generation:
+                    return
+                self.last_live_activity = time.monotonic()
+                slot = self.client.find_slot(view, frame["key"]) if self.client.has_slots else None
+                response = None
+                if slot is not None:
+                    try:
+                        response = await self.client.show_slot(slot, touch_id)
+                        frame_id = int(response[1])
+                    except SlotUnavailableError as error:
+                        # The board answered without changing the picture; send the
+                        # frame instead, and the loader fills the slot again later.
+                        LOG.info("Slot %s for %s unavailable: %s", slot, view, error)
+                        slot = None
+                if response is None:
+                    # No fresh slot: the frame drawn ahead still beats waiting for
+                    # the page to build the view and be captured.
+                    self.frame_id += 1
+                    frame_id = self.frame_id
+                    response = await self.client.send_frame(frame_id, touch_id, frame["pixels"])
+                self.guard.remember(
+                    frame_id,
+                    [
+                        Target(**{key: value for key, value in target.items() if key != "loading"})
+                        for target in frame["targets"]
+                    ],
+                )
+                self.preview.set_frame(frame["png"])
+                self.previous_payload = frame["pixels"]
+                self.previous_targets = frame["targets"]
+                self.previous_touch = touch_id
+                self.last_sent = self.last_live_activity = time.monotonic()
+                self.frames += 1
+                self.releases_ahead += 1
+                self.client.last_release = {
+                    "view": view,
+                    "path": "slot" if slot is not None else "frame",
+                    "ms": round((time.monotonic() - started) * 1000, 1),
+                }
+        except FrameSupersededError:
+            return
+        except Exception as error:
+            # The live capture still follows; a failed shortcut costs nothing more.
+            LOG.warning("Swipe destination %s not shown ahead: %s", view, error)
+
+    async def send_frame(self, payload, touch_id, targets, format_id=2, generation=None):
         self.frame_id += 1
         frame_id = self.frame_id
         if isinstance(self.client, PrestoTransport):
-            # A touch can only use a frame that the physical panel acknowledged.
-            response = await self.client.send_frame(frame_id, touch_id, payload)
+            async with self.delivery_lock:
+                if generation is not None and generation != self.release_generation:
+                    raise FrameSupersededError(f"Frame {frame_id} shows the view a swipe left")
+                self.last_live_activity = time.monotonic()
+                try:
+                    # A touch can only use a frame that the physical panel acknowledged.
+                    response = await self.client.send_frame(frame_id, touch_id, payload)
+                finally:
+                    self.last_live_activity = time.monotonic()
             self.guard.remember(
                 frame_id,
                 [
@@ -454,6 +556,49 @@ class DisplaySession:
         finally:
             self.pending.pop(frame_id, None)
 
+    def is_slot_quiet(self):
+        return (
+            not self.delivery_lock.locked()
+            and self.contact is None
+            and self.held_since is None
+            and time.monotonic() - self.last_live_activity >= SLOT_QUIET_SECONDS
+        )
+
+    async def slot_loop(self):
+        """Keep the board's slots holding the current swipe destinations.
+
+        Lowest priority: a load starts only on a quiet panel and stops between
+        chunks for any live frame or touch. With every slot fresh it waits for
+        the feed to change and uses no time at all.
+        """
+        while True:
+            version = self.feed.version
+            deferred = self.client.deferred_slots()
+            plan = plan_slots(self.client.slots, self.feed.ordered(), SLOT_COUNT, deferred)
+            if not plan:
+                if deferred and plan_slots(self.client.slots, self.feed.ordered(), SLOT_COUNT):
+                    # Only the slot on screen needs work; it settles first.
+                    await asyncio.sleep(HOLD_POLL_SECONDS * 5)
+                    continue
+                await self.feed.wait_for_change(version)
+                continue
+            quiet_in = SLOT_QUIET_SECONDS - (time.monotonic() - self.last_live_activity)
+            if not self.is_slot_quiet():
+                await asyncio.sleep(max(quiet_in, HOLD_POLL_SECONDS * 5))
+                continue
+            slot, frame = plan[0]
+            self.frame_id += 1
+            try:
+                is_loaded = await self.client.upload_slot(
+                    slot, self.frame_id, frame, self.is_slot_quiet
+                )
+            except (TimeoutError, RuntimeError, ValueError) as error:
+                LOG.warning("Slot %s did not load %s: %s", slot, frame["view"], error)
+                is_loaded = False
+                await asyncio.sleep(1)
+            if not is_loaded:
+                await asyncio.sleep(HOLD_POLL_SECONDS)
+
     async def wait_for_cycle(self, cycle, is_holding=False):
         delay = max(0, 1 / self.config["max_fps"] - (time.monotonic() - cycle))
         if is_holding:
@@ -471,20 +616,25 @@ class DisplaySession:
         if loading_frame is not None:
             await self.send_frame(loading_frame, 0, [], format_id=3)
         input_task = asyncio.create_task(self.input_loop())
-        previous_payload = None
-        previous_targets = []
-        last_sent = time.monotonic()
+        slot_task = (
+            asyncio.create_task(self.slot_loop())
+            if self.feed is not None and self.client.has_slots
+            else None
+        )
+        self.last_sent = time.monotonic()
         last_capture = 0
         captured_changes = None
-        previous_touch = -1
         try:
             while not self.stop.is_set():
                 if input_task.done():
                     input_task.result()
+                if slot_task is not None and slot_task.done():
+                    slot_task.result()
                 cycle = time.monotonic()
-                if cycle - max(last_sent, self.document_changed_at) > BROWSER_TIMEOUT_SECONDS:
+                if cycle - max(self.last_sent, self.document_changed_at) > BROWSER_TIMEOUT_SECONDS:
                     raise TimeoutError("No stable frame captured")
                 touch_id = self.processed_touch
+                generation = self.release_generation
                 document_revision = self.document_revision
                 try:
                     page_state = await asyncio.wait_for(
@@ -515,19 +665,25 @@ class DisplaySession:
                     or self.contact is not None
                     or page_state["isLive"]
                     or page_state["changes"] != captured_changes
-                    or previous_payload is None
+                    or self.previous_payload is None
                     or cycle - last_capture
                     >= min(IDLE_CAPTURE_SECONDS, self.config["heartbeat_seconds"])
                 )
                 if is_holding or not is_capture_due:
                     if (
-                        previous_payload is not None
-                        and cycle - last_sent >= self.config["heartbeat_seconds"]
+                        self.previous_payload is not None
+                        and cycle - self.last_sent >= self.config["heartbeat_seconds"]
                     ):
                         # The heartbeat repeats what the panel already shows; it
                         # never acknowledges a touch the held page has not drawn.
-                        await self.send_frame(previous_payload, previous_touch, previous_targets)
-                        last_sent = time.monotonic()
+                        with contextlib.suppress(FrameSupersededError):
+                            await self.send_frame(
+                                self.previous_payload,
+                                self.previous_touch,
+                                self.previous_targets,
+                                generation=generation,
+                            )
+                            self.last_sent = time.monotonic()
                     await self.wait_for_cycle(cycle, is_holding)
                     continue
                 try:
@@ -609,15 +765,26 @@ class DisplaySession:
                 is_forced = self.force_frame.is_set()
                 self.force_frame.clear()
                 if (
-                    payload != previous_payload
+                    payload != self.previous_payload
                     # Captured gestures with no visual change need no extra
                     # round trip for every move. Preserve changed drag frames,
                     # the release acknowledgement and the periodic heartbeat.
-                    or (self.contact is None and (touch_id != previous_touch or is_forced))
-                    or cycle - last_sent >= self.config["heartbeat_seconds"]
+                    or (self.contact is None and (touch_id != self.previous_touch or is_forced))
+                    or cycle - self.last_sent >= self.config["heartbeat_seconds"]
                 ):
-                    response = await self.send_frame(payload, touch_id, after)
-                    previous_payload, previous_targets, last_sent, previous_touch = (
+                    try:
+                        response = await self.send_frame(
+                            payload, touch_id, after, generation=generation
+                        )
+                    except FrameSupersededError:
+                        # A released swipe took the panel over; capture again.
+                        continue
+                    (
+                        self.previous_payload,
+                        self.previous_targets,
+                        self.last_sent,
+                        self.previous_touch,
+                    ) = (
                         payload,
                         after,
                         time.monotonic(),
@@ -626,9 +793,10 @@ class DisplaySession:
                     self.frames += 1
                     if time.monotonic() - self.last_report >= 30:
                         LOG.info(
-                            "frames=%s captures=%s payload=%s decode_ms=%.1f draw_ms=%.1f",
+                            "frames=%s captures=%s releases_ahead=%s payload=%s decode_ms=%.1f draw_ms=%.1f",
                             self.frames,
                             self.captures,
+                            self.releases_ahead,
                             len(payload),
                             int(response[5]) / 1000,
                             int(response[6]) / 1000,
@@ -637,8 +805,12 @@ class DisplaySession:
                 await self.wait_for_cycle(cycle)
         finally:
             self.page.remove_listener("framenavigated", self.document_changed)
-            input_task.cancel()
-            await asyncio.gather(input_task, return_exceptions=True)
+            background = [input_task, *self.release_tasks] + (
+                [slot_task] if slot_task is not None else []
+            )
+            for task in background:
+                task.cancel()
+            await asyncio.gather(*background, return_exceptions=True)
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self.cancel_contact(), timeout=BROWSER_TIMEOUT_SECONDS)
             with contextlib.suppress(TimeoutError):
@@ -763,10 +935,21 @@ async def serve(config):
             else None
         )
         controls_task = None
+        feed = None
+        feed_task = None
         if presto is not None:
             await presto.start()
             if config.get("controls_url"):
                 controls_task = asyncio.create_task(poll_controls(context, config, presto, stop))
+            if config.get("stream_frames_url"):
+                feed = StreamFrameFeed(
+                    context.request, config["stream_frames_url"], presto_frame_pixels
+                )
+
+                def count_frames(count):
+                    presto.frames_ahead = count
+
+                feed_task = asyncio.create_task(feed.run(stop, count_frames))
         page = await context.new_page()
         requested_origin = urlsplit(config["url"])
         origin = (requested_origin.scheme, requested_origin.netloc)
@@ -809,7 +992,11 @@ async def serve(config):
                     await client.connect(login=True)
                     if is_presto:
                         actions, event_key = {}, 1
-                        LOG.info("Presto connected; firmware=%s", client.build_marker)
+                        LOG.info(
+                            "Presto connected; firmware=%s slots=%s",
+                            client.build_marker,
+                            getattr(client, "has_slots", False),
+                        )
                     else:
                         info = await client.device_info()
                         if info.mac_address.lower().replace(":", "") != config[
@@ -824,7 +1011,7 @@ async def serve(config):
                             entity.key for entity in entities if entity.name == "Display Events"
                         )
                         LOG.info("Display connected; firmware=%s", info.compilation_time)
-                    session = DisplaySession(config, page, client, actions, stop, preview)
+                    session = DisplaySession(config, page, client, actions, stop, preview, feed)
                     await session.run(event_key, loading_frame)
                 except Exception as error:
                     LOG.warning(
@@ -843,9 +1030,10 @@ async def serve(config):
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=2)
         finally:
-            if controls_task is not None:
-                controls_task.cancel()
-                await asyncio.gather(controls_task, return_exceptions=True)
+            for task in (controls_task, feed_task):
+                if task is not None:
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
             await preview.stop()
             if presto is not None:
                 await presto.stop()
