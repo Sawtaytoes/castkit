@@ -252,3 +252,41 @@ test("a new track draws Now Playing again, and a new position does not", async (
   )
   expect(keyOf(after)).not.toBe(keyOf(before))
 })
+
+test("a clock frame drawn while one track played is the picture with any other track", async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(90_000)
+  // The clock draws the minute: keep the whole test inside one.
+  const secondsLeft = 60 - new Date().getSeconds()
+  if (secondsLeft < 25) {
+    await page.waitForTimeout((secondsLeft + 1) * 1000)
+  }
+  await publish(page, "view", "Queue")
+  const hasAmbient = (index: FrameIndex) =>
+    index.frames.some((frame) => frame.view === "ambient")
+  await waitForIndex(page, hasAmbient)
+  const before = await readServerFrame(page, "ambient")
+  await publish(
+    page,
+    "now_playing",
+    buildTrack({ title: "A Third Song" }),
+  )
+  // The cache recomputes keys 150 ms after a change.
+  await page.waitForTimeout(500)
+  const after = await readServerFrame(page, "ambient")
+  expect(after.key).toBe(before.key)
+
+  const context = await createWorkerContext(browser)
+  const panel = await context.newPage()
+  await publish(page, "view", "Ambient")
+  await panel.goto(`/d/${E2E_STREAM_DEVICE_ID}`)
+  await waitForSettledView(panel, "ambient")
+  expect(
+    (await captureLikeWorker(context, panel)).equals(
+      before.png,
+    ),
+  ).toBe(true)
+  await context.close()
+})

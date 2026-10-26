@@ -155,6 +155,21 @@ describe("readStreamDestinations", () => {
     ).not.toBe(playing["now-playing"])
   })
 
+  test("a clock view's key ignores the music, so rooms playing different music share it", () => {
+    const first = readContents({
+      snapshot: buildPanelSnapshot(),
+    })
+    const second = readContents({
+      snapshot: buildPanelSnapshot({
+        title: "Second Song",
+      }),
+    })
+    expect(second.calendar).toBe(first.calendar)
+    expect(second["now-playing"]).not.toBe(
+      first["now-playing"],
+    )
+  })
+
   test("a clock view's key moves with the minute and the queue's does not", () => {
     const now = readContents({
       snapshot: buildPanelSnapshot(),
