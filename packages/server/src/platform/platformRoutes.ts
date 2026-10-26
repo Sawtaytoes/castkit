@@ -1,3 +1,4 @@
+import { renderTextMask } from "@castkit/render/textMask"
 import type {
   ChannelDefinition,
   ScreenDefinition,
@@ -7,6 +8,11 @@ import type {
 import type { Context, Hono } from "hono"
 import { z } from "zod"
 import { resolveSlatecastBuildId } from "../browser/pages.ts"
+import { sendCameraFrame } from "../camera/cameraFrameRoute.ts"
+import {
+  type CameraFrameService,
+  createCameraFrameService,
+} from "../camera/cameraFrameService.ts"
 import { assertActionAllowed } from "./actionPolicy.ts"
 import {
   getDisplayCompatibility,
@@ -190,12 +196,21 @@ export const attachPlatformRoutes = ({
   app,
   platform,
   apiToken = "",
+  cameraFrames,
 }: {
   app: Hono
   platform: Platform
   apiToken?: string
+  /** Camera alert frames for image-stream panels; created here when absent. */
+  cameraFrames?: CameraFrameService
 }) => {
   const { store, access, catalog, runtime } = platform
+  const cameraFrameService =
+    cameraFrames ??
+    createCameraFrameService({
+      getMedia: (request) => runtime.getMedia(request),
+      renderText: renderTextMask,
+    })
   const getEnabledPlugins = () =>
     catalog.plugins.filter(
       (plugin) =>
@@ -1453,6 +1468,16 @@ export const attachPlatformRoutes = ({
           },
           403,
         )
+      if (context.req.query("kind") === "frames")
+        return sendCameraFrame({
+          context,
+          view: result.snapshot.view,
+          channelId,
+          assetId: context.req.param("assetId"),
+          readChannelData: (id) =>
+            platform.hub.get(id)?.data,
+          service: cameraFrameService,
+        })
       return sendMedia({ context, runtime })
     },
   )
@@ -1503,6 +1528,10 @@ const sendMedia = async ({
   context: Context
   runtime: Platform["runtime"]
 }) => {
+  // The server's own camera decoder reads a source's raw video; no display
+  // fetches it, so a view grant never opens an endless stream.
+  if (context.req.query("kind") === "video")
+    return context.json({ error: "Unsupported media" }, 404)
   try {
     const response = await runtime.getMedia({
       channelId: context.req.param("channelId") ?? "",

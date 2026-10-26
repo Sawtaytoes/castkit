@@ -621,3 +621,16 @@ polling. It never overlaps its image renders, and target checks discard frames w
 temporary view has expired. Browser snapshots abort on unmount and release image blobs.
 While source video starts, an instant browser also refreshes snapshots so startup failure
 leaves a useful timestamped picture. Existing camera-wall refresh behavior is unchanged.
+
+An image-stream panel (a remote-display worker drawing a Presto or another RGB565 board)
+does not capture the alert page. When the page marks its section with
+`data-castkit-camera-frames`, the worker reads frames the server composed and sends them
+unchanged. The server decodes the camera's Home Assistant low-latency HLS once per camera
+(ffmpeg, 10 pictures per second, at most 480 px), composes the label, the live or
+snapshot state, and the receipt time once per panel profile, and hands the newest frame to
+every reader. A slow panel skips to the newest frame and never queues old ones. Stills
+cover the first seconds while the video starts. Decoding stops 15 s after the last read,
+so a server with no alert decodes nothing. The page itself still runs, so its touch
+targets, swipes, and dismiss work as before; a stale feed (4 s) or a touch returns the
+panel to page capture. See
+[the decision](decisions/2026-10-26-the-camera-alert-streams-directly-and-lasts-while-a-person-is-detected.md).

@@ -153,3 +153,38 @@ test("an instant browser shows snapshots during video startup and restores them 
     ).toBeVisible(),
   )
 })
+
+test("the alert names its server frames, so an image-stream worker can skip capturing the page", async () => {
+  vi.spyOn(window, "fetch").mockImplementation(
+    () => new Promise(() => {}),
+  )
+  render(
+    <DisplayPropertiesContext.Provider
+      value={{ delivery: "browser", repaint: "fast" }}
+    >
+      <CameraAlertView
+        data={{
+          cameras: [
+            {
+              id: "camera",
+              name: "Entrance",
+              isLive: true,
+              format: "hls",
+              url: "/api/display/view/alert/media/camera?kind=hls",
+              snapshotUrl:
+                "/api/display/view/alert/media/camera?kind=camera",
+              framesUrl:
+                "/api/display/view/alert/media/camera?kind=frames",
+            },
+          ],
+        }}
+        settings={{ label: "Entrance" }}
+      />
+    </DisplayPropertiesContext.Provider>,
+  )
+  expect(
+    screen
+      .getByRole("region", { name: "Entrance" })
+      .getAttribute("data-castkit-camera-frames"),
+  ).toBe("/api/display/view/alert/media/camera?kind=frames")
+})

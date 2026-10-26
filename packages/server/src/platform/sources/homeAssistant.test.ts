@@ -102,6 +102,8 @@ test("camera data uses CastKit media paths and media requests check channel memb
           name: "Printer",
           url: "/api/platform/channels/cameras/media/camera.printer?kind=camera",
           isLive: false,
+          framesUrl:
+            "/api/platform/channels/cameras/media/camera.printer?kind=frames",
         },
       ],
     },
@@ -160,6 +162,8 @@ test("HA camera channel can provide live video under a printer ID alias", async 
             "/api/platform/channels/cameras/media/camera.example_printer?kind=camera",
           isLive: true,
           format: "hls",
+          framesUrl:
+            "/api/platform/channels/cameras/media/camera.example_printer?kind=frames",
         },
       ],
     },

@@ -10,11 +10,13 @@ import pathlib
 import secrets
 import signal
 import time
+import zlib
 from urllib.parse import urlsplit
 
 import yaml
 from aioesphomeapi import APIClient, TextSensorState
 from ambient_light import artwork_bounds
+from camera_frames import CameraFrameFeed
 from codec import encode_frame, presto_frame_pixels, presto_frame_pixels_with_palette
 from esphome_presto import SLOT_COUNT, ESPHomePrestoTransport
 from interaction import FrameGuard, Target
@@ -27,7 +29,7 @@ from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v25-every-release-ahead"
+BUILD_MARKER = "castkit-remote-display-v26-direct-camera-frames"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -92,6 +94,11 @@ GESTURE_RELEASE_SCRIPT = """({x,y}) => {
 # Playing's accent); each step would otherwise reach the glass as its own
 # frame, and the first would show the artwork missing.
 RELEASE_QUIET_SECONDS = 0.15
+# How long a camera frame wait may hold the loop before the page is looked at
+# again: a swipe or a view change must still end the camera promptly.
+CAMERA_WAIT_SECONDS = 0.25
+# The camera page's touch targets rarely change; read them again this often.
+CAMERA_TARGETS_SECONDS = 1
 # A slot loads only after the panel has been quiet this long: no live frame, no
 # touch. It is the lowest-priority work on the link and must never delay a frame.
 SLOT_QUIET_SECONDS = 0.5
@@ -112,6 +119,7 @@ PAGE_STATE_SCRIPT = """() => {
  }
  const root = document.querySelector('[data-castkit-ready]');
  return {
+   cameraFrames: document.querySelector('[data-castkit-camera-frames]')?.dataset.castkitCameraFrames ?? null,
    changes: window.__castkitPageChanges.count,
    isLive: Boolean(document.querySelector('video, canvas, iframe, img[src*="mjpeg" i]'))
      || document.getAnimations().some(animation => animation.playState === 'running'),
@@ -216,6 +224,15 @@ class DisplaySession:
         # The touch a destination drawn ahead acknowledged. The live capture of
         # that same picture is then no news and is not sent again.
         self.shown_release_touch = None
+        # Server camera frames while the page shows a camera alert (camera_frames.py).
+        self.camera = None
+        self.camera_url = None
+        self.camera_task = None
+        self.camera_sequence = 0
+        self.camera_targets = None
+        self.camera_targets_at = 0
+        self.camera_sent = 0
+        self.camera_started = 0
 
     def state_changed(self, state):
         if not isinstance(state, TextSensorState) or state.key != self.event_key:
@@ -565,7 +582,9 @@ class DisplaySession:
             if generation == self.release_generation:
                 self.release_hold = None
 
-    async def send_frame(self, payload, touch_id, targets, format_id=2, generation=None):
+    async def send_frame(
+        self, payload, touch_id, targets, format_id=2, generation=None, prepared=None
+    ):
         self.frame_id += 1
         frame_id = self.frame_id
         if isinstance(self.client, PrestoTransport):
@@ -575,7 +594,11 @@ class DisplaySession:
                 self.last_live_activity = time.monotonic()
                 try:
                     # A touch can only use a frame that the physical panel acknowledged.
-                    response = await self.client.send_frame(frame_id, touch_id, payload)
+                    response = (
+                        await self.client.send_frame(frame_id, touch_id, payload, prepared)
+                        if prepared is not None
+                        else await self.client.send_frame(frame_id, touch_id, payload)
+                    )
                 finally:
                     self.last_live_activity = time.monotonic()
             self.guard.remember(
@@ -651,6 +674,126 @@ class DisplaySession:
         ):
             self.release_hold = None
             return False
+        return True
+
+    def has_camera_frames(self):
+        """Server camera frames reach ESPHome Prestos and the WT32; the HTTP Presto
+        receiver keeps page capture."""
+        return isinstance(self.client, ESPHomePrestoTransport) or not isinstance(
+            self.client, PrestoTransport
+        )
+
+    async def set_camera(self, url):
+        """Start or stop reading server camera frames as the page names them."""
+        if url == self.camera_url:
+            return
+        if self.camera_task is not None:
+            self.camera_task.cancel()
+            await asyncio.gather(self.camera_task, return_exceptions=True)
+        if self.camera is not None:
+            LOG.info(
+                "Camera frames ended: sent=%s received=%s seconds=%.1f",
+                self.camera_sent,
+                self.camera.received,
+                time.monotonic() - self.camera_started,
+            )
+        self.camera = self.camera_task = None
+        self.camera_url = url
+        self.camera_sequence = 0
+        self.camera_targets = None
+        self.camera_sent = 0
+        if isinstance(self.client, PrestoTransport):
+            self.client.camera = None
+        if url is None:
+            # The page takes the glass back from the next capture.
+            self.force_frame.set()
+            return
+        resolved = same_origin_url(self.config["manifest_url"], url)
+        cookies = await self.page.context.cookies([resolved])
+        viewport = self.config.get("viewport", {"width": 480, "height": 320})
+        self.camera = CameraFrameFeed(
+            resolved,
+            "; ".join(f"{cookie['name']}={cookie['value']}" for cookie in cookies),
+            viewport["width"],
+            viewport["height"],
+        )
+        self.camera_task = asyncio.create_task(self.camera.run())
+        self.camera_started = time.monotonic()
+        LOG.info("Camera frames started")
+
+    async def camera_cycle(self, cycle, touch_id, generation):
+        """Send the newest server camera frame, or wait briefly for one.
+
+        Returns False when the page should be captured instead: no fresh camera
+        frame yet (the server is still starting the camera) or it stalled.
+        """
+        if self.camera_task is not None and self.camera_task.done():
+            self.camera_task.result()
+        if not self.camera.is_fresh():
+            return False
+        if self.camera_targets is None or cycle - self.camera_targets_at >= CAMERA_TARGETS_SECONDS:
+            self.camera_targets = await asyncio.wait_for(
+                self.page.evaluate(TARGETS_SCRIPT, self.target_options),
+                timeout=BROWSER_TIMEOUT_SECONDS,
+            )
+            self.camera_targets_at = cycle
+        frame = await self.camera.wait_for_newer(self.camera_sequence, CAMERA_WAIT_SECONDS)
+        if frame is None:
+            if (
+                self.previous_payload is not None
+                and time.monotonic() - self.last_sent >= self.config["heartbeat_seconds"]
+            ):
+                with contextlib.suppress(FrameSupersededError):
+                    await self.send_frame(
+                        self.previous_payload,
+                        self.previous_touch,
+                        self.previous_targets,
+                        generation=generation,
+                    )
+                    self.last_sent = time.monotonic()
+            return True
+        is_presto = isinstance(self.client, PrestoTransport)
+        if is_presto:
+            payload = frame["pixels"]
+            prepared = {"patch": frame["patch"], "body": frame["body"], "layout": frame["layout"]}
+        else:
+            # The WT32 takes one zlib frame of the whole panel; the server sends
+            # exactly that when the patch covers the panel.
+            payload = (
+                frame["body"]
+                if frame["patch"]
+                == (0, 0, self.target_options["width"], self.target_options["height"])
+                else await asyncio.to_thread(zlib.compress, frame["pixels"], 1)
+            )
+            prepared = None
+        started = time.monotonic()
+        try:
+            response = await self.send_frame(
+                payload, touch_id, self.camera_targets, generation=generation, prepared=prepared
+            )
+        except FrameSupersededError:
+            # A released swipe took the panel over; the page decides what is next.
+            return True
+        self.camera_sequence = frame["sequence"]
+        self.previous_payload, self.previous_targets = payload, self.camera_targets
+        self.last_sent, self.previous_touch = time.monotonic(), touch_id
+        self.frames += 1
+        self.camera_sent += 1
+        elapsed = max(time.monotonic() - self.camera_started, 0.001)
+        stats = {
+            "frames": self.camera_sent,
+            "fps": round(self.camera_sent / elapsed, 2),
+            "send_ms": round((time.monotonic() - started) * 1000, 1),
+            "origin": frame["origin"],
+            "bytes": len(frame["body"]),
+        }
+        if response is not None and len(response) >= 7:
+            stats.update(decode_ms=int(response[5]) / 1000, draw_ms=int(response[6]) / 1000)
+        if is_presto:
+            self.client.camera = stats
+        if time.monotonic() - self.last_report >= 10:
+            LOG.info("camera %s", stats)
+            self.last_report = time.monotonic()
         return True
 
     def is_slot_quiet(self):
@@ -758,6 +901,19 @@ class DisplaySession:
                 is_holding = is_release_holding or (
                     self.held_since is not None and cycle - self.held_since < SETTLE_HOLD_SECONDS
                 )
+                await self.set_camera(
+                    page_state.get("cameraFrames") if self.has_camera_frames() else None
+                )
+                # A destination shown at a release keeps the glass until its view
+                # is built, so a camera alert being swiped away never draws over it.
+                if (
+                    self.camera is not None
+                    and page_state["isSettled"]
+                    and self.contact is None
+                    and not is_release_holding
+                    and await self.camera_cycle(cycle, touch_id, generation)
+                ):
+                    continue
                 is_capture_due = (
                     self.force_frame.is_set()
                     or self.contact is not None
@@ -920,6 +1076,7 @@ class DisplaySession:
             for task in background:
                 task.cancel()
             await asyncio.gather(*background, return_exceptions=True)
+            await self.set_camera(None)
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self.cancel_contact(), timeout=BROWSER_TIMEOUT_SECONDS)
             with contextlib.suppress(TimeoutError):

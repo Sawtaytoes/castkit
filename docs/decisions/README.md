@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-26: The camera alert streams directly and lasts while a person is detected](2026-10-26-the-camera-alert-streams-directly-and-lasts-while-a-person-is-detected.md)
+
 - [2026-10-26: Every released request shows its destination until the view is built](2026-10-26-every-released-request-shows-its-destination-until-the-view-is-built.md)
 
 - [2026-10-26: A swipe destination is drawn ahead and held on the panel](2026-10-26-a-swipe-destination-is-drawn-ahead-and-held-on-the-panel.md)

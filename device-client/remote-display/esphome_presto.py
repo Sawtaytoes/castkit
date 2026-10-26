@@ -279,10 +279,10 @@ class ESPHomePrestoTransport(PrestoTransport):
             {"wake_backlight": wake[0], "wake_seconds": wake[1]},
         )
 
-    async def send_frame(self, frame_id, touch_id, raw):
+    async def send_frame(self, frame_id, touch_id, raw, prepared=None):
         for attempt in range(1, FRAME_ATTEMPTS + 1):
             try:
-                return await self.deliver_frame(frame_id, touch_id, raw)
+                return await self.deliver_frame(frame_id, touch_id, raw, prepared)
             except (TimeoutError, FrameRejectedError) as error:
                 # A failed attempt has cleared the base, so the retry is a full frame,
                 # which the board accepts even after its offline blank reset its base.
@@ -292,12 +292,34 @@ class ESPHomePrestoTransport(PrestoTransport):
                     raise
                 LOG.warning("%s; resending in full on the same link", error)
 
-    async def deliver_frame(self, frame_id, touch_id, raw):
+    def can_use_prepared(self, prepared):
+        """A server patch replaces only its rectangle, so the board must already show
+        a frame whose pixels outside it are the same: a camera frame of that layout."""
+        return (
+            prepared is not None
+            and self.base_pixels is not None
+            and self.base_id != 0
+            and self.base_layout == prepared["layout"]
+        )
+
+    async def deliver_frame(self, frame_id, touch_id, raw, prepared=None):
         if self.control_task.done():
             self.control_task.result()
         started = time.monotonic()
-        body, encoding, rectangle = await asyncio.to_thread(
-            encode_presto_patch, raw, self.base_pixels
+        if self.can_use_prepared(prepared):
+            # Compressed once on the server for every panel of this size.
+            body, encoding, rectangle = prepared["body"], "zlib", tuple(prepared["patch"])
+        else:
+            body, encoding, rectangle = await asyncio.to_thread(
+                encode_presto_patch, raw, self.base_pixels
+            )
+        # What the board shows after this frame, outside any later patch.
+        layout = (
+            prepared["layout"]
+            if prepared is not None
+            else self.base_layout
+            if self.base_pixels is not None and raw == self.base_pixels
+            else None
         )
         self.patch_prepare_ms = round((time.monotonic() - started) * 1000, 1)
         packet = struct.pack(">IHHHHB", self.base_id, *rectangle, int(encoding == "rle")) + body
@@ -329,14 +351,14 @@ class ESPHomePrestoTransport(PrestoTransport):
             except FrameSupersededError:
                 # Every chunk reached the board, which draws this frame before
                 # anything queued behind it, so it is the next frame's base.
-                self.base_id, self.base_pixels = frame_id, raw
+                self.base_id, self.base_pixels, self.base_layout = frame_id, raw, layout
                 self.shown_slot = None
                 raise
             except TimeoutError as error:
                 raise TimeoutError(
                     f"Presto did not acknowledge frame {frame_id} ({len(packet)} bytes)"
                 ) from error
-            self.base_id, self.base_pixels = frame_id, raw
+            self.base_id, self.base_pixels, self.base_layout = frame_id, raw, layout
             self.shown_slot = None
             self.frames_drawn += 1
             self.last_ack = {
@@ -439,6 +461,7 @@ class ESPHomePrestoTransport(PrestoTransport):
                         asyncio.shield(self.pending), timeout=min(SHOW_RECHECK_SECONDS, remaining)
                     )
             self.base_id, self.base_pixels = held["frame_id"], held["pixels"]
+            self.base_layout = None
             self.shown_slot = (slot, time.monotonic())
             self.frames_drawn += 1
             self.last_ack = {

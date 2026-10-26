@@ -125,6 +125,22 @@ never written to disk.
    encoded once per panel profile and sent to every panel showing it, without a browser
    capture per panel. The board's inflate + draw (~0.5 s per full frame) then limits the
    frame rate, which phase 4 addresses.
+   - **Built 2026-10-26, without a browser or a render engine.** Decision:
+     [`2026-10-26-the-camera-alert-streams-directly-and-lasts-while-a-person-is-detected`](decisions/2026-10-26-the-camera-alert-streams-directly-and-lasts-while-a-person-is-detected.md).
+     `packages/server/src/platform/sources/homeAssistantVideo.ts` reads Home Assistant's
+     low-latency HLS parts (blocking playlist reloads, from the newest independent part)
+     as one fragmented MP4 stream. `packages/server/src/camera/cameraDecoder.ts` decodes it
+     with one ffmpeg per camera (10 pictures per second, at most 480 px, two decode
+     threads, PAM out) and `framePacer.ts` spreads each part's burst over the time it
+     covers. `cameraFrameService.ts` composes each profile once (`cameraFrameLayout.ts`:
+     480x480 keeps the 4:3 picture whole under a label band and patches only the camera
+     rectangle; 480x320 overlays the label and patches the whole frame), with the label
+     and receipt time drawn by resvg from the panel face. Stills cover the start; decoding
+     stops 15 s after the last read.
+   - **Worker.** The alert page marks its section with `data-castkit-camera-frames`.
+     `camera_frames.py` long-polls that URL with the page's cookie, and the worker sends
+     each frame unchanged while the feed is fresh (4 s), the page is settled, and no touch
+     is active; otherwise it captures the page as before.
 4. **Panel firmware — the main remaining cost of a swipe.** (a) Measure and shorten the board's inflate and draw path
    (partial regions, faster copy) — this is the camera frame rate. (b) Frame slots in
    PSRAM: the worker preloads the destination frame of each swipe direction, and the

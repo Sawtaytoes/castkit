@@ -8,6 +8,7 @@ import {
   parseWeatherPayload,
 } from "@castkit/shared/viewData/parsers"
 import { createHomeAssistantHls } from "./homeAssistantHls.ts"
+import { openHomeAssistantVideo } from "./homeAssistantVideo.ts"
 import {
   finiteNumber,
   pollingSource,
@@ -513,6 +514,13 @@ export const createHomeAssistantSource: SourceFactory = (
                 : {}),
               isLive: isHls,
               ...(isHls ? { format: "hls" as const } : {}),
+              // Decoded once on the server and sent to image-stream panels
+              // as finished frames, with no browser in between.
+              framesUrl: mediaPath({
+                channelId: channel.id,
+                entityId: textValue(entry.entity_id),
+                kind: "frames",
+              }),
             })),
         },
       })
@@ -717,6 +725,24 @@ export const createHomeAssistantSource: SourceFactory = (
           path: `/api/camera_proxy/${encodeURIComponent(assetId)}`,
           timeoutMilliseconds: 3000,
         })
+      }
+      if (
+        kind === "video" &&
+        assetId.startsWith("camera.") &&
+        channel.type === "cameras.v1" &&
+        channel.settings.cameraFormat === "hls"
+      ) {
+        // The server's own camera decoder reads this; the display media route
+        // never serves it (see cameraFrameRoutes.ts).
+        return new Response(
+          openHomeAssistantVideo({
+            context,
+            headers,
+            entityId: assetId,
+            signal: signal ?? context.signal,
+          }),
+          { headers: { "content-type": "video/mp4" } },
+        )
       }
       if (
         kind === "hls" &&
