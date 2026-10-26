@@ -25,7 +25,7 @@ import type { ViewColorMode } from "./viewProps.ts"
  * tokens here, not a typeface decision.
  */
 export const PANEL_FONT_FAMILY =
-  '"Atkinson Hyperlegible", "DejaVu Sans", sans-serif'
+  '"Atkinson Hyperlegible", "DejaVu Sans", "Noto Sans JP", sans-serif'
 
 /**
  * castkit's color mode, in charcuterie's name for the same thing. `spectra6` is the

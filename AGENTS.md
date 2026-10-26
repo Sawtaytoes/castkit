@@ -392,9 +392,8 @@ don't batch pushes.
 
 ⚠️ **`master` is protected and a direct push is REJECTED** — "6 of 6 required status
 checks are expected" (measured 2026-09-12). So: push a branch, open a pull request,
-and **squash-merge it yourself once the checks are green**. This is still a
-single-maintainer repo and nobody else is reviewing; the pull request is the gate CI
-needs, not a request for permission. Never merge on red or pending. Then finish the
+and **squash-merge it yourself once the checks are green**. Complete independent adversarial review as described below before merging.
+Never merge on red or pending. Then finish the
 job: `midclt call app.pull_images castkit` and `app.redeploy castkit` on
 `root@storeman.octen`, and verify a **marker from the new build** — a 200 is also true
 of the old image.
@@ -426,3 +425,24 @@ Env vars are for **deploy-time infrastructure only** (broker, HA URL/token,
 render engine, ports, Immich URL/key). **User-tunable settings do NOT belong in
 env** — they're HA/MQTT config entities (global default + per-device override);
 see the locked-decision rule above.
+
+## Independent adversarial review
+
+Before integrating any change in this repository, including an authorized direct push
+to the default branch, obtain review from at least one other agent that did not author
+the changes. This includes code, tests, dependencies, configuration, CI, and documentation;
+scale review depth to the risk. For risky designs, seek an early challenge as well as
+review of the final diff. Give the reviewer the requirements, applicable instructions,
+base/head SHAs, full diff, and test evidence. Ask it to find correctness defects,
+regressions, edge cases, security problems, and missing verification; a no-findings
+result is valid. Reviewers inspect and report; they do not edit, merge, or deploy.
+
+Resolve findings with evidence, fix confirmed defects, and re-run affected checks.
+Unresolved material concerns block integration. Re-review substantive changes after fixes
+or rebases so the final head is covered. Record reviewer identity, reviewed SHAs,
+findings (or none), resolutions, and verification on the PR. Self-review and passing
+CI do not replace independent review. If the reviewer is unavailable, retry or use
+another authorized agent; report the gate instead of silently waiving it. Only an
+explicit owner instruction can waive the review, with its scope recorded in the same
+review evidence. Existing required checks, merge rules, and deployment verification
+still apply.
