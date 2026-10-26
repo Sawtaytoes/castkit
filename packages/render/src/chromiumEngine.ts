@@ -4,7 +4,11 @@ import type {
   RenderEngine,
   RenderRequest,
 } from "./engine.ts"
-import { FONT_FAMILY, loadFontBytes } from "./fonts.ts"
+import {
+  FONT_FAMILY,
+  loadFontBytes,
+  loadJapaneseFontBytes,
+} from "./fonts.ts"
 
 /**
  * The headless-Chromium render engine (the handoff's recommended default). It
@@ -47,15 +51,21 @@ const buildHtmlDocument = ({
 </html>`
 
 const buildFontFaceCss = async () => {
-  const { regularData, boldData } = await loadFontBytes()
+  const [{ regularData, boldData }, japanese] =
+    await Promise.all([
+      loadFontBytes(),
+      loadJapaneseFontBytes(),
+    ])
   const toFontFace = ({
     data,
     weight,
+    family = FONT_FAMILY,
   }: {
     data: Buffer
     weight: number
+    family?: string
   }) => `@font-face {
-    font-family: "${FONT_FAMILY}";
+    font-family: "${family}";
     font-weight: ${weight};
     src: url(data:font/ttf;base64,${data.toString("base64")}) format("truetype");
   }`
@@ -63,6 +73,16 @@ const buildFontFaceCss = async () => {
   return [
     toFontFace({ data: regularData, weight: 400 }),
     toFontFace({ data: boldData, weight: 700 }),
+    toFontFace({
+      data: japanese.regularData,
+      weight: 400,
+      family: "Noto Sans JP",
+    }),
+    toFontFace({
+      data: japanese.boldData,
+      weight: 700,
+      family: "Noto Sans JP",
+    }),
   ].join("\n")
 }
 

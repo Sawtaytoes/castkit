@@ -1,4 +1,7 @@
+import { PHAT_DEVICE } from "@castkit/core/devices/device"
+import { NowPlayingDashboard } from "@castkit/views/NowPlayingDashboard"
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { DitherPreview } from "../storybook/DitherPreview.tsx"
 import {
   DEFAULT_PANEL_ARGS,
   PANEL_ARG_TYPES,
@@ -58,4 +61,34 @@ export const M5PaperDithered: Story = {
     isDithered: true,
     ditherAlgorithm: "floyd-steinberg",
   },
+}
+
+/** The first canvas draw must include offline Japanese font glyphs. */
+export const JapaneseDithered: Story = {
+  name: "Japanese metadata — dithered (250x122)",
+  parameters: { controls: { disable: true } },
+  render: () => (
+    <DitherPreview
+      width={250}
+      height={122}
+      palette={PHAT_DEVICE.palette}
+      algorithm="off"
+      supersampleFactor={4}
+      zoom={3}
+      rotation={0}
+      isShownAsMounted={false}
+    >
+      <NowPlayingDashboard
+        width={250}
+        height={122}
+        colorMode="monochrome"
+        title="日本語の音楽 ABC123"
+        artist="ひらがな カタカナ"
+        album="東京 音楽"
+        date="Mo-26"
+        time="6:17p"
+        isPlaying
+      />
+    </DitherPreview>
+  ),
 }

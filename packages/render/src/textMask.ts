@@ -27,13 +27,16 @@ export const renderTextMask = ({
   align?: "start" | "end"
   isBold?: boolean
 }) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><text x="${align === "end" ? width : 0}" y="${Math.round(height / 2 + fontSize * 0.35)}" font-family="${FONT_FAMILY}" font-size="${fontSize}" font-weight="${isBold ? 700 : 400}" text-anchor="${align}" fill="#fff">${escapeText(text)}</text></svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><text x="${align === "end" ? width : 0}" y="${Math.round(height / 2 + fontSize * 0.35)}" font-family="${FONT_FAMILY}, Noto Sans JP" font-size="${fontSize}" font-weight="${isBold ? 700 : 400}" text-anchor="${align}" fill="#fff">${escapeText(text)}</text></svg>`
   const rendered = new Resvg(svg, {
     font: {
       fontFiles: [
         isBold
           ? FONT_FILE_PATHS.bold
           : FONT_FILE_PATHS.regular,
+        isBold
+          ? FONT_FILE_PATHS.japaneseBold
+          : FONT_FILE_PATHS.japaneseRegular,
       ],
       loadSystemFonts: false,
       defaultFontFamily: FONT_FAMILY,
