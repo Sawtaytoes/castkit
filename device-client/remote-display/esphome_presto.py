@@ -13,7 +13,7 @@ import time
 from aioesphomeapi import APIClient, TextSensorState
 from aiohttp import web
 from codec import encode_presto_patch
-from presto_transport import PrestoTransport
+from presto_transport import FrameSupersededError, PrestoTransport, SlotUnavailableError
 
 LOG = logging.getLogger("castkit.remote-display")
 
@@ -23,6 +23,19 @@ LOG = logging.getLogger("castkit.remote-display")
 # full on the same link first. A dead link still fails the send with APIConnectionError.
 FRAME_ATTEMPTS = 3
 FRAME_ACK_SECONDS = 6
+# Firmware that holds frames on the board names these three actions. A board
+# without them keeps today's path: every frame travels when it is shown.
+SLOT_ACTIONS = frozenset({"slot_chunk", "show_slot", "drop_slots"})
+SLOT_COUNT = 6
+# The board decodes an upload in bounded pieces between live frames, so its
+# `slot,` event can trail the final chunk by a while.
+SLOT_ACK_SECONDS = 10
+# Rewriting the slot on screen first moves the scanout off it, which holds the API for
+# about 200 ms, and right after a show the board is still copying that slot into both
+# framebuffers. The slot just shown is left alone this long unless a live frame replaced it.
+SHOWN_SLOT_DEFER_SECONDS = 3
+# A slot show is a pointer swap acknowledged within tens of milliseconds.
+SHOW_RECHECK_SECONDS = 0.5
 
 
 class FrameRejectedError(ValueError):
@@ -30,13 +43,14 @@ class FrameRejectedError(ValueError):
 
 
 class ESPHomePrestoTransport(PrestoTransport):
-    transport_build = "castkit-esphome-presto-v1"
+    transport_build = "castkit-esphome-presto-v2-frame-slots"
 
     def __init__(self, config, key):
         super().__init__(config, key)
         self.api = APIClient(config["host"], 6053, None, noise_psk=key)
         self.actions = {}
         self.event_key = None
+        self.slot_event_key = None
         self.control_task = None
         self.control_revision = 0
         self.control_pending = None
@@ -44,6 +58,15 @@ class ESPHomePrestoTransport(PrestoTransport):
         self.wake_sent = None
         self.wake_requested_at = None
         self.unsubscribe = None
+        self.has_slots = False
+        # slot -> {"view", "key", "frame_id", "pixels", "targets"}: what the board holds.
+        self.slots = {}
+        self.slot_pending = None
+        # A reconnect drops every slot; an upload begun before it must not record one.
+        self.slot_epoch = 0
+        self.live = None
+        # (slot, monotonic time) of the slot on screen, until a live frame replaces it.
+        self.shown_slot = None
         self.led_pixels = bytearray(21)
         path = pathlib.Path(__file__).resolve().parent.parent / "presto" / "ambient.py"
         specification = importlib.util.spec_from_file_location("presto_effects", path)
@@ -75,8 +98,21 @@ class ESPHomePrestoTransport(PrestoTransport):
         if not {"frame_chunk", "set_display_controls"} <= self.actions.keys():
             raise ValueError("The Presto needs native frame/control actions")
         self.event_key = next(entity.key for entity in entities if entity.name == "Display Events")
+        # ESPHome keeps only the newest queued state per entity under backpressure, so
+        # slot firmware reports uploads on their own entity where a `slot,` event can
+        # never replace a frame acknowledgement. They are accepted on either entity.
+        self.slot_event_key = next(
+            (entity.key for entity in entities if entity.name == "Display Slot Events"), None
+        )
         self.build_marker = f"esphome-presto-rgb565-v1 {info.compilation_time}"
         self.base_id, self.base_pixels = 0, None
+        self.has_slots = self.actions.keys() >= SLOT_ACTIONS
+        self.slots = {}
+        self.shown_slot = None
+        self.slot_epoch += 1
+        if self.has_slots:
+            # Nothing the board kept from an earlier session is known to this one.
+            await self.api.execute_service(self.actions["drop_slots"], {})
         self.control_sent = None
         self.wake_sent = None
         self.wake_requested_at = None
@@ -87,9 +123,15 @@ class ESPHomePrestoTransport(PrestoTransport):
         self.control_task = asyncio.create_task(self.controls_loop())
 
     def native_state(self, state):
-        if not isinstance(state, TextSensorState) or state.key != self.event_key:
+        if not isinstance(state, TextSensorState):
             return
         parts = state.state.split(",")
+        if state.key == self.slot_event_key and state.key != self.event_key:
+            if parts[0] == "slot":
+                self.slot_event(parts)
+            return
+        if state.key != self.event_key:
+            return
         self.last_seen = time.monotonic()
         if parts[0] == "frame":
             if (
@@ -100,10 +142,20 @@ class ESPHomePrestoTransport(PrestoTransport):
                 and not self.pending.done()
             ):
                 self.pending.set_result(parts)
+        elif parts[0] == "slot":
+            self.slot_event(parts)
         elif parts[0] == "error":
+            # An upload reports its own failures in its `slot,` event, so an error
+            # event belongs to the frame or show that is waiting.
+            reason = parts[1] if len(parts) > 1 else "unknown"
             if self.pending is not None and not self.pending.done():
-                reason = parts[1] if len(parts) > 1 else "unknown"
-                self.pending.set_exception(FrameRejectedError(f"Presto rejected frame: {reason}"))
+                self.pending.set_exception(
+                    SlotUnavailableError("Presto holds no frame in that slot")
+                    if reason == "slot_unavailable"
+                    and self.frame is not None
+                    and "slot" in self.frame
+                    else FrameRejectedError(f"Presto rejected frame: {reason}")
+                )
         elif parts[0] == "touch" and len(parts) == 8:
             try:
                 sequence, phase, x, y, shown = map(int, [*parts[1:5], parts[6]])
@@ -134,6 +186,14 @@ class ESPHomePrestoTransport(PrestoTransport):
                 self.reported_ambient_light = state_snapshot
                 future.set_result(None)
 
+    def slot_event(self, parts):
+        """`slot,<slot>,<frame_id>,<status>` finishes the upload waiting for it."""
+        if len(parts) != 4 or self.slot_pending is None:
+            return
+        slot, frame_id, future = self.slot_pending
+        if parts[1:3] == [str(slot), str(frame_id)] and not future.done():
+            future.set_result(parts[3])
+
     def confirm_shown_frame(self, shown):
         # Every board event shares one "Display Events" sensor, and ESPHome keeps only the
         # newest queued state per entity while its send buffer is full. On a weak Wi-Fi
@@ -158,6 +218,9 @@ class ESPHomePrestoTransport(PrestoTransport):
             self.unsubscribe()
             self.unsubscribe = None
         await self.api.disconnect()
+        self.slots = {}
+        self.shown_slot = None
+        self.slot_epoch += 1
         await super().disconnect()
 
     async def controls_loop(self):
@@ -239,9 +302,13 @@ class ESPHomePrestoTransport(PrestoTransport):
         encoded = base64.b64encode(packet).decode("ascii")
         self.pending = asyncio.get_running_loop().create_future()
         self.frame = {"id": frame_id, "touch_id": touch_id, "created": time.monotonic()}
+        live = self.live = {"is_superseded": False, "future": self.pending}
         sent = time.monotonic()
         try:
             for offset in range(0, len(encoded), 4000):
+                if live["is_superseded"]:
+                    # The board never completed this frame, so its base is unchanged.
+                    raise FrameSupersededError(f"Frame {frame_id} superseded while sending")
                 await self.api.execute_service(
                     self.actions["frame_chunk"],
                     {
@@ -257,11 +324,18 @@ class ESPHomePrestoTransport(PrestoTransport):
                 await asyncio.sleep(0.003)
             try:
                 response = await asyncio.wait_for(self.pending, timeout=FRAME_ACK_SECONDS)
+            except FrameSupersededError:
+                # Every chunk reached the board, which draws this frame before
+                # anything queued behind it, so it is the next frame's base.
+                self.base_id, self.base_pixels = frame_id, raw
+                self.shown_slot = None
+                raise
             except TimeoutError as error:
                 raise TimeoutError(
                     f"Presto did not acknowledge frame {frame_id} ({len(packet)} bytes)"
                 ) from error
             self.base_id, self.base_pixels = frame_id, raw
+            self.shown_slot = None
             self.frames_drawn += 1
             self.last_ack = {
                 "frame_id": frame_id,
@@ -285,8 +359,168 @@ class ESPHomePrestoTransport(PrestoTransport):
                 for sequence in eligible:
                     self.touch_received_at.pop(sequence)
             return response
+        except FrameSupersededError:
+            raise
+        except Exception:
+            self.base_id, self.base_pixels = 0, None
+            raise
+        finally:
+            if live["future"].done() and not live["future"].cancelled():
+                live["future"].exception()
+            self.live = None
+            self.pending = None
+
+    def supersede_live(self):
+        """Stop the frame in flight: a released swipe has a newer one."""
+        live = self.live
+        if live is None:
+            return
+        live["is_superseded"] = True
+        if not live["future"].done():
+            live["future"].set_exception(FrameSupersededError("Frame superseded by a swipe"))
+
+    def find_slot(self, view, key):
+        """The slot holding `view` drawn from `key`, or None when none is fresh."""
+        return next(
+            (
+                slot
+                for slot, held in self.slots.items()
+                if held["view"] == view and held["key"] == key
+            ),
+            None,
+        )
+
+    def deferred_slots(self):
+        """Slots the loader must not rewrite yet: the one just shown, while it settles."""
+        if self.shown_slot is None:
+            return frozenset()
+        slot, shown_at = self.shown_slot
+        if time.monotonic() - shown_at >= SHOWN_SLOT_DEFER_SECONDS:
+            return frozenset()
+        return frozenset({slot})
+
+    async def show_slot(self, slot, touch_id):
+        """Show a held frame now; it is acknowledged like any frame and becomes the base.
+
+        The board abandons a live frame it was half way through receiving, so the
+        caller holds the delivery lock and nothing live is in flight. A slot the board
+        does not hold raises SlotUnavailableError with the picture and base unchanged.
+        """
+        held = self.slots.get(slot)
+        if held is None:
+            raise SlotUnavailableError(f"Slot {slot} holds no frame")
+        if self.control_task.done():
+            self.control_task.result()
+        self.pending = asyncio.get_running_loop().create_future()
+        self.frame = {
+            "id": held["frame_id"],
+            "touch_id": touch_id,
+            "slot": slot,
+            "created": time.monotonic(),
+        }
+        sent = time.monotonic()
+        try:
+            # A show is safe to repeat: the board swaps to a slot already on screen
+            # for free and acknowledges it again. ESPHome can drop a queued
+            # acknowledgement under backpressure, so a short re-ask beats waiting out
+            # the whole timeout.
+            response = None
+            while response is None:
+                remaining = FRAME_ACK_SECONDS - (time.monotonic() - sent)
+                if remaining <= 0:
+                    raise TimeoutError(f"Presto did not show slot {slot}")
+                await self.api.execute_service(
+                    self.actions["show_slot"], {"slot": slot, "touch_id": touch_id}
+                )
+                with contextlib.suppress(TimeoutError):
+                    response = await asyncio.wait_for(
+                        asyncio.shield(self.pending), timeout=min(SHOW_RECHECK_SECONDS, remaining)
+                    )
+            self.base_id, self.base_pixels = held["frame_id"], held["pixels"]
+            self.shown_slot = (slot, time.monotonic())
+            self.frames_drawn += 1
+            self.last_ack = {
+                "frame_id": held["frame_id"],
+                "touch_id": touch_id,
+                "decode_us": int(response[5]),
+                "draw_us": int(response[6]),
+            }
+            self.last_delivery = {
+                "frame_id": held["frame_id"],
+                "touch_id": touch_id,
+                "slot": slot,
+                "view": held["view"],
+                "ack_ms": round((time.monotonic() - sent) * 1000, 1),
+            }
+            eligible = [sequence for sequence in self.touch_received_at if sequence <= touch_id]
+            if eligible:
+                self.last_touch_latency_ms = round(
+                    (time.monotonic() - self.touch_received_at[max(eligible)]) * 1000, 1
+                )
+                for sequence in eligible:
+                    self.touch_received_at.pop(sequence)
+            return response
+        except SlotUnavailableError:
+            # Nothing changed on the board; only this slot is known to be empty.
+            self.slots.pop(slot, None)
+            raise
         except Exception:
             self.base_id, self.base_pixels = 0, None
             raise
         finally:
             self.pending = None
+
+    async def upload_slot(self, slot, frame_id, frame, should_continue):
+        """Load `frame` into `slot` as a patch on what the slot holds.
+
+        `should_continue` is asked before every chunk, so a live frame or a touch
+        stops the upload between chunks. The board rewrites a slot in place from the
+        first chunk, so the slot is empty from then until its `slot,` event reports
+        success; a stopped upload leaves it empty, and the next one is a full frame.
+        """
+        epoch = self.slot_epoch
+        previous = self.slots.get(slot)
+        base_id, base_pixels = (
+            (previous["frame_id"], previous["pixels"]) if previous is not None else (0, None)
+        )
+        body, encoding, rectangle = await asyncio.to_thread(
+            encode_presto_patch, frame["pixels"], base_pixels
+        )
+        packet = struct.pack(">IHHHHB", base_id, *rectangle, int(encoding == "rle")) + body
+        encoded = base64.b64encode(packet).decode("ascii")
+        future = asyncio.get_running_loop().create_future()
+        for offset in range(0, len(encoded), 4000):
+            if not should_continue() or epoch != self.slot_epoch:
+                return False
+            is_final = offset + 4000 >= len(encoded)
+            if offset == 0:
+                # The board empties the slot here; it abandons any unfinished upload too.
+                self.slots.pop(slot, None)
+            if is_final:
+                self.slot_pending = (slot, frame_id, future)
+            await self.api.execute_service(
+                self.actions["slot_chunk"],
+                {
+                    "slot": slot,
+                    "frame_id": frame_id,
+                    "format": 4,
+                    "offset": offset,
+                    "final_chunk": is_final,
+                    "image_data": encoded[offset : offset + 4000],
+                },
+            )
+            await asyncio.sleep(0.003)
+        try:
+            status = await asyncio.wait_for(future, timeout=SLOT_ACK_SECONDS)
+        finally:
+            self.slot_pending = None
+        if status != "0" or epoch != self.slot_epoch:
+            return False
+        self.slots[slot] = {
+            "view": frame["view"],
+            "key": frame["key"],
+            "frame_id": frame_id,
+            "pixels": frame["pixels"],
+            "targets": frame["targets"],
+        }
+        return True
