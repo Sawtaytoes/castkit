@@ -41,3 +41,28 @@ test("end-aligned text sits against the right edge", () => {
   expect(hasLeftHalfInk).toBe(false)
   expect(coveredColumns(mask)).toBeGreaterThan(20)
 })
+
+test.each([
+  true,
+  false,
+])("Japanese text masks contain distinct kana and kanji instead of missing-glyph boxes (bold: %s)", (isBold) => {
+  const masks = ["日", "本", "あ", "ア"].map((text) =>
+    renderTextMask({
+      text,
+      width: 40,
+      height: 40,
+      fontSize: 28,
+      isBold,
+    }),
+  )
+  masks.forEach((mask) => {
+    expect(coveredColumns(mask)).toBeGreaterThan(10)
+  })
+  expect(
+    new Set(
+      masks.map((mask) =>
+        Buffer.from(mask.coverage).toString("base64"),
+      ),
+    ).size,
+  ).toBe(4)
+})

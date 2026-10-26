@@ -1,5 +1,7 @@
 import boldFontUrl from "@castkit/render/assets/fonts/AtkinsonHyperlegible-Bold.ttf?url"
 import regularFontUrl from "@castkit/render/assets/fonts/AtkinsonHyperlegible-Regular.ttf?url"
+import japaneseBoldFontUrl from "@castkit/render/assets/fonts/NotoSansJP-Bold.ttf?url"
+import japaneseRegularFontUrl from "@castkit/render/assets/fonts/NotoSansJP-Regular.ttf?url"
 
 /**
  * The panel faces as CSS, for every browser preview of a view.
@@ -12,10 +14,9 @@ import regularFontUrl from "@castkit/render/assets/fonts/AtkinsonHyperlegible-Re
  * everywhere. `fitText` also calibrates its average-advance constant against
  * Atkinson, so a fallback font mismeasures every overflow decision.
  *
- * Regular (400) and Bold (700) only, deliberately mirroring the Chromium
- * engine: DejaVu ships alongside as a *Satori* fallback, because Satori has no
- * system fonts at all. Chromium falls through to system fonts for glyphs
- * Atkinson lacks, and so should the browser.
+ * Regular (400) and Bold (700) panel and Japanese fallback faces mirror the
+ * Chromium engine. Japanese must work without system fonts or network access
+ * in the finished image, including the foreignObject rasterizer.
  */
 
 /** The `font-family` the views ask for. Matches `FONT_FAMILY` in @castkit/render. */
@@ -24,11 +25,13 @@ const PANEL_FONT_FAMILY = "Atkinson Hyperlegible"
 const buildFontFaceRule = ({
   source,
   weight,
+  family = PANEL_FONT_FAMILY,
 }: {
   source: string
   weight: number
+  family?: string
 }) => `@font-face {
-  font-family: "${PANEL_FONT_FAMILY}";
+  font-family: "${family}";
   font-weight: ${weight};
   font-style: normal;
   src: url(${source}) format("truetype");
@@ -45,6 +48,16 @@ export const PANEL_FONT_FACE_URL_CSS = [
     weight: 400,
   }),
   buildFontFaceRule({ source: boldFontUrl, weight: 700 }),
+  buildFontFaceRule({
+    source: japaneseRegularFontUrl,
+    weight: 400,
+    family: "Noto Sans JP",
+  }),
+  buildFontFaceRule({
+    source: japaneseBoldFontUrl,
+    weight: 700,
+    family: "Noto Sans JP",
+  }),
 ].join("\n")
 
 const readAsDataUri = async (fontUrl: string) => {
@@ -86,17 +99,35 @@ export const loadPanelFontFaceDataUriCss = async () => {
   const pending = Promise.all([
     readAsDataUri(regularFontUrl),
     readAsDataUri(boldFontUrl),
-  ]).then(([regularDataUri, boldDataUri]) =>
-    [
-      buildFontFaceRule({
-        source: regularDataUri,
-        weight: 400,
-      }),
-      buildFontFaceRule({
-        source: boldDataUri,
-        weight: 700,
-      }),
-    ].join("\n"),
+    readAsDataUri(japaneseRegularFontUrl),
+    readAsDataUri(japaneseBoldFontUrl),
+  ]).then(
+    ([
+      regularDataUri,
+      boldDataUri,
+      japaneseRegularDataUri,
+      japaneseBoldDataUri,
+    ]) =>
+      [
+        buildFontFaceRule({
+          source: regularDataUri,
+          weight: 400,
+        }),
+        buildFontFaceRule({
+          source: boldDataUri,
+          weight: 700,
+        }),
+        buildFontFaceRule({
+          source: japaneseRegularDataUri,
+          weight: 400,
+          family: "Noto Sans JP",
+        }),
+        buildFontFaceRule({
+          source: japaneseBoldDataUri,
+          weight: 700,
+          family: "Noto Sans JP",
+        }),
+      ].join("\n"),
   )
 
   dataUriCssPromise.current = pending
