@@ -81,21 +81,41 @@ never written to disk.
      that never name either display. Locally, two real Chromium captures of two such
      displays were byte-identical (913 bytes, same SHA-256). A view that resolves content
      BY device must add the device ID to the platform key.
-2. **Pre-rendered stream frames — DEFERRED (2026-10-23).** The measurement above shows it
-   would save 30–60 ms on a native swipe, for a Chromium that never closes and a render
-   of every clock view each minute. It was built (server capture in the worker's context,
-   key-addressed store, a `/d/<id>/stream-frame/<view>` route, worker send at release)
-   and set aside unmerged. Revisit only if a view is found whose build is slow on the
-   panel's own browser. The original plan: The server renders the panel-ready frame (the exact
-   payload the worker sends, plus its touch targets) for each key reachable from an
-   image-stream panel's assigned views, and refreshes it when the key changes. At a
-   swipe release the worker sends the destination's cached frame at once, then lets its
-   live capture replace it only if the pixels differ.
-   - Now Playing changes continuously while music plays. The key covers the track,
-     artwork, state and controls, not the progress position; a cached frame may show a
-     progress bar a few seconds old for the ~1 s until the live frame replaces it.
-   - Pixel parity: the pre-render must use the same browser build, flags and fonts as
-     the worker, or every swipe sends a second, nearly identical frame.
+2. **Pre-rendered stream frames — built 2026-10-26 (un-deferred).** It was deferred on
+   2026-10-23 because, sent as a live frame at release, it saved only 30–60 ms of a
+   ~700 ms swipe: the board's transfer, inflate and draw of a full frame dominated. Panel
+   firmware with frame slots (phase 4b, `Sawtaytoes/esphome-presto` #3) removes that
+   cost — a frame already in a slot is shown with a pointer swap at the next vertical
+   blank — so a frame drawn ahead is now the whole swipe instead of a sliver of it. The
+   owner still measured swipes at 670–740 ms touch to acknowledgement and asked that no
+   swipe show a loading state. Decision:
+   [`2026-10-26-a-swipe-destination-is-drawn-ahead-and-held-on-the-panel`](decisions/2026-10-26-a-swipe-destination-is-drawn-ahead-and-held-on-the-panel.md).
+   - **Server.** `packages/server/src/browser/streamFrames.ts` and
+     `streamFrameService.ts`. For each image-stream panel whose worker is listening, the
+     destinations of one and two swipes (`listSwipeDestinations`, at most six — the slot
+     count) are captured in the worker's own browser context (480×480, scale 1, touch,
+     mobile, reduced motion; same CDP screenshot call; the worker's `TARGETS_SCRIPT`,
+     checked equal by a test) from a one-time capture page that serves the exact keyed
+     snapshot. Keys follow the phase 1 rule: the snapshot without the device's name, id
+     or preload list, Now Playing without its progress, plus the minute for clock views.
+     Identical panels share one render and one buffer. A render runs only when a key
+     changes (a device broadcast, a platform channel the destination reads, or the
+     minute for a clock view), one at a time, and only while a worker holds the index
+     request open (`/d/<id>/stream-frames`, long-poll, 25 s). Nothing is written to disk;
+     a frame lives while some panel's destination names it.
+   - **Worker.** `stream_frames.py` holds the index request open and fetches only
+     changed frames. At a swipe release the worker reads `data-requested-view`, stops
+     the pull hint frame still in flight, drops frames captured before the release, and
+     shows the destination: `show_slot` when a confirmed slot holds that key, otherwise
+     the frame drawn ahead as a live frame (firmware without slots). The live capture
+     then patches against it. Slots load only while the panel is quiet and stop between
+     chunks for any live frame or touch.
+   - **Pixel parity.** `e2e/streamFrames.spec.ts` captures the panel page in the
+     worker's context and requires the server's frame to be byte-identical, for Now
+     Playing and for a Queue reached by switching views in place.
+   - The left swipe goes through Home Assistant, which picks a per-room view; it is
+     drawn ahead only after the server has seen which target that panel's left swipe
+     opens.
 3. **Shared camera frames.** A camera view on several panels is fetched, scaled and
    encoded once per panel profile and sent to every panel showing it, without a browser
    capture per panel. The board's inflate + draw (~0.5 s per full frame) then limits the
@@ -105,7 +125,8 @@ never written to disk.
    PSRAM: the worker preloads the destination frame of each swipe direction, and the
    board swaps locally on the gesture with no network round trip. Requires OTA of each
    panel; the worker is paused first.
-   Study and proposal (measured, prototyped, not flashed):
+   (b) is built in `Sawtaytoes/esphome-presto` #3; the worker uses it when the board
+   offers `show_slot` (see phase 2). Study and proposal:
    [`2026-10-23-presto-firmware-frame-path-study.md`](2026-10-23-presto-firmware-frame-path-study.md).
    Inflate is ~4% of a full frame; the rest is PSRAM copies, pauses and the swap.
    Decoding straight into the back buffer with a lazy second-buffer sync is expected to

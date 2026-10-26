@@ -66,6 +66,37 @@ That preserves loaded assets and avoids the navigation/capture stall. Existing
 unchanged-frame detection suppresses redundant transmissions. Extra storage does
 not repair a capture timeout or a lost execution context.
 
+## Swipe destinations drawn ahead and frame slots
+
+When the server draws frames ahead, the manifest names `stream_frames_url`. A Presto
+worker then holds one long index request open against it (answered at once on a change
+and after 25 s otherwise) and fetches only frames whose key changed, converting each
+to panel pixels ahead of time. A server without the route answers 404, and the worker
+asks again only after five minutes.
+
+At a swipe release the worker reads the shell's `data-requested-view`, stops the "Release
+for …" frame still being sent (between chunks; a frame whose chunks all reached the
+board becomes the base), and drops any frame captured before the release. It then shows
+the destination:
+
+- **Slot firmware** (the board offers `slot_chunk`, `show_slot` and `drop_slots`):
+  `show_slot` when a slot holds that view at the current key. The board acknowledges
+  like a frame, and the slot's frame becomes the patch base. A lost acknowledgement is
+  asked for again every 0.5 s. `error,slot_unavailable` changes nothing on the glass;
+  the worker forgets that slot and sends the frame instead.
+- **Older firmware:** the frame drawn ahead is sent as a live frame.
+
+Slots load at the lowest priority: only when no frame is being sent, no finger is down,
+and 0.5 s have passed since the last live frame or touch, stopping between chunks
+otherwise. A slot whose view keeps it but whose key changed is patched against what it
+holds. The board empties a slot at an upload's first chunk and confirms it with
+`slot,<slot>,<frame>,<status>` (on the "Display Slot Events" entity, where it cannot
+replace a frame acknowledgement); a slot is shown only after status `0`. Every connect
+calls `drop_slots`. The slot just shown is not rewritten for 3 s unless a live frame
+replaced it, because the board is still copying it into its framebuffers. `/healthz`
+reports `has_slots`, `slots`, `frames_ahead` and `last_release` (`path` is `slot` or
+`frame`).
+
 ## Capture cadence, loading holds and the navigation guard
 
 Each cycle first runs one small page evaluation (`PAGE_STATE_SCRIPT`). It counts
