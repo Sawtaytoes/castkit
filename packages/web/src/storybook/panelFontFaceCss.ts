@@ -102,13 +102,47 @@ export const loadPanelFontFaceDataUriCss = async () => {
     readAsDataUri(japaneseRegularFontUrl),
     readAsDataUri(japaneseBoldFontUrl),
   ]).then(
-    ([
+    async ([
       regularDataUri,
       boldDataUri,
       japaneseRegularDataUri,
       japaneseBoldDataUri,
-    ]) =>
-      [
+    ]) => {
+      // Embedded SVG fonts decode asynchronously even after the live DOM's
+      // URL-backed fonts are ready. Preload these exact data URLs before the
+      // rasterizer takes its first draw, or large fonts leave all text blank.
+      await Promise.all(
+        [
+          {
+            source: regularDataUri,
+            family: PANEL_FONT_FAMILY,
+            weight: "400",
+          },
+          {
+            source: boldDataUri,
+            family: PANEL_FONT_FAMILY,
+            weight: "700",
+          },
+          {
+            source: japaneseRegularDataUri,
+            family: "Noto Sans JP",
+            weight: "400",
+          },
+          {
+            source: japaneseBoldDataUri,
+            family: "Noto Sans JP",
+            weight: "700",
+          },
+        ].map(async ({ source, family, weight }) => {
+          const face = new FontFace(
+            family,
+            `url(${source})`,
+            { weight, style: "normal" },
+          )
+          document.fonts.add(await face.load())
+        }),
+      )
+      return [
         buildFontFaceRule({
           source: regularDataUri,
           weight: 400,
@@ -127,7 +161,8 @@ export const loadPanelFontFaceDataUriCss = async () => {
           weight: 700,
           family: "Noto Sans JP",
         }),
-      ].join("\n"),
+      ].join("\n")
+    },
   )
 
   dataUriCssPromise.current = pending
