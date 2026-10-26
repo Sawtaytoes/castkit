@@ -95,10 +95,13 @@ class SlotTransportTests(unittest.IsolatedAsyncioTestCase):
         return await uploading
 
     async def test_connect_drops_every_slot_only_on_slot_firmware(self):
-        for has_slot_actions in (True, False):
+        for has_slot_actions, has_slot_entity in ((True, True), (False, True), (True, False)):
             names = ["frame_chunk", "set_display_controls"]
             if has_slot_actions:
                 names += sorted(esphome_presto.SLOT_ACTIONS)
+            entities = [types.SimpleNamespace(name="Display Events", key=7)]
+            if has_slot_entity:
+                entities.append(types.SimpleNamespace(name="Display Slot Events", key=8))
             self.transport.api = types.SimpleNamespace(
                 connect=AsyncMock(),
                 execute_service=AsyncMock(),
@@ -110,10 +113,7 @@ class SlotTransportTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 list_entities_services=AsyncMock(
                     return_value=(
-                        [
-                            types.SimpleNamespace(name="Display Events", key=7),
-                            types.SimpleNamespace(name="Display Slot Events", key=8),
-                        ],
+                        entities,
                         [types.SimpleNamespace(name=name) for name in names],
                     )
                 ),
@@ -121,15 +121,16 @@ class SlotTransportTests(unittest.IsolatedAsyncioTestCase):
             self.transport.slots = {0: {"view": "queue", "key": "old"}}
             self.transport.control_task.cancel()
             await self.transport.connect()
-            self.assertEqual(self.transport.has_slots, has_slot_actions)
-            self.assertEqual(self.transport.slot_event_key, 8)
+            # A board that cannot report a load cannot confirm a slot, so it has none.
+            is_slotted = has_slot_actions and has_slot_entity
+            self.assertEqual(self.transport.has_slots, is_slotted)
             self.assertEqual(self.transport.slots, {})
             drops = [
                 call
                 for call in self.transport.api.execute_service.call_args_list
                 if call.args[0].name == "drop_slots"
             ]
-            self.assertEqual(len(drops), 1 if has_slot_actions else 0)
+            self.assertEqual(len(drops), 1 if is_slotted else 0)
 
     async def test_a_slot_is_loaded_in_full_then_patched_against_what_it_holds(self):
         first = build_frame("queue", "a", solid(1))

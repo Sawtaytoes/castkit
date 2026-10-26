@@ -79,7 +79,8 @@ for …" frame still being sent (between chunks; a frame whose chunks all reache
 board becomes the base), and drops any frame captured before the release. It then shows
 the destination:
 
-- **Slot firmware** (the board offers `slot_chunk`, `show_slot` and `drop_slots`):
+- **Slot firmware** (the board offers `slot_chunk`, `show_slot` and `drop_slots`, and
+  the "Display Slot Events" entity that confirms a load; without it no slot is used):
   `show_slot` when a slot holds that view at the current key. The board acknowledges
   like a frame, and the slot's frame becomes the patch base. A lost acknowledgement is
   asked for again every 0.5 s. `error,slot_unavailable` changes nothing on the glass;
@@ -90,8 +91,8 @@ Slots load at the lowest priority: only when no frame is being sent, no finger i
 and 0.5 s have passed since the last live frame or touch, stopping between chunks
 otherwise. A slot whose view keeps it but whose key changed is patched against what it
 holds. The board empties a slot at an upload's first chunk and confirms it with
-`slot,<slot>,<frame>,<status>` (on the "Display Slot Events" entity, where it cannot
-replace a frame acknowledgement); a slot is shown only after status `0`. Every connect
+`slot,<slot>,<frame>,<status>` on "Display Slot Events", where it cannot replace a
+frame acknowledgement on "Display Events"; a slot is shown only after status `0`. Every connect
 calls `drop_slots`. The slot just shown is not rewritten for 3 s unless a live frame
 replaced it, because the board is still copying it into its framebuffers. `/healthz`
 reports `has_slots`, `slots`, `frames_ahead` and `last_release` (`path` is `slot` or

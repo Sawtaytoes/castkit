@@ -99,14 +99,16 @@ class ESPHomePrestoTransport(PrestoTransport):
             raise ValueError("The Presto needs native frame/control actions")
         self.event_key = next(entity.key for entity in entities if entity.name == "Display Events")
         # ESPHome keeps only the newest queued state per entity under backpressure, so
-        # slot firmware reports uploads on their own entity where a `slot,` event can
-        # never replace a frame acknowledgement. They are accepted on either entity.
+        # slot firmware reports uploads on their own entity, where a `slot,` event can
+        # never replace a frame acknowledgement.
         self.slot_event_key = next(
             (entity.key for entity in entities if entity.name == "Display Slot Events"), None
         )
         self.build_marker = f"esphome-presto-rgb565-v1 {info.compilation_time}"
         self.base_id, self.base_pixels = 0, None
-        self.has_slots = self.actions.keys() >= SLOT_ACTIONS
+        # Slot firmware reports uploads only on "Display Slot Events"; without that
+        # entity no slot can ever be confirmed, so the board is treated as slotless.
+        self.has_slots = self.actions.keys() >= SLOT_ACTIONS and self.slot_event_key is not None
         self.slots = {}
         self.shown_slot = None
         self.slot_epoch += 1
