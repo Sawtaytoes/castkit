@@ -63,7 +63,8 @@ const firstCamera = (
  * The caller has already authorized the display and checked that the channel
  * belongs to it. The camera alert panel names everything else: its video
  * channel, its stills channel and its label. The body is the whole frame
- * (big-endian RGB565, `width` x `height`) followed by the zlib patch body;
+ * (big-endian RGB565, `width` x `height`) followed by the patch body in the
+ * requested `codec` (zlib by default, or `jpeg`);
  * headers say where one ends and what the patch covers. 204 means no newer
  * picture arrived in time; ask again.
  */
@@ -119,11 +120,15 @@ export const sendCameraFrame = async ({
       "Camera",
   ).slice(0, 48)
   const after = Number(context.req.query("after") ?? 0)
+  // A board that reports a JPEG decoder asks for one; anything else gets zlib.
+  const codec =
+    context.req.query("codec") === "jpeg" ? "jpeg" : "zlib"
   const frame = await service.waitForFrame({
     source,
     width,
     height,
     label,
+    codec,
     after: Number.isFinite(after) ? after : 0,
     timeoutMilliseconds: 5000,
     signal: context.req.raw.signal,
@@ -149,7 +154,7 @@ export const sendCameraFrame = async ({
           frame.patch.width,
           frame.patch.height,
         ].join(","),
-        "x-castkit-frame-codec": "zlib",
+        "x-castkit-frame-codec": frame.codec,
         "x-castkit-frame-layout": frame.layout,
         "x-castkit-frame-origin": frame.origin,
         "x-castkit-frame-received-at": String(

@@ -16,6 +16,8 @@ from esphome_presto import ESPHomePrestoTransport
 # A synthetic 480x480 panel frame: flat shades, never a camera picture.
 SQUARE = 480 * 480 * 2
 CAMERA_PATCH = (0, 60, 480, 360)
+# Stands in for a JPEG body: the worker never decodes it, only forwards it.
+JPEG_STANDIN = bytes([0xFF, 0xD8, 0xFF, 0xD9])
 
 
 def synthetic_frame(shade):
@@ -46,9 +48,20 @@ class ParseTests(unittest.TestCase):
 
     def test_an_unknown_codec_is_refused(self):
         pixels, body = synthetic_frame(7)
-        headers = {**frame_headers(3, pixels), "x-castkit-frame-codec": "jpeg"}
+        headers = {**frame_headers(3, pixels), "x-castkit-frame-codec": "webp"}
         with self.assertRaisesRegex(ValueError, "codec"):
             parse_frame(headers, pixels + body)
+
+    def test_a_jpeg_frame_names_its_codec(self):
+        pixels, _ = synthetic_frame(7)
+        headers = {**frame_headers(3, pixels), "x-castkit-frame-codec": "jpeg"}
+        frame = parse_frame(headers, pixels + JPEG_STANDIN)
+        self.assertEqual((frame["codec"], frame["body"]), ("jpeg", JPEG_STANDIN))
+
+    def test_only_a_jpeg_request_names_a_codec(self):
+        base = "http://castkit/m?kind=frames"
+        self.assertNotIn("codec", frames_url(base, 480, 480, 1))
+        self.assertTrue(frames_url(base, 480, 480, 1, "jpeg").endswith("&codec=jpeg"))
 
     def test_the_request_names_the_panel_size_and_the_last_frame(self):
         self.assertEqual(
@@ -151,6 +164,25 @@ class PreparedPatchTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(struct.unpack(">IHHHHB", third[:13])[:5], (6, 0, 0, 480, 480))
         self.assertNotEqual(third[13:], third_body)
+
+    async def test_a_jpeg_patch_goes_out_as_codec_two_only_on_firmware_that_reports_jpeg(self):
+        first_pixels, first_body = synthetic_frame(10)
+        second_pixels, _ = synthetic_frame(20)
+        layout = {"patch": CAMERA_PATCH, "layout": "layout-a"}
+        await self.send(5, first_pixels, {**layout, "body": first_body})
+        jpeg = {**layout, "body": JPEG_STANDIN, "codec": "jpeg"}
+        # Old firmware: no decoder, so the worker sends its own zlib patch instead.
+        fallback = await self.send(6, second_pixels, jpeg)
+        self.assertNotEqual(struct.unpack(">IHHHHB", fallback[:13])[5], 2)
+        self.assertNotEqual(fallback[13:], JPEG_STANDIN)
+        # The board reports its codecs on "Display Codecs".
+        self.transport.codecs_key = 9
+        self.transport.native_state(TextSensorState(key=9, state="zlib,rle,jpeg"))
+        self.assertTrue(self.transport.has_jpeg)
+        third_pixels, _ = synthetic_frame(30)
+        sent = await self.send(7, third_pixels, jpeg)
+        self.assertEqual(struct.unpack(">IHHHHB", sent[:13]), (6, 0, 60, 480, 360, 2))
+        self.assertEqual(sent[13:], JPEG_STANDIN)
 
 
 if __name__ == "__main__":
