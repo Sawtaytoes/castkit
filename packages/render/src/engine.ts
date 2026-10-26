@@ -29,4 +29,28 @@ export type RenderEngine = {
     supersampleFactor: number
     headers?: Record<string, string>
   }) => Promise<Buffer>
+  /** Capture a device page exactly as an image-stream worker captures its own. */
+  captureStreamFrame?: (
+    request: StreamFrameRequest,
+  ) => Promise<StreamFrameCapture>
+}
+
+/**
+ * A device page rendered ahead for an image-stream panel. The browser context
+ * matches the worker's (`create_browser_context` in
+ * `device-client/remote-display/worker.py`), so a frame captured here has the
+ * pixels the worker would capture after the same swipe.
+ */
+export type StreamFrameRequest = {
+  url: string
+  width: number
+  height: number
+  /** A function's source, evaluated with `readArgument` after the capture. */
+  readScript: string
+  readArgument: unknown
+}
+
+export type StreamFrameCapture = {
+  png: Buffer
+  read: unknown
 }
