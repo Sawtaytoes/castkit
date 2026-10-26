@@ -660,6 +660,8 @@ export const builtinContractSchemas = {
         name: z.string(),
         url: safeUrl,
         snapshotUrl: safeUrl.optional(),
+        /** Finished panel frames decoded once on the server, for image-stream panels. */
+        framesUrl: safeUrl.optional(),
         isLive: z.boolean().optional(),
         format: z.enum(["hls", "mjpeg"]).optional(),
       }),

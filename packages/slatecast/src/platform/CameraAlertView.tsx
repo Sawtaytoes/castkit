@@ -3,6 +3,7 @@ import { useEffect, useState } from "preact/hooks"
 import { CameraImage } from "./CameraImage.tsx"
 import { CameraSnapshot } from "./CameraSnapshot.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
+import { safeMediaUrl } from "./protocol.ts"
 
 /** One camera fills a temporary view; panel capabilities choose its transport. */
 export const CameraAlertView = ({
@@ -35,7 +36,17 @@ export const CameraAlertView = ({
     camera.snapshotUrl ??
     (!camera.isLive ? camera.url : "")
   return (
-    <section class="camera-alert" aria-label={label}>
+    <section
+      class="camera-alert"
+      aria-label={label}
+      // An image-stream worker reads finished frames from here instead of
+      // capturing this page; a browser panel ignores it.
+      data-castkit-camera-frames={
+        camera.framesUrl
+          ? safeMediaUrl(camera.framesUrl) || undefined
+          : undefined
+      }
+    >
       <header>
         <strong>{label}</strong>
         <span>

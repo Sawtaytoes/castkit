@@ -43,6 +43,8 @@ class PrestoTransport:
         self.frame_ready = asyncio.Event()
         self.base_pixels = None
         self.base_id = 0
+        # The server layout of the camera frame the board shows, else None.
+        self.base_layout = None
         self.last_delivery = None
         self.capture_ms = None
         self.encode_ms = None
@@ -67,6 +69,8 @@ class PrestoTransport:
         self.last_release = None
         # How many swipe destinations the server has drawn ahead for this panel.
         self.frames_ahead = 0
+        # Camera alert delivery from server frames, written by the session.
+        self.camera = None
         self.runner = None
 
     @web.middleware
@@ -375,6 +379,7 @@ class PrestoTransport:
                 },
                 "frames_ahead": self.frames_ahead,
                 "last_release": self.last_release,
+                "camera": self.camera,
             }
         )
 
