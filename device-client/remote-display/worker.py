@@ -27,7 +27,7 @@ from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v24-instant-swipe-slots"
+BUILD_MARKER = "castkit-remote-display-v25-every-release-ahead"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -74,17 +74,33 @@ HOLD_POLL_SECONDS = 0.02
 # A page that reports no change is still captured this often: changes the page
 # cannot observe (a decoded image frame, a canvas) reach the panel within it.
 IDLE_CAPTURE_SECONDS = 1
-# The view a released swipe asked for. Slatecast sets it in the same handler
-# that sends the request, so it is in the DOM by the next evaluation.
-REQUESTED_VIEW_SCRIPT = """() => document.querySelector(
- '.navigation-feedback[data-phase="loading"]')?.dataset.requestedView ?? null"""
+# The last view the page asked for, `{id, view}`. Slatecast writes it in the
+# same task that sends the request. The loading feedback in the DOM is not a
+# usable signal: it renders a microtask later, and the server, on loopback,
+# applies a native view so fast that its answer has often replaced the
+# feedback before the worker's next evaluation (production: no release ever
+# found it). The id tells a new request from one the worker saw already.
+NAVIGATION_SCRIPT = "() => window.__castkitNavigation ?? null"
+# The stage gesture's release, and the request it made, in one evaluation.
+GESTURE_RELEASE_SCRIPT = """({x,y}) => {
+ document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointerup', {bubbles:true,pointerId:1,clientX:x,clientY:y}));
+ return window.__castkitNavigation ?? null;
+}"""
+# After a destination drawn ahead is shown, the live page must have been quiet
+# this long (no DOM change, no load) before its capture may replace it. A view
+# that has just mounted loads its images and then recolors from them (Now
+# Playing's accent); each step would otherwise reach the glass as its own
+# frame, and the first would show the artwork missing.
+RELEASE_QUIET_SECONDS = 0.15
 # A slot loads only after the panel has been quiet this long: no live frame, no
 # touch. It is the lowest-priority work on the link and must never delay a frame.
 SLOT_QUIET_SECONDS = 0.5
 # One cheap evaluation per cycle decides whether a capture is worth its cost.
 # `changes` counts DOM mutations and load/animation/scroll events since the
-# document started; `isLive` names content that repaints without them; and
-# `isSettled` is false while the shell is showing a loading state.
+# document started; `isLive` names content that repaints without them;
+# `isSettled` is false while the shell is showing a loading state; and
+# `hasPendingImages` is true while an image on the glass is still loading (a
+# motion-JPEG stream never finishes loading and is left out).
 PAGE_STATE_SCRIPT = """() => {
  if (!window.__castkitPageChanges) {
    const state = window.__castkitPageChanges = {count: 1};
@@ -101,6 +117,12 @@ PAGE_STATE_SCRIPT = """() => {
      || document.getAnimations().some(animation => animation.playState === 'running'),
    isSettled: (!root || root.dataset.castkitReady === 'true')
      && !document.querySelector('.platform-loading, .platform-view[aria-busy="true"], .navigation-feedback[data-phase="loading"]'),
+   hasPendingImages: Array.from(document.images).some(image => {
+     if (image.complete || /mjpeg/i.test(image.currentSrc || image.src)) return false;
+     const bounds = image.getBoundingClientRect();
+     return bounds.width > 0 && bounds.height > 0 && bounds.right > 0 && bounds.bottom > 0
+       && bounds.left < innerWidth && bounds.top < innerHeight;
+   }),
  };
 }"""
 
@@ -187,6 +209,13 @@ class DisplaySession:
         self.release_tasks = set()
         self.last_live_activity = 0
         self.releases_ahead = 0
+        # Set when a destination drawn ahead was shown: until the live page has
+        # built that view and gone quiet, its captures do not replace it.
+        # {"until": deadline, "changes": last count seen, "changed_at": when}
+        self.release_hold = None
+        # The touch a destination drawn ahead acknowledged. The live capture of
+        # that same picture is then no news and is not sent again.
+        self.shown_release_touch = None
 
     def state_changed(self, state):
         if not isinstance(state, TextSensorState) or state.key != self.event_key:
@@ -214,6 +243,7 @@ class DisplaySession:
                     while not self.touches.empty():
                         self.touches.get_nowait()
                     self.guard.frames.clear()
+                    self.shown_release_touch = None
                     self.force_frame.set()
                 for future in self.pending.values():
                     if not future.done():
@@ -266,6 +296,7 @@ class DisplaySession:
             return
         self.document_revision += 1
         self.document_changed_at = time.monotonic()
+        self.release_hold = None
         self.guard.frames.clear()
         self.is_reset_required = True
         self.force_frame.set()
@@ -297,6 +328,8 @@ class DisplaySession:
             self.last_sequence = sequence
             if phase == 0:
                 await self.cancel_contact()
+                # A new contact needs live feedback more than a still view.
+                self.release_hold = None
                 current = await self.page.evaluate(
                     HIT_SCRIPT, {"x": x, "y": y, "attribute": self.target_attribute}
                 )
@@ -316,6 +349,9 @@ class DisplaySession:
                     "is_native_active": False,
                     "is_slider_drag": await self.page.evaluate(SLIDER_HIT_SCRIPT, {"x": x, "y": y}),
                     "is_scroll_drag": await self.page.evaluate(SCROLL_HIT_SCRIPT, {"x": x, "y": y}),
+                    # The page's last request before this contact; a different
+                    # one at release was made by this contact.
+                    "navigation": await self.read_navigation(),
                 }
             elif self.contact is None:
                 # ESPHome replays its retained sensor value after reconnect.
@@ -347,14 +383,15 @@ class DisplaySession:
                     {"x": self.contact["start_x"], "y": self.contact["start_y"]},
                 )
             if self.contact["is_gesture"]:
-                await self.page.evaluate(
-                    """({phase,x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent(phase === 2 ? 'pointerup' : 'pointermove', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
-                    {"phase": phase, "x": x, "y": y},
-                )
                 if phase == 2:
-                    self.contact = None
-                    await self.release_swipe(sequence)
+                    navigation = await self.page.evaluate(GESTURE_RELEASE_SCRIPT, {"x": x, "y": y})
+                    contact, self.contact = self.contact, None
+                    await self.release_swipe(sequence, contact, navigation)
                 else:
+                    await self.page.evaluate(
+                        """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointermove', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
+                        {"x": x, "y": y},
+                    )
                     self.contact.update(x=x, y=y)
                 self.processed_touch = sequence
                 self.force_frame.set()
@@ -420,32 +457,60 @@ class DisplaySession:
                 },
             )
             if phase == 2:
-                self.contact = None
+                contact, self.contact = self.contact, None
+                # A native contact asks for a view too: a pull from a shell edge
+                # (the top, bottom, and right strips), or a drag that began on a
+                # scroll list or the artwork. The page handled the release inside
+                # the touchEnd dispatch.
+                await self.release_swipe(sequence, contact)
             else:
                 self.contact.update(x=x, y=y, is_native_active=True)
             self.processed_touch = sequence
             self.force_frame.set()
 
-    async def release_swipe(self, touch_id):
-        """A swipe was released: put its destination on the glass now if it is ready.
+    async def read_navigation(self):
+        if self.feed is None or not isinstance(self.client, PrestoTransport):
+            return None
+        return await self.page.evaluate(NAVIGATION_SCRIPT)
 
+    async def release_swipe(self, touch_id, contact, navigation=None):
+        """A contact was released: if it asked for a view, show that view now.
+
+        Every touch path ends here (the stage gesture and every native touch),
+        once per contact. Only a request newer than the contact's start counts.
         Whatever the panel was still sending for the pull (its "Release for ..."
         hint) is stopped, and frames captured before the release are dropped, so
         the destination never waits behind them.
         """
         if self.feed is None or not isinstance(self.client, PrestoTransport):
             return
-        view = await self.page.evaluate(REQUESTED_VIEW_SCRIPT)
-        if not view:
+        if navigation is None:
+            navigation = await self.read_navigation()
+        if (
+            not isinstance(navigation, dict)
+            or not navigation.get("view")
+            or navigation == contact.get("navigation")
+        ):
             return
+        view = navigation["view"]
         self.release_generation += 1
         self.client.supersede_live()
-        task = asyncio.create_task(self.show_destination(view, touch_id, self.release_generation))
+        frame = self.feed.read(view)
+        # Held from the release itself: on loopback the page can have the new
+        # view half built before the destination is even on the glass.
+        self.release_hold = self.start_release_hold() if frame is not None else None
+        task = asyncio.create_task(
+            self.show_destination(view, frame, touch_id, self.release_generation)
+        )
         self.release_tasks.add(task)
         task.add_done_callback(self.release_tasks.discard)
 
-    async def show_destination(self, view, touch_id, generation):
-        frame = self.feed.read(view)
+    @staticmethod
+    def start_release_hold():
+        now = time.monotonic()
+        return {"until": now + SETTLE_HOLD_SECONDS, "changes": None, "changed_at": now}
+
+    async def show_destination(self, view, frame, touch_id, generation):
         if frame is None:
             return
         started = time.monotonic()
@@ -481,10 +546,12 @@ class DisplaySession:
                 self.preview.set_frame(frame["png"])
                 self.previous_payload = frame["pixels"]
                 self.previous_targets = frame["targets"]
-                self.previous_touch = touch_id
+                self.previous_touch = self.shown_release_touch = touch_id
                 self.last_sent = self.last_live_activity = time.monotonic()
                 self.frames += 1
                 self.releases_ahead += 1
+                # The full hold runs from the moment the board shows it.
+                self.release_hold = self.start_release_hold()
                 self.client.last_release = {
                     "view": view,
                     "path": "slot" if slot is not None else "frame",
@@ -495,6 +562,8 @@ class DisplaySession:
         except Exception as error:
             # The live capture still follows; a failed shortcut costs nothing more.
             LOG.warning("Swipe destination %s not shown ahead: %s", view, error)
+            if generation == self.release_generation:
+                self.release_hold = None
 
     async def send_frame(self, payload, touch_id, targets, format_id=2, generation=None):
         self.frame_id += 1
@@ -555,6 +624,34 @@ class DisplaySession:
             return response
         finally:
             self.pending.pop(frame_id, None)
+
+    def is_release_holding(self, page_state, now):
+        """Whether the destination shown at release must stay on the glass.
+
+        It stays until the live page has the view built: settled, every image on
+        the glass loaded, and no change for RELEASE_QUIET_SECONDS. Then the next
+        capture is compared against it, and only a real difference is sent.
+        """
+        hold = self.release_hold
+        if hold is None:
+            return False
+        if now >= hold["until"]:
+            # A view that never settles cannot freeze the glass.
+            self.release_hold = None
+            return False
+        if self.release_tasks:
+            # The destination is still on its way to the board.
+            return True
+        if page_state["changes"] != hold["changes"]:
+            hold["changes"], hold["changed_at"] = page_state["changes"], now
+        if (
+            page_state["isSettled"]
+            and not page_state.get("hasPendingImages", False)
+            and now - hold["changed_at"] >= RELEASE_QUIET_SECONDS
+        ):
+            self.release_hold = None
+            return False
+        return True
 
     def is_slot_quiet(self):
         return (
@@ -657,7 +754,8 @@ class DisplaySession:
                 # An image panel costs about half a second to show any frame, so
                 # a loading state on the glass both looks broken and delays the
                 # finished view behind it. Keep the last complete view instead.
-                is_holding = (
+                is_release_holding = self.is_release_holding(page_state, cycle)
+                is_holding = is_release_holding or (
                     self.held_since is not None and cycle - self.held_since < SETTLE_HOLD_SECONDS
                 )
                 is_capture_due = (
@@ -764,12 +862,22 @@ class DisplaySession:
                     self.client.encode_ms = round((encoded_at - capture_finished) * 1000, 1)
                 is_forced = self.force_frame.is_set()
                 self.force_frame.clear()
+                # The built view matches the destination shown at its release,
+                # which already acknowledged this touch with these pixels.
+                is_release_echo = (
+                    self.shown_release_touch is not None
+                    and touch_id == self.previous_touch == self.shown_release_touch
+                    and payload == self.previous_payload
+                )
                 if (
                     payload != self.previous_payload
                     # Captured gestures with no visual change need no extra
                     # round trip for every move. Preserve changed drag frames,
                     # the release acknowledgement and the periodic heartbeat.
-                    or (self.contact is None and (touch_id != self.previous_touch or is_forced))
+                    or (
+                        self.contact is None
+                        and (touch_id != self.previous_touch or (is_forced and not is_release_echo))
+                    )
                     or cycle - self.last_sent >= self.config["heartbeat_seconds"]
                 ):
                     try:
@@ -779,6 +887,7 @@ class DisplaySession:
                     except FrameSupersededError:
                         # A released swipe took the panel over; capture again.
                         continue
+                    self.shown_release_touch = None
                     (
                         self.previous_payload,
                         self.previous_targets,

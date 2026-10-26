@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import {
   type Browser,
   type BrowserContext,
@@ -286,6 +287,147 @@ test("a clock frame drawn while one track played is the picture with any other t
   expect(
     (await captureLikeWorker(context, panel)).equals(
       before.png,
+    ),
+  ).toBe(true)
+  await context.close()
+})
+
+/** A script the image-stream worker evaluates, read out of `worker.py` itself. */
+const readWorkerScript = (name: string) => {
+  const source = readFileSync(
+    new URL(
+      "../device-client/remote-display/worker.py",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const match = new RegExp(
+    `^${name} = (?:"""([\\s\\S]*?)"""|"([^"\\n]*)")`,
+    "m",
+  ).exec(source)
+  if (!match) {
+    throw new Error(`worker.py has no ${name}`)
+  }
+  return match[1] ?? match[2]
+}
+
+type PageState = {
+  changes: number
+  isSettled: boolean
+  hasPendingImages: boolean
+}
+
+test("a native pull from an edge names its request at once, and the destination waits for its artwork", async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(90_000)
+  const pageStateScript = readWorkerScript(
+    "PAGE_STATE_SCRIPT",
+  )
+  const navigationScript = readWorkerScript(
+    "NAVIGATION_SCRIPT",
+  )
+  // A cover the panel's browser has never loaded, from a slow music server.
+  const color = "2060d0"
+  const slowArtwork = new URL(
+    `/__test__/slow-artwork.svg?ms=1200&color=${color}&run=${Date.now()}`,
+    String(test.info().project.use.baseURL),
+  ).href
+  await publish(page, "view", "Queue")
+  const context = await createWorkerContext(browser)
+  const panel = await context.newPage()
+  await panel.goto(`/d/${E2E_STREAM_DEVICE_ID}`)
+  await waitForSettledView(panel, "queue")
+  await publish(page, "now_playing", {
+    ...buildTrack({ title: "A Slow Cover" }),
+    artwork: slowArtwork,
+  })
+  const keyOf = (index: FrameIndex) =>
+    index.frames.find(
+      (frame) => frame.view === "now-playing",
+    )?.key
+  const before = await waitForIndex(
+    page,
+    (index) => keyOf(index) !== undefined,
+  )
+  // The server draws Now Playing again for the new track, artwork and all.
+  await waitForIndex(
+    page,
+    (index) =>
+      keyOf(index) !== undefined &&
+      keyOf(index) !== keyOf(before),
+    before.tag,
+  )
+  const destination = await readServerFrame(
+    page,
+    "now-playing",
+  )
+
+  // The worker's native path: a pull inward from the top edge, sent as CDP
+  // touches, never as the stage gesture.
+  const cdp = await context.newCDPSession(panel)
+  const touch = (
+    type: "touchStart" | "touchMove" | "touchEnd",
+    pointY?: number,
+  ) =>
+    cdp.send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints:
+        pointY === undefined
+          ? []
+          : [{ x: 240, y: pointY, id: 0 }],
+    })
+  await touch("touchStart", 10)
+  await touch("touchMove", 60)
+  await touch("touchMove", 160)
+  await touch("touchEnd")
+  // Read right after the release, as the worker does: the server on loopback
+  // may already have answered and taken the loading feedback away.
+  expect(
+    await panel.evaluate(`(${navigationScript})()`),
+  ).toMatchObject({ view: "now-playing" })
+
+  // The worker's hold: settled, every image on the glass loaded, then quiet.
+  const quietMilliseconds = 150
+  const states: PageState[] = []
+  const quiet = { changes: -1, since: Date.now() }
+  await expect
+    .poll(
+      async () => {
+        const state = (await panel.evaluate(
+          `(${pageStateScript})()`,
+        )) as PageState
+        states.push(state)
+        if (state.changes !== quiet.changes) {
+          quiet.changes = state.changes
+          quiet.since = Date.now()
+        }
+        return (
+          state.isSettled &&
+          !state.hasPendingImages &&
+          Date.now() - quiet.since >= quietMilliseconds
+        )
+      },
+      { timeout: 10_000, intervals: [20] },
+    )
+    .toBe(true)
+  // The page did build the view before its cover arrived; that picture is
+  // what used to reach the glass.
+  expect(
+    states.some(
+      (state) => state.isSettled && state.hasPendingImages,
+    ),
+  ).toBe(true)
+  await expect(panel.locator(".stage")).toHaveAttribute(
+    "data-view",
+    "now-playing",
+  )
+  // The first picture the hold lets through is the one drawn ahead, so the
+  // worker has nothing to send after the destination it showed.
+  expect(
+    (await captureLikeWorker(context, panel)).equals(
+      destination.png,
     ),
   ).toBe(true)
   await context.close()

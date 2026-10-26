@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-26: Every released request shows its destination until the view is built](2026-10-26-every-released-request-shows-its-destination-until-the-view-is-built.md)
+
 - [2026-10-26: A swipe destination is drawn ahead and held on the panel](2026-10-26-a-swipe-destination-is-drawn-ahead-and-held-on-the-panel.md)
 
 - [2026-10-23: A cached frame is keyed by what changes its pixels](2026-10-23-a-cached-frame-is-keyed-by-what-changes-its-pixels.md)

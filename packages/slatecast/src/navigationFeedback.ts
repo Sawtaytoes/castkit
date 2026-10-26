@@ -7,6 +7,20 @@ type Feedback = {
   requestedView?: string
   navigationId?: string
 }
+declare global {
+  interface Window {
+    /**
+     * The last view this page asked for, written in the same task as the
+     * request. An image-stream worker reads it right after it releases a
+     * contact (`NAVIGATION_SCRIPT` in `device-client/remote-display/worker.py`)
+     * and shows the destination it holds ready. The feedback element cannot
+     * carry this: it renders a microtask later, and on loopback the server's
+     * answer can replace it before the worker looks.
+     */
+    __castkitNavigation?: { id: string; view: string }
+  }
+}
+
 const pull = signal<Feedback | null>(null)
 const request = signal<Feedback | null>(null)
 const lifetime = { timer: 0 }
@@ -67,6 +81,10 @@ export const showNavigationLoading = ({
     crypto.getRandomValues(new Uint32Array(4)),
     (value) => value.toString(16),
   ).join("-")
+  window.__castkitNavigation = {
+    id: navigationId,
+    view: requestedView,
+  }
   request.value = {
     navigationId,
     label,
