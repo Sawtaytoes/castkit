@@ -74,10 +74,19 @@ and after 25 s otherwise) and fetches only frames whose key changed, converting 
 to panel pixels ahead of time. A server without the route answers 404, and the worker
 asks again only after five minutes.
 
-At a swipe release the worker reads the shell's `data-requested-view`, stops the "Release
-for …" frame still being sent (between chunks; a frame whose chunks all reached the
-board becomes the base), and drops any frame captured before the release. It then shows
-the destination:
+At every contact release the worker reads `window.__castkitNavigation` (`{id, view}`,
+written by Slatecast in the same task as the view request) and compares it with the
+value it read when the contact began. A new request is a release, whatever path the
+contact took: the stage gesture (read in the same evaluation as the synthetic
+`pointerup`) or a native touch (read after `touchEnd`) — a pull from the top, bottom, or
+right shell edge, or a drag that began on a scroll list or the artwork. A slider drag
+asks for nothing and shows nothing. One contact releases once. The shell's
+`data-requested-view` is **not** the signal: it renders a microtask later, and on
+loopback the server applies a native view so quickly that its answer had often removed
+the loading feedback before the worker looked, so production showed `releases_ahead=0`
+on every panel. At a release the worker stops the "Release for …" frame still being
+sent (between chunks; a frame whose chunks all reached the board becomes the base), and
+drops any frame captured before the release. It then shows the destination:
 
 - **Slot firmware** (the board offers `slot_chunk`, `show_slot` and `drop_slots`, and
   the "Display Slot Events" entity that confirms a load; without it no slot is used):
@@ -86,6 +95,15 @@ the destination:
   asked for again every 0.5 s. `error,slot_unavailable` changes nothing on the glass;
   the worker forgets that slot and sends the frame instead.
 - **Older firmware:** the frame drawn ahead is sent as a live frame.
+
+The destination stays on the glass until the live page has built that view: the page
+is settled, every image on the glass has loaded (`hasPendingImages` in
+`PAGE_STATE_SCRIPT`; a motion-JPEG stream is left out), and nothing in it has changed
+for 0.15 s, because Now Playing loads its artwork and then recolors from it. The hold
+starts at the release itself, lasts at most `SETTLE_HOLD_SECONDS` (3 s), and ends at the
+next touch. The first live capture is then compared with the destination; the server
+draws it in the same context, so normally nothing is sent at all, and a capture equal to
+the destination is not sent again just to acknowledge the touch it already acknowledged.
 
 Slots load at the lowest priority: only when no frame is being sent, no finger is down,
 and 0.5 s have passed since the last live frame or touch, stopping between chunks

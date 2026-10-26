@@ -104,18 +104,23 @@ never written to disk.
      request open (`/d/<id>/stream-frames`, long-poll, 25 s). Nothing is written to disk;
      a frame lives while some panel's destination names it.
    - **Worker.** `stream_frames.py` holds the index request open and fetches only
-     changed frames. At a swipe release the worker reads `data-requested-view`, stops
+     changed frames. At every contact release (the stage gesture and every native touch)
+     the worker reads the page's last request, `window.__castkitNavigation`, and if the
+     contact made it, stops
      the pull hint frame still in flight, drops frames captured before the release, and
      shows the destination: `show_slot` when a confirmed slot holds that key, otherwise
-     the frame drawn ahead as a live frame (firmware without slots). The live capture
-     then patches against it. Slots load only while the panel is quiet and stop between
+     the frame drawn ahead as a live frame (firmware without slots). The destination is
+     held until the live page is settled, has every image on the glass loaded, and has
+     been quiet for 0.15 s; the live capture then patches against it. Slots load only while the panel is quiet and stop between
      chunks for any live frame or touch.
    - **Pixel parity.** `e2e/streamFrames.spec.ts` captures the panel page in the
      worker's context and requires the server's frame to be byte-identical, for Now
      Playing and for a Queue reached by switching views in place.
    - The left swipe goes through Home Assistant, which picks a per-room view; it is
      drawn ahead only after the server has seen which target that panel's left swipe
-     opens.
+     opens. It is not drawn from the start: `leftSwipeViewId` names the request, not
+     the target the house answers with, so a guess could show another room's board at
+     release ([decision](decisions/2026-10-26-every-released-request-shows-its-destination-until-the-view-is-built.md)).
 3. **Shared camera frames.** A camera view on several panels is fetched, scaled and
    encoded once per panel profile and sent to every panel showing it, without a browser
    capture per panel. The board's inflate + draw (~0.5 s per full frame) then limits the
