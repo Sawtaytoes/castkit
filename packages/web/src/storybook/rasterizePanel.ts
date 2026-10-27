@@ -1,9 +1,13 @@
-import { createContext, destroyContext, domToForeignObjectSvg } from "modern-screenshot"
-import { renderFontReadySvg } from "./renderFontReadySvg.ts"
+import {
+  createContext,
+  destroyContext,
+  domToForeignObjectSvg,
+} from "modern-screenshot"
 import {
   installPanelFonts,
   loadPanelFontFaceDataUriCss,
 } from "./panelFontFaceCss.ts"
+import { renderFontReadySvg } from "./renderFontReadySvg.ts"
 
 /**
  * Turn a live panel DOM node into the native-resolution RGBA pixels the
@@ -61,12 +65,25 @@ export const rasterizePanel = async ({
   const renderContext = await createContext<Node>(node, {
     scale: supersampleFactor,
     backgroundColor: "#ffffff",
-    font: { cssText: fontEmbedCss },
+    font: false,
   })
   let supersampledCanvas: HTMLCanvasElement
   try {
     const svg = await domToForeignObjectSvg(renderContext)
-    supersampledCanvas = await renderFontReadySvg({ svg, context: renderContext, width, height })
+    // Font discovery skips image-only panels. Embed the probe faces explicitly
+    // so readiness works for Photo Frame as well as panels containing text.
+    const fontStyle = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "style",
+    )
+    fontStyle.textContent = fontEmbedCss
+    svg.prepend(fontStyle)
+    supersampledCanvas = await renderFontReadySvg({
+      svg,
+      context: renderContext,
+      width,
+      height,
+    })
   } finally {
     destroyContext(renderContext)
   }
