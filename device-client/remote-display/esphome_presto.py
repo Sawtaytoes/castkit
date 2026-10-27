@@ -12,7 +12,13 @@ import time
 
 from aioesphomeapi import APIClient, TextSensorState
 from aiohttp import web
-from codec import encode_presto_patch
+from codec import (
+    MOTION_JPEG_MAX_BYTES,
+    encode_presto_jpeg,
+    encode_presto_patch,
+    motion_jpeg_rectangle,
+    union_rectangle,
+)
 from presto_transport import FrameSupersededError, PrestoTransport, SlotUnavailableError
 
 LOG = logging.getLogger("castkit.remote-display")
@@ -27,6 +33,10 @@ FRAME_ACK_SECONDS = 6
 # pixels inside it only approximate `base_pixels`, which is harmless because the
 # next camera frame replaces the whole rectangle and any other frame differs there.
 PATCH_CODECS = {"zlib": 0, "rle": 1, "jpeg": 2}
+# A frame drawn while a finger moves goes as JPEG when it changes at least this many
+# pixels; a smaller patch is cheap on the link already. The first frame after the
+# motion covers every JPEG rectangle losslessly, so the panel settles on exact pixels.
+MOTION_JPEG_MIN_PIXELS = 480 * 48
 # Firmware that holds frames on the board names these three actions. A board
 # without them keeps today's path: every frame travels when it is shown.
 SLOT_ACTIONS = frozenset({"slot_chunk", "show_slot", "drop_slots"})
@@ -69,6 +79,8 @@ class ESPHomePrestoTransport(PrestoTransport):
         # The first `error,jpeg_*` this session: the board then gets zlib until it
         # reconnects, instead of every JPEG patch costing a rejection and a resend.
         self.jpeg_refusal = None
+        # Where the board shows a motion JPEG's approximation of `base_pixels`.
+        self.lossy_rectangle = None
         # slot -> {"view", "key", "frame_id", "pixels", "targets"}: what the board holds.
         self.slots = {}
         self.slot_pending = None
@@ -119,6 +131,7 @@ class ESPHomePrestoTransport(PrestoTransport):
         )
         self.has_jpeg = False
         self.jpeg_refusal = None
+        self.lossy_rectangle = None
         self.build_marker = f"esphome-presto-rgb565-v1 {info.compilation_time}"
         self.base_id, self.base_pixels = 0, None
         # Slot firmware reports uploads only on "Display Slot Events"; without that
@@ -302,10 +315,10 @@ class ESPHomePrestoTransport(PrestoTransport):
             {"wake_backlight": wake[0], "wake_seconds": wake[1]},
         )
 
-    async def send_frame(self, frame_id, touch_id, raw, prepared=None):
+    async def send_frame(self, frame_id, touch_id, raw, prepared=None, is_motion=False):
         for attempt in range(1, FRAME_ATTEMPTS + 1):
             try:
-                return await self.deliver_frame(frame_id, touch_id, raw, prepared)
+                return await self.deliver_frame(frame_id, touch_id, raw, prepared, is_motion)
             except (TimeoutError, FrameRejectedError) as error:
                 # A failed attempt has cleared the base, so the retry is a full frame,
                 # which the board accepts even after its offline blank reset its base.
@@ -327,20 +340,41 @@ class ESPHomePrestoTransport(PrestoTransport):
             and self.base_layout == prepared["layout"]
         )
 
-    async def deliver_frame(self, frame_id, touch_id, raw, prepared=None):
+    def encode_live_patch(self, raw, is_motion):
+        """Return (body, codec, rectangle, lossy_rectangle_after)."""
+        if self.base_pixels is None:
+            return (*encode_presto_patch(raw), None)
+        if not (is_motion and self.has_jpeg):
+            # Lossless, and it repairs whatever a motion JPEG left approximate.
+            return (*encode_presto_patch(raw, self.base_pixels, self.lossy_rectangle), None)
+        body, encoding, rectangle = encode_presto_patch(raw, self.base_pixels)
+        if rectangle[2] * rectangle[3] >= MOTION_JPEG_MIN_PIXELS:
+            jpeg_rectangle = motion_jpeg_rectangle(rectangle)
+            jpeg = encode_presto_jpeg(raw, jpeg_rectangle)
+            if len(jpeg) < len(body) and len(jpeg) <= MOTION_JPEG_MAX_BYTES:
+                return (
+                    jpeg,
+                    "jpeg",
+                    jpeg_rectangle,
+                    union_rectangle(self.lossy_rectangle, jpeg_rectangle),
+                )
+        return body, encoding, rectangle, self.lossy_rectangle
+
+    async def deliver_frame(self, frame_id, touch_id, raw, prepared=None, is_motion=False):
         if self.control_task.done():
             self.control_task.result()
         started = time.monotonic()
         if self.can_use_prepared(prepared):
             # Compressed once on the server for every panel of this size.
-            body, encoding, rectangle = (
+            body, encoding, rectangle, lossy_after = (
                 prepared["body"],
                 prepared.get("codec", "zlib"),
                 tuple(prepared["patch"]),
+                self.lossy_rectangle,
             )
         else:
-            body, encoding, rectangle = await asyncio.to_thread(
-                encode_presto_patch, raw, self.base_pixels
+            body, encoding, rectangle, lossy_after = await asyncio.to_thread(
+                self.encode_live_patch, raw, is_motion
             )
         # What the board shows after this frame, outside any later patch.
         layout = (
@@ -381,6 +415,7 @@ class ESPHomePrestoTransport(PrestoTransport):
                 # Every chunk reached the board, which draws this frame before
                 # anything queued behind it, so it is the next frame's base.
                 self.base_id, self.base_pixels, self.base_layout = frame_id, raw, layout
+                self.lossy_rectangle = lossy_after
                 self.shown_slot = None
                 raise
             except TimeoutError as error:
@@ -388,6 +423,7 @@ class ESPHomePrestoTransport(PrestoTransport):
                     f"Presto did not acknowledge frame {frame_id} ({len(packet)} bytes)"
                 ) from error
             self.base_id, self.base_pixels, self.base_layout = frame_id, raw, layout
+            self.lossy_rectangle = lossy_after
             self.shown_slot = None
             self.frames_drawn += 1
             self.last_ack = {
@@ -416,6 +452,7 @@ class ESPHomePrestoTransport(PrestoTransport):
             raise
         except Exception:
             self.base_id, self.base_pixels = 0, None
+            self.lossy_rectangle = None
             raise
         finally:
             if live["future"].done() and not live["future"].cancelled():
@@ -491,6 +528,8 @@ class ESPHomePrestoTransport(PrestoTransport):
                     )
             self.base_id, self.base_pixels = held["frame_id"], held["pixels"]
             self.base_layout = None
+            # A slot holds exact pixels.
+            self.lossy_rectangle = None
             self.shown_slot = (slot, time.monotonic())
             self.frames_drawn += 1
             self.last_ack = {
@@ -520,6 +559,7 @@ class ESPHomePrestoTransport(PrestoTransport):
             raise
         except Exception:
             self.base_id, self.base_pixels = 0, None
+            self.lossy_rectangle = None
             raise
         finally:
             self.pending = None

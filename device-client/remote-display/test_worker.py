@@ -90,7 +90,7 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
             PreviewServer("test", 8),
         )
 
-        async def acknowledge(frame_id, touch_id, payload):
+        async def acknowledge(frame_id, touch_id, payload, is_motion=False):
             self.assertEqual(payload, presto_frame_pixels(session.preview.latest_png))
             self.assertNotIn(frame_id, session.guard.frames)
             session.stop.set()
@@ -141,7 +141,7 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
 
         cdp.send = capture
 
-        async def acknowledge(frame_id, touch_id, payload):
+        async def acknowledge(frame_id, touch_id, payload, is_motion=False):
             acknowledgements.append((captured, touch_id))
             if len(acknowledgements) == 4:
                 session.stop.set()
@@ -262,7 +262,7 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         )
         sent = []
 
-        async def acknowledge(frame_id, touch_id, payload):
+        async def acknowledge(frame_id, touch_id, payload, is_motion=False):
             sent.append(payload)
             return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
 
@@ -435,7 +435,7 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
             PreviewServer("test", 8),
         )
 
-        async def acknowledge(frame_id, touch_id, payload):
+        async def acknowledge(frame_id, touch_id, payload, is_motion=False):
             self.assertEqual(payload, presto_frame_pixels(session.preview.latest_png))
             self.assertEqual(transport.ambient_palette, [[255, 0, 0]] * 7)
             self.assertNotIn(frame_id, session.guard.frames)
@@ -1010,7 +1010,7 @@ class SwipeReleasePathTests(unittest.IsolatedAsyncioTestCase):
             frame_id = self.transport.slots[slot]["frame_id"]
             return ["frame", str(frame_id), str(touch_id), "0", "0", "0", "1"]
 
-        async def send_frame(frame_id, touch_id, raw):
+        async def send_frame(frame_id, touch_id, raw, is_motion=False):
             self.sent.append(raw)
             return ["frame", str(frame_id), str(touch_id), "0", "0", "1", "1"]
 
@@ -1130,7 +1130,7 @@ class SwipeReleasePathTests(unittest.IsolatedAsyncioTestCase):
         self.session.config.update(max_fps=20, heartbeat_seconds=30)
         sent = []
 
-        async def acknowledge(frame_id, touch_id, raw):
+        async def acknowledge(frame_id, touch_id, raw, is_motion=False):
             sent.append((time.monotonic(), raw, self.session.preview.latest_png))
             return ["frame", str(frame_id), str(touch_id), "0", "0", "1", "1"]
 
