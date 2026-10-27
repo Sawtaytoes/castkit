@@ -380,6 +380,8 @@ class PrestoTransport:
                 "frames_ahead": self.frames_ahead,
                 "last_release": self.last_release,
                 "camera": self.camera,
+                "has_jpeg": getattr(self, "has_jpeg", False),
+                "jpeg_refusal": getattr(self, "jpeg_refusal", None),
             }
         )
 
