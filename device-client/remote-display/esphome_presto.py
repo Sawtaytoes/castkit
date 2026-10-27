@@ -81,8 +81,8 @@ class ESPHomePrestoTransport(PrestoTransport):
         # Firmware with a JPEG patch decoder reports `zlib,rle,jpeg` on "Display Codecs".
         self.codecs_key = None
         self.has_jpeg = False
-        # The first `error,jpeg_*` this session: the board then gets zlib until it
-        # reconnects, instead of every JPEG patch costing a rejection and a resend.
+        # The `error,jpeg_*` that ended JPEG this session (a board-level error, or
+        # JPEG_FRAME_ERROR_LIMIT per-frame errors in a row); zlib until it reconnects.
         self.jpeg_refusal = None
         # Consecutive per-frame JPEG errors; an acknowledged JPEG frame clears it.
         self.jpeg_frame_errors = 0
@@ -347,7 +347,12 @@ class ESPHomePrestoTransport(PrestoTransport):
         A JPEG patch also needs firmware that decodes one."""
         return (
             prepared is not None
-            and (prepared.get("codec", "zlib") != "jpeg" or self.has_jpeg)
+            and (
+                prepared.get("codec", "zlib") != "jpeg"
+                # The board refuses a larger body mid-frame, and that report can be
+                # replaced by the chunk errors after it; never send one.
+                or (self.has_jpeg and len(prepared["body"]) <= MOTION_JPEG_MAX_BYTES)
+            )
             and self.base_pixels is not None
             and self.base_id != 0
             and self.base_layout == prepared["layout"]
@@ -409,6 +414,9 @@ class ESPHomePrestoTransport(PrestoTransport):
                 if live["is_superseded"]:
                     # The board never completed this frame, so its base is unchanged.
                     raise FrameSupersededError(f"Frame {frame_id} superseded while sending")
+                if live["future"].done():
+                    # The board already rejected this frame; the rest of it is waste.
+                    break
                 await self.api.execute_service(
                     self.actions["frame_chunk"],
                     {
