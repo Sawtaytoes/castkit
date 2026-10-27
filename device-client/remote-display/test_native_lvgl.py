@@ -162,7 +162,7 @@ class SceneAcknowledgementTests(unittest.IsolatedAsyncioTestCase):
         class API:
             is_connected = True
 
-            def execute_service(self, action, args):
+            async def execute_service(self, action, args):
                 sent.append(json.loads(args["document"]))
                 status["value"] = "applied,40,1"  # A previous revision cannot satisfy this request.
                 asyncio.get_running_loop().call_later(
@@ -189,7 +189,7 @@ class SceneAcknowledgementTests(unittest.IsolatedAsyncioTestCase):
                     self.status = status
                     self.reply = reply
 
-                def execute_service(self, action, args):
+                async def execute_service(self, action, args):
                     self.status["value"] = self.reply
 
             with self.subTest(reply=reply, connected=connected), self.assertRaises(exception):

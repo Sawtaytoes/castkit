@@ -49,7 +49,7 @@ async def apply_scene(api, action, scene, revision, status, timeout=15):
     if len(document.encode()) > MAX_DOCUMENT_BYTES:
         raise ValueError("Native scene exceeds the firmware's document budget")
     status["value"] = ""
-    api.execute_service(action, {"document": document})
+    await api.execute_service(action, {"document": document})
     deadline = time.monotonic() + timeout
     while status["value"] != f"applied,{revision},{len(scene['items'])}":
         if status["value"].startswith("error,"):
