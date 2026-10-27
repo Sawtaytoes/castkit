@@ -1,4 +1,5 @@
-import { domToCanvas } from "modern-screenshot"
+import { createContext, destroyContext, domToForeignObjectSvg } from "modern-screenshot"
+import { renderFontReadySvg } from "./renderFontReadySvg.ts"
 import {
   installPanelFonts,
   loadPanelFontFaceDataUriCss,
@@ -57,11 +58,18 @@ export const rasterizePanel = async ({
   // rasterizer lay the clone out in a larger box than the node and pin the
   // content top-left, so the render comes back with a white margin down the
   // right and bottom. Deriving the size from the node's own box avoids that.
-  const supersampledCanvas = await domToCanvas(node, {
+  const renderContext = await createContext<Node>(node, {
     scale: supersampleFactor,
     backgroundColor: "#ffffff",
     font: { cssText: fontEmbedCss },
   })
+  let supersampledCanvas: HTMLCanvasElement
+  try {
+    const svg = await domToForeignObjectSvg(renderContext)
+    supersampledCanvas = await renderFontReadySvg({ svg, context: renderContext, width, height })
+  } finally {
+    destroyContext(renderContext)
+  }
 
   const nativeCanvas = document.createElement("canvas")
   nativeCanvas.width = width

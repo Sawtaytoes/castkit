@@ -339,3 +339,48 @@ test("grouped dashboards keep the same mounted detail and restore their groups o
     document.querySelector(".home-group-title"),
   ).toBeVisible()
 })
+
+
+test.each(["kids-points", "idle-dashboard"])(
+  "%s releases its child details when AI takes ownership, including across resize",
+  async (specId) => {
+    const initialSize = { width: window.innerWidth, height: window.innerHeight }
+    if (initialSize.width < 900) await page.viewport(1024, 600)
+    const snapshot = pointsOverviewFixture()
+    const points = snapshot.view.panels.find((item) => item.specId === "kids-points")!
+    const usage = snapshot.view.panels.find((item) => item.specId === "ai-usage")!
+    snapshot.view = {
+      ...snapshot.view,
+      isActiveOnly: false,
+      panels: [
+        {
+          ...points,
+          specId,
+          bindings: specId === "idle-dashboard" ? { points: "points" } : points.bindings,
+        },
+        usage,
+      ],
+    }
+    render(
+      <main class="platform" data-device="true">
+        <DisplayComposition snapshot={snapshot} isConnected onAction={async () => undefined} />
+      </main>,
+    )
+    await openChild()
+    await settle()
+    await userEvent.click(screen.getByRole("button", { name: "Show Claude usage details" }))
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Back to all children" })).toBeNull())
+    expect(screen.getByRole("region", { name: "Claude usage details" })).toBeVisible()
+    await page.viewport(480, 480)
+    await settle()
+    expect(screen.getByRole("region", { name: "Claude usage details" })).toBeVisible()
+    await userEvent.click(screen.getByRole("button", { name: "Back to AI usage" }))
+    await page.viewport(initialSize.width, initialSize.height)
+    await settle()
+    await waitFor(() => {
+      expect(document.querySelector("[data-navigation-focus]")).toBeNull()
+      expect(screen.getByRole("button", { name: "View Robin's tasks today" })).toBeVisible()
+    })
+    expect(screen.queryByRole("button", { name: "Back to all children" })).toBeNull()
+  },
+)

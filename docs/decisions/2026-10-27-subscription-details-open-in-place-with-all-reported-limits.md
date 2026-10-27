@@ -10,7 +10,9 @@
 
 Opening an AI Usage subscription replaces the summary in place, using the same
 composition navigation and focus behavior as Points. A Back control returns to
-the overview. The subscription logo is vertically centered with its name.
+the overview. Only one panel owns expanded details at a time; both Points
+implementations and AI Usage clear their selection when another panel takes
+ownership. The subscription logo is vertically centered with its name.
 
 The overview continues to use saved provider/window selection, positive-usage
 filtering, and quota alert replacement. Details retain all reported windows for

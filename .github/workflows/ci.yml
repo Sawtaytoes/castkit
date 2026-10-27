@@ -143,6 +143,9 @@ jobs:
           timeout 600 pnpm playwright install chromium
 
       - run: pnpm test
+      - name: Verify first preview pixels and font failures
+        timeout-minutes: 5
+        run: pnpm check:preview-fonts
 
   storybook:
     needs: [changes]
