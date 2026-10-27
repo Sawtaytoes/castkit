@@ -29,7 +29,7 @@ from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v29-motion-jpeg"
+BUILD_MARKER = "castkit-remote-display-v30-release-log"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -125,6 +125,9 @@ PAGE_STATE_SCRIPT = """() => {
      || document.getAnimations().some(animation => animation.playState === 'running'),
    isSettled: (!root || root.dataset.castkitReady === 'true')
      && !document.querySelector('.platform-loading, .platform-view[aria-busy="true"], .navigation-feedback[data-phase="loading"]'),
+   // Why the page is not settled, for the log: the first matching loading marker.
+   loadingMarker: root && root.dataset.castkitReady !== 'true' ? 'not-ready'
+     : (document.querySelector('.platform-loading, .platform-view[aria-busy="true"], .navigation-feedback[data-phase="loading"]')?.className || null),
    hasPendingImages: Array.from(document.images).some(image => {
      if (image.complete || /mjpeg/i.test(image.currentSrc || image.src)) return false;
      const bounds = image.getBoundingClientRect();
@@ -201,6 +204,8 @@ class DisplaySession:
         self.document_revision = 0
         self.document_changed_at = 0
         self.held_since = None
+        # The loading state was logged once for this unsettled stretch.
+        self.is_unsettled_logged = False
         self.captures = 0
         self.feed = feed
         # What the panel shows now, as the capture loop compares against it. A
@@ -513,6 +518,8 @@ class DisplaySession:
         self.release_generation += 1
         self.client.supersede_live()
         frame = self.feed.read(view)
+        if frame is None:
+            LOG.info("release view=%s path=none (no frame drawn ahead)", view)
         # Held from the release itself: on loopback the page can have the new
         # view half built before the destination is even on the glass.
         self.release_hold = self.start_release_hold() if frame is not None else None
@@ -574,6 +581,12 @@ class DisplaySession:
                     "path": "slot" if slot is not None else "frame",
                     "ms": round((time.monotonic() - started) * 1000, 1),
                 }
+                LOG.info(
+                    "release view=%s path=%s ms=%s",
+                    view,
+                    self.client.last_release["path"],
+                    self.client.last_release["ms"],
+                )
         except FrameSupersededError:
             return
         except Exception as error:
@@ -670,6 +683,12 @@ class DisplaySession:
         if now >= hold["until"]:
             # A view that never settles cannot freeze the glass.
             self.release_hold = None
+            LOG.info(
+                "release hold expired: settled=%s pending_images=%s marker=%s",
+                page_state["isSettled"],
+                page_state.get("hasPendingImages", False),
+                page_state.get("loadingMarker"),
+            )
             return False
         if self.release_tasks:
             # The destination is still on its way to the board.
@@ -915,8 +934,20 @@ class DisplaySession:
                     continue
                 if page_state["isSettled"]:
                     self.held_since = None
+                    self.is_unsettled_logged = False
                 elif self.held_since is None:
                     self.held_since = cycle
+                elif (
+                    cycle - self.held_since >= SETTLE_HOLD_SECONDS and not self.is_unsettled_logged
+                ):
+                    # Past the hold the loading state reaches the glass; say why.
+                    self.is_unsettled_logged = True
+                    LOG.info(
+                        "page unsettled for %.1f s, sending it: marker=%s pending_images=%s",
+                        cycle - self.held_since,
+                        page_state.get("loadingMarker"),
+                        page_state.get("hasPendingImages", False),
+                    )
                 # An image panel costs about half a second to show any frame, so
                 # a loading state on the glass both looks broken and delays the
                 # finished view behind it. Keep the last complete view instead.
