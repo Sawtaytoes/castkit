@@ -1,5 +1,6 @@
 # CastKit decision records
 
+- [2026-10-27: Compact music uses spare room and opens the full player](2026-10-27-compact-music-uses-spare-room-and-opens-the-full-player.md)
 - [2026-10-27: Subscription details open in place with all reported limits](2026-10-27-subscription-details-open-in-place-with-all-reported-limits.md)
 
 - [2026-10-26: A list scrolls on the Presto over a picture drawn ahead](2026-10-26-a-list-scrolls-on-the-presto-over-a-picture-drawn-ahead.md)

@@ -13,6 +13,9 @@ export type CompositionItem = {
   key: string
   priority: number
   isPrinter: boolean
+  isOptional?: boolean
+  pointsCount?: number
+  focusMinimumWidth?: number
   aspectRatio?: number
   minimumWidth: number
   minimumHeight: number
@@ -67,6 +70,35 @@ const usageHeight = (
       ) ?? item.minimumHeight,
     ) + (item.insetHeight ?? 0)
   )
+}
+
+const minimumItemHeight = ({
+  item,
+  width,
+}: {
+  item: CompositionItem
+  width: number
+}) => {
+  if (item.usageRows) return usageHeight(item, width)
+  if (item.pointsCount) {
+    const columns = Math.floor(
+      (width - (item.insetWidth ?? 0) + 12) / 232,
+    )
+    const boardRows = Math.ceil(
+      item.pointsCount / Math.max(1, columns),
+    )
+    const boardHeight =
+      columns > 0
+        ? boardRows * 200 + (boardRows - 1) * 12
+        : Number.POSITIVE_INFINITY
+    const rowsHeight =
+      item.pointsCount * 128 + (item.pointsCount - 1) * 12
+    return (
+      Math.min(boardHeight, rowsHeight) +
+      (item.insetHeight ?? 0)
+    )
+  }
+  return item.minimumHeight
 }
 
 /** Score the composition with the same policy each media card uses internally. */
@@ -136,9 +168,10 @@ const chooseMainCompositionLayout = ({
             0,
             cellWidth - (item.insetWidth ?? 0),
           )
-          const minimumHeight = item.usageRows
-            ? usageHeight(item, cellWidth)
-            : item.minimumHeight
+          const minimumHeight = minimumItemHeight({
+            item,
+            width: cellWidth,
+          })
           const usage = item.usageRows
             ? placeSections({
                 providerRows: item.usageRows,
@@ -173,7 +206,9 @@ const chooseMainCompositionLayout = ({
                   ),
               visibilityPriority: item.isPrinter
                 ? 3
-                : undefined,
+                : item.isOptional
+                  ? 0
+                  : undefined,
               isHidden: item.isPrinter && detailLevel === 3,
               minimumWidth:
                 item.isPrinter && detailLevel < 3
@@ -391,6 +426,58 @@ const chooseMainCompositionLayout = ({
       })
     })
   })
+  // Unequal supporting rows preserve a full points board before music spends spare height.
+  const stackedCandidates =
+    printers.length === 0 &&
+    supporting.length > 1 &&
+    supporting.some((item) => item.isOptional)
+      ? supporting.flatMap((recipient) => {
+          const minimums = supporting.map((item) =>
+            minimumItemHeight({ item, width }),
+          )
+          const spare = Math.max(
+            0,
+            height -
+              gap * (supporting.length - 1) -
+              minimums.reduce(
+                (total, value) => total + value,
+                0,
+              ),
+          )
+          return makeCandidate({
+            id: "cards",
+            columns: [width],
+            rows: minimums.map(
+              (minimum, index) =>
+                (minimum +
+                  (supporting[index]?.key === recipient.key
+                    ? spare
+                    : 0)) *
+                Math.min(
+                  1,
+                  Math.max(
+                    0,
+                    height - gap * (supporting.length - 1),
+                  ) /
+                    Math.max(
+                      1,
+                      minimums.reduce(
+                        (total, value) => total + value,
+                        0,
+                      ),
+                    ),
+                ),
+            ),
+            cells: supporting.map((item, index) => ({
+              key: item.key,
+              column: 0,
+              row: index,
+              columnSpan: 1,
+              rowSpan: 1,
+            })),
+          })
+        })
+      : []
   const railCandidates =
     printers.length && supporting.length
       ? [280, 340, 420, 500, width * 0.32].flatMap(
@@ -451,13 +538,54 @@ const chooseMainCompositionLayout = ({
           },
         )
       : []
-  return selectPriorityLayout(
+  const candidates =
     mode === "cards"
-      ? cardCandidates
+      ? cardCandidates.concat(stackedCandidates)
       : mode === "rail" && railCandidates.length
         ? railCandidates
-        : cardCandidates.concat(railCandidates),
-  )
+        : cardCandidates.concat(
+            stackedCandidates,
+            railCandidates,
+          )
+  return selectPriorityLayout(candidates)
+}
+
+const chooseOptionalCompositionLayout = (
+  input: Parameters<typeof chooseMainCompositionLayout>[0],
+) => {
+  const { items } = input
+  const layout = chooseMainCompositionLayout(input)
+  const optional = items.filter((item) => item.isOptional)
+  if (!optional.length) return layout
+  const reduced = chooseMainCompositionLayout({
+    ...input,
+    items: items.filter((item) => !item.isOptional),
+  })
+  if (!reduced) return layout
+  const hiddenSections = optional.map((item) => ({
+    priority: item.priority,
+    visibilityPriority: 0,
+    isHidden: true,
+    width: 0,
+    height: 0,
+  }))
+  const selected = selectPriorityLayout([
+    ...(layout ? [layout] : []),
+    {
+      ...reduced,
+      sections: reduced.sections.concat(hiddenSections),
+      cells: {
+        ...reduced.cells,
+        ...Object.fromEntries(
+          optional.map((item) => [
+            item.key,
+            { display: "none" } as JSX.CSSProperties,
+          ]),
+        ),
+      },
+    },
+  ])
+  return selected
 }
 
 /** Keep persistent summaries below the higher-priority work area. */
@@ -473,7 +601,7 @@ export const chooseCompositionLayout = (
     (item) => item.summaryHeight === undefined,
   )
   if (summaries.length && primary.length) {
-    const layout = chooseMainCompositionLayout({
+    const layout = chooseOptionalCompositionLayout({
       width,
       height:
         height -
@@ -502,12 +630,12 @@ export const chooseCompositionLayout = (
               {
                 gridColumn: "1 / -1",
                 gridRow: `${index - summaries.length - 1} / span 1`,
-              },
+              } as JSX.CSSProperties,
             ]),
           ),
         },
       }
     }
   }
-  return chooseMainCompositionLayout(input)
+  return chooseOptionalCompositionLayout(input)
 }

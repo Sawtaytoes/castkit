@@ -179,3 +179,31 @@ test("manual rail remains available and one camera prefers its larger side-by-si
     choose([...cameras, quotas()], 2024, 751, "rail")?.id,
   ).toBe("rail")
 })
+
+test("compact music yields before required usage overflows and returns when room grows", () => {
+  const music: CompositionItem = {
+    key: "music",
+    priority: 0,
+    isPrinter: false,
+    isOptional: true,
+    minimumWidth: 240,
+    minimumHeight: 112,
+  }
+  expect(
+    choose([ai, music], 360, 400)?.cells.music?.display,
+  ).toBe("none")
+  expect(
+    choose([ai, music], 1024, 600)?.cells.music?.display,
+  ).not.toBe("none")
+  const points: CompositionItem = {
+    key: "points",
+    priority: 1,
+    isPrinter: false,
+    minimumWidth: 240,
+    minimumHeight: 72,
+    summaryHeight: 72,
+  }
+  const tight = choose([ai, music, points], 360, 440)
+  expect(tight?.cells.music?.display).toBe("none")
+  expect(tight?.cells.points?.gridColumn).toBe("1 / -1")
+})

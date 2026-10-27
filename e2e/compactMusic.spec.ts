@@ -1,0 +1,318 @@
+import { expect, test } from "@playwright/test"
+import { buildMusicPlayer } from "../packages/slatecast/src/__fixtures__/buildMusicPlayer.ts"
+
+// Mirror the saved adaptive desk composition and item selections with invented data.
+test("desk music expands to its queue, returns, and retains a paused track", async ({
+  page,
+}) => {
+  await page.route(
+    "**/api/display/view/compact-desk/media/**",
+    (route) =>
+      route.fulfill({
+        path: new URL(
+          route.request().url().includes("/compact-prints/")
+            ? "../assets/sample-photos/printer-camera-chamber.jpg"
+            : "../assets/sample-photos/landscape-color.jpg",
+          import.meta.url,
+        ).pathname,
+        contentType: "image/jpeg",
+      }),
+  )
+  const request = page.request
+  expect(
+    (
+      await request.post("/api/access/login", {
+        data: { pin: "2468" },
+      })
+    ).ok(),
+  ).toBe(true)
+  const music = buildMusicPlayer({ nowMs: Date.now() })
+  const channels = [
+    {
+      id: "compact-music",
+      type: "music-player.v1",
+      data: music,
+    },
+    {
+      id: "compact-points",
+      type: "kids-points.v1",
+      data: {
+        kids: ["Robin", "Sky", "Quinn"].map((name) => ({
+          id: name,
+          name,
+          pointsToday: 130,
+          goal: 400,
+        })),
+      },
+    },
+    {
+      id: "compact-usage",
+      type: "ai-usage.v1",
+      data: {
+        providers: ["claude", "codex", "codex_2"].map(
+          (id) => ({
+            id,
+            name: id,
+            isOk: true,
+            windows: [
+              {
+                id:
+                  id === "claude"
+                    ? "weekly_all"
+                    : "primary",
+                label: "Weekly",
+                percentUsed: 30,
+                periodHours: 168,
+              },
+            ],
+          }),
+        ),
+      },
+    },
+    {
+      id: "compact-prints",
+      type: "printers.v1",
+      data: {
+        printers: [
+          {
+            id: "printer-one",
+            name: "Printer One",
+            jobName: "Desk stand",
+            state: "printing",
+            percent: 30,
+            cameraPath:
+              "/sample-photos/landscape-color.jpg",
+          },
+        ],
+      },
+    },
+    {
+      id: "compact-rips",
+      type: "rip-deck.v1",
+      data: { isPresent: false, activeCount: 0, bays: [] },
+    },
+  ]
+  for (const channel of channels) {
+    expect(
+      (
+        await request.post(
+          "/api/manage/platform/channels",
+          {
+            data: {
+              id: channel.id,
+              name: channel.id,
+              sourceId: "events",
+              type: channel.type,
+              settings: {
+                actions: ["play_pause", "next", "previous"],
+                commandTopic: `castkit/channels/${channel.id}/command`,
+              },
+            },
+          },
+        )
+      ).ok(),
+    ).toBe(true)
+    expect(
+      (
+        await request.post("/__test__/mqtt", {
+          data: {
+            topic: `castkit/channels/${channel.id}/set`,
+            payload: channel.data,
+          },
+        })
+      ).ok(),
+    ).toBe(true)
+  }
+  const view = {
+    id: "compact-desk",
+    name: "Desk overview",
+    layout: "adaptive",
+    theme: "dark",
+    access: "public",
+    isControlEnabled: true,
+    isActiveOnly: true,
+    panels: [
+      {
+        id: "printers",
+        specId: "printer-status",
+        bindings: { data: "compact-prints" },
+        settings: {
+          isCameraVisible: true,
+          isCompactControls: true,
+          isCompactFacts: true,
+          priority: 3,
+          isFilamentVisible: false,
+        },
+      },
+      {
+        id: "rips",
+        specId: "rip-deck",
+        bindings: { data: "compact-rips" },
+        settings: { presentation: "posters", priority: 2 },
+      },
+      {
+        id: "ai",
+        specId: "ai-usage",
+        bindings: { data: "compact-usage" },
+        settings: {
+          priority: 1,
+          isProviderSelectionEnabled: true,
+          providerIds: ["claude", "codex", "codex_2"],
+          isWindowSelectionEnabled: true,
+          windowIds: [
+            "claude:weekly_all",
+            "claude:session_5h",
+            "codex:primary",
+            "codex_2:primary",
+          ],
+          isPositiveUsageOnly: true,
+          isAlertReplacementEnabled: true,
+          alertPercent: 80,
+        },
+      },
+      {
+        id: "points",
+        specId: "kids-points",
+        bindings: { data: "compact-points" },
+        settings: {
+          scanSeconds: 15,
+          isPersistentSummary: true,
+        },
+      },
+      {
+        id: "music",
+        specId: "music-player",
+        bindings: { data: "compact-music" },
+        settings: { presentation: "compact", priority: 0 },
+      },
+    ],
+  }
+  expect(
+    (
+      await request.post("/api/manage/platform/views", {
+        data: {
+          ...view,
+          panels: view.panels.filter(
+            (panel) => panel.id !== "music",
+          ),
+        },
+      })
+    ).ok(),
+  ).toBe(true)
+  await page.goto("/view/compact-desk")
+  const originalViewport = page.viewportSize()
+  if (!originalViewport)
+    throw new Error("Missing test viewport")
+  await page.setViewportSize({ width: 1024, height: 600 })
+  await expect(
+    page.getByText("Desk stand", { exact: true }),
+  ).toBeVisible()
+  await page.screenshot({
+    path: "__screenshots__/compact-music/before.png",
+  })
+  await page.setViewportSize(originalViewport)
+  expect(
+    (
+      await request.put(
+        "/api/manage/platform/views/compact-desk",
+        { data: view },
+      )
+    ).ok(),
+  ).toBe(true)
+
+  await expect(
+    page.getByRole("button", {
+      name: "Open full music player and queue",
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Desk stand", { exact: true }),
+  ).toBeVisible()
+  // The physical target gets an additional exact-size exercise in every project.
+  await page.setViewportSize({ width: 1024, height: 600 })
+  await expect(
+    page.getByRole("button", {
+      name: "Open full music player and queue",
+    }),
+  ).toBeVisible()
+  await page.screenshot({
+    path: "__screenshots__/compact-music/busy.png",
+  })
+  await page
+    .getByRole("button", {
+      name: "Open full music player and queue",
+    })
+    .click()
+  await expect(
+    page.getByRole("tab", { name: "Queue", exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.locator(".music-row").first(),
+  ).toBeVisible()
+  await expect
+    .poll(() =>
+      page
+        .locator('[data-spec="music-player"]')
+        .evaluate(
+          (element) =>
+            element.getBoundingClientRect().width,
+        ),
+    )
+    .toBeGreaterThan(900)
+  await page.screenshot({
+    path: "__screenshots__/compact-music/full.png",
+  })
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/channels/compact-music/set",
+      payload: {
+        ...music,
+        player: { ...music.player, state: "paused" },
+      },
+    },
+  })
+  await expect(
+    page.getByRole("button", { name: "Play", exact: true }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", { name: "Back to overview" })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: "Open full music player and queue",
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Paused", { exact: true }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", { name: "Play", exact: true })
+    .click()
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/channels/compact-prints/set",
+      payload: { printers: [] },
+    },
+  })
+  await expect(
+    page.locator(".kids-points-summary"),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("button", {
+      name: "Open full music player and queue",
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Quinn", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Sky", { exact: true }),
+  ).toBeVisible()
+  await page.screenshot({
+    path: "__screenshots__/compact-music/idle.png",
+  })
+  const publishes = await (
+    await request.get("/__test__/published")
+  ).json()
+  expect(JSON.stringify(publishes)).toContain("play_pause")
+})
