@@ -29,7 +29,7 @@ from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v30-release-log"
+BUILD_MARKER = "castkit-remote-display-v30b-jpeg-error-scope"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
