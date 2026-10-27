@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import random
 import struct
 import types
 import unittest
@@ -213,6 +214,68 @@ class PreparedPatchTests(unittest.IsolatedAsyncioTestCase):
         third_pixels, _ = synthetic_frame(30)
         sent = await self.send(7, third_pixels, jpeg)
         self.assertNotEqual(struct.unpack(">IHHHHB", sent[:13])[5], 2)
+
+    async def test_one_bad_jpeg_frame_keeps_jpeg_and_three_in_a_row_end_it(self):
+        self.transport.codecs_key = 9
+        self.transport.native_state(TextSensorState(key=9, state="zlib,rle,jpeg"))
+        for reason in ("jpeg_too_large", "jpeg_invalid"):
+            self.transport.native_state(TextSensorState(key=7, state=f"error,{reason}"))
+        self.assertTrue(self.transport.has_jpeg)
+        self.assertIsNone(self.transport.jpeg_refusal)
+        self.transport.native_state(TextSensorState(key=7, state="error,jpeg_size_mismatch"))
+        self.assertFalse(self.transport.has_jpeg)
+        self.assertEqual(self.transport.jpeg_refusal, "jpeg_size_mismatch")
+
+    async def test_an_acknowledged_jpeg_frame_resets_the_error_count(self):
+        first_pixels, first_body = synthetic_frame(10)
+        layout = {"patch": CAMERA_PATCH, "layout": "layout-a"}
+        await self.send(5, first_pixels, {**layout, "body": first_body})
+        self.transport.codecs_key = 9
+        self.transport.native_state(TextSensorState(key=9, state="zlib,rle,jpeg"))
+        for reason in ("jpeg_too_large", "jpeg_invalid"):
+            self.transport.native_state(TextSensorState(key=7, state=f"error,{reason}"))
+        second_pixels, _ = synthetic_frame(20)
+        sent = await self.send(6, second_pixels, {**layout, "body": JPEG_STANDIN, "codec": "jpeg"})
+        self.assertEqual(struct.unpack(">IHHHHB", sent[:13])[5], 2)
+        for reason in ("jpeg_too_large", "jpeg_invalid"):
+            self.transport.native_state(TextSensorState(key=7, state=f"error,{reason}"))
+        self.assertTrue(self.transport.has_jpeg)
+
+    async def test_a_camera_jpeg_over_the_board_limit_goes_lossless(self):
+        first_pixels, first_body = synthetic_frame(10)
+        layout = {"patch": CAMERA_PATCH, "layout": "layout-a"}
+        await self.send(5, first_pixels, {**layout, "body": first_body})
+        self.transport.codecs_key = 9
+        self.transport.native_state(TextSensorState(key=9, state="zlib,rle,jpeg"))
+        second_pixels, _ = synthetic_frame(20)
+        oversized = JPEG_STANDIN[:2] + bytes(128 * 1024) + JPEG_STANDIN[2:]
+        sent = await self.send(6, second_pixels, {**layout, "body": oversized, "codec": "jpeg"})
+        self.assertNotEqual(struct.unpack(">IHHHHB", sent[:13])[5], 2)
+        self.assertTrue(self.transport.has_jpeg)
+
+    async def test_a_rejected_frame_sends_no_more_chunks(self):
+        # Seeded noise, so the frame stays many chunks long after compression.
+        noisy = random.Random(4).randbytes(SQUARE)
+        sent = []
+
+        async def chunk(_action, data):
+            sent.append(data["offset"])
+            if len(sent) == 1:
+                self.transport.native_state(TextSensorState(key=7, state="error,patch_base"))
+            elif data["final_chunk"]:
+                self.transport.native_state(TextSensorState(key=7, state="frame,8,0,0,0,10,20"))
+
+        self.transport.api.execute_service.side_effect = chunk
+        await self.transport.send_frame(8, 0, noisy, None)
+        # The rejected attempt stops after its first chunk; the full resend follows.
+        self.assertEqual(sent[:2], [0, 0])
+        self.assertEqual(sent.count(0), 2)
+
+    async def test_a_board_level_jpeg_error_ends_jpeg_at_once(self):
+        self.transport.codecs_key = 9
+        self.transport.native_state(TextSensorState(key=9, state="zlib,rle,jpeg"))
+        self.transport.native_state(TextSensorState(key=7, state="error,jpeg_unavailable"))
+        self.assertFalse(self.transport.has_jpeg)
 
 
 if __name__ == "__main__":
