@@ -1311,6 +1311,11 @@ async def poll_controls(context, config, transport, stop):
 
 
 async def serve(config):
+    if config.get("transport") == "esphome-lvgl":
+        from native_lvgl import run
+
+        await run(config, config["native_view_url"], health=True)
+        return
     stop = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         asyncio.get_running_loop().add_signal_handler(sig, stop.set)
