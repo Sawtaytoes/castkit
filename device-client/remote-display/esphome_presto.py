@@ -29,6 +29,11 @@ LOG = logging.getLogger("castkit.remote-display")
 # full on the same link first. A dead link still fails the send with APIConnectionError.
 FRAME_ATTEMPTS = 3
 FRAME_ACK_SECONDS = 6
+# `error,jpeg_*` reasons that mean the board cannot decode JPEG at all. Any other
+# JPEG error is about one frame (too large, malformed, wrong size): that frame is
+# resent losslessly, and only JPEG_FRAME_ERROR_LIMIT of them in a row end JPEG.
+JPEG_BOARD_ERRORS = frozenset({"jpeg_unsupported", "jpeg_unavailable"})
+JPEG_FRAME_ERROR_LIMIT = 3
 # The patch header's codec byte. JPEG is lossy: after a JPEG patch the board's
 # pixels inside it only approximate `base_pixels`, which is harmless because the
 # next camera frame replaces the whole rectangle and any other frame differs there.
@@ -79,6 +84,8 @@ class ESPHomePrestoTransport(PrestoTransport):
         # The first `error,jpeg_*` this session: the board then gets zlib until it
         # reconnects, instead of every JPEG patch costing a rejection and a resend.
         self.jpeg_refusal = None
+        # Consecutive per-frame JPEG errors; an acknowledged JPEG frame clears it.
+        self.jpeg_frame_errors = 0
         # Where the board shows a motion JPEG's approximation of `base_pixels`.
         self.lossy_rectangle = None
         # slot -> {"view", "key", "frame_id", "pixels", "targets"}: what the board holds.
@@ -131,6 +138,7 @@ class ESPHomePrestoTransport(PrestoTransport):
         )
         self.has_jpeg = False
         self.jpeg_refusal = None
+        self.jpeg_frame_errors = 0
         self.lossy_rectangle = None
         self.build_marker = f"esphome-presto-rgb565-v1 {info.compilation_time}"
         self.base_id, self.base_pixels = 0, None
@@ -182,10 +190,15 @@ class ESPHomePrestoTransport(PrestoTransport):
             # event belongs to the frame or show that is waiting.
             reason = parts[1] if len(parts) > 1 else "unknown"
             if reason.startswith("jpeg_") and self.has_jpeg:
-                self.has_jpeg, self.jpeg_refusal = False, reason
-                LOG.warning(
-                    "Presto refused a JPEG patch (%s); sending zlib until it reconnects", reason
-                )
+                self.jpeg_frame_errors += 1
+                if reason in JPEG_BOARD_ERRORS or self.jpeg_frame_errors >= JPEG_FRAME_ERROR_LIMIT:
+                    self.has_jpeg, self.jpeg_refusal = False, reason
+                    LOG.warning(
+                        "Presto refused a JPEG patch (%s); sending zlib until it reconnects",
+                        reason,
+                    )
+                else:
+                    LOG.info("Presto refused one JPEG patch (%s); resending it losslessly", reason)
             if self.pending is not None and not self.pending.done():
                 self.pending.set_exception(
                     SlotUnavailableError("Presto holds no frame in that slot")
@@ -440,6 +453,8 @@ class ESPHomePrestoTransport(PrestoTransport):
                 "rectangle": rectangle,
                 "ack_ms": round((time.monotonic() - sent) * 1000, 1),
             }
+            if encoding == "jpeg":
+                self.jpeg_frame_errors = 0
             eligible = [sequence for sequence in self.touch_received_at if sequence <= touch_id]
             if eligible:
                 self.last_touch_latency_ms = round(

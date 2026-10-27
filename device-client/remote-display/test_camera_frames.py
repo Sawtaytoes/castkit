@@ -214,6 +214,23 @@ class PreparedPatchTests(unittest.IsolatedAsyncioTestCase):
         sent = await self.send(7, third_pixels, jpeg)
         self.assertNotEqual(struct.unpack(">IHHHHB", sent[:13])[5], 2)
 
+    async def test_one_bad_jpeg_frame_keeps_jpeg_and_three_in_a_row_end_it(self):
+        self.transport.codecs_key = 9
+        self.transport.native_state(TextSensorState(key=9, state="zlib,rle,jpeg"))
+        for reason in ("jpeg_too_large", "jpeg_invalid"):
+            self.transport.native_state(TextSensorState(key=7, state=f"error,{reason}"))
+        self.assertTrue(self.transport.has_jpeg)
+        self.assertIsNone(self.transport.jpeg_refusal)
+        self.transport.native_state(TextSensorState(key=7, state="error,jpeg_size_mismatch"))
+        self.assertFalse(self.transport.has_jpeg)
+        self.assertEqual(self.transport.jpeg_refusal, "jpeg_size_mismatch")
+
+    async def test_a_board_level_jpeg_error_ends_jpeg_at_once(self):
+        self.transport.codecs_key = 9
+        self.transport.native_state(TextSensorState(key=9, state="zlib,rle,jpeg"))
+        self.transport.native_state(TextSensorState(key=7, state="error,jpeg_unavailable"))
+        self.assertFalse(self.transport.has_jpeg)
+
 
 if __name__ == "__main__":
     unittest.main()
