@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { seedUsageReadability } from "./__fixtures__/usageReadability.ts"
 
 // Each window owns one stateful fixture channel.
 test.describe.configure({ mode: "serial" })
@@ -152,6 +153,23 @@ test("AI usage details show all limits and resets without changing the overview"
     ),
   ).toBeLessThan(1)
 
+  expect(
+    await details.evaluate(
+      (element) =>
+        element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true)
+  // Full reset strings must fit without creating a horizontal scroll area.
+  expect(
+    await details
+      .locator(".ai-usage-window-reset")
+      .evaluateAll((elements) =>
+        elements.every(
+          (element) =>
+            element.scrollWidth <= element.clientWidth,
+        ),
+      ),
+  ).toBe(true)
   await page.screenshot({
     animations: "disabled",
     path: `__screenshots__/usage-details-${testInfo.project.name}.png`,
@@ -338,4 +356,212 @@ test("opening another subscription from the rail transfers detail ownership", as
       name: "Show Codex 1 usage details",
     }),
   ).toBeVisible()
+})
+
+test("expanded subscription text remains as readable as the overview at 1024×600", async ({
+  page,
+  request,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1024, height: 600 })
+  await page.route(
+    "**/api/display/view/usage-readable/media/**",
+    (route) =>
+      route.fulfill({
+        path: "assets/sample-photos/printer-camera-chamber.jpg",
+        contentType: "image/jpeg",
+      }),
+  )
+  await seedUsageReadability(page.request)
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/channels/usage/fixture/set",
+      payload: {
+        providers: providers.concat([
+          {
+            id: "codex_2",
+            name: "Codex 2",
+            isOk: true,
+            windows: [
+              {
+                id: "monthly",
+                label: "Monthly",
+                periodHours: 720,
+                percentUsed: 11,
+                resetsAtMs: Date.parse(
+                  "2030-02-01T12:00:00Z",
+                ),
+              },
+            ],
+          },
+        ]),
+      },
+    },
+  })
+  await page.goto("/view/usage-readable")
+  const overview = page
+    .locator(".ai-usage-provider")
+    .filter({
+      has: page.getByRole("button", {
+        name: "Show Claude usage details",
+      }),
+    })
+  await expect(overview).toBeVisible()
+  await page.evaluate(() => document.fonts.ready)
+  const camera = page.locator(".platform-camera img")
+  await expect
+    .poll(
+      () =>
+        camera.evaluate(
+          (element) =>
+            (element as HTMLImageElement).naturalWidth,
+        ),
+      {
+        message: `Fixture camera must load: ${await camera.getAttribute("src")}`,
+      },
+    )
+    .toBeGreaterThan(0)
+  const fontSize = (selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate((element) =>
+        Number.parseFloat(
+          getComputedStyle(element).fontSize,
+        ),
+      )
+  // Wait for row budgeting before comparing the overview's actual type scale.
+  await expect
+    .poll(() => fontSize(".ai-usage-provider-head h3"))
+    .toBeGreaterThan(24)
+  const overviewTitle = await fontSize(
+    ".ai-usage-provider-head h3",
+  )
+  const overviewIcon = await overview
+    .locator(".ai-usage-provider-icon")
+    .evaluate(
+      (element) => element.getBoundingClientRect().height,
+    )
+  const overviewPercent = await fontSize(
+    ".ai-usage-provider-head .ai-usage-window-percent",
+  )
+  const overviewReset = await fontSize(
+    ".ai-usage-window-reset",
+  )
+  await page.screenshot({
+    animations: "disabled",
+    path: `__screenshots__/usage-readable-overview-${testInfo.project.name}.png`,
+  })
+  await overview.getByRole("button").click()
+  const details = page.getByRole("region", {
+    name: "Claude usage details",
+  })
+  await expect
+    .poll(
+      async () => (await details.boundingBox())?.width ?? 0,
+    )
+    .toBeGreaterThan(900)
+  await page.screenshot({
+    animations: "disabled",
+    path: `__screenshots__/usage-readable-claude-${testInfo.project.name}.png`,
+  })
+  expect(
+    await fontSize(".ai-usage-details h2"),
+  ).toBeGreaterThanOrEqual(overviewTitle)
+  expect(
+    await details
+      .locator(".ai-usage-provider-icon")
+      .evaluate(
+        (element) => element.getBoundingClientRect().height,
+      ),
+  ).toBeGreaterThanOrEqual(overviewIcon)
+  expect(
+    await fontSize(
+      ".ai-usage-details .ai-usage-window-label",
+    ),
+  ).toBeGreaterThanOrEqual(overviewTitle * 0.9)
+  expect(
+    await fontSize(
+      ".ai-usage-details .ai-usage-window-percent",
+    ),
+  ).toBeGreaterThanOrEqual(overviewPercent)
+  expect(
+    await fontSize(
+      ".ai-usage-details .ai-usage-window-reset",
+    ),
+  ).toBeGreaterThanOrEqual(overviewReset)
+  await expect(
+    details.getByText("Weekly (all models)"),
+  ).toBeInViewport()
+  await expect(
+    details.getByText("5-hour limit"),
+  ).toBeInViewport()
+  await expect(
+    details.getByText("Weekly Fable"),
+  ).toBeInViewport()
+  await expect(
+    details.locator(".ai-usage-window-reset").last(),
+  ).toBeInViewport()
+  expect(
+    await details.evaluate(
+      (element) =>
+        element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true)
+  await details
+    .getByRole("button", { name: "Back to AI usage" })
+    .click()
+  await page
+    .getByRole("button", {
+      name: "Show Codex 1 usage details",
+    })
+    .click()
+  await expect(
+    page.getByRole("region", {
+      name: "Codex 1 usage details",
+    }),
+  ).toBeVisible()
+  expect(
+    await fontSize(
+      ".ai-usage-details .ai-usage-window-foot",
+    ),
+  ).toBeGreaterThanOrEqual(overviewReset)
+  expect(
+    await page
+      .getByText("1,234.5 credits")
+      .evaluate((element) =>
+        Number.parseFloat(
+          getComputedStyle(element).fontSize,
+        ),
+      ),
+  ).toBeGreaterThanOrEqual(overviewReset)
+  expect(
+    await page
+      .getByText("2 available")
+      .evaluate((element) =>
+        Number.parseFloat(
+          getComputedStyle(element).fontSize,
+        ),
+      ),
+  ).toBeGreaterThanOrEqual(overviewReset)
+  await expect(
+    page.getByText("1,234.5 credits"),
+  ).toBeVisible()
+  await expect(page.getByText("2 available")).toBeVisible()
+  await page.screenshot({
+    animations: "disabled",
+    path: `__screenshots__/usage-readable-codex-${testInfo.project.name}.png`,
+  })
+  const codex = page.getByRole("region", {
+    name: "Codex 1 usage details",
+  })
+  await codex.evaluate((element) => {
+    element.scrollTop = element.scrollHeight
+  })
+  await expect(
+    codex.getByText("2 available"),
+  ).toBeInViewport()
+  await page.screenshot({
+    animations: "disabled",
+    path: `__screenshots__/usage-readable-codex-more-${testInfo.project.name}.png`,
+  })
 })
