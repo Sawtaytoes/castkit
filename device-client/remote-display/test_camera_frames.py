@@ -184,6 +184,36 @@ class PreparedPatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(struct.unpack(">IHHHHB", sent[:13]), (6, 0, 60, 480, 360, 2))
         self.assertEqual(sent[13:], JPEG_STANDIN)
 
+    async def test_a_refused_jpeg_patch_turns_jpeg_off_until_the_board_reconnects(self):
+        first_pixels, first_body = synthetic_frame(10)
+        layout = {"patch": CAMERA_PATCH, "layout": "layout-a"}
+        await self.send(5, first_pixels, {**layout, "body": first_body})
+        self.transport.codecs_key = 9
+        self.transport.native_state(TextSensorState(key=9, state="zlib,rle,jpeg"))
+        jpeg = {**layout, "body": JPEG_STANDIN, "codec": "jpeg"}
+        second_pixels, _ = synthetic_frame(20)
+        sending = asyncio.create_task(self.transport.send_frame(6, 0, second_pixels, jpeg))
+        async with asyncio.timeout(3):
+            while self.transport.pending is None:
+                await asyncio.sleep(0.001)
+        self.transport.native_state(TextSensorState(key=7, state="error,jpeg_unsupported"))
+        self.assertFalse(self.transport.has_jpeg)
+        self.assertEqual(self.transport.jpeg_refusal, "jpeg_unsupported")
+        # The resend is the worker's own zlib frame; let the board acknowledge it.
+        async with asyncio.timeout(3):
+            while self.transport.pending is None or self.transport.pending.done():
+                await asyncio.sleep(0.001)
+            while not self.transport.api.execute_service.call_args_list[-1].args[1]["final_chunk"]:
+                await asyncio.sleep(0.001)
+        self.transport.native_state(TextSensorState(key=7, state="frame,6,0,0,0,10,20"))
+        await sending
+        # A replayed codecs state does not turn JPEG back on in the same session.
+        self.transport.native_state(TextSensorState(key=9, state="zlib,rle,jpeg"))
+        self.assertFalse(self.transport.has_jpeg)
+        third_pixels, _ = synthetic_frame(30)
+        sent = await self.send(7, third_pixels, jpeg)
+        self.assertNotEqual(struct.unpack(">IHHHHB", sent[:13])[5], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

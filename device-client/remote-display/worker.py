@@ -29,7 +29,7 @@ from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v27-camera-jpeg"
+BUILD_MARKER = "castkit-remote-display-v28-jpeg-refusal-fallback"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -756,6 +756,10 @@ class DisplaySession:
                     self.last_sent = time.monotonic()
             return True
         is_presto = isinstance(self.client, PrestoTransport)
+        if self.camera.codec == "jpeg" and not getattr(self.client, "has_jpeg", False):
+            # The board refused a JPEG patch: ask the server for zlib from now on.
+            self.camera.codec = "zlib"
+            LOG.info("Camera frames switched: codec=zlib")
         if is_presto:
             payload = frame["pixels"]
             prepared = {
