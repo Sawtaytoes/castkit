@@ -9,7 +9,10 @@ import {
 import { getDateTimeFormatter } from "../formatters.ts"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
 import { AiUsageProviderIcon } from "./AiUsageProviderIcon.tsx"
-import { placeSections } from "./aiUsageLayout.ts"
+import {
+  getTypeScale,
+  placeSections,
+} from "./aiUsageLayout.ts"
 import {
   readAlertPercent,
   selectProviderRows,
@@ -203,10 +206,12 @@ const UsageRow = ({
 /** All reported limits stay available without changing the glanceable summary. */
 const ProviderDetails = ({
   provider,
+  typeScale,
   now,
   onBack,
 }: {
   provider: UsageProvider
+  typeScale: number
   now: number
   onBack: () => void
 }) => {
@@ -224,6 +229,7 @@ const ProviderDetails = ({
   return (
     <section
       class="ai-usage-details"
+      style={{ "--ai-usage-scale": typeScale }}
       aria-label={`${provider.name} usage details`}
       data-castkit-target={`scroll:ai-usage:${provider.id}`}
       data-castkit-scroll="true"
@@ -354,6 +360,7 @@ export const AiUsageView = ({
 }) => {
   const properties = useDisplayProperties()
   const element = useRef<HTMLDivElement>(null)
+  const overviewTypeScale = useRef(1)
   const [selectedProviderId, setSelectedProviderId] =
     useState<string>()
   const selectedProvider = properties.isInteractive
@@ -450,6 +457,10 @@ export const AiUsageView = ({
       >
         <ProviderDetails
           provider={selectedProvider}
+          typeScale={Math.max(
+            overviewTypeScale.current,
+            getTypeScale(contentBox.height),
+          )}
           now={now}
           onBack={() => selectProvider(undefined)}
         />
@@ -478,6 +489,8 @@ export const AiUsageView = ({
       settings?.isAdaptiveLayout === true ? 0.65 : 1,
     hasViewHeading,
   })
+  // Retain the actual adaptive scale while the detail view owns the panel.
+  overviewTypeScale.current = layout.scale
   const mostSpentWindow = providerRows
     .flatMap((entry) =>
       entry.rows.map((row) => ({

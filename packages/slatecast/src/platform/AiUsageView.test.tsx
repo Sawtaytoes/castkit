@@ -4,9 +4,11 @@ import {
   within,
 } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
-import { expect, test, vi } from "vitest"
+import { afterEach, expect, test, vi } from "vitest"
 import { AiUsageView } from "./AiUsageView.tsx"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
+
+afterEach(() => vi.restoreAllMocks())
 
 const now = Date.parse("2026-01-01T12:00:00Z")
 
@@ -58,6 +60,51 @@ const usage = buildUsage(7)
 
 /** The same snapshot with the session limit nearly spent. */
 const usageWithSpentSession = buildUsage(90)
+
+test("details retain a short adaptive overview's larger type scale", async () => {
+  const { container } = renderInPanel({
+    data: {
+      providers: ["claude", "codex", "codex_2"].map(
+        (id) => ({
+          id,
+          name: id,
+          isOk: true,
+          windows: [
+            {
+              id: "weekly",
+              label: "Weekly",
+              periodHours: 168,
+              percentUsed: 40,
+            },
+          ],
+        }),
+      ),
+    },
+    panelHeight: 220,
+    panelWidth: 670,
+    repaint: "instant",
+    settings: { isAdaptiveLayout: true },
+  })
+  const overview =
+    container.querySelector<HTMLElement>(".ai-usage")
+  const scale = Number(
+    overview?.style.getPropertyValue("--ai-usage-scale"),
+  )
+  expect(scale).toBeGreaterThan(1)
+  await userEvent.click(
+    screen.getByRole("button", {
+      name: "Show claude usage details",
+    }),
+  )
+  const details = screen.getByRole("region", {
+    name: "claude usage details",
+  })
+  expect(
+    Number(
+      details.style.getPropertyValue("--ai-usage-scale"),
+    ),
+  ).toBeGreaterThanOrEqual(scale)
+})
 
 /**
  * The view measures its own panel, and jsdom reports every element as zero
