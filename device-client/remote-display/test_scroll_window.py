@@ -22,6 +22,9 @@ from playwright.async_api import async_playwright
 from preview import PreviewServer
 from scroll_window import (
     SCROLL_STATE_SCRIPT,
+    STITCH_BEGIN_SCRIPT,
+    STITCH_END_SCRIPT,
+    STITCH_STEP_SCRIPT,
     StitchRefusedError,
     band_offsets,
     plan_window,
@@ -668,6 +671,51 @@ class BrowserScrollTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.scroll.stats["stitch_attempts"], 2)
         second = self.scroll.refusal
         self.assertEqual((second["count"], second["retry_at"] - second["at"]), (2, 4))
+
+    async def test_a_change_beside_the_list_during_a_stitch_still_counts(self):
+        """END resets the page's change count; only the stitch's own list scrolling may go."""
+        await self.page.evaluate(
+            """() => { const side = document.createElement('div');
+              side.id = 'side';
+              side.style.cssText = 'position:absolute;left:0;top:0;width:20px;height:20px;overflow:auto;'
+                + 'opacity:1;transition:opacity 300ms linear';
+              side.innerHTML = '<div style="height:200px"></div>';
+              document.body.append(side) }"""
+        )
+        options = self.scroll.options(top=96, bottom=416)
+
+        async def stitch(during):
+            before = (await self.page.evaluate(PAGE_STATE_SCRIPT))["changes"]
+            await self.page.evaluate(STITCH_BEGIN_SCRIPT, options)
+            await self.page.evaluate(STITCH_STEP_SCRIPT, 40)
+            await self.page.evaluate(during)
+            end = await self.page.evaluate(STITCH_END_SCRIPT)
+            after = (await self.page.evaluate(PAGE_STATE_SCRIPT))["changes"]
+            return after - before, end["changes"]
+
+        # The list's own scrolling is taken back out of the count.
+        self.assertEqual(await stitch("() => {}"), (0, 0))
+        # Another element scrolls during the stitch: no mutation, only a scroll event.
+        scrolled, changes = await stitch(
+            """() => new Promise(resolve => {
+              const side = document.getElementById('side');
+              side.addEventListener('scroll', resolve, {once: true});
+              side.scrollTop = 50 })"""
+        )
+        self.assertGreater(scrolled, 0)
+        self.assertGreater(changes, 0)
+        # A transition started before the stitch ends during it: only a transitionend event.
+        await self.page.evaluate(
+            """() => new Promise(resolve => {
+              document.getElementById('side').style.opacity = '0.5';
+              requestAnimationFrame(() => requestAnimationFrame(resolve)) })"""
+        )
+        transitioned, changes = await stitch(
+            """() => new Promise(resolve =>
+              document.getElementById('side').addEventListener('transitionend', resolve, {once: true}))"""
+        )
+        self.assertGreater(transitioned, 0)
+        self.assertGreater(changes, 0)
 
     async def test_a_lost_link_during_an_upload_ends_it_and_leaves_no_picture(self):
         self.client.upload_error = APIConnectionError("link lost")
