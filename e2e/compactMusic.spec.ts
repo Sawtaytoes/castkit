@@ -4,7 +4,7 @@ import { buildMusicPlayer } from "../packages/slatecast/src/__fixtures__/buildMu
 // Mirror the saved adaptive desk composition and item selections with invented data.
 test("desk music expands to its queue, returns, and retains a paused track", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.route(
     "**/api/display/view/compact-desk/media/**",
     (route) =>
@@ -228,6 +228,33 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
   await expect(
     page.getByText("Desk stand", { exact: true }),
   ).toBeVisible()
+  // Exercise expansion and queue geometry in the project's own named window first.
+  await page
+    .getByRole("button", {
+      name: "Open full music player and queue",
+    })
+    .click()
+  await expect(
+    page.getByRole("tab", { name: "Queue", exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.locator(".music-row").first(),
+  ).toBeVisible()
+  await expect
+    .poll(() =>
+      page
+        .locator('[data-spec="music-player"]')
+        .evaluate(
+          (element) => element.getBoundingClientRect().top,
+        ),
+    )
+    .toBeLessThan(50)
+  await page.screenshot({
+    path: `__screenshots__/compact-music/native-full-${testInfo.project.name}.png`,
+  })
+  await page
+    .getByRole("button", { name: "Back to overview" })
+    .click()
   // The physical target gets an additional exact-size exercise in every project.
   await page.setViewportSize({ width: 1024, height: 600 })
   await expect(
@@ -314,5 +341,40 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
   const publishes = await (
     await request.get("/__test__/published")
   ).json()
-  expect(JSON.stringify(publishes)).toContain("play_pause")
+  expect(
+    (publishes as { topic: string; payload: string }[])
+      .filter(
+        (publish) =>
+          publish.topic ===
+          "castkit/channels/compact-music/command",
+      )
+      .map((publish) => JSON.parse(publish.payload)),
+  ).toContainEqual({ action: "play_pause" })
+  await page.setViewportSize({ width: 720, height: 900 })
+  await expect(
+    page.getByRole("region", { name: "Upcoming music" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "Quinn",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await page.screenshot({
+    path: "__screenshots__/compact-music/spare-queue.png",
+  })
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/channels/compact-music/set",
+      payload: {
+        ...music,
+        player: { ...music.player, state: "idle" },
+      },
+    },
+  })
+  await expect(
+    page.getByRole("button", {
+      name: "Open full music player and queue",
+    }),
+  ).toHaveCount(0)
 })

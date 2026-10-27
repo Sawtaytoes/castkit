@@ -123,3 +123,21 @@
   flex: 1;
   min-height: 0;
 }
+
+.platform .compact-music-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* An expanded compact card still offers the queue in a narrow window. */
+@container music-player (max-width: 720px) {
+  .compact-music-detail .music-layout.is-side-by-side {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .compact-music-detail .is-side-by-side .music-side {
+    display: flex;
+  }
+  .compact-music-detail .music-art-frame {
+    display: none;
+  }
+}

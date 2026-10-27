@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { splitQueue } from "../views/musicPlayerModel.ts"
 import {
   readAlertPercent,
   selectProviderRows,
@@ -131,6 +132,23 @@ export const useCompositionLayout = ({
                   "compact",
             )
               ? points?.kids.length
+              : undefined,
+          queueRowCount:
+            panel.specId === "music-player"
+              ? splitQueue({
+                  items:
+                    (
+                      data[key] as
+                        | ContractData["music-player.v1"]
+                        | undefined
+                    )?.queue?.items ?? [],
+                  currentIndex: (
+                    data[key] as
+                      | ContractData["music-player.v1"]
+                      | undefined
+                  )?.queue?.currentIndex,
+                  playedRowCount: 0,
+                }).upcoming.length
               : undefined,
           isOptional:
             panel.specId === "music-player" &&

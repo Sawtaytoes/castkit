@@ -207,3 +207,37 @@ test("compact music yields before required usage overflows and returns when room
   expect(tight?.cells.music?.display).toBe("none")
   expect(tight?.cells.points?.gridColumn).toBe("1 / -1")
 })
+
+test("spare height buys complete queue rows after normal usage and every child fit", () => {
+  const music: CompositionItem = {
+    key: "music",
+    priority: 0,
+    isPrinter: false,
+    isOptional: true,
+    queueRowCount: 20,
+    minimumWidth: 240,
+    minimumHeight: 138,
+    insetHeight: 26,
+  }
+  const points: CompositionItem = {
+    key: "points",
+    priority: 1,
+    isPrinter: false,
+    pointsCount: 3,
+    minimumWidth: 240,
+    minimumHeight: 180,
+    insetWidth: 26,
+    insetHeight: 26,
+  }
+  const layout = choose(
+    [quotas([2, 1, 1]), points, music],
+    720,
+    900,
+  )
+  expect(
+    layout?.sections.find(
+      (section) => section.priority === -1,
+    )?.height,
+  ).toBeGreaterThanOrEqual(1)
+  expect(layout?.cells.music?.display).not.toBe("none")
+})

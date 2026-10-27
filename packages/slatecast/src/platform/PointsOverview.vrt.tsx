@@ -102,3 +102,27 @@ test.each([
     path: `${inject("vrtActualDir")}/platform/points-overview-music-${isBusy ? "busy" : "idle"}.png`,
   })
 })
+
+test("desk overview: complete queue rows use spare height", async () => {
+  vi.useFakeTimers({
+    now: SCREENSHOT_EPOCH_MILLIS,
+    toFake: ["Date"],
+  })
+  await page.viewport(720, 900)
+  document.documentElement.dataset.scheme = "dark"
+  render(
+    <main class="platform" data-device="true">
+      <DisplayComposition
+        snapshot={pointsOverviewFixture({ hasMusic: true })}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  await document.fonts.ready
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  await page.screenshot({
+    element: document.body,
+    path: `${inject("vrtActualDir")}/platform/points-overview-music-spare-queue.png`,
+  })
+})

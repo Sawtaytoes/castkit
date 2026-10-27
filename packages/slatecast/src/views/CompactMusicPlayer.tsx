@@ -10,6 +10,7 @@ import { CompositionNavigation } from "../platform/CompositionNavigation.ts"
 import { useCompositionVisibility } from "../platform/CompositionVisibility.ts"
 import { useDisplayProperties } from "../platform/displayProperties.ts"
 import { safeMediaUrl } from "../platform/protocol.ts"
+import { countCompactQueueRows } from "./compactMusicLayout.ts"
 import { MusicPlayer } from "./MusicPlayer.tsx"
 import { splitQueue } from "./musicPlayerModel.ts"
 import "./compactMusicPlayer.css"
@@ -46,12 +47,7 @@ export const CompactMusicPlayer = ({
     const measure = () => {
       // Metadata and transport fit first. Only complete queue rows spend the remainder.
       setQueueRows(
-        Math.max(
-          0,
-          Math.floor(
-            (container.clientHeight - 112 - 26) / 40,
-          ),
-        ),
+        countCompactQueueRows(container.clientHeight),
       )
     }
     measure()
@@ -83,6 +79,7 @@ export const CompactMusicPlayer = ({
           class="compact-music-back"
           onClick={() => selectExpanded(false)}
         >
+          <Icon path={ICON_PATHS.chevronLeft} size="20px" />
           Back to overview
         </button>
         <MusicPlayer

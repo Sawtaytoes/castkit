@@ -14,6 +14,7 @@ import { useDisplayProperties } from "./displayProperties.ts"
 import { KidOpenButton } from "./KidOpenButton.tsx"
 import { KidTasksToday } from "./KidTasksToday.tsx"
 import {
+  ALL_CHILDREN_ROW_HEIGHT,
   formatClockTime,
   formatPointsDelta,
   getConfettiPieces,
@@ -744,7 +745,7 @@ export const KidsPointsView = ({
     kidCount: data.kids.length,
     minimumRowHeight:
       settings?.isAllChildrenVisible === true
-        ? 128
+        ? ALL_CHILDREN_ROW_HEIGHT
         : undefined,
   })
   const isDetailOverlaid =

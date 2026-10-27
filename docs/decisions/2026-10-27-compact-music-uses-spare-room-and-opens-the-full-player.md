@@ -20,7 +20,9 @@ Selecting the artwork or track details opens the existing full Music Player with
 its queue. This navigation recalculates the composition and uses the existing
 reflow animation. The full player takes its readable width before supporting AI
 usage. Back restores the overview and its priorities. Paused tracks remain
-available in compact cards so pausing does not remove the way to resume.
+available in compact cards while paused, so pausing does not remove the way to
+resume. A stopped/idle or unavailable player leaves an active-only overview. The
+legacy Now Playing ten-minute pause timer does not apply to Music Player cards.
 
 This is a view presentation setting, available in CastKit management; it neither
 identifies an installation nor changes the source channel or action binding.

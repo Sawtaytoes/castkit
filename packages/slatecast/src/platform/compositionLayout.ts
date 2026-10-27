@@ -2,11 +2,21 @@ import type { LayoutSection } from "@charcuterie/logic/core"
 import { selectPriorityLayout } from "@charcuterie/logic/core"
 import type { JSX } from "preact"
 import {
+  COMPACT_MUSIC_HEIGHT,
+  countCompactQueueRows,
+} from "../views/compactMusicLayout.ts"
+import {
   BASE_PROVIDER_HEADING_HEIGHT,
   getUsageRowHeight,
   placeSections,
 } from "./aiUsageLayout.ts"
 import type { selectProviderRows } from "./aiUsageRows.ts"
+import {
+  ALL_CHILDREN_ROW_HEIGHT,
+  KID_CARD_MIN_HEIGHT,
+  KID_CARD_MIN_WIDTH,
+  KIDS_POINTS_GAP,
+} from "./kidsPointsLayout.ts"
 import type { PrinterDetailLevel } from "./printerContentFit.ts"
 
 export type CompositionItem = {
@@ -14,6 +24,7 @@ export type CompositionItem = {
   priority: number
   isPrinter: boolean
   isOptional?: boolean
+  queueRowCount?: number
   pointsCount?: number
   focusMinimumWidth?: number
   aspectRatio?: number
@@ -82,17 +93,20 @@ const minimumItemHeight = ({
   if (item.usageRows) return usageHeight(item, width)
   if (item.pointsCount) {
     const columns = Math.floor(
-      (width - (item.insetWidth ?? 0) + 12) / 232,
+      (width - (item.insetWidth ?? 0) + KIDS_POINTS_GAP) /
+        (KID_CARD_MIN_WIDTH + KIDS_POINTS_GAP),
     )
     const boardRows = Math.ceil(
       item.pointsCount / Math.max(1, columns),
     )
     const boardHeight =
       columns > 0
-        ? boardRows * 200 + (boardRows - 1) * 12
+        ? boardRows * KID_CARD_MIN_HEIGHT +
+          (boardRows - 1) * KIDS_POINTS_GAP
         : Number.POSITIVE_INFINITY
     const rowsHeight =
-      item.pointsCount * 128 + (item.pointsCount - 1) * 12
+      item.pointsCount * ALL_CHILDREN_ROW_HEIGHT +
+      (item.pointsCount - 1) * KIDS_POINTS_GAP
     return (
       Math.min(boardHeight, rowsHeight) +
       (item.insetHeight ?? 0)
@@ -189,6 +203,27 @@ const chooseMainCompositionLayout = ({
             ? measureFacts(item.key, cellWidth, detailLevel)
             : 0
           return [
+            ...(item.isOptional && item.queueRowCount
+              ? [
+                  {
+                    priority:
+                      Math.min(
+                        0,
+                        ...items.map(
+                          (candidate) => candidate.priority,
+                        ),
+                      ) - 1,
+                    width: 1,
+                    height: Math.min(
+                      item.queueRowCount,
+                      countCompactQueueRows(
+                        cellHeight -
+                          (item.insetHeight ?? 0),
+                      ),
+                    ),
+                  },
+                ]
+              : []),
             {
               priority: item.priority,
               width: usage
@@ -221,17 +256,23 @@ const chooseMainCompositionLayout = ({
               aspectRatio: usage
                 ? undefined
                 : item.aspectRatio,
-              // Once supporting quotas reach their normal readable size,
-              // extra height belongs to the media rather than larger labels.
+              // Compact music spends spare height after quotas fit at their
+              // established 0.65 readable floor, rather than enlarging labels.
               idealArea: usage
-                ? item.priority > highestPrinterPriority
-                  ? undefined
-                  : 100
+                ? items.some(
+                    (candidate) => candidate.isOptional,
+                  )
+                  ? 65
+                  : item.priority > highestPrinterPriority
+                    ? undefined
+                    : 100
                 : item.isPrinter
                   ? undefined
-                  : item.minimumWidth *
-                    item.minimumHeight *
-                    4,
+                  : item.isOptional
+                    ? contentWidth * COMPACT_MUSIC_HEIGHT
+                    : item.minimumWidth *
+                      item.minimumHeight *
+                      4,
             },
             {
               priority: 0,

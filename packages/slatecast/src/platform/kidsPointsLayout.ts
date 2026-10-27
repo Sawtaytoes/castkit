@@ -29,6 +29,8 @@ type KidScan = NonNullable<KidsPointsData["lastScan"]>
 export const KID_CARD_MIN_WIDTH = 220
 export const KID_CARD_MIN_HEIGHT = 200
 export const KID_ROW_HEIGHT = 64
+/** Readable row floor when a persistent overview must show every child. */
+export const ALL_CHILDREN_ROW_HEIGHT = 128
 export const KIDS_POINTS_GAP = 12
 /*
  * Reserved whether or not it is needed, for the same reason the AI Usage

@@ -62,7 +62,14 @@ export const DisplayComposition = ({
                   ?.data as
                   | ContractData["music-player.v1"]
                   | undefined
-              )?.current,
+              )?.player?.state === "paused" &&
+                (
+                  snapshot.channels[
+                    panel.bindings.data ?? ""
+                  ]?.data as
+                    | ContractData["music-player.v1"]
+                    | undefined
+                )?.current,
             )),
       )
     : snapshot.view.panels

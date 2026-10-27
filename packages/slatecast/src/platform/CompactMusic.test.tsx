@@ -47,10 +47,12 @@ test("compact queue spends only spare height and transport stays bound", async (
     ).toHaveLength(3),
   )
   mounted.rerender(content(112))
-  await waitFor(() =>
-    expect(
-      screen.queryByLabelText("Upcoming music"),
-    ).toBeNull(),
+  await waitFor(
+    () =>
+      expect(
+        screen.queryByLabelText("Upcoming music"),
+      ).toBeNull(),
+    { timeout: 3000 },
   )
 })
 
@@ -130,4 +132,102 @@ test("the desk player opens its full queue and Back restores the priority overvi
       screen.getByText("130", { exact: true }),
     ).toBeVisible(),
   )
+})
+
+test.each([
+  "paused",
+  "idle",
+  "unavailable",
+] as const)("an active-only overview retains paused music, not stopped music: %s", async (state) => {
+  const base = pointsOverviewFixture({ hasMusic: true })
+  const music = buildMusicPlayer({
+    nowMs: Date.now(),
+    state,
+  })
+  const content = (hasCurrent: boolean) => (
+    <main class="platform" data-device="true">
+      <DisplayComposition
+        snapshot={{
+          ...base,
+          panelActivity: {
+            ...base.panelActivity,
+            music: false,
+          },
+          channels: {
+            ...base.channels,
+            music: {
+              ...base.channels.music!,
+              data: {
+                ...music,
+                current: hasCurrent
+                  ? music.current
+                  : undefined,
+              },
+            },
+          },
+        }}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  )
+  const mounted = render(content(true))
+  const opener = () =>
+    screen.queryByRole("button", {
+      name: "Open full music player and queue",
+    })
+  if (state === "paused")
+    await waitFor(() => expect(opener()).toBeVisible())
+  else expect(opener()).toBeNull()
+  mounted.rerender(content(false))
+  await waitFor(() => expect(opener()).toBeNull())
+})
+
+test("the 720 by 900 overview gives spare height to complete upcoming queue rows", async () => {
+  const original = {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }
+  onTestFinished(() =>
+    page.viewport(original.width, original.height),
+  )
+  await page.viewport(720, 900)
+  render(
+    <main class="platform" data-device="true">
+      <DisplayComposition
+        snapshot={pointsOverviewFixture({ hasMusic: true })}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>,
+  )
+  await document.fonts.ready
+  await waitFor(() =>
+    expect(
+      screen.getByRole("region", {
+        name: "Upcoming music",
+      }),
+    ).toBeVisible(),
+  )
+  await waitFor(() => {
+    expect(
+      screen.getByRole("heading", {
+        name: "Quinn",
+        exact: true,
+      }),
+    ).toBeVisible()
+    const queue = screen.getByRole("region", {
+      name: "Upcoming music",
+    })
+    const panel = queue
+      .closest("[data-spec='music-player']")!
+      .getBoundingClientRect()
+    Array.from(
+      queue.querySelectorAll(".compact-music-row"),
+    ).forEach((row) => {
+      expect(
+        row.getBoundingClientRect().bottom,
+      ).toBeLessThanOrEqual(panel.bottom)
+    })
+  })
 })
