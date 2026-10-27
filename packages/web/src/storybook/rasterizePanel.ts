@@ -1,6 +1,7 @@
 import {
   createContext,
   destroyContext,
+  domToCanvas,
   domToForeignObjectSvg,
 } from "modern-screenshot"
 import {
@@ -70,20 +71,25 @@ export const rasterizePanel = async ({
   let supersampledCanvas: HTMLCanvasElement
   try {
     const svg = await domToForeignObjectSvg(renderContext)
-    // Font discovery skips image-only panels. Embed the probe faces explicitly
-    // so readiness works for Photo Frame as well as panels containing text.
-    const fontStyle = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "style",
-    )
-    fontStyle.textContent = fontEmbedCss
-    svg.prepend(fontStyle)
-    supersampledCanvas = await renderFontReadySvg({
-      svg,
-      context: renderContext,
-      width,
-      height,
-    })
+    if (renderContext.fontFamilies.size === 0) {
+      // Image-only panels have no glyphs to verify. Keep their original render
+      // path instead of embedding four unused fonts into every comparison image.
+      renderContext.node = svg
+      supersampledCanvas = await domToCanvas(renderContext)
+    } else {
+      const fontStyle = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "style",
+      )
+      fontStyle.textContent = fontEmbedCss
+      svg.prepend(fontStyle)
+      supersampledCanvas = await renderFontReadySvg({
+        svg,
+        context: renderContext,
+        width,
+        height,
+      })
+    }
   } finally {
     destroyContext(renderContext)
   }

@@ -23,6 +23,8 @@ const fixture = `${webRoot}${fileName}`
 const photoDataUri = `data:image/jpeg;base64,${(await readFile(new URL("../assets/sample-photos/landscape-color.jpg", import.meta.url))).toString("base64")}`
 const html = String.raw`<html><body><div id="root"></div><script>
 window.firstPublished = undefined;
+window.firstPublications = [];
+const publishedCanvases = new WeakSet();
 const kind = new URLSearchParams(location.search).get('kind');
 let paints = 0;
 const draw = CanvasRenderingContext2D.prototype.drawImage;
@@ -54,6 +56,14 @@ if (kind === 'broken-face' || kind === 'broken-latin-face') {
 }
 const publish = CanvasRenderingContext2D.prototype.putImageData;
 CanvasRenderingContext2D.prototype.putImageData = function(image, ...args) {
+  if (!publishedCanvases.has(this.canvas)) {
+    publishedCanvases.add(this.canvas);
+    let sampledInk = 0;
+    for (let offset = 0; offset < image.data.length; offset += 4 * 97) {
+      if (image.data[offset] < 128 || image.data[offset + 1] < 128 || image.data[offset + 2] < 128) sampledInk++;
+    }
+    window.firstPublications.push({ width: image.width, height: image.height, sampledInk });
+  }
   if (!window.firstPublished) {
     const ink = (left, top, width, height) => {
       let count = 0;
@@ -72,12 +82,14 @@ CanvasRenderingContext2D.prototype.putImageData = function(image, ...args) {
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { PhotoFrameView } from '/@fs${fileURLToPath(new URL("../packages/views/src/PhotoFrameView.tsx", import.meta.url))}';
+import * as DitherStories from '/src/stories/Dither.stories.tsx';
 import { JapaneseDithered } from '/src/stories/NowPlayingDashboard.stories.tsx';
 const query = new URLSearchParams(location.search);
-let view = JapaneseDithered.render();
+const isComparison = query.get('kind').startsWith('comparison-');
+let view = isComparison ? DitherStories[query.get('kind').slice('comparison-'.length)].render() : JapaneseDithered.render();
 if (query.get('kind') === 'photo-only') view = React.cloneElement(view, {}, React.createElement(PhotoFrameView, { width: 250, height: 122, colorMode: 'monochrome', photoDataUri: ${JSON.stringify(photoDataUri)} }));
 if (query.get('kind') === 'controls') view = React.cloneElement(view, {}, React.cloneElement(view.props.children, { title: '日本語\u0001\ud800 ABC123 😀' }));
-view = React.cloneElement(view, { supersampleFactor: Number(query.get('scale') || 4) });
+if (!isComparison) view = React.cloneElement(view, { supersampleFactor: Number(query.get('scale') || 4) });
 createRoot(document.getElementById('root')).render(view);
 </script></body></html>`
 
@@ -88,6 +100,9 @@ try {
   server = await createServer({
     root: webRoot,
     configFile: `${webRoot}vite.config.ts`,
+    publicDir: fileURLToPath(
+      new URL("../assets/", import.meta.url),
+    ),
     server: { host: "127.0.0.1", port: 0, open: false },
   })
   await server.listen()
@@ -114,8 +129,25 @@ try {
       isFailureExpected: true,
     })),
   ]
+  const comparisons = [
+    ["M5PaperEveryAlgorithm", 960, 540, 6],
+    ["M5PaperColorSource", 960, 540, 6],
+    ["M5PaperGradient", 960, 540, 6],
+    ["ImpressionEveryAlgorithm", 800, 480, 6],
+    ["PhatEveryAlgorithm", 250, 122, 6],
+    ["SupersampleFactors", 960, 540, 4],
+    ["EverySamplePhoto", 800, 480, 6],
+  ].map(([story, width, height, count]) => ({
+    kind: `comparison-${story}`,
+    width,
+    height,
+    count,
+    scale: 2,
+    // Reproduce the contention that used to expire the first previews.
+    throttle: story === "M5PaperEveryAlgorithm" ? 4 : 1,
+  }))
   for (const project of createViewportProjects()) {
-    for (const sample of cases) {
+    for (const sample of [...comparisons, ...cases]) {
       // Every case gets a cold document, resource cache and font set.
       const context = await browser.newContext({
         viewport: project.use.viewport,
@@ -123,15 +155,37 @@ try {
       })
       try {
         const page = await context.newPage()
+        if (sample.throttle > 1) {
+          const cdp = await context.newCDPSession(page)
+          await cdp.send("Emulation.setCPUThrottlingRate", {
+            rate: sample.throttle,
+          })
+        }
         await page.goto(
           `${origin}/${fileName}?kind=${sample.kind}&scale=${sample.scale}`,
         )
-        await page.waitForSelector(
-          '[data-dither-preview][aria-busy="false"]',
-          { timeout: 20_000 },
+        await page.waitForFunction(
+          (count) => {
+            const previews = Array.from(
+              document.querySelectorAll(
+                "[data-dither-preview]",
+              ),
+            )
+            return (
+              previews.length === count &&
+              previews.every(
+                (preview) =>
+                  preview.getAttribute("aria-busy") ===
+                  "false",
+              )
+            )
+          },
+          sample.count ?? 1,
+          { timeout: 30_000, polling: 100 },
         )
         const result = await page.evaluate(() => ({
           pixels: window.firstPublished,
+          publications: window.firstPublications,
           didInvalidateFace: window.didInvalidateFace,
           text: document.body.textContent,
           sourceText: document.querySelector(
@@ -143,7 +197,25 @@ try {
             )?.naturalWidth,
           ),
         }))
-        if (sample.isFailureExpected) {
+        if (sample.count) {
+          assert.doesNotMatch(
+            result.text,
+            /Dither preview failed:/,
+            `${project.name}: ${sample.kind} must render every comparison`,
+          )
+          assert.equal(
+            result.publications.length,
+            sample.count,
+          )
+          for (const pixels of result.publications) {
+            assert.equal(pixels.width, sample.width)
+            assert.equal(pixels.height, sample.height)
+            assert(
+              pixels.sampledInk > 10,
+              `${project.name}: ${sample.kind} must publish photo pixels first: ${JSON.stringify(pixels)}`,
+            )
+          }
+        } else if (sample.isFailureExpected) {
           assert.match(
             result.text,
             /Dither preview failed:.*deadline/,

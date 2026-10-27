@@ -44,8 +44,9 @@ layouts there, including filtering before a detail view. Install this repo's
 pinned Chromium into a writable repo-specific temporary browser directory when
 needed; do not change Playwright versions to match the container image.
 `pnpm check:preview-fonts` checks the rasterized preview in four windows,
-including delayed font paint and explicit failure paths. It starts a local Vite
-server and verifies the first published canvas pixels.
+including the photo comparison stories, a CPU-throttled comparison, delayed
+font paint and explicit failure paths. It starts a local Vite server and
+verifies the first published canvas pixels.
 
 Guidelines for AI agents working on **CastKit** — a self-hostable home display
 platform. **One app, one view vocabulary.** A display's output depends on that
