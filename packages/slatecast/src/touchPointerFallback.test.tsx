@@ -12,6 +12,7 @@ import {
 } from "./__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
+import { AiUsageView } from "./platform/AiUsageView.tsx"
 import { EntitiesView } from "./platform/EntitiesView.tsx"
 import {
   getIsTouchPointerFallbackRequired,
@@ -350,4 +351,79 @@ test("a brightness range keeps its drag local and sends only the release value",
     action: "turn_on",
     payload: { brightness: 255, entityId: "light.test" },
   })
+})
+
+test("AI usage details scroll through the Linux WebKit touch fallback", async () => {
+  install()
+  vi.spyOn(
+    HTMLElement.prototype,
+    "clientHeight",
+    "get",
+  ).mockReturnValue(320)
+  vi.spyOn(
+    HTMLElement.prototype,
+    "clientWidth",
+    "get",
+  ).mockReturnValue(480)
+  render(
+    <AiUsageView
+      data={{
+        providers: [
+          {
+            id: "claude",
+            name: "Claude",
+            isOk: true,
+            windows: [
+              {
+                id: "weekly",
+                label: "Weekly",
+                periodHours: 168,
+                percentUsed: 30,
+              },
+              {
+                id: "fable",
+                label: "Weekly Fable",
+                periodHours: 168,
+                percentUsed: 10,
+              },
+            ],
+          },
+        ],
+      }}
+      now={0}
+    />,
+  )
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Show Claude usage details",
+    }),
+  )
+  const dialog = screen.getByRole("dialog")
+  dialog.style.cssText =
+    "height:160px;max-height:160px;overflow:auto"
+  const content = dialog.querySelector<HTMLElement>(
+    ".ai-usage-details-content",
+  )
+  if (!content)
+    throw new Error("Missing usage details content")
+  content.style.minHeight = "800px"
+  beginTouch({
+    target: content,
+    clientX: 100,
+    clientY: 150,
+  })
+  continueTouch({
+    target: content,
+    clientX: 100,
+    clientY: 40,
+  })
+  continueTouch({
+    target: content,
+    clientX: 100,
+    clientY: 40,
+    type: "touchend",
+  })
+  expect(dialog.scrollTop).toBeGreaterThan(80)
+  expect(dialog).toBeVisible()
+  expect(dialog.dataset.castkitScroll).toBe("true")
 })

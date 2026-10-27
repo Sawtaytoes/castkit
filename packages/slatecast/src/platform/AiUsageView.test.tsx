@@ -1,4 +1,9 @@
-import { render, screen } from "@testing-library/preact"
+import {
+  render,
+  screen,
+  within,
+} from "@testing-library/preact"
+import userEvent from "@testing-library/user-event"
 import { expect, test, vi } from "vitest"
 import { AiUsageView } from "./AiUsageView.tsx"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
@@ -87,7 +92,9 @@ const renderInPanel = ({
     "clientWidth",
     "get",
   ).mockReturnValue(panelWidth)
-  return render(
+  const panel = (
+    currentData: Parameters<typeof AiUsageView>[0]["data"],
+  ) => (
     <DisplayPropertiesContext.Provider
       value={{
         delivery:
@@ -97,13 +104,22 @@ const renderInPanel = ({
     >
       <div class="platform-panel">
         <AiUsageView
-          data={data}
+          data={currentData}
           now={now}
           settings={settings}
         />
       </div>
-    </DisplayPropertiesContext.Provider>,
+    </DisplayPropertiesContext.Provider>
   )
+  const rendered = render(panel(data))
+  return {
+    ...rendered,
+    rerenderData: (
+      currentData: Parameters<
+        typeof AiUsageView
+      >[0]["data"],
+    ) => rendered.rerender(panel(currentData)),
+  }
 }
 
 test("each provider is represented by its weekly limit alone", () => {
@@ -194,10 +210,20 @@ test("a short panel drops the rows it cannot finish and counts them", () => {
   expect(screen.getByText("1 more limit")).toBeVisible()
 })
 
-test("a panel too short for one whole row still names the closest to spent", () => {
+test("a panel too short for one whole row still names the closest to spent", async () => {
   renderInPanel({ panelHeight: 60, repaint: "slow" })
   expect(screen.getByText("Codex 7%")).toBeVisible()
   expect(screen.queryByText(/more limits?/)).toBeNull()
+  await userEvent.setup().click(
+    screen.getByRole("button", {
+      name: "Show Codex usage details",
+    }),
+  )
+  expect(
+    screen.getByRole("dialog", {
+      name: "Codex usage details",
+    }),
+  ).toBeVisible()
 })
 
 test("a super-slow panel states the reset time absolutely, never as a countdown", () => {
@@ -330,4 +356,139 @@ test("a combined usage panel starts with account names without a redundant view 
     screen.getByRole("heading", { name: "Codex" }),
   ).toBeVisible()
   expect(screen.getByText("46%")).toBeVisible()
+})
+
+const detailedUsage = {
+  providers: usage.providers.map((provider) => ({
+    ...provider,
+    windows: provider.windows.concat(
+      provider.id === "claude"
+        ? [
+            {
+              id: "weekly_fable",
+              label: "Weekly Fable",
+              periodHours: 168,
+              percentUsed: 12,
+              resetsAtMs: now + 94 * HOUR_MILLISECONDS,
+            },
+          ]
+        : [
+            {
+              id: "session",
+              label: "5-hour limit",
+              periodHours: 5,
+              percentUsed: 25,
+              resetsAtMs: now + HOUR_MILLISECONDS,
+            },
+          ],
+    ),
+  })),
+}
+
+test("clicking a provider reveals every limit and reset, then restores focus on close", async () => {
+  const user = userEvent.setup()
+  renderInPanel({
+    data: detailedUsage,
+    panelHeight: 900,
+    repaint: "instant",
+  })
+  const trigger = screen.getByRole("button", {
+    name: "Show Claude usage details",
+  })
+  await user.click(trigger)
+  const details = within(
+    screen.getByRole("dialog", {
+      name: "Claude usage details",
+    }),
+  )
+  expect(details.getByText("7-day limit")).toBeVisible()
+  expect(details.getByText("5-hour limit")).toBeVisible()
+  expect(details.getByText("Weekly Fable")).toBeVisible()
+  expect(details.getByText("88%")).toBeVisible()
+  expect(details.getAllByText(/^Resets /)).toHaveLength(3)
+  await user.click(
+    details.getByRole("button", {
+      name: "Close usage details",
+    }),
+  )
+  expect(screen.queryByRole("dialog")).toBeNull()
+  expect(trigger).toHaveFocus()
+  await user.keyboard("{Enter}")
+  expect(screen.getByRole("dialog")).toBeVisible()
+  await user.keyboard("{Escape}")
+  expect(screen.queryByRole("dialog")).toBeNull()
+  await user.click(
+    screen.getByRole("button", {
+      name: "Show Codex usage details",
+    }),
+  )
+  const codex = within(
+    screen.getByRole("dialog", {
+      name: "Codex usage details",
+    }),
+  )
+  expect(codex.getByText("7-day limit")).toBeVisible()
+  expect(codex.getByText("5-hour limit")).toBeVisible()
+  expect(codex.queryByText("Weekly Fable")).toBeNull()
+  expect(codex.getAllByText(/^Resets /)).toHaveLength(2)
+})
+
+test("details read updated data and close if the account disappears", async () => {
+  const user = userEvent.setup()
+  const rendered = renderInPanel({
+    data: detailedUsage,
+    panelHeight: 900,
+    repaint: "instant",
+  })
+  await user.click(
+    screen.getByRole("button", {
+      name: "Show Claude usage details",
+    }),
+  )
+  rendered.rerenderData({
+    providers: [
+      {
+        ...detailedUsage.providers[0],
+        isCached: true,
+        isOk: false,
+        problemText: "Sign-in expired",
+        windows: [
+          {
+            id: "unknown",
+            label: "Additional quota",
+            usedText: "10 / 100 credits",
+          },
+        ],
+      },
+    ],
+  })
+  const details = within(screen.getByRole("dialog"))
+  expect(
+    details.getByText("Additional quota"),
+  ).toBeVisible()
+  expect(
+    details.getByText("10 / 100 credits"),
+  ).toBeVisible()
+  expect(
+    details.getByText("Reset time unavailable"),
+  ).toBeVisible()
+  expect(
+    details.getByText("Last known usage"),
+  ).toBeVisible()
+  expect(details.getByText("Sign-in expired")).toBeVisible()
+  rendered.rerenderData({ providers: [] })
+  expect(screen.queryByRole("dialog")).toBeNull()
+})
+
+test("a display without touch keeps the static summary", () => {
+  render(
+    <DisplayPropertiesContext.Provider
+      value={{ repaint: "slow", hasTouch: false }}
+    >
+      <AiUsageView data={detailedUsage} now={now} />
+    </DisplayPropertiesContext.Provider>,
+  )
+  expect(
+    screen.queryByRole("button", { name: /usage details/ }),
+  ).toBeNull()
 })

@@ -337,6 +337,36 @@ export const startTestServer = async ({
       })),
     ),
   }))
+  platform.store.update((previous) => ({
+    ...previous,
+    channels: previous.channels.concat([
+      {
+        id: "usage/fixture",
+        name: "Usage fixture",
+        sourceId: "events",
+        type: "ai-usage.v1",
+        settings: {},
+      },
+    ]),
+    views: previous.views.concat([
+      {
+        id: "usage",
+        name: "AI Usage",
+        layout: "single",
+        theme: "dark",
+        access: "public",
+        isControlEnabled: false,
+        panels: [
+          {
+            id: "usage",
+            specId: "ai-usage",
+            bindings: { data: "usage/fixture" },
+            settings: {},
+          },
+        ],
+      },
+    ]),
+  }))
   await platform.refresh()
   const deviceDefinitionStore = createDeviceDefinitionStore(
     {

@@ -220,3 +220,67 @@ test("AI Usage reads the snapshot API and honours a channel's provider filter", 
   })
   adapter.dispose()
 })
+
+test("Codex retains credit balance and available usage-limit resets", () => {
+  const snapshot = normalizeAiUsage({
+    providers: [
+      {
+        provider: "codex",
+        windows: [
+          {
+            id: "credits",
+            label: "Credits",
+            extras: {
+              balance: 1234.5,
+              unlimited: false,
+              overage_limit_reached: false,
+            },
+          },
+          {
+            id: "usage_limit_resets",
+            label: "Usage limit resets",
+            extras: { available_count: 2 },
+          },
+          {
+            id: "zero",
+            label: "Usage limit resets",
+            extras: { available_count: 0 },
+          },
+          {
+            id: "unlimited",
+            label: "Credits",
+            extras: { balance: 0, unlimited: true },
+          },
+          {
+            id: "overage",
+            label: "Credits",
+            extras: {
+              balance: 0,
+              overage_limit_reached: true,
+            },
+          },
+          {
+            id: "invalid",
+            label: "Credits",
+            extras: {
+              balance: "secret",
+              available_count: -1,
+            },
+          },
+        ],
+      },
+    ],
+  })
+  expect(
+    snapshot.providers[0]?.windows.map(
+      (window) => window.usedText,
+    ),
+  ).toEqual([
+    "1,234.5 credits",
+    "2 available",
+    "0 available",
+    "Unlimited credits",
+    "0 credits · Overage limit reached",
+    undefined,
+  ])
+})

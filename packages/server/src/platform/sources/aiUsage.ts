@@ -122,7 +122,32 @@ const getUsedText = (extras: Record<string, unknown>) => {
     limit === undefined ||
     limit <= 0
   ) {
-    return undefined
+    const availableCount = finiteNumber(
+      extras.available_count,
+    )
+    if (
+      availableCount !== undefined &&
+      availableCount >= 0
+    ) {
+      return `${formatAmount(availableCount)} available`
+    }
+    const balance = finiteNumber(extras.balance)
+    const creditText =
+      extras.unlimited === true
+        ? "Unlimited credits"
+        : balance === undefined
+          ? undefined
+          : `${formatAmount(balance)} credits`
+    return (
+      [
+        creditText,
+        extras.overage_limit_reached === true
+          ? "Overage limit reached"
+          : undefined,
+      ]
+        .filter((value) => value !== undefined)
+        .join(" · ") || undefined
+    )
   }
   const unit = optionalText(extras.unit)
   if (unit === "usd" || unit === "$") {
