@@ -170,7 +170,9 @@ class ESPHomePrestoTransport(PrestoTransport):
             reason = parts[1] if len(parts) > 1 else "unknown"
             if reason.startswith("jpeg_") and self.has_jpeg:
                 self.has_jpeg, self.jpeg_refusal = False, reason
-                LOG.warning("Presto refused a JPEG patch (%s); sending zlib until it reconnects", reason)
+                LOG.warning(
+                    "Presto refused a JPEG patch (%s); sending zlib until it reconnects", reason
+                )
             if self.pending is not None and not self.pending.done():
                 self.pending.set_exception(
                     SlotUnavailableError("Presto holds no frame in that slot")
