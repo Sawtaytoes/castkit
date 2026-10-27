@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import random
 import struct
 import types
 import unittest
@@ -251,6 +252,24 @@ class PreparedPatchTests(unittest.IsolatedAsyncioTestCase):
         sent = await self.send(6, second_pixels, {**layout, "body": oversized, "codec": "jpeg"})
         self.assertNotEqual(struct.unpack(">IHHHHB", sent[:13])[5], 2)
         self.assertTrue(self.transport.has_jpeg)
+
+    async def test_a_rejected_frame_sends_no_more_chunks(self):
+        # Seeded noise, so the frame stays many chunks long after compression.
+        noisy = random.Random(4).randbytes(SQUARE)
+        sent = []
+
+        async def chunk(_action, data):
+            sent.append(data["offset"])
+            if len(sent) == 1:
+                self.transport.native_state(TextSensorState(key=7, state="error,patch_base"))
+            elif data["final_chunk"]:
+                self.transport.native_state(TextSensorState(key=7, state="frame,8,0,0,0,10,20"))
+
+        self.transport.api.execute_service.side_effect = chunk
+        await self.transport.send_frame(8, 0, noisy, None)
+        # The rejected attempt stops after its first chunk; the full resend follows.
+        self.assertEqual(sent[:2], [0, 0])
+        self.assertEqual(sent.count(0), 2)
 
     async def test_a_board_level_jpeg_error_ends_jpeg_at_once(self):
         self.transport.codecs_key = 9
