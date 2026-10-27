@@ -83,9 +83,12 @@ SCROLL_TO_SCRIPT = f"""options => {{
  if (element.scrollTop !== options.top) element.scrollTop = options.top;
  return {{before: state.scrollTop, after: element.scrollTop}};
 }}"""
+# The document events the page's change count listens to (PAGE_STATE_SCRIPT in worker.py).
+STITCH_EVENTS = "['load', 'error', 'animationstart', 'animationend', 'transitionend', 'scroll']"
 # Start a stitch: watch the document for any change, and say whether anything covers the
 # list's window rows or plays inside it.
 STITCH_BEGIN_SCRIPT = f"""options => {{
+ const STITCH_EVENTS = {STITCH_EVENTS};
  const state = ({FIND_SCROLL})(options);
  if (!state) return null;
  const element = window.__castkitScrollElement;
@@ -104,8 +107,15 @@ STITCH_BEGIN_SCRIPT = f"""options => {{
  stitch.bump = () => {{ stitch.changes += 1 }};
  stitch.observer = new MutationObserver(stitch.bump);
  stitch.observer.observe(document, {{subtree: true, childList: true, attributes: true, characterData: true}});
- document.addEventListener('load', stitch.bump, true);
- document.addEventListener('error', stitch.bump, true);
+ // Everything the page's change count hears (PAGE_STATE_SCRIPT), except the stitch's own
+ // scrolling of the list: END puts the count back to its start plus these, so a change of
+ // any kind during a stitch still reaches the capture loop.
+ stitch.onEvent = event => {{
+   if (event.type !== 'scroll' || event.target !== element) stitch.changes += 1;
+ }};
+ for (const type of STITCH_EVENTS) document.addEventListener(type, stitch.onEvent, true);
+ addEventListener('resize', stitch.bump);
+ document.fonts?.addEventListener?.('loadingdone', stitch.bump);
  return {{...state, isCovered, isLive}};
 }}"""
 # One band: move the list, let two frames paint, and report what happened meanwhile.
@@ -128,19 +138,21 @@ STITCH_STEP_SCRIPT = """async top => {
 # End a stitch: put the list back where the person left it, stop watching, and take the
 # stitch's own scroll events back out of the page's change count, so drawing a picture never
 # reads as a page change (which would draw it again, or retry a refused one at once).
-STITCH_END_SCRIPT = """async () => {
+STITCH_END_SCRIPT = f"""async () => {{
+ const STITCH_EVENTS = {STITCH_EVENTS};
  const stitch = window.__castkitStitch;
  if (!stitch) return null;
  if (stitch.element.isConnected) stitch.element.scrollTop = stitch.start;
  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
  window.__castkitStitch = null;
  stitch.observer.disconnect();
- document.removeEventListener('load', stitch.bump, true);
- document.removeEventListener('error', stitch.bump, true);
+ for (const type of STITCH_EVENTS) document.removeEventListener(type, stitch.onEvent, true);
+ removeEventListener('resize', stitch.bump);
+ document.fonts?.removeEventListener?.('loadingdone', stitch.bump);
  const page = window.__castkitPageChanges;
  if (page && stitch.pageChanges !== undefined) page.count = stitch.pageChanges + stitch.changes;
- return {changes: stitch.changes, scrollTop: stitch.element.scrollTop};
-}"""
+ return {{changes: stitch.changes, scrollTop: stitch.element.scrollTop}};
+}}"""
 
 
 class StitchRefusedError(Exception):
