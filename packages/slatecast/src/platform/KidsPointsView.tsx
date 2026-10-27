@@ -658,6 +658,11 @@ export const KidsPointsView = ({
   const selectedKid = properties.isInteractive
     ? data.kids.find((kid) => kid.id === selectedKidId)
     : undefined
+  useLayoutEffect(() => {
+    if (navigation?.isDetailFocused === false) {
+      setSelectedKidId(undefined)
+    }
+  }, [navigation?.isDetailFocused])
   const releaseFocus = useRef(navigation?.release)
   releaseFocus.current = navigation?.release
   useLayoutEffect(() => {

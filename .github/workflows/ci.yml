@@ -143,6 +143,10 @@ jobs:
           timeout 600 pnpm playwright install chromium
 
       - run: pnpm test
+      - name: Verify preview pixels, comparison grids and font failures
+        # The expanded cold-context checks take about 4.5 minutes on two CPUs.
+        timeout-minutes: 10
+        run: pnpm check:preview-fonts
 
   storybook:
     needs: [changes]
