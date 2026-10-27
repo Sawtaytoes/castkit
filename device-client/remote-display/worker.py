@@ -30,7 +30,14 @@ from playwright.async_api import Error as BrowserError
 from playwright.async_api import async_playwright
 from presto_transport import FrameSupersededError, PrestoTransport, SlotUnavailableError
 from preview import PreviewServer, validate_preview_port
-from scroll_window import SCROLL_STATE_SCRIPT, TOUCH_TAKEN, TOUCH_WINDOW, ScrollWindow, decode_rgb
+from scroll_window import (
+    BOARD_TAKE_PIXELS,
+    SCROLL_STATE_SCRIPT,
+    TOUCH_TAKEN,
+    TOUCH_WINDOW,
+    ScrollWindow,
+    decode_rgb,
+)
 from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
@@ -369,9 +376,13 @@ class DisplaySession:
             # The board's own scroll came to rest: the page follows it.
             await self.scroll.board_scrolled(int(event[1]), int(event[2]))
             return
-        sequence, phase, x, y, flags = map(int, event[1:6])
+        sequence, phase, x, y = map(int, event[1:5])
         shown_frame = int(event[6])
-        window_offset = int(event[7])
+        # Only scroll-window firmware puts flags and an offset in fields 5 and 7. The WT32
+        # firmware puts a millisecond timestamp in field 5, which must never read as flags.
+        flags, window_offset = (
+            (int(event[5]), int(event[7])) if self.scroll.is_enabled() else (0, 0)
+        )
         if self.is_reset_required:
             await self.cancel_contact()
             self.is_reset_required = False
@@ -421,6 +432,12 @@ class DisplaySession:
             self.processed_touch = sequence
             self.force_frame.set()
             return
+        if phase == 1 and (
+            max(abs(x - self.contact["start_x"]), abs(y - self.contact["start_y"]))
+            >= BOARD_TAKE_PIXELS
+        ):
+            # Forwarded past the board's threshold: the board will not take this contact.
+            self.contact["is_past_board_take"] = True
         if phase == 2:
             x, y = self.contact["x"], self.contact["y"]
         if (

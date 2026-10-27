@@ -26,9 +26,11 @@ The worker keeps the window honest:
 2. It hides the window before any frame that differs inside it, before a frame drawn
    ahead at a swipe, and before camera frames. The board hides it by itself for a full
    frame, a slot, a drop, the offline marker, and any upload into the picture. While a
-   contact that began on the window is down, a differing frame is drawn under the window
-   without hiding it, so the press can still become the board's drag; the next capture
-   after the release decides.
+   contact that began on the window is down and has not yet travelled the board's 12-pixel
+   threshold, a differing frame is drawn under the window without hiding it, so the press
+   can still become the board's drag. Once such a contact has travelled past the threshold
+   and is still forwarded (a sideways start), the board will never take it: the window
+   then follows the page's own scroll, and any other change under it hides it.
 3. It draws the picture again when the page has been still for half a second and its
    window rows are no longer the picture.
 
@@ -43,7 +45,11 @@ after two animation frames, and put back where it was. A stitch is refused with 
 it, the document or an image changes while it is drawn, the overlaps disagree (a sticky
 header), a column beside the list differs down the window rows, the list is too tall for
 the board, or a touch arrives. The stitch and touch handling share a page lock; a touch
-stops a stitch at the next band.
+stops a stitch at the next band. A refused list waits 2 seconds before the next attempt,
+doubling with each refusal in a row up to 30 seconds, and an unchanged page waits the
+whole 30 seconds; the stitch's own scrolling is taken back out of the page's change count.
+The flags and offset fields of a touch are read only when the session's transport has a
+scroll window: the WT32 firmware puts a millisecond timestamp in the flags field.
 
 Protocol, on firmware that has it (CastKit falls back to the old path otherwise):
 
@@ -91,6 +97,11 @@ Known limits:
 
 - The rows of the list above and below the 8-row grid (up to 7 each) stay framebuffer
   rows; during a board drag they keep the last live frame.
+- The window's quantized pixels equal the panel's own only when the offset is a multiple
+  of 8. At other offsets the content is the same and only the ordered-dither phase of
+  varying 8 x 8 tiles differs.
+- A press on the list that changes the page under the window (a pressed style) shows that
+  change only after its release, unless the contact travels past the board's threshold.
 - The window is full width, so anything beside the list must be still down its rows.
 - The picture is zlib or RLE; there is no JPEG picture.
 - Only the first marked list on the glass gets a window. Today that is the Tally Marks

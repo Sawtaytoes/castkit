@@ -22,6 +22,7 @@ import math
 import time
 
 import numpy as np
+from aioesphomeapi import APIConnectionError
 from codec import presto_rows_pixels
 from interaction import Target
 from PIL import Image
@@ -38,8 +39,16 @@ MIN_WINDOW_ROWS = 64
 BAND_OVERLAP_ROWS = 8
 # The list and the page must have been still this long before a picture is drawn.
 STITCH_QUIET_SECONDS = 0.5
-# A picture that could not be drawn is tried again after this long, or when the page changes.
+# A picture that could not be drawn waits before it is tried again: REFUSAL_BACKOFF_SECONDS
+# after the first refusal, doubling with each refusal in a row up to REFUSAL_RETRY_SECONDS.
+# A page that has not changed since waits the whole REFUSAL_RETRY_SECONDS. Every attempt holds
+# the capture loop and the page, so a list whose text changes every second or two must not
+# be drawn again and again.
+REFUSAL_BACKOFF_SECONDS = 2
 REFUSAL_RETRY_SECONDS = 30
+# The board takes a contact once it travels this far (esphome-presto `ScrollDrag::THRESHOLD`).
+# A contact still forwarded past it is never the board's.
+BOARD_TAKE_PIXELS = 12
 # The board owns a drag from the contact it takes until it reports `scroll_at`.
 BOARD_DRAG_SECONDS = 10
 # The touch report flags (esphome-presto `TouchFlags`).
@@ -89,7 +98,9 @@ STITCH_BEGIN_SCRIPT = f"""options => {{
  }}
  const isLive = Boolean(element.querySelector('video, canvas, iframe, img[src*="mjpeg" i]'))
    || element.getAnimations({{subtree: true}}).some(animation => animation.playState === 'running');
- const stitch = window.__castkitStitch = {{changes: 0, start: element.scrollTop, element}};
+ const stitch = window.__castkitStitch = {{
+   changes: 0, start: element.scrollTop, element, pageChanges: window.__castkitPageChanges?.count,
+ }};
  stitch.bump = () => {{ stitch.changes += 1 }};
  stitch.observer = new MutationObserver(stitch.bump);
  stitch.observer.observe(document, {{subtree: true, childList: true, attributes: true, characterData: true}});
@@ -114,15 +125,20 @@ STITCH_STEP_SCRIPT = """async top => {
    }),
  };
 }"""
-# End a stitch: stop watching, and put the list back where the person left it.
-STITCH_END_SCRIPT = """() => {
+# End a stitch: put the list back where the person left it, stop watching, and take the
+# stitch's own scroll events back out of the page's change count, so drawing a picture never
+# reads as a page change (which would draw it again, or retry a refused one at once).
+STITCH_END_SCRIPT = """async () => {
  const stitch = window.__castkitStitch;
  if (!stitch) return null;
+ if (stitch.element.isConnected) stitch.element.scrollTop = stitch.start;
+ await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
  window.__castkitStitch = null;
  stitch.observer.disconnect();
  document.removeEventListener('load', stitch.bump, true);
  document.removeEventListener('error', stitch.bump, true);
- if (stitch.element.isConnected) stitch.element.scrollTop = stitch.start;
+ const page = window.__castkitPageChanges;
+ if (page && stitch.pageChanges !== undefined) page.count = stitch.pageChanges + stitch.changes;
  return {changes: stitch.changes, scrollTop: stitch.element.scrollTop};
 }"""
 
@@ -214,9 +230,11 @@ class ScrollWindow:
         self.board_drag_until = None
         self.changes = None
         self.changed_at = time.monotonic()
-        # (key, reason, page changes, when) of the last picture that could not be drawn.
+        # The last picture that could not be drawn: {"key", "reason", "changes", "at",
+        # "count", "retry_at"}.
         self.refusal = None
         self.stats = {
+            "stitch_attempts": 0,
             "stitches": 0,
             "uploads": 0,
             "shows": 0,
@@ -232,7 +250,8 @@ class ScrollWindow:
         return self.session.client
 
     def is_enabled(self):
-        return bool(getattr(self.client, "has_scroll", False))
+        # Only ESPHomePrestoTransport sets this, and only on scroll-window firmware.
+        return getattr(self.client, "has_scroll", False) is True
 
     def is_board_dragging(self):
         until = self.board_drag_until
@@ -337,9 +356,14 @@ class ScrollWindow:
     # Frames ----------------------------------------------------------------------------
 
     def is_contact_on_window(self):
+        """A contact that began on the window and that the board may still take over."""
         contact = self.session.contact
         window = self.client.window
-        return contact is not None and window["top"] <= contact["start_y"] < window["bottom"]
+        return (
+            contact is not None
+            and window["top"] <= contact["start_y"] < window["bottom"]
+            and not contact.get("is_past_board_take", False)
+        )
 
     async def before_frame(self, rgb, state):
         """Keep the window only over rows that still are the picture."""
@@ -347,7 +371,10 @@ class ScrollWindow:
             return
         if self.is_contact_on_window():
             # A press on the list may still become the board's drag; hiding now would
-            # hand that drag back to this worker. The release decides.
+            # hand that drag back to this worker. Once the contact has travelled past the
+            # board's threshold without being taken (a sideways drag that the page scrolls
+            # itself), it never will be, and a change under the window hides it as usual.
+            # A press that stays still keeps the window until its release.
             return
         offset = scroll_offset(state)
         if rows_match(self.picture, rgb, state) and self.is_picture_on_board():
@@ -368,7 +395,10 @@ class ScrollWindow:
         if rows_match(self.picture, rgb, state):
             if not self.is_window_shown() and self.is_picture_on_board():
                 async with session.delivery_lock:
-                    # Only over exactly the rows the panel shows now.
+                    # Only over the rows the panel shows now: the same RGB, so the same
+                    # content. The quantized pixels are identical too when the offset is on
+                    # the 8-row grid; elsewhere only the dither phase differs. Up to 7 rows
+                    # of the list above and below the window stay the panel's own.
                     if session.previous_payload == payload:
                         await self.show(scroll_offset(state))
             return
@@ -391,11 +421,17 @@ class ScrollWindow:
         refusal = self.refusal
         if (
             refusal is not None
-            and refusal[0] == plan["key"]
-            and refusal[2] == page_state["changes"]
-            and now - refusal[3] < REFUSAL_RETRY_SECONDS
+            and refusal["key"] == plan["key"]
+            and (
+                now < refusal["retry_at"]
+                or (
+                    refusal["changes"] == page_state["changes"]
+                    and now - refusal["at"] < REFUSAL_RETRY_SECONDS
+                )
+            )
         ):
             return
+        self.stats["stitch_attempts"] += 1
         try:
             picture = await self.stitch(plan, state, rgb)
         except StitchRefusedError as error:
@@ -407,10 +443,27 @@ class ScrollWindow:
         if self.upload_task is not None:
             self.upload_task.cancel()
         self.upload_task = asyncio.create_task(self.upload(picture))
+        self.upload_task.add_done_callback(self.upload_finished)
         self.publish()
 
     def refuse(self, key, reason):
-        self.refusal = (key, reason, self.changes, time.monotonic())
+        now = time.monotonic()
+        previous = self.refusal
+        if key is None or reason == "touch":
+            # Nothing was drawn (no list, or a list that cannot use a window, which costs
+            # nothing to learn again), or a person interrupted it: no backoff.
+            self.refusal = None
+        else:
+            count = previous["count"] + 1 if previous and previous["key"] == key else 1
+            delay = min(REFUSAL_BACKOFF_SECONDS * 2 ** (count - 1), REFUSAL_RETRY_SECONDS)
+            self.refusal = {
+                "key": key,
+                "reason": reason,
+                "changes": self.changes,
+                "at": now,
+                "count": count,
+                "retry_at": now + delay,
+            }
         if self.stats["refusal"] != reason:
             LOG.info("Scroll picture not drawn: %s", reason)
         self.stats["refusal"] = reason
@@ -545,8 +598,15 @@ class ScrollWindow:
                 is_loaded = await self.client.upload_scroll(
                     picture["frame_id"], picture["pixels"], picture["rows"], session.is_slot_quiet
                 )
+            except APIConnectionError as error:
+                # The link is gone; the session reconnects and the board starts empty.
+                LOG.warning("Scroll picture did not load, link lost: %s", error)
+                picture["frame_id"] = None
+                self.publish()
+                return
             except (TimeoutError, RuntimeError, ValueError) as error:
                 LOG.warning("Scroll picture did not load: %s", error)
+                picture["frame_id"] = None
                 attempts += 1
                 await asyncio.sleep(1)
                 continue
@@ -560,6 +620,12 @@ class ScrollWindow:
                 self.publish()
                 return
             await asyncio.sleep(0.05)
+
+    @staticmethod
+    def upload_finished(task):
+        # Nothing awaits an upload; an unexpected failure is logged rather than lost.
+        if not task.cancelled() and task.exception() is not None:
+            LOG.warning("Scroll picture upload failed: %r", task.exception())
 
     async def close(self):
         if self.upload_task is not None:

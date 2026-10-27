@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock
 
 import esphome_presto
 import numpy as np
-from aioesphomeapi import TextSensorState
+from aioesphomeapi import APIConnectionError, TextSensorState
 from codec import encode_presto_patch, presto_frame_pixels_and_rgb, presto_rows_pixels
 from esphome_presto import ESPHomePrestoTransport, hidden_window
 from interaction import Target
@@ -379,6 +379,8 @@ class FakeScrollClient:
 
     async def upload_scroll(self, frame_id, pixels, rows, should_continue):
         self.uploads.append((frame_id, rows))
+        if getattr(self, "upload_error", None) is not None:
+            raise self.upload_error
         self.scroll_picture = {"frame_id": frame_id, "pixels": pixels, "rows": rows}
         return True
 
@@ -608,6 +610,75 @@ class BrowserScrollTests(unittest.IsolatedAsyncioTestCase):
         await self.touch(0, 100, 300, flags=2, offset=40)
         self.assertEqual(await self.page.evaluate("document.querySelector('.list').scrollTop"), 120)
 
+    async def test_a_contact_the_board_will_not_take_hides_a_window_the_page_moved_under(self):
+        await self.cycle()
+        await self.cycle()
+        self.assertEqual(len(self.client.shows), 1)
+        await self.remember_targets()
+        self.task = asyncio.create_task(self.session.input_loop())
+        await self.touch(0, 100, 200, flags=2)
+        await self.touch(1, 106, 200, flags=2)
+        # The page moves the list under a press the board may still take: keep the window.
+        await self.scroll_to(30)
+        await self.cycle()
+        self.assertEqual(self.client.hides, 0)
+        self.assertEqual(len(self.client.shows), 1)
+        # Past the board's threshold and still forwarded: the board will never take it.
+        # The page scrolling its own list moves the window with it...
+        await self.touch(1, 118, 202, flags=2)
+        await self.cycle()
+        self.assertEqual(self.client.hides, 0)
+        self.assertEqual(self.client.shows[-1][3], 30)
+        # ...and anything else that changes under it hides it, so live frames show.
+        await self.page.evaluate(
+            "document.querySelector('[data-castkit-target=\"item:5\"]').textContent = 'Done'"
+        )
+        await self.cycle()
+        self.assertEqual(self.client.hides, 1)
+
+    async def test_a_refused_picture_backs_off_and_waits_for_a_change(self):
+        await self.page.evaluate(
+            """() => { const cover = document.createElement('div');
+              cover.style.cssText = 'position:fixed;left:200px;top:200px;width:60px;height:60px;background:red';
+              document.body.append(cover) }"""
+        )
+        await self.cycle()
+        self.assertEqual(self.scroll.stats["stitch_attempts"], 1)
+        self.assertEqual(self.scroll.stats["refusal"], "covered")
+        first = self.scroll.refusal
+        self.assertEqual(first["retry_at"] - first["at"], 2)
+        # The stitch's own scrolling is not a page change.
+        await self.cycle()
+        self.assertEqual(self.scroll.refusal["changes"], self.scroll.changes)
+        # A page that changes every cycle still waits out the backoff.
+        for minute in range(3):
+            await self.page.evaluate(
+                f"document.getElementById('clock').textContent = '9:5{minute}'"
+            )
+            await self.cycle()
+        self.assertEqual(self.scroll.stats["stitch_attempts"], 1)
+        # Past it, with no change, the page is not drawn again either.
+        self.scroll.refusal["retry_at"] = 0
+        self.scroll.refusal["changes"] = self.scroll.changes
+        await self.cycle()
+        self.assertEqual(self.scroll.stats["stitch_attempts"], 1)
+        # Past it and changed: one more attempt, and the next wait doubles.
+        await self.page.evaluate("document.getElementById('clock').textContent = '10:00'")
+        await self.cycle()
+        self.assertEqual(self.scroll.stats["stitch_attempts"], 2)
+        second = self.scroll.refusal
+        self.assertEqual((second["count"], second["retry_at"] - second["at"]), (2, 4))
+
+    async def test_a_lost_link_during_an_upload_ends_it_and_leaves_no_picture(self):
+        self.client.upload_error = APIConnectionError("link lost")
+        await self.cycle()
+        self.assertTrue(self.scroll.upload_task.done())
+        self.assertIsNone(self.scroll.upload_task.exception())
+        self.assertIsNone(self.scroll.picture["frame_id"])
+        self.assertFalse(self.scroll.is_picture_on_board())
+        await self.cycle()
+        self.assertEqual(self.client.shows, [])
+
     async def test_a_touch_stops_a_stitch_and_the_list_goes_back(self):
         self.session.pending_input = ["touch"]
         payload, rgb, state, page_state = await self.capture()
@@ -615,6 +686,66 @@ class BrowserScrollTests(unittest.IsolatedAsyncioTestCase):
         await self.scroll.after_frame(rgb, state, page_state, payload)
         self.assertIsNone(self.scroll.picture)
         self.assertEqual(self.scroll.stats["refusal"], "touch")
+        self.assertEqual(await self.page.evaluate("document.querySelector('.list').scrollTop"), 0)
+
+
+class TimestampTouchTests(unittest.IsolatedAsyncioTestCase):
+    """The WT32 firmware puts a millisecond timestamp where scroll firmware puts flags."""
+
+    async def asyncSetUp(self):
+        self.playwright = await async_playwright().start()
+        executable = os.environ.get("CASTKIT_TEST_CHROMIUM")
+        self.browser = await self.playwright.chromium.launch(
+            **({"executable_path": executable} if executable else {}),
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        viewport = {"width": 480, "height": 480}
+        self.context = await create_browser_context(self.browser, {"viewport": viewport})
+        self.page = await self.context.new_page()
+        await self.page.set_content(LIST_PAGE)
+        # What a WT32 session's client offers: no scroll window at all.
+        self.session = DisplaySession(
+            {"viewport": viewport},
+            self.page,
+            types.SimpleNamespace(),
+            {},
+            asyncio.Event(),
+            PreviewServer("test", 8),
+        )
+        self.session.cdp = await self.context.new_cdp_session(self.page)
+        targets = await self.page.evaluate(TARGETS_SCRIPT, self.session.target_options)
+        self.session.guard.remember(
+            50,
+            [
+                Target(**{key: value for key, value in target.items() if key != "loading"})
+                for target in targets
+            ],
+        )
+        self.task = asyncio.create_task(self.session.input_loop())
+
+    async def asyncTearDown(self):
+        self.task.cancel()
+        await asyncio.gather(self.task, return_exceptions=True)
+        await self.browser.close()
+        await self.playwright.stop()
+
+    async def test_a_timestamp_in_the_flags_field_never_cancels_or_scrolls(self):
+        expected = await self.page.evaluate(
+            "() => document.elementFromPoint(100, 200).closest('[data-castkit-target]')"
+            ".dataset.castkitTarget"
+        )
+        # 123459 has both flag bits set: read as flags it would cancel the tap.
+        for sequence, phase in ((1, 0), (2, 2)):
+            await self.session.touches.put(
+                ["touch", str(sequence), str(phase), "100", "200", "123459", "50", "77"]
+            )
+            async with asyncio.timeout(3):
+                while self.session.processed_touch != sequence:
+                    if self.task.done():
+                        self.task.result()
+                    await asyncio.sleep(0.01)
+        self.assertEqual(await self.page.evaluate("window.clicks"), [int(expected.split(":")[1])])
+        self.assertEqual(await self.page.evaluate("window.cancels"), 0)
         self.assertEqual(await self.page.evaluate("document.querySelector('.list').scrollTop"), 0)
 
 
