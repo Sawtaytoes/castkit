@@ -38,24 +38,50 @@ def presto_frame_pixels(png):
 def presto_image_pixels(image):
     if image.size != (480, 480):
         raise ValueError("The Presto frame must be 480 by 480 pixels")
-    rgb = np.asarray(image, dtype=np.uint16)
+    return presto_rows_pixels(np.asarray(image))
+
+
+def presto_frame_pixels_and_rgb(png):
+    """The exact framebuffer and the RGB it was quantized from, from one PNG decode."""
+    image = Image.open(io.BytesIO(png)).convert("RGB")
+    rgb = np.asarray(image)
+    if image.size != (480, 480):
+        raise ValueError("The Presto frame must be 480 by 480 pixels")
+    return presto_rows_pixels(rgb), rgb
+
+
+def presto_rows_pixels(rgb):
+    """Quantize RGB rows 480 pixels wide, any number of them, as the Presto shows them.
+
+    Row 0 sits on the dither grid's row 0. A 480 x 480 frame is exactly the panel; a taller
+    picture keeps the same grid down its whole height, so a part of it moved by a multiple
+    of 8 rows quantizes exactly as the panel's own rows there would.
+    """
+    height, width = rgb.shape[:2]
+    if width != 480 or not height:
+        raise ValueError("Presto rows must be 480 pixels wide")
+    # The tile mask works on whole 8 x 8 tiles; repeat the last row into the missing ones.
+    padded = -(-height // 8) * 8
+    rgb = np.asarray(rgb, dtype=np.uint16)
+    if padded != height:
+        rgb = np.concatenate([rgb, np.repeat(rgb[-1:], padded - height, axis=0)])
     # Ordered quantization softens gradients at the panel's 5/6/5-bit limit.
     # Anchor to screen coordinates so unchanged art never shimmers across patches.
     bayer = np.array(
         [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], dtype=np.uint16
     )
-    threshold = np.tile(bayer, (120, 120))[:, :, None] * 16 + 8
+    threshold = np.tile(bayer, (padded // 4, 120))[:, :, None] * 16 + 8
     levels = np.array([31, 63, 31], dtype=np.uint16)
     quantized = (rgb * levels + threshold) // 255
     quantized = np.minimum(quantized, levels)
     # Flat UI fills need no spatial noise. Dither varying tiles (art/gradients)
     # while preserving solid tiles' long runs and cheap progress patches.
-    tiles = rgb.reshape(60, 8, 60, 8, 3)
+    tiles = rgb.reshape(padded // 8, 8, 60, 8, 3)
     varying = np.any(tiles.max(axis=(1, 3)) != tiles.min(axis=(1, 3)), axis=2)
     mask = varying.repeat(8, axis=0).repeat(8, axis=1)[:, :, None]
     quantized = np.where(mask, quantized, rgb >> np.array([3, 2, 3], dtype=np.uint16))
     pixels = (quantized[:, :, 0] << 11) | (quantized[:, :, 1] << 5) | quantized[:, :, 2]
-    return pixels.astype(">u2").tobytes()
+    return pixels[:height].astype(">u2").tobytes()
 
 
 def encode_presto_frame_with_palette(png, bounds):
@@ -109,18 +135,19 @@ def union_rectangle(first, second):
     return (left, top, right - left, bottom - top)
 
 
-def encode_presto_patch(raw, previous=None, include=None):
+def encode_presto_patch(raw, previous=None, include=None, height=480):
     """Choose a lossless patch relative to the last acknowledged frame.
 
     `include` is a rectangle the patch must cover even where the pixels did not
     change: the board's pixels there only approximate `previous` after a JPEG.
+    `height` is for a picture taller than the panel (the scroll picture).
     """
-    if len(raw) != 480 * 480 * 2:
-        raise ValueError("The Presto frame must contain exactly 480x480 RGB565 pixels")
-    pixels = np.frombuffer(raw, dtype="<u2").reshape(480, 480)
-    rectangle = (0, 0, 480, 480)
+    if len(raw) != 480 * height * 2:
+        raise ValueError(f"The Presto picture must contain exactly 480x{height} RGB565 pixels")
+    pixels = np.frombuffer(raw, dtype="<u2").reshape(height, 480)
+    rectangle = (0, 0, 480, height)
     if previous is not None:
-        changed = pixels != np.frombuffer(previous, dtype="<u2").reshape(480, 480)
+        changed = pixels != np.frombuffer(previous, dtype="<u2").reshape(height, 480)
         rows, columns = np.nonzero(changed)
         changed_rectangle = None
         if len(rows):

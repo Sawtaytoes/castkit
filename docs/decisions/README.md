@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-26: A list scrolls on the Presto over a picture drawn ahead](2026-10-26-a-list-scrolls-on-the-presto-over-a-picture-drawn-ahead.md)
+
 - [2026-10-26: The camera alert streams directly and lasts while a person is detected](2026-10-26-the-camera-alert-streams-directly-and-lasts-while-a-person-is-detected.md)
 
 - [2026-10-26: Every released request shows its destination until the view is built](2026-10-26-every-released-request-shows-its-destination-until-the-view-is-built.md)
