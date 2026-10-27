@@ -36,6 +36,30 @@ def number(value):
     return f"{value:g}"
 
 
+def scene_text(value, limit=100):
+    """Firmware limits UTF-8 bytes and rejects controls; keep code points intact."""
+    normalized = "".join(" " if ord(char) < 32 or ord(char) == 127 else char for char in value)
+    return normalized.encode("utf-8", errors="replace")[:limit].decode("utf-8", errors="ignore")
+
+
+async def apply_scene(api, action, scene, revision, status, timeout=15):
+    document = json.dumps(
+        {**scene, "revision": revision}, ensure_ascii=False, separators=(",", ":")
+    )
+    if len(document.encode()) > MAX_DOCUMENT_BYTES:
+        raise ValueError("Native scene exceeds the firmware's document budget")
+    status["value"] = ""
+    api.execute_service(action, {"document": document})
+    deadline = time.monotonic() + timeout
+    while status["value"] != f"applied,{revision},{len(scene['items'])}":
+        if status["value"].startswith("error,"):
+            raise ValueError(status["value"])
+        if not api.is_connected or time.monotonic() >= deadline:
+            raise TimeoutError("Native scene acknowledgement did not arrive")
+        await asyncio.sleep(0.02)
+    return len(document.encode())
+
+
 class KidsPointsScene:
     """The same read-only child -> daily task -> individual entries navigation."""
 
@@ -101,7 +125,7 @@ class KidsPointsScene:
                     key=lambda t: (-t["atMs"], t["id"]),
                 )
             )
-            identity = f"{kid['id']}:{self.task_name or 'summary'}"
+            identity = json.dumps([kid["id"], self.task_name], ensure_ascii=True)
             scene.update(
                 id=hashlib.sha256(identity.encode()).hexdigest()[:24],
                 title=kid["name"][:100],
@@ -150,6 +174,12 @@ class KidsPointsScene:
             else:
                 raise ValueError(f"Unsupported native scene style: {key}")
             scene[key] = value
+        for key in ("title", "subtitle", "value"):
+            if key in scene:
+                scene[key] = scene_text(scene[key])
+        for item in scene["items"]:
+            for key in ("title", "detail", "value"):
+                item[key] = scene_text(item[key])
         return scene
 
     def click(self, key):
@@ -251,24 +281,14 @@ async def run(config, view_url, *, benchmark=False, duration=0, health=False):
                 scene = scene_builder.build(data, int(time.time() * 1000), style)
                 encoded = json.dumps(scene, ensure_ascii=False, separators=(",", ":"))
                 if encoded != previous:
-                    scene["revision"] = revision
-                    document = json.dumps(scene, ensure_ascii=False, separators=(",", ":"))
-                    if len(document.encode()) > MAX_DOCUMENT_BYTES:
-                        raise ValueError("Native scene exceeds the firmware's document budget")
-                    status["value"] = ""
-                    api.execute_service(actions["native_scene"], {"document": document})
-                    deadline = time.monotonic() + 15
-                    while status["value"] != f"applied,{revision},{len(scene['items'])}":
-                        if status["value"].startswith("error,"):
-                            raise ValueError(status["value"])
-                        if not api.is_connected or time.monotonic() >= deadline:
-                            raise TimeoutError("Native scene acknowledgement did not arrive")
-                        await asyncio.sleep(0.02)
+                    document_bytes = await apply_scene(
+                        api, actions["native_scene"], scene, revision, status
+                    )
                     LOG.info(
                         "CastKit applied revision=%d rows=%d bytes=%d",
                         revision,
                         len(scene["items"]),
-                        len(document.encode()),
+                        document_bytes,
                     )
                     previous = encoded
                     revision += 1

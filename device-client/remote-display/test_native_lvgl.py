@@ -1,12 +1,13 @@
 """Read-only native scene navigation and midnight freshness."""
 
+import asyncio
 import copy
 import json
 import unittest
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from native_lvgl import KidsPointsScene
+from native_lvgl import KidsPointsScene, apply_scene
 
 
 def moment(day, hour=1):
@@ -123,3 +124,75 @@ class KidsPointsSceneTests(unittest.TestCase):
         self.data["kids"][0]["tasksToday"] = [{**task, "id": str(i)} for i in range(33)]
         with self.assertRaisesRegex(ValueError, "at most 32"):
             builder.build(self.data, self.now)
+
+    def test_multibyte_and_control_text_remains_valid_through_navigation(self):
+        builder = KidsPointsScene()
+        kid = self.data["kids"][0]
+        kid["name"] = "É\n\t\x00\x7f" + "é" * 100
+        task_name = "読書\n\t" + "📚" * 60
+        for task in kid["tasksToday"]:
+            task["name"] = task_name
+        scenes = [builder.build(self.data, self.now)]
+        builder.click("row:0")
+        scenes.append(builder.build(self.data, self.now))
+        builder.click("row:0")
+        scenes.append(builder.build(self.data, self.now))
+        for scene in scenes:
+            for obj in [scene, *scene["items"]]:
+                for key in ("title", "subtitle", "detail", "value"):
+                    if key in obj:
+                        value = obj[key]
+                        self.assertLessEqual(len(value.encode("utf-8")), 100)
+                        self.assertFalse(any(ord(char) < 32 or ord(char) == 127 for char in value))
+                        self.assertNotIn("\ufffd", value)
+        self.assertTrue(scenes[0]["items"][0]["title"].startswith("É    é"))
+        self.assertTrue(scenes[2]["items"][0]["title"].startswith("読書  📚"))
+
+
+class SceneAcknowledgementTests(unittest.IsolatedAsyncioTestCase):
+    async def test_normalized_scene_is_transmitted_and_exact_revision_is_acknowledged(self):
+        status = {"value": "applied,40,1"}
+        builder = KidsPointsScene()
+        scene = builder.build(
+            {"kids": [{"id": "sample", "name": "é\n" * 80, "pointsToday": 1}]},
+            moment("2026-10-27"),
+        )
+        sent = []
+
+        class API:
+            is_connected = True
+
+            def execute_service(self, action, args):
+                sent.append(json.loads(args["document"]))
+                status["value"] = "applied,40,1"  # A previous revision cannot satisfy this request.
+                asyncio.get_running_loop().call_later(
+                    0.01, status.update, {"value": "applied,41,1"}
+                )
+
+        document_bytes = await apply_scene(API(), object(), scene, 41, status, timeout=0.2)
+        self.assertEqual(sent[0]["revision"], 41)
+        self.assertEqual(sent[0]["items"][0]["title"], "é " * 33)
+        self.assertLessEqual(document_bytes, 6144)
+
+    async def test_firmware_rejection_and_disconnect_are_reported(self):
+        scene = KidsPointsScene().build({"kids": []}, moment("2026-10-27"))
+        for reply, connected, exception in (
+            ("error,invalid_scene", True, ValueError),
+            ("", False, TimeoutError),
+            ("applied,40,0", True, TimeoutError),
+        ):
+            status = {"value": ""}
+
+            class API:
+                def __init__(self, connected, status, reply):
+                    self.is_connected = connected
+                    self.status = status
+                    self.reply = reply
+
+                def execute_service(self, action, args):
+                    self.status["value"] = self.reply
+
+            with self.subTest(reply=reply, connected=connected), self.assertRaises(exception):
+                await apply_scene(
+                    API(connected, status, reply), object(), scene, 41, status, timeout=0
+                )
