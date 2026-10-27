@@ -82,6 +82,7 @@ test("AI usage details show all limits and resets without changing the overview"
   await expect(trigger).toBeVisible()
   await expect(page.getByText("Weekly Fable")).toBeHidden()
   await page.screenshot({
+    animations: "disabled",
     path: `__screenshots__/usage-overview-${testInfo.project.name}.png`,
   })
   await trigger.click()
@@ -152,6 +153,7 @@ test("AI usage details show all limits and resets without changing the overview"
   ).toBeLessThan(1)
 
   await page.screenshot({
+    animations: "disabled",
     path: `__screenshots__/usage-details-${testInfo.project.name}.png`,
   })
   await details
@@ -183,6 +185,7 @@ test("AI usage details show all limits and resets without changing the overview"
   ).toHaveCount(2)
   await expect(codex.getByText(/^Resets /)).toHaveCount(2)
   await page.screenshot({
+    animations: "disabled",
     path: `__screenshots__/usage-codex-${testInfo.project.name}.png`,
   })
   await request.post("/__test__/mqtt", {
