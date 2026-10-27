@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test"
 
+// Each window owns one stateful fixture channel.
+test.describe.configure({ mode: "serial" })
+
 const providers = [
   {
     id: "claude",
@@ -72,58 +75,101 @@ test("AI usage details show all limits and resets without changing the overview"
       payload: { providers },
     },
   })
-  await page.goto("/view/usage")
+  await page.goto("/view/usage-combined")
   const trigger = page.getByRole("button", {
     name: "Show Claude usage details",
   })
   await expect(trigger).toBeVisible()
   await expect(page.getByText("Weekly Fable")).toBeHidden()
   await page.screenshot({
+    animations: "disabled",
     path: `__screenshots__/usage-overview-${testInfo.project.name}.png`,
   })
   await trigger.click()
-  const dialog = page.getByRole("dialog", {
+  const details = page.getByRole("region", {
     name: "Claude usage details",
   })
   await expect(
-    dialog.getByText("Weekly (all models)"),
+    details.getByText("Weekly (all models)"),
   ).toBeVisible()
   await expect(
-    dialog.getByText("5-hour limit"),
+    details.getByText("5-hour limit"),
   ).toBeVisible()
   await expect(
-    dialog.getByText("Weekly Fable"),
+    details.getByText("Weekly Fable"),
   ).toBeVisible()
   await expect(
-    dialog.getByText("88%", { exact: true }),
+    details.getByText("88%", { exact: true }),
   ).toBeVisible()
-  await expect(dialog.getByText(/^Resets /)).toHaveCount(3)
-  const bounds = await dialog.boundingBox()
+  await expect(details.getByText(/^Resets /)).toHaveCount(3)
+  // Composition focus settles after its layout measurement and transition.
+  await expect
+    .poll(async () => {
+      const detailBounds = await details.boundingBox()
+      const compositionBounds = await page
+        .locator(".platform-layout")
+        .boundingBox()
+      return detailBounds && compositionBounds
+        ? detailBounds.height / compositionBounds.height
+        : 0
+    })
+    .toBeGreaterThan(0.85)
+  const bounds = await details.boundingBox()
   const viewport = page.viewportSize()
   if (!bounds || !viewport) {
     throw new Error(
-      "The open usage dialog must have visible bounds",
+      "The open usage detail view must have visible bounds",
     )
   }
   expect(bounds.width).toBeLessThanOrEqual(viewport.width)
   expect(bounds.height).toBeLessThanOrEqual(viewport.height)
+  expect(await page.getByRole("dialog").count()).toBe(0)
+  const layoutBounds = await page
+    .locator(".platform-layout")
+    .boundingBox()
+  if (!layoutBounds)
+    throw new Error("Missing composition bounds")
+  expect(bounds.width).toBeGreaterThan(
+    layoutBounds.width * 0.85,
+  )
+  expect(bounds.height).toBeGreaterThan(
+    layoutBounds.height * 0.85,
+  )
+  const iconBounds = await details
+    .locator(".ai-usage-provider-icon")
+    .boundingBox()
+  const titleBounds = await details
+    .getByRole("heading", { name: "Claude" })
+    .boundingBox()
+  if (!iconBounds || !titleBounds)
+    throw new Error("Missing subscription title bounds")
+  expect(
+    Math.abs(
+      iconBounds.y +
+        iconBounds.height / 2 -
+        titleBounds.y -
+        titleBounds.height / 2,
+    ),
+  ).toBeLessThan(1)
+
   await page.screenshot({
+    animations: "disabled",
     path: `__screenshots__/usage-details-${testInfo.project.name}.png`,
   })
-  await dialog
-    .getByRole("button", { name: "Close usage details" })
+  await details
+    .getByRole("button", { name: "Back to AI usage" })
     .click()
   await expect(trigger).toBeFocused()
   await trigger.press("Enter")
-  await expect(dialog).toBeVisible()
+  await expect(details).toBeVisible()
   await page.keyboard.press("Escape")
-  await expect(dialog).toBeHidden()
+  await expect(details).toBeHidden()
   await page
     .getByRole("button", {
       name: "Show Codex 1 usage details",
     })
     .click()
-  const codex = page.getByRole("dialog", {
+  const codex = page.getByRole("region", {
     name: "Codex 1 usage details",
   })
   await expect(codex.getByText("7-day limit")).toBeVisible()
@@ -139,6 +185,7 @@ test("AI usage details show all limits and resets without changing the overview"
   ).toHaveCount(2)
   await expect(codex.getByText(/^Resets /)).toHaveCount(2)
   await page.screenshot({
+    animations: "disabled",
     path: `__screenshots__/usage-codex-${testInfo.project.name}.png`,
   })
   await request.post("/__test__/mqtt", {
@@ -177,13 +224,13 @@ test("a short image-display canvas can touch-scroll to the model-specific quota"
       name: "Show Claude usage details",
     })
     .click()
-  const dialog = page.getByRole("dialog", {
+  const details = page.getByRole("region", {
     name: "Claude usage details",
   })
-  const bounds = await dialog.boundingBox()
-  if (!bounds) throw new Error("Missing dialog bounds")
+  const bounds = await details.boundingBox()
+  if (!bounds) throw new Error("Missing detail bounds")
   expect(
-    await dialog.evaluate(
+    await details.evaluate(
       (element) =>
         element.scrollHeight > element.clientHeight,
     ),
@@ -222,13 +269,73 @@ test("a short image-display canvas can touch-scroll to the model-specific quota"
   })
   await expect
     .poll(() =>
-      dialog.evaluate((element) => element.scrollTop),
+      details.evaluate((element) => element.scrollTop),
     )
     .toBeGreaterThan(60)
   await expect(
-    dialog.getByText("Weekly Fable"),
+    details.getByText("Weekly Fable"),
   ).toBeInViewport()
-  await expect(dialog).toBeVisible()
+  await expect(details).toBeVisible()
   await expect(page).toHaveURL(/\/view\/usage$/)
   await session.detach()
+})
+
+test("opening another subscription from the rail transfers detail ownership", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/channels/usage/fixture/set",
+      payload: { providers },
+    },
+  })
+  await page.goto("/view/usage-multiple")
+  await page
+    .getByRole("button", {
+      name: "Show Claude usage details",
+    })
+    .click()
+  await expect(
+    page.getByRole("region", {
+      name: "Claude usage details",
+    }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", {
+      name: "Show Codex 1 usage details",
+    })
+    .click()
+  await expect(
+    page.getByRole("region", {
+      name: "Claude usage details",
+    }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("region", {
+      name: "Codex 1 usage details",
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", {
+      name: "Show Claude usage details",
+    }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", { name: "Back to AI usage" })
+    .click()
+  await expect(
+    page.getByRole("region", { name: /usage details/ }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("button", {
+      name: "Show Claude usage details",
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", {
+      name: "Show Codex 1 usage details",
+    }),
+  ).toBeVisible()
 })

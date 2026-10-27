@@ -924,7 +924,7 @@
 }
 .ai-usage-provider-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: calc(8px * var(--ai-usage-scale));
   block-size: calc(34px * var(--ai-usage-scale));
   flex: none;
@@ -933,7 +933,7 @@
   inline-size: calc(20px * var(--ai-usage-scale));
   block-size: calc(20px * var(--ai-usage-scale));
   flex: none;
-  align-self: flex-start;
+  align-self: center;
 }
 .ai-usage-provider-head h3 {
   font-size: calc(18px * var(--ai-usage-scale));
@@ -3887,54 +3887,64 @@ html[data-repaint="instant"]
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+.ai-usage-detail-view {
+  block-size: 100%;
+  min-block-size: 0;
+}
 .ai-usage-details {
-  --ai-usage-scale: 1;
+  --ai-usage-scale: clamp(1, calc(100cqh / 480px), 1.6);
   box-sizing: border-box;
-  inline-size: min(560px, calc(100vw - 24px));
-  max-block-size: calc(100dvh - 24px);
-  margin: auto;
-  padding: 20px;
-  border: 1px solid var(--fg-dim);
-  border-radius: 16px;
-  background: var(--bg);
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
   color: var(--fg);
   overflow: auto;
-}
-.ai-usage-details {
   touch-action: none;
   overscroll-behavior: contain;
-}
-.ai-usage-details::backdrop {
-  background: rgb(0 0 0 / 65%);
 }
 .ai-usage-details-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: clamp(16px, 3cqh, 32px);
+  padding-block-end: 16px;
 }
 .ai-usage-details header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  background: var(--surface);
+  padding-block-end: 12px;
+}
+.ai-usage-details-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-inline-size: 0;
 }
 .ai-usage-details h2 {
-  flex: 1;
   margin: 0;
-  font-size: 22px;
+  font-size: clamp(22px, 4cqmin, 40px);
+  overflow-wrap: anywhere;
 }
-.ai-usage-details header button {
-  min-block-size: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--fg-dim);
-  border-radius: 8px;
-  background: var(--color-surface-sunken);
-  color: var(--fg);
-  font: inherit;
-  cursor: pointer;
+.ai-usage-details-title .ai-usage-provider-icon {
+  align-self: center;
+  inline-size: clamp(24px, 4cqmin, 40px);
+  block-size: clamp(24px, 4cqmin, 40px);
+}
+.platform .ai-usage-back {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-inline-size: 48px;
+  min-block-size: 48px;
+  padding: 6px;
 }
 .ai-usage-details .ai-usage-window {
   block-size: auto;
-  min-block-size: 76px;
+  min-block-size: calc(86px * var(--ai-usage-scale));
   padding: 0;
 }
 .ai-usage-details .ai-usage-window-label {

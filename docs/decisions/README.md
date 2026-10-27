@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-27: Subscription details open in place with all reported limits](2026-10-27-subscription-details-open-in-place-with-all-reported-limits.md)
+
 - [2026-10-26: A list scrolls on the Presto over a picture drawn ahead](2026-10-26-a-list-scrolls-on-the-presto-over-a-picture-drawn-ahead.md)
 
 - [2026-10-26: The camera alert streams directly and lasts while a person is detected](2026-10-26-the-camera-alert-streams-directly-and-lasts-while-a-person-is-detected.md)

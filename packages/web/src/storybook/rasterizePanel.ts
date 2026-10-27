@@ -1,8 +1,14 @@
-import { domToCanvas } from "modern-screenshot"
+import {
+  createContext,
+  destroyContext,
+  domToCanvas,
+  domToForeignObjectSvg,
+} from "modern-screenshot"
 import {
   installPanelFonts,
   loadPanelFontFaceDataUriCss,
 } from "./panelFontFaceCss.ts"
+import { renderFontReadySvg } from "./renderFontReadySvg.ts"
 
 /**
  * Turn a live panel DOM node into the native-resolution RGBA pixels the
@@ -57,11 +63,36 @@ export const rasterizePanel = async ({
   // rasterizer lay the clone out in a larger box than the node and pin the
   // content top-left, so the render comes back with a white margin down the
   // right and bottom. Deriving the size from the node's own box avoids that.
-  const supersampledCanvas = await domToCanvas(node, {
+  const renderContext = await createContext<Node>(node, {
     scale: supersampleFactor,
     backgroundColor: "#ffffff",
-    font: { cssText: fontEmbedCss },
+    font: false,
   })
+  let supersampledCanvas: HTMLCanvasElement
+  try {
+    const svg = await domToForeignObjectSvg(renderContext)
+    if (renderContext.fontFamilies.size === 0) {
+      // Image-only panels have no glyphs to verify. Keep their original render
+      // path instead of embedding four unused fonts into every comparison image.
+      renderContext.node = svg
+      supersampledCanvas = await domToCanvas(renderContext)
+    } else {
+      const fontStyle = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "style",
+      )
+      fontStyle.textContent = fontEmbedCss
+      svg.prepend(fontStyle)
+      supersampledCanvas = await renderFontReadySvg({
+        svg,
+        context: renderContext,
+        width,
+        height,
+      })
+    }
+  } finally {
+    destroyContext(renderContext)
+  }
 
   const nativeCanvas = document.createElement("canvas")
   nativeCanvas.width = width

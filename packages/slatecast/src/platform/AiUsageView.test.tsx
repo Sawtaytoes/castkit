@@ -71,12 +71,14 @@ const usageWithSpentSession = buildUsage(90)
  */
 const renderInPanel = ({
   data = usage,
+  detailData,
   panelHeight,
   panelWidth = 414,
   repaint,
   settings,
 }: {
   data?: Parameters<typeof AiUsageView>[0]["data"]
+  detailData?: Parameters<typeof AiUsageView>[0]["data"]
   panelHeight: number
   panelWidth?: number
   repaint: "instant" | "slow" | "super-slow"
@@ -94,6 +96,7 @@ const renderInPanel = ({
   ).mockReturnValue(panelWidth)
   const panel = (
     currentData: Parameters<typeof AiUsageView>[0]["data"],
+    currentDetailData = detailData,
   ) => (
     <DisplayPropertiesContext.Provider
       value={{
@@ -105,6 +108,7 @@ const renderInPanel = ({
       <div class="platform-panel">
         <AiUsageView
           data={currentData}
+          detailData={currentDetailData}
           now={now}
           settings={settings}
         />
@@ -118,7 +122,11 @@ const renderInPanel = ({
       currentData: Parameters<
         typeof AiUsageView
       >[0]["data"],
-    ) => rendered.rerender(panel(currentData)),
+      currentDetailData = detailData,
+    ) =>
+      rendered.rerender(
+        panel(currentData, currentDetailData),
+      ),
   }
 }
 
@@ -220,7 +228,7 @@ test("a panel too short for one whole row still names the closest to spent", asy
     }),
   )
   expect(
-    screen.getByRole("dialog", {
+    screen.getByRole("region", {
       name: "Codex usage details",
     }),
   ).toBeVisible()
@@ -385,7 +393,7 @@ const detailedUsage = {
   })),
 }
 
-test("clicking a provider reveals every limit and reset, then restores focus on close", async () => {
+test("clicking a provider reveals every limit and reset, then returns to the overview with focus", async () => {
   const user = userEvent.setup()
   renderInPanel({
     data: detailedUsage,
@@ -397,7 +405,7 @@ test("clicking a provider reveals every limit and reset, then restores focus on 
   })
   await user.click(trigger)
   const details = within(
-    screen.getByRole("dialog", {
+    screen.getByRole("region", {
       name: "Claude usage details",
     }),
   )
@@ -408,22 +416,32 @@ test("clicking a provider reveals every limit and reset, then restores focus on 
   expect(details.getAllByText(/^Resets /)).toHaveLength(3)
   await user.click(
     details.getByRole("button", {
-      name: "Close usage details",
+      name: "Back to AI usage",
     }),
   )
-  expect(screen.queryByRole("dialog")).toBeNull()
-  expect(trigger).toHaveFocus()
+  expect(
+    screen.queryByRole("region", { name: /usage details/ }),
+  ).toBeNull()
+  expect(
+    screen.getByRole("button", {
+      name: "Show Claude usage details",
+    }),
+  ).toHaveFocus()
   await user.keyboard("{Enter}")
-  expect(screen.getByRole("dialog")).toBeVisible()
+  expect(
+    screen.getByRole("region", { name: /usage details/ }),
+  ).toBeVisible()
   await user.keyboard("{Escape}")
-  expect(screen.queryByRole("dialog")).toBeNull()
+  expect(
+    screen.queryByRole("region", { name: /usage details/ }),
+  ).toBeNull()
   await user.click(
     screen.getByRole("button", {
       name: "Show Codex usage details",
     }),
   )
   const codex = within(
-    screen.getByRole("dialog", {
+    screen.getByRole("region", {
       name: "Codex usage details",
     }),
   )
@@ -433,7 +451,7 @@ test("clicking a provider reveals every limit and reset, then restores focus on 
   expect(codex.getAllByText(/^Resets /)).toHaveLength(2)
 })
 
-test("details read updated data and close if the account disappears", async () => {
+test("details read updated data and return if the account disappears", async () => {
   const user = userEvent.setup()
   const rendered = renderInPanel({
     data: detailedUsage,
@@ -462,7 +480,9 @@ test("details read updated data and close if the account disappears", async () =
       },
     ],
   })
-  const details = within(screen.getByRole("dialog"))
+  const details = within(
+    screen.getByRole("region", { name: /usage details/ }),
+  )
   expect(
     details.getByText("Additional quota"),
   ).toBeVisible()
@@ -477,7 +497,9 @@ test("details read updated data and close if the account disappears", async () =
   ).toBeVisible()
   expect(details.getByText("Sign-in expired")).toBeVisible()
   rendered.rerenderData({ providers: [] })
-  expect(screen.queryByRole("dialog")).toBeNull()
+  expect(
+    screen.queryByRole("region", { name: /usage details/ }),
+  ).toBeNull()
 })
 
 test("a display without touch keeps the static summary", () => {
@@ -490,5 +512,61 @@ test("a display without touch keeps the static summary", () => {
   )
   expect(
     screen.queryByRole("button", { name: /usage details/ }),
+  ).toBeNull()
+})
+
+test("subscription details update independently of summary filters and close on account exclusion", async () => {
+  const user = userEvent.setup()
+  const summary = {
+    providers: detailedUsage.providers.map((provider) => ({
+      ...provider,
+      windows: provider.windows
+        .filter((window) => window.periodHours === 168)
+        .slice(0, 1),
+    })),
+  }
+  const rendered = renderInPanel({
+    data: summary,
+    detailData: detailedUsage,
+    panelHeight: 900,
+    repaint: "instant",
+  })
+  await user.click(
+    screen.getByRole("button", {
+      name: "Show Claude usage details",
+    }),
+  )
+  expect(
+    within(
+      screen.getByRole("region", {
+        name: "Claude usage details",
+      }),
+    ).getByText("Weekly Fable"),
+  ).toBeVisible()
+  rendered.rerenderData(summary, {
+    providers: detailedUsage.providers.map((provider) => ({
+      ...provider,
+      windows: provider.windows.map((window) => ({
+        ...window,
+        percentUsed: 41,
+      })),
+    })),
+  })
+  expect(
+    within(
+      screen.getByRole("region", {
+        name: "Claude usage details",
+      }),
+    ).getAllByText("59%"),
+  ).toHaveLength(3)
+  rendered.rerenderData(summary, {
+    providers: detailedUsage.providers.filter(
+      (provider) => provider.id !== "claude",
+    ),
+  })
+  expect(
+    screen.queryByRole("region", {
+      name: "Claude usage details",
+    }),
   ).toBeNull()
 })

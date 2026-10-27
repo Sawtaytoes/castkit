@@ -75,6 +75,11 @@ export const IdleDashboard = ({
       navigation.navigate(update, id !== undefined)
     else update()
   }
+  useLayoutEffect(() => {
+    if (navigation?.isDetailFocused === false) {
+      setSelectedKidId(undefined)
+    }
+  }, [navigation?.isDetailFocused])
   const release = useRef(navigation?.release)
   release.current = navigation?.release
   useLayoutEffect(() => () => release.current?.(), [])

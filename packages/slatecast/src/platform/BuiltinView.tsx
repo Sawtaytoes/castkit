@@ -120,6 +120,7 @@ const PhotosView = ({
 /** Built-in views consume typed channel values without knowing their source adapter. */
 export const BuiltinView = ({
   panel,
+  aiUsageDetails,
   data,
   weather,
   snapshots,
@@ -128,6 +129,7 @@ export const BuiltinView = ({
   onAction,
 }: {
   panel: ViewPanel
+  aiUsageDetails?: ContractData["ai-usage.v1"]
   data: unknown
   /** The optional `weather` binding the clock and agenda faces carry. */
   weather?: ContractData["weather.v1"]
@@ -358,6 +360,7 @@ export const BuiltinView = ({
     case "ai-usage":
       return (
         <AiUsageView
+          detailData={aiUsageDetails}
           data={data as ContractData["ai-usage.v1"]}
           now={now}
           settings={panel.settings}

@@ -1,17 +1,21 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { compactClockTime } from "@castkit/shared/compactClockTime"
 import {
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
 } from "preact/hooks"
 import { getDateTimeFormatter } from "../formatters.ts"
+import { ICON_PATHS, Icon } from "../Icon.tsx"
 import { AiUsageProviderIcon } from "./AiUsageProviderIcon.tsx"
 import { placeSections } from "./aiUsageLayout.ts"
 import {
   readAlertPercent,
   selectProviderRows,
 } from "./aiUsageRows.ts"
+import { CompositionNavigation } from "./CompositionNavigation.ts"
+import { useCompositionVisibility } from "./CompositionVisibility.ts"
 import { useDisplayProperties } from "./displayProperties.ts"
 
 type AiUsageData = ContractData["ai-usage.v1"]
@@ -200,13 +204,13 @@ const UsageRow = ({
 const ProviderDetails = ({
   provider,
   now,
-  onClose,
+  onBack,
 }: {
-  provider: UsageProvider | undefined
+  provider: UsageProvider
   now: number
-  onClose: () => void
+  onBack: () => void
 }) => {
-  const dialog = useRef<HTMLDialogElement>(null)
+  const backButton = useRef<HTMLButtonElement>(null)
   const contact = useRef<{
     pointerId: number
     startY: number
@@ -215,21 +219,13 @@ const ProviderDetails = ({
   const hasDragged = useRef(false)
   const properties = useDisplayProperties()
   useLayoutEffect(() => {
-    const element = dialog.current
-    if (!element) {
-      return
-    }
-    if (provider && !element.open) {
-      element.showModal()
-    } else if (!provider && element.open) {
-      element.close()
-    }
-  }, [provider])
+    backButton.current?.focus({ preventScroll: true })
+  }, [])
   return (
-    <dialog
-      ref={dialog}
+    <section
       class="ai-usage-details"
-      data-castkit-target={`scroll:ai-usage:${provider?.id ?? "closed"}`}
+      aria-label={`${provider.name} usage details`}
+      data-castkit-target={`scroll:ai-usage:${provider.id}`}
       data-castkit-scroll="true"
       onPointerDown={(event) => {
         event.stopPropagation()
@@ -272,93 +268,68 @@ const ProviderDetails = ({
         hasDragged.current = true
         contact.current = undefined
       }}
-      aria-label={
-        provider
-          ? `${provider.name} usage details`
-          : undefined
-      }
       onKeyDown={(event) => {
         hasDragged.current = false
         if (event.key === "Escape") {
           event.preventDefault()
-          onClose()
-        }
-      }}
-      onCancel={(event) => {
-        event.preventDefault()
-        onClose()
-      }}
-      onClose={() => {
-        if (!dialog.current?.open) {
-          onClose()
-        }
-      }}
-      onClick={(event) => {
-        if (
-          !hasDragged.current &&
-          event.target === event.currentTarget
-        ) {
-          const bounds =
-            event.currentTarget.getBoundingClientRect()
-          if (
-            event.clientX < bounds.left ||
-            event.clientX > bounds.right ||
-            event.clientY < bounds.top ||
-            event.clientY > bounds.bottom
-          ) {
-            onClose()
-          }
+          onBack()
         }
       }}
     >
-      {provider ? (
-        <div class="ai-usage-details-content">
-          <header>
+      <div class="ai-usage-details-content">
+        <header>
+          <button
+            ref={backButton}
+            class="ai-usage-back"
+            type="button"
+            aria-label="Back to AI usage"
+            data-castkit-target={`ai-usage-back:${provider.id}`}
+            onClick={() => {
+              if (!hasDragged.current) {
+                onBack()
+              }
+            }}
+          >
+            <Icon
+              path={ICON_PATHS.chevronLeft}
+              size="32px"
+            />
+          </button>
+          <div class="ai-usage-details-title">
             <AiUsageProviderIcon providerId={provider.id} />
             <h2>{provider.name}</h2>
-            <button
-              type="button"
-              onClick={() => {
-                if (!hasDragged.current) {
-                  onClose()
-                }
-              }}
-              aria-label="Close usage details"
-            >
-              Close
-            </button>
-          </header>
-          {!provider.isOk ? (
-            <p class="ai-usage-problem">
-              {provider.problemText ?? "Unavailable"}
-            </p>
-          ) : null}
-          {provider.isCached ? (
-            <p class="ai-usage-status">Last known usage</p>
-          ) : null}
-          <p class="ai-usage-status">
-            Percentages show remaining quota.
+          </div>
+        </header>
+        {!provider.isOk ? (
+          <p class="ai-usage-problem">
+            {provider.problemText ?? "Unavailable"}
           </p>
-          {provider.windows.length === 0 ? (
-            <p>No usage limits reported.</p>
-          ) : null}
-          {provider.windows.map((usageWindow) => (
-            <UsageRow
-              key={usageWindow.id}
-              usageWindow={usageWindow}
-              isEscalated={false}
-              hasLabel
-              hasResetFallback
-              now={now}
-              hasRelativeTimes={properties.hasRelativeTimes}
-              hasUsageDetail={properties.isValueFresh(
-                USAGE_LIFETIME_MILLISECONDS,
-              )}
-            />
-          ))}
-        </div>
-      ) : null}
-    </dialog>
+        ) : null}
+        {provider.isCached ? (
+          <p class="ai-usage-status">Last known usage</p>
+        ) : null}
+        <p class="ai-usage-status">
+          Percentages show remaining quota.
+        </p>
+        {provider.windows.length === 0 ? (
+          <p>No usage limits reported.</p>
+        ) : null}
+        {provider.windows.map((usageWindow) => (
+          <UsageRow
+            key={usageWindow.id}
+            usageWindow={usageWindow}
+            isEscalated={false}
+            hasLabel
+            hasResetFallback
+            now={now}
+            hasRelativeTimes={properties.hasRelativeTimes}
+            hasUsageDetail={properties.isValueFresh(
+              USAGE_LIFETIME_MILLISECONDS,
+            )}
+          />
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -372,20 +343,75 @@ const ProviderDetails = ({
  */
 export const AiUsageView = ({
   data,
+  detailData,
   now,
   settings,
 }: {
   data: AiUsageData
+  detailData?: AiUsageData
   now: number
   settings?: Record<string, unknown>
 }) => {
   const properties = useDisplayProperties()
+  const element = useRef<HTMLDivElement>(null)
   const [selectedProviderId, setSelectedProviderId] =
     useState<string>()
-  const selectedProvider = data.providers.find(
-    (provider) => provider.id === selectedProviderId,
-  )
-  const element = useRef<HTMLDivElement>(null)
+  const selectedProvider = properties.isInteractive
+    ? (detailData ?? data).providers.find(
+        (provider) => provider.id === selectedProviderId,
+      )
+    : undefined
+  const navigation = useContext(CompositionNavigation)
+  const releaseFocus = useRef(navigation?.release)
+  releaseFocus.current = navigation?.release
+  const isVisible = useCompositionVisibility()
+  const lastSelectedId = useRef<string>()
+  const selectProvider = (id: string | undefined) => {
+    lastSelectedId.current = id ?? selectedProviderId
+    const update = () => setSelectedProviderId(id)
+    if (navigation) {
+      navigation.navigate(update, id !== undefined)
+    } else {
+      update()
+    }
+  }
+  useLayoutEffect(() => {
+    if (!selectedProvider) {
+      releaseFocus.current?.()
+      if (selectedProviderId) {
+        setSelectedProviderId(undefined)
+      }
+      if (lastSelectedId.current) {
+        Array.from(
+          element.current?.querySelectorAll<HTMLButtonElement>(
+            ".ai-usage-provider-trigger",
+          ) ?? [],
+        )
+          .find(
+            (button) =>
+              button.dataset.providerId ===
+              lastSelectedId.current,
+          )
+          ?.focus({ preventScroll: true })
+        lastSelectedId.current = undefined
+      }
+    }
+  }, [selectedProvider?.id])
+  useLayoutEffect(() => {
+    if (
+      navigation?.isDetailFocused === false &&
+      selectedProviderId
+    ) {
+      lastSelectedId.current = undefined
+      setSelectedProviderId(undefined)
+    }
+  }, [navigation?.isDetailFocused])
+  useLayoutEffect(() => () => releaseFocus.current?.(), [])
+  useLayoutEffect(() => {
+    if (!isVisible) {
+      setSelectedProviderId(undefined)
+    }
+  }, [isVisible])
   const [contentBox, setContentBox] = useState({
     width: 0,
     height: 0,
@@ -413,6 +439,23 @@ export const AiUsageView = ({
     observer.observe(panel)
     return () => observer.disconnect()
   }, [])
+  if (selectedProvider) {
+    return (
+      <div
+        ref={element}
+        class="ai-usage ai-usage-detail-view"
+        data-color-mode={
+          properties.properties?.colorMode ?? "full"
+        }
+      >
+        <ProviderDetails
+          provider={selectedProvider}
+          now={now}
+          onBack={() => selectProvider(undefined)}
+        />
+      </div>
+    )
+  }
   if (data.providers.length === 0) {
     return (
       <div class="platform-empty">
@@ -490,9 +533,9 @@ export const AiUsageView = ({
                     type="button"
                     class="ai-usage-provider-trigger"
                     aria-label={`Show ${provider.name} usage details`}
-                    aria-haspopup="dialog"
+                    data-provider-id={provider.id}
                     onClick={() =>
-                      setSelectedProviderId(provider.id)
+                      selectProvider(provider.id)
                     }
                   />
                 ) : null}
@@ -551,11 +594,9 @@ export const AiUsageView = ({
               type="button"
               class="ai-usage-provider-trigger"
               aria-label={`Show ${mostSpentWindow.provider.name} usage details`}
-              aria-haspopup="dialog"
+              data-provider-id={mostSpentWindow.provider.id}
               onClick={() =>
-                setSelectedProviderId(
-                  mostSpentWindow.provider.id,
-                )
+                selectProvider(mostSpentWindow.provider.id)
               }
             />
           ) : null}
@@ -566,15 +607,6 @@ export const AiUsageView = ({
             : `${remainingPercent(mostSpentWindow.usageWindow)}%`}
         </p>
       ) : null}
-      <ProviderDetails
-        provider={
-          properties.isInteractive
-            ? selectedProvider
-            : undefined
-        }
-        now={now}
-        onClose={() => setSelectedProviderId(undefined)}
-      />
       {hiddenRowCount > 0 && !isEmpty ? (
         <p class="ai-usage-more">
           {hiddenRowCount} more{" "}

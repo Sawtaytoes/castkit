@@ -1,4 +1,5 @@
 import { expect, test } from "vitest"
+import type { ContractData } from "./contracts.ts"
 import { selectPanelData } from "./panelSelection.ts"
 
 const usage = {
@@ -194,4 +195,49 @@ test("excluded active bays do not keep the rip panel active", () => {
       data,
     }),
   ).toEqual(data)
+})
+
+test("usage details retain quiet and unmeasured windows while honoring account selection", () => {
+  const data: ContractData["ai-usage.v1"] = {
+    providers: usage.providers.map((provider) => ({
+      ...provider,
+      windows: [
+        ...provider.windows,
+        {
+          id: "credits",
+          label: "Credits",
+          usedText: "1,234 credits",
+        },
+        {
+          id: "usage_limit_resets",
+          label: "Usage limit resets",
+          usedText: "2 available",
+        },
+      ],
+    })),
+  }
+  const details = selectPanelData({
+    specId: "ai-usage",
+    settings: {
+      ...settings,
+      isWindowSelectionEnabled: true,
+      windowIds: ["account:weekly"],
+    },
+    data,
+    isSummary: false,
+  }) as typeof data
+  expect(
+    details.providers.map((provider) => provider.id),
+  ).toEqual(["account", "zero"])
+  expect(
+    details.providers[0]?.windows.map(
+      (window) => window.id,
+    ),
+  ).toEqual([
+    "session",
+    "weekly",
+    "scoped",
+    "credits",
+    "usage_limit_resets",
+  ])
 })

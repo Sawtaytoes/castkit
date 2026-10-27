@@ -54,6 +54,14 @@ export const Panel = ({
     ...panel,
     data: source?.data,
   })
+  const aiUsageDetails =
+    panel.specId === "ai-usage"
+      ? (selectPanelData({
+          ...panel,
+          data: source?.data,
+          isSummary: false,
+        }) as ContractData["ai-usage.v1"] | undefined)
+      : undefined
   const title =
     typeof panel.settings.title === "string" &&
     panel.settings.title
@@ -344,6 +352,7 @@ export const Panel = ({
           />
         ) : (
           <BuiltinView
+            aiUsageDetails={aiUsageDetails}
             panel={panel}
             data={selectedData}
             snapshots={

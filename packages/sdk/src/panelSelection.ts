@@ -56,13 +56,15 @@ const selectQuota = (
   return selected ? [selected] : []
 }
 
-/** Apply a component's saved item selection without changing its shared source channel. */
+/** Apply saved summary selection, or retain subscription detail windows within selected accounts. */
 export const selectPanelData = ({
   specId,
   settings,
   data,
+  isSummary = true,
 }: Pick<ViewPanel, "specId" | "settings"> & {
   data: unknown
+  isSummary?: boolean
 }) => {
   if (data === null || data === undefined) {
     return data
@@ -115,24 +117,27 @@ export const selectPanelData = ({
         )
         .map((provider) => ({
           ...provider,
-          windows: selectQuota(
-            provider.windows.filter((window) =>
-              includesItem({
+          windows: !isSummary
+            ? provider.windows
+            : selectQuota(
+                provider.windows.filter((window) =>
+                  includesItem({
+                    settings,
+                    enabledKey: "isWindowSelectionEnabled",
+                    selectionKey: "windowIds",
+                    id: `${provider.id}:${window.id}`,
+                  }),
+                ),
                 settings,
-                enabledKey: "isWindowSelectionEnabled",
-                selectionKey: "windowIds",
-                id: `${provider.id}:${window.id}`,
-              }),
-            ),
-            settings,
-          ).filter(
-            (window) =>
-              settings.isPositiveUsageOnly !== true ||
-              (window.percentUsed ?? 0) > 0,
-          ),
+              ).filter(
+                (window) =>
+                  settings.isPositiveUsageOnly !== true ||
+                  (window.percentUsed ?? 0) > 0,
+              ),
         }))
         .filter(
           (provider) =>
+            !isSummary ||
             settings.isPositiveUsageOnly !== true ||
             provider.windows.length > 0,
         ),

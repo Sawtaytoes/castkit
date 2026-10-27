@@ -18,6 +18,36 @@ controls. State the specific limitation when computer use is required.
 This preference does not grant new access, widen credentials or permissions,
 replace a more specific service route, or remove required visual verification.
 
+## Test owned apps locally with Playwright
+
+When an owned app can run locally, start its development or test server and use
+its documented Playwright workflow to reproduce and verify UI changes. Do this
+before opening the deployed application through Computer Use or a collaborative
+browser. A production PIN or sign-in screen is not a UI test and is not a reason
+to ask the owner to unlock the app: use the local harness's documented fixture
+credentials and exercise the actual changed state. Keep production authentication
+and access controls intact.
+
+Read production data through the supported authenticated API when needed, then
+reproduce its relevant structure with anonymized fixtures locally. Match the
+saved view settings, item filters, composition, and display dimensions that can
+change the behavior; a standalone component with different defaults is not
+sufficient evidence. Capture and inspect the changed state with Playwright.
+Reserve Computer Use for a specific visual or UI-only requirement the local
+workflow cannot satisfy, and state that limitation. Deployment verification still
+checks the live build and any required physical display behavior.
+
+CastKit's real-server harness is `e2e/testServer.ts`; `pnpm e2e` starts it and
+runs Playwright in all four named windows. It provides fixture views, test MQTT
+publishing, and known test PINs. Reproduce saved panel settings and combined
+layouts there, including filtering before a detail view. Install this repo's
+pinned Chromium into a writable repo-specific temporary browser directory when
+needed; do not change Playwright versions to match the container image.
+`pnpm check:preview-fonts` checks the rasterized preview in four windows,
+including the photo comparison stories, a CPU-throttled comparison, delayed
+font paint and explicit failure paths. It starts a local Vite server and
+verifies the first published canvas pixels.
+
 Guidelines for AI agents working on **CastKit** — a self-hostable home display
 platform. **One app, one view vocabulary.** A display's output depends on that
 display's **properties**: color depth, dithering pattern, size, orientation,
