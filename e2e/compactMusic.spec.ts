@@ -1,10 +1,101 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
 import { buildMusicPlayer } from "../packages/slatecast/src/__fixtures__/buildMusicPlayer.ts"
+
+async function expectSettledOverview(
+  page: Page,
+  panelCount: number,
+) {
+  await expect
+    .poll(() =>
+      page.evaluate(async (expectedCount) => {
+        await document.fonts.ready
+        const readPanels = () =>
+          Array.from(
+            document.querySelectorAll(".platform-panel"),
+          )
+            .filter((panel) => panel.checkVisibility())
+            .map((panel) => ({
+              spec: panel.getAttribute("data-spec"),
+              bounds: panel
+                .getBoundingClientRect()
+                .toJSON() as {
+                left: number
+                right: number
+                top: number
+                bottom: number
+              },
+            }))
+        const before = readPanels()
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => resolve()),
+          ),
+        )
+        const after = readPanels()
+        const errors: string[] = []
+        if (after.length !== expectedCount)
+          errors.push(
+            `Expected ${expectedCount} panels, got ${after.length}`,
+          )
+        if (
+          JSON.stringify(before) !== JSON.stringify(after)
+        )
+          errors.push("Panel bounds are still moving")
+        if (
+          document
+            .getAnimations()
+            .some(
+              (animation) =>
+                animation.playState === "running" &&
+                Number.isFinite(
+                  animation.effect?.getComputedTiming()
+                    .endTime,
+                ),
+            )
+        )
+          errors.push("A finite animation is still running")
+        for (const [index, panel] of after.entries()) {
+          const bounds = panel.bounds
+          if (
+            bounds.left < -1 ||
+            bounds.top < -1 ||
+            bounds.right > innerWidth + 1 ||
+            bounds.bottom > innerHeight + 1
+          )
+            errors.push(
+              `${panel.spec} is outside the viewport`,
+            )
+          for (const other of after.slice(index + 1)) {
+            if (
+              Math.min(bounds.right, other.bounds.right) -
+                Math.max(bounds.left, other.bounds.left) >
+                1 &&
+              Math.min(bounds.bottom, other.bounds.bottom) -
+                Math.max(bounds.top, other.bounds.top) >
+                1
+            )
+              errors.push(
+                `${panel.spec} overlaps ${other.spec}`,
+              )
+          }
+        }
+        return errors
+      }, panelCount),
+    )
+    .toEqual([])
+}
 
 // Mirror the saved adaptive desk composition and item selections with invented data.
 test("desk music expands to its queue, returns, and retains a paused track", async ({
   page,
 }, testInfo) => {
+  // All projects assert geometry; one canonical project writes shared evidence.
+  const capture = async (name: string) => {
+    if (testInfo.project.name === "chromium-narrow")
+      await page.screenshot({
+        path: `__screenshots__/compact-music/${name}.png`,
+      })
+  }
   await page.route(
     "**/api/display/view/compact-desk/media/**",
     (route) =>
@@ -207,9 +298,8 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
   await expect(
     page.getByText("Desk stand", { exact: true }),
   ).toBeVisible()
-  await page.screenshot({
-    path: "__screenshots__/compact-music/before.png",
-  })
+  await expectSettledOverview(page, 3)
+  await capture("before")
   await page.setViewportSize(originalViewport)
   expect(
     (
@@ -262,9 +352,8 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
       name: "Open full music player and queue",
     }),
   ).toBeVisible()
-  await page.screenshot({
-    path: "__screenshots__/compact-music/busy.png",
-  })
+  await expectSettledOverview(page, 4)
+  await capture("busy")
   await page
     .getByRole("button", {
       name: "Open full music player and queue",
@@ -286,9 +375,7 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
         ),
     )
     .toBeGreaterThan(900)
-  await page.screenshot({
-    path: "__screenshots__/compact-music/full.png",
-  })
+  await capture("full")
   await request.post("/__test__/mqtt", {
     data: {
       topic: "castkit/channels/compact-music/set",
@@ -335,9 +422,8 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
   await expect(
     page.getByText("Sky", { exact: true }),
   ).toBeVisible()
-  await page.screenshot({
-    path: "__screenshots__/compact-music/idle.png",
-  })
+  await expectSettledOverview(page, 3)
+  await capture("idle")
   const publishes = await (
     await request.get("/__test__/published")
   ).json()
@@ -380,9 +466,8 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
         }),
     )
     .toBe(true)
-  await page.screenshot({
-    path: "__screenshots__/compact-music/spare-queue.png",
-  })
+  await expectSettledOverview(page, 3)
+  await capture("spare-queue")
   await request.post("/__test__/mqtt", {
     data: {
       topic: "castkit/channels/compact-music/set",
