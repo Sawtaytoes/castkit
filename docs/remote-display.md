@@ -152,3 +152,31 @@ shows an offline marker and suppresses touch until a fresh full frame arrives.
 The live preview remains available through the same `/screen.jpg` and
 `/screen.mjpeg` routes; it is the captured frame, not an optical measurement of
 panel timing.
+
+### Scroll window
+
+Firmware with a scroll window (`esphome-presto` #8) moves a list on the board
+itself. It reports `scroll=<rows>` on `Display Codecs` and provides the
+`scroll_chunk`, `scroll_show`, and `scroll_hide` actions. The worker then:
+
+1. Finds the first list marked `data-castkit-scroll` that overflows and lies
+   wholly on the glass.
+2. Draws the whole list as one picture when the page has been still for half a
+   second. It steps the list's `scrollTop`, captures each band, and puts the
+   list back. The window is the list's padding box snapped inward to the board's
+   8-row grid, at full panel width.
+3. Uploads the picture between live frames, then shows the window when the
+   panel's rows already are the picture at the list's offset.
+4. Hides the window before any frame that differs under it, before a frame
+   drawn ahead at a swipe, and before camera frames.
+5. Moves the page's list to the board's offset on `scroll_at`, and on any press
+   on the window, so a tap lands on what the panel shows.
+
+A stitch is refused, with its reason in the health JSON's `scroll.refusal`, when
+something covers the list (`covered`), plays inside it (`live`), changes while it
+is drawn (`changed`, `images`), does not move as one piece (`overlap`, a sticky
+header), or when a column beside the list differs down the window rows
+(`edges`): the window is full width, so those columns scroll with the picture.
+A list too tall for the board's picture is `too_tall`. Firmware without the
+actions keeps the old path, where every drag step is a frame. The design is in
+[the decision](decisions/2026-10-26-a-list-scrolls-on-the-presto-over-a-picture-drawn-ahead.md).

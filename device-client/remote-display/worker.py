@@ -17,7 +17,12 @@ import yaml
 from aioesphomeapi import APIClient, TextSensorState
 from ambient_light import artwork_bounds
 from camera_frames import CameraFrameFeed
-from codec import encode_frame, presto_frame_pixels, presto_frame_pixels_with_palette
+from codec import (
+    encode_frame,
+    presto_frame_pixels,
+    presto_frame_pixels_and_rgb,
+    presto_frame_pixels_with_palette,
+)
 from esphome_presto import SLOT_COUNT, ESPHomePrestoTransport
 from interaction import FrameGuard, Target
 from manifest import parse_manifest, same_origin_url
@@ -25,11 +30,12 @@ from playwright.async_api import Error as BrowserError
 from playwright.async_api import async_playwright
 from presto_transport import FrameSupersededError, PrestoTransport, SlotUnavailableError
 from preview import PreviewServer, validate_preview_port
+from scroll_window import SCROLL_STATE_SCRIPT, TOUCH_TAKEN, TOUCH_WINDOW, ScrollWindow, decode_rgb
 from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v30b-jpeg-error-scope"
+BUILD_MARKER = "castkit-remote-display-v31-scroll-window"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -238,6 +244,11 @@ class DisplaySession:
         self.camera_targets_at = 0
         self.camera_sent = 0
         self.camera_started = 0
+        # A list that scrolls on the board itself (scroll_window.py). Its stitch moves the
+        # page's list, so it and touch handling take the page in turn.
+        self.page_lock = asyncio.Lock()
+        self.pending_input = None
+        self.scroll = ScrollWindow(self)
 
     def state_changed(self, state):
         if not isinstance(state, TextSensorState) or state.key != self.event_key:
@@ -256,6 +267,10 @@ class DisplaySession:
                     self.is_reset_required = True
                     self.queued_touch = None
                 self.touches.put_nowait(parts)
+            elif parts[0] == "scroll_at" and len(parts) == 3:
+                # In order with the touches: the page follows before the next press.
+                if not self.touches.full():
+                    self.touches.put_nowait(parts)
             elif parts[0] == "error":
                 if parts[1] == "device-restarted":
                     self.last_sequence = 0
@@ -292,14 +307,14 @@ class DisplaySession:
         self.queued_touch = None
         if event is None:
             event = await self.touches.get()
-        if int(event[2]) != 1:
+        if event[0] != "touch" or int(event[2]) != 1:
             return event
         origin = self.contact or {"x": int(event[3]), "y": int(event[4])}
         direction_x = int(event[3]) - origin["x"]
         direction_y = int(event[4]) - origin["y"]
         while not self.touches.empty():
             candidate = self.touches.get_nowait()
-            if int(candidate[2]) != 1:
+            if candidate[0] != "touch" or int(candidate[2]) != 1:
                 self.queued_touch = candidate
                 break
             dx = int(candidate[3]) - int(event[3])
@@ -340,155 +355,187 @@ class DisplaySession:
     async def process_input(self):
         while True:
             event = await self.next_touch()
-            sequence, phase, x, y = map(int, event[1:5])
-            shown_frame = int(event[6])
-            if self.is_reset_required:
-                await self.cancel_contact()
-                self.is_reset_required = False
-            if sequence <= self.last_sequence or phase not in (0, 1, 2):
-                continue
-            self.last_sequence = sequence
-            if phase == 0:
-                await self.cancel_contact()
-                # A new contact needs live feedback more than a still view.
-                self.release_hold = None
-                current = await self.page.evaluate(
-                    HIT_SCRIPT, {"x": x, "y": y, "attribute": self.target_attribute}
-                )
-                identity = self.guard.match(shown_frame, x, y, current)
-                if identity is None:
-                    self.processed_touch = sequence
-                    self.force_frame.set()
-                    continue
-                self.contact = {
-                    "identity": identity,
-                    "x": x,
-                    "y": y,
-                    "start_x": x,
-                    "start_y": y,
-                    "started": time.monotonic(),
-                    "is_gesture": False,
-                    "is_native_active": False,
-                    "is_slider_drag": await self.page.evaluate(SLIDER_HIT_SCRIPT, {"x": x, "y": y}),
-                    "is_scroll_drag": await self.page.evaluate(SCROLL_HIT_SCRIPT, {"x": x, "y": y}),
-                    # The page's last request before this contact; a different
-                    # one at release was made by this contact.
-                    "navigation": await self.read_navigation(),
-                }
-            elif self.contact is None:
-                # ESPHome replays its retained sensor value after reconnect.
-                self.processed_touch = sequence
-                self.force_frame.set()
-                continue
-            if phase == 2:
-                x, y = self.contact["x"], self.contact["y"]
-            if (
-                phase == 1
-                and not self.contact["is_gesture"]
-                and not self.contact.get("is_scroll_drag", False)
-                and not self.contact.get("is_slider_drag", False)
-                and not self.contact["identity"].startswith("navigation-edge:")
-                and max(abs(y - self.contact["start_y"]), abs(x - self.contact["start_x"])) >= 48
-                and (
-                    self.contact["identity"] != "now-playing-artwork"
-                    or abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
-                )
-            ):
-                if self.contact["is_native_active"]:
-                    await self.send_cdp(
-                        "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
-                    )
-                self.contact["is_native_active"] = False
-                self.contact["is_gesture"] = True
-                await self.page.evaluate(
-                    """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
-                    {"x": self.contact["start_x"], "y": self.contact["start_y"]},
-                )
-            if self.contact["is_gesture"]:
-                if phase == 2:
-                    navigation = await self.page.evaluate(GESTURE_RELEASE_SCRIPT, {"x": x, "y": y})
-                    contact, self.contact = self.contact, None
-                    await self.release_swipe(sequence, contact, navigation)
-                else:
-                    await self.page.evaluate(
-                        """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointermove', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
-                        {"x": x, "y": y},
-                    )
-                    self.contact.update(x=x, y=y)
-                self.processed_touch = sequence
-                self.force_frame.set()
-                continue
+            # The scroll window's stitch moves the page's list; a touch waits for it to
+            # put the list back, and asks it to stop early.
+            self.pending_input = event
+            try:
+                async with self.page_lock:
+                    await self.handle_touch(event)
+            finally:
+                self.pending_input = None
+
+    async def handle_touch(self, event):
+        if event[0] == "scroll_at":
+            # The board's own scroll came to rest: the page follows it.
+            await self.scroll.board_scrolled(int(event[1]), int(event[2]))
+            return
+        sequence, phase, x, y, flags = map(int, event[1:6])
+        shown_frame = int(event[6])
+        window_offset = int(event[7])
+        if self.is_reset_required:
+            await self.cancel_contact()
+            self.is_reset_required = False
+        if sequence <= self.last_sequence or phase not in (0, 1, 2):
+            return
+        self.last_sequence = sequence
+        if flags & TOUCH_TAKEN:
+            # The board moves the list under this contact itself, and reports where it
+            # rests. The page gives the contact up: no tap, no swipe.
+            await self.cancel_contact()
+            await self.scroll.board_took(window_offset)
+            self.processed_touch = sequence
+            self.force_frame.set()
+            return
+        if phase == 0 and flags & TOUCH_WINDOW:
+            # Hit-test against the list where the panel shows it.
+            await self.scroll.sync_press(window_offset)
+        if phase == 0:
+            await self.cancel_contact()
+            # A new contact needs live feedback more than a still view.
+            self.release_hold = None
             current = await self.page.evaluate(
                 HIT_SCRIPT, {"x": x, "y": y, "attribute": self.target_attribute}
             )
-            if time.monotonic() - self.contact["started"] > 5:
-                await self.cancel_contact()
+            identity = self.guard.match(shown_frame, x, y, current)
+            if identity is None:
                 self.processed_touch = sequence
                 self.force_frame.set()
-                continue
-            # Artwork captures its pointer: a horizontal drag can legitimately
-            # leave its rectangle and must still receive the release. Other
-            # controls retain the cross-control cancellation guard.
-            is_artwork_drag = self.contact["identity"] == "now-playing-artwork" and abs(
-                x - self.contact["start_x"]
-            ) > abs(y - self.contact["start_y"])
-            # Shell edges capture their pointer above native and external views.
-            # Their acknowledged starting hitbox owns the whole inward pull.
-            is_navigation_drag = self.contact["identity"].startswith("navigation-edge:")
-            is_scroll_drag = self.contact.get("is_scroll_drag", False)
-            # Sliders capture the original contact. Travel past 48 px or
-            # outside the track stays an adjustment, never view navigation.
-            is_slider_drag = self.contact.get("is_slider_drag", False)
-            if (
-                phase == 1
-                and current != self.contact["identity"]
-                and not is_artwork_drag
-                and not is_navigation_drag
-                and not is_scroll_drag
-                and not is_slider_drag
-            ):
-                # Cancel the tap but keep sampling the finger: it may cross a
-                # small control before travelling far enough to commit a swipe.
-                if self.contact["is_native_active"]:
-                    await self.send_cdp(
-                        "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
-                    )
-                self.contact.update(x=x, y=y, is_tap_cancelled=True, is_native_active=False)
-                self.processed_touch = sequence
-                self.force_frame.set()
-                continue
-            if self.contact.get("is_tap_cancelled") or (
-                current != self.contact["identity"]
-                and not is_artwork_drag
-                and not is_navigation_drag
-                and not is_scroll_drag
-                and not is_slider_drag
-            ):
-                if phase == 2:
-                    await self.cancel_contact()
-                else:
-                    self.contact.update(x=x, y=y)
-                self.processed_touch = sequence
-                self.force_frame.set()
-                continue
-            await self.send_cdp(
-                "Input.dispatchTouchEvent",
-                {
-                    "type": ("touchStart", "touchMove", "touchEnd")[phase],
-                    "touchPoints": [] if phase == 2 else [{"x": x, "y": y, "id": 0}],
-                },
-            )
-            if phase == 2:
-                contact, self.contact = self.contact, None
-                # A native contact asks for a view too: a pull from a shell edge
-                # (the top, bottom, and right strips), or a drag that began on a
-                # scroll list or the artwork. The page handled the release inside
-                # the touchEnd dispatch.
-                await self.release_swipe(sequence, contact)
-            else:
-                self.contact.update(x=x, y=y, is_native_active=True)
+                return
+            self.contact = {
+                "identity": identity,
+                "x": x,
+                "y": y,
+                "start_x": x,
+                "start_y": y,
+                "started": time.monotonic(),
+                "is_gesture": False,
+                "is_native_active": False,
+                "is_slider_drag": await self.page.evaluate(SLIDER_HIT_SCRIPT, {"x": x, "y": y}),
+                "is_scroll_drag": await self.page.evaluate(SCROLL_HIT_SCRIPT, {"x": x, "y": y}),
+                # The page's last request before this contact; a different
+                # one at release was made by this contact.
+                "navigation": await self.read_navigation(),
+            }
+        elif self.contact is None:
+            # ESPHome replays its retained sensor value after reconnect.
             self.processed_touch = sequence
             self.force_frame.set()
+            return
+        if phase == 2:
+            x, y = self.contact["x"], self.contact["y"]
+        if (
+            phase == 1
+            and not self.contact["is_gesture"]
+            and not self.contact.get("is_scroll_drag", False)
+            and not self.contact.get("is_slider_drag", False)
+            and not self.contact["identity"].startswith("navigation-edge:")
+            and max(abs(y - self.contact["start_y"]), abs(x - self.contact["start_x"])) >= 48
+            and (
+                self.contact["identity"] != "now-playing-artwork"
+                or abs(y - self.contact["start_y"]) > abs(x - self.contact["start_x"])
+            )
+        ):
+            if self.contact["is_native_active"]:
+                await self.send_cdp(
+                    "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
+                )
+            self.contact["is_native_active"] = False
+            self.contact["is_gesture"] = True
+            await self.page.evaluate(
+                """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
+                {"x": self.contact["start_x"], "y": self.contact["start_y"]},
+            )
+        if self.contact["is_gesture"]:
+            if phase == 2:
+                navigation = await self.page.evaluate(GESTURE_RELEASE_SCRIPT, {"x": x, "y": y})
+                contact, self.contact = self.contact, None
+                await self.release_swipe(sequence, contact, navigation)
+            else:
+                await self.page.evaluate(
+                    """({x,y}) => document.querySelector('.stage')?.dispatchEvent(new PointerEvent('pointermove', {bubbles:true,pointerId:1,clientX:x,clientY:y}))""",
+                    {"x": x, "y": y},
+                )
+                self.contact.update(x=x, y=y)
+            self.processed_touch = sequence
+            self.force_frame.set()
+            return
+        current = await self.page.evaluate(
+            HIT_SCRIPT, {"x": x, "y": y, "attribute": self.target_attribute}
+        )
+        if time.monotonic() - self.contact["started"] > 5:
+            await self.cancel_contact()
+            self.processed_touch = sequence
+            self.force_frame.set()
+            return
+        # Artwork captures its pointer: a horizontal drag can legitimately
+        # leave its rectangle and must still receive the release. Other
+        # controls retain the cross-control cancellation guard.
+        is_artwork_drag = self.contact["identity"] == "now-playing-artwork" and abs(
+            x - self.contact["start_x"]
+        ) > abs(y - self.contact["start_y"])
+        # Shell edges capture their pointer above native and external views.
+        # Their acknowledged starting hitbox owns the whole inward pull.
+        is_navigation_drag = self.contact["identity"].startswith("navigation-edge:")
+        is_scroll_drag = self.contact.get("is_scroll_drag", False)
+        # Sliders capture the original contact. Travel past 48 px or
+        # outside the track stays an adjustment, never view navigation.
+        is_slider_drag = self.contact.get("is_slider_drag", False)
+        if (
+            phase == 1
+            and current != self.contact["identity"]
+            and not is_artwork_drag
+            and not is_navigation_drag
+            and not is_scroll_drag
+            and not is_slider_drag
+        ):
+            # Cancel the tap but keep sampling the finger: it may cross a
+            # small control before travelling far enough to commit a swipe.
+            if self.contact["is_native_active"]:
+                await self.send_cdp(
+                    "Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []}
+                )
+            self.contact.update(x=x, y=y, is_tap_cancelled=True, is_native_active=False)
+            self.processed_touch = sequence
+            self.force_frame.set()
+            return
+        if self.contact.get("is_tap_cancelled") or (
+            current != self.contact["identity"]
+            and not is_artwork_drag
+            and not is_navigation_drag
+            and not is_scroll_drag
+            and not is_slider_drag
+        ):
+            if phase == 2:
+                await self.cancel_contact()
+            else:
+                self.contact.update(x=x, y=y)
+            self.processed_touch = sequence
+            self.force_frame.set()
+            return
+        await self.send_cdp(
+            "Input.dispatchTouchEvent",
+            {
+                "type": ("touchStart", "touchMove", "touchEnd")[phase],
+                "touchPoints": [] if phase == 2 else [{"x": x, "y": y, "id": 0}],
+            },
+        )
+        if phase == 2:
+            contact, self.contact = self.contact, None
+            # A native contact asks for a view too: a pull from a shell edge
+            # (the top, bottom, and right strips), or a drag that began on a
+            # scroll list or the artwork. The page handled the release inside
+            # the touchEnd dispatch.
+            await self.release_swipe(sequence, contact)
+        else:
+            self.contact.update(x=x, y=y, is_native_active=True)
+        self.processed_touch = sequence
+        self.force_frame.set()
+
+    async def read_targets(self):
+        return await asyncio.wait_for(
+            self.page.evaluate(TARGETS_SCRIPT, self.target_options),
+            timeout=BROWSER_TIMEOUT_SECONDS,
+        )
 
     async def read_navigation(self):
         if self.feed is None or not isinstance(self.client, PrestoTransport):
@@ -556,7 +603,9 @@ class DisplaySession:
                         slot = None
                 if response is None:
                     # No fresh slot: the frame drawn ahead still beats waiting for
-                    # the page to build the view and be captured.
+                    # the page to build the view and be captured. A patch leaves a
+                    # scroll window in place, so it goes first.
+                    await self.scroll.hide()
                     self.frame_id += 1
                     frame_id = self.frame_id
                     response = await self.client.send_frame(frame_id, touch_id, frame["pixels"])
@@ -736,6 +785,8 @@ class DisplaySession:
             # The page takes the glass back from the next capture.
             self.force_frame.set()
             return
+        # Camera frames are patches drawn under any scroll window.
+        await self.scroll.hide()
         resolved = same_origin_url(self.config["manifest_url"], url)
         cookies = await self.page.context.cookies([resolved])
         viewport = self.config.get("viewport", {"width": 480, "height": 320})
@@ -948,6 +999,8 @@ class DisplaySession:
                         page_state.get("loadingMarker"),
                         page_state.get("hasPendingImages", False),
                     )
+                self.scroll.observe(page_state)
+                is_scroll_enabled = self.scroll.is_enabled()
                 # An image panel costs about half a second to show any frame, so
                 # a loading state on the glass both looks broken and delays the
                 # finished view behind it. Keep the last complete view instead.
@@ -1028,6 +1081,15 @@ class DisplaySession:
                             timeout=BROWSER_TIMEOUT_SECONDS,
                         )
                     )["isSettled"]
+                    # Where the list marked to scroll is, for the scroll window.
+                    scroll_state = (
+                        await asyncio.wait_for(
+                            self.page.evaluate(SCROLL_STATE_SCRIPT, self.scroll.options()),
+                            timeout=BROWSER_TIMEOUT_SECONDS,
+                        )
+                        if is_scroll_enabled
+                        else None
+                    )
                 except BrowserError as error:
                     if not is_navigation_error(error):
                         raise
@@ -1055,11 +1117,17 @@ class DisplaySession:
                     and self.client.ambient_light["on"]
                     and self.client.ambient_light["mode"] in ("album-glow", "swipe-comet")
                 )
+                # The capture's RGB, kept only to compare it with the scroll picture.
+                rgb = None
                 if needs_palette:
                     payload, colors = await asyncio.to_thread(
                         presto_frame_pixels_with_palette, png, artwork_bounds(after)
                     )
                     self.client.set_ambient_palette(colors)
+                    if scroll_state is not None:
+                        rgb = await asyncio.to_thread(decode_rgb, png)
+                elif scroll_state is not None:
+                    payload, rgb = await asyncio.to_thread(presto_frame_pixels_and_rgb, png)
                 else:
                     payload = (
                         await asyncio.to_thread(presto_frame_pixels, png)
@@ -1079,6 +1147,9 @@ class DisplaySession:
                     and touch_id == self.previous_touch == self.shown_release_touch
                     and payload == self.previous_payload
                 )
+                if is_scroll_enabled:
+                    # A patch is drawn under a shown window; one that differs there hides it.
+                    await self.scroll.before_frame(rgb, scroll_state)
                 if (
                     payload != self.previous_payload
                     # Captured gestures with no visual change need no extra
@@ -1127,6 +1198,8 @@ class DisplaySession:
                             int(response[6]) / 1000,
                         )
                         self.last_report = time.monotonic()
+                if is_scroll_enabled:
+                    await self.scroll.after_frame(rgb, scroll_state, page_state, payload)
                 await self.wait_for_cycle(cycle)
         finally:
             self.page.remove_listener("framenavigated", self.document_changed)
@@ -1136,6 +1209,7 @@ class DisplaySession:
             for task in background:
                 task.cancel()
             await asyncio.gather(*background, return_exceptions=True)
+            await self.scroll.close()
             await self.set_camera(None)
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self.cancel_contact(), timeout=BROWSER_TIMEOUT_SECONDS)

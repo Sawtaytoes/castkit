@@ -55,6 +55,19 @@ SLOT_ACK_SECONDS = 10
 SHOWN_SLOT_DEFER_SECONDS = 3
 # A slot show is a pointer swap acknowledged within tens of milliseconds.
 SHOW_RECHECK_SECONDS = 0.5
+# Firmware with a scroll window names these three actions and reports `scroll=<rows>` on
+# "Display Codecs": the picture's capacity in rows. A board without them sends every
+# drag to this worker, as before.
+SCROLL_ACTIONS = frozenset({"scroll_chunk", "scroll_show", "scroll_hide"})
+# The board decodes the picture between live frames; a full one is a few megabytes.
+SCROLL_ACK_SECONDS = 30
+SCROLL_SHOW_SECONDS = 2
+# The touch report flags (esphome-presto `TouchFlags`).
+TOUCH_WINDOW = 2
+
+
+def hidden_window():
+    return {"is_shown": False, "frame_id": 0, "top": 0, "bottom": 0, "offset": 0, "shown_at": 0}
 
 
 class FrameRejectedError(ValueError):
@@ -62,7 +75,7 @@ class FrameRejectedError(ValueError):
 
 
 class ESPHomePrestoTransport(PrestoTransport):
-    transport_build = "castkit-esphome-presto-v2-frame-slots"
+    transport_build = "castkit-esphome-presto-v3-scroll-window"
 
     def __init__(self, config, key):
         super().__init__(config, key)
@@ -91,6 +104,20 @@ class ESPHomePrestoTransport(PrestoTransport):
         # slot -> {"view", "key", "frame_id", "pixels", "targets"}: what the board holds.
         self.slots = {}
         self.slot_pending = None
+        # The board takes one upload at a time; a slot and the scroll picture share it.
+        self.upload_lock = asyncio.Lock()
+        # The scroll window: actions present, the picture's capacity in rows, the picture
+        # the board holds ({"frame_id", "pixels", "rows"}), and the window as last reported
+        # or requested. A window that may be shown counts as shown.
+        self.has_scroll_actions = False
+        self.scroll_capacity = 0
+        self.scroll_picture = None
+        self.scroll_pending = None
+        self.scroll_upload = None
+        self.window = hidden_window()
+        self.window_pending = None
+        # Written by the session's ScrollWindow.
+        self.scroll_stats = None
         # A reconnect drops every slot; an upload begun before it must not record one.
         self.slot_epoch = 0
         self.live = None
@@ -148,6 +175,11 @@ class ESPHomePrestoTransport(PrestoTransport):
         self.slots = {}
         self.shown_slot = None
         self.slot_epoch += 1
+        # drop_slots empties the scroll picture too; Display Codecs reports its capacity.
+        self.has_scroll_actions = self.has_slots and self.actions.keys() >= SCROLL_ACTIONS
+        self.scroll_capacity = 0
+        self.scroll_picture = None
+        self.window = hidden_window()
         if self.has_slots:
             # Nothing the board kept from an earlier session is known to this one.
             await self.api.execute_service(self.actions["drop_slots"], {})
@@ -164,12 +196,24 @@ class ESPHomePrestoTransport(PrestoTransport):
         if not isinstance(state, TextSensorState):
             return
         if self.codecs_key is not None and state.key == self.codecs_key:
-            self.has_jpeg = "jpeg" in state.state.split(",") and self.jpeg_refusal is None
+            codecs = state.state.split(",")
+            self.has_jpeg = "jpeg" in codecs and self.jpeg_refusal is None
+            self.scroll_capacity = next(
+                (
+                    int(codec[7:])
+                    for codec in codecs
+                    if codec.startswith("scroll=") and codec[7:].isdigit()
+                ),
+                0,
+            )
             return
         parts = state.state.split(",")
         if state.key == self.slot_event_key and state.key != self.event_key:
             if parts[0] == "slot":
                 self.slot_event(parts)
+            elif parts[0] in ("scroll", "scroll_window", "scroll_at"):
+                with contextlib.suppress(ValueError):
+                    self.scroll_event(parts, state.state)
             return
         if state.key != self.event_key:
             return
@@ -221,6 +265,8 @@ class ESPHomePrestoTransport(PrestoTransport):
             except ValueError:
                 return
             self.confirm_shown_frame(shown)
+            with contextlib.suppress(ValueError):
+                self.window_touched(int(parts[5]), int(parts[7]))
             self.effects.touch_event(phase, x, y)
             if len(self.touch_received_at) >= 128:
                 self.touch_received_at.clear()
@@ -244,6 +290,160 @@ class ESPHomePrestoTransport(PrestoTransport):
         slot, frame_id, future = self.slot_pending
         if parts[1:3] == [str(slot), str(frame_id)] and not future.done():
             future.set_result(parts[3])
+
+    @property
+    def has_scroll(self):
+        return self.has_scroll_actions and self.scroll_capacity > 0
+
+    def scroll_event(self, parts, value):
+        """`scroll,<frame>,<status>`, `scroll_window,<frame>,<status>,<top>,<bottom>,<offset>`
+        and `scroll_at,<frame>,<offset>`, all on Display Slot Events."""
+        if parts[0] == "scroll" and len(parts) == 3:
+            pending = self.scroll_pending
+            if pending is not None and parts[1] == str(pending[0]) and not pending[1].done():
+                pending[1].set_result(parts[2])
+        elif parts[0] == "scroll_window" and len(parts) == 6:
+            frame_id, status = int(parts[1]), parts[2]
+            if frame_id and status == "0":
+                top, bottom, offset = map(int, parts[3:6])
+                self.window = {
+                    **self.window,
+                    "is_shown": True,
+                    "frame_id": frame_id,
+                    "top": top,
+                    "bottom": bottom,
+                    "offset": offset,
+                }
+            elif (
+                self.window_pending is None
+                or self.window_pending[1].done()
+                or self.window_pending[0] == frame_id
+            ):
+                # A hide, or a refusal of the show that is waiting. A hide that crosses a
+                # show still in flight is older than it and is left to the show's answer.
+                self.window = hidden_window()
+                if frame_id and status == "4":
+                    # The board holds no such picture.
+                    self.scroll_picture = None
+            pending = self.window_pending
+            if pending is not None and pending[0] == frame_id and not pending[1].done():
+                pending[1].set_result(status)
+        elif parts[0] == "scroll_at" and len(parts) == 3:
+            frame_id, offset = int(parts[1]), int(parts[2])
+            if self.window["is_shown"] and self.window["frame_id"] == frame_id:
+                self.window = {**self.window, "offset": offset}
+            # In order with the touches, which the session reads from the same queue.
+            self.report(value)
+
+    def window_touched(self, flags, offset):
+        """Every touch report says whether a window is shown and where."""
+        if flags & TOUCH_WINDOW:
+            if self.window["is_shown"]:
+                self.window = {**self.window, "offset": offset}
+        elif (
+            self.window["is_shown"]
+            and self.window_pending is None
+            and time.monotonic() - self.window["shown_at"] > 1
+        ):
+            # The board hid it (a full frame, a slot) and its report was replaced.
+            self.window = hidden_window()
+
+    async def show_scroll(self, frame_id, top, bottom, offset):
+        """Show the window over the picture `frame_id`; returns the board's status, or
+        None when no answer came (the window then counts as shown)."""
+        future = asyncio.get_running_loop().create_future()
+        self.window_pending = (frame_id, future)
+        self.window = {
+            "is_shown": True,
+            "frame_id": frame_id,
+            "top": top,
+            "bottom": bottom,
+            "offset": offset,
+            "shown_at": time.monotonic(),
+        }
+        try:
+            await self.api.execute_service(
+                self.actions["scroll_show"],
+                {"frame_id": frame_id, "top": top, "bottom": bottom, "scroll_y": offset},
+            )
+            try:
+                return await asyncio.wait_for(future, timeout=SCROLL_SHOW_SECONDS)
+            except TimeoutError:
+                return None
+        finally:
+            self.window_pending = None
+
+    async def hide_scroll(self):
+        """Hide the window. The board hides it before it draws anything sent after this."""
+        self.window = hidden_window()
+        await self.api.execute_service(self.actions["scroll_hide"], {})
+
+    async def upload_scroll(self, frame_id, pixels, rows, should_continue):
+        """Load the scroll picture, as a patch on the one the board holds when it can.
+
+        Like a slot: `should_continue` is asked before every chunk, and the board empties
+        the picture (and hides the window) at the first chunk, so a stopped upload leaves
+        no picture and the next one is whole.
+        """
+        async with self.upload_lock:
+            epoch = self.slot_epoch
+            held = self.scroll_picture
+            base_id, base_pixels = (
+                (held["frame_id"], held["pixels"])
+                if held is not None and held["rows"] == rows
+                else (0, None)
+            )
+            body, encoding, rectangle = await asyncio.to_thread(
+                encode_presto_patch, pixels, base_pixels, None, rows
+            )
+            packet = struct.pack(">IHHHHB", base_id, *rectangle, PATCH_CODECS[encoding]) + body
+            encoded = base64.b64encode(packet).decode("ascii")
+            future = asyncio.get_running_loop().create_future()
+            for offset in range(0, len(encoded), 4000):
+                if not should_continue() or epoch != self.slot_epoch:
+                    return False
+                is_final = offset + 4000 >= len(encoded)
+                if offset == 0:
+                    self.scroll_picture = None
+                    self.window = hidden_window()
+                if is_final:
+                    self.scroll_pending = (frame_id, future)
+                await self.api.execute_service(
+                    self.actions["scroll_chunk"],
+                    {
+                        "frame_id": frame_id,
+                        "format": 4,
+                        "offset": offset,
+                        "final_chunk": is_final,
+                        "image_data": encoded[offset : offset + 4000],
+                    },
+                )
+                await asyncio.sleep(0.003)
+            try:
+                status = await asyncio.wait_for(future, timeout=SCROLL_ACK_SECONDS)
+            finally:
+                self.scroll_pending = None
+            if status != "0" or epoch != self.slot_epoch:
+                return False
+            self.scroll_picture = {"frame_id": frame_id, "pixels": pixels, "rows": rows}
+            self.scroll_upload = {
+                "frame_id": frame_id,
+                "bytes": len(packet),
+                "encoding": encoding,
+                "rectangle": rectangle,
+            }
+            return True
+
+    def scroll_health(self):
+        return {
+            "has_scroll": self.has_scroll,
+            "capacity_rows": self.scroll_capacity,
+            "window": {key: value for key, value in self.window.items() if key != "shown_at"},
+            "picture_frame_id": self.scroll_picture["frame_id"] if self.scroll_picture else None,
+            "picture_rows": self.scroll_picture["rows"] if self.scroll_picture else None,
+            "last_upload": self.scroll_upload,
+            **(self.scroll_stats or {}),
+        }
 
     def confirm_shown_frame(self, shown):
         # Every board event shares one "Display Events" sensor, and ESPHome keeps only the
@@ -272,6 +472,8 @@ class ESPHomePrestoTransport(PrestoTransport):
         self.slots = {}
         self.shown_slot = None
         self.slot_epoch += 1
+        self.scroll_picture = None
+        self.window = hidden_window()
         await super().disconnect()
 
     async def controls_loop(self):
@@ -443,6 +645,9 @@ class ESPHomePrestoTransport(PrestoTransport):
                 raise TimeoutError(
                     f"Presto did not acknowledge frame {frame_id} ({len(packet)} bytes)"
                 ) from error
+            if packet[:4] == bytes(4):
+                # A full frame is a fresh start on the board: the window went with it.
+                self.window = hidden_window()
             self.base_id, self.base_pixels, self.base_layout = frame_id, raw, layout
             self.lossy_rectangle = lossy_after
             self.shown_slot = None
@@ -551,6 +756,8 @@ class ESPHomePrestoTransport(PrestoTransport):
                     )
             self.base_id, self.base_pixels = held["frame_id"], held["pixels"]
             self.base_layout = None
+            # A slot is a whole other view; the board hid the window for it.
+            self.window = hidden_window()
             # A slot holds exact pixels.
             self.lossy_rectangle = None
             self.shown_slot = (slot, time.monotonic())
@@ -588,6 +795,10 @@ class ESPHomePrestoTransport(PrestoTransport):
             self.pending = None
 
     async def upload_slot(self, slot, frame_id, frame, should_continue):
+        async with self.upload_lock:
+            return await self.upload_slot_unlocked(slot, frame_id, frame, should_continue)
+
+    async def upload_slot_unlocked(self, slot, frame_id, frame, should_continue):
         """Load `frame` into `slot` as a patch on what the slot holds.
 
         `should_continue` is asked before every chunk, so a live frame or a touch

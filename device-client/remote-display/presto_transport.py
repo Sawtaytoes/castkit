@@ -30,6 +30,8 @@ class PrestoTransport:
     # Firmware with frame slots holds swipe destinations on the board. The HTTP
     # receiver has none; ESPHomePrestoTransport turns them on when it finds them.
     has_slots = False
+    # Firmware with a scroll window moves a list on the board itself (esphome_presto.py).
+    has_scroll = False
 
     def __init__(self, config, token):
         if not isinstance(token, str) or len(token) < 32:
@@ -112,6 +114,9 @@ class PrestoTransport:
 
     def deferred_slots(self):
         return frozenset()
+
+    def scroll_health(self):
+        return None
 
     def report(self, value):
         if self.callback is not None:
@@ -382,6 +387,7 @@ class PrestoTransport:
                 "camera": self.camera,
                 "has_jpeg": getattr(self, "has_jpeg", False),
                 "jpeg_refusal": getattr(self, "jpeg_refusal", None),
+                "scroll": self.scroll_health(),
             }
         )
 
