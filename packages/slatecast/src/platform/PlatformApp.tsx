@@ -183,10 +183,17 @@ export const DisplayComposition = ({
     <CompositionNavigation.Provider
       key={key}
       value={{
+        isDetailFocused: focusedKey === key,
         navigate: (update, isDetailOpen) => {
           captureNavigation()
           update()
-          setFocusedKey(isDetailOpen ? key : undefined)
+          setFocusedKey((current) =>
+            isDetailOpen
+              ? key
+              : current === key
+                ? undefined
+                : current,
+          )
           setNavigationRevision((revision) => revision + 1)
         },
         release: () =>

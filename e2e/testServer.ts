@@ -367,6 +367,68 @@ export const startTestServer = async ({
       },
     ]),
   }))
+  platform.store.update((previous) => ({
+    ...previous,
+    views: previous.views.concat([
+      {
+        id: "usage-combined",
+        name: "Usage composition",
+        layout: "adaptive",
+        theme: "dark",
+        access: "public",
+        isControlEnabled: false,
+        panels: [
+          {
+            id: "usage",
+            specId: "ai-usage",
+            bindings: { data: "usage/fixture" },
+            settings: {
+              isProviderSelectionEnabled: true,
+              providerIds: ["claude", "codex"],
+              isWindowSelectionEnabled: true,
+              windowIds: [
+                "claude:weekly",
+                "claude:session",
+                "codex:weekly",
+              ],
+              isPositiveUsageOnly: true,
+              isAlertReplacementEnabled: true,
+              alertPercent: 80,
+            },
+          },
+          {
+            id: "clock",
+            specId: "clock",
+            bindings: {},
+            settings: {},
+          },
+        ],
+      },
+    ]),
+  }))
+  platform.store.update((previous) => ({
+    ...previous,
+    views: previous.views.concat([
+      {
+        id: "usage-multiple",
+        name: "Subscription navigation",
+        layout: "adaptive",
+        theme: "dark",
+        access: "public",
+        isControlEnabled: false,
+        panels: ["claude", "codex"].map((providerId) => ({
+          id: providerId,
+          specId: "ai-usage",
+          bindings: { data: "usage/fixture" },
+          settings: {
+            isProviderSelectionEnabled: true,
+            providerIds: [providerId],
+            isAlertReplacementEnabled: true,
+          },
+        })),
+      },
+    ]),
+  }))
   await platform.refresh()
   const deviceDefinitionStore = createDeviceDefinitionStore(
     {

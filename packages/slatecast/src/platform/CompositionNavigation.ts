@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef } from "preact/hooks"
 /** A view reports navigation; the composition owns priority, fit and motion. */
 export const CompositionNavigation = createContext<
   | {
+      isDetailFocused?: boolean
       navigate: (
         update: () => void,
         isDetailOpen: boolean,

@@ -398,10 +398,12 @@ test("AI usage details scroll through the Linux WebKit touch fallback", async ()
       name: "Show Claude usage details",
     }),
   )
-  const dialog = screen.getByRole("dialog")
-  dialog.style.cssText =
+  const details = screen.getByRole("region", {
+    name: "Claude usage details",
+  })
+  details.style.cssText =
     "height:160px;max-height:160px;overflow:auto"
-  const content = dialog.querySelector<HTMLElement>(
+  const content = details.querySelector<HTMLElement>(
     ".ai-usage-details-content",
   )
   if (!content)
@@ -423,7 +425,7 @@ test("AI usage details scroll through the Linux WebKit touch fallback", async ()
     clientY: 40,
     type: "touchend",
   })
-  expect(dialog.scrollTop).toBeGreaterThan(80)
-  expect(dialog).toBeVisible()
-  expect(dialog.dataset.castkitScroll).toBe("true")
+  expect(details.scrollTop).toBeGreaterThan(80)
+  expect(details).toBeVisible()
+  expect(details.dataset.castkitScroll).toBe("true")
 })
