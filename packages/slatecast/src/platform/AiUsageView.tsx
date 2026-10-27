@@ -207,6 +207,12 @@ const ProviderDetails = ({
   onClose: () => void
 }) => {
   const dialog = useRef<HTMLDialogElement>(null)
+  const contact = useRef<{
+    pointerId: number
+    startY: number
+    scrollTop: number
+  }>()
+  const hasDragged = useRef(false)
   const properties = useDisplayProperties()
   useLayoutEffect(() => {
     const element = dialog.current
@@ -223,12 +229,56 @@ const ProviderDetails = ({
     <dialog
       ref={dialog}
       class="ai-usage-details"
+      data-castkit-target={`scroll:ai-usage:${provider?.id ?? "closed"}`}
+      data-castkit-scroll="true"
+      onPointerDown={(event) => {
+        event.stopPropagation()
+        hasDragged.current = false
+        contact.current = {
+          pointerId: event.pointerId,
+          startY: event.clientY,
+          scrollTop: event.currentTarget.scrollTop,
+        }
+      }}
+      onPointerMove={(event) => {
+        event.stopPropagation()
+        if (
+          contact.current?.pointerId !== event.pointerId
+        ) {
+          return
+        }
+        if (
+          Math.abs(contact.current.startY - event.clientY) >
+          8
+        ) {
+          hasDragged.current = true
+          event.currentTarget.setPointerCapture(
+            event.pointerId,
+          )
+        }
+        if (hasDragged.current) {
+          event.currentTarget.scrollTop =
+            contact.current.scrollTop +
+            contact.current.startY -
+            event.clientY
+        }
+      }}
+      onPointerUp={(event) => {
+        event.stopPropagation()
+        contact.current = undefined
+      }}
+      onPointerCancel={(event) => {
+        event.stopPropagation()
+        hasDragged.current = true
+        contact.current = undefined
+      }}
       aria-label={
         provider
           ? `${provider.name} usage details`
           : undefined
       }
       onKeyDown={(event) => {
+        hasDragged.current = false
         if (event.key === "Escape") {
           event.preventDefault()
           onClose()
@@ -244,7 +294,10 @@ const ProviderDetails = ({
         }
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) {
+        if (
+          !hasDragged.current &&
+          event.target === event.currentTarget
+        ) {
           const bounds =
             event.currentTarget.getBoundingClientRect()
           if (
@@ -265,7 +318,11 @@ const ProviderDetails = ({
             <h2>{provider.name}</h2>
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                if (!hasDragged.current) {
+                  onClose()
+                }
+              }}
               aria-label="Close usage details"
             >
               Close

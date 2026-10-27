@@ -3900,6 +3900,10 @@ html[data-repaint="instant"]
   color: var(--fg);
   overflow: auto;
 }
+.ai-usage-details {
+  touch-action: none;
+  overscroll-behavior: contain;
+}
 .ai-usage-details::backdrop {
   background: rgb(0 0 0 / 65%);
 }

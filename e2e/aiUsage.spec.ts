@@ -159,3 +159,76 @@ test("AI usage details show all limits and resets without changing the overview"
     codex.getByText("80%", { exact: true }),
   ).toHaveCount(4)
 })
+
+test("a short image-display canvas can touch-scroll to the model-specific quota", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 480, height: 320 })
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/channels/usage/fixture/set",
+      payload: { providers },
+    },
+  })
+  await page.goto("/view/usage")
+  await page
+    .getByRole("button", {
+      name: "Show Claude usage details",
+    })
+    .click()
+  const dialog = page.getByRole("dialog", {
+    name: "Claude usage details",
+  })
+  const bounds = await dialog.boundingBox()
+  if (!bounds) throw new Error("Missing dialog bounds")
+  expect(
+    await dialog.evaluate(
+      (element) =>
+        element.scrollHeight > element.clientHeight,
+    ),
+  ).toBe(true)
+  const start = {
+    x: bounds.x + bounds.width / 2,
+    y: bounds.y + bounds.height - 40,
+  }
+  // This is the worker's scroll hit-test, followed by its native CDP touch path.
+  expect(
+    await page.evaluate(
+      ({ x, y }) =>
+        document
+          .elementFromPoint(x, y)
+          ?.closest("[data-castkit-scroll]")
+          ?.getAttribute("data-castkit-target"),
+      start,
+    ),
+  ).toBe("scroll:ai-usage:claude")
+  const session = await page.context().newCDPSession(page)
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [start],
+  })
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x: start.x, y: start.y - 45 }],
+  })
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x: start.x, y: start.y - 130 }],
+  })
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  })
+  await expect
+    .poll(() =>
+      dialog.evaluate((element) => element.scrollTop),
+    )
+    .toBeGreaterThan(60)
+  await expect(
+    dialog.getByText("Weekly Fable"),
+  ).toBeInViewport()
+  await expect(dialog).toBeVisible()
+  await expect(page).toHaveURL(/\/view\/usage$/)
+  await session.detach()
+})
