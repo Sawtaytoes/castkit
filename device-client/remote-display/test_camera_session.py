@@ -100,7 +100,7 @@ class CameraSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         sent = []
 
-        async def acknowledge(frame_id, touch_id, payload, prepared=None):
+        async def acknowledge(frame_id, touch_id, payload, prepared=None, is_motion=False):
             sent.append((payload, prepared))
             return ["frame", str(frame_id), str(touch_id), "0", "0", "10", "10"]
 

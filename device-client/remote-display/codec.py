@@ -99,8 +99,22 @@ def encode_rle(raw):
     return bytes(output)
 
 
-def encode_presto_patch(raw, previous=None):
-    """Choose a lossless patch relative to the last acknowledged frame."""
+def union_rectangle(first, second):
+    """The smallest (x, y, width, height) that covers both; None counts as empty."""
+    if first is None or second is None:
+        return first or second
+    left, top = min(first[0], second[0]), min(first[1], second[1])
+    right = max(first[0] + first[2], second[0] + second[2])
+    bottom = max(first[1] + first[3], second[1] + second[3])
+    return (left, top, right - left, bottom - top)
+
+
+def encode_presto_patch(raw, previous=None, include=None):
+    """Choose a lossless patch relative to the last acknowledged frame.
+
+    `include` is a rectangle the patch must cover even where the pixels did not
+    change: the board's pixels there only approximate `previous` after a JPEG.
+    """
     if len(raw) != 480 * 480 * 2:
         raise ValueError("The Presto frame must contain exactly 480x480 RGB565 pixels")
     pixels = np.frombuffer(raw, dtype="<u2").reshape(480, 480)
@@ -108,11 +122,11 @@ def encode_presto_patch(raw, previous=None):
     if previous is not None:
         changed = pixels != np.frombuffer(previous, dtype="<u2").reshape(480, 480)
         rows, columns = np.nonzero(changed)
+        changed_rectangle = None
         if len(rows):
             x, y = int(columns.min()), int(rows.min())
-            rectangle = (x, y, int(columns.max()) + 1 - x, int(rows.max()) + 1 - y)
-        else:
-            rectangle = (0, 0, 1, 1)
+            changed_rectangle = (x, y, int(columns.max()) + 1 - x, int(rows.max()) + 1 - y)
+        rectangle = union_rectangle(changed_rectangle, include) or (0, 0, 1, 1)
     x, y, width, height = rectangle
     patch = pixels[y : y + height, x : x + width].tobytes()
     compressed, rle = zlib.compress(patch, 6), encode_rle(patch)
@@ -123,3 +137,37 @@ def encode_presto_patch(raw, previous=None):
         if len(rle) <= len(compressed) + min(24000, len(patch) // 10)
         else (compressed, "zlib", rectangle)
     )
+
+
+# A motion frame lives a fraction of a second, so it can trade exact pixels for
+# bytes; the board's link carries most of a frame's time. Rectangles snap to the
+# 16-pixel MCU grid so a 4:2:0 JPEG never has a partial block at its edge.
+MOTION_JPEG_QUALITY = 75
+MOTION_JPEG_GRID = 16
+# The firmware refuses a larger JPEG body (`error,jpeg_too_large`).
+MOTION_JPEG_MAX_BYTES = 128 * 1024
+
+
+def motion_jpeg_rectangle(rectangle):
+    x, y, width, height = rectangle
+    left = x - x % MOTION_JPEG_GRID
+    top = y - y % MOTION_JPEG_GRID
+    right = min(480, -(-(x + width) // MOTION_JPEG_GRID) * MOTION_JPEG_GRID)
+    bottom = min(480, -(-(y + height) // MOTION_JPEG_GRID) * MOTION_JPEG_GRID)
+    return (left, top, right - left, bottom - top)
+
+
+def encode_presto_jpeg(raw, rectangle):
+    """Baseline JPEG of `rectangle` of a big-endian RGB565 Presto frame."""
+    x, y, width, height = rectangle
+    pixels = np.frombuffer(raw, dtype=">u2").reshape(480, 480)[y : y + height, x : x + width]
+    red, green, blue = (pixels >> 11) & 31, (pixels >> 5) & 63, pixels & 31
+    rgb = np.stack(
+        [(red << 3) | (red >> 2), (green << 2) | (green >> 4), (blue << 3) | (blue >> 2)],
+        axis=2,
+    ).astype(np.uint8)
+    buffer = io.BytesIO()
+    Image.fromarray(rgb, "RGB").save(
+        buffer, format="JPEG", quality=MOTION_JPEG_QUALITY, subsampling=2, progressive=False
+    )
+    return buffer.getvalue()

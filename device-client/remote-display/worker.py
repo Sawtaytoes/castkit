@@ -29,7 +29,7 @@ from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v28-jpeg-refusal-fallback"
+BUILD_MARKER = "castkit-remote-display-v29-motion-jpeg"
 BROWSER_TIMEOUT_SECONDS = 5
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
@@ -583,7 +583,14 @@ class DisplaySession:
                 self.release_hold = None
 
     async def send_frame(
-        self, payload, touch_id, targets, format_id=2, generation=None, prepared=None
+        self,
+        payload,
+        touch_id,
+        targets,
+        format_id=2,
+        generation=None,
+        prepared=None,
+        is_motion=False,
     ):
         self.frame_id += 1
         frame_id = self.frame_id
@@ -597,7 +604,9 @@ class DisplaySession:
                     response = (
                         await self.client.send_frame(frame_id, touch_id, payload, prepared)
                         if prepared is not None
-                        else await self.client.send_frame(frame_id, touch_id, payload)
+                        else await self.client.send_frame(
+                            frame_id, touch_id, payload, is_motion=is_motion
+                        )
                     )
                 finally:
                     self.last_live_activity = time.monotonic()
@@ -1051,8 +1060,14 @@ class DisplaySession:
                     or cycle - self.last_sent >= self.config["heartbeat_seconds"]
                 ):
                     try:
+                        # A finger on the glass: the frame is gone in a fraction of a
+                        # second, so it may travel as JPEG on a board that decodes one.
                         response = await self.send_frame(
-                            payload, touch_id, after, generation=generation
+                            payload,
+                            touch_id,
+                            after,
+                            generation=generation,
+                            is_motion=self.contact is not None,
                         )
                     except FrameSupersededError:
                         # A released swipe took the panel over; capture again.
