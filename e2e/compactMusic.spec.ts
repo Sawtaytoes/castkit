@@ -360,6 +360,26 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
       exact: true,
     }),
   ).toBeVisible()
+  await expect
+    .poll(() =>
+      page
+        .locator(".compact-music-queue")
+        .evaluate((queue) => {
+          const panel = queue.closest(
+            '[data-spec="music-player"]',
+          )
+          if (!panel) return false
+          const bounds = panel.getBoundingClientRect()
+          return Array.from(
+            queue.querySelectorAll(".compact-music-row"),
+          ).every(
+            (row) =>
+              row.getBoundingClientRect().bottom <=
+              bounds.bottom,
+          )
+        }),
+    )
+    .toBe(true)
   await page.screenshot({
     path: "__screenshots__/compact-music/spare-queue.png",
   })
