@@ -138,12 +138,16 @@ const UsageRow = ({
   now,
   hasRelativeTimes,
   hasUsageDetail,
+  hasLabel = isEscalated,
+  hasResetFallback = false,
 }: {
   usageWindow: UsageWindow
   isEscalated: boolean
   now: number
   hasRelativeTimes: boolean
   hasUsageDetail: boolean
+  hasLabel?: boolean
+  hasResetFallback?: boolean
 }) => {
   return (
     <div
@@ -151,7 +155,7 @@ const UsageRow = ({
       data-escalated={isEscalated ? "true" : "false"}
       data-intent={getWindowIntent(usageWindow.percentUsed)}
     >
-      {isEscalated ? (
+      {hasLabel ? (
         <div class="ai-usage-window-head">
           <span class="ai-usage-window-label">
             {usageWindow.label}
@@ -172,17 +176,132 @@ const UsageRow = ({
         {usageWindow.usedText ? (
           <span>{usageWindow.usedText}</span>
         ) : null}
-        {usageWindow.resetsAtMs === undefined ? null : (
+        {usageWindow.resetsAtMs === undefined ? (
+          hasResetFallback ? (
+            <span>Reset time unavailable</span>
+          ) : null
+        ) : (
           <span class="ai-usage-window-reset">
-            {formatResetAt({
-              resetsAtMs: usageWindow.resetsAtMs,
-              now,
-              hasRelativeTimes,
-            })}
+            {hasResetFallback
+              ? `Resets ${getDateTimeFormatter({ options: { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" } }).format(new Date(usageWindow.resetsAtMs))}`
+              : formatResetAt({
+                  resetsAtMs: usageWindow.resetsAtMs,
+                  now,
+                  hasRelativeTimes,
+                })}
           </span>
         )}
       </div>
     </div>
+  )
+}
+
+/** All reported limits stay available without changing the glanceable summary. */
+const ProviderDetails = ({
+  provider,
+  now,
+  onClose,
+}: {
+  provider: UsageProvider | undefined
+  now: number
+  onClose: () => void
+}) => {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const properties = useDisplayProperties()
+  useLayoutEffect(() => {
+    const element = dialog.current
+    if (!element) {
+      return
+    }
+    if (provider && !element.open) {
+      element.showModal()
+    } else if (!provider && element.open) {
+      element.close()
+    }
+  }, [provider])
+  return (
+    <dialog
+      ref={dialog}
+      class="ai-usage-details"
+      aria-label={
+        provider
+          ? `${provider.name} usage details`
+          : undefined
+      }
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault()
+          onClose()
+        }
+      }}
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
+      onClose={() => {
+        if (!dialog.current?.open) {
+          onClose()
+        }
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          const bounds =
+            event.currentTarget.getBoundingClientRect()
+          if (
+            event.clientX < bounds.left ||
+            event.clientX > bounds.right ||
+            event.clientY < bounds.top ||
+            event.clientY > bounds.bottom
+          ) {
+            onClose()
+          }
+        }
+      }}
+    >
+      {provider ? (
+        <div class="ai-usage-details-content">
+          <header>
+            <AiUsageProviderIcon providerId={provider.id} />
+            <h2>{provider.name}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close usage details"
+            >
+              Close
+            </button>
+          </header>
+          {!provider.isOk ? (
+            <p class="ai-usage-problem">
+              {provider.problemText ?? "Unavailable"}
+            </p>
+          ) : null}
+          {provider.isCached ? (
+            <p class="ai-usage-status">Last known usage</p>
+          ) : null}
+          <p class="ai-usage-status">
+            Percentages show remaining quota.
+          </p>
+          {provider.windows.length === 0 ? (
+            <p>No usage limits reported.</p>
+          ) : null}
+          {provider.windows.map((usageWindow) => (
+            <UsageRow
+              key={usageWindow.id}
+              usageWindow={usageWindow}
+              isEscalated={false}
+              hasLabel
+              hasResetFallback
+              now={now}
+              hasRelativeTimes={properties.hasRelativeTimes}
+              hasUsageDetail={properties.isValueFresh(
+                USAGE_LIFETIME_MILLISECONDS,
+              )}
+            />
+          ))}
+        </div>
+      ) : null}
+    </dialog>
   )
 }
 
@@ -204,6 +323,11 @@ export const AiUsageView = ({
   settings?: Record<string, unknown>
 }) => {
   const properties = useDisplayProperties()
+  const [selectedProviderId, setSelectedProviderId] =
+    useState<string>()
+  const selectedProvider = data.providers.find(
+    (provider) => provider.id === selectedProviderId,
+  )
   const element = useRef<HTMLDivElement>(null)
   const [contentBox, setContentBox] = useState({
     width: 0,
@@ -300,7 +424,21 @@ export const AiUsageView = ({
         {layout.columns.map((sections, columnIndex) => (
           <div class="ai-usage-column" key={columnIndex}>
             {sections.map(({ provider, rows }) => (
-              <section key={provider.id}>
+              <section
+                key={provider.id}
+                class="ai-usage-provider"
+              >
+                {properties.isInteractive ? (
+                  <button
+                    type="button"
+                    class="ai-usage-provider-trigger"
+                    aria-label={`Show ${provider.name} usage details`}
+                    aria-haspopup="dialog"
+                    onClick={() =>
+                      setSelectedProviderId(provider.id)
+                    }
+                  />
+                ) : null}
                 <div class="ai-usage-provider-head">
                   <AiUsageProviderIcon
                     providerId={provider.id}
@@ -350,7 +488,20 @@ export const AiUsageView = ({
          * A panel too short for one whole row still has something true to
          * say. The window closest to spent is the one worth the glass.
          */
-        <p class="ai-usage-compact">
+        <p class="ai-usage-compact ai-usage-provider">
+          {properties.isInteractive ? (
+            <button
+              type="button"
+              class="ai-usage-provider-trigger"
+              aria-label={`Show ${mostSpentWindow.provider.name} usage details`}
+              aria-haspopup="dialog"
+              onClick={() =>
+                setSelectedProviderId(
+                  mostSpentWindow.provider.id,
+                )
+              }
+            />
+          ) : null}
           {mostSpentWindow.provider.name}{" "}
           {mostSpentWindow.usageWindow.percentUsed ===
           undefined
@@ -358,6 +509,15 @@ export const AiUsageView = ({
             : `${remainingPercent(mostSpentWindow.usageWindow)}%`}
         </p>
       ) : null}
+      <ProviderDetails
+        provider={
+          properties.isInteractive
+            ? selectedProvider
+            : undefined
+        }
+        now={now}
+        onClose={() => setSelectedProviderId(undefined)}
+      />
       {hiddenRowCount > 0 && !isEmpty ? (
         <p class="ai-usage-more">
           {hiddenRowCount} more{" "}
