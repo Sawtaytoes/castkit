@@ -501,7 +501,7 @@ class ReleaseTests(unittest.IsolatedAsyncioTestCase):
                 "1",
             ]
 
-        async def send_frame(frame_id, touch_id, raw):
+        async def send_frame(frame_id, touch_id, raw, is_motion=False):
             self.sent.append(raw)
             return ["frame", str(frame_id), str(touch_id), "0", "0", "1", "1"]
 
@@ -650,7 +650,7 @@ class ReleaseTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.session.release_hold)
 
     async def test_a_destination_that_failed_to_show_is_not_held(self):
-        async def broken(frame_id, touch_id, raw):
+        async def broken(frame_id, touch_id, raw, is_motion=False):
             raise RuntimeError("link lost")
 
         self.transport.send_frame = broken

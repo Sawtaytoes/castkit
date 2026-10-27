@@ -385,7 +385,8 @@ class PrestoTransport:
             }
         )
 
-    async def send_frame(self, frame_id, touch_id, raw):
+    async def send_frame(self, frame_id, touch_id, raw, is_motion=False):
+        # The HTTP receiver has no JPEG decoder, so motion changes nothing here.
         preparation_started = time.monotonic()
         base_id, base_pixels = self.base_id, self.base_pixels
         patch = await asyncio.to_thread(encode_presto_patch, raw, base_pixels)
