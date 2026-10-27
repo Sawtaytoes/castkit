@@ -21,7 +21,9 @@ export const chooseFocusedCompositionLayout = ({
   )
   if (!focused) return undefined
   // A vertical detail needs the width of a small panel, plus its composition padding.
-  const detailWidth = 480 + (focused.insetWidth ?? 0)
+  const detailWidth =
+    (focused.focusMinimumWidth ?? 480) +
+    (focused.insetWidth ?? 0)
   const availableRailWidth = Math.min(
     360,
     width - detailWidth - gap,

@@ -1,4 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { buildMusicPlayer } from "../../__fixtures__/buildMusicPlayer.ts"
 import type { DisplaySnapshot } from "../protocol.ts"
 import { prioritySnapshot } from "./priorityComposition.ts"
 
@@ -7,10 +8,12 @@ export const pointsOverviewFixture = ({
   isBusy = false,
   isRunning = false,
   isRipOnly = false,
+  hasMusic = false,
 }: {
   isBusy?: boolean
   isRunning?: boolean
   isRipOnly?: boolean
+  hasMusic?: boolean
 } = {}): DisplaySnapshot => ({
   ...prioritySnapshot,
   view: {
@@ -19,6 +22,7 @@ export const pointsOverviewFixture = ({
     isActiveOnly: true,
     panels: [
       ...prioritySnapshot.view.panels,
+      ...(hasMusic ? [{ id: "music", specId: "music-player", bindings: { data: "music" }, settings: { presentation: "compact", priority: 0 } }] : []),
       {
         id: "rips",
         specId: "rip-deck",
@@ -40,6 +44,7 @@ export const pointsOverviewFixture = ({
   },
   channels: {
     ...prioritySnapshot.channels,
+    music: { id: "music", type: "music-player.v1", status: "ready", data: buildMusicPlayer({ nowMs: Date.now() }) },
     points: {
       id: "points",
       type: "kids-points.v1",

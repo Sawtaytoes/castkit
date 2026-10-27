@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { splitQueue } from "../views/musicPlayerModel.ts"
 import {
   readAlertPercent,
   selectProviderRows,
@@ -121,6 +122,41 @@ export const useCompositionLayout = ({
         return {
           key,
           isPrinter,
+          pointsCount:
+            panel.settings.isPersistentSummary === true &&
+            panel.settings.isCompactSummary !== true &&
+            panels.some(
+              (item) =>
+                item.panel.specId === "music-player" &&
+                item.panel.settings.presentation ===
+                  "compact",
+            )
+              ? points?.kids.length
+              : undefined,
+          queueRowCount:
+            panel.specId === "music-player"
+              ? splitQueue({
+                  items:
+                    (
+                      data[key] as
+                        | ContractData["music-player.v1"]
+                        | undefined
+                    )?.queue?.items ?? [],
+                  currentIndex: (
+                    data[key] as
+                      | ContractData["music-player.v1"]
+                      | undefined
+                  )?.queue?.currentIndex,
+                  playedRowCount: 0,
+                }).upcoming.length
+              : undefined,
+          isOptional:
+            panel.specId === "music-player" &&
+            panel.settings.presentation === "compact",
+          focusMinimumWidth:
+            panel.specId === "music-player"
+              ? 760
+              : undefined,
           summaryHeight:
             panel.settings.isCompactSummary === true
               ? (hasRunningActivity ? 112 : 72) +
@@ -134,7 +170,9 @@ export const useCompositionLayout = ({
               ? 3
               : panel.specId === "rip-deck"
                 ? 2
-                : 1,
+                : panel.specId === "music-player"
+                  ? 0
+                  : 1,
           aspectRatio: isPrinter
             ? image instanceof HTMLVideoElement &&
               image.videoWidth &&
@@ -156,7 +194,10 @@ export const useCompositionLayout = ({
             ? 0
             : panel.specId === "ai-usage"
               ? 104
-              : 180,
+              : panel.specId === "music-player" &&
+                  panel.settings.presentation === "compact"
+                ? 112 + insetHeight
+                : 180,
         }
       })
       const measured = new Map<string, number>()
