@@ -66,6 +66,9 @@ class ESPHomePrestoTransport(PrestoTransport):
         # Firmware with a JPEG patch decoder reports `zlib,rle,jpeg` on "Display Codecs".
         self.codecs_key = None
         self.has_jpeg = False
+        # The first `error,jpeg_*` this session: the board then gets zlib until it
+        # reconnects, instead of every JPEG patch costing a rejection and a resend.
+        self.jpeg_refusal = None
         # slot -> {"view", "key", "frame_id", "pixels", "targets"}: what the board holds.
         self.slots = {}
         self.slot_pending = None
@@ -115,6 +118,7 @@ class ESPHomePrestoTransport(PrestoTransport):
             (entity.key for entity in entities if entity.name == "Display Codecs"), None
         )
         self.has_jpeg = False
+        self.jpeg_refusal = None
         self.build_marker = f"esphome-presto-rgb565-v1 {info.compilation_time}"
         self.base_id, self.base_pixels = 0, None
         # Slot firmware reports uploads only on "Display Slot Events"; without that
@@ -139,7 +143,7 @@ class ESPHomePrestoTransport(PrestoTransport):
         if not isinstance(state, TextSensorState):
             return
         if self.codecs_key is not None and state.key == self.codecs_key:
-            self.has_jpeg = "jpeg" in state.state.split(",")
+            self.has_jpeg = "jpeg" in state.state.split(",") and self.jpeg_refusal is None
             return
         parts = state.state.split(",")
         if state.key == self.slot_event_key and state.key != self.event_key:
@@ -164,6 +168,9 @@ class ESPHomePrestoTransport(PrestoTransport):
             # An upload reports its own failures in its `slot,` event, so an error
             # event belongs to the frame or show that is waiting.
             reason = parts[1] if len(parts) > 1 else "unknown"
+            if reason.startswith("jpeg_") and self.has_jpeg:
+                self.has_jpeg, self.jpeg_refusal = False, reason
+                LOG.warning("Presto refused a JPEG patch (%s); sending zlib until it reconnects", reason)
             if self.pending is not None and not self.pending.done():
                 self.pending.set_exception(
                     SlotUnavailableError("Presto holds no frame in that slot")
