@@ -49,9 +49,14 @@ const providers = [
         resetsAtMs: Date.parse("2030-01-01T13:00:00Z"),
       },
       {
-        id: "reviews",
-        label: "Code reviews",
-        percentUsed: 10,
+        id: "credits",
+        label: "Credits",
+        usedText: "1,234.5 credits",
+      },
+      {
+        id: "usage_limit_resets",
+        label: "Usage limit resets",
+        usedText: "2 available",
       },
     ],
   },
@@ -126,12 +131,16 @@ test("AI usage details show all limits and resets without changing the overview"
     codex.getByText("5-hour limit"),
   ).toBeVisible()
   await expect(
-    codex.getByText("Code reviews"),
+    codex.getByText("1,234.5 credits"),
   ).toBeVisible()
+  await expect(codex.getByText("2 available")).toBeVisible()
   await expect(
     codex.getByText("Reset time unavailable"),
-  ).toBeVisible()
+  ).toHaveCount(2)
   await expect(codex.getByText(/^Resets /)).toHaveCount(2)
+  await page.screenshot({
+    path: `__screenshots__/usage-codex-${testInfo.project.name}.png`,
+  })
   await request.post("/__test__/mqtt", {
     data: {
       topic: "castkit/channels/usage/fixture/set",
@@ -148,5 +157,5 @@ test("AI usage details show all limits and resets without changing the overview"
   })
   await expect(
     codex.getByText("80%", { exact: true }),
-  ).toHaveCount(3)
+  ).toHaveCount(4)
 })
