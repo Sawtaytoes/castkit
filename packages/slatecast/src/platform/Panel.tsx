@@ -8,6 +8,7 @@ import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { ViewInput } from "@castkit/sdk/plugin"
 import type { JSX } from "preact"
 import { AmsFilaments } from "../views/AmsFilaments.tsx"
+import { CompactMusicPlayer } from "../views/CompactMusicPlayer.tsx"
 import { CutterStatus } from "../views/CutterStatus.tsx"
 import { DisplayTest } from "../views/DisplayTest.tsx"
 import { FilamentSpoolScale } from "../views/FilamentSpoolScale.tsx"
@@ -44,6 +45,10 @@ export const Panel = ({
   onAction: (action: PanelAction) => Promise<void>
 }) => {
   const properties = useDisplayProperties()
+  const MusicPlayerView =
+    panel.settings.presentation === "compact"
+      ? CompactMusicPlayer
+      : MusicPlayer
   const source =
     channels[
       panel.bindings.data ??
@@ -304,7 +309,7 @@ export const Panel = ({
             settings={panel.settings}
           />
         ) : panel.specId === "music-player" ? (
-          <MusicPlayer
+          <MusicPlayerView
             data={
               (source?.data as
                 | ContractData["music-player.v1"]

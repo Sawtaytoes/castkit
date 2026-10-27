@@ -794,6 +794,19 @@ const viewSpecs: ViewSpec[] = [
     ].map((id) => ({ id, name: id.replaceAll("_", " ") })),
     settings: [
       {
+        key: "presentation",
+        label: "Presentation",
+        type: "select",
+        defaultValue: "full",
+        options: [
+          { value: "full", label: "Full player" },
+          {
+            value: "compact",
+            label: "Compact · tap for player and queue",
+          },
+        ],
+      },
+      {
         key: "layout",
         label: "Layout",
         type: "select",

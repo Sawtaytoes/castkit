@@ -53,7 +53,24 @@ export const DisplayComposition = ({
         (panel) =>
           snapshot.panelActivity?.[panel.id] !== false ||
           (panel.specId === "kids-points" &&
-            panel.settings.isPersistentSummary === true),
+            panel.settings.isPersistentSummary === true) ||
+          (panel.specId === "music-player" &&
+            panel.settings.presentation === "compact" &&
+            Boolean(
+              (
+                snapshot.channels[panel.bindings.data ?? ""]
+                  ?.data as
+                  | ContractData["music-player.v1"]
+                  | undefined
+              )?.player?.state === "paused" &&
+                (
+                  snapshot.channels[
+                    panel.bindings.data ?? ""
+                  ]?.data as
+                    | ContractData["music-player.v1"]
+                    | undefined
+                )?.current,
+            )),
       )
     : snapshot.view.panels
   const isCombined = ["cards", "rail", "adaptive"].includes(

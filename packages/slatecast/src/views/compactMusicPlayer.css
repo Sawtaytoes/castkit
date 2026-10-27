@@ -1,0 +1,143 @@
+.compact-music {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-size: 16px;
+}
+.platform .compact-music-open {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  text-align: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  min-height: 68px;
+  width: 100%;
+  flex-shrink: 0;
+}
+.compact-music-open img,
+.compact-music-art {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+}
+.compact-music-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.compact-music-meta > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.compact-music-meta strong {
+  font-size: 18px;
+  line-height: 22px;
+}
+.compact-music-meta small {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--fg-dim);
+}
+.compact-music-meta > span {
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--fg-dim);
+}
+.compact-music-controls {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  height: 44px;
+}
+.platform .compact-music-controls button {
+  width: 52px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--fg);
+}
+.compact-music-queue {
+  min-height: 0;
+  overflow: hidden;
+}
+.compact-music-queue h3 {
+  font-size: 13px;
+  line-height: 26px;
+  height: 26px;
+  margin: 0;
+  color: var(--fg-dim);
+}
+.compact-music-row {
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.compact-music-row > * {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  line-height: 18px;
+}
+.compact-music-row span {
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+.compact-music-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  gap: 8px;
+}
+.platform .compact-music-back {
+  align-self: start;
+  flex-shrink: 0;
+  font-size: 16px;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+.compact-music-detail > .music-player {
+  position: relative;
+  inset: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.platform .compact-music-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* An expanded compact card still offers the queue in a narrow window. */
+@container music-player (max-width: 720px) {
+  .compact-music-detail .music-layout.is-side-by-side {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .compact-music-detail .is-side-by-side .music-side {
+    display: flex;
+  }
+  .compact-music-detail .music-art-frame {
+    display: none;
+  }
+}
