@@ -136,22 +136,29 @@ test("AI usage details show all limits and resets without changing the overview"
   expect(bounds.height).toBeGreaterThan(
     layoutBounds.height * 0.85,
   )
-  const iconBounds = await details
-    .locator(".ai-usage-provider-icon")
-    .boundingBox()
-  const titleBounds = await details
-    .getByRole("heading", { name: "Claude" })
-    .boundingBox()
-  if (!iconBounds || !titleBounds)
-    throw new Error("Missing subscription title bounds")
-  expect(
-    Math.abs(
-      iconBounds.y +
-        iconBounds.height / 2 -
-        titleBounds.y -
-        titleBounds.height / 2,
-    ),
-  ).toBeLessThan(1)
+  // Read both bounds in one frame while the composition is expanding.
+  await expect
+    .poll(() =>
+      details.evaluate((element) => {
+        const icon = element
+          .querySelector(".ai-usage-provider-icon")
+          ?.getBoundingClientRect()
+        const title = element
+          .querySelector("h2")
+          ?.getBoundingClientRect()
+        if (!icon || !title)
+          throw new Error(
+            "Missing subscription title bounds",
+          )
+        return Math.abs(
+          icon.y +
+            icon.height / 2 -
+            title.y -
+            title.height / 2,
+        )
+      }),
+    )
+    .toBeLessThan(1)
 
   expect(
     await details.evaluate(
