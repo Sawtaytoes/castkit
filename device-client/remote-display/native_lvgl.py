@@ -222,6 +222,9 @@ async def run(config, view_url, *, benchmark=False, duration=0, health=False):
         if "native_scene" not in actions:
             raise ValueError("This firmware does not advertise native_scene")
         names = {e.key: e.name for e in entities}
+        for required in ("Native Scene Status", "Native Scene Events"):
+            if not any(name.endswith(required) for name in names.values()):
+                raise ValueError(f"This firmware does not advertise {required}")
         status = {"value": "", "revision": 0}
         diagnostics = {
             "build": "castkit-native-lvgl-v1",
