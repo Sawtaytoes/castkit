@@ -46,6 +46,14 @@ test("compact queue spends only spare height and transport stays bound", async (
       screen.getByLabelText("Upcoming music").children,
     ).toHaveLength(3),
   )
+  // Let ResizeObserver record the grown layout before shrinking it. The
+  // initial observer's queued frame can render rows before that delivery;
+  // shrinking back within the same frame would leave no observed size change.
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => resolve()),
+    ),
+  )
   mounted.rerender(content(112))
   await waitFor(
     () =>

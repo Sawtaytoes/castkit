@@ -4,9 +4,11 @@ import {
   within,
 } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
-import { expect, test, vi } from "vitest"
+import { afterEach, expect, test, vi } from "vitest"
 import { AiUsageView } from "./AiUsageView.tsx"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
+
+afterEach(() => vi.restoreAllMocks())
 
 const now = Date.parse("2026-01-01T12:00:00Z")
 
