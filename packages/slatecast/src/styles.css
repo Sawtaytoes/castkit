@@ -5324,8 +5324,6 @@ button.music-lyric:hover:not(:disabled):not(.is-current) {
     calc(100% - 7px)
   );
 }
-@media (hover: none) {
-  .music-seek-handle {
-    opacity: 1;
-  }
+html[data-input="touch"] .music-seek-handle {
+  opacity: 1;
 }

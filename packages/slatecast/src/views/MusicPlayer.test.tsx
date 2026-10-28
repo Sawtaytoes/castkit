@@ -420,12 +420,13 @@ test("the seek handle is visible on hover and drag, and waveform bars keep a rea
   await browserUser.hover(wave)
   expect(getComputedStyle(handle).opacity).toBe("1")
   const tooltip = wave.querySelector(".music-seek-hover")!
+  const title = document.querySelector(".music-title")
+  if (!title)
+    throw new Error("Missing current track metadata")
   expect(
     tooltip.getBoundingClientRect().top,
   ).toBeGreaterThanOrEqual(
-    document
-      .querySelector(".music-title")
-      ?.getBoundingClientRect().bottom,
+    title.getBoundingClientRect().bottom,
   )
   await user.pointer([
     {
@@ -445,4 +446,28 @@ test("the seek handle is visible on hover and drag, and waveform bars keep a rea
     ...pointOnWave({ wave, fraction: 0.7 }),
     keys: "[/MouseLeft]",
   })
+})
+
+test("a touch panel shows its seek handle even when the renderer has a mouse", async () => {
+  const original = document.documentElement.dataset.input
+  onTestFinished(() => {
+    if (original === undefined)
+      delete document.documentElement.dataset.input
+    else document.documentElement.dataset.input = original
+  })
+  document.documentElement.dataset.input = "touch"
+  await renderPlayer()
+  const wave = screen.getByRole("slider", { name: "Seek" })
+  await browserUser.hover(
+    document.querySelector(".music-track")!,
+  )
+  expect(window.matchMedia("(hover: hover)").matches).toBe(
+    true,
+  )
+  expect(wave.matches(":hover")).toBe(false)
+  expect(wave).not.toHaveFocus()
+  const handle = wave.querySelector(".music-seek-handle")!
+  expect(getComputedStyle(handle).opacity).toBe("1")
+  document.documentElement.dataset.input = "pointer"
+  expect(getComputedStyle(handle).opacity).toBe("0")
 })
