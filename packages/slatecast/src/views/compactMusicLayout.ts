@@ -46,6 +46,7 @@ export const getCompactMusicLayout = ({
       : 64,
     queueColumns,
     queueRowHeight,
+    queueRows,
     queueCount: queueRows * queueColumns,
   }
 }

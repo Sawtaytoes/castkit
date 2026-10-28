@@ -195,7 +195,13 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
               sourceId: "events",
               type: channel.type,
               settings: {
-                actions: ["play_pause", "next", "previous"],
+                actions: [
+                  "play_pause",
+                  "next",
+                  "previous",
+                  "play_item",
+                  "seek",
+                ],
                 commandTopic: `castkit/channels/${channel.id}/command`,
               },
             },
@@ -425,6 +431,62 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
         ),
     )
     .toBeGreaterThan(900)
+  const seek = page.getByRole("slider", { name: "Seek" })
+  await expect
+    .poll(() => seek.locator("i").count())
+    .toBeGreaterThan(20)
+  await expect
+    .poll(() =>
+      seek.evaluate(
+        (element) => element.getBoundingClientRect().height,
+      ),
+    )
+    .toBeGreaterThanOrEqual(44)
+  await seek.hover()
+  await expect(
+    page.locator(".music-seek-handle"),
+  ).toHaveCSS("opacity", "1")
+  const seekBounds = await seek.boundingBox()
+  if (!seekBounds) throw new Error("Missing seek geometry")
+  await page.mouse.move(
+    seekBounds.x + seekBounds.width * 0.2,
+    seekBounds.y + seekBounds.height / 2,
+  )
+  await page.mouse.down()
+  await page.mouse.move(
+    seekBounds.x + seekBounds.width * 0.7,
+    seekBounds.y + seekBounds.height / 2,
+    { steps: 4 },
+  )
+  await expect(seek).toHaveAttribute(
+    "aria-valuenow",
+    String(
+      Math.round(
+        (music.current?.durationSeconds ?? 0) * 0.7,
+      ),
+    ),
+  )
+  await capture("full-seeking")
+  await page.mouse.up()
+  await expect
+    .poll(async () => {
+      const publishes = (await (
+        await request.get("/__test__/published")
+      ).json()) as { topic: string; payload: string }[]
+      return publishes
+        .filter(
+          (entry) =>
+            entry.topic ===
+            "castkit/channels/compact-music/command",
+        )
+        .map((entry) => JSON.parse(entry.payload))
+    })
+    .toContainEqual({
+      action: "seek",
+      positionSeconds: Math.round(
+        (music.current?.durationSeconds ?? 0) * 0.7,
+      ),
+    })
   await capture("full")
   await request.post("/__test__/mqtt", {
     data: {
@@ -488,6 +550,57 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
   await expect(
     page.locator(".compact-music-row"),
   ).toHaveCount(6)
+  const queueRows = page.locator(".compact-music-row")
+  const positions = await queueRows.evaluateAll(
+    (elements) =>
+      elements.map((element) => {
+        const bounds = element.getBoundingClientRect()
+        return { left: bounds.left, top: bounds.top }
+      }),
+  )
+  expect(positions[1]?.left).toBe(positions[0]?.left)
+  expect(positions[1]?.top).toBeGreaterThan(
+    positions[0]?.top,
+  )
+  expect(positions[3]?.left).toBeGreaterThan(
+    positions[0]?.left,
+  )
+  await expect(queueRows.locator("img")).toHaveCount(6)
+  await queueRows.first().click()
+  const nextItem = music.queue?.items.find(
+    (item) =>
+      item.index === (music.queue?.currentIndex ?? 0) + 1,
+  )
+  if (!nextItem)
+    throw new Error("Missing upcoming fixture track")
+  await expect
+    .poll(async () => {
+      const publishes = (await (
+        await request.get("/__test__/published")
+      ).json()) as { topic: string; payload: string }[]
+      return publishes
+        .filter(
+          (entry) =>
+            entry.topic ===
+            "castkit/channels/compact-music/command",
+        )
+        .map((entry) => JSON.parse(entry.payload))
+    })
+    .toContainEqual({
+      action: "play_item",
+      queueItemId: nextItem.queueItemId,
+    })
+  await expect
+    .poll(() =>
+      page
+        .locator(".compact-music")
+        .evaluate((element) =>
+          getComputedStyle(element).getPropertyValue(
+            "--music-accent",
+          ),
+        ),
+    )
+    .toMatch(/rgb\(/)
   await capture("idle")
   const publishes = await (
     await request.get("/__test__/published")

@@ -1,5 +1,6 @@
 # CastKit decision records
 
+- [2026-10-28: Music queue reads down columns and keeps playback visible](2026-10-28-music-queue-reads-down-columns-and-keeps-playback-visible.md)
 - [2026-10-28: Compact music uses wide space and yields to work](2026-10-28-compact-music-uses-wide-space-and-yields-to-work.md)
 
 - [2026-10-28: Subscription details share the overview’s dynamic sizing](2026-10-28-subscription-details-share-the-overviews-dynamic-sizing.md)

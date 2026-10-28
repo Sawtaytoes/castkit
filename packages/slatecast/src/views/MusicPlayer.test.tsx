@@ -399,3 +399,42 @@ test("artwork that fails to load shows the note instead of a broken image", asyn
     document.querySelector(".music-main img.music-art"),
   ).toBeNull()
 })
+
+test("the seek handle is visible on hover and drag, and waveform bars keep a real height", async () => {
+  const { user } = await renderPlayer()
+  const wave = screen.getByRole("slider", { name: "Seek" })
+  await waitFor(() =>
+    expect(
+      wave.querySelectorAll("i").length,
+    ).toBeGreaterThan(20),
+  )
+  expect(
+    wave.getBoundingClientRect().height,
+  ).toBeGreaterThanOrEqual(44)
+  expect(
+    [...wave.querySelectorAll("i")].some(
+      (bar) => bar.getBoundingClientRect().height > 3,
+    ),
+  ).toBe(true)
+  const handle = wave.querySelector(".music-seek-handle")!
+  await browserUser.hover(wave)
+  expect(getComputedStyle(handle).opacity).toBe("1")
+  await user.pointer([
+    {
+      ...pointOnWave({ wave, fraction: 0.2 }),
+      keys: "[MouseLeft>]",
+    },
+    pointOnWave({ wave, fraction: 0.7 }),
+  ])
+  expect(
+    handle.getBoundingClientRect().left,
+  ).toBeGreaterThan(
+    wave.getBoundingClientRect().left +
+      wave.getBoundingClientRect().width * 0.6,
+  )
+  expect(getComputedStyle(handle).opacity).toBe("1")
+  await user.pointer({
+    ...pointOnWave({ wave, fraction: 0.7 }),
+    keys: "[/MouseLeft]",
+  })
+})

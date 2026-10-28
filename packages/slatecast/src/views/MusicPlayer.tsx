@@ -5,10 +5,6 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
-import {
-  extractTrackAccentColor,
-  getTrackAccentColor,
-} from "../accentColor.ts"
 import { formatTime } from "../formatTime.ts"
 import { ICON_PATHS, Icon } from "../Icon.tsx"
 import { useCompositionVisibility } from "../platform/CompositionVisibility.ts"
@@ -23,6 +19,7 @@ import {
   resampleWaveform,
   splitQueue,
 } from "./musicPlayerModel.ts"
+import { useTrackAccent } from "./useTrackAccent.ts"
 
 /** Queue row height and section label height, in pixels; the CSS uses the same. */
 const ROW_HEIGHT = 46
@@ -250,6 +247,11 @@ const SeekBar = ({
     values: data.waveform ?? [],
     barCount: Math.floor(size.width / BAR_PITCH),
   })
+  useEffect(() => {
+    dragPointerId.current = null
+    setDragFraction(undefined)
+    setHoverFraction(undefined)
+  }, [data.current?.queueItemId, isSeekable])
   const labelFraction = dragFraction ?? hoverFraction
   const readFraction = (
     event: JSX.TargetedPointerEvent<HTMLDivElement>,
@@ -276,6 +278,7 @@ const SeekBar = ({
         class={`music-wave${bars.length ? "" : " is-plain"}${isSeekable ? " is-seekable" : ""}${isDragging ? " is-dragging" : ""}`}
         role="slider"
         aria-label="Seek"
+        aria-disabled={!isSeekable}
         aria-valuemin={0}
         aria-valuemax={Math.round(duration)}
         aria-valuenow={Math.round(shownSeconds)}
@@ -303,6 +306,10 @@ const SeekBar = ({
         }}
         onPointerUp={(event) => {
           if (dragPointerId.current !== event.pointerId) {
+            return
+          }
+          if (!isSeekable) {
+            endDrag()
             return
           }
           const target = readSeekSeconds({
@@ -357,6 +364,15 @@ const SeekBar = ({
             style={{ width: `${fraction * 100}%` }}
           />
         )}
+        {isSeekable ? (
+          <span
+            class="music-seek-handle"
+            aria-hidden="true"
+            style={{
+              "--seek-position": `${fraction * 100}%`,
+            }}
+          />
+        ) : null}
         {labelFraction !== undefined && isSeekable ? (
           <span
             class="music-seek-hover"
@@ -832,30 +848,10 @@ export const MusicPlayer = ({
   })
   const current = data?.current
   const trackKey = current?.queueItemId ?? ""
-  const [accent, setAccent] = useState<string | undefined>(
-    () =>
-      (trackKey ? getTrackAccentColor(trackKey) : null) ??
-      undefined,
-  )
-  useEffect(() => {
-    const imageUrl = safeMediaUrl(current?.artworkPath)
-    if (!imageUrl || !trackKey) {
-      setAccent(undefined)
-      return undefined
-    }
-    const state = { isCurrent: true }
-    void extractTrackAccentColor({
-      imageUrl,
-      trackKey,
-    }).then((color) => {
-      if (state.isCurrent) {
-        setAccent(color ?? undefined)
-      }
-    })
-    return () => {
-      state.isCurrent = false
-    }
-  }, [current?.artworkPath, trackKey])
+  const accent = useTrackAccent({
+    trackKey,
+    artworkPath: current?.artworkPath,
+  })
   useEffect(() => {
     if (!error) {
       return undefined
