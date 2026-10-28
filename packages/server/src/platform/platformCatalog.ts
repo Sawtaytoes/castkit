@@ -685,6 +685,12 @@ const viewSpecs: ViewSpec[] = [
         type: "kids-points.v1",
         isRequired: false,
       },
+      {
+        key: "music",
+        label: "Music player",
+        type: "music-player.v1",
+        isRequired: false,
+      },
     ],
     settings: [
       {

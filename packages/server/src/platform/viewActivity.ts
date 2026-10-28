@@ -129,6 +129,8 @@ export const isPanelActive = ({
   isRecentlyPaused?: IsRecentlyPaused
   repaint?: RepaintGrade
 }): boolean | undefined => {
+  // Optional feeds cannot make a clock-bearing dashboard itself idle.
+  if (panel.specId === "idle-dashboard") return undefined
   const channelId =
     panel.bindings.data ?? Object.values(panel.bindings)[0]
   return channelId === undefined

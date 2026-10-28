@@ -3,7 +3,7 @@ import { selectPriorityLayout } from "@charcuterie/logic/core"
 import type { JSX } from "preact"
 import {
   COMPACT_MUSIC_HEIGHT,
-  countCompactQueueRows,
+  getCompactMusicLayout,
 } from "../views/compactMusicLayout.ts"
 import {
   BASE_PROVIDER_HEADING_HEIGHT,
@@ -216,10 +216,14 @@ const chooseMainCompositionLayout = ({
                     width: 1,
                     height: Math.min(
                       item.queueRowCount,
-                      countCompactQueueRows(
-                        cellHeight -
+                      getCompactMusicLayout({
+                        width:
+                          cellWidth -
+                          (item.insetWidth ?? 0),
+                        height:
+                          cellHeight -
                           (item.insetHeight ?? 0),
-                      ),
+                      }).queueCount,
                     ),
                   },
                 ]
@@ -231,14 +235,23 @@ const chooseMainCompositionLayout = ({
                 : contentWidth,
               height: usage
                 ? 1
-                : Math.max(
-                    0,
-                    cellHeight -
-                      factsHeight -
-                      (item.isPrinter && detailLevel < 3
-                        ? 12
-                        : 0),
-                  ),
+                : item.isOptional
+                  ? Math.min(
+                      COMPACT_MUSIC_HEIGHT,
+                      Math.max(
+                        0,
+                        cellHeight -
+                          (item.insetHeight ?? 0),
+                      ),
+                    )
+                  : Math.max(
+                      0,
+                      cellHeight -
+                        factsHeight -
+                        (item.isPrinter && detailLevel < 3
+                          ? 12
+                          : 0),
+                    ),
               visibilityPriority: item.isPrinter
                 ? 3
                 : item.isOptional
@@ -269,7 +282,7 @@ const chooseMainCompositionLayout = ({
                 : item.isPrinter
                   ? undefined
                   : item.isOptional
-                    ? contentWidth * COMPACT_MUSIC_HEIGHT
+                    ? 720 * COMPACT_MUSIC_HEIGHT
                     : item.minimumWidth *
                       item.minimumHeight *
                       4,

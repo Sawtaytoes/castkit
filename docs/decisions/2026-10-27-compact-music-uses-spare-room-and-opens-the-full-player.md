@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-27
 Type: Product and layout
 Supersedes: None
-Superseded by: None
+Superseded by: [2026-10-28 width and height fitting](2026-10-28-compact-music-uses-wide-space-and-yields-to-work.md) (height-only queue fitting only)
 
 ## Decision
 

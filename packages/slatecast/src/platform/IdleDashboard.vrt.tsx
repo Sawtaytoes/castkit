@@ -1,4 +1,4 @@
-import { render } from "@testing-library/preact"
+import { render, screen } from "@testing-library/preact"
 import { inject, test } from "vitest"
 import { page } from "vitest/browser"
 import { CalendarFace } from "../views/Calendar.tsx"
@@ -104,5 +104,45 @@ test.each([
   await page.screenshot({
     path: `${inject("vrtActualDir")}/platform/idle-dashboard-${mode}.png`,
     element: document.body,
+  })
+})
+
+test("idle dashboard with optional compact music", async () => {
+  const { buildMusicPlayer } = await import(
+    "../__fixtures__/buildMusicPlayer.ts"
+  )
+  await page.viewport(1024, 600)
+  document.documentElement.dataset.scheme = "dark"
+  document.documentElement.dataset.contrast = "standard"
+  render(
+    <main class="platform" style={{ padding: 0 }}>
+      <IdleDashboard
+        now={now}
+        clock={clock}
+        agenda={agenda}
+        weather={weather}
+        points={points}
+        musicPlayer={{
+          data: buildMusicPlayer({ nowMs: now }),
+          layout: "side-by-side",
+          isLyricsTabVisible: true,
+          playedRowCount: 2,
+          isControlEnabled: true,
+          onAction: async () => undefined,
+        }}
+      />
+    </main>,
+  )
+  await document.fonts.ready
+  await screen.findByRole("button", {
+    name: "Open full music player and queue",
+  })
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => resolve()),
+    ),
+  )
+  await page.screenshot({
+    path: `${inject("vrtActualDir")}/platform/idle-dashboard-music.png`,
   })
 })

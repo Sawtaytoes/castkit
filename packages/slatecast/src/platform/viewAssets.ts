@@ -45,35 +45,43 @@ export const warmViewAssets = async ({
   ) {
     await loadHomeDashboard().catch(() => undefined)
   }
-  const paths = snapshot.view.panels.flatMap((panel) => {
-    const channel =
-      snapshot.channels[panel.bindings.data ?? ""]
-    if (channel?.type === "now-playing.v1") {
-      return [
-        (channel.data as ContractData["now-playing.v1"])
-          ?.artworkPath,
-      ]
-    }
-    if (channel?.type === "music-player.v1") {
-      const music = channel.data as
-        | ContractData["music-player.v1"]
-        | undefined
-      return [
-        music?.current?.artworkPath,
-        ...(music?.queue?.items
-          .slice(0, 3)
-          .map((item) => item.artworkPath) ?? []),
-      ]
-    }
-    if (channel?.type === "images.v1") {
-      return (
-        (channel.data as ContractData["images.v1"])?.images
-          .slice(0, 1)
-          .map((image) => image.url) ?? []
-      )
-    }
-    return []
-  })
+  const paths = snapshot.view.panels.flatMap((panel) =>
+    [
+      panel.bindings.data,
+      panel.specId === "idle-dashboard"
+        ? panel.bindings.music
+        : undefined,
+    ].flatMap((channelId) => {
+      const channel = snapshot.channels[channelId ?? ""]
+      if (channel?.type === "now-playing.v1") {
+        return [
+          (channel.data as ContractData["now-playing.v1"])
+            ?.artworkPath,
+        ]
+      }
+      if (channel?.type === "music-player.v1") {
+        const music = channel.data as
+          | ContractData["music-player.v1"]
+          | undefined
+        return [
+          music?.current?.artworkPath,
+          ...(music?.queue?.items
+            .slice(0, 3)
+            .map((item) => item.artworkPath) ?? []),
+        ]
+      }
+      if (channel?.type === "images.v1") {
+        return (
+          (
+            channel.data as ContractData["images.v1"]
+          )?.images
+            .slice(0, 1)
+            .map((image) => image.url) ?? []
+        )
+      }
+      return []
+    }),
+  )
   await Promise.allSettled(
     [
       ...new Set(

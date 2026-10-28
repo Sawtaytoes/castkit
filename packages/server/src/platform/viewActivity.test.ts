@@ -447,3 +447,28 @@ test("a saved local count-up keeps an active-only view open until it stops", () 
     }),
   ).toBe(false)
 })
+
+test("the room clock has no idle state when optional music is its only binding", () => {
+  const room = view([{ id: "idle-dashboard" }])
+  room.panels[0]!.bindings = { music: "music" }
+  expect(
+    getPanelActivity({
+      view: room,
+      channels: {
+        music: channel("music-player.v1", {
+          player: { state: "idle" },
+        }),
+      },
+    }),
+  ).toEqual({})
+  expect(
+    isViewActive({
+      view: room,
+      channels: {
+        music: channel("music-player.v1", {
+          player: { state: "idle" },
+        }),
+      },
+    }),
+  ).toBeUndefined()
+})

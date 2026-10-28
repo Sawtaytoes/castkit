@@ -353,6 +353,56 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
     }),
   ).toBeVisible()
   await expectSettledOverview(page, 4)
+  await expect(
+    page.locator(".compact-music"),
+  ).toHaveAttribute("data-layout", "stacked")
+  expect(
+    await page
+      .locator(".compact-music")
+      .evaluate(
+        (element) => element.getBoundingClientRect().width,
+      ),
+  ).toBeLessThan(720)
+  // Keep the established busy compact layout (the committed busy.png baseline).
+  for (const [spec, expected] of [
+    [
+      "printer-status",
+      {
+        x: 14.328,
+        y: 14.328,
+        width: 643.219,
+        height: 461.281,
+      },
+    ],
+    [
+      "kids-points",
+      {
+        x: 14.328,
+        y: 487.609,
+        width: 995.328,
+        height: 98.05,
+      },
+    ],
+  ] as const) {
+    const bounds = await page
+      .locator(`[data-spec="${spec}"]`)
+      .evaluate((element) => {
+        const rectangle = element.getBoundingClientRect()
+        return {
+          x: rectangle.x,
+          y: rectangle.y,
+          width: rectangle.width,
+          height: rectangle.height,
+        }
+      })
+    for (const key of [
+      "x",
+      "y",
+      "width",
+      "height",
+    ] as const)
+      expect(bounds[key]).toBeCloseTo(expected[key], 0)
+  }
   await capture("busy")
   await page
     .getByRole("button", {
@@ -423,6 +473,21 @@ test("desk music expands to its queue, returns, and retains a paused track", asy
     page.getByText("Sky", { exact: true }),
   ).toBeVisible()
   await expectSettledOverview(page, 3)
+  await expect(
+    page.locator(".compact-music"),
+  ).toHaveAttribute("data-layout", "wide")
+  await expect
+    .poll(() =>
+      page
+        .locator(".compact-music-open img")
+        .evaluate(
+          (image) => image.getBoundingClientRect().width,
+        ),
+    )
+    .toBe(144)
+  await expect(
+    page.locator(".compact-music-row"),
+  ).toHaveCount(6)
   await capture("idle")
   const publishes = await (
     await request.get("/__test__/published")
