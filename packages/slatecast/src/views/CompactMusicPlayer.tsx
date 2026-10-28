@@ -13,6 +13,7 @@ import { safeMediaUrl } from "../platform/protocol.ts"
 import { getCompactMusicLayout } from "./compactMusicLayout.ts"
 import { MusicPlayer } from "./MusicPlayer.tsx"
 import { splitQueue } from "./musicPlayerModel.ts"
+import { useTrackAccent } from "./useTrackAccent.ts"
 import "./compactMusicPlayer.css"
 
 /** A small music card; opening it gives the full player first claim on the composition. */
@@ -112,6 +113,10 @@ export const CompactMusicPlayer = ({
       observer.disconnect()
     }
   }, [isVisible, isExpanded])
+  const accent = useTrackAccent({
+    trackKey: data?.current?.queueItemId ?? "",
+    artworkPath: data?.current?.artworkPath,
+  })
   const artwork = safeMediaUrl(data?.current?.artworkPath)
   const [failedArtwork, setFailedArtwork] =
     useState<string>()
@@ -149,9 +154,11 @@ export const CompactMusicPlayer = ({
       data-is-roomy={String(fit.isRoomy)}
       data-has-queue={String(upcoming.length > 0)}
       style={{
+        ...(accent ? { "--music-accent": accent } : {}),
         "--compact-primary-width": `${fit.primaryWidth}px`,
         "--compact-art-size": `${fit.artworkSize}px`,
         "--compact-queue-columns": fit.queueColumns,
+        "--compact-queue-rows": fit.queueRows,
         "--compact-row-height": `${fit.queueRowHeight}px`,
       }}
     >
@@ -242,22 +249,52 @@ export const CompactMusicPlayer = ({
           <h3>Up next</h3>
           <div class="compact-music-queue-grid">
             {upcoming.map((item, index) => (
-              <div
+              <button
+                type="button"
+                title={`Play ${item.title}`}
+                disabled={
+                  !isControlEnabled || !item.isAvailable
+                }
+                onClick={() =>
+                  void onAction("play_item", {
+                    queueItemId: item.queueItemId,
+                  })
+                }
                 class="compact-music-row"
                 key={item.queueItemId}
               >
                 <span class="compact-music-row-number">
                   {index + 1}
                 </span>
+                <QueueArtwork path={item.artworkPath} />
                 <span class="compact-music-row-meta">
                   <strong>{item.title}</strong>
                   <span>{item.artist}</span>
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </section>
       ) : null}
     </section>
+  )
+}
+
+/** Keep failed artwork local to its queue item and retain the same row geometry. */
+const QueueArtwork = ({ path }: { path?: string }) => {
+  const source = safeMediaUrl(path)
+  const [failed, setFailed] = useState<string>()
+  return source && source !== failed ? (
+    <img
+      class="compact-music-row-art"
+      src={source}
+      alt=""
+      data-castkit-media-readiness="optional"
+      onError={() => setFailed(source)}
+    />
+  ) : (
+    <span class="compact-music-row-art" aria-hidden="true">
+      <Icon path={ICON_PATHS.note} size="20px" />
+    </span>
   )
 }

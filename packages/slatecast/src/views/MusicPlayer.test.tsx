@@ -399,3 +399,75 @@ test("artwork that fails to load shows the note instead of a broken image", asyn
     document.querySelector(".music-main img.music-art"),
   ).toBeNull()
 })
+
+test("the seek handle is visible on hover and drag, and waveform bars keep a real height", async () => {
+  const { user } = await renderPlayer()
+  const wave = screen.getByRole("slider", { name: "Seek" })
+  await waitFor(() =>
+    expect(
+      wave.querySelectorAll("i").length,
+    ).toBeGreaterThan(20),
+  )
+  expect(
+    wave.getBoundingClientRect().height,
+  ).toBeGreaterThanOrEqual(44)
+  expect(
+    [...wave.querySelectorAll("i")].some(
+      (bar) => bar.getBoundingClientRect().height > 3,
+    ),
+  ).toBe(true)
+  const handle = wave.querySelector(".music-seek-handle")!
+  await browserUser.hover(wave)
+  expect(getComputedStyle(handle).opacity).toBe("1")
+  const tooltip = wave.querySelector(".music-seek-hover")!
+  const title = document.querySelector(".music-title")
+  if (!title)
+    throw new Error("Missing current track metadata")
+  expect(
+    tooltip.getBoundingClientRect().top,
+  ).toBeGreaterThanOrEqual(
+    title.getBoundingClientRect().bottom,
+  )
+  await user.pointer([
+    {
+      ...pointOnWave({ wave, fraction: 0.2 }),
+      keys: "[MouseLeft>]",
+    },
+    pointOnWave({ wave, fraction: 0.7 }),
+  ])
+  expect(
+    handle.getBoundingClientRect().left,
+  ).toBeGreaterThan(
+    wave.getBoundingClientRect().left +
+      wave.getBoundingClientRect().width * 0.6,
+  )
+  expect(getComputedStyle(handle).opacity).toBe("1")
+  await user.pointer({
+    ...pointOnWave({ wave, fraction: 0.7 }),
+    keys: "[/MouseLeft]",
+  })
+})
+
+test("a touch panel shows its seek handle even when the renderer has a mouse", async () => {
+  const original = document.documentElement.dataset.input
+  onTestFinished(() => {
+    if (original === undefined)
+      delete document.documentElement.dataset.input
+    else document.documentElement.dataset.input = original
+  })
+  document.documentElement.dataset.input = "touch"
+  await renderPlayer()
+  const wave = screen.getByRole("slider", { name: "Seek" })
+  await browserUser.hover(
+    document.querySelector(".music-track")!,
+  )
+  expect(window.matchMedia("(hover: hover)").matches).toBe(
+    true,
+  )
+  expect(wave.matches(":hover")).toBe(false)
+  expect(wave).not.toHaveFocus()
+  const handle = wave.querySelector(".music-seek-handle")!
+  expect(getComputedStyle(handle).opacity).toBe("1")
+  document.documentElement.dataset.input = "pointer"
+  expect(getComputedStyle(handle).opacity).toBe("0")
+})

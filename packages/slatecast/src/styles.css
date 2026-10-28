@@ -4581,7 +4581,11 @@ html[data-grayscale-text="true"] {
   inset: 0;
   overflow: hidden;
   container: music-player / size;
-  background: var(--bg);
+  background: linear-gradient(
+    125deg,
+    color-mix(in srgb, var(--music-accent) 13%, var(--bg)),
+    var(--bg) 85%
+  );
   color: var(--fg);
   font-family: var(--font-sans);
 }
@@ -4658,6 +4662,8 @@ html[data-grayscale-text="true"] {
   white-space: nowrap;
 }
 .music-seek {
+  padding-top: 20px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -4669,6 +4675,7 @@ html[data-grayscale-text="true"] {
   align-items: center;
   gap: 1px;
   height: 56px;
+  flex-shrink: 0;
   outline-offset: 2px;
 }
 .music-wave.is-seekable {
@@ -5288,4 +5295,35 @@ button.music-lyric:hover:not(:disabled):not(.is-current) {
   to {
     transform: rotate(360deg);
   }
+}
+
+.music-seek-handle {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--music-accent);
+  border: 2px solid var(--fg);
+  box-shadow: 0 1px 5px rgb(0 0 0 / 45%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+}
+.music-wave:is(:hover, :focus-visible, .is-dragging)
+  .music-seek-handle {
+  opacity: 1;
+}
+.music-wave.is-seekable {
+  cursor: ew-resize;
+}
+.music-seek-handle {
+  left: clamp(
+    7px,
+    var(--seek-position, 0%),
+    calc(100% - 7px)
+  );
+}
+html[data-input="touch"] .music-seek-handle {
+  opacity: 1;
 }

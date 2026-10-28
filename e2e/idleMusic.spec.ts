@@ -79,7 +79,12 @@ test("Room Overview spends agenda spare space on music and preserves clock, poin
             type: entry.type,
             sourceId: "events",
             settings: {
-              actions: ["play_pause", "next", "previous"],
+              actions: [
+                "play_pause",
+                "next",
+                "previous",
+                "play_item",
+              ],
               commandTopic: `castkit/channels/${entry.id}/command`,
             },
           },
@@ -322,6 +327,31 @@ test("Room Overview spends agenda spare space on music and preserves clock, poin
     await page.screenshot({
       path: "__screenshots__/compact-music/room-spare-queue.png",
     })
+  await page.locator(".compact-music-row").first().click()
+  const upcoming = music.queue?.items.find(
+    (item) =>
+      item.index === (music.queue?.currentIndex ?? 0) + 1,
+  )
+  if (!upcoming)
+    throw new Error("Missing upcoming room track")
+  await expect
+    .poll(async () => {
+      const publishes = (await (
+        await req.get("/__test__/published")
+      ).json()) as { topic: string; payload: string }[]
+      return publishes
+        .filter(
+          (entry) =>
+            entry.topic ===
+            "castkit/channels/room-music/command",
+        )
+        .map((entry) => JSON.parse(entry.payload))
+    })
+    .toContainEqual({
+      action: "play_item",
+      queueItemId: upcoming.queueItemId,
+    })
+
   const longEvents = events.map((element, index) => ({
     ...element,
     summary: `Event ${index + 1} has animation deliberately long description that wraps onto both available agenda lines`,

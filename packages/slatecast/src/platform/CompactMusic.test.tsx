@@ -325,9 +325,17 @@ test("the same card fills a wide allocation, then switches to the narrow layout 
     ...card.querySelectorAll(".compact-music-row"),
   ]
   expect(
-    rows[1]?.getBoundingClientRect().left,
+    rows[3]?.getBoundingClientRect().left,
   ).toBeGreaterThan(
     rows[0]?.getBoundingClientRect().right ?? 0,
+  )
+  expect(
+    rows[1]?.getBoundingClientRect().top,
+  ).toBeGreaterThan(
+    rows[0]?.getBoundingClientRect().top ?? 0,
+  )
+  expect(rows[1]?.getBoundingClientRect().left).toBe(
+    rows[0]?.getBoundingClientRect().left,
   )
   for (const row of rows)
     expect(
@@ -359,4 +367,93 @@ test("the same card fills a wide allocation, then switches to the narrow layout 
     ).toBeLessThanOrEqual(
       card.getBoundingClientRect().bottom,
     )
+})
+
+test("compact upcoming rows expose safe artwork and play the exact queue item while disabled rows cannot act", async () => {
+  const data = buildMusicPlayer({ nowMs: Date.now() })
+  const onAction = vi.fn(async () => undefined)
+  const content = (isControlEnabled: boolean) => (
+    <main
+      class="platform"
+      style={{ width: 969, height: 219, padding: 0 }}
+    >
+      <CompactMusicPlayer
+        data={data}
+        layout="side-by-side"
+        isLyricsTabVisible
+        playedRowCount={2}
+        isControlEnabled={isControlEnabled}
+        onAction={onAction}
+      />
+    </main>
+  )
+  const mounted = render(content(true))
+  const row = await screen.findByRole("button", {
+    name: /Echo Park/,
+  })
+  expect(row.querySelector("img")).not.toBeNull()
+  await userEvent.click(row)
+  const item = data.queue?.items.find(
+    (item) => item.title === "Echo Park",
+  )
+  if (!item) throw new Error("Missing upcoming track")
+  expect(onAction).toHaveBeenCalledWith("play_item", {
+    queueItemId: item.queueItemId,
+  })
+  mounted.rerender(content(false))
+  expect(
+    screen.getByRole("button", { name: /Echo Park/ }),
+  ).toBeDisabled()
+})
+
+test("expanded playback draws a waveform that arrives after opening, and keeps seeking available while waiting", async () => {
+  const value = pointsOverviewFixture({ hasMusic: true })
+  const music = buildMusicPlayer({ nowMs: Date.now() })
+  const content = (hasWaveform: boolean) => (
+    <main class="platform" data-device="true">
+      <DisplayComposition
+        snapshot={{
+          ...value,
+          channels: {
+            ...value.channels,
+            music: {
+              ...value.channels.music!,
+              data: {
+                ...music,
+                waveform: hasWaveform
+                  ? music.waveform
+                  : undefined,
+              },
+            },
+          },
+        }}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  )
+  const mounted = render(content(false))
+  await userEvent.click(
+    await screen.findByRole("button", {
+      name: "Open full music player and queue",
+    }),
+  )
+  const slider = await screen.findByRole("slider", {
+    name: "Seek",
+  })
+  expect(slider).toHaveClass("is-plain")
+  expect(
+    slider.querySelector(".music-seek-handle"),
+  ).not.toBeNull()
+  mounted.rerender(content(true))
+  await waitFor(() => {
+    expect(
+      slider.querySelectorAll("i").length,
+    ).toBeGreaterThan(20)
+    expect(
+      [...slider.querySelectorAll("i")].some(
+        (bar) => bar.getBoundingClientRect().height > 3,
+      ),
+    ).toBe(true)
+  })
 })

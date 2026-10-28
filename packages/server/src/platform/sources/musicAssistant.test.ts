@@ -726,3 +726,48 @@ test("reports a refused token on every channel", async () => {
     error: expect.stringContaining("Invalid token"),
   })
 })
+
+test("retries missing waveform analysis on playback ticks without repeatedly fetching lyrics", async () => {
+  const attempts = { count: 0 }
+  const server = createFakeServer({
+    responses: {
+      "audio_analysis/wave_form": () => {
+        attempts.count += 1
+        return attempts.count === 1 ? null : [0.2, 1, 0.4]
+      },
+    },
+  })
+  const { source, latest } = await startSource({ server })
+  expect(latest()?.data.waveform).toBeUndefined()
+  expect(attempts.count).toBe(1)
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "Date"],
+  })
+  try {
+    server.event({
+      event: "queue_time_updated",
+      object_id: "group-1",
+      data: 31,
+    })
+    await vi.runAllTimersAsync()
+    expect(attempts.count).toBe(1)
+    vi.setSystemTime(Date.now() + 31_000)
+    server.event({
+      event: "queue_time_updated",
+      object_id: "group-1",
+      data: 62,
+    })
+    await vi.runAllTimersAsync()
+    expect(latest()?.data.waveform).toEqual([0.2, 1, 0.4])
+    expect(attempts.count).toBe(2)
+    expect(
+      server.sent.filter(
+        (call) =>
+          call.command === "metadata/get_track_lyrics",
+      ),
+    ).toHaveLength(1)
+  } finally {
+    source.dispose?.()
+    vi.useRealTimers()
+  }
+})

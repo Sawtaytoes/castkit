@@ -784,6 +784,7 @@ export const buildMusicAssistantSource =
         string,
         {
           waveform?: number[]
+          retryAt?: number
           lyrics?: MusicPlayerData["lyrics"]
         }
       >(),
@@ -912,9 +913,14 @@ export const buildMusicAssistantSource =
     const loadExtras = async (queueId: string) => {
       const mediaItem = currentMediaItem(queueId)
       const mediaUri = textValue(mediaItem.uri)
+      const cached = state.extras.get(mediaUri)
       if (
         !mediaUri ||
-        state.extras.has(mediaUri) ||
+        (cached &&
+          (cached.waveform ||
+            Date.now() <
+              (cached.retryAt ??
+                Number.POSITIVE_INFINITY))) ||
         state.pendingExtras.has(mediaUri)
       ) {
         return
@@ -933,15 +939,17 @@ export const buildMusicAssistantSource =
               )
               .catch(() => undefined)
           : undefined,
-        mediaItem.media_type === "track"
-          ? connection
-              .send({
-                command: "metadata/get_track_lyrics",
-                args: { track: mediaItem },
-              })
-              .then(normalizeLyrics)
-              .catch(() => undefined)
-          : undefined,
+        cached
+          ? cached.lyrics
+          : mediaItem.media_type === "track"
+            ? connection
+                .send({
+                  command: "metadata/get_track_lyrics",
+                  args: { track: mediaItem },
+                })
+                .then(normalizeLyrics)
+                .catch(() => undefined)
+            : undefined,
       ])
       state.pendingExtras.delete(mediaUri)
       // Keep the cache to the tracks still on screen somewhere.
@@ -956,7 +964,11 @@ export const buildMusicAssistantSource =
         }
       })
       state.extras.set(mediaUri, {
-        ...(waveform ? { waveform } : {}),
+        // MA can return null while analysis is pending. Retry on playback ticks
+        // at most once per 30 seconds, rather than caching that absence forever.
+        ...(waveform
+          ? { waveform }
+          : { retryAt: Date.now() + 30_000 }),
         ...(lyrics ? { lyrics } : {}),
       })
       schedulePublish()
@@ -1110,6 +1122,8 @@ export const buildMusicAssistantSource =
           if (!queue || elapsed === undefined) {
             return
           }
+          if (watchedQueueIds().has(objectId))
+            void loadExtras(objectId)
           const nowSeconds = Date.now() / 1000
           const lastElapsed =
             finiteNumber(queue.elapsed_time) ?? 0
