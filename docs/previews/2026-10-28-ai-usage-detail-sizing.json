@@ -1,0 +1,25 @@
+{
+  "baseCommit": "d261116ac17eb2d46872fe4ae47dd896479cde91",
+  "canvas": {
+    "width": 1024,
+    "height": 600
+  },
+  "options": {
+    "A": {
+      "label": 32,
+      "percentage": 34,
+      "bar": 24,
+      "reset": 26,
+      "labelWeight": 600
+    },
+    "B": {
+      "label": 36,
+      "percentage": 40,
+      "bar": 28,
+      "reset": 28,
+      "labelWeight": 600
+    }
+  },
+  "validation": "10/10 preview cases passed. Owner chose B visually and clarified that shared dynamic metrics take precedence over fixed preview pixel values.",
+  "decision": "B is the visual direction; the implementation uses the overview shared dynamic metrics instead of fixed preview pixels."
+}
