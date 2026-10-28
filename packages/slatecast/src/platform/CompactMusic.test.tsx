@@ -64,7 +64,12 @@ test("compact queue spends only spare height and transport stays bound", async (
   )
 })
 
-test("the desk player opens its full queue and Back restores the priority overview", async () => {
+test.each([
+  { name: "normal", startDelay: undefined },
+  { name: "delayed start", startDelay: 1500 },
+])("the desk player opens its full queue and Back restores the priority overview ($name transition)", async ({
+  startDelay,
+}) => {
   const original = {
     width: window.innerWidth,
     height: window.innerHeight,
@@ -89,6 +94,26 @@ test("the desk player opens its full queue and Back restores the priority overvi
     </main>,
   )
   await document.fonts.ready
+  const pointsPanel =
+    mounted.container.querySelector<HTMLElement>(
+      "[data-spec='kids-points']",
+    )
+  if (!pointsPanel) throw new Error("Missing Points panel")
+  if (startDelay !== undefined) {
+    // Hold the returning panel's first opacity keyframe beyond waitFor's
+    // default deadline, without changing navigation or overview geometry.
+    const animate = pointsPanel.animate.bind(pointsPanel)
+    const delayed = vi
+      .spyOn(pointsPanel, "animate")
+      .mockImplementation((keyframes, options) =>
+        animate(keyframes, {
+          ...(typeof options === "object" ? options : {}),
+          delay: startDelay,
+          fill: "backwards",
+        }),
+      )
+    onTestFinished(() => delayed.mockRestore())
+  }
   const opener = screen.getByRole("button", {
     name: "Open full music player and queue",
   })
@@ -135,11 +160,33 @@ test("the desk player opens its full queue and Back restores the priority overvi
           }),
     ).toBeVisible(),
   )
-  await waitFor(() =>
+  await waitFor(() => {
     expect(
-      screen.getByText("130", { exact: true }),
-    ).toBeVisible(),
+      mounted.container.querySelector(
+        "[data-navigation-focus]",
+      ),
+    ).toBeNull()
+    expect(getComputedStyle(pointsPanel).display).not.toBe(
+      "none",
+    )
+  })
+  // The music opener is visible before the newly restored Points panel's
+  // opacity transition completes. Wait for that panel, not unrelated effects.
+  await Promise.all(
+    pointsPanel
+      .getAnimations()
+      .map((animation) => animation.finished),
   )
+  // The finished promise can resolve before Chromium publishes the final
+  // computed opacity. Observe the next rendered frame before asserting it.
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => resolve()),
+    ),
+  )
+  expect(
+    screen.getByText("130", { exact: true }),
+  ).toBeVisible()
 })
 
 test.each([
