@@ -52,7 +52,9 @@ export const Panel = ({
   const source =
     channels[
       panel.bindings.data ??
-        Object.values(panel.bindings)[0] ??
+        (panel.specId === "idle-dashboard"
+          ? undefined
+          : Object.values(panel.bindings)[0]) ??
         ""
     ]
   const selectedData = selectPanelData({
@@ -200,6 +202,10 @@ export const Panel = ({
       {observedInputs
         .filter(
           (input) =>
+            !(
+              panel.specId === "idle-dashboard" &&
+              input.key === "music"
+            ) &&
             channels[panel.bindings[input.key] ?? ""]
               ?.status !== "ready",
         )
@@ -370,6 +376,39 @@ export const Panel = ({
               channels[panel.bindings.points ?? ""]?.data as
                 | ContractData["kids-points.v1"]
                 | undefined
+            }
+            musicPlayer={
+              panel.bindings.music
+                ? {
+                    data: (channels[panel.bindings.music]
+                      ?.data ?? null) as
+                      | ContractData["music-player.v1"]
+                      | null,
+                    layout: "side-by-side",
+                    isLyricsTabVisible: true,
+                    playedRowCount: 2,
+                    sourceNotice:
+                      channels[panel.bindings.music]
+                        ?.status === "ready"
+                        ? undefined
+                        : channels[panel.bindings.music]
+                              ?.status === "stale"
+                          ? "Music data is out of date"
+                          : "Music source unavailable",
+                    isControlEnabled:
+                      isControlEnabled &&
+                      properties.isInteractive &&
+                      channels[panel.bindings.music]
+                        ?.status === "ready",
+                    onAction: (action, payload) =>
+                      onAction({
+                        panelId: panel.id,
+                        input: "music",
+                        action,
+                        payload,
+                      }),
+                  }
+                : undefined
             }
             weather={
               channels[panel.bindings.weather ?? ""]

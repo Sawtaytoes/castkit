@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-28: Compact music uses wide space and yields to work](2026-10-28-compact-music-uses-wide-space-and-yields-to-work.md)
+
 - [2026-10-28: Subscription details share the overview’s dynamic sizing](2026-10-28-subscription-details-share-the-overviews-dynamic-sizing.md)
 
 - [2026-10-27: Subscription details keep the overview’s readable type scale](2026-10-27-subscription-details-keep-the-overviews-readable-type-scale.md)

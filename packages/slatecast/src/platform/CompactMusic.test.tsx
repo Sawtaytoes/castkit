@@ -43,8 +43,10 @@ test("compact queue spends only spare height and transport stays bound", async (
   mounted.rerender(content(218))
   await waitFor(() =>
     expect(
-      screen.getByLabelText("Upcoming music").children,
-    ).toHaveLength(3),
+      screen
+        .getByLabelText("Upcoming music")
+        .querySelectorAll(".compact-music-row"),
+    ).toHaveLength(2),
   )
   // Let ResizeObserver record the grown layout before shrinking it. The
   // initial observer's queued frame can render rows before that delivery;
@@ -275,8 +277,9 @@ test("the 720 by 900 overview gives spare height to complete upcoming queue rows
       name: "Upcoming music",
     })
     const panel = queue
-      .closest("[data-spec='music-player']")!
-      .getBoundingClientRect()
+      .closest("[data-spec='music-player']")
+      ?.getBoundingClientRect()
+    if (!panel) throw new Error("Missing music panel")
     Array.from(
       queue.querySelectorAll(".compact-music-row"),
     ).forEach((row) => {
@@ -285,4 +288,75 @@ test("the 720 by 900 overview gives spare height to complete upcoming queue rows
       ).toBeLessThanOrEqual(panel.bottom)
     })
   })
+})
+
+test("the same card fills a wide allocation, then switches to the narrow layout when space shrinks", async () => {
+  const content = (width: number, height: number) => (
+    <main
+      class="platform"
+      style={{ width, height, padding: 0 }}
+    >
+      <CompactMusicPlayer
+        data={buildMusicPlayer({ nowMs: Date.now() })}
+        layout="side-by-side"
+        isLyricsTabVisible
+        playedRowCount={2}
+        isControlEnabled
+        onAction={async () => undefined}
+      />
+    </main>
+  )
+  const mounted = render(content(969, 219))
+  const card = mounted.container.querySelector(
+    ".compact-music",
+  )
+  if (!card) throw new Error("Missing compact card")
+  await waitFor(() =>
+    expect(card.getAttribute("data-layout")).toBe("wide"),
+  )
+  expect(
+    card.querySelectorAll(".compact-music-row"),
+  ).toHaveLength(6)
+  expect(
+    card.querySelector("img")?.getBoundingClientRect()
+      .width,
+  ).toBe(144)
+  const rows = [
+    ...card.querySelectorAll(".compact-music-row"),
+  ]
+  expect(
+    rows[1]?.getBoundingClientRect().left,
+  ).toBeGreaterThan(
+    rows[0]?.getBoundingClientRect().right ?? 0,
+  )
+  for (const row of rows)
+    expect(
+      row.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(
+      card.getBoundingClientRect().bottom,
+    )
+  mounted.rerender(content(308, 219))
+  await waitFor(() =>
+    expect(card.getAttribute("data-layout")).toBe(
+      "stacked",
+    ),
+  )
+  await waitFor(() =>
+    expect(
+      card.querySelectorAll(".compact-music-row"),
+    ).toHaveLength(2),
+  )
+  // Even a minimum-height wide strip must keep all transport buttons inside it.
+  mounted.rerender(content(969, 112))
+  await waitFor(() =>
+    expect(card.getAttribute("data-layout")).toBe("wide"),
+  )
+  for (const button of card.querySelectorAll(
+    ".compact-music-controls button",
+  ))
+    expect(
+      button.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(
+      card.getBoundingClientRect().bottom,
+    )
 })

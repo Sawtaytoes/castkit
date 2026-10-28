@@ -8,12 +8,14 @@ import {
   type WeatherConditionCode,
   type WeatherData,
 } from "@castkit/shared/viewData/types"
+import type { ComponentProps } from "preact"
 import { useEffect, useState } from "preact/hooks"
 import { formatClockTime } from "../time.ts"
 import { useIsShortPanel } from "../useIsShortPanel.ts"
 import { AmbientFace } from "../views/Ambient.tsx"
 import { CalendarFace } from "../views/Calendar.tsx"
 import { ClockFace } from "../views/Clock.tsx"
+import type { CompactMusicPlayer } from "../views/CompactMusicPlayer.tsx"
 import { AgendaView } from "./AgendaView.tsx"
 import { AiUsageView } from "./AiUsageView.tsx"
 import { useCompositionVisibility } from "./CompositionVisibility.ts"
@@ -125,6 +127,7 @@ export const BuiltinView = ({
   weather,
   snapshots,
   points,
+  musicPlayer,
   isControlEnabled,
   onAction,
 }: {
@@ -134,6 +137,7 @@ export const BuiltinView = ({
   /** The optional `weather` binding the clock and agenda faces carry. */
   weather?: ContractData["weather.v1"]
   points?: ContractData["kids-points.v1"]
+  musicPlayer?: ComponentProps<typeof CompactMusicPlayer>
   snapshots?: ContractData["cameras.v1"]
   isControlEnabled: boolean
   onAction: (
@@ -161,6 +165,7 @@ export const BuiltinView = ({
           }
           weather={weather}
           points={points}
+          musicPlayer={musicPlayer}
         />
       )
     case "text":
