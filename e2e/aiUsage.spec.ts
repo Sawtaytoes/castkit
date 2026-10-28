@@ -1,8 +1,56 @@
-import { expect, test } from "@playwright/test"
+import {
+  expect,
+  type Locator,
+  test,
+} from "@playwright/test"
 import { seedUsageReadability } from "./__fixtures__/usageReadability.ts"
 
 // Each window owns one stateful fixture channel.
 test.describe.configure({ mode: "serial" })
+
+// Used bar heights are quantized by browser layout; allow at most 1/16 CSS px.
+const usageMetricNames = [
+  "headline",
+  "percentage",
+  "bar",
+  "reset",
+] as const
+
+const readUsageMetrics = (element: Locator) =>
+  element.evaluate((root) => {
+    const headline = root.querySelector(
+      root.classList.contains("ai-usage-details")
+        ? ".ai-usage-window-label"
+        : ".ai-usage-provider-head h3",
+    )
+    const percentage = root.querySelector(
+      ".ai-usage-window-percent",
+    )
+    const bar = root.querySelector(".ai-usage-bar")
+    const reset = root.querySelector(
+      ".ai-usage-window-reset",
+    )
+    if (!headline || !percentage || !bar || !reset)
+      throw new Error("Missing visible usage metrics")
+    return {
+      scale: Number(
+        getComputedStyle(root).getPropertyValue(
+          "--ai-usage-scale",
+        ),
+      ),
+      headline: Number.parseFloat(
+        getComputedStyle(headline).fontSize,
+      ),
+      weight: getComputedStyle(headline).fontWeight,
+      percentage: Number.parseFloat(
+        getComputedStyle(percentage).fontSize,
+      ),
+      bar: Number.parseFloat(getComputedStyle(bar).height),
+      reset: Number.parseFloat(
+        getComputedStyle(reset).fontSize,
+      ),
+    }
+  })
 
 const providers = [
   {
@@ -365,6 +413,142 @@ test("opening another subscription from the rail transfers detail ownership", as
   ).toBeVisible()
 })
 
+test("subscription text and bars keep the overview's dynamic proportions while resizing", async ({
+  page,
+  request,
+}, testInfo) => {
+  const originalViewport = page.viewportSize()
+  if (!originalViewport)
+    throw new Error("Missing browser viewport")
+  await page.setViewportSize({ width: 1024, height: 600 })
+  await page.route(
+    "**/api/display/view/usage-proportions/media/**",
+    (route) =>
+      route.fulfill({
+        path: "assets/sample-photos/printer-camera-chamber.jpg",
+        contentType: "image/jpeg",
+      }),
+  )
+  await seedUsageReadability({
+    request: page.request,
+    viewId: "usage-proportions",
+  })
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/channels/usage/fixture/set",
+      payload: {
+        providers: providers.concat([
+          {
+            id: "codex_2",
+            name: "Codex 2",
+            isOk: true,
+            windows: [
+              {
+                id: "monthly",
+                label: "Monthly",
+                periodHours: 720,
+                percentUsed: 11,
+                resetsAtMs: Date.parse(
+                  "2030-02-01T12:00:00Z",
+                ),
+              },
+            ],
+          },
+        ]),
+      },
+    },
+  })
+  await page.goto("/view/usage-proportions")
+  await page.evaluate(() => document.fonts.ready)
+  await expect
+    .poll(() =>
+      page
+        .locator(".platform-camera img")
+        .evaluate(
+          (element) =>
+            (element as HTMLImageElement).naturalWidth,
+        ),
+    )
+    .toBeGreaterThan(0)
+  const overview = page.locator(".ai-usage").first()
+  const baseline = await readUsageMetrics(overview)
+  await page
+    .getByRole("button", {
+      name: "Show Claude usage details",
+    })
+    .click()
+  const details = page.getByRole("region", {
+    name: "Claude usage details",
+  })
+  await [
+    originalViewport,
+    { width: 480, height: 320 },
+    { width: 1024, height: 600 },
+  ].reduce(async (previous, viewport) => {
+    await previous
+    await page.setViewportSize(viewport)
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => resolve()),
+          ),
+        ),
+    )
+    const metrics = await readUsageMetrics(details)
+    expect(metrics.scale).toBeGreaterThanOrEqual(
+      baseline.scale,
+    )
+    expect(metrics.weight).toBe(baseline.weight)
+    usageMetricNames.forEach((metric) => {
+      expect(
+        Math.abs(
+          metrics[metric] -
+            (baseline[metric] * metrics.scale) /
+              baseline.scale,
+        ),
+        `${metric} must retain the overview's dynamic proportion`,
+      ).toBeLessThanOrEqual(1 / 16)
+      expect(metrics[metric]).toBeGreaterThanOrEqual(
+        baseline[metric],
+      )
+    })
+    await expect(
+      details.locator(".ai-usage-window"),
+    ).toHaveCount(3)
+    expect(
+      await details.evaluate(
+        (element) =>
+          element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true)
+    if (viewport.height === 320)
+      expect(
+        await details.evaluate(
+          (element) =>
+            element.scrollHeight > element.clientHeight,
+        ),
+      ).toBe(true)
+    if (viewport === originalViewport)
+      await page.screenshot({
+        animations: "disabled",
+        path: `__screenshots__/usage-proportions-window-${testInfo.project.name}.png`,
+      })
+  }, Promise.resolve())
+  await page.screenshot({
+    animations: "disabled",
+    path: `__screenshots__/usage-proportions-resized-${testInfo.project.name}.png`,
+  })
+  await details
+    .getByRole("button", { name: "Back to AI usage" })
+    .click()
+  await expect(
+    page.getByRole("button", {
+      name: "Show Claude usage details",
+    }),
+  ).toBeFocused()
+})
+
 test("expanded subscription text remains as readable as the overview at 1024×600", async ({
   page,
   request,
@@ -378,7 +562,7 @@ test("expanded subscription text remains as readable as the overview at 1024×60
         contentType: "image/jpeg",
       }),
   )
-  await seedUsageReadability(page.request)
+  await seedUsageReadability({ request: page.request })
   await request.post("/__test__/mqtt", {
     data: {
       topic: "castkit/channels/usage/fixture/set",
@@ -454,6 +638,9 @@ test("expanded subscription text remains as readable as the overview at 1024×60
   const overviewReset = await fontSize(
     ".ai-usage-window-reset",
   )
+  const overviewMetrics = await readUsageMetrics(
+    page.locator(".ai-usage").first(),
+  )
   await page.screenshot({
     animations: "disabled",
     path: `__screenshots__/usage-readable-overview-${testInfo.project.name}.png`,
@@ -481,11 +668,21 @@ test("expanded subscription text remains as readable as the overview at 1024×60
         (element) => element.getBoundingClientRect().height,
       ),
   ).toBeGreaterThanOrEqual(overviewIcon)
-  expect(
-    await fontSize(
-      ".ai-usage-details .ai-usage-window-label",
-    ),
-  ).toBeGreaterThanOrEqual(overviewTitle * 0.9)
+  const detailMetrics = await readUsageMetrics(details)
+  expect(detailMetrics.weight).toBe(overviewMetrics.weight)
+  usageMetricNames.forEach((metric) => {
+    expect(
+      Math.abs(
+        detailMetrics[metric] -
+          (overviewMetrics[metric] * detailMetrics.scale) /
+            overviewMetrics.scale,
+      ),
+      `${metric} must retain the overview's dynamic proportion`,
+    ).toBeLessThanOrEqual(1 / 16)
+    expect(detailMetrics[metric]).toBeGreaterThanOrEqual(
+      overviewMetrics[metric],
+    )
+  })
   expect(
     await fontSize(
       ".ai-usage-details .ai-usage-window-percent",

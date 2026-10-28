@@ -935,7 +935,8 @@
   flex: none;
   align-self: center;
 }
-.ai-usage-provider-head h3 {
+.ai-usage-provider-head h3,
+.ai-usage-details .ai-usage-window-label {
   font-size: calc(18px * var(--ai-usage-scale));
   font-weight: 600;
 }
