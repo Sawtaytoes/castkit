@@ -4662,6 +4662,7 @@ html[data-grayscale-text="true"] {
   white-space: nowrap;
 }
 .music-seek {
+  padding-top: 20px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;

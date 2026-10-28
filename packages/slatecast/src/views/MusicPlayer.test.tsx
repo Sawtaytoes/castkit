@@ -419,6 +419,14 @@ test("the seek handle is visible on hover and drag, and waveform bars keep a rea
   const handle = wave.querySelector(".music-seek-handle")!
   await browserUser.hover(wave)
   expect(getComputedStyle(handle).opacity).toBe("1")
+  const tooltip = wave.querySelector(".music-seek-hover")!
+  expect(
+    tooltip.getBoundingClientRect().top,
+  ).toBeGreaterThanOrEqual(
+    document
+      .querySelector(".music-title")
+      ?.getBoundingClientRect().bottom,
+  )
   await user.pointer([
     {
       ...pointOnWave({ wave, fraction: 0.2 }),
