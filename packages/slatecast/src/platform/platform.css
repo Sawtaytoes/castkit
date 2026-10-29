@@ -114,7 +114,7 @@
   background: var(--bg);
 }
 /*
- * A physical display showing one clock-family view draws it edge to edge on
+ * A physical display showing one clock-family view or queue chooser draws it edge to edge on
  * the page color, the way the device page drew it before the display moved
  * onto a screen. The card frame is for compositions; on a single 480x320 view
  * it spent 26 px of width and read as a different app. The raised blocks go
@@ -128,7 +128,8 @@
     > .platform-panel:is(
       [data-spec="ambient"],
       [data-spec="clock"],
-      [data-spec="calendar"]
+      [data-spec="calendar"],
+      [data-spec="queue-picker"]
     )
 ) {
   padding: 0;
@@ -138,7 +139,8 @@
   > .platform-panel:is(
     [data-spec="ambient"],
     [data-spec="clock"],
-    [data-spec="calendar"]
+    [data-spec="calendar"],
+    [data-spec="queue-picker"]
   ) {
   padding: 0;
   border: 0;
