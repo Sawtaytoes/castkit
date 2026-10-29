@@ -124,12 +124,12 @@ sizes.forEach((size) => {
     await expect(choices).toHaveCount(30)
     const boxes = await choices.evaluateAll((elements) =>
       elements.map((element) => {
-        const r = element.getBoundingClientRect()
+        const bounds = element.getBoundingClientRect()
         return {
-          top: r.top,
-          bottom: r.bottom,
-          left: r.left,
-          right: r.right,
+          top: bounds.top,
+          bottom: bounds.bottom,
+          left: bounds.left,
+          right: bounds.right,
         }
       }),
     )

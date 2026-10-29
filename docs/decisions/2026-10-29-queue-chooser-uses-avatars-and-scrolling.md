@@ -21,7 +21,7 @@ The owner rejected two choices per page as too few and asked to use the space
 better, suggested scrolling, requested avatars only at the top, and asked for
 different queue colors in both the chooser and QueuePilot. The owner then rejected horizontal choices, asked for upcoming-show artwork, and stated that squares provide a better tapping surface.
 
-## Consequences
+## Why
 
 Queue choices are no longer paged. Scroll gestures renew activity; automatic
 rendering and capture scrolling do not. The list is bounded within the panel and
