@@ -35,6 +35,10 @@ sizes.forEach((size) => {
       queues: Array.from({ length: 30 }, (_, index) => ({
         id: `queue-${index}`,
         title: `Movies ${index + 1}`,
+        artworkPath:
+          index % 2 === 0
+            ? "/__test__/queue-poster.svg"
+            : undefined,
       })),
     }
     expect(
@@ -86,66 +90,53 @@ sizes.forEach((size) => {
       ".queue-picker-list > button",
     )
     await expect(choices.first()).toBeVisible()
+    await expect
+      .poll(() =>
+        choices
+          .first()
+          .locator("img")
+          .evaluate(
+            (image) =>
+              (image as HTMLImageElement).naturalWidth,
+          ),
+      )
+      .toBeGreaterThan(0)
+    const tileBounds = await choices.first().boundingBox()
+    if (!tileBounds) throw new Error("Missing tile")
+    expect(
+      Math.abs(tileBounds.width - tileBounds.height),
+    ).toBeLessThan(1)
     const panel = await chooser.boundingBox()
     if (!panel) throw new Error("Missing chooser bounds")
-    await Promise.all(
-      (await chooser.getByRole("button").all()).map(
-        async (button) => {
-          const bounds = await button.boundingBox()
-          if (!bounds)
-            throw new Error("Missing control bounds")
-          expect(
-            bounds.y + bounds.height,
-          ).toBeLessThanOrEqual(panel.y + panel.height + 1)
-          expect(
-            bounds.x + bounds.width,
-          ).toBeLessThanOrEqual(panel.x + panel.width + 1)
-          expect(bounds.height).toBeGreaterThanOrEqual(44)
-        },
-      ),
+    await expect(
+      chooser.getByText("Choose a queue"),
+    ).toHaveCount(0)
+    await expect(
+      chooser.locator("header .queue-picker-person-name"),
+    ).toHaveCount(0)
+    const list = chooser.getByRole("group", {
+      name: "Queues",
+    })
+    await expect(list).toHaveAttribute(
+      "data-castkit-scroll",
+      "true",
     )
+    await expect(choices).toHaveCount(30)
     if (size === "square") {
-      await expect(choices).toHaveCount(2)
-      expect(
-        await choices
-          .first()
-          .evaluate(
-            (element) => getComputedStyle(element).fontSize,
-          ),
-      ).toBe("34px")
-      const multiplePeople = {
-        ...data,
-        revision: "more-people",
-        people: data.people.concat([
-          {
-            id: "linus",
-            name: "Linus",
-            artworkPath: "/__test__/avatar/missing",
-          },
-          {
-            id: "sven",
-            name: "Sven",
-            artworkPath: "/__test__/avatar/missing",
-          },
-        ]),
-      }
-      expect(
-        (
-          await request.post("/__test__/mqtt", {
-            data: {
-              topic: "castkit/channels/queues/fixture/set",
-              payload: multiplePeople,
-            },
-          })
-        ).ok(),
-      ).toBe(true)
-      const people = chooser.getByRole("group", {
-        name: "Selected people",
+      const fullRows = await list.evaluate((element) => {
+        const bounds = element.getBoundingClientRect()
+        return [
+          ...element.querySelectorAll("button"),
+        ].filter((button) => {
+          const row = button.getBoundingClientRect()
+          return (
+            row.top >= bounds.top &&
+            row.bottom <= bounds.bottom + 1
+          )
+        }).length
       })
-      await expect(
-        people.getByRole("button", { name: "Remove Sven" }),
-      ).toHaveCount(1)
-      const geometry = await people.evaluate((element) => {
+      expect(fullRows).toBeGreaterThanOrEqual(6)
+      const geometry = await list.evaluate((element) => {
         const bounds = element.getBoundingClientRect()
         return {
           identity: element.getAttribute(
@@ -173,26 +164,18 @@ sizes.forEach((size) => {
         64,
       )
       expect(plan.key[0]).toBe(
-        "scroll:queue-people:sample:more-people",
+        "scroll:queues:sample:sample",
       )
-      await people.evaluate((element) => {
-        element.scrollTop = element.scrollHeight
+      await page.screenshot({
+        path: "docs/images/queue-picker-density/after.png",
       })
-      await expect(
-        people.getByRole("button", { name: "Remove Sven" }),
-      ).toBeInViewport()
-      await expect(choices).toHaveCount(2)
     }
-    await chooser
-      .getByRole("button", { name: "Next queues" })
-      .click()
-    await expect(
-      chooser.getByRole("button", {
-        name: "Movies 1",
-        exact: true,
-      }),
-    ).toHaveCount(0)
-    await choices.first().click()
+    await list.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    await expect(choices.last()).toBeInViewport()
+    await choices.last().click()
+
     await expect
       .poll(async () => {
         const response = await request.get(

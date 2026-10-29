@@ -4,7 +4,7 @@
 - **Date:** 2026-10-29
 - **Type:** Product and interaction
 - **Supersedes:** None
-- **Superseded by:** None
+- **Superseded by:** [Avatars and scrolling](2026-10-29-queue-chooser-uses-avatars-and-scrolling.md)
 
 ## Decision
 
