@@ -180,7 +180,24 @@ export const QueuePicker = ({
       <fieldset
         class="queue-picker-people"
         aria-label="Selected people"
-        data-castkit-scroll={`queue-people:${data.sessionId}:${data.revision}`}
+        data-castkit-target={`scroll:queue-people:${data.sessionId}:${data.revision}`}
+        data-castkit-scroll="true"
+        onPointerCancel={touch}
+        onWheel={touch}
+        onKeyDown={(event) => {
+          if (
+            [
+              "ArrowUp",
+              "ArrowDown",
+              "PageUp",
+              "PageDown",
+              "Home",
+              "End",
+            ].includes(event.key)
+          ) {
+            touch()
+          }
+        }}
       >
         {data.people.map((person) => (
           <button

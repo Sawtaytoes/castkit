@@ -341,3 +341,20 @@ test("a source load error does not also claim that no queues match", () => {
     screen.queryByText(/No matching queues/),
   ).toBeNull()
 })
+
+test("a native scroll cancellation renews activity without removing a person, while capture scrolling does not", () => {
+  const onAction = setup()
+  const group = screen.getByRole("group", {
+    name: "Selected people",
+  })
+  group.scrollTop = 10
+  fireEvent.scroll(group)
+  expect(onAction).not.toHaveBeenCalled()
+  fireEvent.pointerCancel(
+    screen.getByRole("button", { name: "Remove Ada" }),
+  )
+  expect(onAction).toHaveBeenCalledExactlyOnceWith(
+    "touch",
+    expect.objectContaining({ sessionId: "session-one" }),
+  )
+})

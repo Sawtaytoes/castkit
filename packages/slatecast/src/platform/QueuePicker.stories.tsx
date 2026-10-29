@@ -17,11 +17,19 @@ const data = {
   isActive: true,
   expiresAt: 200_000,
   people: [
-    { id: "ada", name: "Ada", artworkPath: adaAvatar },
+    {
+      id: "ada",
+      name: "Ada",
+      artworkPath: new URL(adaAvatar, window.location.href)
+        .pathname,
+    },
     {
       id: "grace",
       name: "Grace",
-      artworkPath: graceAvatar,
+      artworkPath: new URL(
+        graceAvatar,
+        window.location.href,
+      ).pathname,
     },
   ],
   queues: [
@@ -55,14 +63,23 @@ export const PeopleSelected: Story = {
 }
 /** An empty match leaves correction and exit available. */
 export const NoMatches: Story = {
-  render: () => (
-    <div style={{ width: 480, height: 480 }}>
-      <QueuePicker
-        data={{ ...data, queues: [] }}
-        now={100_000}
-        isControlEnabled
-        onAction={async () => undefined}
-      />
-    </div>
-  ),
+  render: () => {
+    document.documentElement.dataset.scheme = "dark"
+    return (
+      <div
+        style={{
+          width: 480,
+          height: 480,
+          background: "var(--bg)",
+        }}
+      >
+        <QueuePicker
+          data={{ ...data, queues: [] }}
+          now={100_000}
+          isControlEnabled
+          onAction={async () => undefined}
+        />
+      </div>
+    )
+  },
 }

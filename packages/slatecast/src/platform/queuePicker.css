@@ -5,7 +5,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  /* The selected-people window starts at y=80 on a 480px face: native 8-row bands. */
+  gap: 8px;
   padding: 16px;
   box-sizing: border-box;
   color: var(--fg);
@@ -51,7 +52,7 @@
   height: 26px;
   flex-shrink: 0;
 }
-.queue-picker header > button {
+.queue-picker header > button[type] {
   width: 56px;
   flex-shrink: 0;
 }
@@ -165,11 +166,8 @@
     min-height: 44px;
     font-size: 22px;
   }
-  .queue-picker-people {
-    height: 44px;
-  }
-  .queue-picker .queue-picker-people button {
-    height: 44px;
+  .queue-picker header > button[type] {
+    min-height: 48px;
   }
   .queue-picker-avatar {
     width: 32px;

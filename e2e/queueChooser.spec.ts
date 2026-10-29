@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process"
 import { expect, test } from "@playwright/test"
 
 // The normal projects verify the responsive page; the square case exercises
@@ -85,16 +86,6 @@ sizes.forEach((size) => {
       ".queue-picker-list > button",
     )
     await expect(choices.first()).toBeVisible()
-    if (size === "square") {
-      await expect(choices).toHaveCount(2)
-      expect(
-        await choices
-          .first()
-          .evaluate(
-            (element) => getComputedStyle(element).fontSize,
-          ),
-      ).toBe("34px")
-    }
     const panel = await chooser.boundingBox()
     if (!panel) throw new Error("Missing chooser bounds")
     await Promise.all(
@@ -113,6 +104,85 @@ sizes.forEach((size) => {
         },
       ),
     )
+    if (size === "square") {
+      await expect(choices).toHaveCount(2)
+      expect(
+        await choices
+          .first()
+          .evaluate(
+            (element) => getComputedStyle(element).fontSize,
+          ),
+      ).toBe("34px")
+      const multiplePeople = {
+        ...data,
+        revision: "more-people",
+        people: data.people.concat([
+          {
+            id: "linus",
+            name: "Linus",
+            artworkPath: "/__test__/avatar/missing",
+          },
+          {
+            id: "sven",
+            name: "Sven",
+            artworkPath: "/__test__/avatar/missing",
+          },
+        ]),
+      }
+      expect(
+        (
+          await request.post("/__test__/mqtt", {
+            data: {
+              topic: "castkit/channels/queues/fixture/set",
+              payload: multiplePeople,
+            },
+          })
+        ).ok(),
+      ).toBe(true)
+      const people = chooser.getByRole("group", {
+        name: "Selected people",
+      })
+      await expect(
+        people.getByRole("button", { name: "Remove Sven" }),
+      ).toHaveCount(1)
+      const geometry = await people.evaluate((element) => {
+        const bounds = element.getBoundingClientRect()
+        return {
+          identity: element.getAttribute(
+            "data-castkit-target",
+          ),
+          top: bounds.top,
+          left: bounds.left,
+          width: element.clientWidth,
+          height: element.clientHeight,
+          scrollHeight: element.scrollHeight,
+          scrollTop: element.scrollTop,
+        }
+      })
+      const plan = JSON.parse(
+        execFileSync(
+          "python3",
+          [
+            "e2e/__fixtures__/native_scroll_geometry.py",
+            JSON.stringify(geometry),
+          ],
+          { encoding: "utf8" },
+        ),
+      )
+      expect(plan.bottom - plan.top).toBeGreaterThanOrEqual(
+        64,
+      )
+      expect(plan.key[0]).toBe(
+        "scroll:queue-people:sample:more-people",
+      )
+      await people.evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+      })
+      await expect(
+        people.getByRole("button", { name: "Remove Sven" }),
+      ).toBeInViewport()
+      await expect(choices).toHaveCount(2)
+    }
     await chooser
       .getByRole("button", { name: "Next queues" })
       .click()

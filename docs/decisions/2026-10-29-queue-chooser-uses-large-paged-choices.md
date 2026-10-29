@@ -2,7 +2,9 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-29
-- **Scope:** Queue chooser presentation
+- **Type:** Product and interaction
+- **Supersedes:** None
+- **Superseded by:** None
 
 ## Decision
 
@@ -27,6 +29,18 @@ labels, and one status line distinguishes load errors from an empty match.
 Keep scanning, selection validation, action identity, removal, reset, close,
 inactivity renewal, and automatic return unchanged. Scanning a person does not
 start playback; selecting a queue does.
+
+## Context
+
+The scan flow worked, but its display text was too small and its people controls
+omitted QueuePilot's existing photos. Shared platform button styles also overrode
+the chooser's intended sizes in the device shell.
+
+## Why
+
+Keep the primary choices easy to read and tap on a small task display, recognize
+people by their existing photos, and preserve complete rows and existing controls.
+Reuse Charcuterie's visual conventions and CastKit's media and native-input paths.
 
 ## Evidence
 
