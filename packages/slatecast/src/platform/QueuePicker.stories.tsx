@@ -33,10 +33,13 @@ const data = {
     },
   ],
   queues: [
-    { id: "films", title: "Movies" },
+    { id: "films", title: "Movie Adventures" },
     { id: "series", title: "Shows" },
     { id: "animation", title: "Animation" },
-    { id: "films-two", title: "Movies 2" },
+    { id: "films-two", title: "Family Movies" },
+    { id: "learning", title: "Educational Shows" },
+    { id: "season", title: "Seasonal Movies" },
+    { id: "shorts", title: "Shorts" },
   ],
 }
 /** Two scanned people and independent matching queues on a square touch panel. */

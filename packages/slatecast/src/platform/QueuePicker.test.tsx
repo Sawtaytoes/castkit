@@ -40,48 +40,36 @@ const setup = (isControlEnabled = true, now = 100_000) => {
   )
   return onAction
 }
-test("scanned people stay visible and every queue is reachable in complete rows", async () => {
+test("avatar-only header and scrolling reach every queue without paging", async () => {
   const onAction = setup()
+  expect(screen.queryByText("Choose a queue")).toBeNull()
+  expect(screen.queryByText("Ada")).toBeNull()
+  const group = screen.getByRole("group", {
+    name: "Queues",
+  })
+  expect(group).toHaveAttribute(
+    "data-castkit-scroll",
+    "true",
+  )
+  expect(group.scrollHeight).toBeGreaterThan(
+    group.clientHeight,
+  )
+  const last = screen.getByRole("button", {
+    name: "Movies 12",
+    exact: true,
+  })
+  group.scrollTop = group.scrollHeight
   expect(
-    screen.getByRole("button", { name: "Remove Ada" }),
-  ).toBeVisible()
-  await expect
-    .poll(
-      () =>
-        screen.queryAllByRole("button", { name: /Movies/ })
-          .length,
-    )
-    .toBeGreaterThan(0)
-  const buttons = screen.getAllByRole("button", {
-    name: /Movies/,
-  })
-  buttons.forEach((button) => {
-    const bounds = button.getBoundingClientRect()
-    const parent =
-      button.parentElement?.getBoundingClientRect()
-    if (!parent) throw new Error("Missing queue list")
-    expect(bounds.bottom).toBeLessThanOrEqual(
-      parent.bottom + 1,
-    )
-  })
-  const user = userEvent.setup()
-  await user.click(
-    screen.getByRole("button", { name: "Next queues" }),
+    last.getBoundingClientRect().bottom,
+  ).toBeLessThanOrEqual(
+    group.getBoundingClientRect().bottom + 1,
   )
-  expect(onAction).toHaveBeenCalledWith(
-    "touch",
-    expect.objectContaining({ sessionId: "session-one" }),
-  )
-  const next = screen.getAllByRole("button", {
-    name: /Movies/,
-  })[0]!
-  expect(next.textContent).not.toBe(buttons[0]?.textContent)
-  await user.click(next)
+  await userEvent.setup().click(last)
   expect(onAction).toHaveBeenCalledWith(
     "choose",
     expect.objectContaining({
+      queueId: "queue-11",
       revision: "selection-one",
-      queueId: expect.any(String),
     }),
   )
 })
@@ -169,10 +157,10 @@ test.each([
 })
 
 test.each([
-  [480, 480, 2],
-  [384, 480, 2],
-  [480, 320, 1],
-])("large queue choices fit completely in a %s by %s panel", async (width, height, count) => {
+  [480, 480, 6],
+  [384, 480, 4],
+  [480, 320, 3],
+])("%s by %s panels show at least %s complete choices", (width, height, count) => {
   render(
     <div style={{ width, height }}>
       <QueuePicker
@@ -183,42 +171,30 @@ test.each([
       />
     </div>,
   )
-  await expect
-    .poll(
-      () =>
-        screen.getAllByRole("button", { name: /Movies/ })
-          .length,
-    )
-    .toBe(count)
-  const chooser = screen.getByRole("region", {
-    name: "Queue chooser",
+  const group = screen.getByRole("group", {
+    name: "Queues",
   })
-  const panel = chooser.getBoundingClientRect()
-  screen.getAllByRole("button").forEach((button) => {
-    const bounds = button.getBoundingClientRect()
-    expect(bounds.bottom).toBeLessThanOrEqual(panel.bottom)
-    expect(bounds.right).toBeLessThanOrEqual(panel.right)
-    expect(bounds.height).toBeGreaterThanOrEqual(44)
-  })
-  const user = userEvent.setup()
-  await user.click(
-    screen.getByRole("button", { name: "Next queues" }),
-  )
+  const bounds = group.getBoundingClientRect()
+  const complete = screen
+    .getAllByRole("button", { name: /Movies/ })
+    .filter((button) => {
+      const row = button.getBoundingClientRect()
+      return (
+        row.top >= bounds.top &&
+        row.bottom <= bounds.bottom + 1
+      )
+    })
+  expect(complete.length).toBeGreaterThanOrEqual(count)
   expect(
-    screen.queryByRole("button", {
-      name: "Movies 1",
-      exact: true,
-    }),
-  ).toBeNull()
-  await user.click(
-    screen.getByRole("button", { name: "Previous queues" }),
-  )
+    screen
+      .getByRole("button", { name: "Reset" })
+      .getBoundingClientRect().bottom,
+  ).toBeLessThanOrEqual(height)
   expect(
-    screen.getByRole("button", {
-      name: "Movies 1",
-      exact: true,
-    }),
-  ).toBeVisible()
+    screen
+      .getByRole("button", { name: "Close" })
+      .getBoundingClientRect().bottom,
+  ).toBeLessThanOrEqual(height)
 })
 
 test("photos fall back to initials after failure and retry a replacement URL", async () => {
@@ -275,12 +251,16 @@ test("photos fall back to initials after failure and retry a replacement URL", a
     .toBeGreaterThan(0)
 })
 
-test("additional selected people scroll vertically without shrinking queue choices or hiding the footer", async () => {
+test("additional selected people scroll within the avatar row without shrinking queue choices", async () => {
   const people = [
     "Ada Lovelace",
     "Grace Hopper",
     "Linus",
     "Sven",
+    "Elena",
+    "Robin",
+    "Sam",
+    "Max",
   ].map((name) => ({ id: name, name }))
   render(
     <div style={{ width: 480, height: 480 }}>
@@ -298,7 +278,7 @@ test("additional selected people scroll vertically without shrinking queue choic
         screen.getAllByRole("button", { name: /Movies/ })
           .length,
     )
-    .toBe(2)
+    .toBe(12)
   const group = screen.getByRole("group", {
     name: "Selected people",
   })
@@ -308,7 +288,7 @@ test("additional selected people scroll vertically without shrinking queue choic
   )
   group.scrollTop = group.scrollHeight
   const last = screen
-    .getByRole("button", { name: "Remove Sven" })
+    .getByRole("button", { name: "Remove Max" })
     .getBoundingClientRect()
   const bounds = group.getBoundingClientRect()
   expect(last.bottom).toBeLessThanOrEqual(bounds.bottom + 1)
@@ -356,5 +336,58 @@ test("a native scroll cancellation renews activity without removing a person, wh
   expect(onAction).toHaveBeenCalledExactlyOnceWith(
     "touch",
     expect.objectContaining({ sessionId: "session-one" }),
+  )
+})
+
+test("scroll gestures on the queue list renew activity without choosing playback", () => {
+  const onAction = setup()
+  const group = screen.getByRole("group", {
+    name: "Queues",
+  })
+  fireEvent.scroll(group)
+  expect(onAction).not.toHaveBeenCalled()
+  fireEvent.pointerCancel(group)
+  expect(onAction).toHaveBeenCalledExactlyOnceWith(
+    "touch",
+    expect.objectContaining({ sessionId: "session-one" }),
+  )
+})
+
+test("poster failure keeps the entire square queue actionable", async () => {
+  const onAction = vi.fn(async () => undefined)
+  render(
+    <div style={{ width: 480, height: 480 }}>
+      <QueuePicker
+        data={{
+          ...data,
+          queues: [
+            {
+              id: "learning",
+              title: "Educational Shows",
+              artworkPath: adaAvatar,
+            },
+          ],
+        }}
+        now={100_000}
+        isControlEnabled
+        onAction={onAction}
+      />
+    </div>,
+  )
+  const tile = screen.getByRole("button", {
+    name: "Educational Shows",
+  })
+  const image = tile.querySelector("img")
+  if (!image) throw new Error("Missing poster")
+  fireEvent.error(image)
+  expect(tile.querySelector("img")).toBeNull()
+  const bounds = tile.getBoundingClientRect()
+  expect(
+    Math.abs(bounds.width - bounds.height),
+  ).toBeLessThan(1)
+  await userEvent.setup().click(tile)
+  expect(onAction).toHaveBeenCalledExactlyOnceWith(
+    "choose",
+    expect.objectContaining({ queueId: "learning" }),
   )
 })

@@ -652,7 +652,11 @@ export const builtinContractSchemas = {
       }),
     ),
     queues: z.array(
-      z.object({ id: z.string(), title: z.string() }),
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        artworkPath: safeUrl.optional(),
+      }),
     ),
     message: z.string().optional(),
   }),
