@@ -1,4 +1,6 @@
 import type { StoryObj } from "@storybook/preact-vite"
+import adaAvatar from "../../../../e2e/__fixtures__/avatars/ada.jpg"
+import graceAvatar from "../../../../e2e/__fixtures__/avatars/grace.jpg"
 import { QueuePicker } from "./QueuePicker.tsx"
 import "../styles.css"
 import "./platform.css"
@@ -15,8 +17,12 @@ const data = {
   isActive: true,
   expiresAt: 200_000,
   people: [
-    { id: "ada", name: "Ada" },
-    { id: "grace", name: "Grace" },
+    { id: "ada", name: "Ada", artworkPath: adaAvatar },
+    {
+      id: "grace",
+      name: "Grace",
+      artworkPath: graceAvatar,
+    },
   ],
   queues: [
     { id: "films", title: "Movies" },

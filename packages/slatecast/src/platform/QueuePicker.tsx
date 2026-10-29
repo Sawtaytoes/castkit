@@ -1,7 +1,76 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { getCategoricalIndex } from "@charcuterie/tokens"
 import { useEffect, useRef, useState } from "preact/hooks"
 import { useCompositionVisibility } from "./CompositionVisibility.ts"
+import { safeMediaUrl } from "./protocol.ts"
 import "./queuePicker.css"
+
+// Lucide paths, rendered inline to keep the display client dependency-free.
+const iconPaths = {
+  close: ["M18 6 6 18", "m6 6 12 12"],
+  play: ["m6 3 14 9-14 9V3Z"],
+  previous: ["m15 18-6-6 6-6"],
+  next: ["m9 18 6-6-6-6"],
+  reset: [
+    "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8",
+    "M3 3v5h5",
+  ],
+}
+const QueuePickerIcon = ({
+  name,
+}: {
+  name: keyof typeof iconPaths
+}) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    {iconPaths[name].map((path) => (
+      <path key={path} d={path} />
+    ))}
+  </svg>
+)
+
+const PersonAvatar = ({
+  person,
+}: {
+  person: ContractData["queue-picker.v1"]["people"][number]
+}) => {
+  const [failedImageUrl, setFailedImageUrl] = useState("")
+  const imageUrl = safeMediaUrl(person.artworkPath)
+  const color = getCategoricalIndex(person.id)
+  return (
+    <span
+      class="queue-picker-avatar"
+      aria-hidden="true"
+      style={{
+        background: `var(--color-categorical-${color}-solid)`,
+        color: `var(--color-categorical-${color}-on-solid)`,
+      }}
+    >
+      {imageUrl && failedImageUrl !== imageUrl ? (
+        <img
+          src={imageUrl}
+          alt=""
+          onError={() => setFailedImageUrl(imageUrl)}
+        />
+      ) : (
+        person.name
+          .trim()
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((part) => part.charAt(0))
+          .join("")
+          .toUpperCase()
+      )}
+    </span>
+  )
+}
 
 /** A bounded, paged queue chooser. No queue is chosen by scanning a person. */
 export const QueuePicker = ({
@@ -34,10 +103,18 @@ export const QueuePicker = ({
     if (!element) return
     const observer = new ResizeObserver(() => {
       // The list owns its remaining height, so no row is clipped on short panels.
+      const styles = getComputedStyle(element)
+      const rowHeight = Number.parseFloat(
+        styles.getPropertyValue("--queue-row-height"),
+      )
+      const rowGap = Number.parseFloat(styles.rowGap)
       setRows(
         Math.max(
           1,
-          Math.floor((element.clientHeight + 8) / 68),
+          Math.floor(
+            (element.clientHeight + rowGap) /
+              (rowHeight + rowGap),
+          ),
         ),
       )
     })
@@ -92,16 +169,18 @@ export const QueuePicker = ({
         <h2>Choose a queue</h2>
         <button
           type="button"
+          aria-label="Close"
           disabled={!isActive || !isControlEnabled}
           data-castkit-target="queue-picker:close"
           onClick={() => request("dismiss")}
         >
-          Close
+          <QueuePickerIcon name="close" />
         </button>
       </header>
       <fieldset
         class="queue-picker-people"
         aria-label="Selected people"
+        data-castkit-scroll={`queue-people:${data.sessionId}:${data.revision}`}
       >
         {data.people.map((person) => (
           <button
@@ -114,16 +193,24 @@ export const QueuePicker = ({
               request("remove", { personId: person.id })
             }
           >
-            {person.name} ×
+            <PersonAvatar person={person} />
+            <span class="queue-picker-person-name">
+              {person.name}
+            </span>
+            <QueuePickerIcon name="close" />
           </button>
         ))}
       </fieldset>
-      <p class="queue-picker-hint">
+      <p
+        class="queue-picker-hint"
+        role="status"
+        aria-live="polite"
+      >
         {!isActive
           ? "Scan a person card to begin."
           : error ||
             data.message ||
-            "Scan more people, then tap a queue."}
+            "Scan more people to add them."}
       </p>
       <div class="queue-picker-list" ref={container}>
         {isActive &&
@@ -142,11 +229,14 @@ export const QueuePicker = ({
                   request("choose", { queueId: queue.id })
                 }
               >
+                <QueuePickerIcon name="play" />
                 <span>{queue.title}</span>
-                <span aria-hidden="true">▶</span>
               </button>
             ))}
-        {isActive && !data.queues.length ? (
+        {isActive &&
+        !data.queues.length &&
+        !data.message &&
+        !error ? (
           <p>
             No matching queues. Remove a person or scan
             another card.
@@ -160,6 +250,7 @@ export const QueuePicker = ({
           data-castkit-target="queue-picker:reset"
           onClick={() => request("reset")}
         >
+          <QueuePickerIcon name="reset" />
           Reset
         </button>
         <nav aria-label="Queue pages">
@@ -173,7 +264,7 @@ export const QueuePicker = ({
               request("touch")
             }}
           >
-            ‹
+            <QueuePickerIcon name="previous" />
           </button>
           <span>
             {visiblePage + 1} / {pages}
@@ -188,7 +279,7 @@ export const QueuePicker = ({
               request("touch")
             }}
           >
-            ›
+            <QueuePickerIcon name="next" />
           </button>
         </nav>
       </footer>

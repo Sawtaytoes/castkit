@@ -645,7 +645,11 @@ export const builtinContractSchemas = {
     isActive: z.boolean(),
     expiresAt: finiteNumber,
     people: z.array(
-      z.object({ id: z.string(), name: z.string() }),
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        artworkPath: safeUrl.optional(),
+      }),
     ),
     queues: z.array(
       z.object({ id: z.string(), title: z.string() }),

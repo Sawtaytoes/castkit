@@ -1,5 +1,7 @@
 # CastKit decision records
 
+- [2026-10-29: Queue chooser uses large paged choices](2026-10-29-queue-chooser-uses-large-paged-choices.md)
+
 - [2026-10-28: Music queue reads down columns and keeps playback visible](2026-10-28-music-queue-reads-down-columns-and-keeps-playback-visible.md)
 - [2026-10-28: Compact music uses wide space and yields to work](2026-10-28-compact-music-uses-wide-space-and-yields-to-work.md)
 

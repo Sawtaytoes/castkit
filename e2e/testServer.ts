@@ -1,4 +1,8 @@
-import { mkdtempSync, writeFileSync } from "node:fs"
+import {
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createChromiumEngine } from "@castkit/render/chromiumEngine"
@@ -165,6 +169,13 @@ export const startTestServer = async ({
     adminHash: hashPin("2468"),
     sources: [
       {
+        id: "chooser-events",
+        name: "Queue chooser events",
+        adapter: "mqtt",
+        settings: { mediaUrl: `http://localhost:${port}` },
+        isEnabled: true,
+      },
+      {
         id: "events",
         name: "Events",
         adapter: "mqtt",
@@ -173,6 +184,22 @@ export const startTestServer = async ({
       },
     ],
     channels: [
+      {
+        id: "queues/fixture",
+        name: "Queue chooser fixture",
+        sourceId: "chooser-events",
+        type: "queue-picker.v1",
+        settings: {
+          actions: [
+            "touch",
+            "choose",
+            "remove",
+            "reset",
+            "dismiss",
+          ],
+          commandTopic: "castkit/queues/fixture/command",
+        },
+      },
       {
         id: "range/fixture",
         name: "Range controls",
@@ -207,6 +234,22 @@ export const startTestServer = async ({
       },
     ],
     views: [
+      {
+        id: "queue-chooser",
+        name: "Queue chooser",
+        layout: "single",
+        theme: "dark",
+        access: "public",
+        isControlEnabled: true,
+        panels: [
+          {
+            id: "chooser",
+            specId: "queue-picker",
+            bindings: { data: "queues/fixture" },
+            settings: {},
+          },
+        ],
+      },
       {
         id: "range-controls",
         name: "Range controls",
@@ -500,6 +543,22 @@ export const startTestServer = async ({
   })
 
   // An upstream image without CORS headers exercises browser color sampling.
+  app.get("/__test__/avatar/:person", (context) => {
+    const person = context.req.param("person")
+    if (!["ada", "grace"].includes(person))
+      return context.body(null, 404)
+    context.header("Content-Type", "image/jpeg")
+    return context.body(
+      new Uint8Array(
+        readFileSync(
+          new URL(
+            `./__fixtures__/avatars/${person}.jpg`,
+            import.meta.url,
+          ),
+        ),
+      ),
+    )
+  })
   app.get("/__test__/artwork.svg", (context) =>
     context.body(
       '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#d06020"/></svg>',
