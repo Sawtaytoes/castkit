@@ -102,6 +102,24 @@ export const QueuePicker = ({
   ) => Promise<void>
 }) => {
   const list = useRef<HTMLFieldSetElement>(null)
+  const [listWidth, setListWidth] = useState(448)
+  const columns = Math.max(
+    1,
+    Math.floor((listWidth + 8) / 138),
+  )
+  const tileSize = Math.max(
+    1,
+    (listWidth - (columns - 1) * 8) / columns,
+  )
+  useEffect(() => {
+    const element = list.current
+    if (!element) return
+    const observer = new ResizeObserver(() =>
+      setListWidth(element.clientWidth),
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
   const lastTouch = useRef(0)
   const [error, setError] = useState("")
   const isVisible = useCompositionVisibility()
@@ -220,6 +238,10 @@ export const QueuePicker = ({
       <fieldset
         class="queue-picker-list"
         ref={list}
+        style={{
+          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+          gridAutoRows: `${tileSize}px`,
+        }}
         aria-label="Queues"
         data-castkit-target={`scroll:queues:${data.sessionId}:${data.revision}`}
         data-castkit-scroll="true"

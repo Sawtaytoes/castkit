@@ -122,6 +122,25 @@ sizes.forEach((size) => {
       "true",
     )
     await expect(choices).toHaveCount(30)
+    const boxes = await choices.evaluateAll((elements) =>
+      elements.map((element) => {
+        const r = element.getBoundingClientRect()
+        return {
+          top: r.top,
+          bottom: r.bottom,
+          left: r.left,
+          right: r.right,
+        }
+      }),
+    )
+    for (let index = 1; index < boxes.length; index++) {
+      const current = boxes[index]!
+      const previous = boxes[index - 1]!
+      expect(
+        current.left >= previous.right - 1 ||
+          current.top >= previous.bottom - 1,
+      ).toBe(true)
+    }
     if (size === "square") {
       const fullRows = await list.evaluate((element) => {
         const bounds = element.getBoundingClientRect()
