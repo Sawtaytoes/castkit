@@ -9,8 +9,6 @@ import "./queuePicker.css"
 const iconPaths = {
   close: ["M18 6 6 18", "m6 6 12 12"],
   play: ["m6 3 14 9-14 9V3Z"],
-  previous: ["m15 18-6-6 6-6"],
-  next: ["m9 18 6-6-6-6"],
   reset: [
     "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8",
     "M3 3v5h5",
@@ -72,7 +70,23 @@ const PersonAvatar = ({
   )
 }
 
-/** A bounded, paged queue chooser. No queue is chosen by scanning a person. */
+const QueueArtwork = ({ path }: { path?: string }) => {
+  const url = safeMediaUrl(path)
+  const [failed, setFailed] = useState("")
+  return url && failed !== url ? (
+    <img
+      class="queue-picker-poster"
+      src={url}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(url)}
+    />
+  ) : (
+    <QueuePickerIcon name="play" />
+  )
+}
+
+/** A scrollable queue chooser. No queue is chosen by scanning a person. */
 export const QueuePicker = ({
   data,
   now,
@@ -87,40 +101,33 @@ export const QueuePicker = ({
     payload?: Record<string, unknown>,
   ) => Promise<void>
 }) => {
-  const container = useRef<HTMLDivElement>(null)
+  const list = useRef<HTMLFieldSetElement>(null)
+  const [listWidth, setListWidth] = useState(448)
+  const columns = Math.max(
+    1,
+    Math.floor((listWidth + 8) / 138),
+  )
+  const tileSize = Math.max(
+    1,
+    (listWidth - (columns - 1) * 8) / columns,
+  )
+  useEffect(() => {
+    const element = list.current
+    if (!element) return
+    const observer = new ResizeObserver(() =>
+      setListWidth(element.clientWidth),
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
   const lastTouch = useRef(0)
-  const [page, setPage] = useState(0)
-  const [rows, setRows] = useState(1)
   const [error, setError] = useState("")
   const isVisible = useCompositionVisibility()
   const isActive = data.isActive && data.expiresAt > now
   useEffect(() => {
-    setPage(0)
+    if (list.current) list.current.scrollTop = 0
     setError("")
   }, [data.revision])
-  useEffect(() => {
-    const element = container.current
-    if (!element) return
-    const observer = new ResizeObserver(() => {
-      // The list owns its remaining height, so no row is clipped on short panels.
-      const styles = getComputedStyle(element)
-      const rowHeight = Number.parseFloat(
-        styles.getPropertyValue("--queue-row-height"),
-      )
-      const rowGap = Number.parseFloat(styles.rowGap)
-      setRows(
-        Math.max(
-          1,
-          Math.floor(
-            (element.clientHeight + rowGap) /
-              (rowHeight + rowGap),
-          ),
-        ),
-      )
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
   const request = (
     action: string,
     payload: Record<string, unknown> = {},
@@ -153,11 +160,6 @@ export const QueuePicker = ({
       return
     touch()
   }
-  const pages = Math.max(
-    1,
-    Math.ceil(data.queues.length / rows),
-  )
-  const visiblePage = Math.min(page, pages - 1)
   return (
     <section
       class="queue-picker"
@@ -166,7 +168,52 @@ export const QueuePicker = ({
       aria-label="Queue chooser"
     >
       <header>
-        <h2>Choose a queue</h2>
+        <fieldset
+          class="queue-picker-people"
+          aria-label="Selected people"
+          data-castkit-target={`scroll:queue-people:${data.sessionId}:${data.revision}`}
+          data-castkit-scroll="true"
+          onPointerCancel={touch}
+          onWheel={touch}
+          onKeyDown={(event) => {
+            if (
+              [
+                "ArrowUp",
+                "ArrowDown",
+                "PageUp",
+                "PageDown",
+                "Home",
+                "End",
+              ].includes(event.key)
+            ) {
+              touch()
+            }
+          }}
+        >
+          {data.people.map((person) => (
+            <button
+              key={person.id}
+              type="button"
+              disabled={!isActive || !isControlEnabled}
+              aria-label={`Remove ${person.name}`}
+              data-castkit-target={`queue-picker:person:${person.id}`}
+              onClick={() =>
+                request("remove", { personId: person.id })
+              }
+            >
+              <PersonAvatar person={person} />
+            </button>
+          ))}
+        </fieldset>
+        <button
+          type="button"
+          aria-label="Reset"
+          disabled={!isActive || !isControlEnabled}
+          data-castkit-target="queue-picker:reset"
+          onClick={() => request("reset")}
+        >
+          <QueuePickerIcon name="reset" />
+        </button>
         <button
           type="button"
           aria-label="Close"
@@ -177,10 +224,26 @@ export const QueuePicker = ({
           <QueuePickerIcon name="close" />
         </button>
       </header>
+      {(!isActive || error || data.message) && (
+        <p
+          class="queue-picker-hint"
+          role="status"
+          aria-live="polite"
+        >
+          {!isActive
+            ? "Scan a person card to begin."
+            : error || data.message}
+        </p>
+      )}
       <fieldset
-        class="queue-picker-people"
-        aria-label="Selected people"
-        data-castkit-target={`scroll:queue-people:${data.sessionId}:${data.revision}`}
+        class="queue-picker-list"
+        ref={list}
+        style={{
+          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+          gridAutoRows: `${tileSize}px`,
+        }}
+        aria-label="Queues"
+        data-castkit-target={`scroll:queues:${data.sessionId}:${data.revision}`}
         data-castkit-scroll="true"
         onPointerCancel={touch}
         onWheel={touch}
@@ -194,62 +257,29 @@ export const QueuePicker = ({
               "Home",
               "End",
             ].includes(event.key)
-          ) {
+          )
             touch()
-          }
         }}
       >
-        {data.people.map((person) => (
-          <button
-            key={person.id}
-            type="button"
-            disabled={!isActive || !isControlEnabled}
-            aria-label={`Remove ${person.name}`}
-            data-castkit-target={`queue-picker:person:${person.id}`}
-            onClick={() =>
-              request("remove", { personId: person.id })
-            }
-          >
-            <PersonAvatar person={person} />
-            <span class="queue-picker-person-name">
-              {person.name}
-            </span>
-            <QueuePickerIcon name="close" />
-          </button>
-        ))}
-      </fieldset>
-      <p
-        class="queue-picker-hint"
-        role="status"
-        aria-live="polite"
-      >
-        {!isActive
-          ? "Scan a person card to begin."
-          : error ||
-            data.message ||
-            "Scan more people to add them."}
-      </p>
-      <div class="queue-picker-list" ref={container}>
         {isActive &&
-          data.queues
-            .slice(
-              visiblePage * rows,
-              (visiblePage + 1) * rows,
-            )
-            .map((queue) => (
-              <button
-                type="button"
-                key={queue.id}
-                disabled={!isControlEnabled}
-                data-castkit-target={`queue-picker:queue:${data.revision}:${queue.id}`}
-                onClick={() =>
-                  request("choose", { queueId: queue.id })
-                }
-              >
-                <QueuePickerIcon name="play" />
-                <span>{queue.title}</span>
-              </button>
-            ))}
+          data.queues.map((queue) => (
+            <button
+              type="button"
+              key={queue.id}
+              style={{
+                background: `var(--color-categorical-${getCategoricalIndex(queue.id)}-solid)`,
+                color: `var(--color-categorical-${getCategoricalIndex(queue.id)}-on-solid)`,
+              }}
+              disabled={!isControlEnabled}
+              data-castkit-target={`queue-picker:queue:${data.revision}:${queue.id}`}
+              onClick={() =>
+                request("choose", { queueId: queue.id })
+              }
+            >
+              <QueueArtwork path={queue.artworkPath} />
+              <span>{queue.title}</span>
+            </button>
+          ))}
         {isActive &&
         !data.queues.length &&
         !data.message &&
@@ -259,47 +289,7 @@ export const QueuePicker = ({
             another card.
           </p>
         ) : null}
-      </div>
-      <footer>
-        <button
-          type="button"
-          disabled={!isActive || !isControlEnabled}
-          data-castkit-target="queue-picker:reset"
-          onClick={() => request("reset")}
-        >
-          <QueuePickerIcon name="reset" />
-          Reset
-        </button>
-        <nav aria-label="Queue pages">
-          <button
-            type="button"
-            aria-label="Previous queues"
-            disabled={visiblePage === 0}
-            data-castkit-target="queue-picker:previous"
-            onClick={() => {
-              setPage(visiblePage - 1)
-              request("touch")
-            }}
-          >
-            <QueuePickerIcon name="previous" />
-          </button>
-          <span>
-            {visiblePage + 1} / {pages}
-          </span>
-          <button
-            type="button"
-            aria-label="Next queues"
-            disabled={visiblePage + 1 >= pages}
-            data-castkit-target="queue-picker:next"
-            onClick={() => {
-              setPage(visiblePage + 1)
-              request("touch")
-            }}
-          >
-            <QueuePickerIcon name="next" />
-          </button>
-        </nav>
-      </footer>
+      </fieldset>
     </section>
   )
 }

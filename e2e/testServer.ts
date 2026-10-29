@@ -559,6 +559,13 @@ export const startTestServer = async ({
       ),
     )
   })
+  app.get("/__test__/queue-poster.svg", (context) =>
+    context.body(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450"><rect width="300" height="450" fill="#163b6c"/><circle cx="222" cy="104" r="55" fill="#ffd27a"/><path d="M0 340 105 150 185 285 235 210 300 340V450H0Z" fill="#6cb8a8"/><path d="m0 390 110-160 130 220H0" fill="#285b68"/><text x="24" y="72" fill="white" font-family="sans-serif" font-size="27" font-weight="bold">MOON TRAIL</text></svg>',
+      200,
+      { "Content-Type": "image/svg+xml" },
+    ),
+  )
   app.get("/__test__/artwork.svg", (context) =>
     context.body(
       '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#d06020"/></svg>',
