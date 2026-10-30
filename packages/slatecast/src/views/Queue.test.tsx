@@ -17,9 +17,16 @@ import { waitUntil } from "../__tests__/setup/slatecastServer.ts"
 
 import "../styles.css"
 
-const mountQueueView = async (data: ViewDataState) =>
+const mountQueueView = async (
+  data: ViewDataState,
+  hasTouch = true,
+) =>
   mountSlatecast({
-    snapshot: buildSnapshot({ view: "queue", data }),
+    snapshot: buildSnapshot({
+      view: "queue",
+      data,
+      device: buildDeviceProfile({ hasTouch }),
+    }),
   })
 
 const queueItems = () => screen.getAllByRole("listitem")
@@ -257,7 +264,7 @@ describe("audio queue controls", () => {
     expect(server.commands).toEqual([])
   })
 
-  test("a view swipe does not also activate a queue row", async () => {
+  test("a queue drag does not navigate or activate a queue row", async () => {
     const { server } = await mountQueueView({
       queue: buildQueue(),
     })
@@ -281,10 +288,7 @@ describe("audio queue controls", () => {
         coords: { clientX: 100, clientY: 180 },
       },
     ])
-    await waitUntil(() => server.commands.length === 1)
-    expect(server.commands).toEqual([
-      { action: "view", value: "now-playing" },
-    ])
+    expect(server.commands).toEqual([])
   })
 
   test("touchless panels stay passive", async () => {
@@ -322,7 +326,7 @@ describe("audio queue controls", () => {
   })
 })
 
-test("audio queue fills complete rows around the current track and refills when resized", async () => {
+test("a passive audio queue fills complete rows around the current track and refills when resized", async () => {
   const { page } = await import("vitest/browser")
   await page.viewport(480, 480)
   const items = Array.from(
@@ -333,10 +337,13 @@ test("audio queue fills complete rows around the current track and refills when 
       isCurrent: index === 21,
     }),
   )
-  await mountQueueView({
-    queue: buildQueue({ items }),
-    nowPlaying: buildNowPlaying(),
-  })
+  await mountQueueView(
+    {
+      queue: buildQueue({ items }),
+      nowPlaying: buildNowPlaying(),
+    },
+    false,
+  )
   await document.fonts.ready
   await waitFor(() => expect(queueItems().length).toBe(7))
   expect(screen.getByText("Track 21")).toBeVisible()
@@ -344,8 +351,10 @@ test("audio queue fills complete rows around the current track and refills when 
     screen.getByText("Track 22").closest("li"),
   ).toHaveAttribute("aria-current", "true")
   expect(
-    screen.getByRole("button", { name: "Play Track 23" }),
-  ).toBeVisible()
+    within(
+      screen.getByRole("list", { name: "Audio queue" }),
+    ).queryByRole("button"),
+  ).toBeNull()
   const assertFit = () => {
     const root =
       document.querySelector<HTMLElement>(".queue")!
@@ -376,18 +385,21 @@ test("audio queue fills complete rows around the current track and refills when 
 test("the end of an audio queue fills available rows with earlier tracks", async () => {
   const { page } = await import("vitest/browser")
   await page.viewport(480, 480)
-  await mountQueueView({
-    queue: buildQueue({
-      items: Array.from(
-        { length: 20 },
-        (_unused, index) => ({
-          title: `End track ${index + 1}`,
-          artist: "Fixture artist",
-          isCurrent: index === 19,
-        }),
-      ),
-    }),
-  })
+  await mountQueueView(
+    {
+      queue: buildQueue({
+        items: Array.from(
+          { length: 20 },
+          (_unused, index) => ({
+            title: `End track ${index + 1}`,
+            artist: "Fixture artist",
+            isCurrent: index === 19,
+          }),
+        ),
+      }),
+    },
+    false,
+  )
   await waitFor(() => expect(queueItems().length).toBe(7))
   expect(screen.getByText("End track 20")).toBeVisible()
   expect(screen.getByText("End track 15")).toBeVisible()

@@ -432,3 +432,80 @@ test("a native pull from an edge names its request at once, and the destination 
   ).toBe(true)
   await context.close()
 })
+
+test("a playing queue row resolves to the native scroll target", async ({
+  page,
+  browser,
+}) => {
+  await publish(page, "now_playing", {
+    artist: "Fixture artist",
+    title: "Scroll track 22",
+    album: "Fixture album",
+    isPlaying: true,
+    position: 30,
+    duration: 151,
+    volume: 0.5,
+    isMuted: false,
+  })
+  await publish(page, "queue", {
+    items: Array.from({ length: 46 }, (_unused, index) => ({
+      title: `Scroll track ${index + 1}`,
+      artist: "Fixture artist",
+      isCurrent: index === 21,
+    })),
+  })
+  await publish(page, "view", "Queue")
+  const context = await createWorkerContext(browser)
+  try {
+    const panel = await context.newPage()
+    await panel.goto(`/d/${E2E_STREAM_DEVICE_ID}`)
+    await waitForSettledView(panel, "queue")
+    const playing = panel.getByRole("button", {
+      name: "Playing Scroll track 22",
+    })
+    await expect(playing).toBeDisabled()
+    const point = await playing.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return {
+        x: bounds.left + bounds.width / 2,
+        y: bounds.top + bounds.height / 2,
+      }
+    })
+    const hit = await panel.evaluate(
+      `(${readWorkerScript("HIT_SCRIPT")})(${JSON.stringify(
+        {
+          ...point,
+          attribute: "data-castkit-target",
+        },
+      )})`,
+    )
+    expect(hit).toBe("scroll:audio-queue")
+    const targets = (await panel.evaluate(
+      `(${readWorkerScript("TARGETS_SCRIPT")})(${JSON.stringify(
+        {
+          attribute: "data-castkit-target",
+          width: 480,
+          height: 480,
+        },
+      )})`,
+    )) as {
+      identity: string
+      x: number
+      y: number
+      width: number
+      height: number
+    }[]
+    const target = targets
+      .filter(
+        (target) =>
+          point.x >= target.x &&
+          point.x < target.x + target.width &&
+          point.y >= target.y &&
+          point.y < target.y + target.height,
+      )
+      .at(-1)
+    expect(target?.identity).toBe(hit)
+  } finally {
+    await context.close()
+  }
+})

@@ -19,6 +19,7 @@ from playwright.async_api import async_playwright
 from presto_transport import PrestoTransport
 from preview import PreviewServer
 from worker import (
+    PAGE_STATE_SCRIPT,
     TARGETS_SCRIPT,
     DisplaySession,
     create_browser_context,
@@ -231,10 +232,15 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
             await blocked.wait()
 
         cdp.send.side_effect = stalled_send
+        # Only the screenshot is meant to stall. Read the real preflight outside
+        # the artificial 50 ms deadline so runner latency cannot fail it first.
+        page_state = await self.page.evaluate(PAGE_STATE_SCRIPT)
+        targets = await self.page.evaluate(TARGETS_SCRIPT, session.target_options)
         with (
             patch.object(self.context, "new_cdp_session", return_value=cdp),
+            patch.object(self.page, "evaluate", AsyncMock(side_effect=[page_state, targets])),
             patch("worker.BROWSER_TIMEOUT_SECONDS", 0.05),
-            self.assertRaises(TimeoutError),
+            self.assertRaisesRegex(TimeoutError, "Browser capture stalled"),
         ):
             await asyncio.wait_for(session.run(1, None), timeout=1)
         self.assertTrue(capture_started.is_set())

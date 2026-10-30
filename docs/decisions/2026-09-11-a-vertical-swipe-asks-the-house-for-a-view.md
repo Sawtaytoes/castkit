@@ -4,7 +4,7 @@
 - **Date:** 2026-09-11
 - **Type:** Interaction
 - **Supersedes:** —
-- **Superseded by:** [A touch panel opens its view drawer from either screen edge](2026-09-21-a-touch-panel-opens-its-view-drawer-from-either-screen-edge.md), for direct view navigation and the external-view exit; [sliders own their touch contact](2026-10-11-sliders-own-their-touch-contact.md), for slider contacts
+- **Superseded by:** [A touch panel opens its view drawer from either screen edge](2026-09-21-a-touch-panel-opens-its-view-drawer-from-either-screen-edge.md), for direct view navigation and the external-view exit; [sliders own their touch contact](2026-10-11-sliders-own-their-touch-contact.md), for slider contacts; [scrollable queues own touch gestures](2026-10-30-scrollable-queues-own-touch-gestures.md), for contacts inside scroll regions
 
 ## Decision
 
