@@ -97,12 +97,30 @@ export const createMqttSource: SourceFactory = (
   context,
 ) => {
   const media = createSourceMedia(context)
+  const hasChooser = context.channels.some(
+    (channel) => channel.type === "queue-picker.v1",
+  )
+  const refreshPosters = () => {
+    if (hasChooser) void media.warmChooserPosters()
+  }
+  const posterLifecycle = {
+    timer: undefined as
+      | ReturnType<typeof setInterval>
+      | undefined,
+  }
   return {
     getMedia: media.getMedia,
     start: async () => {
       if (!context.mqtt) {
         throw new Error("MQTT is not configured.")
       }
+      refreshPosters()
+      if (hasChooser)
+        posterLifecycle.timer = setInterval(
+          refreshPosters,
+          300_000,
+        )
+      posterLifecycle.timer?.unref()
       await Promise.all(
         context.channels.map((channel) =>
           context.mqtt?.subscribe(
@@ -112,6 +130,7 @@ export const createMqttSource: SourceFactory = (
       )
     },
     dispose: () => {
+      clearInterval(posterLifecycle.timer)
       context.channels.forEach((channel) => {
         void context.mqtt?.unsubscribe?.(
           topicFor({ context, channelId: channel.id }),

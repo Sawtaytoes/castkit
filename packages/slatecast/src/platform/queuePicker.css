@@ -122,7 +122,6 @@
 }
 .queue-picker .queue-picker-list > button {
   position: relative;
-  aspect-ratio: 1;
   min-height: 0;
   overflow: hidden;
   text-align: left;
@@ -150,10 +149,17 @@
 .queue-picker-poster {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .queue-picker-list > p {
   grid-column: 1 / -1;
   font-size: 24px;
   line-height: 1.25;
+}
+
+.queue-picker-list:has(> p) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
