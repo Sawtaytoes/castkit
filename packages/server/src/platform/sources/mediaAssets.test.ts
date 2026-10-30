@@ -36,3 +36,45 @@ test("source media drops unapproved hosts and proxies allowed media without expo
     }),
   ).rejects.toThrow("not part")
 })
+
+test("warms queue posters before channel selection without granting other channels access", async () => {
+  const fetcher = vi
+    .fn<typeof fetch>()
+    .mockImplementation(async (input) =>
+      String(input).endsWith("/posters")
+        ? Response.json({
+            posters: [
+              {
+                artworkPath: "/api/chooser/poster/learning",
+              },
+              {
+                artworkPath:
+                  "https://untrusted.example/api/chooser/poster/secret",
+              },
+            ],
+          })
+        : new Response("poster", {
+            headers: { "Content-Type": "image/jpeg" },
+          }),
+    )
+  const media = createSourceMedia(
+    sourceContext({ fetch: fetcher }),
+  )
+  await media.warmChooserPosters()
+  const data = media.rewrite({
+    channelId: "chooser",
+    data: { artworkPath: "/api/chooser/poster/learning" },
+  }) as { artworkPath: string }
+  const result = await media.getMedia({
+    channelId: "chooser",
+    assetId: data.artworkPath.split("/").at(-1)!,
+  })
+  expect(await result.text()).toBe("poster")
+  expect(fetcher).toHaveBeenCalledTimes(2)
+  await expect(
+    media.getMedia({
+      channelId: "other",
+      assetId: data.artworkPath.split("/").at(-1)!,
+    }),
+  ).rejects.toThrow("not part")
+})

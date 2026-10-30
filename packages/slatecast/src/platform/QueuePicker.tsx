@@ -1,4 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { selectPriorityLayout } from "@charcuterie/logic/core"
 import { getCategoricalIndex } from "@charcuterie/tokens"
 import { useEffect, useRef, useState } from "preact/hooks"
 import { useCompositionVisibility } from "./CompositionVisibility.ts"
@@ -70,15 +71,22 @@ const PersonAvatar = ({
   )
 }
 
-const QueueArtwork = ({ path }: { path?: string }) => {
+const QueueArtwork = ({
+  path,
+  isCropped,
+}: {
+  path?: string
+  isCropped: boolean
+}) => {
   const url = safeMediaUrl(path)
   const [failed, setFailed] = useState("")
   return url && failed !== url ? (
     <img
       class="queue-picker-poster"
+      style={{ objectFit: isCropped ? "cover" : "contain" }}
       src={url}
       alt=""
-      loading="lazy"
+      loading="eager"
       onError={() => setFailed(url)}
     />
   ) : (
@@ -102,20 +110,63 @@ export const QueuePicker = ({
   ) => Promise<void>
 }) => {
   const list = useRef<HTMLFieldSetElement>(null)
-  const [listWidth, setListWidth] = useState(448)
-  const columns = Math.max(
-    1,
-    Math.floor((listWidth + 8) / 138),
+  const [box, setBox] = useState({
+    width: 448,
+    height: 376,
+  })
+  const count = data.queues.length
+  const candidates = Array.from(
+    { length: count > 4 ? 1 : Math.max(1, count) * 2 },
+    (_unused, index) => {
+      const isSquare =
+        count <= 4 && index >= Math.max(1, count)
+      const columns =
+        count > 4
+          ? Math.max(1, Math.floor((box.width + 8) / 138))
+          : (index % Math.max(1, count)) + 1
+      const rows = Math.ceil(count / columns) || 1
+      const cellWidth =
+        (box.width - (columns - 1) * 8) / columns
+      const availableHeight =
+        (box.height - (rows - 1) * 8) / rows
+      const width =
+        count <= 4
+          ? Math.max(
+              1,
+              Math.min(
+                cellWidth,
+                availableHeight * (isSquare ? 1 : 2 / 3),
+              ),
+            )
+          : cellWidth
+      const height =
+        count <= 4 ? width * (isSquare ? 1 : 1.5) : width
+      return {
+        id: String(columns),
+        columns,
+        isSquare,
+        width,
+        height,
+        sections: Array.from({ length: count }, () => ({
+          priority: 1,
+          width,
+          height,
+          aspectRatio: 2 / 3,
+          minimumWidth: 130,
+          minimumHeight: 80,
+        })),
+      }
+    },
   )
-  const tileSize = Math.max(
-    1,
-    (listWidth - (columns - 1) * 8) / columns,
-  )
+  const layout = selectPriorityLayout(candidates)!
   useEffect(() => {
     const element = list.current
     if (!element) return
     const observer = new ResizeObserver(() =>
-      setListWidth(element.clientWidth),
+      setBox({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      }),
     )
     observer.observe(element)
     return () => observer.disconnect()
@@ -239,8 +290,10 @@ export const QueuePicker = ({
         class="queue-picker-list"
         ref={list}
         style={{
-          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-          gridAutoRows: `${tileSize}px`,
+          gridTemplateColumns: `repeat(${layout.columns}, ${count <= 4 ? `${layout.width}px` : "minmax(0, 1fr)"})`,
+          justifyContent: count <= 4 ? "center" : "stretch",
+          alignContent: count <= 4 ? "center" : "start",
+          gridAutoRows: `${layout.height}px`,
         }}
         aria-label="Queues"
         data-castkit-target={`scroll:queues:${data.sessionId}:${data.revision}`}
@@ -276,7 +329,10 @@ export const QueuePicker = ({
                 request("choose", { queueId: queue.id })
               }
             >
-              <QueueArtwork path={queue.artworkPath} />
+              <QueueArtwork
+                path={queue.artworkPath}
+                isCropped={layout.isSquare}
+              />
               <span>{queue.title}</span>
             </button>
           ))}
@@ -284,10 +340,7 @@ export const QueuePicker = ({
         !data.queues.length &&
         !data.message &&
         !error ? (
-          <p>
-            No matching queues. Remove a person or scan
-            another card.
-          </p>
+          <p>No matching queues.</p>
         ) : null}
       </fieldset>
     </section>

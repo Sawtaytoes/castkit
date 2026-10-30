@@ -353,7 +353,7 @@ test("scroll gestures on the queue list renew activity without choosing playback
   )
 })
 
-test("poster failure keeps the entire square queue actionable", async () => {
+test("poster failure keeps the entire enlarged queue actionable", async () => {
   const onAction = vi.fn(async () => undefined)
   render(
     <div style={{ width: 480, height: 480 }}>
@@ -382,12 +382,47 @@ test("poster failure keeps the entire square queue actionable", async () => {
   fireEvent.error(image)
   expect(tile.querySelector("img")).toBeNull()
   const bounds = tile.getBoundingClientRect()
-  expect(
-    Math.abs(bounds.width - bounds.height),
-  ).toBeLessThan(1)
+  expect(bounds.width).toBeGreaterThan(240)
+  expect(bounds.height).toBeGreaterThan(250)
   await userEvent.setup().click(tile)
   expect(onAction).toHaveBeenCalledExactlyOnceWith(
     "choose",
     expect.objectContaining({ queueId: "learning" }),
   )
+})
+
+test.each([
+  2, 3, 4,
+])("all %s queue choices fit the available panel without scrolling", async (count) => {
+  render(
+    <div style={{ width: 480, height: 480 }}>
+      <QueuePicker
+        data={{
+          ...data,
+          queues: data.queues.slice(0, count),
+        }}
+        now={100_000}
+        isControlEnabled
+        onAction={async () => undefined}
+      />
+    </div>,
+  )
+  const list = screen.getByRole("group", { name: "Queues" })
+  await expect
+    .poll(() => list.clientHeight)
+    .toBeGreaterThan(300)
+  await expect
+    .poll(() => list.scrollHeight)
+    .toBeLessThanOrEqual(list.clientHeight + 1)
+  const bounds = list.getBoundingClientRect()
+  screen
+    .getAllByRole("button", { name: /Movies/ })
+    .forEach((button) => {
+      const tile = button.getBoundingClientRect()
+      expect(tile.top).toBeGreaterThanOrEqual(bounds.top)
+      expect(tile.bottom).toBeLessThanOrEqual(
+        bounds.bottom + 1,
+      )
+      expect(tile.width).toBeGreaterThan(110)
+    })
 })
