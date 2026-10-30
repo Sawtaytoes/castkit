@@ -506,6 +506,13 @@ test("a touch queue scrolls without returning to time, and its edge still naviga
   await page.setViewportSize({ width: 480, height: 480 })
   await publishFromHomeAssistant({
     page,
+    topic: e2eTopics.nowPlaying,
+    payload: buildNowPlayingPayload({
+      title: "Scroll track 22",
+    }),
+  })
+  await publishFromHomeAssistant({
+    page,
     topic: e2eTopics.queue,
     payload: {
       items: Array.from({ length: 46 }, (_, index) => ({
@@ -538,9 +545,9 @@ test("a touch queue scrolls without returning to time, and its edge still naviga
   })
   await session.send("Input.dispatchTouchEvent", {
     type: "touchStart",
-    touchPoints: [{ x: 240, y: 350 }],
+    touchPoints: [{ x: 240, y: 170 }],
   })
-  await [320, 290, 260, 230, 200, 170].reduce(
+  await [140, 110, 80, 50, 20].reduce(
     async (previous, height) => {
       await previous
       await session.send("Input.dispatchTouchEvent", {

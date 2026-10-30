@@ -33,5 +33,7 @@ only when the current item or available row count changes, not on progress ticks
 The real-server media-controls test scrolls a 46-item touch queue using Chromium
 native touch events, verifies scroll position advances without commands or a view
 change, and then verifies that the bottom edge still navigates. Component tests
-cover passive row fitting and touch track controls. Fixture visual evidence is in
+cover passive row fitting and touch track controls. A real-server native-worker
+hit-test check verifies that a disabled playing row resolves to the scroll list
+in both the acknowledged targets and the live hit test. Fixture visual evidence is in
 docs/images/queue-scroll/.

@@ -152,6 +152,7 @@ export const Queue = ({
           isInteractive &&
           (isNext ||
             (item.isCurrent && nowPlaying.value !== null))
+        const isDisabled = item.isCurrent && isPlaying
         const content = (
           <>
             {item.artworkPath ? (
@@ -202,8 +203,12 @@ export const Queue = ({
                 type="button"
                 class="queue-play"
                 aria-label={`${item.isCurrent ? (isPlaying ? "Playing" : "Resume") : "Play"} ${item.title}`}
-                disabled={item.isCurrent && isPlaying}
-                data-castkit-target={`audio-queue-${index}-${item.title}`}
+                disabled={isDisabled}
+                data-castkit-target={
+                  isDisabled
+                    ? undefined
+                    : `audio-queue-${index}-${item.title}`
+                }
                 onPointerDown={(event) => {
                   rowContact.current = {
                     x: event.clientX,
