@@ -1022,6 +1022,10 @@ html[data-grayscale-text="true"] {
 .audio-queue {
   overflow: hidden;
 }
+.audio-queue[data-castkit-scroll] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 .queue li {
   flex-shrink: 0;

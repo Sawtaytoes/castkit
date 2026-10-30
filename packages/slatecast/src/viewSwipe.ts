@@ -65,12 +65,12 @@ type SwipeState = {
 let swipe: SwipeState | null = null
 
 export const beginViewSwipe = (event: PointerEvent) => {
-  // A slider owns its contact, including travel outside its original box.
-  // A seek or volume adjustment must never double as a request for a view.
+  // Sliders and scroll regions own their contacts, including travel outside
+  // the original box. Their movement must never also request another view.
   if (
     event.target instanceof Element &&
     event.target.closest(
-      '[role="slider"], input[type="range"]',
+      '[role="slider"], input[type="range"], [data-castkit-scroll]',
     )
   ) {
     return

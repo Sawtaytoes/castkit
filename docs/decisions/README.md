@@ -1,4 +1,5 @@
 # CastKit decision records
+- [2026-10-30: Scrollable queues own touch gestures](2026-10-30-scrollable-queues-own-touch-gestures.md)
 - [2026-10-29: Queue chooser uses avatars and scrolling](2026-10-29-queue-chooser-uses-avatars-and-scrolling.md)
 
 - [2026-10-29: Queue chooser uses large paged choices](2026-10-29-queue-chooser-uses-large-paged-choices.md)
