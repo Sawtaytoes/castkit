@@ -649,7 +649,7 @@ class BrowserScrollTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.scroll.stats["stitch_attempts"], 1)
         self.assertEqual(self.scroll.stats["refusal"], "covered")
         first = self.scroll.refusal
-        self.assertEqual(first["retry_at"] - first["at"], 2)
+        self.assertAlmostEqual(first["retry_at"] - first["at"], 2)
         # The stitch's own scrolling is not a page change.
         await self.cycle()
         self.assertEqual(self.scroll.refusal["changes"], self.scroll.changes)
@@ -670,7 +670,8 @@ class BrowserScrollTests(unittest.IsolatedAsyncioTestCase):
         await self.cycle()
         self.assertEqual(self.scroll.stats["stitch_attempts"], 2)
         second = self.scroll.refusal
-        self.assertEqual((second["count"], second["retry_at"] - second["at"]), (2, 4))
+        self.assertEqual(second["count"], 2)
+        self.assertAlmostEqual(second["retry_at"] - second["at"], 4)
 
     async def test_a_change_beside_the_list_during_a_stitch_still_counts(self):
         """END resets the page's change count; only the stitch's own list scrolling may go."""

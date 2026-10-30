@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-28
 Type: Product and layout
 Supersedes: The height-only queue fitting in 2026-10-27-compact-music-uses-spare-room-and-opens-the-full-player.md
-Superseded by: None
+Superseded by: [Music seek previews and room pause grace](2026-10-29-music-seek-previews-and-room-pause-grace.md), for paused/stopped eligibility in Room Overview
 
 ## Decision
 

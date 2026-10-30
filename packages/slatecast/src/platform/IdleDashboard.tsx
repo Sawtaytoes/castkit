@@ -8,6 +8,7 @@ import { useSignalEffect } from "@preact/signals"
 import type { ComponentProps } from "preact"
 import {
   useContext,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -58,10 +59,54 @@ export const IdleDashboard = ({
   const side = useRef<HTMLDivElement>(null)
   const agendaContent = useRef<HTMLDivElement>(null)
   const music = musicPlayer?.data
+  const isPlaying = music?.player?.state === "playing"
+  const isUnavailable =
+    !music?.current || music.player?.state === "unavailable"
+  const playerId = music?.player?.id
+  const state = music?.player?.state
+  const quietUntil = useRef<number>()
+  const previousPlayback = useRef({
+    playerId,
+    isPlaying: false,
+  })
+  const [isMusicRecentlyPaused, setMusicRecentlyPaused] =
+    useState(false)
+  useEffect(() => {
+    const hasChangedPlayer =
+      previousPlayback.current.playerId !== playerId
+    const hasJustStopped =
+      !hasChangedPlayer &&
+      previousPlayback.current.isPlaying
+    previousPlayback.current = { playerId, isPlaying }
+    if (hasChangedPlayer || isPlaying || isUnavailable)
+      quietUntil.current = undefined
+    if (isPlaying || isUnavailable) {
+      setMusicRecentlyPaused(false)
+      return
+    }
+    if (
+      hasJustStopped ||
+      (state === "paused" &&
+        quietUntil.current === undefined)
+    ) {
+      quietUntil.current = Date.now() + 60_000
+    }
+    const remaining = (quietUntil.current ?? 0) - Date.now()
+    setMusicRecentlyPaused(remaining > 0)
+    if (remaining <= 0) return
+    const timer = setTimeout(
+      () => setMusicRecentlyPaused(false),
+      remaining,
+    )
+    return () => clearTimeout(timer)
+  }, [isPlaying, isUnavailable, playerId, state])
   const isMusicActive = Boolean(
     music?.current &&
-      (music.player?.state === "playing" ||
-        music.player?.state === "paused"),
+      !isUnavailable &&
+      (isPlaying ||
+        isMusicRecentlyPaused ||
+        (previousPlayback.current.playerId === playerId &&
+          previousPlayback.current.isPlaying)),
   )
   useLayoutEffect(() => {
     if (!isVisible) setSelectedKidId(undefined)

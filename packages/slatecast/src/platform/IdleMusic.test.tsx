@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -313,6 +314,12 @@ test("a return-to-time request closes nested music and idle retained metadata le
     nowMs: Date.now(),
     state: "idle",
   })
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "Date"],
+  })
+  onTestFinished(() => {
+    vi.useRealTimers()
+  })
   mounted.rerender(
     <main class="platform" data-device="true">
       <DisplayComposition
@@ -328,6 +335,23 @@ test("a return-to-time request closes nested music and idle retained metadata le
       />
     </main>,
   )
+  expect(
+    screen.getByRole("button", {
+      name: "Open full music player and queue",
+    }),
+  ).toBeVisible()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(59_000)
+  })
+  expect(
+    screen.getByRole("button", {
+      name: "Open full music player and queue",
+    }),
+  ).toBeVisible()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1_000)
+  })
+  vi.useRealTimers()
   await waitFor(() =>
     expect(
       screen.queryByRole("button", {
@@ -380,6 +404,12 @@ test("stopping expanded music restores the room without stealing the next child'
   await screen.findByRole("button", {
     name: "Back to overview",
   })
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "Date"],
+  })
+  onTestFinished(() => {
+    vi.useRealTimers()
+  })
   mounted.rerender(
     <main class="platform" data-device="true">
       <DisplayComposition
@@ -401,6 +431,23 @@ test("stopping expanded music restores the room without stealing the next child'
       />
     </main>,
   )
+  expect(
+    screen.getByRole("button", {
+      name: "Back to overview",
+    }),
+  ).toBeVisible()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(59_000)
+  })
+  expect(
+    screen.getByRole("button", {
+      name: "Back to overview",
+    }),
+  ).toBeVisible()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1_000)
+  })
+  vi.useRealTimers()
   await waitFor(() =>
     expect(
       screen.queryByRole("button", {
@@ -450,4 +497,71 @@ test("opening a child while music is expanded has one navigation owner", async (
   expect(
     mounted.container.querySelector(".platform-layout"),
   ).toHaveAttribute("data-layout", "single")
+})
+
+test("paused room music expires once, survives idle reports, and gets a fresh minute after resuming", async () => {
+  await exactTarget()
+  const value = snapshot()
+  const mounted = mount(value)
+  const opener = () =>
+    screen.queryByRole("button", {
+      name: "Open full music player and queue",
+    })
+  await waitFor(() => expect(opener()).toBeVisible())
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "Date"],
+  })
+  onTestFinished(() => {
+    vi.useRealTimers()
+  })
+  const update = async (
+    state: "playing" | "paused" | "idle",
+  ) => {
+    await act(async () => {
+      mounted.rerender(
+        <main class="platform" data-device="true">
+          <DisplayComposition
+            snapshot={{
+              ...value,
+              channels: {
+                ...value.channels,
+                music: {
+                  ...value.channels.music!,
+                  data: buildMusicPlayer({
+                    nowMs: Date.now(),
+                    state,
+                  }),
+                },
+              },
+            }}
+            isConnected
+            onAction={async () => undefined}
+          />
+        </main>,
+      )
+    })
+  }
+  await update("paused")
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(40_000)
+  })
+  await update("idle")
+  expect(opener()).toBeVisible()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(20_000)
+  })
+  expect(opener()).toBeNull()
+  await update("paused")
+  expect(opener()).toBeNull()
+  await update("playing")
+  expect(opener()).toBeVisible()
+  await update("paused")
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(59_000)
+  })
+  expect(opener()).toBeVisible()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1_000)
+  })
+  expect(opener()).toBeNull()
 })
