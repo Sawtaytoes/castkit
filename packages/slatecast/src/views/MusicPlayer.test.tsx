@@ -471,3 +471,76 @@ test("a touch panel shows its seek handle even when the renderer has a mouse", a
   document.documentElement.dataset.input = "pointer"
   expect(getComputedStyle(handle).opacity).toBe("0")
 })
+
+test("hover previews a distinct seek interval without moving playback, including backwards", async () => {
+  const originalScheme =
+    document.documentElement.dataset.scheme
+  document.documentElement.dataset.scheme = "dark"
+  onTestFinished(() => {
+    if (originalScheme === undefined)
+      delete document.documentElement.dataset.scheme
+    else
+      document.documentElement.dataset.scheme =
+        originalScheme
+  })
+  const { onAction, user } = await renderPlayer({
+    data: buildMusicPlayer({
+      nowMs: NOW_MS,
+      state: "paused",
+      positionSeconds: 60,
+    }),
+  })
+  const wave = screen.getByRole("slider", { name: "Seek" })
+  await waitFor(() =>
+    expect(
+      wave.querySelectorAll("i").length,
+    ).toBeGreaterThan(20),
+  )
+  const playedCount =
+    wave.querySelectorAll(".is-played").length
+  await user.pointer(pointOnWave({ wave, fraction: 0.75 }))
+  const preview = wave.querySelector(".is-preview")!
+  const played = wave.querySelector(
+    ".is-played:not(.is-preview)",
+  )!
+  expect(getComputedStyle(wave).cursor).toBe("pointer")
+  expect(
+    getComputedStyle(preview).backgroundColor,
+  ).not.toBe(getComputedStyle(played).backgroundColor)
+  expect(wave.querySelectorAll(".is-played")).toHaveLength(
+    playedCount,
+  )
+  expect(
+    wave.querySelector(".music-seek-target"),
+  ).toBeVisible()
+  expect(wave).toHaveAttribute("aria-valuenow", "60")
+  expect(onAction).not.toHaveBeenCalled()
+  await user.pointer([
+    {
+      ...pointOnWave({ wave, fraction: 0.75 }),
+      keys: "[MouseLeft>]",
+    },
+    pointOnWave({ wave, fraction: 0.1 }),
+  ])
+  expect(wave.querySelectorAll(".is-played")).toHaveLength(
+    playedCount,
+  )
+  expect(
+    wave.querySelectorAll(".is-played.is-preview").length,
+  ).toBeGreaterThan(0)
+  expect(onAction).not.toHaveBeenCalled()
+  await user.pointer({
+    ...pointOnWave({ wave, fraction: 0.1 }),
+    keys: "[/MouseLeft]",
+  })
+  expect(onAction).toHaveBeenCalledTimes(1)
+  await browserUser.hover(
+    screen.getByRole("button", {
+      name: "Play",
+      exact: true,
+    }),
+  )
+  expect(
+    wave.querySelector(".music-seek-target"),
+  ).toBeNull()
+})
