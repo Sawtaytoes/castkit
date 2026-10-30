@@ -224,6 +224,7 @@ export const createSourceMedia = (
               "Cache-Control": "private, max-age=300",
             },
           })
+        return new Response(null, { status: 404 })
       }
       const response = await context.fetch(url, {
         signal: AbortSignal.any([

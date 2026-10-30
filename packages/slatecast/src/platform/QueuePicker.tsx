@@ -331,7 +331,7 @@ export const QueuePicker = ({
             >
               <QueueArtwork
                 path={queue.artworkPath}
-                isCropped={layout.isSquare}
+                isCropped={count > 4 || layout.isSquare}
               />
               <span>{queue.title}</span>
             </button>
