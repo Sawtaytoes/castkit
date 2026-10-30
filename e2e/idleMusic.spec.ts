@@ -384,6 +384,7 @@ test("Room Overview spends agenda spare space on music and preserves clock, poin
       payload: { events },
     },
   })
+  await page.clock.install()
   await req.post("/__test__/mqtt", {
     data: {
       topic: "castkit/channels/room-music/set",
@@ -447,5 +448,7 @@ test("Room Overview spends agenda spare space on music and preserves clock, poin
       },
     },
   })
+  await expect(opener).toBeVisible()
+  await page.clock.fastForward(60_000)
   await expect(opener).toHaveCount(0)
 })

@@ -5318,9 +5318,6 @@ button.music-lyric:hover:not(:disabled):not(.is-current) {
   .music-seek-handle {
   opacity: 1;
 }
-.music-wave.is-seekable {
-  cursor: ew-resize;
-}
 .music-seek-handle {
   left: clamp(
     7px,
@@ -5330,4 +5327,32 @@ button.music-lyric:hover:not(:disabled):not(.is-current) {
 }
 html[data-input="touch"] .music-seek-handle {
   opacity: 1;
+}
+
+/* Preview only the interval between playback and the pointer, in a distinct tone. */
+.music-wave {
+  --music-preview: color-mix(
+    in srgb,
+    var(--music-accent) 55%,
+    var(--fg)
+  );
+}
+.music-wave i.is-preview,
+.music-seek-preview {
+  background: var(--music-preview);
+}
+.music-seek-preview {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  pointer-events: none;
+}
+.music-seek-target {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--music-preview);
+  transform: translateX(-50%);
+  pointer-events: none;
 }

@@ -241,7 +241,7 @@ const SeekBar = ({
     : positionSeconds
   const fraction =
     duration > 0
-      ? Math.min(1, Math.max(0, shownSeconds / duration))
+      ? Math.min(1, Math.max(0, positionSeconds / duration))
       : 0
   const bars = resampleWaveform({
     values: data.waveform ?? [],
@@ -252,7 +252,10 @@ const SeekBar = ({
     setDragFraction(undefined)
     setHoverFraction(undefined)
   }, [data.current?.queueItemId, isSeekable])
-  const labelFraction = dragFraction ?? hoverFraction
+  const labelFraction = isSeekable
+    ? (dragFraction ?? hoverFraction)
+    : undefined
+  const handleFraction = dragFraction ?? fraction
   const readFraction = (
     event: JSX.TargetedPointerEvent<HTMLDivElement>,
   ) => {
@@ -285,7 +288,11 @@ const SeekBar = ({
         aria-valuetext={`${formatTime(shownSeconds)} of ${formatTime(duration)}`}
         tabIndex={isSeekable ? 0 : -1}
         onPointerDown={(event) => {
-          if (!isSeekable || event.button !== 0) {
+          if (
+            !isSeekable ||
+            event.button !== 0 ||
+            dragPointerId.current !== null
+          ) {
             return
           }
           event.preventDefault()
@@ -316,12 +323,26 @@ const SeekBar = ({
             fraction: readFraction(event),
             durationSeconds: duration,
           })
+          const box =
+            event.currentTarget.getBoundingClientRect()
+          setHoverFraction(
+            event.pointerType === "mouse" &&
+              event.clientX >= box.left &&
+              event.clientX <= box.right &&
+              event.clientY >= box.top &&
+              event.clientY <= box.bottom
+              ? readFraction(event)
+              : undefined,
+          )
           endDrag()
           void onAction("seek", {
             positionSeconds: target,
           })
         }}
-        onPointerCancel={endDrag}
+        onPointerCancel={() => {
+          endDrag()
+          setHoverFraction(undefined)
+        }}
         onLostPointerCapture={endDrag}
         onPointerLeave={() => setHoverFraction(undefined)}
         onKeyDown={(event) => {
@@ -348,11 +369,20 @@ const SeekBar = ({
           bars.map((level, index) => (
             <i
               key={index}
-              class={
+              class={[
                 index / bars.length < fraction
                   ? "is-played"
-                  : undefined
-              }
+                  : "",
+                labelFraction !== undefined &&
+                index / bars.length >=
+                  Math.min(fraction, labelFraction) &&
+                index / bars.length <
+                  Math.max(fraction, labelFraction)
+                  ? "is-preview"
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               style={{
                 height: `${Math.max(6, Math.round(level * 100))}%`,
               }}
@@ -364,12 +394,31 @@ const SeekBar = ({
             style={{ width: `${fraction * 100}%` }}
           />
         )}
+        {labelFraction !== undefined ? (
+          <>
+            {!bars.length ? (
+              <span
+                class="music-seek-preview"
+                aria-hidden="true"
+                style={{
+                  left: `${Math.min(fraction, labelFraction) * 100}%`,
+                  width: `${Math.abs(fraction - labelFraction) * 100}%`,
+                }}
+              />
+            ) : null}
+            <span
+              class="music-seek-target"
+              aria-hidden="true"
+              style={{ left: `${labelFraction * 100}%` }}
+            />
+          </>
+        ) : null}
         {isSeekable ? (
           <span
             class="music-seek-handle"
             aria-hidden="true"
             style={{
-              "--seek-position": `${fraction * 100}%`,
+              "--seek-position": `${handleFraction * 100}%`,
             }}
           />
         ) : null}
