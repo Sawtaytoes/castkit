@@ -499,3 +499,95 @@ test("artwork without upstream CORS still colors music controls and survives pla
   ).toBeVisible()
   await expect.poll(accent).toBe(sampled)
 })
+
+test("a touch queue scrolls without returning to time, and its edge still navigates", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 480, height: 480 })
+  await publishFromHomeAssistant({
+    page,
+    topic: e2eTopics.queue,
+    payload: {
+      items: Array.from({ length: 46 }, (_, index) => ({
+        title: `Scroll track ${index + 1}`,
+        artist: "Fixture artist",
+        isCurrent: index === 21,
+      })),
+    },
+  })
+  await publishFromHomeAssistant({
+    page,
+    topic: e2eTopics.view,
+    payload: "Queue",
+  })
+  await page.goto(`/d/${E2E_DEVICE_ID}`)
+  const list = page.getByRole("list", {
+    name: "Audio queue",
+  })
+  await expect(list.locator("li")).toHaveCount(46)
+  const before = await list.evaluate(
+    (element) => element.scrollTop,
+  )
+  const commands = await readCommands(page)
+  await page.screenshot({
+    path: "__screenshots__/queue-scroll-before.png",
+  })
+  const session = await page.context().newCDPSession(page)
+  await session.send("Emulation.setTouchEmulationEnabled", {
+    enabled: true,
+  })
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: 240, y: 350 }],
+  })
+  await [320, 290, 260, 230, 200, 170].reduce(
+    async (previous, height) => {
+      await previous
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 240, y: height }],
+      })
+    },
+    Promise.resolve(),
+  )
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  })
+  await expect
+    .poll(() =>
+      list.evaluate((element) => element.scrollTop),
+    )
+    .toBeGreaterThan(before + 80)
+  expect(await readCommands(page)).toEqual(commands)
+  await expect(page.locator(".stage")).toHaveAttribute(
+    "data-view",
+    "queue",
+  )
+  await page.screenshot({
+    path: "__screenshots__/queue-scroll-after.png",
+  })
+  const edge = page.locator(".view-swipe-edge.is-bottom")
+  await edge.dispatchEvent("pointerdown", {
+    bubbles: true,
+    pointerId: 8,
+    clientX: 240,
+    clientY: 475,
+  })
+  await edge.dispatchEvent("pointermove", {
+    bubbles: true,
+    pointerId: 8,
+    clientX: 240,
+    clientY: 350,
+  })
+  await edge.dispatchEvent("pointerup", {
+    bubbles: true,
+    pointerId: 8,
+    clientX: 240,
+    clientY: 350,
+  })
+  await expect
+    .poll(() => readCommands(page))
+    .toHaveLength(commands.length + 1)
+  await session.detach()
+})

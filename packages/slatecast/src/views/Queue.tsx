@@ -26,6 +26,8 @@ export const Queue = ({
   isPrintQueue?: boolean
 }) => {
   const hasRowSwipe = useRef(false)
+  const rowContact = useRef({ x: 0, y: 0 })
+  const hasTouch = device.value?.hasTouch ?? false
   const list = useRef<HTMLUListElement>(null)
   const rowHeight = useRef(0)
   const [rowCount, setRowCount] = useState(1)
@@ -68,6 +70,25 @@ export const Queue = ({
       observer.disconnect()
     }
   }, [data, isPrintQueue])
+  const currentIndex =
+    data?.items.findIndex((item) => item.isCurrent) ?? -1
+  useLayoutEffect(() => {
+    const root = list.current
+    if (!hasTouch || isPrintQueue || !root) return
+    const row = root.children.item(
+      Math.max(
+        0,
+        currentIndex -
+          Math.min(2, Math.floor(rowCount / 3)),
+      ),
+    ) as HTMLElement | null
+    root.scrollTop = row
+      ? row.offsetTop -
+        root.offsetTop -
+        Number.parseFloat(getComputedStyle(root).paddingTop)
+      : 0
+  }, [hasTouch, isPrintQueue, rowCount, currentIndex])
+
   if (!data || data.items.length === 0) {
     return (
       <div class="idle">
@@ -82,9 +103,6 @@ export const Queue = ({
     )
   }
 
-  const currentIndex = data.items.findIndex(
-    (item) => item.isCurrent,
-  )
   // Keep a little history above the current track, then fill every complete
   // row below it. At the end, use earlier history to fill the remaining room.
   const previousCount = Math.min(
@@ -100,9 +118,10 @@ export const Queue = ({
           data.items.length - rowCount,
         ),
       )
-  const items = isPrintQueue
-    ? data.items
-    : data.items.slice(startIndex, startIndex + rowCount)
+  const items =
+    isPrintQueue || hasTouch
+      ? data.items
+      : data.items.slice(startIndex, startIndex + rowCount)
   const isInteractive =
     !isPrintQueue && (device.value?.hasTouch ?? false)
   const isPlaying = nowPlaying.value?.isPlaying === true
@@ -110,13 +129,23 @@ export const Queue = ({
   return (
     <ul
       ref={list}
+      data-castkit-scroll={hasTouch ? "true" : undefined}
+      data-castkit-target={
+        hasTouch
+          ? isPrintQueue
+            ? "scroll:print-queue"
+            : "scroll:audio-queue"
+          : undefined
+      }
       class={isPrintQueue ? "queue" : "queue audio-queue"}
       aria-label={
         isPrintQueue ? "Print queue" : "Audio queue"
       }
     >
       {items.map((item, visibleIndex) => {
-        const index = startIndex + visibleIndex
+        const index =
+          (isPrintQueue || hasTouch ? 0 : startIndex) +
+          visibleIndex
         const isNext =
           currentIndex >= 0 && index === currentIndex + 1
         const hasControl =
@@ -175,11 +204,26 @@ export const Queue = ({
                 aria-label={`${item.isCurrent ? (isPlaying ? "Playing" : "Resume") : "Play"} ${item.title}`}
                 disabled={item.isCurrent && isPlaying}
                 data-castkit-target={`audio-queue-${index}-${item.title}`}
-                onPointerDown={() => {
+                onPointerDown={(event) => {
+                  rowContact.current = {
+                    x: event.clientX,
+                    y: event.clientY,
+                  }
                   hasRowSwipe.current = false
                 }}
+                onPointerMove={(event) => {
+                  if (
+                    Math.hypot(
+                      event.clientX - rowContact.current.x,
+                      event.clientY - rowContact.current.y,
+                    ) > 8
+                  )
+                    hasRowSwipe.current = true
+                }}
                 onPointerUp={() => {
-                  hasRowSwipe.current = isViewSwipe.peek()
+                  hasRowSwipe.current =
+                    hasRowSwipe.current ||
+                    isViewSwipe.peek()
                 }}
                 onPointerCancel={() => {
                   hasRowSwipe.current = true
