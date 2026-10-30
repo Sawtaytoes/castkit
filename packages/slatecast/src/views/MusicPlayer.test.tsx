@@ -534,6 +534,7 @@ test("hover previews a distinct seek interval without moving playback, including
     keys: "[/MouseLeft]",
   })
   expect(onAction).toHaveBeenCalledTimes(1)
+  await browserUser.hover(wave)
   await browserUser.hover(
     screen.getByRole("button", {
       name: "Play",
