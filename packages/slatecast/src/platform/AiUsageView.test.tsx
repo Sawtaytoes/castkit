@@ -342,7 +342,7 @@ test("a letterbox panel lays its providers out in columns and grows its type", (
   ).toHaveLength(3)
   expect(
     container.querySelectorAll(".ai-usage-provider-icon"),
-  ).toHaveLength(3)
+  ).toHaveLength(4)
   fiveProviders.providers.forEach((provider) => {
     expect(screen.getByText(provider.name)).toBeVisible()
   })
