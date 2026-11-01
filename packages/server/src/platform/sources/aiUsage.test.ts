@@ -76,7 +76,7 @@ test("AI Usage normalizes provider titles, percentages and reset times", () => {
   ).toBeUndefined()
   expect(snapshot.providers[1]).toMatchObject({
     id: "codex_2",
-    name: "Codex",
+    name: "Codex Alt",
     isOk: false,
     problemText: "Sign-in expired",
   })
