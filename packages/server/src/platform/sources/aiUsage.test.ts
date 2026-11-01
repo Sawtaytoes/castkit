@@ -76,7 +76,7 @@ test("AI Usage normalizes provider titles, percentages and reset times", () => {
   ).toBeUndefined()
   expect(snapshot.providers[1]).toMatchObject({
     id: "codex_2",
-    name: "Codex 2",
+    name: "Codex Alt",
     isOk: false,
     problemText: "Sign-in expired",
   })
@@ -95,8 +95,8 @@ test("AI Usage names both Codex accounts without changing their stable ids", () 
       name,
     })),
   ).toEqual([
-    { id: "codex", name: "Codex 1" },
-    { id: "codex_2", name: "Codex 2" },
+    { id: "codex", name: "Codex" },
+    { id: "codex_2", name: "Codex Alt" },
   ])
 })
 
@@ -282,5 +282,33 @@ test("Codex retains credit balance and available usage-limit resets", () => {
     "Unlimited credits",
     "0 credits · Overage limit reached",
     undefined,
+  ])
+})
+
+test("AI Usage includes producer account labels without changing ids", () => {
+  const snapshot = normalizeAiUsage({
+    providers: [
+      {
+        provider: "claude_2",
+        owner: "Business",
+        windows: [],
+      },
+      {
+        provider: "codex_2",
+        owner: "Secondary",
+        windows: [],
+      },
+      { provider: "grok", windows: [] },
+    ],
+  })
+  expect(
+    snapshot.providers.map(({ id, name }) => ({
+      id,
+      name,
+    })),
+  ).toEqual([
+    { id: "claude_2", name: "Claude Business" },
+    { id: "codex_2", name: "Codex Alt Secondary" },
+    { id: "grok", name: "SpaceXAI" },
   ])
 })
