@@ -9,20 +9,14 @@ import {
   textValue,
 } from "./http.ts"
 
-/**
- * Account titles the AI Usage snapshot does not spell out for itself.
- *
- * The producer sends a stable machine id, because its Home Assistant entities
- * and its usage history are keyed on it. Its first Codex account keeps the
- * legacy `codex` id but is titled "Codex 1" in the producer UI. Match those
- * visible titles here; unknown ids fall back to capitalized words.
- */
+/** Product labels; account identity comes from the producer owner field. */
 const PROVIDER_TITLES: Record<string, string> = {
   claude: "Claude",
-  codex: "Codex 1",
-  codex_2: "Codex 2",
+  claude_2: "Claude",
+  codex: "Codex",
+  codex_2: "Codex Alt",
   cursor: "Cursor",
-  grok: "Grok",
+  grok: "SpaceXAI",
 }
 
 const getProviderTitle = (providerId: string) =>
@@ -188,7 +182,12 @@ export const normalizeAiUsage = (
           optionalText(provider.stale_reason)
         return {
           id: providerId,
-          name: getProviderTitle(providerId),
+          name: [
+            getProviderTitle(providerId),
+            optionalText(provider.owner),
+          ]
+            .filter(Boolean)
+            .join(" "),
           isOk: provider.is_ok !== false,
           ...(optionalText(provider.plan)
             ? { planText: textValue(provider.plan) }
