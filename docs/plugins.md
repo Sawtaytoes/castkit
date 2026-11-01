@@ -58,6 +58,7 @@ The host provides:
 - `executeAction({input, action, payload})` for an authenticated, scoped action.
 - `mediaUrl({input, assetId, kind})` for source media through CastKit.
 - Presentation settings, theme values, and whether controls are available.
+- Optional `navigate(update, isDetailOpen)` to animate detail transitions and request composition priority. Call it for entry and Back; the host releases focus on unmount. `isDetailFocused` reports when another panel has taken detail priority.
 
 An adapter must validate action names, entity or asset membership, and payload values. The host also checks the current view, selected input, control permission, data availability, and configured conditions. Credentials never enter the view definition or renderer host.
 

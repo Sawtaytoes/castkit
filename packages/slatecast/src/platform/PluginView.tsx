@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { CompositionNavigation } from "./CompositionNavigation.ts"
 import { DisplayContext } from "./DisplayContext.ts"
 import type { PanelAction } from "./protocol.ts"
 
@@ -35,6 +36,9 @@ export const PluginView = ({
   onAction: (action: PanelAction) => Promise<void>
 }) => {
   const target = useContext(DisplayContext)
+  const navigation = useContext(CompositionNavigation)
+  const currentNavigation = useRef(navigation)
+  currentNavigation.current = navigation
   const element = useRef<HTMLDivElement>(null)
   const renderer = useRef<ReturnType<
     BrowserRenderer["mount"]
@@ -56,6 +60,17 @@ export const PluginView = ({
     onAction,
   }
   const host: ViewHost = {
+    navigate: (update, isDetailOpen) => {
+      if (currentNavigation.current)
+        currentNavigation.current.navigate(
+          update,
+          isDetailOpen,
+        )
+      else update()
+    },
+    get isDetailFocused() {
+      return currentNavigation.current?.isDetailFocused
+    },
     getChannel: (input) =>
       current.current.channels[
         current.current.panel.bindings[input] ?? ""
@@ -168,6 +183,7 @@ export const PluginView = ({
       } catch {
         /* A plugin cleanup cannot prevent the host from releasing the panel. */
       }
+      currentNavigation.current?.release()
       renderer.current = null
       listeners.current.clear()
       container?.replaceChildren()
@@ -191,6 +207,7 @@ export const PluginView = ({
     panel.bindings,
     panel.settings,
     isControlEnabled,
+    navigation?.isDetailFocused,
   ])
   return (
     <div

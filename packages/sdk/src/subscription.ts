@@ -2,6 +2,13 @@ import type { ChannelSnapshot } from "./contracts.ts"
 
 /** Framework-neutral host hooks provided to a custom view renderer. */
 export type ViewHost = {
+  /** Ask the host composition to animate and prioritize a detail transition. */
+  navigate?: (
+    update: () => void,
+    isDetailOpen: boolean,
+  ) => void
+  /** False when another panel has taken detail priority. */
+  isDetailFocused?: boolean
   getChannel: (input: string) => ChannelSnapshot | undefined
   subscribe: (listener: () => void) => () => void
   executeAction: (request: {

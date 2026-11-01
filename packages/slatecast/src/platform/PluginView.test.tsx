@@ -9,6 +9,7 @@ import {
 } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
 import { expect, test, vi } from "vitest"
+import { CompositionNavigation } from "./CompositionNavigation.ts"
 import { Panel } from "./Panel.tsx"
 import { PluginView } from "./PluginView.tsx"
 import { readInlineDisplayTarget } from "./protocol.ts"
@@ -391,4 +392,43 @@ test("removing a plugin before its import finishes prevents a late mount", async
   pending.resolve?.({ mount })
   await Promise.resolve()
   expect(mount).not.toHaveBeenCalled()
+})
+
+test("plugin detail navigation uses composition transitions and releases on unmount", async () => {
+  let host: ViewHost | undefined
+  const navigate = vi.fn(
+    (update: () => void, _isDetailOpen: boolean) =>
+      update(),
+  )
+  const release = vi.fn()
+  const view = render(
+    <CompositionNavigation.Provider
+      value={{ navigate, release, isDetailFocused: true }}
+    >
+      <PluginView
+        entry="/assets/plugins/example.clock/view.js"
+        panel={panel}
+        channels={channels}
+        isControlEnabled
+        onAction={async () => {}}
+        loadRenderer={async () => ({
+          mount(element, received) {
+            host = received
+            element.textContent = "Detail plugin"
+            return { update() {}, destroy() {} }
+          },
+        })}
+      />
+    </CompositionNavigation.Provider>,
+  )
+  await waitFor(() => expect(host).toBeDefined())
+  const update = vi.fn()
+  host?.navigate?.(update, true)
+  expect(navigate).toHaveBeenCalledWith(update, true)
+  expect(update).toHaveBeenCalledOnce()
+  expect(host?.isDetailFocused).toBe(true)
+  host?.navigate?.(update, false)
+  expect(navigate).toHaveBeenLastCalledWith(update, false)
+  view.unmount()
+  expect(release).toHaveBeenCalled()
 })

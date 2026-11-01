@@ -633,6 +633,11 @@
     padding: 12px;
   }
 }
+.platform-plugin {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
 .platform-plugin,
 .platform-plugin > div {
   flex: 1;
