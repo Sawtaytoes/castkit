@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { once } from "node:events"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
@@ -49,6 +50,7 @@ const server = spawn(
   },
 )
 
+const serverClosed = once(server, "close")
 const outputLines = []
 const recordOutput = (chunk) => {
   outputLines.push(chunk.toString())
@@ -61,8 +63,15 @@ server.on("exit", (code, signal) => {
   exitCode = code ?? signal
 })
 
-const finish = (isStarted, reason) => {
+const finish = async (isStarted, reason) => {
+  const shutdownTimeout = setTimeout(() => {
+    server.kill("SIGKILL")
+  }, 5000)
   server.kill("SIGTERM")
+  // Shutdown can persist state. Wait until the process closes before removing
+  // its working directory, or a final write can recreate it during rmSync.
+  await serverClosed
+  clearTimeout(shutdownTimeout)
   rmSync(workingDirectory, {
     recursive: true,
     force: true,
@@ -82,7 +91,7 @@ const startedAt = Date.now()
 
 while (Date.now() - startedAt < timeoutMilliseconds) {
   if (exitCode !== null) {
-    finish(
+    await finish(
       false,
       `the server exited (${exitCode}) before /health answered`,
     )
@@ -93,7 +102,7 @@ while (Date.now() - startedAt < timeoutMilliseconds) {
   ).catch(() => null)
 
   if (response?.ok) {
-    finish(
+    await finish(
       true,
       `engine=${engine}: /health answered ${response.status} after ${Date.now() - startedAt} ms`,
     )
@@ -104,7 +113,7 @@ while (Date.now() - startedAt < timeoutMilliseconds) {
   })
 }
 
-finish(
+await finish(
   false,
   `/health did not answer within ${timeoutMilliseconds} ms`,
 )
