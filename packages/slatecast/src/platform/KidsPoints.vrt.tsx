@@ -11,7 +11,9 @@ import {
 } from "vitest"
 import { page } from "vitest/browser"
 import { SCREENSHOT_EPOCH_MILLIS } from "../stories/freezeClockUnderAutomation.ts"
+import { idleActivityFixture } from "./__fixtures__/idleActivity.ts"
 import { kidsPointsFixture } from "./fixtures.ts"
+import { KidsPointsView } from "./KidsPointsView.tsx"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import type { DisplaySnapshot } from "./protocol.ts"
 import "../styles.css"
@@ -763,4 +765,33 @@ test("a focused count-up and simultaneous mixed timers fit a short panel", async
       )
     })
   await capture("kids-points-mixed-timers-480x320")
+})
+
+test("an idle wide activity preview keeps names and supporting text whole", async () => {
+  await page.viewport(1778, 600)
+  renderDevicePage(idleActivityFixture())
+  await capture("idle-activity-points-1778x600")
+})
+
+test("an idle very wide short board fits complete cards", async () => {
+  await page.viewport(1778, 254)
+  document.documentElement.dataset.scheme = "dark"
+  const data = idleActivityFixture().channels.points
+    ?.data as ContractData["kids-points.v1"]
+  render(
+    <div
+      style={{
+        width: 1778,
+        height: 254,
+        display: "flex",
+        fontFamily: "var(--font-sans)",
+      }}
+    >
+      <KidsPointsView
+        now={SCREENSHOT_EPOCH_MILLIS}
+        data={data}
+      />
+    </div>,
+  )
+  await capture("idle-points-board-1778x254")
 })
