@@ -107,6 +107,9 @@ export const EntityChart = ({
     now,
   })
   const isDaily = settings.aggregation === "daily-mean"
+  const isCompact =
+    settings.presentation === "home" &&
+    settings.isCompactHistory === true
   if (samples.length === 0) {
     const states = objectSamples(
       entity.attributes.stateHistory,
@@ -120,7 +123,20 @@ export const EntityChart = ({
       })
       .sort((left, right) => left.time - right.time)
     const first = states[0]
-    if (!first) return <p>No history available</p>
+    if (
+      !first ||
+      (isCompact &&
+        states.every((point) =>
+          ["unknown", "unavailable"].includes(point.state),
+        ))
+    )
+      return (
+        <p
+          class={isCompact ? "home-chart-empty" : undefined}
+        >
+          No history available
+        </p>
+      )
     const lastTime = Math.max(
       now,
       (states.at(-1)?.time ?? first.time) + 1,
@@ -204,6 +220,7 @@ export const EntityChart = ({
           .sort((left, right) => left.time - right.time)
     return (
       <DeferredHomeNumericChart
+        isCompact={isCompact}
         options={{
           title: entity.name,
           description: String(
