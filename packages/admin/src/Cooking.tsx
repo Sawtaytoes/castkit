@@ -58,12 +58,41 @@ const CookingPage = ({
           <p className="text-content-secondary">
             {data.recipe.yieldText}
           </p>
-          <h3 className="font-semibold text-lg">
-            {data.page.heading}
-          </h3>
-          <p className="whitespace-pre-wrap break-words font-mono text-lg leading-relaxed">
-            {data.page.lines.join("\n")}
-          </p>
+          {data.page.isComplete ? (
+            <>
+              <h3 className="font-semibold text-lg">
+                Ingredients
+              </h3>
+              <ul className="list-disc break-words pl-6 text-lg leading-relaxed">
+                {data.recipe.ingredients.map(
+                  (item, index) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: ingredients can repeat and never reorder
+                    <li key={index}>{item}</li>
+                  ),
+                )}
+              </ul>
+              <h3 className="font-semibold text-lg">
+                Method
+              </h3>
+              <ol className="list-decimal break-words pl-6 text-lg leading-relaxed">
+                {data.recipe.instructions.map(
+                  (step, index) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: steps never reorder
+                    <li key={index}>{step}</li>
+                  ),
+                )}
+              </ol>
+            </>
+          ) : (
+            <>
+              <h3 className="font-semibold text-lg">
+                {data.page.heading}
+              </h3>
+              <p className="whitespace-pre-wrap break-words font-mono text-lg leading-relaxed">
+                {data.page.lines.join("\n")}
+              </p>
+            </>
+          )}
           <a
             className="inline-flex items-center gap-2 underline"
             href={data.recipe.url}

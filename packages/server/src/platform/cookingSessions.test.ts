@@ -10,7 +10,8 @@ const recipe = {
   url: "https://recipes.example/g/home/r/skillet",
   ingredients: ["2 cans chickpeas", "1 lemon"],
   instructions: [
-    "Warm chickpeas. ".repeat(60),
+    // Long enough that the recipe cannot fit one screen and must page.
+    "Warm chickpeas. ".repeat(200),
     "Add lemon. Serve warm.",
   ],
   notes: [],
@@ -105,7 +106,7 @@ test("visiting notes does not replace the saved instruction position", () => {
     recipe: {
       ...recipe,
       instructions: ["Warm the pan.", "Serve warm."],
-      notes: ["Store leftovers chilled."],
+      notes: ["Store leftovers chilled. ".repeat(200)],
     },
   })
   cooking.command(session.id, "instructions")
@@ -121,4 +122,30 @@ test("visiting notes does not replace the saved instruction position", () => {
   expect(cooking.display(restored).page.heading).toBe(
     "Step 2 of 2",
   )
+})
+
+test("a recipe that fits shows whole on one screen, and every control stays on it", () => {
+  const cooking = createCookingSessions({
+    onChanged: vi.fn(),
+  })
+  const session = cooking.start({
+    ...input,
+    recipe: {
+      ...recipe,
+      instructions: ["Warm the pan.", "Serve warm."],
+      notes: ["Store leftovers chilled."],
+    },
+  })
+  const display = cooking.display(session)
+  expect(display.pageCount).toBe(1)
+  expect(display.page.isComplete).toBe(true)
+  for (const action of [
+    "next",
+    "previous",
+    "ingredients",
+    "instructions",
+  ] as const)
+    expect(
+      cooking.command(session.id, action)?.pageIndex,
+    ).toBe(0)
 })

@@ -16,6 +16,8 @@ export type Recipe = z.infer<typeof recipeSchema>
 export const recipePageSchema = z.object({
   heading: z.string(),
   lines: z.array(z.string()),
+  /** The whole recipe on one screen: ingredients, numbered steps, and notes. */
+  isComplete: z.boolean().optional(),
 })
 export type RecipePage = z.infer<typeof recipePageSchema>
 export const recipeDisplaySchema = z.object({
@@ -73,6 +75,132 @@ export const wrapRecipeText = (
   }
   return lines
 }
+/** A page that shows instructions, so the Instructions control can return to it. */
+export const isInstructionPage = (page?: RecipePage) =>
+  page?.isComplete === true ||
+  page?.heading.startsWith("Step ") === true ||
+  page?.heading === "Instructions missing"
+/** The view's one-screen geometry, in multiples of the body font size. */
+export const completeRecipeLayout = {
+  lineHeight: 1.27,
+  titleScale: 1.45,
+  /** Average sans-serif glyph width, kept wide so the estimate errs toward paging. */
+  glyphWidth: 0.58,
+  ingredientShare: 0.34,
+  columnGap: 1.2,
+  itemGap: 0.3,
+  stepGap: 0.75,
+  noteScale: 0.8,
+  largestFont: 22,
+  smallestFont: 13,
+}
+const countLines = (
+  value: string,
+  width: number,
+  fontSize: number,
+) =>
+  wrapRecipeText(
+    value,
+    Math.max(
+      8,
+      Math.floor(
+        width /
+          (fontSize * completeRecipeLayout.glyphWidth),
+      ),
+    ),
+  ).length
+/**
+ * The largest body font that fits the whole recipe on one screen, or null
+ * when the recipe needs pages. The view still shrinks to fit after layout.
+ */
+export const fitCompleteRecipe = (
+  recipe: Recipe,
+  width: number,
+  height: number,
+) => {
+  const layout = completeRecipeLayout
+  const padding = Math.round(
+    Math.min(width, height) * 0.045,
+  )
+  const isWide = width >= height
+  for (
+    let fontSize = layout.largestFont;
+    fontSize >= layout.smallestFont;
+    fontSize -= 1
+  ) {
+    const line = Math.ceil(fontSize * layout.lineHeight)
+    const inner = width - padding * 2
+    const ingredientWidth = isWide
+      ? Math.floor(inner * layout.ingredientShare)
+      : inner
+    const stepWidth = isWide
+      ? inner -
+        ingredientWidth -
+        Math.ceil(fontSize * layout.columnGap * 2)
+      : inner
+    const titleSize = fontSize * layout.titleScale
+    const titleLines = Math.min(
+      2,
+      countLines(
+        recipe.name,
+        inner - fontSize * 8,
+        titleSize,
+      ),
+    )
+    const header =
+      Math.ceil(titleSize * 1.15) * titleLines + fontSize
+    const heading = Math.ceil(fontSize * 1.6)
+    const ingredients =
+      heading +
+      (recipe.ingredients.length
+        ? recipe.ingredients
+        : [""]
+      )
+        .map(
+          (item) =>
+            countLines(item, ingredientWidth, fontSize) *
+              line +
+            Math.ceil(fontSize * layout.itemGap),
+        )
+        .reduce((total, size) => total + size, 0)
+    const noteSize = fontSize * layout.noteScale
+    const steps =
+      heading +
+      (recipe.instructions.length
+        ? recipe.instructions
+        : [""]
+      )
+        .map(
+          (step) =>
+            countLines(
+              step,
+              stepWidth - fontSize * 1.6,
+              fontSize,
+            ) *
+              line +
+            Math.ceil(fontSize * layout.stepGap) +
+            3,
+        )
+        .reduce((total, size) => total + size, 0) +
+      (recipe.notes.length
+        ? heading +
+          recipe.notes
+            .map(
+              (note) =>
+                countLines(note, stepWidth, noteSize) *
+                  Math.ceil(noteSize * layout.lineHeight) +
+                Math.ceil(fontSize * layout.itemGap),
+            )
+            .reduce((total, size) => total + size, 0)
+        : 0)
+    const body = isWide
+      ? Math.max(ingredients, steps)
+      : ingredients + steps
+    if (header + body <= height - padding * 2)
+      return { fontSize, padding }
+  }
+  return null
+}
 /** One canonical page sequence, sized for the target, shared with phone controls. */
 export const paginateRecipe = (
   recipe: Recipe,
@@ -83,6 +211,24 @@ export const paginateRecipe = (
     throw new Error(
       "Recipes need at least 320 × 240 pixels.",
     )
+  const complete = fitCompleteRecipe(recipe, width, height)
+  if (complete)
+    return {
+      pages: [
+        {
+          heading: "Recipe",
+          lines: [],
+          isComplete: true,
+        },
+      ] as RecipePage[],
+      width,
+      height,
+      fontSize: complete.fontSize,
+      lineHeight: Math.ceil(
+        complete.fontSize * completeRecipeLayout.lineHeight,
+      ),
+      padding: complete.padding,
+    }
   const fontSize = Math.max(
     16,
     Math.min(26, Math.floor(Math.min(width, height) / 22)),

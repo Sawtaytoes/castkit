@@ -1,5 +1,7 @@
 import { expect, test } from "vitest"
 import {
+  fitCompleteRecipe,
+  isInstructionPage,
   paginateRecipe,
   type Recipe,
   wrapRecipeText,
@@ -57,7 +59,11 @@ test("unbroken words, wide glyphs, and newlines cannot create an overflowing lin
 })
 test("incomplete recipes report missing instructions rather than generating directions", () => {
   const { pages } = paginateRecipe(
-    { ...recipe, instructions: [] },
+    {
+      ...recipe,
+      ingredients: Array(80).fill("1 cup flour"),
+      instructions: [],
+    },
     800,
     480,
   )
@@ -67,4 +73,36 @@ test("tiny displays refuse a recipe instead of shrinking below a readable size",
   expect(() => paginateRecipe(recipe, 250, 122)).toThrow(
     "at least",
   )
+})
+test("a recipe that fits gets one complete page at the largest font that fits", () => {
+  const result = paginateRecipe(recipe, 800, 480)
+  expect(result.pages).toEqual([
+    { heading: "Recipe", lines: [], isComplete: true },
+  ])
+  expect(result.fontSize).toBe(22)
+  expect(isInstructionPage(result.pages[0])).toBe(true)
+})
+test("a longer recipe shrinks the font before it falls back to pages", () => {
+  const medium = {
+    ...recipe,
+    ingredients: Array(10).fill("1 cup packed brown sugar"),
+    instructions: Array(5).fill(
+      "Beat butter, brown sugar, eggs, and vanilla with an electric mixer. Mix in mashed bananas.",
+    ),
+  }
+  const fit = fitCompleteRecipe(medium, 800, 480)
+  expect(fit?.fontSize).toBeLessThan(22)
+  expect(fit?.fontSize).toBeGreaterThanOrEqual(13)
+  expect(
+    fitCompleteRecipe(
+      {
+        ...medium,
+        instructions: Array(40).fill(
+          medium.instructions[0]!,
+        ),
+      },
+      800,
+      480,
+    ),
+  ).toBeNull()
 })
