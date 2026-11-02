@@ -66,7 +66,7 @@ const imageDevice = ({
   repaint,
 }: {
   id: string
-  repaint: "slow" | "super-slow"
+  repaint: "instant" | "fast" | "slow" | "super-slow"
 }) => ({
   id,
   label: id,
@@ -118,6 +118,7 @@ const createFixture = async () => {
     },
     devices: [
       imageDevice({ id: "desk", repaint: "slow" }),
+      imageDevice({ id: "quick", repaint: "fast" }),
       imageDevice({ id: "mantle", repaint: "super-slow" }),
     ],
   })
@@ -510,4 +511,96 @@ test("override correlation belongs to the winning selection and never changes pr
     overrides.getActive("panel")?.navigationId,
   ).toBeUndefined()
   overrides.dispose()
+})
+
+test("room timers select fast displays, respect manual overrides, and return when cleared", async () => {
+  const { platform } = await createFixture()
+  const view: ViewDefinition = {
+    ...pointsView,
+    id: "room-timers",
+    panels: [
+      {
+        id: "timers",
+        specId: "timers",
+        bindings: { data: "timers" },
+        settings: {
+          presentation: "priority",
+          room: "lounge",
+          automaticDeviceIds: "quick,desk",
+        },
+      },
+    ],
+  }
+  platform.store.update((previous) => ({
+    ...previous,
+    views: [...previous.views, view],
+  }))
+  platform.hub.configure([
+    {
+      id: "timers",
+      name: "Timers",
+      type: "entities.v1",
+      sourceId: "test",
+      settings: {},
+    },
+  ])
+  const entity = {
+    id: "timer.one",
+    domain: "timer",
+    name: "Tea",
+    state: "active",
+    attributes: {
+      room: "study",
+      finishes_at: new Date(
+        Date.now() + 60000,
+      ).toISOString(),
+    },
+    actions: ["pause", "cancel"],
+  }
+  platform.hub.publish({
+    channelId: "timers",
+    data: { entities: [entity] },
+  })
+  expect(platform.getDeviceTarget("quick")).toBeUndefined()
+  platform.hub.publish({
+    channelId: "timers",
+    data: {
+      entities: [
+        {
+          ...entity,
+          attributes: {
+            ...entity.attributes,
+            room: "lounge",
+          },
+        },
+      ],
+    },
+  })
+  expect(platform.getDeviceTarget("quick")).toEqual({
+    kind: "view",
+    id: "room-timers",
+  })
+  expect(platform.getDeviceTarget("desk")).toEqual({
+    kind: "screen",
+    id: "desk-screen",
+  })
+  platform.showOnDevice({
+    deviceId: "quick",
+    viewId: "points",
+    durationSeconds: 30,
+    priority: 100,
+  })
+  expect(platform.getDeviceTarget("quick")).toEqual({
+    kind: "view",
+    id: "points",
+  })
+  platform.deviceOverrides.clear({
+    deviceId: "quick",
+    viewId: "points",
+  })
+  platform.hub.publish({
+    channelId: "timers",
+    data: { entities: [] },
+  })
+  expect(platform.getDeviceTarget("quick")).toBeUndefined()
 })
