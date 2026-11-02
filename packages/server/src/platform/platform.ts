@@ -3,8 +3,12 @@ import type {
   ChannelSnapshot,
   ViewDefinition,
 } from "@castkit/sdk/contracts"
+import { selectPanelData } from "@castkit/sdk/panelSelection"
 import type { MqttPublisher } from "@castkit/shared/mqtt/publisher"
-import { getTemporaryViewSeconds } from "@castkit/shared/panels/repaint"
+import {
+  getEffectiveRepaint,
+  getTemporaryViewSeconds,
+} from "@castkit/shared/panels/repaint"
 import type {
   BrowserDeviceConfig,
   ConfiguredDevice,
@@ -420,6 +424,50 @@ export const createPlatform = async ({
           ? { navigationId: override.navigationId }
           : {}),
       }
+    const display = getDeviceProperties(deviceId)
+    const repaint = display && getEffectiveRepaint(display)
+    const timerView =
+      (repaint === "instant" || repaint === "fast") &&
+      store.get().views.find((view) =>
+        view.panels.some((panel) => {
+          if (
+            panel.specId !== "timers" ||
+            typeof panel.settings.automaticDeviceIds !==
+              "string" ||
+            !panel.settings.automaticDeviceIds
+              .split(",")
+              .map((id) => id.trim())
+              .includes(deviceId)
+          )
+            return false
+          const channel = panel.bindings.data
+            ? hub.get(panel.bindings.data)
+            : undefined
+          if (
+            channel?.type !== "entities.v1" ||
+            !channel.data
+          )
+            return false
+          const selected = selectPanelData({
+            ...panel,
+            data: channel.data,
+          }) as {
+            entities: {
+              state: string
+              attributes: Record<string, unknown>
+            }[]
+          }
+          return selected?.entities?.some(
+            (entity) =>
+              entity.state === "paused" ||
+              (entity.state === "active" &&
+                Date.parse(
+                  String(entity.attributes.finishes_at),
+                ) > Date.now()),
+          )
+        }),
+      )
+    if (timerView) return { kind: "view", id: timerView.id }
     const screenId = store.get().deviceScreens[deviceId]
     return screenId
       ? { kind: "screen", id: screenId }

@@ -1,6 +1,7 @@
 import type { ContractData } from "@castkit/sdk/contracts"
 import { useState } from "preact/hooks"
 import { EntitiesView } from "./EntitiesView.tsx"
+import { PriorityTimersView } from "./PriorityTimersView.tsx"
 
 type Entities = ContractData["entities.v1"]
 
@@ -53,6 +54,16 @@ export const TimersView = ({
       (settings.isActiveOnly !== true ||
         entity.state !== "idle"),
   )
+  if (settings.presentation === "priority")
+    return (
+      <PriorityTimersView
+        data={data}
+        now={now}
+        settings={settings}
+        isControlEnabled={isControlEnabled}
+        onAction={onAction}
+      />
+    )
   return (
     <div class="platform-timers">
       {isControlEnabled && createScript ? (

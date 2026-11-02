@@ -185,6 +185,16 @@ export const startTestServer = async ({
     ],
     channels: [
       {
+        id: "timers/fixture",
+        name: "Room timers",
+        sourceId: "events",
+        type: "entities.v1",
+        settings: {
+          actions: ["pause", "start", "cancel"],
+          commandTopic: "fixture/timers/command",
+        },
+      },
+      {
         id: "queues/fixture",
         name: "Queue chooser fixture",
         sourceId: "chooser-events",
@@ -234,6 +244,26 @@ export const startTestServer = async ({
       },
     ],
     views: [
+      ...["priority", "legacy"].map((presentation) => ({
+        id: `timers-${presentation}`,
+        name: "Room timers",
+        layout: "single" as const,
+        theme: "dark" as const,
+        access: "public" as const,
+        isControlEnabled: true,
+        panels: [
+          {
+            id: "timers",
+            specId: "timers",
+            bindings: { data: "timers/fixture" },
+            settings: {
+              presentation,
+              room: "lounge",
+              isActiveOnly: true,
+            },
+          },
+        ],
+      })),
       {
         id: "queue-chooser",
         name: "Queue chooser",

@@ -1038,6 +1038,41 @@ const viewSpecs: ViewSpec[] = [
     }),
     settings: [
       {
+        key: "presentation",
+        label: "Presentation",
+        type: "text",
+        description:
+          "Use priority for automatic room countdowns; empty preserves the existing timer controls.",
+      },
+      {
+        key: "room",
+        label: "Room",
+        type: "text",
+        description:
+          "Match the source timer room value. Empty shows all rooms.",
+      },
+      {
+        key: "additionalRooms",
+        label: "Shared timer rooms",
+        type: "text",
+        description:
+          "Additional comma-separated room values to include, such as a whole-home target.",
+      },
+      {
+        key: "automaticDeviceIds",
+        label: "Automatic displays",
+        type: "text",
+        description:
+          "Comma-separated display IDs. Active room timers appear automatically on instant and fast displays, below urgent overrides.",
+      },
+      {
+        key: "isActiveOnly",
+        label: "Active timers only",
+        type: "boolean",
+        defaultValue: true,
+      },
+
+      {
         key: "createScriptId",
         label: "Create timer script",
         type: "text",
