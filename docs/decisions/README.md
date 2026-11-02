@@ -295,3 +295,5 @@ proposing a change; a settled decision here overrides default instinct.
 | 2026-07-01 | [Always use latest dependencies; never scaffold with old ones](2026-07-01-latest-dependencies.md) | Accepted |
 
 - [2026-11-01: Room timers use deadline priority](2026-11-01-room-timers-use-deadline-priority.md)
+
+- [2026-11-01: Duo chooses a photo before choosing its layout](2026-11-01-duo-chooses-a-photo-before-choosing-its-layout.md)
