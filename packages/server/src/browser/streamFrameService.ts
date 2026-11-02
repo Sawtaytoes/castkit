@@ -62,6 +62,14 @@ export const startStreamFrameService = ({
                 deviceId,
                 requested,
               ),
+            // Learned targets live in memory. Until this panel's first answer
+            // after a restart, a request naming a saved view is that view.
+            readSavedViewTarget: (requested) =>
+              platform.store
+                .get()
+                .views.some((view) => view.id === requested)
+                ? { kind: "view" as const, id: requested }
+                : undefined,
             readLocalTarget: (viewId) => {
               const index = /^external-view:(\d+)$/.exec(
                 viewId,

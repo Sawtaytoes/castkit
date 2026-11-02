@@ -208,6 +208,43 @@ describe("readStreamDestinations", () => {
     })
     expect(points?.channelIds).toEqual(["points-channel"])
   })
+
+  test("before the house answers, a left-swipe request that names a saved view is drawn as that view", () => {
+    const readSavedViewTarget = (requested: string) =>
+      requested === "kids-points"
+        ? { kind: "view" as const, id: "kids-points" }
+        : undefined
+    const readPlatformContent = () => ({
+      content: "points",
+      isTimeDriven: false,
+      channelIds: ["points-channel"],
+    })
+    const [points] = readStreamDestinations({
+      snapshot: buildPanelSnapshot(),
+      nowMs: NOW,
+      readLearnedTarget: () => undefined,
+      readSavedViewTarget,
+      readPlatformContent,
+    }).filter(({ viewId }) => viewId === "kids-points")
+    expect(points?.snapshot.displayTarget).toEqual({
+      kind: "view",
+      id: "kids-points",
+    })
+    const [learned] = readStreamDestinations({
+      snapshot: buildPanelSnapshot(),
+      nowMs: NOW,
+      readLearnedTarget: () => ({
+        kind: "view",
+        id: "points-for-this-room",
+      }),
+      readSavedViewTarget,
+      readPlatformContent,
+    }).filter(({ viewId }) => viewId === "kids-points")
+    expect(learned?.snapshot.displayTarget).toEqual({
+      kind: "view",
+      id: "points-for-this-room",
+    })
+  })
 })
 
 const buildDestination = (

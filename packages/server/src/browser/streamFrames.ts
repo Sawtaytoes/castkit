@@ -152,20 +152,26 @@ const readSnapshotContent = (snapshot: DeviceSnapshot) => {
  *
  * A native view renders from the same snapshot with only the view changed. A
  * left-swipe view the house resolves (a composed view such as Kids Points) is
- * drawn only once this panel's earlier request showed which target the house
- * chose for it (`readLearnedTarget`), and only when the platform can say what
- * that target's pixels depend on (`readPlatformContent`).
+ * drawn for the target this panel's earlier request showed the house chose
+ * (`readLearnedTarget`). Before the first answer, a request that names a saved
+ * view is drawn as that view (`readSavedViewTarget`), so the first swipe after
+ * a restart is ready too. Either way it is drawn only when the platform can say
+ * what that target's pixels depend on (`readPlatformContent`).
  */
 export const readStreamDestinations = ({
   snapshot,
   nowMs,
   readLearnedTarget,
+  readSavedViewTarget = () => undefined,
   readPlatformContent,
   readLocalTarget = () => undefined,
 }: {
   snapshot: DeviceSnapshot
   nowMs: number
   readLearnedTarget: (
+    requested: string,
+  ) => DisplayTarget | undefined
+  readSavedViewTarget?: (
     requested: string,
   ) => DisplayTarget | undefined
   readPlatformContent: (target: DisplayTarget) =>
@@ -216,7 +222,10 @@ export const readStreamDestinations = ({
         },
       ]
     }
-    const target = localTarget ?? readLearnedTarget(viewId)
+    const target =
+      localTarget ??
+      readLearnedTarget(viewId) ??
+      readSavedViewTarget(viewId)
     const platform = target
       ? readPlatformContent(target)
       : undefined
