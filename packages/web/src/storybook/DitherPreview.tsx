@@ -207,6 +207,7 @@ export const DitherPreview = ({
 
       {errorMessage ? (
         <p
+          data-dither-error
           style={{
             fontFamily: "monospace",
             fontSize: 12,

@@ -1,4 +1,5 @@
 # CastKit decision records
+- [2026-11-02: Dithered story snapshots require successful rasterization](2026-11-02-dithered-story-snapshots-require-successful-rasterization.md)
 - [2026-11-02: Device view holds have independent owners](2026-11-02-device-view-holds-have-independent-owners.md)
 - [2026-10-30: Chooser posters fill the available box](2026-10-30-chooser-posters-fill-the-available-box.md)
 - [2026-10-29: Music seek previews and room pause grace](2026-10-29-music-seek-previews-and-room-pause-grace.md)

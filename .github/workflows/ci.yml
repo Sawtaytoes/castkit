@@ -247,6 +247,11 @@ jobs:
       storybookStaticDirs: |
         web=packages/web/storybook-static
         slatecast=packages/slatecast/storybook-static
+      # Rasterized panels need completed pixels, not the generic post-mount wait.
+      # The app capture below writes these same filenames after readiness/error checks.
+      storybookExclude: |
+        *-dithered
+        dither-comparison--*
       # Use the runner image's baked browsers when they are the revision this
       # Playwright wants. Chrome for Testing downloads only from
       # storage.googleapis.com, which the LAN DNS blocklist can block.

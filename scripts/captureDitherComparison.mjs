@@ -1,11 +1,12 @@
 import { createReadStream } from "node:fs"
-import { mkdir, stat } from "node:fs/promises"
+import { mkdir, readFile, stat } from "node:fs/promises"
 import { createServer } from "node:http"
 import { extname, resolve, sep } from "node:path"
 import { chromium } from "@playwright/test"
+import { captureDitherStory } from "./captureDitherStory.ts"
 
-// This comparison rasterizes six full-size photos after network idle. Wait for
-// that work explicitly; a root timeout must never substitute a viewport crop.
+// Rasterized stories finish asynchronously after network idle. Capture them
+// serially after completion; failed font/image renders must never become baselines.
 const root = resolve("packages/web/storybook-static")
 const mime = {
   ".html": "text/html",
@@ -49,48 +50,41 @@ try {
     "web",
   )
   await mkdir(output, { recursive: true })
-  const captureComparison = async (storyId) => {
-    await page.goto(
-      `http://127.0.0.1:${server.address().port}/iframe.html?id=${storyId}&viewMode=story`,
-    )
-    await page.waitForLoadState("networkidle")
-    await page.evaluate(() => document.fonts.ready)
-    await page.waitForFunction(
-      () => {
-        const previews = Array.from(
-          document.querySelectorAll(
-            "[data-dither-preview]",
-          ),
-        )
-        return (
-          previews.length === 6 &&
-          previews.every(
-            (preview) =>
-              preview.getAttribute("aria-busy") === "false",
-          )
-        )
-      },
-      undefined,
-      { timeout: 120000 },
-    )
-    await page.addStyleTag({
-      content:
-        "* { transition: none !important; animation: none !important; }",
-    })
-    // A transient root measurement must fail capture instead of substituting
-    // an 800px viewport for the complete six-algorithm comparison.
-    await page.locator("#storybook-root").screenshot({
-      path: `${output}/${storyId}.png`,
-      animations: "disabled",
-      timeout: 120000,
-    })
-  }
-  await [
+  const comparisons = [
     "dither-comparison--every-sample-photo",
     "dither-comparison--impression-every-algorithm",
-  ].reduce(async (previous, storyId) => {
+  ]
+  const index = JSON.parse(
+    await readFile(resolve(root, "index.json"), "utf8"),
+  )
+  const filters = (process.env.VRT_INCLUDE ?? "")
+    .split(/[\s,]+/)
+    .filter(Boolean)
+  const storyIds = Object.values(index.entries)
+    .filter((entry) => entry.type === "story")
+    .map((entry) => entry.id)
+    .filter(
+      (storyId) =>
+        storyId.endsWith("-dithered") ||
+        comparisons.includes(storyId),
+    )
+    .filter(
+      (storyId) =>
+        filters.length === 0 ||
+        filters.some((filter) => storyId.includes(filter)),
+    )
+  if (storyIds.length === 0)
+    throw new Error("No dithered stories matched")
+  await storyIds.reduce(async (previous, storyId) => {
     await previous
-    await captureComparison(storyId)
+    await captureDitherStory({
+      page,
+      storyId,
+      url: `http://127.0.0.1:${server.address().port}/iframe.html?id=${storyId}&viewMode=story`,
+      outputPath: `${output}/${storyId}.png`,
+      previewCount: comparisons.includes(storyId) ? 6 : 1,
+    })
+    console.log(`[vrt] complete dither preview ${storyId}`)
   }, Promise.resolve())
 } finally {
   await browser.close()
