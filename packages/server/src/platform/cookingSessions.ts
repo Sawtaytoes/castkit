@@ -119,7 +119,7 @@ export const createCookingSessions = ({
     sessions: saved.sessions,
     requests: saved.requests,
   }
-  const save = (sessions: CookingSession[]) => {
+  const write = (sessions: CookingSession[]) => {
     if (file) {
       mkdirSync(dirname(file), { recursive: true })
       writeFileSync(
@@ -133,8 +133,46 @@ export const createCookingSessions = ({
       renameSync(`${file}.next`, file)
     }
     state.sessions = sessions
+  }
+  const save = (sessions: CookingSession[]) => {
+    write(sessions)
     onChanged()
   }
+  // Sessions saved before anchors existed get them from the pagination they
+  // were saved under, and keep them, so a later change to wrapping cannot
+  // move them to another step.
+  const withAnchors = (session: CookingSession) => {
+    if (session.pageAnchor) return session
+    const { pages } = paginateRecipe(
+      session.recipe,
+      session.width,
+      session.height,
+    )
+    const pageIndex = Math.min(
+      session.pageIndex,
+      pages.length - 1,
+    )
+    const instructionPage = Math.min(
+      session.instructionPage,
+      pages.length - 1,
+    )
+    return {
+      ...session,
+      pageAnchor: anchorOf(pages, pageIndex),
+      instructionAnchor: isInstructionPage(
+        pages[instructionPage],
+      )
+        ? anchorOf(pages, instructionPage)
+        : undefined,
+    }
+  }
+  const upgraded = state.sessions.map(withAnchors)
+  if (
+    upgraded.some(
+      (session, index) => session !== state.sessions[index],
+    )
+  )
+    write(upgraded)
   const get = (id: string) =>
     state.sessions.find((session) => session.id === id)
   const targetId = (session: CookingSession) =>

@@ -1,4 +1,9 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect, test, vi } from "vitest"
@@ -168,7 +173,7 @@ test("a saved position follows its heading when a wrapping change moves the page
       heading: "Step 1 of 4",
       occurrence: 0,
     }
-    // Index 9 was Step 1 under the earlier wrapping; it no longer is.
+    // Index 0 is the ingredients page; the anchor names Step 1.
     writeFileSync(
       file,
       JSON.stringify({
@@ -181,8 +186,8 @@ test("a saved position follows its heading when a wrapping change moves the page
             recipe,
             width: 320,
             height: 240,
-            pageIndex: 9,
-            instructionPage: 9,
+            pageIndex: 0,
+            instructionPage: 0,
             pageAnchor: step1,
             instructionAnchor: step1,
             revision: 3,
@@ -199,7 +204,7 @@ test("a saved position follows its heading when a wrapping change moves the page
     const id = "6f1c1f3e-5a43-4f43-9a3e-6d6b2d1f9a10"
     const session = cooking.get(id)!
     const display = cooking.display(session)
-    expect(display.pageIndex).not.toBe(9)
+    expect(display.pageIndex).not.toBe(0)
     expect(display.page.heading).toBe("Step 1 of 4")
     const previous = cooking.command(id, "previous")!
     expect(cooking.display(previous).page.heading).toMatch(
@@ -210,6 +215,51 @@ test("a saved position follows its heading when a wrapping change moves the page
       "Step 1 of 4",
     )
     expect(back.pageIndex).toBe(display.pageIndex)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test("a session saved before anchors gets them on load and keeps its step", () => {
+  const directory = mkdtempSync(
+    join(tmpdir(), "castkit-cooking-"),
+  )
+  try {
+    const file = join(directory, "sessions.json")
+    const first = createCookingSessions({
+      file,
+      onChanged: vi.fn(),
+    })
+    const session = first.start(input)
+    first.command(session.id, "instructions")
+    const active = first.command(session.id, "next")!
+    const heading = first.display(active).page.heading
+    // Rewrite the file the way the earlier version saved it: no anchors.
+    const {
+      pageAnchor: _page,
+      instructionAnchor: _instruction,
+      ...legacy
+    } = active
+    writeFileSync(
+      file,
+      JSON.stringify({ sessions: [legacy], requests: [] }),
+    )
+    const onChanged = vi.fn()
+    const restored = createCookingSessions({
+      file,
+      onChanged,
+    })
+    expect(onChanged).not.toHaveBeenCalled()
+    const upgraded = restored.get(session.id)!
+    expect(upgraded.pageAnchor?.heading).toBe(heading)
+    expect(upgraded.revision).toBe(active.revision)
+    expect(
+      JSON.parse(readFileSync(file, "utf8")).sessions[0]
+        .pageAnchor.heading,
+    ).toBe(heading)
+    expect(restored.display(upgraded).page.heading).toBe(
+      heading,
+    )
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }
