@@ -368,6 +368,7 @@ export const createPlatform = async ({
         deviceOverrides.clear({
           deviceId,
           viewId: request.viewId,
+          overrideId: request.overrideId,
         })
       } catch (error) {
         console.warn(
@@ -596,12 +597,14 @@ export const createPlatform = async ({
     durationSeconds,
     priority,
     navigationId,
+    overrideId,
   }: {
     deviceId: string
     viewId: unknown
     durationSeconds: unknown
     priority?: unknown
     navigationId?: unknown
+    overrideId?: unknown
   }) => {
     const display = getDeviceProperties(deviceId)
     if (!display) throw new Error("Unknown display")
@@ -646,6 +649,7 @@ export const createPlatform = async ({
       viewId: view.id,
       durationSeconds: seconds,
       priority,
+      overrideId,
       ...(typeof navigationId === "string"
         ? { navigationId }
         : {}),

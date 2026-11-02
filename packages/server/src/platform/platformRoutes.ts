@@ -1220,6 +1220,7 @@ export const attachPlatformRoutes = ({
           viewId: z.string(),
           durationSeconds: z.number().positive(),
           priority: z.number().optional(),
+          overrideId: z.string().min(1).max(128).optional(),
           navigationId: z
             .string()
             .min(1)
@@ -1251,7 +1252,10 @@ export const attachPlatformRoutes = ({
     "/api/manage/platform/devices/:id/show",
     async (context) => {
       const parsed = z
-        .object({ viewId: z.string() })
+        .object({
+          viewId: z.string(),
+          overrideId: z.string().min(1).max(128).optional(),
+        })
         .safeParse(
           await context.req.json().catch(() => null),
         )
@@ -1272,6 +1276,7 @@ export const attachPlatformRoutes = ({
       platform.deviceOverrides.clear({
         deviceId: context.req.param("id"),
         viewId: parsed.data.viewId,
+        overrideId: parsed.data.overrideId,
       })
       return context.json({ ok: true })
     },
