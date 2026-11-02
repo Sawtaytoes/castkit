@@ -64,6 +64,22 @@ export type StreamDestination = {
   channelIds?: readonly string[]
 }
 
+/**
+ * The target a left-swipe request names before the house has answered it: the
+ * saved view with exactly that ID, or nothing. `readStreamDestinations` uses it
+ * only when no target has been learned for the request.
+ */
+export const readSavedViewTarget = ({
+  savedViews,
+  requested,
+}: {
+  savedViews: readonly { id: string }[]
+  requested: string
+}) =>
+  savedViews.some((view) => view.id === requested)
+    ? { kind: "view" as const, id: requested }
+    : undefined
+
 /** A panel holds six frames ahead; the slots on the board are numbered 0–5. */
 export const STREAM_FRAME_LIMIT = 6
 
@@ -152,20 +168,26 @@ const readSnapshotContent = (snapshot: DeviceSnapshot) => {
  *
  * A native view renders from the same snapshot with only the view changed. A
  * left-swipe view the house resolves (a composed view such as Kids Points) is
- * drawn only once this panel's earlier request showed which target the house
- * chose for it (`readLearnedTarget`), and only when the platform can say what
- * that target's pixels depend on (`readPlatformContent`).
+ * drawn for the target this panel's earlier request showed the house chose
+ * (`readLearnedTarget`). Before the first answer, a request that names a saved
+ * view is drawn as that view (`readSavedViewTarget`), so the first swipe after
+ * a restart is ready too. Either way it is drawn only when the platform can say
+ * what that target's pixels depend on (`readPlatformContent`).
  */
 export const readStreamDestinations = ({
   snapshot,
   nowMs,
   readLearnedTarget,
+  readSavedViewTarget = () => undefined,
   readPlatformContent,
   readLocalTarget = () => undefined,
 }: {
   snapshot: DeviceSnapshot
   nowMs: number
   readLearnedTarget: (
+    requested: string,
+  ) => DisplayTarget | undefined
+  readSavedViewTarget?: (
     requested: string,
   ) => DisplayTarget | undefined
   readPlatformContent: (target: DisplayTarget) =>
@@ -216,7 +238,10 @@ export const readStreamDestinations = ({
         },
       ]
     }
-    const target = localTarget ?? readLearnedTarget(viewId)
+    const target =
+      localTarget ??
+      readLearnedTarget(viewId) ??
+      readSavedViewTarget(viewId)
     const platform = target
       ? readPlatformContent(target)
       : undefined
