@@ -44,6 +44,22 @@ const cells = (letter: string) =>
         )
       ? 2
       : 1
+const graphemes = new Intl.Segmenter("en", {
+  granularity: "grapheme",
+})
+/** Cells for one visible character, so a line never splits an emoji or its marks. */
+const clusterCells = (cluster: string) =>
+  /\u20e3|\p{Extended_Pictographic}/u.test(cluster)
+    ? 2
+    : Array.from(cluster).reduce(
+        (total, letter) => total + cells(letter),
+        0,
+      )
+const splitClusters = (value: string) =>
+  Array.from(
+    graphemes.segment(value),
+    (part) => part.segment,
+  )
 export const wrapRecipeText = (
   value: string,
   columns: number,
@@ -55,16 +71,16 @@ export const wrapRecipeText = (
     .split("\n")) {
     let line = ""
     let used = 0
-    for (const letter of Array.from(paragraph)) {
-      const size = cells(letter)
+    for (const letter of splitClusters(paragraph)) {
+      const size = clusterCells(letter)
       while (used + size > columns && line) {
         const boundary = line.lastIndexOf(" ") + 1
         const splitAt =
           boundary > 0 ? boundary : line.length
         lines.push(line.slice(0, splitAt))
         line = line.slice(splitAt)
-        used = Array.from(line).reduce(
-          (total, character) => total + cells(character),
+        used = splitClusters(line).reduce(
+          (total, cluster) => total + clusterCells(cluster),
           0,
         )
       }
