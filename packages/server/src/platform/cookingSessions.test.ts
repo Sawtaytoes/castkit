@@ -380,3 +380,36 @@ test.skipIf(process.getuid?.() === 0)(
     }
   },
 )
+
+test("a session saved on Step 1 under the earlier wrapping still shows Step 1", () => {
+  // Under per-code-point wrapping this recipe put Step 1 at index 9 on a
+  // 320 × 240 panel. Grapheme wrapping packs the chef emoji differently.
+  const chef = {
+    ...recipe,
+    ingredients: ["👩‍🍳 ".repeat(100)],
+    instructions: ["Mix.", "Bake.", "Cool.", "Serve."],
+  }
+  const step1 = { heading: "Step 1 of 4", occurrence: 0 }
+  loadLegacy(
+    legacySession({
+      recipe: chef,
+      width: 320,
+      height: 240,
+      pageIndex: 9,
+      instructionPage: 9,
+      pageAnchor: step1,
+      instructionAnchor: step1,
+    }),
+    (cooking) => {
+      const id = "0b6f3c55-8a0e-4d8b-9a44-2f7a1c3e5d21"
+      const display = cooking.display(cooking.get(id)!)
+      expect(display.pageIndex).not.toBe(9)
+      expect(display.page.heading).toBe("Step 1 of 4")
+      cooking.command(id, "ingredients")
+      const back = cooking.command(id, "instructions")!
+      expect(cooking.display(back).page.heading).toBe(
+        "Step 1 of 4",
+      )
+    },
+  )
+})
