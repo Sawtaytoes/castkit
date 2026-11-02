@@ -19,11 +19,9 @@ export const NavigationFeedback = () => {
         aria-hidden="true"
       />
       <span>
-        {feedback.phase === "pulling"
-          ? `Release for ${feedback.label}`
-          : feedback.phase === "loading"
-            ? `Opening ${feedback.label}…`
-            : feedback.label}
+        {feedback.phase === "loading"
+          ? `Opening ${feedback.label}…`
+          : feedback.label}
       </span>
       <span
         class="navigation-feedback-progress"

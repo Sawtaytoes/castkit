@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-22
 Type: Interaction and performance
 Supersedes: None
-Superseded by: None
+Superseded by: In part (the pull hint), by [2026-11-02: A pull shows no release hint](2026-11-02-a-pull-shows-no-release-hint.md)
 
 ## Decision
 
