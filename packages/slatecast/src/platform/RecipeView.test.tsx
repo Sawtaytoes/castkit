@@ -251,6 +251,13 @@ const hardRecipes = [
       "鶏肉を焼き、タレを絡めて照りが出るまで煮詰める。",
     ],
   },
+  {
+    ...bananaCake,
+    name: "Recipe",
+    ingredients: ["1️⃣ 2️⃣ 3️⃣ ".repeat(24)],
+    instructions: ["Serve."],
+    notes: [],
+  },
 ]
 test.each([
   { width: 320, height: 240 },

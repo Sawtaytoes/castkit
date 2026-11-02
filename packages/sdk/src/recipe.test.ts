@@ -135,3 +135,18 @@ test("wide letters that would wrap past a small screen send the recipe to pages"
   )
   expect(pages.some((page) => page.isComplete)).toBe(false)
 })
+test("keycap emoji count as wide glyphs", () => {
+  const { pages } = paginateRecipe(
+    {
+      slug: "keycaps",
+      name: "Recipe",
+      url: "https://example.com",
+      ingredients: ["1️⃣ 2️⃣ 3️⃣ ".repeat(24)],
+      instructions: ["Serve."],
+      notes: [],
+    },
+    320,
+    240,
+  )
+  expect(pages.some((page) => page.isComplete)).toBe(false)
+})

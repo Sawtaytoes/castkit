@@ -24,7 +24,7 @@ const recipe = {
   instructions: [
     // Long enough that this recipe pages, so these stories show the paged layout.
     "Warm the olive oil in a skillet. Add the chickpeas and stir gently until warmed through. ".repeat(
-      12,
+      40,
     ),
     "Stir in the lemon juice. Season to taste and serve warm.",
   ],

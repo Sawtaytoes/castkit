@@ -101,6 +101,8 @@ export const completeRecipeLayout = {
  * estimate errs toward paging. The widest Latin letters get a full em.
  */
 const glyphEm = (letter: string) => {
+  // A keycap mark turns the digit before it into an emoji wider than an em.
+  if (letter === "\u20e3") return 1
   const size = cells(letter)
   if (size === 0) return 0
   if (size === 2) return 1.05
