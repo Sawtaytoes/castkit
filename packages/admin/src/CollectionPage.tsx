@@ -362,11 +362,16 @@ export const CollectionPage = ({
     (collection === "views" || collection === "screens")
       ? `/${collection === "views" ? "view" : "screen"}/${encodeURIComponent(draft.id)}`
       : null
+  const savedScreen = platform.screens.find(
+    (screen) => screen.id === editingId,
+  )
   const previewView = platform.views.find((view) =>
     collection === "views"
       ? view.id === editingId
       : collection === "screens" &&
-        view.id === (draft as Screen | null)?.defaultViewId,
+        view.id ===
+          (savedScreen?.activeViewId ??
+            savedScreen?.defaultViewId),
   )
   if (collection === "views" && requestedTab === "gallery")
     return (

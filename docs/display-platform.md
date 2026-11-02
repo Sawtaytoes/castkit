@@ -119,7 +119,7 @@ display. Leave it off for a flexible composition.
 
 The editor and All views gallery start with **View default**, which uses each
 view's saved intended size or fits the available preview area when none is set.
-Screen previews use their default view's intended size. A device profile, browser
+Screen previews use their saved active view's intended size, falling back to the default view. A device profile, browser
 window, custom size, fit selection, or resize handle temporarily overrides that
 preview without saving a change to the view or device. Save an edited intended
 viewport before expecting the saved preview to update.

@@ -551,3 +551,74 @@ test("intended viewport defaults follow the saved view and allow temporary overr
   await expect(thumbnail).toHaveCSS("width", "200px")
   await expect(thumbnail).toHaveCSS("height", "200px")
 })
+
+test("screen preview geometry changes only after saving its default view", async ({
+  page,
+}) => {
+  const platform = managementPlatform()
+  platform.views = [
+    {
+      ...platform.views[0]!,
+      id: "flexible",
+      name: "Flexible",
+    },
+    {
+      ...platform.views[0]!,
+      id: "wrist",
+      name: "Wrist",
+      intendedViewport: { width: 200, height: 200 },
+    },
+  ]
+  platform.screens = [
+    {
+      id: "sample-screen",
+      name: "Sample screen",
+      defaultViewId: "flexible",
+      viewIds: ["flexible", "wrist"],
+      access: "public",
+    },
+  ]
+  await page.route("**/api/manage/platform", (route) =>
+    route.fulfill({ json: platform }),
+  )
+  await page.route(
+    "**/api/manage/platform/screens/sample-screen",
+    async (route) => {
+      platform.screens = [route.request().postDataJSON()]
+      await route.fulfill({ json: { ok: true } })
+    },
+  )
+  await page.route(
+    "**/screen/sample-screen?preview=1",
+    (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: "<p>Saved screen</p>",
+      }),
+  )
+  await page.goto(
+    "/manage/screens/views?item=sample-screen",
+  )
+  const frame = page.locator(".collection-preview iframe")
+  const container = page.locator(
+    ".collection-preview .live-preview",
+  )
+  await container.scrollIntoViewIfNeeded()
+  await expect(frame).toHaveCSS("height", "600px")
+  await page
+    .getByRole("button", { name: "Flexible", exact: true })
+    .click()
+  await page
+    .getByRole("option", { name: "Wrist", exact: true })
+    .click()
+  await container.scrollIntoViewIfNeeded()
+  await expect(frame).toHaveCSS("height", "600px")
+  await page
+    .getByRole("button", {
+      name: "Save screen",
+      exact: true,
+    })
+    .click()
+  await container.scrollIntoViewIfNeeded()
+  await expect(frame).toHaveCSS("height", "200px")
+})
