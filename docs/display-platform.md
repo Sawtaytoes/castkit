@@ -42,6 +42,18 @@ ignore replies to its superseded local swipes; it does not change priority, expi
 or view caching. Omit it for independent automation selections. Controllers and
 clients that omit the field retain their existing behavior.
 
+Independent callers can hold the same composition by supplying an optional
+`overrideId`, a nonempty string of at most 128 characters, on both set and clear
+requests. Each named owner has one hold per device; another set replaces that
+owner's previous view. Clearing requires the matching view and owner, so a late
+clear for an older view preserves the owner's current selection. Unnamed callers
+retain one hold per view and clear only that unnamed hold. Priority and expiry
+still select the winner across all owners.
+
+For example, a priority-100 alert and a priority-50 manual selection can both
+use `viewId: "status"` with different `overrideId` values. Ending the manual hold
+preserves the alert; ending the alert exposes a manual hold that has not expired.
+These IDs identify holds within the existing authenticated automation surface.
 
 The equivalent HTTP endpoint is
 `POST /api/manage/platform/devices/<device-id>/show`, which answers with the

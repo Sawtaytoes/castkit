@@ -16,6 +16,95 @@ import {
 import { attachPlatformRoutes } from "./platformRoutes.ts"
 
 describe("createDeviceOverrides", () => {
+  test("independent holds of one view preserve priority and clear only their owner", () => {
+    const clock = { value: 0 }
+    const overrides = createDeviceOverrides({
+      now: () => clock.value,
+    })
+    const showManual = () =>
+      overrides.show({
+        deviceId: "panel",
+        viewId: "points",
+        overrideId: "manual",
+        durationSeconds: 30,
+        priority: 50,
+        navigationId: "manual-navigation",
+      })
+    overrides.show({
+      deviceId: "panel",
+      viewId: "points",
+      durationSeconds: 90,
+      priority: 100,
+      navigationId: "genuine-navigation",
+    })
+    showManual()
+    expect(overrides.getActive("panel")).toMatchObject({
+      priority: 100,
+      expiresAt: 90000,
+      navigationId: "genuine-navigation",
+    })
+    overrides.clear({
+      deviceId: "panel",
+      viewId: "points",
+      overrideId: "manual",
+    })
+    expect(overrides.getActive("panel")?.priority).toBe(100)
+    showManual()
+    overrides.clear({ deviceId: "other", viewId: "points" })
+    expect(overrides.getActive("panel")?.priority).toBe(100)
+    overrides.clear({ deviceId: "panel", viewId: "points" })
+    expect(overrides.getActive("panel")).toMatchObject({
+      priority: 50,
+      overrideId: "manual",
+      navigationId: "manual-navigation",
+    })
+    overrides.show({
+      deviceId: "panel",
+      viewId: "points",
+      durationSeconds: 90,
+      priority: 100,
+    })
+    expect(overrides.getActive("panel")?.priority).toBe(100)
+    overrides.clear({ deviceId: "panel", viewId: "points" })
+    expect(overrides.getActive("panel")?.overrideId).toBe(
+      "manual",
+    )
+    clock.value = 31000
+    expect(overrides.getActive("panel")).toBeUndefined()
+    overrides.dispose()
+  })
+
+  test("a named owner changes its view without a stale dismissal clearing the new hold", () => {
+    const overrides = createDeviceOverrides()
+    overrides.show({
+      deviceId: "panel",
+      viewId: "first",
+      overrideId: "manual",
+      durationSeconds: 30,
+      priority: 100,
+    })
+    overrides.show({
+      deviceId: "panel",
+      viewId: "second",
+      overrideId: "manual",
+      durationSeconds: 60,
+      priority: 50,
+    })
+    overrides.clear({
+      deviceId: "panel",
+      viewId: "first",
+      overrideId: "manual",
+    })
+    expect(overrides.getViewId("panel")).toBe("second")
+    overrides.clear({
+      deviceId: "panel",
+      viewId: "second",
+      overrideId: "manual",
+    })
+    expect(overrides.getViewId("panel")).toBeUndefined()
+    overrides.dispose()
+  })
+
   test("the highest priority wins, then the latest, until each expires", () => {
     const clock = { value: 0 }
     const overrides = createDeviceOverrides({
@@ -160,6 +249,144 @@ const createFixture = async () => {
 }
 
 describe("a temporary view on one display", () => {
+  test("HTTP and MQTT preserve independent owners of the same view", async () => {
+    const { platform, app, deliver } = await createFixture()
+    const request = (method: string, body: unknown) =>
+      app.request(
+        "/api/manage/platform/devices/desk/show",
+        {
+          method,
+          headers: {
+            "content-type": "application/json",
+            authorization: "Bearer test-machine-token",
+          },
+          body: JSON.stringify(body),
+        },
+      )
+    const showManual = () =>
+      request("POST", {
+        viewId: "points",
+        overrideId: "manual",
+        durationSeconds: 30,
+        priority: 50,
+      })
+    await deliver(
+      "castkit/desk/override/set",
+      JSON.stringify({
+        viewId: "points",
+        durationSeconds: 90,
+        priority: 100,
+      }),
+    )
+    expect((await showManual()).status).toBe(200)
+    expect(
+      platform.deviceOverrides.getActive("desk")?.priority,
+    ).toBe(100)
+    expect(
+      (
+        await request("DELETE", {
+          viewId: "points",
+          overrideId: "manual",
+        })
+      ).status,
+    ).toBe(200)
+    expect(
+      platform.deviceOverrides.getActive("desk")?.priority,
+    ).toBe(100)
+    expect((await showManual()).status).toBe(200)
+    await deliver(
+      "castkit/desk/override/clear",
+      JSON.stringify({ viewId: "points" }),
+    )
+    expect(
+      platform.deviceOverrides.getActive("desk")
+        ?.overrideId,
+    ).toBe("manual")
+    await deliver(
+      "castkit/desk/override/clear",
+      JSON.stringify({
+        viewId: "points",
+        overrideId: "manual",
+      }),
+    )
+    expect(platform.getDeviceTarget("desk")?.id).toBe(
+      "desk-screen",
+    )
+    await deliver(
+      "castkit/desk/override/set",
+      JSON.stringify({
+        viewId: "points",
+        overrideId: "manual",
+        durationSeconds: 30,
+      }),
+    )
+    expect(
+      platform.deviceOverrides.getActive("desk")
+        ?.overrideId,
+    ).toBe("manual")
+  })
+
+  test("invalid owner IDs cannot create or dismiss a hold", async () => {
+    const { platform, app, deliver } = await createFixture()
+    platform.showOnDevice({
+      deviceId: "desk",
+      viewId: "points",
+      overrideId: "manual",
+      durationSeconds: 30,
+    })
+    const statuses = await Promise.all(
+      [null, "", 42, "a".repeat(129)].flatMap(
+        (overrideId) =>
+          ["POST", "DELETE"].map(
+            async (method) =>
+              (
+                await app.request(
+                  "/api/manage/platform/devices/desk/show",
+                  {
+                    method,
+                    headers: {
+                      "content-type": "application/json",
+                      authorization:
+                        "Bearer test-machine-token",
+                    },
+                    body: JSON.stringify({
+                      viewId: "points",
+                      overrideId,
+                      durationSeconds: 30,
+                    }),
+                  },
+                )
+              ).status,
+          ),
+      ),
+    )
+    expect(statuses).toEqual(
+      Array.from({ length: 8 }, () => 400),
+    )
+    const warn = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => {})
+    await deliver(
+      "castkit/desk/override/clear",
+      JSON.stringify({ viewId: "points", overrideId: "" }),
+    )
+    await deliver(
+      "castkit/desk/override/set",
+      JSON.stringify({
+        viewId: "points",
+        overrideId: 42,
+        durationSeconds: 30,
+        priority: 100,
+      }),
+    )
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(
+      platform.deviceOverrides.getActive("desk")
+        ?.overrideId,
+    ).toBe("manual")
+    warn.mockRestore()
+  })
+
   test("covers the assigned screen and gives a slow display ten repaints", async () => {
     const { platform } = await createFixture()
     expect(platform.getDeviceTarget("desk")).toEqual({
