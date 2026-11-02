@@ -41,7 +41,8 @@ const CompleteRecipe = ({
     const fits = (fontSize: number) => {
       element.style.fontSize = `${fontSize}px`
       return (
-        element.scrollHeight <= element.clientHeight + 1
+        element.scrollHeight <= element.clientHeight + 1 &&
+        element.scrollWidth <= element.clientWidth + 1
       )
     }
     // The server estimate is cautious: grow into spare room, then shrink if needed.
@@ -74,6 +75,8 @@ const CompleteRecipe = ({
         padding: display.padding,
         overflow: "hidden",
         fontFamily: "Arial, Helvetica, sans-serif",
+        // A long unbroken word wraps instead of running off the panel.
+        overflowWrap: "anywhere",
         fontSize: display.fontSize,
         lineHeight: layout.lineHeight,
         background: "#fff",
@@ -97,6 +100,7 @@ const CompleteRecipe = ({
         <h1
           style={{
             margin: 0,
+            minWidth: 0,
             fontSize: `${layout.titleScale}em`,
             lineHeight: 1.15,
             fontWeight: 700,
@@ -107,7 +111,8 @@ const CompleteRecipe = ({
         {recipe.yieldText ? (
           <span
             style={{
-              whiteSpace: "nowrap",
+              maxWidth: `${layout.yieldShare * 100}%`,
+              textAlign: "right",
               flexShrink: 0,
               paddingTop: "0.3em",
               fontSize: "0.85em",
@@ -121,8 +126,8 @@ const CompleteRecipe = ({
         style={{
           display: "grid",
           gridTemplateColumns: isWide
-            ? `${layout.ingredientShare * 100}% 1fr`
-            : "1fr",
+            ? `${layout.ingredientShare * 100}% minmax(0, 1fr)`
+            : "minmax(0, 1fr)",
           gap: isWide ? `0 ${layout.columnGap}em` : "0.6em",
           minHeight: 0,
         }}
@@ -161,7 +166,7 @@ const CompleteRecipe = ({
               style={{
                 margin: 0,
                 display: "grid",
-                gridTemplateColumns: "1.3em 1fr",
+                gridTemplateColumns: "1.3em minmax(0, 1fr)",
                 gap: "0.3em",
                 paddingBottom: `${layout.stepGap / 2}em`,
                 marginBottom: `${layout.stepGap / 2}em`,

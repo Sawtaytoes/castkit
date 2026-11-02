@@ -106,3 +106,17 @@ test("a longer recipe shrinks the font before it falls back to pages", () => {
     ),
   ).toBeNull()
 })
+test("a title too long for the header sends the recipe to pages instead of hiding steps", () => {
+  const { pages } = paginateRecipe(
+    {
+      ...recipe,
+      name: "Large delicious recipe ".repeat(40),
+      ingredients: ["1 lemon"],
+      instructions: ["Serve."],
+    },
+    320,
+    240,
+  )
+  expect(pages.length).toBeGreaterThan(1)
+  expect(pages.some((page) => page.isComplete)).toBe(false)
+})

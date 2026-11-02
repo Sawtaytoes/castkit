@@ -87,6 +87,7 @@ export const completeRecipeLayout = {
   /** Average sans-serif glyph width, kept wide so the estimate errs toward paging. */
   glyphWidth: 0.58,
   ingredientShare: 0.34,
+  yieldShare: 0.33,
   columnGap: 1.2,
   itemGap: 0.3,
   stepGap: 0.75,
@@ -139,16 +140,29 @@ export const fitCompleteRecipe = (
         Math.ceil(fontSize * layout.columnGap * 2)
       : inner
     const titleSize = fontSize * layout.titleScale
-    const titleLines = Math.min(
-      2,
-      countLines(
-        recipe.name,
-        inner - fontSize * 8,
-        titleSize,
-      ),
+    // The view gives the yield at most a third of the header and wraps both.
+    const yieldWidth = recipe.yieldText
+      ? Math.floor(inner * layout.yieldShare)
+      : 0
+    const titleLines = countLines(
+      recipe.name,
+      inner - yieldWidth - fontSize,
+      titleSize,
     )
+    const yieldLines = recipe.yieldText
+      ? countLines(
+          recipe.yieldText,
+          yieldWidth,
+          fontSize * 0.85,
+        )
+      : 0
     const header =
-      Math.ceil(titleSize * 1.15) * titleLines + fontSize
+      Math.max(
+        Math.ceil(titleSize * 1.15) * titleLines,
+        Math.ceil(fontSize * 0.85 * layout.lineHeight) *
+          yieldLines +
+          Math.ceil(fontSize * 0.3),
+      ) + fontSize
     const heading = Math.ceil(fontSize * 1.6)
     const ingredients =
       heading +

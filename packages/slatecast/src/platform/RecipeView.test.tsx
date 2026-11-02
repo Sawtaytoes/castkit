@@ -167,3 +167,59 @@ test.each([
       step.getBoundingClientRect().bottom,
     ).toBeLessThanOrEqual(height)
 })
+
+test("unbroken words, a long title, and a long yield wrap inside the panel", async () => {
+  await page.viewport(800, 480)
+  const recipe = {
+    ...bananaCake,
+    name: `Banana ${"Bread".repeat(12)} Snack Cake`,
+    yieldText: `Makes ${"many".repeat(10)} servings`,
+    instructions: [
+      `Stir ${"W".repeat(100)} gently.`,
+      ...bananaCake.instructions.slice(1),
+    ],
+  }
+  const { pages, ...geometry } = paginateRecipe(
+    recipe,
+    800,
+    480,
+  )
+  expect(pages[0]?.isComplete).toBe(true)
+  const result = render(
+    <div
+      style={{
+        width: 800,
+        height: 480,
+        position: "fixed",
+        inset: 0,
+      }}
+    >
+      <RecipeView
+        data={{
+          ...geometry,
+          recipe,
+          page: pages[0]!,
+          pageIndex: 0,
+          pageCount: pages.length,
+        }}
+      />
+    </div>,
+  )
+  const article = result.getByLabelText("Recipe page")
+  await waitFor(() =>
+    expect(article.getBoundingClientRect().width).toBe(800),
+  )
+  expect(article.scrollWidth).toBeLessThanOrEqual(
+    article.clientWidth + 1,
+  )
+  expect(article.scrollHeight).toBeLessThanOrEqual(
+    article.clientHeight + 1,
+  )
+  for (const element of article.querySelectorAll(
+    "h1, span, p",
+  )) {
+    const box = element.getBoundingClientRect()
+    expect(box.right).toBeLessThanOrEqual(801)
+    expect(box.bottom).toBeLessThanOrEqual(481)
+  }
+})

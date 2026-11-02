@@ -82,6 +82,22 @@ const CookingPage = ({
                   ),
                 )}
               </ol>
+              {data.recipe.notes.length ? (
+                <>
+                  <h3 className="font-semibold text-lg">
+                    Notes
+                  </h3>
+                  {data.recipe.notes.map((note, index) => (
+                    <p
+                      // biome-ignore lint/suspicious/noArrayIndexKey: notes never reorder
+                      key={index}
+                      className="whitespace-pre-wrap break-words text-lg leading-relaxed"
+                    >
+                      {note}
+                    </p>
+                  ))}
+                </>
+              ) : null}
             </>
           ) : (
             <>
