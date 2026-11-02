@@ -465,3 +465,89 @@ test("image profiles show rendered frames and explain unsupported views without 
     page.locator(".view-gallery-grid img"),
   ).toHaveCount(0)
 })
+
+test("intended viewport defaults follow the saved view and allow temporary overrides", async ({
+  page,
+}, testInfo) => {
+  const platform = managementPlatform()
+  const view = {
+    ...platform.views[0]!,
+    id: "wrist-totals",
+    name: "Wrist totals",
+    intendedViewport: { width: 200, height: 200 },
+  }
+  platform.views = [
+    view,
+    {
+      ...view,
+      id: "flexible-totals",
+      name: "Flexible totals",
+      intendedViewport: undefined,
+    },
+  ]
+  await page.route("**/api/manage/platform", (route) =>
+    route.fulfill({ json: platform }),
+  )
+  await page.route(
+    /\/view\/(wrist-totals|flexible-totals)\?preview=1$/,
+    (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: "<h1>Totals</h1><p>A 100</p><p>B 0</p><p>C 100</p>",
+      }),
+  )
+  await page.goto("/manage/views/general?item=wrist-totals")
+  const frame = page.locator(".collection-preview iframe")
+  await page
+    .locator(".collection-preview .live-preview")
+    .scrollIntoViewIfNeeded()
+  await expect(frame).toHaveCSS("width", "200px")
+  await expect(frame).toHaveCSS("height", "200px")
+  await expect(
+    page.getByLabel("Use an intended viewport"),
+  ).toBeChecked()
+  await expect(
+    page.getByLabel("Intended width (pixels)"),
+  ).toHaveValue("200")
+  await page.screenshot({
+    path: `__screenshots__/intended-viewport-${testInfo.project.name}.png`,
+    fullPage: true,
+  })
+  await chooseSize({ page, name: "Fit preview area" })
+  await page
+    .locator(".collection-preview .live-preview")
+    .scrollIntoViewIfNeeded()
+  await expect(frame).toHaveCSS("height", "600px")
+  await page.screenshot({
+    path: `__screenshots__/intended-viewport-before-${testInfo.project.name}.png`,
+    fullPage: true,
+  })
+  await chooseSize({
+    page,
+    name: "View default",
+  })
+  await page
+    .locator(".collection-preview .live-preview")
+    .scrollIntoViewIfNeeded()
+  await expect(frame).toHaveCSS("height", "200px")
+  await page.goto(
+    "/manage/views/general?item=flexible-totals",
+  )
+  await page
+    .locator(".collection-preview .live-preview")
+    .scrollIntoViewIfNeeded()
+  await expect(frame).toHaveCSS("height", "600px")
+  await expect(
+    page.getByLabel("Use an intended viewport"),
+  ).not.toBeChecked()
+  await page.goto("/manage/views/gallery")
+  const thumbnail = page.locator(
+    'iframe[title="Wrist totals preview"]',
+  )
+  await page.getByLabel("Find a view").fill("Wrist totals")
+  await page
+    .locator(".view-gallery-grid .live-preview")
+    .scrollIntoViewIfNeeded()
+  await expect(thumbnail).toHaveCSS("width", "200px")
+  await expect(thumbnail).toHaveCSS("height", "200px")
+})

@@ -109,3 +109,28 @@ Existing devices and their retained settings remain available. Their view paths 
 The root page links to the view library, management, and the API reference. The API reference is `/api`; `/docs` redirects there. Machine endpoints continue under `/api/...`.
 
 Map panels use OpenStreetMap tiles only for their current viewport. CastKit applies the target's access policy to the proxy, preserves attribution, and caches tiles for at least seven days. See the [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/).
+
+## Intended viewport
+
+A saved view can optionally declare `intendedViewport: { width, height }` in pixels
+(whole numbers from 120 through 7680). Set it in the view editor's General tab
+when the composition is designed for a specific size, such as a 200 × 200 wrist
+display. Leave it off for a flexible composition.
+
+The editor and All views gallery start with **View default**, which uses each
+view's saved intended size or fits the available preview area when none is set.
+Screen previews use their default view's intended size. A device profile, browser
+window, custom size, fit selection, or resize handle temporarily overrides that
+preview without saving a change to the view or device. Save an edited intended
+viewport before expecting the saved preview to update.
+
+This is a design and preview preference, not a display restriction. It does not
+assign a device, change channel bindings, simulate display capabilities, or alter
+the viewport on a real display. Choose a display profile to preview its image
+rendering, palette, and other properties.
+
+Saved views represent compositions you intend to open or assign. Reusable rendering
+components belong in plugins; a plugin does not need a dedicated saved view merely
+to make its component reusable. Keep planned compositions when they have a known
+future use, and check screen, device, and automation references before removing a
+standalone view. Removing a saved view does not remove its plugin.
