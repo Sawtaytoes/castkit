@@ -199,6 +199,59 @@ export const ViewEditor = ({
             }}
           />
         </Field>
+        <Checkbox
+          label="Use an intended viewport"
+          isChecked={value.intendedViewport !== undefined}
+          onChange={(hasIntendedViewport) =>
+            onChange({
+              ...value,
+              intendedViewport: hasIntendedViewport
+                ? { width: 200, height: 200 }
+                : undefined,
+            })
+          }
+        />
+        <p className="text-sm text-content-secondary">
+          Set the size this view was designed for. Previews
+          start at this size; displays still use their own
+          dimensions. Leave off for a flexible view.
+        </p>
+        {value.intendedViewport ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(["width", "height"] as const).map(
+              (dimension) => (
+                <Field
+                  key={dimension}
+                  label={`Intended ${dimension} (pixels)`}
+                  isRequired
+                >
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min={120}
+                    max={7680}
+                    step={1}
+                    value={
+                      value.intendedViewport?.[dimension] ??
+                      200
+                    }
+                    onChange={(event) =>
+                      onChange({
+                        ...value,
+                        intendedViewport: {
+                          ...value.intendedViewport!,
+                          [dimension]: Number(
+                            event.target.value,
+                          ),
+                        },
+                      })
+                    }
+                  />
+                </Field>
+              ),
+            )}
+          </div>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Layout">
             <Picker
