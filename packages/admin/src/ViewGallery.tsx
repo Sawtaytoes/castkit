@@ -128,7 +128,11 @@ export const ViewGallery = ({
               <LivePreviewFrame
                 url={`/view/${encodeURIComponent(view.id)}`}
                 name={view.name}
-                size={sizing.size}
+                size={
+                  sizing.selection === "default"
+                    ? (view.intendedViewport ?? null)
+                    : sizing.size
+                }
                 profile={sizing.profile}
                 revision={revision}
                 isThumbnail

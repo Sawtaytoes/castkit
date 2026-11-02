@@ -49,7 +49,7 @@ const DimensionField = ({
 
 /** A viewport choice never creates a device or changes its assignment. */
 export const usePreviewSizing = (isEnabled = true) => {
-  const [selection, setSelection] = useState("available")
+  const [selection, setSelection] = useState("default")
   const [custom, setCustom] = useState({
     width: 1024,
     height: 600,
@@ -96,7 +96,7 @@ export const usePreviewSizing = (isEnabled = true) => {
     (item) => `profile:${item.id}` === selection,
   )
   const size: PreviewSize =
-    selection === "available"
+    selection === "available" || selection === "default"
       ? null
       : selection === "browser"
         ? browser
@@ -137,6 +137,10 @@ export const PreviewSizing = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const options = [
+    {
+      value: "default",
+      label: "View default",
+    },
     { value: "available", label: "Fit preview area" },
     {
       value: "browser",
@@ -173,7 +177,7 @@ export const PreviewSizing = ({
             >
               <span className="truncate">
                 Preview size:{" "}
-                {selected?.label ?? "Fit preview area"}
+                {selected?.label ?? "View default"}
               </span>
             </Button>
           }

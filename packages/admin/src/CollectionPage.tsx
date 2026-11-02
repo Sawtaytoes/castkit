@@ -362,6 +362,17 @@ export const CollectionPage = ({
     (collection === "views" || collection === "screens")
       ? `/${collection === "views" ? "view" : "screen"}/${encodeURIComponent(draft.id)}`
       : null
+  const savedScreen = platform.screens.find(
+    (screen) => screen.id === editingId,
+  )
+  const previewView = platform.views.find((view) =>
+    collection === "views"
+      ? view.id === editingId
+      : collection === "screens" &&
+        view.id ===
+          (savedScreen?.activeViewId ??
+            savedScreen?.defaultViewId),
+  )
   if (collection === "views" && requestedTab === "gallery")
     return (
       <ViewGallery platform={platform} sizing={sizing} />
@@ -744,7 +755,12 @@ export const CollectionPage = ({
                   <LivePreviewFrame
                     url={url}
                     name={draft.name}
-                    size={sizing.size}
+                    size={
+                      sizing.selection === "default"
+                        ? (previewView?.intendedViewport ??
+                          null)
+                        : sizing.size
+                    }
                     profile={sizing.profile}
                     revision={previewRevision}
                     onResize={sizing.resize}

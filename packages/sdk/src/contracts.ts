@@ -58,6 +58,8 @@ export type ViewPanel = {
 }
 /** A reusable composition that can be assigned to any compatible display. */
 export type ViewDefinition = {
+  /** Preferred preview dimensions; live displays still use their own geometry. */
+  intendedViewport?: { width: number; height: number }
   tags?: string[]
   id: string
   name: string

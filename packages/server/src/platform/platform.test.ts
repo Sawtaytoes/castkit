@@ -114,6 +114,40 @@ const createFixture = async () => {
   }
 }
 
+test("an intended viewport survives saving and reload and can be removed", async () => {
+  const fixture = await createFixture()
+  const intendedViewport = { width: 200, height: 200 }
+  const save = (value: unknown) =>
+    fixture.request(
+      "/api/manage/platform/views/workbench",
+      "PUT",
+      value,
+      fixture.cookie,
+    )
+  expect(
+    (await save({ ...fixture.view, intendedViewport }))
+      .status,
+  ).toBe(200)
+  expect(
+    createPlatformStore({ file: fixture.file }).get()
+      .views[0]?.intendedViewport,
+  ).toEqual(intendedViewport)
+  const response = await fixture.request(
+    "/api/manage/platform",
+    "GET",
+    undefined,
+    fixture.cookie,
+  )
+  expect(
+    (await response.json()).views[0].intendedViewport,
+  ).toEqual(intendedViewport)
+  expect((await save(fixture.view)).status).toBe(200)
+  expect(
+    createPlatformStore({ file: fixture.file }).get()
+      .views[0]?.intendedViewport,
+  ).toBeUndefined()
+})
+
 describe("platform access and saved compositions", () => {
   test("the public page list names each screen's views so a picker can group them", async () => {
     const fixture = await createFixture()

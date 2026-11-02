@@ -59,6 +59,12 @@ export const platformSchemas = {
     settings,
   }),
   views: z.object({
+    intendedViewport: z
+      .object({
+        width: z.number().int().min(120).max(7680),
+        height: z.number().int().min(120).max(7680),
+      })
+      .optional(),
     id: targetIdentifier,
     name: z.string().min(1).max(120),
     tags: z
