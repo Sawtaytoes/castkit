@@ -5281,10 +5281,6 @@ button.music-lyric:hover:not(:disabled):not(.is-current) {
   border-inline-end-color: var(--accent);
   border-radius: 50%;
 }
-.navigation-feedback[data-phase="pulling"]
-  .navigation-feedback-spinner {
-  display: none;
-}
 @media (prefers-reduced-motion: no-preference) {
   html[data-repaint="instant"]
     .navigation-feedback[data-phase="loading"]

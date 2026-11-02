@@ -22,7 +22,6 @@ import {
 import { createStoreFromSignals } from "@charcuterie/logic/signals"
 import { computed, effect, signal } from "@preact/signals"
 import {
-  cancelNavigationPull,
   finishNavigation,
   hasNavigationRequest,
   hasNavigationTimedOut,
@@ -894,7 +893,6 @@ export const __resetStateForTests = () => {
   deferredTarget.value = null
   localNavigation.value = []
   finishNavigation()
-  cancelNavigationPull()
   const snapshot = readInlineSnapshot()
   bundleBuild.bootstrapBuildId = snapshot?.buildId
   bundleBuild.hasReloaded = false
