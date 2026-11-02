@@ -50,15 +50,23 @@ const panel = (spec: string) =>
   document.querySelector<HTMLElement>(
     `[data-spec='${spec}']`,
   )!
+const runningTransitions = () =>
+  document
+    .getAnimations()
+    .filter(
+      (animation) =>
+        animation.playState === "running" &&
+        animation.effect?.getComputedTiming().iterations !==
+          Infinity,
+    )
 const settle = async () => {
+  await Promise.all(
+    runningTransitions().map((animation) =>
+      animation.finished.catch(() => undefined),
+    ),
+  )
   await waitFor(() =>
-    expect(
-      document
-        .getAnimations()
-        .filter(
-          (animation) => animation.playState === "running",
-        ),
-    ).toHaveLength(0),
+    expect(runningTransitions()).toHaveLength(0),
   )
 }
 

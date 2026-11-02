@@ -107,3 +107,86 @@ test.each([
       ?.getBoundingClientRect().top,
   ).toBeGreaterThanOrEqual(nameBounds.bottom)
 })
+
+test.each([
+  [1778, 254],
+  [1700, 240],
+  [684, 200],
+])("an idle %i by %i board keeps complete names and supporting text", async (width, height) => {
+  const { container } = render(
+    <div
+      style={{
+        width,
+        height,
+        display: "flex",
+        flexShrink: 0,
+        fontFamily: "var(--font-sans)",
+      }}
+    >
+      <KidsPointsView
+        now={now}
+        data={{
+          kids: [
+            {
+              id: "robin",
+              name: "Robin",
+              pointsToday: 100,
+              goal: 400,
+              lastTask: "Washing dishes",
+            },
+            {
+              id: "sky",
+              name: "Sky",
+              pointsToday: 0,
+              goal: 400,
+              lastTask: "Taking out recycling",
+            },
+            {
+              id: "quinn",
+              name: "Quinn",
+              pointsToday: 400,
+              goal: 400,
+              lastTask: "Instrument practice",
+            },
+          ],
+        }}
+      />
+    </div>,
+  )
+  await document.fonts.ready
+  await waitFor(() =>
+    expect(
+      container.querySelectorAll(".kids-points-card"),
+    ).toHaveLength(3),
+  )
+  container
+    .querySelectorAll<HTMLElement>(".kids-points-card")
+    .forEach((card) => {
+      const bounds = card.getBoundingClientRect()
+      card
+        .querySelectorAll<HTMLElement>(
+          "h3,.kids-points-total,.kids-points-bar,.kids-points-footnote,.kids-points-goal-reached",
+        )
+        .forEach((part) => {
+          const partBounds = part.getBoundingClientRect()
+          expect(partBounds.bottom).toBeLessThanOrEqual(
+            bounds.bottom,
+          )
+          expect(partBounds.top).toBeGreaterThanOrEqual(
+            bounds.top,
+          )
+          if (
+            part.tagName === "H3" ||
+            part.classList.contains("kids-points-footnote")
+          ) {
+            const textRange = document.createRange()
+            textRange.selectNodeContents(part)
+            expect(
+              partBounds.height,
+            ).toBeGreaterThanOrEqual(
+              textRange.getBoundingClientRect().height - 1,
+            )
+          }
+        })
+    })
+})

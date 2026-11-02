@@ -1414,12 +1414,37 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-/* A short board card budgets scan feedback by its height. Otherwise the
-   extra scan lines squeeze the name and footnote into clipped slivers. */
+/* Short boards budget names and supporting text by height, including when
+   no scan is active. Width alone can make type taller than the whole card. */
 @container (max-height: 300px) {
-  .kids-points-card[data-scanned="true"] > h3 {
+  .kids-points-card {
+    padding: 14px;
+  }
+  .kids-points-card > h3 {
     flex: none;
+  }
+  .kids-points-card h3 {
+    line-height: 1.3;
     font-size: clamp(18px, min(13cqi, 12cqh), 36px);
+  }
+  .kids-points-card > .kids-points-total,
+  .kids-points-card > .kids-points-bar {
+    flex: none;
+  }
+  .kids-points-card
+    > .kids-points-total
+    .kids-points-total-label {
+    font-size: clamp(14px, 8cqmin, 28px);
+  }
+  .kids-points-card > .kids-points-goal-reached {
+    flex: none;
+    font-size: clamp(14px, 8cqmin, 24px);
+    line-height: 1.3;
+  }
+  .kids-points-card > .kids-points-footnote {
+    flex: none;
+    line-height: 1.3;
+    font-size: clamp(13px, 6cqmin, 20px);
   }
   .kids-points-card > .kids-points-scan {
     flex: none;
