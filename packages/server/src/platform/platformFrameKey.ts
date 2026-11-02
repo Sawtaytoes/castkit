@@ -73,6 +73,8 @@ const getPanelTimeState = ({
   }
   now: number
 }): PanelTimeState => {
+  if (panel.specId === "recipe")
+    return { isTimeDriven: false }
   if (panel.specId === "kids-points") {
     // The totals list draws names and today's points only: no timer, no
     // scan banner. It is checked after the compact summary in the view.

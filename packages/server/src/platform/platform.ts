@@ -15,6 +15,7 @@ import type {
 } from "../config/env.ts"
 import { getRepaintForDevice } from "../views/viewsForDevice.ts"
 import { createChannelHub } from "./channelHub.ts"
+import { createCookingSessions } from "./cookingSessions.ts"
 import { createDeviceOverrides } from "./deviceOverrides.ts"
 import { createDeviceTests } from "./deviceTests.ts"
 import { getDisplayCompatibility } from "./displayCompatibility.ts"
@@ -116,6 +117,10 @@ export const createPlatform = async ({
     listeners.forEach((listener) => {
       listener()
     })
+  const cooking = createCookingSessions({
+    file: file ? `${file}.recipes.json` : undefined,
+    onChanged: notify,
+  })
   const deviceTests = createDeviceTests({
     onChanged: notify,
   })
@@ -376,6 +381,10 @@ export const createPlatform = async ({
     kind: "view" | "screen"
     id: string
   }) => {
+    if (kind === "view") {
+      const recipe = cooking.view(id)
+      if (recipe) return recipe
+    }
     const screen =
       kind === "screen"
         ? store.get().screens.find((item) => item.id === id)
@@ -424,6 +433,9 @@ export const createPlatform = async ({
           ? { navigationId: override.navigationId }
           : {}),
       }
+    const recipe = cooking.getForDevice(deviceId)
+    if (recipe)
+      return { kind: "view", id: cooking.targetId(recipe) }
     const display = getDeviceProperties(deviceId)
     const repaint = display && getEffectiveRepaint(display)
     const timerView =
@@ -623,12 +635,13 @@ export const createPlatform = async ({
         ),
       ).map((channelId) => [
         channelId,
-        hub.get(channelId) ?? {
-          id: channelId,
-          type: "unknown",
-          data: null,
-          status: "waiting",
-        },
+        cooking.channel(channelId) ??
+          hub.get(channelId) ?? {
+            id: channelId,
+            type: "unknown",
+            data: null,
+            status: "waiting",
+          },
       ]),
     ) as Record<string, ChannelSnapshot>
   await refresh()
@@ -705,6 +718,10 @@ export const createPlatform = async ({
     })
   }
   return {
+    cooking,
+    publisher,
+    publicUrl,
+    topicPrefix,
     getDeviceProperties,
     getIsAssignedDeviceView,
     getDevicePreloadViewIds,

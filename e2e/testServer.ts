@@ -82,8 +82,34 @@ const createRecordingPublisher = () => {
 
 export const startTestServer = async ({
   port,
+  mealieRecipes = [
+    {
+      name: "Lemon chickpea skillet",
+      slug: "lemon-chickpea-skillet",
+      recipeYield: "4 servings",
+      recipeIngredient: [
+        { display: "2 cans chickpeas, drained" },
+        { display: "1 lemon" },
+        { display: "2 tablespoons olive oil" },
+        { display: "Salt, to taste" },
+      ],
+      recipeInstructions: [
+        {
+          text: "Warm the olive oil in a skillet. Add the drained chickpeas and stir gently until warmed through.",
+        },
+        {
+          text: "Stir in the lemon juice. Season to taste and serve warm.",
+        },
+      ],
+    },
+  ],
 }: {
   port: number
+  mealieRecipes?: {
+    name: string
+    slug: string
+    [key: string]: unknown
+  }[]
 }) => {
   const configDir = mkdtempSync(
     join(tmpdir(), "castkit-e2e-"),
@@ -92,6 +118,17 @@ export const startTestServer = async ({
   writeFileSync(
     devicesFile,
     JSON.stringify([
+      {
+        id: "e2e-eink",
+        label: "Recipe ePaper display",
+        mac: "02:00:00:00:00:09",
+        width: 800,
+        height: 480,
+        colorMode: "spectra6",
+        rotation: 0,
+        repaint: "super-slow",
+        power: "wired",
+      },
       {
         renderer: "browser",
         id: E2E_DEVICE_ID,
@@ -162,6 +199,7 @@ export const startTestServer = async ({
 
   const platform = await createPlatform({
     publisher,
+    devices: config.devices,
     browserDevices: config.browserDevices,
   })
   platform.store.update((previous) => ({
@@ -556,6 +594,52 @@ export const startTestServer = async ({
     renderTokenStore: createRenderTokenStore(),
   })
 
+  app.get("/__test__/mealie/api/recipes", (context) =>
+    context.json({ items: mealieRecipes }),
+  )
+  app.get(
+    "/__test__/mealie/api/recipes/:slug",
+    (context) => {
+      const recipe = mealieRecipes.find(
+        (item) => item.slug === context.req.param("slug"),
+      )
+      return recipe
+        ? context.json(recipe)
+        : context.json({ error: "Unknown recipe" }, 404)
+    },
+  )
+  app.post("/__test__/cooking", (context) => {
+    for (const session of platform.cooking.list())
+      platform.cooking.command(session.id, "done")
+    const session = platform.cooking.start({
+      sourceId: "recipes",
+      deviceId: "e2e-eink",
+      width: 800,
+      height: 480,
+      recipe: {
+        slug: "lemon-chickpea-skillet",
+        name: "Lemon chickpea skillet",
+        url: "https://recipes.example/g/home/r/lemon-chickpea-skillet",
+        yieldText: "4 servings",
+        ingredients: [
+          "2 cans chickpeas, drained",
+          "1 lemon",
+          "2 tablespoons olive oil",
+          "Salt, to taste",
+        ],
+        instructions: [
+          "Warm the olive oil in a skillet. Add the drained chickpeas and stir gently until warmed through.",
+          "Stir in the lemon juice. Season to taste and serve warm.",
+        ],
+        notes: [],
+      },
+    })
+    return context.json({
+      id: session.id,
+      key: session.key,
+      targetId: platform.cooking.targetId(session),
+    })
+  })
   // Stand in for Home Assistant publishing to a topic the server subscribed to.
   app.post("/__test__/mqtt", async (context) => {
     const { topic, payload } =
