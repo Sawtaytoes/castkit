@@ -20,10 +20,56 @@ import {
   paginateRecipe,
   type Recipe,
   type RecipeDisplay,
+  type RecipePage,
   recipeSchema,
 } from "@castkit/sdk/recipe"
 import { z } from "zod"
 
+/**
+ * Which page a position names, by heading and which page with that heading
+ * it is. A page number alone moves when a change to text wrapping changes
+ * the page count; the heading ("Step 2 of 4") does not.
+ */
+const pageAnchorSchema = z.object({
+  heading: z.string().max(200),
+  occurrence: z.number().int().nonnegative(),
+})
+type PageAnchor = z.infer<typeof pageAnchorSchema>
+const anchorOf = (
+  pages: RecipePage[],
+  index: number,
+): PageAnchor | undefined => {
+  const heading = pages[index]?.heading
+  if (heading === undefined) return undefined
+  return {
+    heading,
+    occurrence: pages
+      .slice(0, index)
+      .filter((page) => page.heading === heading).length,
+  }
+}
+/** The saved position in the current page sequence, found by anchor when the number moved. */
+const locatePage = (
+  pages: RecipePage[],
+  index: number,
+  anchor?: PageAnchor,
+) => {
+  const clamped = Math.min(index, pages.length - 1)
+  if (!anchor) return clamped
+  const matches = pages.flatMap((page, position) =>
+    page.heading === anchor.heading ? [position] : [],
+  )
+  if (matches.length)
+    return matches[
+      Math.min(anchor.occurrence, matches.length - 1)
+    ]!
+  const firstOfSection = pages.findIndex(
+    (page) =>
+      page.heading ===
+      anchor.heading.replace(/ · continued$/, ""),
+  )
+  return firstOfSection >= 0 ? firstOfSection : clamped
+}
 const sessionSchema = z.object({
   id: z.string().uuid(),
   key: z.string().length(64),
@@ -34,6 +80,8 @@ const sessionSchema = z.object({
   height: z.number().min(240).max(7680),
   pageIndex: z.number().int().nonnegative(),
   instructionPage: z.number().int().nonnegative(),
+  pageAnchor: pageAnchorSchema.optional(),
+  instructionAnchor: pageAnchorSchema.optional(),
   revision: z.number().int().nonnegative(),
   createdAt: z.string(),
 })
@@ -71,21 +119,69 @@ export const createCookingSessions = ({
     sessions: saved.sessions,
     requests: saved.requests,
   }
-  const save = (sessions: CookingSession[]) => {
+  const write = (sessions: CookingSession[]) => {
     if (file) {
       mkdirSync(dirname(file), { recursive: true })
+      // A unique temporary name, so two processes cannot rename each other's file.
+      const next = `${file}.${process.pid}.${randomUUID()}.next`
       writeFileSync(
-        `${file}.next`,
+        next,
         JSON.stringify({
           sessions,
           requests: state.requests,
         }),
         { mode: 0o600 },
       )
-      renameSync(`${file}.next`, file)
+      renameSync(next, file)
     }
     state.sessions = sessions
+  }
+  const save = (sessions: CookingSession[]) => {
+    write(sessions)
     onChanged()
+  }
+  // Sessions saved before anchors existed get them from the pagination they
+  // were saved under, and keep them, so a later change to wrapping cannot
+  // move them to another step.
+  // A cursor past the last page gets no anchor and keeps the earlier
+  // behavior exactly, including how Next and Previous normalize it.
+  const withAnchors = (session: CookingSession) => {
+    if (session.pageAnchor || session.instructionAnchor)
+      return session
+    const { pages } = paginateRecipe(
+      session.recipe,
+      session.width,
+      session.height,
+    )
+    const pageAnchor =
+      session.pageIndex < pages.length
+        ? anchorOf(pages, session.pageIndex)
+        : undefined
+    const instructionAnchor = isInstructionPage(
+      pages[session.instructionPage],
+    )
+      ? anchorOf(pages, session.instructionPage)
+      : undefined
+    return pageAnchor || instructionAnchor
+      ? { ...session, pageAnchor, instructionAnchor }
+      : session
+  }
+  const upgraded = state.sessions.map(withAnchors)
+  if (
+    upgraded.some(
+      (session, index) => session !== state.sessions[index],
+    )
+  ) {
+    try {
+      write(upgraded)
+    } catch (error) {
+      // Keep serving the saved sessions; the anchors stay in memory until a save succeeds.
+      state.sessions = upgraded
+      console.warn(
+        "Cooking sessions could not save their page anchors; a later change to recipe wrapping could move these sessions.",
+        error,
+      )
+    }
   }
   const get = (id: string) =>
     state.sessions.find((session) => session.id === id)
@@ -99,16 +195,16 @@ export const createCookingSessions = ({
       session.width,
       session.height,
     )
+    const pageIndex = locatePage(
+      pages,
+      session.pageIndex,
+      session.pageAnchor,
+    )
     return {
       ...geometry,
       recipe: session.recipe,
-      page: pages[
-        Math.min(session.pageIndex, pages.length - 1)
-      ]!,
-      pageIndex: Math.min(
-        session.pageIndex,
-        pages.length - 1,
-      ),
+      page: pages[pageIndex]!,
+      pageIndex,
       pageCount: pages.length,
     }
   }
@@ -198,6 +294,10 @@ export const createCookingSessions = ({
         width,
         height,
         pageIndex: 0,
+        pageAnchor: anchorOf(
+          paginateRecipe(recipe, width, height).pages,
+          0,
+        ),
         instructionPage: 0,
         revision: 0,
         createdAt: new Date().toISOString(),
@@ -232,10 +332,25 @@ export const createCookingSessions = ({
         0,
         pages.findIndex(isInstructionPage),
       )
+      // Without an anchor, use the saved numbers as-is, as before anchors existed.
+      const current = session.pageAnchor
+        ? locatePage(
+            pages,
+            session.pageIndex,
+            session.pageAnchor,
+          )
+        : session.pageIndex
+      const savedInstruction = session.instructionAnchor
+        ? locatePage(
+            pages,
+            session.instructionPage,
+            session.instructionAnchor,
+          )
+        : session.instructionPage
       const instructionPage = isInstructionPage(
-        pages[session.instructionPage],
+        pages[savedInstruction],
       )
-        ? session.instructionPage
+        ? savedInstruction
         : firstInstruction
       const pageIndex =
         action === "ingredients"
@@ -246,17 +361,27 @@ export const createCookingSessions = ({
                 0,
                 Math.min(
                   pages.length - 1,
-                  session.pageIndex +
-                    (action === "next" ? 1 : -1),
+                  current + (action === "next" ? 1 : -1),
                 ),
               )
-      if (pageIndex === session.pageIndex) return session
+      if (
+        pageIndex === current &&
+        pageIndex === session.pageIndex
+      )
+        return session
+      const isInstruction = isInstructionPage(
+        pages[pageIndex],
+      )
       const updated = {
         ...session,
         pageIndex,
-        instructionPage: isInstructionPage(pages[pageIndex])
+        pageAnchor: anchorOf(pages, pageIndex),
+        instructionPage: isInstruction
           ? pageIndex
-          : session.instructionPage,
+          : savedInstruction,
+        instructionAnchor: isInstruction
+          ? anchorOf(pages, pageIndex)
+          : session.instructionAnchor,
         revision: session.revision + 1,
       }
       save(
