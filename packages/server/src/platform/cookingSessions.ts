@@ -20,10 +20,56 @@ import {
   paginateRecipe,
   type Recipe,
   type RecipeDisplay,
+  type RecipePage,
   recipeSchema,
 } from "@castkit/sdk/recipe"
 import { z } from "zod"
 
+/**
+ * Which page a position names, by heading and which page with that heading
+ * it is. A page number alone moves when a change to text wrapping changes
+ * the page count; the heading ("Step 2 of 4") does not.
+ */
+const pageAnchorSchema = z.object({
+  heading: z.string().max(200),
+  occurrence: z.number().int().nonnegative(),
+})
+type PageAnchor = z.infer<typeof pageAnchorSchema>
+const anchorOf = (
+  pages: RecipePage[],
+  index: number,
+): PageAnchor | undefined => {
+  const heading = pages[index]?.heading
+  if (heading === undefined) return undefined
+  return {
+    heading,
+    occurrence: pages
+      .slice(0, index)
+      .filter((page) => page.heading === heading).length,
+  }
+}
+/** The saved position in the current page sequence, found by anchor when the number moved. */
+const locatePage = (
+  pages: RecipePage[],
+  index: number,
+  anchor?: PageAnchor,
+) => {
+  const clamped = Math.min(index, pages.length - 1)
+  if (!anchor) return clamped
+  const matches = pages.flatMap((page, position) =>
+    page.heading === anchor.heading ? [position] : [],
+  )
+  if (matches.length)
+    return matches[
+      Math.min(anchor.occurrence, matches.length - 1)
+    ]!
+  const firstOfSection = pages.findIndex(
+    (page) =>
+      page.heading ===
+      anchor.heading.replace(/ · continued$/, ""),
+  )
+  return firstOfSection >= 0 ? firstOfSection : clamped
+}
 const sessionSchema = z.object({
   id: z.string().uuid(),
   key: z.string().length(64),
@@ -34,6 +80,8 @@ const sessionSchema = z.object({
   height: z.number().min(240).max(7680),
   pageIndex: z.number().int().nonnegative(),
   instructionPage: z.number().int().nonnegative(),
+  pageAnchor: pageAnchorSchema.optional(),
+  instructionAnchor: pageAnchorSchema.optional(),
   revision: z.number().int().nonnegative(),
   createdAt: z.string(),
 })
@@ -99,16 +147,16 @@ export const createCookingSessions = ({
       session.width,
       session.height,
     )
+    const pageIndex = locatePage(
+      pages,
+      session.pageIndex,
+      session.pageAnchor,
+    )
     return {
       ...geometry,
       recipe: session.recipe,
-      page: pages[
-        Math.min(session.pageIndex, pages.length - 1)
-      ]!,
-      pageIndex: Math.min(
-        session.pageIndex,
-        pages.length - 1,
-      ),
+      page: pages[pageIndex]!,
+      pageIndex,
       pageCount: pages.length,
     }
   }
@@ -198,6 +246,10 @@ export const createCookingSessions = ({
         width,
         height,
         pageIndex: 0,
+        pageAnchor: anchorOf(
+          paginateRecipe(recipe, width, height).pages,
+          0,
+        ),
         instructionPage: 0,
         revision: 0,
         createdAt: new Date().toISOString(),
@@ -232,10 +284,20 @@ export const createCookingSessions = ({
         0,
         pages.findIndex(isInstructionPage),
       )
-      const instructionPage = isInstructionPage(
-        pages[session.instructionPage],
+      const current = locatePage(
+        pages,
+        session.pageIndex,
+        session.pageAnchor,
       )
-        ? session.instructionPage
+      const savedInstruction = locatePage(
+        pages,
+        session.instructionPage,
+        session.instructionAnchor,
+      )
+      const instructionPage = isInstructionPage(
+        pages[savedInstruction],
+      )
+        ? savedInstruction
         : firstInstruction
       const pageIndex =
         action === "ingredients"
@@ -246,17 +308,23 @@ export const createCookingSessions = ({
                 0,
                 Math.min(
                   pages.length - 1,
-                  session.pageIndex +
-                    (action === "next" ? 1 : -1),
+                  current + (action === "next" ? 1 : -1),
                 ),
               )
-      if (pageIndex === session.pageIndex) return session
+      if (pageIndex === current) return session
+      const isInstruction = isInstructionPage(
+        pages[pageIndex],
+      )
       const updated = {
         ...session,
         pageIndex,
-        instructionPage: isInstructionPage(pages[pageIndex])
+        pageAnchor: anchorOf(pages, pageIndex),
+        instructionPage: isInstruction
           ? pageIndex
-          : session.instructionPage,
+          : savedInstruction,
+        instructionAnchor: isInstruction
+          ? anchorOf(pages, pageIndex)
+          : anchorOf(pages, savedInstruction),
         revision: session.revision + 1,
       }
       save(

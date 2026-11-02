@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect, test, vi } from "vitest"
@@ -148,4 +148,69 @@ test("a recipe that fits shows whole on one screen, and every control stays on i
     expect(
       cooking.command(session.id, action)?.pageIndex,
     ).toBe(0)
+})
+
+test("a saved position follows its heading when a wrapping change moves the page numbers", () => {
+  const directory = mkdtempSync(
+    join(tmpdir(), "castkit-cooking-"),
+  )
+  try {
+    const file = join(directory, "sessions.json")
+    const recipe = {
+      slug: "chef",
+      name: "Chef test",
+      url: "https://recipes.example/g/home/r/chef",
+      ingredients: ["👩‍🍳 ".repeat(100)],
+      instructions: ["Mix.", "Bake.", "Cool.", "Serve."],
+      notes: [],
+    }
+    const step1 = {
+      heading: "Step 1 of 4",
+      occurrence: 0,
+    }
+    // Index 9 was Step 1 under the earlier wrapping; it no longer is.
+    writeFileSync(
+      file,
+      JSON.stringify({
+        sessions: [
+          {
+            id: "6f1c1f3e-5a43-4f43-9a3e-6d6b2d1f9a10",
+            key: "a".repeat(64),
+            sourceId: "recipes",
+            deviceId: "kitchen-panel",
+            recipe,
+            width: 320,
+            height: 240,
+            pageIndex: 9,
+            instructionPage: 9,
+            pageAnchor: step1,
+            instructionAnchor: step1,
+            revision: 3,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        requests: [],
+      }),
+    )
+    const cooking = createCookingSessions({
+      file,
+      onChanged: vi.fn(),
+    })
+    const id = "6f1c1f3e-5a43-4f43-9a3e-6d6b2d1f9a10"
+    const session = cooking.get(id)!
+    const display = cooking.display(session)
+    expect(display.pageIndex).not.toBe(9)
+    expect(display.page.heading).toBe("Step 1 of 4")
+    const previous = cooking.command(id, "previous")!
+    expect(cooking.display(previous).page.heading).toMatch(
+      /^Ingredients/,
+    )
+    const back = cooking.command(id, "instructions")!
+    expect(cooking.display(back).page.heading).toBe(
+      "Step 1 of 4",
+    )
+    expect(back.pageIndex).toBe(display.pageIndex)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })

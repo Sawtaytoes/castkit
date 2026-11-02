@@ -427,7 +427,8 @@ export const attachCookingRoutes = ({
               deviceId: session.deviceId,
               revision: session.revision,
               name: session.recipe.name,
-              pageIndex: session.pageIndex,
+              pageIndex:
+                platform.cooking.display(session).pageIndex,
               pageCount:
                 platform.cooking.display(session).pageCount,
             })),
