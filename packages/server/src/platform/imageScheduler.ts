@@ -129,7 +129,10 @@ export const createPlatformImageScheduler = ({
         const deviceTarget =
           platform.getDeviceTarget(deviceId)
         const target = deviceTarget
-          ? platform.getTarget(deviceTarget)
+          ? platform.getTarget({
+              ...deviceTarget,
+              deviceId,
+            })
           : null
         const display =
           platform.getDeviceProperties(deviceId)

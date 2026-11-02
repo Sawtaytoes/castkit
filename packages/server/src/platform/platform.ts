@@ -9,6 +9,7 @@ import {
   getEffectiveRepaint,
   getTemporaryViewSeconds,
 } from "@castkit/shared/panels/repaint"
+import { resolveDeviceView } from "@castkit/shared/views/deviceViewOverrides"
 import type {
   BrowserDeviceConfig,
   ConfiguredDevice,
@@ -27,6 +28,7 @@ import type { createPluginPackageManager } from "./plugins/pluginPackages.ts"
 import { createScanActivity } from "./scanActivity.ts"
 import { createScreenController } from "./screenController.ts"
 import { createSourceRuntime } from "./sourceRuntime.ts"
+import { validateDeviceViewOverrides } from "./validateDeviceViewOverrides.ts"
 
 /** Create the common runtime used by management, browser screens, and automation. */
 export const createPlatform = async ({
@@ -53,6 +55,37 @@ export const createPlatform = async ({
   browserDevices?: readonly BrowserDeviceConfig[]
 }) => {
   const store = createPlatformStore({ file })
+  const getViewForDevice = ({
+    view,
+    deviceId,
+  }: {
+    view: ViewDefinition
+    deviceId?: string
+  }) =>
+    resolveDeviceView({
+      view,
+      overrides: deviceId
+        ? [...devices, ...browserDevices].find(
+            (device) => device.id === deviceId,
+          )?.viewOverrides
+        : undefined,
+    })
+  const getConfiguredViews = () =>
+    store.get().views.concat(
+      [...devices, ...browserDevices].flatMap((device) =>
+        store
+          .get()
+          .views.filter((view) =>
+            Object.hasOwn(
+              device.viewOverrides ?? {},
+              view.id,
+            ),
+          )
+          .map((view) =>
+            getViewForDevice({ view, deviceId: device.id }),
+          ),
+      ),
+    )
   const pluginRuntime = await createPluginRuntime({
     file,
     store,
@@ -65,6 +98,12 @@ export const createPlatform = async ({
       notify()
     },
     validateCatalog: (candidateCatalog) => {
+      validateDeviceViewOverrides({
+        definitions: [...devices, ...browserDevices],
+        views: store.get().views,
+        channels: store.get().channels,
+        catalog: candidateCatalog,
+      })
       Object.entries(store.get().deviceScreens).forEach(
         ([deviceId, screenId]) => {
           const display = getDeviceProperties(deviceId)
@@ -78,7 +117,7 @@ export const createPlatform = async ({
               .views.find((item) => item.id === viewId)
             if (!view) return
             const result = getDisplayCompatibility({
-              view,
+              view: getViewForDevice({ view, deviceId }),
               catalog: candidateCatalog,
               display,
             })
@@ -90,6 +129,12 @@ export const createPlatform = async ({
     },
   })
   const catalog = pluginRuntime.catalog
+  validateDeviceViewOverrides({
+    definitions: [...devices, ...browserDevices],
+    views: store.get().views,
+    channels: store.get().channels,
+    catalog,
+  })
   const hub = createChannelHub({
     contracts: catalog.contracts,
   })
@@ -100,7 +145,7 @@ export const createPlatform = async ({
   })
   hub.subscribe(pausedMusic.observe)
   const scanActivity = createScanActivity({
-    getViews: () => store.get().views,
+    getViews: getConfiguredViews,
     onExpire: () => notify(),
   })
   hub.subscribe(scanActivity.observe)
@@ -377,9 +422,11 @@ export const createPlatform = async ({
   const getTarget = ({
     kind,
     id,
+    deviceId,
   }: {
     kind: "view" | "screen"
     id: string
+    deviceId?: string
   }) => {
     if (kind === "view") {
       const recipe = cooking.view(id)
@@ -397,7 +444,10 @@ export const createPlatform = async ({
       .get()
       .views.find((item) => item.id === viewId)
     return view && (kind !== "screen" || screen)
-      ? { view, screen }
+      ? {
+          view: getViewForDevice({ view, deviceId }),
+          screen,
+        }
       : null
   }
   /**
@@ -418,7 +468,7 @@ export const createPlatform = async ({
     if (
       test &&
       (!override || override.priority < 60) &&
-      getTarget(test.target)
+      getTarget({ ...test.target, deviceId })
     )
       return test.target
     const viewId = override?.viewId
@@ -440,45 +490,50 @@ export const createPlatform = async ({
     const repaint = display && getEffectiveRepaint(display)
     const timerView =
       (repaint === "instant" || repaint === "fast") &&
-      store.get().views.find((view) =>
-        view.panels.some((panel) => {
-          if (
-            panel.specId !== "timers" ||
-            typeof panel.settings.automaticDeviceIds !==
-              "string" ||
-            !panel.settings.automaticDeviceIds
-              .split(",")
-              .map((id) => id.trim())
-              .includes(deviceId)
-          )
-            return false
-          const channel = panel.bindings.data
-            ? hub.get(panel.bindings.data)
-            : undefined
-          if (
-            channel?.type !== "entities.v1" ||
-            !channel.data
-          )
-            return false
-          const selected = selectPanelData({
-            ...panel,
-            data: channel.data,
-          }) as {
-            entities: {
-              state: string
-              attributes: Record<string, unknown>
-            }[]
-          }
-          return selected?.entities?.some(
-            (entity) =>
-              entity.state === "paused" ||
-              (entity.state === "active" &&
-                Date.parse(
-                  String(entity.attributes.finishes_at),
-                ) > Date.now()),
-          )
-        }),
-      )
+      store
+        .get()
+        .views.map((view) =>
+          getViewForDevice({ view, deviceId }),
+        )
+        .find((view) =>
+          view.panels.some((panel) => {
+            if (
+              panel.specId !== "timers" ||
+              typeof panel.settings.automaticDeviceIds !==
+                "string" ||
+              !panel.settings.automaticDeviceIds
+                .split(",")
+                .map((id) => id.trim())
+                .includes(deviceId)
+            )
+              return false
+            const channel = panel.bindings.data
+              ? hub.get(panel.bindings.data)
+              : undefined
+            if (
+              channel?.type !== "entities.v1" ||
+              !channel.data
+            )
+              return false
+            const selected = selectPanelData({
+              ...panel,
+              data: channel.data,
+            }) as {
+              entities: {
+                state: string
+                attributes: Record<string, unknown>
+              }[]
+            }
+            return selected?.entities?.some(
+              (entity) =>
+                entity.state === "paused" ||
+                (entity.state === "active" &&
+                  Date.parse(
+                    String(entity.attributes.finishes_at),
+                  ) > Date.now()),
+            )
+          }),
+        )
     if (timerView) return { kind: "view", id: timerView.id }
     const screenId = store.get().deviceScreens[deviceId]
     return screenId
@@ -506,10 +561,14 @@ export const createPlatform = async ({
   }) => {
     const display = getDeviceProperties(deviceId)
     if (!display) throw new Error("Unknown display")
-    const view = store
+    const savedView = store
       .get()
       .views.find((item) => item.id === viewId)
-    if (!view) throw new Error("Unknown view")
+    if (!savedView) throw new Error("Unknown view")
+    const view = getViewForDevice({
+      view: savedView,
+      deviceId,
+    })
     if (
       typeof durationSeconds !== "number" ||
       !(durationSeconds > 0) ||
@@ -580,7 +639,7 @@ export const createPlatform = async ({
   }) => {
     const display = getDeviceProperties(deviceId)
     if (!display) throw new Error("Unknown display")
-    const resolved = getTarget(target)
+    const resolved = getTarget({ ...target, deviceId })
     if (!resolved) throw new Error("Unknown screen or view")
     if (
       !Number.isFinite(durationSeconds) ||
@@ -594,13 +653,17 @@ export const createPlatform = async ({
       resolved.view.id,
     ]
     const durations = viewIds.map((viewId) => {
-      const view = store
+      const savedView = store
         .get()
         .views.find((item) => item.id === viewId)
-      if (!view)
+      if (!savedView)
         throw new Error(
           "The screen contains an unknown view",
         )
+      const view = getViewForDevice({
+        view: savedView,
+        deviceId,
+      })
       const compatibility = getDisplayCompatibility({
         view,
         catalog,
@@ -667,7 +730,7 @@ export const createPlatform = async ({
           view &&
           display &&
           getDisplayCompatibility({
-            view,
+            view: getViewForDevice({ view, deviceId }),
             display,
             catalog,
           }).isCompatible
@@ -717,7 +780,25 @@ export const createPlatform = async ({
       }
     })
   }
+  const validateDeviceViews = ({
+    definitions = [...devices, ...browserDevices],
+    views = store.get().views,
+    channels = store.get().channels,
+  } = {}) =>
+    validateDeviceViewOverrides({
+      definitions,
+      views,
+      channels,
+      catalog,
+    })
   return {
+    validateDeviceViews,
+    getViewForDevice,
+    getConfiguredViews,
+    refreshDeviceViews: () => {
+      scanActivity.refresh(hub.list())
+      notify()
+    },
     cooking,
     publisher,
     publicUrl,

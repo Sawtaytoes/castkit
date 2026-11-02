@@ -8,7 +8,7 @@ import type { DeviceDefinitionStore } from "../state/deviceDefinitionStore.ts"
 import { getDisplayCompatibility } from "./displayCompatibility.ts"
 import type { Platform } from "./platform.ts"
 
-/** Group installed displays by rendering facts, independent of identity and content. */
+/** Group displays by rendering facts and their saved view customizations. */
 export const getPreviewProfiles = ({
   definitions,
   platform,
@@ -30,6 +30,7 @@ export const getPreviewProfiles = ({
         : null
     const device = settings?.device
     const facts = {
+      viewOverrides: definition.viewOverrides,
       ...properties,
       rotation:
         device?.rotation ?? definition.rotation ?? 0,
@@ -55,6 +56,10 @@ export const getPreviewProfiles = ({
       full: "Full color",
     }[facts.colorMode ?? "full"]
     const details = [
+      definition.viewOverrides &&
+      Object.keys(definition.viewOverrides).length
+        ? "Customized views"
+        : "",
       facts.shape !== "rectangle" ? facts.shape : "",
       properties.hasTouch ? "Touch" : "",
       properties.power === "battery" ? "Battery" : "",
@@ -100,7 +105,10 @@ export const getPreviewProfiles = ({
               platform.store.get().views.flatMap((view) => {
                 const compatibility =
                   getDisplayCompatibility({
-                    view,
+                    view: platform.getViewForDevice({
+                      view,
+                      deviceId: definition.id,
+                    }),
                     display: properties,
                     catalog: platform.catalog,
                   })
@@ -157,7 +165,11 @@ export const attachPreviewRoutes = ({
           404,
         )
       const id = context.req.param("id")
-      const view = platform.getTarget({ kind, id })?.view
+      const view = platform.getTarget({
+        kind,
+        id,
+        deviceId,
+      })?.view
       const display = platform.getDeviceProperties(deviceId)
       if (!view || !display)
         return context.json(

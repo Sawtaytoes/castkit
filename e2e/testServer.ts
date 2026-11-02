@@ -565,7 +565,7 @@ export const startTestServer = async ({
         definitions: deviceDefinitionStore.getAll(),
       })
       if (!changes) return true
-      platform.notify()
+      platform.refreshDeviceViews()
       changes.forEach((deviceId) => {
         void browserMode.refreshDeviceDefinition(deviceId)
       })

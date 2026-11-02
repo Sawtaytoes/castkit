@@ -143,6 +143,7 @@ export type BrowserModePlatform = {
   getTarget?: (target: {
     kind: "view" | "screen"
     id: string
+    deviceId?: string
   }) => {
     view: import("@castkit/sdk/contracts").ViewDefinition
   } | null
@@ -226,7 +227,10 @@ export const createBrowserMode = ({
     getCurrentView: (deviceId) => {
       const target = platform?.getDeviceTarget?.(deviceId)
       if (target) {
-        const view = platform?.getTarget?.(target)?.view
+        const view = platform?.getTarget?.({
+          ...target,
+          deviceId,
+        })?.view
         return view
           ? { id: `view:${view.id}`, name: view.name }
           : undefined
@@ -400,7 +404,10 @@ export const createBrowserMode = ({
       return buildAmbientLightData({
         data: buildViewDataState(deviceId),
       })
-    const view = platform?.getTarget?.(target)?.view
+    const view = platform?.getTarget?.({
+      ...target,
+      deviceId,
+    })?.view
     const snapshots =
       view?.panels
         .flatMap((panel) =>

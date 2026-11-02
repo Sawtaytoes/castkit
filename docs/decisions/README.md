@@ -297,3 +297,5 @@ proposing a change; a settled decision here overrides default instinct.
 - [2026-11-01: Room timers use deadline priority](2026-11-01-room-timers-use-deadline-priority.md)
 
 - [2026-11-01: Duo chooses a photo before choosing its layout](2026-11-01-duo-chooses-a-photo-before-choosing-its-layout.md)
+
+- [2026-11-02: Device view variants inherit composition and access](2026-11-02-device-view-variants-inherit-composition-and-access.md)

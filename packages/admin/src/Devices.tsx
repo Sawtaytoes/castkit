@@ -7,6 +7,7 @@ import {
   Tabs,
   VirtualizedGrid,
 } from "@charcuterie/ui"
+import { SlidersHorizontal } from "lucide-react"
 import {
   useCallback,
   useEffect,
@@ -23,6 +24,7 @@ import { DeviceFields } from "./DeviceFields.tsx"
 import { DevicePreview } from "./DevicePreview.tsx"
 import { DeviceSettingsFields } from "./DeviceSettingsFields.tsx"
 import { DeviceTestControls } from "./DeviceTestControls.tsx"
+import { DeviceViewVariants } from "./DeviceViewVariants.tsx"
 import type {
   AutomationSettings,
   Device,
@@ -198,6 +200,7 @@ export const Devices = ({
     ? [
         "device",
         "views",
+        "variants",
         ...(selectedDevice.hasRemoteAmbientLight
           ? ["ambient-light"]
           : []),
@@ -206,7 +209,14 @@ export const Devices = ({
           ? ["updates"]
           : []),
       ]
-    : ["device", "photos", "clock", "image", "updates"]
+    : [
+        "device",
+        "variants",
+        "photos",
+        "clock",
+        "image",
+        "updates",
+      ]
   const requestedSection =
     pathname.split("/")[1] || "device"
   const section = sections.includes(requestedSection)
@@ -994,13 +1004,22 @@ export const Devices = ({
                 )
                 .map((name) => ({
                   href: `/devices/${name}${query}`,
+                  icon:
+                    name === "variants" ? (
+                      <SlidersHorizontal
+                        size={18}
+                        aria-hidden="true"
+                      />
+                    ) : undefined,
                   label:
-                    name === "ambient-light"
-                      ? "Ambient light"
-                      : isBrowser && name === "updates"
-                        ? "Backlight"
-                        : name[0]?.toUpperCase() +
-                          name.slice(1),
+                    name === "variants"
+                      ? "View variants"
+                      : name === "ambient-light"
+                        ? "Ambient light"
+                        : isBrowser && name === "updates"
+                          ? "Backlight"
+                          : name[0]?.toUpperCase() +
+                            name.slice(1),
                 }))}
             />
             <div className="settings-layout">
@@ -1010,7 +1029,8 @@ export const Devices = ({
                   event.preventDefault()
                   if (
                     section === "device" ||
-                    section === "views"
+                    section === "views" ||
+                    section === "variants"
                   ) {
                     void saveDevice()
                   } else {
@@ -1087,6 +1107,13 @@ export const Devices = ({
                         </>
                       ) : null}
                     </>
+                  ) : section === "variants" ? (
+                    <DeviceViewVariants
+                      key={selectedDevice.id}
+                      device={selectedDevice}
+                      platform={platform}
+                      onChange={updateDevice}
+                    />
                   ) : hasUnsavedControlCapability ? (
                     <Card heading="Save the device first">
                       <p>

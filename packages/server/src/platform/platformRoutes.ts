@@ -87,7 +87,7 @@ export const getDisplay = ({
       error: "device-assignment-changed",
       status: 409 as const,
     }
-  const target = platform.getTarget({ kind, id })
+  const target = platform.getTarget({ kind, id, deviceId })
   if (!target)
     return {
       error: "unknown display",
@@ -116,10 +116,18 @@ export const getDisplay = ({
       typeof value === "string" &&
       value.startsWith("/api/platform/channels/")
     ) {
-      return value.replace(
+      const rewritten = value.replace(
         /^\/api\/platform\/channels\/([^/]+)\/media\//,
-        `/api/display/${kind}/${id}/media/$1/`,
+        `/api/display/${kind}/${encodeURIComponent(id)}/media/$1/`,
       )
+      if (!deviceId) return rewritten
+      const mediaUrl = new URL(rewritten, context.req.url)
+      mediaUrl.searchParams.set("device", deviceId)
+      ;["preview", "capture", "preload"].forEach((key) => {
+        if (context.req.query(key) === "1")
+          mediaUrl.searchParams.set(key, "1")
+      })
+      return `${mediaUrl.pathname}${mediaUrl.search}${mediaUrl.hash}`
     }
     if (Array.isArray(value)) return value.map(rewriteMedia)
     if (isRecord(value))
@@ -145,9 +153,15 @@ export const getDisplay = ({
       },
       availableViews: screen
         ? screen.viewIds.flatMap((viewId) => {
-            const candidate = platform.store
+            const savedCandidate = platform.store
               .get()
               .views.find((item) => item.id === viewId)
+            const candidate =
+              savedCandidate &&
+              platform.getViewForDevice({
+                view: savedCandidate,
+                deviceId,
+              })
             return candidate
               ? [
                   {
@@ -828,6 +842,17 @@ export const attachPlatformRoutes = ({
               record as ScreenDefinition,
             ]
           : previous.screens
+      platform.validateDeviceViews({
+        views: candidateViews,
+        channels:
+          collection === "channels"
+            ? previous.channels
+                .filter(
+                  (channel) => channel.id !== record.id,
+                )
+                .concat(record as ChannelDefinition)
+            : previous.channels,
+      })
       Object.entries(previous.deviceScreens).forEach(
         ([deviceId, screenId]) => {
           const display =
@@ -842,7 +867,10 @@ export const attachPlatformRoutes = ({
               )
               if (view) {
                 const result = getDisplayCompatibility({
-                  view,
+                  view: platform.getViewForDevice({
+                    view,
+                    deviceId,
+                  }),
                   catalog,
                   display,
                 })
@@ -931,6 +959,27 @@ export const attachPlatformRoutes = ({
             { error: "Unknown item" },
             404,
           )
+        try {
+          platform.validateDeviceViews({
+            views:
+              collection === "views"
+                ? previous.views.filter(
+                    (view) => view.id !== id,
+                  )
+                : previous.views,
+            channels:
+              collection === "channels"
+                ? previous.channels.filter(
+                    (channel) => channel.id !== id,
+                  )
+                : previous.channels,
+          })
+        } catch (error) {
+          return context.json(
+            { error: getError(error) },
+            409,
+          )
+        }
         const isUsed =
           collection === "sources"
             ? previous.channels.some(
@@ -1539,7 +1588,17 @@ const sendMedia = async ({
       channelId: context.req.param("channelId") ?? "",
       assetId: context.req.param("assetId") ?? "",
       kind: context.req.query("kind"),
-      query: context.req.query(),
+      query: Object.fromEntries(
+        Object.entries(context.req.query()).filter(
+          ([key]) =>
+            ![
+              "device",
+              "preview",
+              "capture",
+              "preload",
+            ].includes(key),
+        ),
+      ),
       signal: context.req.raw.signal,
     })
     if (!response.ok)
