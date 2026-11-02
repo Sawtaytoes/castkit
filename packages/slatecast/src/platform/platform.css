@@ -1420,6 +1420,9 @@
   .kids-points-card {
     padding: 14px;
   }
+  .kids-points-card[data-scanned="true"] {
+    gap: 4px;
+  }
   .kids-points-card > h3 {
     flex: none;
   }

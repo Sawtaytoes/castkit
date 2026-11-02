@@ -49,7 +49,14 @@ test.each([
     <DisplayPropertiesContext.Provider
       value={{ delivery: "image", repaint: "fast" }}
     >
-      <div style={{ width, height, display: "flex" }}>
+      <div
+        style={{
+          width,
+          height,
+          display: "flex",
+          fontFamily: "var(--font-sans)",
+        }}
+      >
         <KidsPointsView data={data} now={now} />
       </div>
     </DisplayPropertiesContext.Provider>,
