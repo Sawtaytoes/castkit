@@ -4,6 +4,7 @@ import type { ServerToClientMessage } from "@castkit/shared/protocol/ws"
 import { describe, expect, test } from "vitest"
 import {
   createStreamFrameCache,
+  readSavedViewTarget,
   readStreamDestinations,
   STREAM_TARGETS_SCRIPT,
   type StreamDestination,
@@ -97,6 +98,31 @@ const readContents = ({
       destination.content,
     ]),
   )
+
+describe("readSavedViewTarget", () => {
+  const savedViews = [
+    { id: "kids-points" },
+    { id: "agenda" },
+  ]
+
+  test("a request that names a saved view targets that view", () => {
+    expect(
+      readSavedViewTarget({
+        savedViews,
+        requested: "kids-points",
+      }),
+    ).toEqual({ kind: "view", id: "kids-points" })
+  })
+
+  test("a request that names no saved view has no target", () => {
+    expect(
+      readSavedViewTarget({
+        savedViews,
+        requested: "points-for-this-room",
+      }),
+    ).toBeUndefined()
+  })
+})
 
 describe("readStreamDestinations", () => {
   test("lists each swipe destination with the view it renders", () => {

@@ -64,6 +64,22 @@ export type StreamDestination = {
   channelIds?: readonly string[]
 }
 
+/**
+ * The target a left-swipe request names before the house has answered it: the
+ * saved view with exactly that ID, or nothing. `readStreamDestinations` uses it
+ * only when no target has been learned for the request.
+ */
+export const readSavedViewTarget = ({
+  savedViews,
+  requested,
+}: {
+  savedViews: readonly { id: string }[]
+  requested: string
+}) =>
+  savedViews.some((view) => view.id === requested)
+    ? { kind: "view" as const, id: requested }
+    : undefined
+
 /** A panel holds six frames ahead; the slots on the board are numbered 0–5. */
 export const STREAM_FRAME_LIMIT = 6
 

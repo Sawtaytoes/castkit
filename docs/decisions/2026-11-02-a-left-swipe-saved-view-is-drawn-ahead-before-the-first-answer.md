@@ -28,9 +28,16 @@ with that same view.
 ## Why
 
 The owner requires every swipe destination to be ready at release. A request
-that names a saved view is the best prediction before the first answer. If the
-house answers with another target, CastKit learns it from that reply and draws
-the learned target from then on.
+that names a saved view is the best prediction before the first answer.
+
+CastKit learns a target only from a reply that carries the panel's navigation ID.
+If the house answers with another target and echoes the ID, CastKit learns that
+target and draws it from then on. If the house answers with another target and
+does not echo the ID, the prediction stays. At each release the panel then shows
+the predicted view until the live view settles, which takes at most 3 seconds
+(`SETTLE_HOLD_SECONDS` in `device-client/remote-display/worker.py`). Before this
+change, that case showed no frame ahead at all. The room controllers echo the ID
+and answer with the requested view, so neither case applies to them.
 
 ## Evidence
 
