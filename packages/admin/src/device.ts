@@ -1,4 +1,7 @@
+import type { DeviceViewOverrides } from "@castkit/shared/views/deviceViewOverrides"
+
 export type Device = {
+  viewOverrides?: DeviceViewOverrides
   id: string
   label: string
   mac: string

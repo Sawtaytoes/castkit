@@ -25,8 +25,8 @@ const DeviceContent = () => {
         })),
         ...profile.externalViews.flatMap((view) => {
           const target = readLocalDisplayTarget(view)
-          return target
-            ? [{ ...target, deviceId: profile.id }, target]
+          return target?.kind === "view"
+            ? [{ ...target, deviceId: profile.id }]
             : []
         }),
       ]
@@ -42,14 +42,16 @@ const DeviceContent = () => {
   const externalIndex = /^external-view:(\d+)$/.exec(
     activeView.value,
   )?.[1]
+  const localTarget = readLocalDisplayTarget(
+    externalIndex === undefined
+      ? undefined
+      : profile?.externalViews[Number(externalIndex)],
+  )
+  const selectedTarget = assignedTarget ?? localTarget
   const requestedTarget =
-    assignedTarget && profile
-      ? { ...assignedTarget, deviceId: profile.id }
-      : readLocalDisplayTarget(
-          externalIndex === undefined
-            ? undefined
-            : profile?.externalViews[Number(externalIndex)],
-        )
+    selectedTarget && profile
+      ? { ...selectedTarget, deviceId: profile.id }
+      : null
   const targetKey = JSON.stringify(requestedTarget)
   const [target, setTarget] = useState(requestedTarget)
   useLayoutEffect(() => {

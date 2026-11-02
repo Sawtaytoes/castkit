@@ -138,7 +138,7 @@ const getPanelTimeState = ({
  * whether time alone also changes it (a running clock or timer at `now`).
  * `undefined` when the target or the display is unknown.
  *
- * ⚠️ The content names no device; see `readPlatformFrameKey`.
+ * Device customizations resolve before data selection and frame identity.
  */
 export const readPlatformTargetContent = ({
   platform,
@@ -154,7 +154,10 @@ export const readPlatformTargetContent = ({
   deviceTarget: { kind: "view" | "screen"; id: string }
   now: number
 }) => {
-  const target = platform.getTarget(deviceTarget)
+  const target = platform.getTarget({
+    ...deviceTarget,
+    deviceId,
+  })
   const display = platform.getDeviceProperties(deviceId)
   if (!target || !display) {
     return undefined
@@ -193,12 +196,10 @@ export const readPlatformTargetContent = ({
  *
  * ⚠️ The key names no device. Two displays with the same panel properties on
  * the same target, view and channel data get the same picture, so they share
- * one capture. That holds because nothing a capture draws is scoped to the
- * device: the capture URL's `?device=` only selects the display properties
- * (already in the key) and passes the assignment check, the page's device
- * socket refuses an image display, and every channel a view reads is named in
- * the view itself. A view that ever resolves content BY device must put the
- * device ID into this key, or one room's data reaches another room's panel.
+ * one capture. Customizations resolve before this key is built: it includes
+ * the effective view, every effective binding, its channel data, and the
+ * display properties. Different room bindings or settings therefore cannot
+ * reuse one another's frame, even when they inherit the same saved view ID.
  */
 export const readPlatformFrameKey = ({
   platform,

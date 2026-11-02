@@ -1,4 +1,5 @@
 import type { RepaintGrade } from "@castkit/shared/panels/repaint"
+import type { DeviceViewOverrides } from "@castkit/shared/views/deviceViewOverrides"
 import type { Palette } from "../panels/palette.ts"
 import {
   GRAYSCALE16_PALETTE,
@@ -74,6 +75,8 @@ export type DitherProfile = {
  * build handoff.
  */
 export type DeviceMetadata = {
+  /** Installation-specific inputs and settings for shared saved views. */
+  viewOverrides?: DeviceViewOverrides
   id: string
   label: string
   /** Lower-case colon-separated MAC; the device's stable identity on the wire. */

@@ -23,7 +23,7 @@ export const useWarmDeviceViews = (
     )
     if (
       query.get("preview") === "1" ||
-      query.get("capture") === "1"
+      query.has("capture")
     )
       return
     const controller = new AbortController()

@@ -143,6 +143,7 @@ export type BrowserModePlatform = {
   getTarget?: (target: {
     kind: "view" | "screen"
     id: string
+    deviceId?: string
   }) => {
     view: import("@castkit/sdk/contracts").ViewDefinition
   } | null
@@ -226,7 +227,10 @@ export const createBrowserMode = ({
     getCurrentView: (deviceId) => {
       const target = platform?.getDeviceTarget?.(deviceId)
       if (target) {
-        const view = platform?.getTarget?.(target)?.view
+        const view = platform?.getTarget?.({
+          ...target,
+          deviceId,
+        })?.view
         return view
           ? { id: `view:${view.id}`, name: view.name }
           : undefined
@@ -400,7 +404,10 @@ export const createBrowserMode = ({
       return buildAmbientLightData({
         data: buildViewDataState(deviceId),
       })
-    const view = platform?.getTarget?.(target)?.view
+    const view = platform?.getTarget?.({
+      ...target,
+      deviceId,
+    })?.view
     const snapshots =
       view?.panels
         .flatMap((panel) =>
@@ -578,6 +585,14 @@ export const createBrowserMode = ({
     preloadViewIds: platform?.getDevicePreloadViewIds,
   }
 
+  const readActiveBrowserView = (
+    device: BrowserDeviceConfig,
+  ) =>
+    getBrowserViewByName({
+      device,
+      name: stateStore.getActiveView(device.id),
+    }) ?? getBrowserViewsForDevice(device)[0]
+
   const buildSnapshot = (
     deviceId: string,
   ): Extract<
@@ -589,10 +604,7 @@ export const createBrowserMode = ({
       return null
     }
     const browserViews = getBrowserViewsForDevice(device)
-    const activeView = getBrowserViewByName({
-      device,
-      name: stateStore.getActiveView(deviceId),
-    })
+    const activeView = readActiveBrowserView(device)
     return {
       type: "snapshot",
       device: {
@@ -2084,6 +2096,20 @@ export const createBrowserMode = ({
       hub.stop()
     },
     attach,
+    /** The configured external application selected by the device's live navigation. */
+    readSelectedExternalView: (deviceId: string) => {
+      const device = stateStore.deviceById.get(deviceId)
+      if (!device) {
+        return undefined
+      }
+      const selected = readActiveBrowserView(device)
+      const index = /^external-view:(\d+)$/.exec(
+        selected?.clientId ?? "",
+      )?.[1]
+      return index === undefined
+        ? undefined
+        : toClientExternalViews(device)[Number(index)]
+    },
     /** The panel's snapshot as its page would receive it now. */
     readDeviceSnapshot: (deviceId: string) =>
       buildSnapshot(deviceId) ?? undefined,
@@ -2092,6 +2118,16 @@ export const createBrowserMode = ({
       deviceId: string,
       requested: string,
     ) => learnedTargets.get(deviceId)?.get(requested),
+    /** The one destination an unexpired capture token may read. */
+    readCaptureTarget: (token: string) => {
+      const capture = captureSnapshots.get(token)
+      return capture?.snapshot.displayTarget
+        ? {
+            deviceId: capture.deviceId,
+            target: capture.snapshot.displayTarget,
+          }
+        : undefined
+    },
     /** Serve `snapshot` to one capture page; release it when done. */
     openCapture: ({
       deviceId,
