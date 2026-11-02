@@ -190,7 +190,7 @@ export const startTestServer = async ({
         sourceId: "events",
         type: "entities.v1",
         settings: {
-          actions: ["pause", "start", "cancel"],
+          actions: ["pause", "start", "cancel", "add_5_minutes"],
           commandTopic: "fixture/timers/command",
         },
       },

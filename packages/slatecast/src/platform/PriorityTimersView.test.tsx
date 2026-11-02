@@ -21,7 +21,7 @@ const timers = [180, 30, 90].map((seconds) => ({
       now + seconds * 1000,
     ).toISOString(),
   },
-  actions: ["pause", "cancel"],
+  actions: ["pause", "cancel", "add_5_minutes"],
 }))
 test.each([
   200, 480, 1024,

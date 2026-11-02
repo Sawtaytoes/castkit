@@ -16,7 +16,7 @@ test("room timer priority, controls, and promotion use the real socket", async (
         now + seconds * 1000,
       ).toISOString(),
     },
-    actions: ["pause", "cancel"],
+    actions: ["pause", "cancel", "add_5_minutes"],
   }))
   const publish = async (items: typeof entities) =>
     request.post("/__test__/mqtt", {
@@ -31,7 +31,7 @@ test("room timer priority, controls, and promotion use the real socket", async (
     page.getByText("Tea 300 · Lounge", { exact: true }),
   ).toBeVisible()
   await page.screenshot({
-    path: `docs/images/room-timers-before-${testInfo.project.name}.png`,
+    path: `docs/images/timer-extension-legacy-${testInfo.project.name}.png`,
   })
   await page.goto("/view/timers-priority")
   await expect(
@@ -41,8 +41,31 @@ test("room timer priority, controls, and promotion use the real socket", async (
     page.locator(".timer-priority-card"),
   ).toHaveCount(3)
   await page.screenshot({
-    path: `docs/images/room-timers-after-${testInfo.project.name}.png`,
+    path: `docs/images/timer-extension-after-${testInfo.project.name}.png`,
   })
+  await page
+    .getByRole("button", {
+      name: "Add 5 minutes",
+      exact: true,
+    })
+    .first()
+    .click()
+  await expect
+    .poll(async () =>
+      (
+        await (
+          await request.get("/__test__/published")
+        ).json()
+      ).some(
+        (item: { topic: string; payload: string }) =>
+          item.topic === "fixture/timers/command" &&
+          JSON.parse(item.payload).action ===
+            "add_5_minutes" &&
+          JSON.parse(item.payload).entityId ===
+            "timer.300.r1",
+      ),
+    )
+    .toBe(true)
   await page
     .getByRole("button", { name: "Pause", exact: true })
     .first()

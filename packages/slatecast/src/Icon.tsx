@@ -16,6 +16,7 @@ export const ICON_PATHS = {
   chevronLeft: "M16 2 6 12l10 10 2-2-8-8 8-8-2-2z",
   previous: "M6 6h2v12H6V6zm12 0v12l-8.5-6L18 6z",
   play: "M8 5v14l11-7L8 5z",
+  plus: "M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z",
   pause: "M6 5h4v14H6V5zm8 0h4v14h-4V5z",
   stop: "M5 5h14v14H5z",
   next: "M16 6h2v12h-2V6zM6 6l8.5 6L6 18V6z",
