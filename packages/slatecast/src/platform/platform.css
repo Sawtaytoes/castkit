@@ -2966,6 +2966,92 @@
 .home-chart-details {
   margin-block-start: 8px;
 }
+.home-numeric-chart[data-compact="true"]
+  > .home-chart-preview {
+  block-size: 18px;
+  color: var(--fg-dim);
+}
+.home-numeric-chart[data-compact="true"]
+  > .home-chart-details {
+  margin-block-start: 4px;
+}
+.home-numeric-chart[data-compact="true"]
+  > .home-chart-details
+  > summary {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  display: grid;
+  place-items: center;
+  inline-size: 44px;
+  block-size: 44px;
+  list-style: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.home-numeric-chart[data-compact="true"]
+  > .home-chart-details
+  > summary::-webkit-details-marker {
+  display: none;
+}
+.home-numeric-chart[data-compact="true"]
+  > .home-chart-details
+  > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.platform-entities[data-home="true"]
+  .platform-entity[data-compact-history="true"] {
+  padding: 6px;
+}
+.platform-entities[data-home="true"]
+  .platform-entity[data-compact-history="true"]
+  > h2 {
+  margin: 0;
+  padding-inline-end: 36px;
+}
+.platform-entities[data-home="true"]
+  .platform-entity[data-compact-history="true"]
+  > .platform-entity-value {
+  font-size: 20px;
+  margin: 2px 0;
+  padding-inline-end: 36px;
+  overflow-wrap: anywhere;
+}
+.home-group > .platform-panel[data-compact-history="true"] {
+  gap: 2px;
+  margin-block-end: 4px;
+}
+.home-group
+  > .platform-panel[data-compact-history="true"]:last-child {
+  margin-block-end: 0;
+}
+.home-group:has(
+    > .platform-panel[data-compact-history="true"]
+  )
+  > .home-group-title {
+  margin-block-end: 8px;
+}
+.home-group
+  > .platform-panel[data-compact-history="true"]
+  > .platform-panel-title {
+  margin-block: 2px;
+}
+.home-chart-empty {
+  min-block-size: 18px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+.platform-entities[data-home="true"]
+  .platform-entity:is(
+    [data-state="unknown"],
+    [data-state="unavailable"]
+  )
+  > .platform-entity-value {
+  font-size: 16px;
+  color: var(--fg-dim);
+}
 .home-chart-details [data-chart-interactive] {
   color: var(--fg);
   background: var(--bg);

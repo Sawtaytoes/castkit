@@ -1417,6 +1417,14 @@ viewSpecs.forEach((spec) => {
   if (spec.id === "charts") {
     spec.settings = spec.settings.concat([
       {
+        key: "isCompactHistory",
+        label: "Compact trend charts",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "Keep a visible trend below each value. Open detailed history on interactive displays.",
+      },
+      {
         key: "aggregation",
         label: "Aggregation",
         type: "select",

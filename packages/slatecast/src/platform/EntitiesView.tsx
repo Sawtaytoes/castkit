@@ -7,6 +7,7 @@ import { AttributeFields } from "./AttributeFields.tsx"
 import { useDisplayProperties } from "./displayProperties.ts"
 import { EntityChart } from "./EntityChart.tsx"
 import { EntityControls } from "./EntityControls.tsx"
+import { formatSensorValue } from "./formatSensorValue.ts"
 import { HomeLightMembers } from "./HomeLightMembers.tsx"
 import { LocationMap } from "./LocationMap.tsx"
 import {
@@ -198,6 +199,11 @@ export const EntitiesView = ({
         key={entity.id}
         data-domain={entity.domain}
         data-state={entity.state}
+        data-compact-history={String(
+          isHome &&
+            mode === "charts" &&
+            settings.isCompactHistory === true,
+        )}
       >
         <h2>{name}</h2>
         {isHome &&
@@ -249,9 +255,12 @@ export const EntitiesView = ({
                           "input_button",
                         ].includes(entity.domain)
                       ? "Ready"
-                      : entity.state}{" "}
-          {typeof entity.attributes.unit_of_measurement ===
-          "string"
+                      : entity.domain === "sensor"
+                        ? formatSensorValue(entity)
+                        : entity.state}{" "}
+          {entity.domain !== "sensor" &&
+          typeof entity.attributes.unit_of_measurement ===
+            "string"
             ? entity.attributes.unit_of_measurement
             : ""}
         </p>
