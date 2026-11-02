@@ -68,6 +68,15 @@ export const getDisplay = ({
   const requestUrl = new URL(context.req.url)
   // The WebSocket adapter's synthetic URL omits the incoming host and port.
   const origin = `${requestUrl.protocol}//${context.req.header("host") ?? requestUrl.host}`
+  const isDeviceCapture = Boolean(
+    deviceId &&
+      platform.getIsDeviceCaptureTarget({
+        token: context.req.query("capture") ?? "",
+        deviceId,
+        kind,
+        id,
+      }),
+  )
   const isPreload = Boolean(
     deviceId &&
       kind === "view" &&
@@ -87,6 +96,7 @@ export const getDisplay = ({
   if (
     deviceId &&
     !isPreload &&
+    !isDeviceCapture &&
     !(
       (context.req.query("preview") === "1" ||
         context.req.query("capture") === "1") &&
@@ -1333,6 +1343,18 @@ export const attachPlatformRoutes = ({
       return context.json({ ok: true })
     },
   )
+  app.use("/api/display/*", async (context, next) => {
+    if (
+      context.req.query("capture") &&
+      !["GET", "HEAD"].includes(context.req.method)
+    ) {
+      return context.json(
+        { error: "Capture grants are read-only" },
+        403,
+      )
+    }
+    await next()
+  })
   app.get("/api/display/:kind/:id", (context) => {
     const kind = targetKind.safeParse(
       context.req.param("kind"),

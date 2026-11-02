@@ -326,6 +326,7 @@ test.each([
   "preview",
   "capture",
   "preload",
+  "capture-token",
 ])("customized HLS preserves %s scope through playlists and segments", async (mode) => {
   const { platform, devices, request, channels } =
     await fixture({ isBrowser: true })
@@ -342,6 +343,7 @@ test.each([
     views: previous.views.concat({
       ...points,
       id: "cameras",
+      access: mode === "capture-token" ? "public" : "pin",
       panels: [
         {
           id: "main",
@@ -378,9 +380,26 @@ test.each([
       ],
     },
   })
+  if (mode === "capture-token") {
+    platform.setDeviceCaptureReader((token) =>
+      token === "fixture-capture"
+        ? {
+            deviceId: "one",
+            target: { kind: "view", id: "cameras" },
+          }
+        : undefined,
+    )
+  }
+  const captureQuery =
+    mode === "capture-token"
+      ? "capture=fixture-capture"
+      : `${mode}=1`
   const snapshot = await (
     await request(
-      `/api/display/view/cameras?device=one&${mode}=1`,
+      `/api/display/view/cameras?device=one&${captureQuery}`,
+      "GET",
+      undefined,
+      mode !== "capture-token",
     )
   ).json()
   const url = snapshot.channels["cameras/one"].data
@@ -420,9 +439,18 @@ test.each([
   const follow = async (uri: string) => {
     const target = new URL(uri, `http://localhost${url}`)
     expect(target.searchParams.get("device")).toBe("one")
-    expect(target.searchParams.get(mode)).toBe("1")
+    expect(
+      target.searchParams.get(
+        mode === "capture-token" ? "capture" : mode,
+      ),
+    ).toBe(
+      mode === "capture-token" ? "fixture-capture" : "1",
+    )
     const response = await request(
       `${target.pathname}${target.search}`,
+      "GET",
+      undefined,
+      mode !== "capture-token",
     )
     expect(response.status).toBe(200)
     return response.text()
@@ -457,7 +485,19 @@ test.each([
     })
   })
   expect(
-    (await request(url, "GET", undefined, false)).status,
+    (
+      await request(
+        mode === "capture-token"
+          ? url.replace(
+              "fixture-capture",
+              "expired-capture",
+            )
+          : url,
+        "GET",
+        undefined,
+        false,
+      )
+    ).status,
   ).toBeGreaterThanOrEqual(400)
 })
 
@@ -904,6 +944,107 @@ test("manual foreground targets preserve device data, grants, override priority,
     (await request("/api/display/view/points?device=one"))
       .status,
   ).toBe(200)
+})
+
+test("capture tokens scope reads to one destination, preserve PINs, deny actions, and expire", async () => {
+  const { platform, request } = await fixture({
+    isBrowser: true,
+  })
+  platform.store.update((previous) => ({
+    ...previous,
+    deviceScreens: {},
+  }))
+  const capture = { isOpen: true }
+  platform.setDeviceCaptureReader((token) =>
+    capture.isOpen
+      ? token === "fixture-capture"
+        ? {
+            deviceId: "one",
+            target: { kind: "view", id: "points" },
+          }
+        : token === "fixture-screen"
+          ? {
+              deviceId: "one",
+              target: { kind: "screen", id: "shared" },
+            }
+          : undefined
+      : undefined,
+  )
+  const url =
+    "/api/display/view/points?device=one&capture=fixture-capture"
+  expect(
+    (await request(url, "GET", undefined, false)).status,
+  ).toBe(401)
+  platform.store.update((previous) => ({
+    ...previous,
+    views: previous.views.map((view) => ({
+      ...view,
+      access: "public",
+    })),
+    screens: previous.screens.map((screen) => ({
+      ...screen,
+      access: "public",
+    })),
+  }))
+  const snapshot = await (
+    await request(url, "GET", undefined, false)
+  ).json()
+  expect(snapshot.channels).toHaveProperty("points/one")
+  expect(snapshot.canControl).toBe(true)
+  expect(
+    (
+      await request(
+        url.replace("device=one", "device=two"),
+        "GET",
+        undefined,
+        false,
+      )
+    ).status,
+  ).toBe(409)
+  expect(
+    (
+      await request(
+        url.replace("/view/points", "/screen/shared"),
+        "GET",
+        undefined,
+        false,
+      )
+    ).status,
+  ).toBe(409)
+  expect(
+    (
+      await request(
+        "/api/display/view/points/actions?device=one&capture=fixture-capture",
+        "POST",
+        { panelId: "main", action: "play_pause" },
+        false,
+      )
+    ).status,
+  ).toBe(403)
+  expect(
+    (
+      await request(
+        "/api/display/screen/shared?device=one&capture=fixture-screen",
+        "GET",
+        undefined,
+        false,
+      )
+    ).status,
+  ).toBe(200)
+  expect(
+    (
+      await request(
+        "/api/display/screen/shared/select?device=one&capture=fixture-screen",
+        "POST",
+        { viewId: "points" },
+        false,
+      )
+    ).status,
+  ).toBe(403)
+  capture.isOpen = false
+  expect(
+    (await request(url, "GET", undefined, false)).status,
+  ).toBe(409)
 })
 
 test("foreground authorization retains the incoming host and port on synthetic WebSocket URLs", async () => {

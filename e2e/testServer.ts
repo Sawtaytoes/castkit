@@ -201,9 +201,13 @@ export const startTestServer = async ({
     publisher,
     devices: config.devices,
     browserDevices: config.browserDevices,
+    publicUrl: config.publicUrl,
   })
   platform.setDeviceNavigationReader(
     browserMode.readSelectedExternalView,
+  )
+  platform.setDeviceCaptureReader(
+    browserMode.readCaptureTarget,
   )
   platform.store.update((previous) => ({
     ...previous,

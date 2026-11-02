@@ -2118,6 +2118,16 @@ export const createBrowserMode = ({
       deviceId: string,
       requested: string,
     ) => learnedTargets.get(deviceId)?.get(requested),
+    /** The one destination an unexpired capture token may read. */
+    readCaptureTarget: (token: string) => {
+      const capture = captureSnapshots.get(token)
+      return capture?.snapshot.displayTarget
+        ? {
+            deviceId: capture.deviceId,
+            target: capture.snapshot.displayTarget,
+          }
+        : undefined
+    },
     /** Serve `snapshot` to one capture page; release it when done. */
     openCapture: ({
       deviceId,

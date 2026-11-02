@@ -30,8 +30,9 @@ export const withDisplayMediaContext = ({
   DISPLAY_MEDIA_CONTEXT_KEYS.filter(
     (key) => key !== "device",
   ).forEach((key) => {
-    if (request.searchParams.get(key) === "1") {
-      target.searchParams.set(key, "1")
+    const value = request.searchParams.get(key)
+    if (value && (key === "capture" || value === "1")) {
+      target.searchParams.set(key, value)
     }
   })
   return `${target.pathname}${target.search}${target.hash}`

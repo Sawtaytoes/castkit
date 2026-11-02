@@ -1,11 +1,13 @@
-import { mkdirSync } from "node:fs"
+import { mkdirSync, writeFileSync } from "node:fs"
 import { expect, test } from "@playwright/test"
 import type { Device } from "../packages/admin/src/device.ts"
 import type { Platform } from "../packages/admin/src/platformApi.ts"
 
 test("devices customize one shared points view without sharing room scans", async ({
   page,
+  browser,
 }, testInfo) => {
+  test.setTimeout(90_000)
   const request = page.request
   expect(
     (
@@ -369,6 +371,7 @@ test("devices customize one shared points view without sharing room scans", asyn
             data: {
               ...current,
               hasViewDrawer: true,
+              leftSwipeViewId: "external-view:0",
               views: ["Now Playing", view.name],
               externalViews: [
                 {
@@ -588,6 +591,253 @@ test("devices customize one shared points view without sharing room scans", asyn
         ".kids-points-total strong:not([aria-hidden=true])",
       ),
     ).toHaveText("331")
+    expect(
+      (
+        await request.post("/__test__/mqtt", {
+          data: {
+            topic: "castkit/channels/variants/two/set",
+            payload: points(331),
+          },
+        })
+      ).ok(),
+    ).toBe(true)
+    await second
+      .getByRole("button", {
+        name: "Open views from left edge",
+        exact: true,
+      })
+      .click()
+    await second
+      .getByRole("button", {
+        name: "Now Playing",
+        exact: true,
+      })
+      .click()
+    await expect(
+      second.locator('.stage[data-view="now-playing"]'),
+    ).toBeVisible()
+    type PreparedFrame = {
+      key: string
+      png: string
+      targets: { identity: string }[]
+    }
+    const framePath =
+      "/d/e2e-stream/stream-frame/external-view%3A0"
+    const waitForFrame = async ({
+      previousKey,
+      after,
+    }: {
+      previousKey?: string
+      after?: string
+    } = {}): Promise<PreparedFrame> => {
+      const response = await request.get(
+        `/d/e2e-stream/stream-frames${after ? `?after=${after}` : ""}`,
+        { timeout: 40_000 },
+      )
+      expect(response.ok()).toBe(true)
+      const index = (await response.json()) as {
+        tag: string
+        frames: { view: string; key: string }[]
+      }
+      const entry = index.frames.find(
+        (candidate) =>
+          candidate.view === "external-view:0" &&
+          candidate.key !== previousKey,
+      )
+      if (!entry) {
+        return waitForFrame({
+          previousKey,
+          after: index.tag,
+        })
+      }
+      const frame = await request.get(framePath)
+      expect(frame.ok()).toBe(true)
+      return frame.json()
+    }
+    const prepared = await waitForFrame()
+    expect(
+      prepared.targets.some(
+        (target) =>
+          target.identity === `view-gesture:${viewId}`,
+      ),
+    ).toBe(true)
+    const workerContext = await browser.newContext({
+      viewport: { width: 480, height: 480 },
+      deviceScaleFactor: 1,
+      hasTouch: true,
+      isMobile: true,
+      reducedMotion: "reduce",
+    })
+    try {
+      const worker = await workerContext.newPage()
+      await worker.goto(
+        new URL("/d/e2e-stream", second.url()).href,
+      )
+      await request.post("/__test__/mqtt", {
+        data: {
+          topic: "castkit/e2e-stream/view/set",
+          payload: view.name,
+        },
+      })
+      const expectWorkerFrame = async ({
+        frame,
+        total,
+      }: {
+        frame: PreparedFrame
+        total: string
+      }) => {
+        await expect(
+          worker.locator(
+            ".kids-points-total strong:not([aria-hidden=true])",
+          ),
+        ).toHaveText(total)
+        await expect(
+          worker.locator("main.platform"),
+        ).toHaveAttribute("data-connection", "connected")
+        await expect(
+          worker.locator('[data-castkit-ready="true"]'),
+        ).toBeVisible()
+        await worker.evaluate(() => document.fonts.ready)
+        await worker.evaluate(
+          () =>
+            new Promise<void>((resolve) => {
+              const quiet = { timer: 0 }
+              const finish = () => {
+                observer.disconnect()
+                resolve()
+              }
+              const observer = new MutationObserver(() => {
+                clearTimeout(quiet.timer)
+                quiet.timer = window.setTimeout(finish, 500)
+              })
+              observer.observe(document, {
+                subtree: true,
+                childList: true,
+                attributes: true,
+                characterData: true,
+              })
+              quiet.timer = window.setTimeout(finish, 500)
+            }),
+        )
+        const session =
+          await workerContext.newCDPSession(worker)
+        const screenshot = (await session.send(
+          "Page.captureScreenshot",
+          {
+            format: "png",
+            fromSurface: true,
+            captureBeyondViewport: false,
+            optimizeForSpeed: true,
+          },
+        )) as { data: string }
+        await session.detach()
+        const actual = Buffer.from(
+          screenshot.data,
+          "base64",
+        )
+        const expected = Buffer.from(frame.png, "base64")
+        if (!actual.equals(expected)) {
+          writeFileSync(
+            `__screenshots__/device-variants-${testInfo.project.name}-prepared-${total}.png`,
+            expected,
+          )
+          writeFileSync(
+            `__screenshots__/device-variants-${testInfo.project.name}-worker-${total}.png`,
+            actual,
+          )
+        }
+        expect(actual.equals(expected)).toBe(true)
+      }
+      await expectWorkerFrame({
+        frame: prepared,
+        total: "331",
+      })
+      expect(
+        (
+          await request.post("/__test__/mqtt", {
+            data: {
+              topic: "castkit/channels/variants/two/set",
+              payload: points(332),
+            },
+          })
+        ).ok(),
+      ).toBe(true)
+      const updatedFrame = await waitForFrame({
+        previousKey: prepared.key,
+      })
+      expect(updatedFrame.key).not.toBe(prepared.key)
+      await expectWorkerFrame({
+        frame: updatedFrame,
+        total: "332",
+      })
+      await expect(
+        first.locator(
+          ".kids-points-total strong:not([aria-hidden=true])",
+        ),
+      ).toHaveText("999")
+      const protectScreen = await request.put(
+        "/api/manage/platform/screens/variant-screen",
+        {
+          data: {
+            id: "variant-screen",
+            name: "Variants",
+            defaultViewId: viewId,
+            viewIds: [viewId],
+            access: "pin",
+            pin: "1357",
+          },
+        },
+      )
+      expect(
+        protectScreen.status(),
+        await protectScreen.text(),
+      ).toBe(200)
+      const protectView = await request.put(
+        `/api/manage/platform/views/${viewId}`,
+        { data: { ...view, access: "pin", pin: "1357" } },
+      )
+      expect(
+        protectView.status(),
+        await protectView.text(),
+      ).toBe(200)
+      const protectedIndex = (await (
+        await request.get("/d/e2e-stream/stream-frames")
+      ).json()) as { frames: { view: string }[] }
+      expect(
+        protectedIndex.frames.some(
+          (frame) => frame.view === "external-view:0",
+        ),
+      ).toBe(false)
+      expect((await request.get(framePath)).ok()).toBe(
+        false,
+      )
+    } finally {
+      await workerContext.close()
+      expect(
+        (
+          await request.put(
+            `/api/manage/platform/views/${viewId}`,
+            { data: view },
+          )
+        ).ok(),
+      ).toBe(true)
+      expect(
+        (
+          await request.put(
+            "/api/manage/platform/screens/variant-screen",
+            {
+              data: {
+                id: "variant-screen",
+                name: "Variants",
+                defaultViewId: viewId,
+                viewIds: [viewId],
+                access: "public",
+              },
+            },
+          )
+        ).ok(),
+      ).toBe(true)
+    }
     const restored = (await (
       await request.get("/api/manage/devices")
     ).json()) as { devices: Device[] }

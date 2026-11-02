@@ -299,3 +299,5 @@ proposing a change; a settled decision here overrides default instinct.
 - [2026-11-01: Duo chooses a photo before choosing its layout](2026-11-01-duo-chooses-a-photo-before-choosing-its-layout.md)
 
 - [2026-11-02: Device view variants inherit composition and access](2026-11-02-device-view-variants-inherit-composition-and-access.md)
+
+- [2026-11-02: Stream captures use destination-scoped read grants](2026-11-02-stream-captures-use-destination-scoped-read-grants.md)

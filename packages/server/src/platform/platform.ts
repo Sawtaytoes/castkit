@@ -10,6 +10,7 @@ import {
   getTemporaryViewSeconds,
 } from "@castkit/shared/panels/repaint"
 import { resolveDeviceView } from "@castkit/shared/views/deviceViewOverrides"
+import { readLocalDisplayTarget } from "@castkit/shared/views/localDisplayTarget"
 import type {
   BrowserDeviceConfig,
   ConfiguredDevice,
@@ -549,6 +550,14 @@ export const createPlatform = async ({
         }
       | undefined
   } = {}
+  const captureReader: {
+    read?: (token: string) =>
+      | {
+          deviceId: string
+          target: { kind: "view" | "screen"; id: string }
+        }
+      | undefined
+  } = {}
   const getDeviceForegroundTarget = ({
     deviceId,
     origin,
@@ -560,39 +569,17 @@ export const createPlatform = async ({
     if (assigned) {
       return assigned
     }
-    const selected = navigationReader.read?.(deviceId)
-    if (
-      !selected ||
-      selected.zoom ||
-      selected.isAvailable === false
-    ) {
-      return undefined
-    }
     try {
-      const url = new URL(
-        selected.url,
-        new URL(
-          `/d/${encodeURIComponent(deviceId)}`,
-          publicUrl || origin,
-        ),
+      return (
+        readLocalDisplayTarget({
+          view: navigationReader.read?.(deviceId),
+          origin: publicUrl || origin,
+          baseUrl: new URL(
+            `/d/${encodeURIComponent(deviceId)}`,
+            publicUrl || origin,
+          ).href,
+        }) ?? undefined
       )
-      const expectedOrigin = new URL(publicUrl || origin)
-        .origin
-      const match = /^\/(view|screen)\/([^/]+)\/?$/.exec(
-        url.pathname,
-      )
-      if (
-        url.origin !== expectedOrigin ||
-        url.search ||
-        url.hash ||
-        !match
-      ) {
-        return undefined
-      }
-      return {
-        kind: match[1] as "view" | "screen",
-        id: decodeURIComponent(match[2] ?? ""),
-      }
     } catch {
       return undefined
     }
@@ -880,6 +867,30 @@ export const createPlatform = async ({
       read: NonNullable<typeof navigationReader.read>,
     ) => {
       navigationReader.read = read
+    },
+    /** A capture grants reads of one destination, without granting a PIN session or actions. */
+    getIsDeviceCaptureTarget: ({
+      token,
+      deviceId,
+      kind,
+      id,
+    }: {
+      token: string
+      deviceId: string
+      kind: "view" | "screen"
+      id: string
+    }) => {
+      const capture = captureReader.read?.(token)
+      return (
+        capture?.deviceId === deviceId &&
+        capture.target.kind === kind &&
+        capture.target.id === id
+      )
+    },
+    setDeviceCaptureReader: (
+      read: NonNullable<typeof captureReader.read>,
+    ) => {
+      captureReader.read = read
     },
     showOnDevice,
     testOnDevice,
