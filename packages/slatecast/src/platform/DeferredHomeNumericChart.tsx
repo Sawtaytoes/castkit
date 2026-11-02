@@ -2,7 +2,7 @@ import type { ChartOptions } from "@charcuterie/logic/core"
 import type { ComponentType } from "preact"
 import { useEffect, useState } from "preact/hooks"
 
-type Props = { options: ChartOptions }
+type Props = { options: ChartOptions; isCompact?: boolean }
 
 /** Load the shared numeric renderer only for a household chart panel. */
 export const DeferredHomeNumericChart = (props: Props) => {

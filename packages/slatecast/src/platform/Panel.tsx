@@ -191,6 +191,11 @@ export const Panel = ({
       style={layoutStyle}
       aria-label={title}
       data-spec={panel.specId}
+      data-compact-history={String(
+        panel.specId === "charts" &&
+          panel.settings.presentation === "home" &&
+          panel.settings.isCompactHistory === true,
+      )}
       data-composition-key={compositionKey}
     >
       {typeof panel.settings.title === "string" &&
