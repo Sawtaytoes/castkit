@@ -1,6 +1,10 @@
 # Device view variants inherit composition and access
 
 Status: Accepted
+Date: 2026-11-02
+Type: Architecture
+Supersedes: None
+Superseded by: None
 
 ## Context
 
@@ -32,6 +36,12 @@ Reader and timer scoping belongs in source channel settings. A shared last
 scan cannot be filtered afterward to reconstruct an earlier scan in another
 room.
 
+## Why
+
+Installation-specific inputs and settings should not require duplicate saved
+compositions. Keeping permissions and structure inherited prevents a device
+customization from changing the shared view's access policy or component types.
+
 ## Consequences
 
 Shared changes propagate to inherited fields. An explicitly customized field
@@ -41,3 +51,11 @@ editing remains the complete control surface and applies these edits live.
 
 The [display platform guide](../display-platform.md#device-view-variants)
 documents the editor and persisted format.
+
+## Evidence
+
+`deviceViewVariants.test.ts` exercises device-scoped snapshots, media, actions,
+frame identity, shared updates, invalid edits, and scan expiry. The real-server
+`deviceViewVariants.spec.ts` exercises two devices sharing a points composition
+with independent readings and activity, live saving, reload, and reset in all
+four named browser windows.

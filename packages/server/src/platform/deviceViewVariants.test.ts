@@ -6,8 +6,15 @@ import type { ViewDefinition } from "@castkit/sdk/contracts"
 import type { DeviceViewOverrides } from "@castkit/shared/views/deviceViewOverrides"
 import { Hono } from "hono"
 import { expect, onTestFinished, test, vi } from "vitest"
-import type { ConfiguredDevice } from "../config/env.ts"
+import type {
+  BrowserDeviceConfig,
+  ConfiguredDevice,
+} from "../config/env.ts"
 import { parseDeviceDefinition } from "../config/env.ts"
+import {
+  DISPLAY_MEDIA_CONTEXT_KEYS,
+  scopeDisplayMediaPlaylist,
+} from "./displayMediaScope.ts"
 import { createPlatform } from "./platform.ts"
 import { readPlatformFrameKey } from "./platformFrameKey.ts"
 import { attachPlatformRoutes } from "./platformRoutes.ts"
@@ -29,7 +36,11 @@ const points: ViewDefinition = {
     },
   ],
 }
-const fixture = async () => {
+const fixture = async ({
+  isBrowser = false,
+}: {
+  isBrowser?: boolean
+} = {}) => {
   const directory = mkdtempSync(
     join(tmpdir(), "castkit-device-variants-"),
   )
@@ -69,24 +80,38 @@ const fixture = async () => {
     ],
     deviceScreens: { one: "shared", two: "shared" },
   }))
-  const devices: ConfiguredDevice[] = ["one", "two"].map(
-    (id) => ({
-      ...PHAT_DEVICE,
-      id,
-      width: 200,
-      height: 200,
-      viewOverrides: {
-        points: {
-          panels: {
-            main: { bindings: { data: `points/${id}` } },
-          },
+  const imageDevices: ConfiguredDevice[] = [
+    "one",
+    "two",
+  ].map((id) => ({
+    ...PHAT_DEVICE,
+    id,
+    width: 200,
+    height: 200,
+    viewOverrides: {
+      points: {
+        panels: {
+          main: { bindings: { data: `points/${id}` } },
         },
       },
-    }),
-  )
+    },
+  }))
+  const browserDevices = isBrowser
+    ? imageDevices.map(
+        (device) =>
+          parseDeviceDefinition({
+            ...device,
+            renderer: "browser",
+            color: "full",
+            hasTouch: true,
+          }) as BrowserDeviceConfig,
+      )
+    : []
+  const devices = isBrowser ? browserDevices : imageDevices
   const platform = await createPlatform({
     file,
-    devices,
+    devices: isBrowser ? [] : imageDevices,
+    browserDevices,
     apiToken: "fixture-token",
     publisher: {
       isEnabled: false,
@@ -282,6 +307,178 @@ test("customized media retains device and preview scope through the follow-up re
       )
     ).status,
   ).toBe(403)
+})
+
+test.each([
+  "preview",
+  "capture",
+  "preload",
+])("customized HLS preserves %s scope through playlists and segments", async (mode) => {
+  const { platform, devices, request, channels } =
+    await fixture({ isBrowser: true })
+  const cameraChannels = ["shared", "one"].map((id) => ({
+    id: `cameras/${id}`,
+    name: id,
+    sourceId: "events",
+    type: "cameras.v1",
+    settings: {},
+  }))
+  platform.store.update((previous) => ({
+    ...previous,
+    channels: channels.concat(cameraChannels),
+    views: previous.views.concat({
+      ...points,
+      id: "cameras",
+      panels: [
+        {
+          id: "main",
+          specId: "cameras",
+          bindings: { data: "cameras/shared" },
+          settings: {},
+        },
+      ],
+    }),
+    deviceRecentViews: { one: ["cameras"] },
+  }))
+  const device = devices[0]
+  if (!device) throw new Error("Missing fixture device")
+  device.viewOverrides = {
+    ...device.viewOverrides,
+    cameras: {
+      panels: {
+        main: { bindings: { data: "cameras/one" } },
+      },
+    },
+  }
+  platform.validateDeviceViews()
+  platform.hub.configure(platform.store.get().channels)
+  platform.hub.publish({
+    channelId: "cameras/one",
+    data: {
+      cameras: [
+        {
+          id: "camera.room",
+          name: "Room camera",
+          url: "/api/platform/channels/cameras%2Fone/media/camera.room?kind=hls",
+          format: "hls",
+        },
+      ],
+    },
+  })
+  const snapshot = await (
+    await request(
+      `/api/display/view/cameras?device=one&${mode}=1`,
+    )
+  ).json()
+  const url = snapshot.channels["cameras/one"].data
+    .cameras[0].url as string
+  const media = vi
+    .spyOn(platform.runtime, "getMedia")
+    .mockImplementation(async ({ query }) => {
+      const resource = query?.resource
+      if (!resource)
+        return new Response(
+          "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\n?kind=hls&session=fixture&resource=child.m3u8\n",
+          {
+            headers: {
+              "content-type":
+                "application/vnd.apple.mpegurl",
+            },
+          },
+        )
+      if (resource === "child.m3u8")
+        return new Response(
+          '#EXTM3U\n#EXT-X-MAP:URI="?kind=hls&session=fixture&resource=init.mp4"\n#EXT-X-PART:DURATION=1,URI="?kind=hls&session=fixture&resource=part.m4s"\n#EXTINF:1,\n?kind=hls&session=fixture&resource=segment.m4s\n',
+          {
+            headers: {
+              "content-type": "application/x-mpegurl",
+            },
+          },
+        )
+      return new Response(`bytes:${resource}`, {
+        headers: {
+          "content-type":
+            resource === "init.mp4"
+              ? "video/mp4"
+              : "video/iso.segment",
+        },
+      })
+    })
+  const follow = async (uri: string) => {
+    const target = new URL(uri, `http://localhost${url}`)
+    expect(target.searchParams.get("device")).toBe("one")
+    expect(target.searchParams.get(mode)).toBe("1")
+    const response = await request(
+      `${target.pathname}${target.search}`,
+    )
+    expect(response.status).toBe(200)
+    return response.text()
+  }
+  const master = await follow(url)
+  const childUri = master
+    .split("\n")
+    .find((line) => line && !line.startsWith("#"))
+  expect(childUri).toBeDefined()
+  const child = await follow(childUri ?? "")
+  const attributes = Array.from(
+    child.matchAll(/URI="([^"]+)"/g),
+    (match) => match[1] ?? "",
+  )
+  expect(attributes).toHaveLength(2)
+  expect(await follow(attributes[0] ?? "")).toBe(
+    "bytes:init.mp4",
+  )
+  expect(await follow(attributes[1] ?? "")).toBe(
+    "bytes:part.m4s",
+  )
+  const segment = child
+    .split("\n")
+    .find((line) => line && !line.startsWith("#"))
+  expect(await follow(segment ?? "")).toBe(
+    "bytes:segment.m4s",
+  )
+  expect(media).toHaveBeenCalledTimes(5)
+  media.mock.calls.forEach(([options]) => {
+    DISPLAY_MEDIA_CONTEXT_KEYS.forEach((key) => {
+      expect(options.query).not.toHaveProperty(key)
+    })
+  })
+  expect(
+    (await request(url, "GET", undefined, false)).status,
+  ).toBeGreaterThanOrEqual(400)
+})
+
+test("playlist scoping preserves legacy, external, and other-channel URLs", () => {
+  const playlist =
+    '#EXTM3U\r\n#EXT-X-KEY:METHOD=AES-128,URI="https://media.example/key"\r\n/api/display/view/cameras/media/other/asset?kind=hls\r\n'
+  const requestUrl =
+    "http://localhost/api/display/view/cameras/media/cameras%2Fone/camera.room?kind=hls"
+  expect(
+    scopeDisplayMediaPlaylist({ playlist, requestUrl }),
+  ).toBe(playlist)
+  expect(
+    scopeDisplayMediaPlaylist({
+      playlist: playlist.replaceAll("\r", ""),
+      requestUrl: `${requestUrl}&device=one&preview=1`,
+    }),
+  ).toBe(playlist.replaceAll("\r", ""))
+})
+
+test("playlist children use the caller's device and grant context", () => {
+  const requestUrl =
+    "http://localhost/api/display/view/cameras/media/cameras%2Fone/camera.room?kind=hls&device=one&capture=1"
+  const playlist = scopeDisplayMediaPlaylist({
+    playlist:
+      "?kind=hls&device=wrong&preload=1&resource=child.m3u8",
+    requestUrl,
+  })
+  const target = new URL(playlist, requestUrl)
+  expect(target.searchParams.get("device")).toBe("one")
+  expect(target.searchParams.get("capture")).toBe("1")
+  expect(target.searchParams.has("preload")).toBe(false)
+  expect(target.searchParams.get("resource")).toBe(
+    "child.m3u8",
+  )
 })
 
 test("a later scan in a second room cannot replace the first room's feedback", async () => {

@@ -19,6 +19,11 @@ import {
   getDisplayCompatibility,
   getPlatformDisplayCapabilities,
 } from "./displayCompatibility.ts"
+import {
+  DISPLAY_MEDIA_CONTEXT_KEYS,
+  scopeDisplayMediaPlaylist,
+  withDisplayMediaContext,
+} from "./displayMediaScope.ts"
 import { attachMapTiles } from "./mapTiles.ts"
 import type { Platform } from "./platform.ts"
 import { buildPlatformPage } from "./platformPages.ts"
@@ -120,14 +125,10 @@ export const getDisplay = ({
         /^\/api\/platform\/channels\/([^/]+)\/media\//,
         `/api/display/${kind}/${encodeURIComponent(id)}/media/$1/`,
       )
-      if (!deviceId) return rewritten
-      const mediaUrl = new URL(rewritten, context.req.url)
-      mediaUrl.searchParams.set("device", deviceId)
-      ;["preview", "capture", "preload"].forEach((key) => {
-        if (context.req.query(key) === "1")
-          mediaUrl.searchParams.set(key, "1")
+      return withDisplayMediaContext({
+        url: rewritten,
+        requestUrl: context.req.url,
       })
-      return `${mediaUrl.pathname}${mediaUrl.search}${mediaUrl.hash}`
     }
     if (Array.isArray(value)) return value.map(rewriteMedia)
     if (isRecord(value))
@@ -1591,12 +1592,7 @@ const sendMedia = async ({
       query: Object.fromEntries(
         Object.entries(context.req.query()).filter(
           ([key]) =>
-            ![
-              "device",
-              "preview",
-              "capture",
-              "preload",
-            ].includes(key),
+            !DISPLAY_MEDIA_CONTEXT_KEYS.includes(key),
         ),
       ),
       signal: context.req.raw.signal,
@@ -1629,7 +1625,19 @@ const sendMedia = async ({
      * origin, so it is served sandboxed with nothing it may load.
      */
     const isSvg = /^image\/svg\+xml/i.test(contentType)
-    return new Response(response.body, {
+    const isPlaylist =
+      isHls &&
+      /^application\/(vnd\.apple\.mpegurl|x-mpegurl)\b/i.test(
+        contentType,
+      )
+    const body =
+      isPlaylist && context.req.query("device")
+        ? scopeDisplayMediaPlaylist({
+            playlist: await response.text(),
+            requestUrl: context.req.url,
+          })
+        : response.body
+    return new Response(body, {
       headers: {
         "content-type": contentType,
         "cache-control": "private, no-store",
