@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -264,3 +265,118 @@ test("a session saved before anchors gets them on load and keeps its step", () =
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+const legacySession = (
+  overrides: Record<string, unknown>,
+) => ({
+  id: "0b6f3c55-8a0e-4d8b-9a44-2f7a1c3e5d21",
+  key: "b".repeat(64),
+  sourceId: "recipes",
+  deviceId: "kitchen-panel",
+  recipe,
+  width: 800,
+  height: 480,
+  pageIndex: 0,
+  instructionPage: 0,
+  revision: 3,
+  createdAt: new Date().toISOString(),
+  ...overrides,
+})
+const loadLegacy = (
+  session: Record<string, unknown>,
+  test: (
+    cooking: ReturnType<typeof createCookingSessions>,
+  ) => void,
+) => {
+  const directory = mkdtempSync(
+    join(tmpdir(), "castkit-cooking-"),
+  )
+  try {
+    const file = join(directory, "sessions.json")
+    writeFileSync(
+      file,
+      JSON.stringify({ sessions: [session], requests: [] }),
+    )
+    test(
+      createCookingSessions({ file, onChanged: vi.fn() }),
+    )
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+}
+test("a saved page past the end still normalizes on Next, with a new revision", () => {
+  loadLegacy(
+    legacySession({
+      recipe: {
+        ...recipe,
+        instructions: ["Warm the pan.", "Serve warm."],
+      },
+      pageIndex: 4,
+    }),
+    (cooking) => {
+      const id = "0b6f3c55-8a0e-4d8b-9a44-2f7a1c3e5d21"
+      expect(cooking.get(id)?.pageAnchor).toBeUndefined()
+      expect(
+        cooking.display(cooking.get(id)!).pageIndex,
+      ).toBe(0)
+      const next = cooking.command(id, "next")!
+      expect(next.pageIndex).toBe(0)
+      expect(next.revision).toBe(4)
+    },
+  )
+})
+test("a saved instruction position past the end returns Instructions to Step 1", () => {
+  loadLegacy(
+    legacySession({ pageIndex: 0, instructionPage: 99 }),
+    (cooking) => {
+      const id = "0b6f3c55-8a0e-4d8b-9a44-2f7a1c3e5d21"
+      expect(
+        cooking.get(id)?.instructionAnchor,
+      ).toBeUndefined()
+      const instructions = cooking.command(
+        id,
+        "instructions",
+      )!
+      expect(
+        cooking.display(instructions).page.heading,
+      ).toBe("Step 1 of 2")
+    },
+  )
+})
+test.skipIf(process.getuid?.() === 0)(
+  "a session file in a read-only folder still loads when anchors cannot be saved",
+  () => {
+    const directory = mkdtempSync(
+      join(tmpdir(), "castkit-cooking-"),
+    )
+    const file = join(directory, "sessions.json")
+    const warn = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => {})
+    try {
+      writeFileSync(
+        file,
+        JSON.stringify({
+          sessions: [legacySession({})],
+          requests: [],
+        }),
+      )
+      chmodSync(directory, 0o500)
+      const cooking = createCookingSessions({
+        file,
+        onChanged: vi.fn(),
+      })
+      const session = cooking.get(
+        "0b6f3c55-8a0e-4d8b-9a44-2f7a1c3e5d21",
+      )!
+      expect(session.pageAnchor?.heading).toBe(
+        "Ingredients",
+      )
+      expect(warn).toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+      chmodSync(directory, 0o700)
+      rmSync(directory, { recursive: true, force: true })
+    }
+  },
+)
