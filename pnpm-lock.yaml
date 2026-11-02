@@ -626,8 +626,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@charcuterie/logic':
-        specifier: ^2.9.0
-        version: 2.9.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^2.12.0
+        version: 2.12.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@charcuterie/tokens':
         specifier: ^1.10.2
         version: 1.10.2
@@ -964,8 +964,8 @@ packages:
       react:
         optional: true
 
-  '@charcuterie/logic@2.4.0':
-    resolution: {integrity: sha512-DfHDWCRggHSmoPA+dUsN5mjVGOXLORiCvOBkYzgUlnHYJNhz2bSC4UCPspHK0Nv1ZSLKVv5Iyot3BmHze9Ndpg==}
+  '@charcuterie/logic@2.12.0':
+    resolution: {integrity: sha512-yWRg5BFUxcxFatlnKp+oenObfTGYK+Ym8TXRznlL6bWM0k1lHw4aym1MyP1rNNybfcf1eF2R8sF83H44akWdoQ==}
     peerDependencies:
       '@preact/signals-core': '>=1.8'
       '@tanstack/react-query': '>=5'
@@ -990,8 +990,8 @@ packages:
       react:
         optional: true
 
-  '@charcuterie/logic@2.9.0':
-    resolution: {integrity: sha512-7S3nbbLF1XIIYtNOpgXH+uCmTaCb7ZT3U5/CybmcfOzx+OMv9+VemsjQKrhe8Xdg2X7LPGrK+Yw8vcXIqsJvyQ==}
+  '@charcuterie/logic@2.4.0':
+    resolution: {integrity: sha512-DfHDWCRggHSmoPA+dUsN5mjVGOXLORiCvOBkYzgUlnHYJNhz2bSC4UCPspHK0Nv1ZSLKVv5Iyot3BmHze9Ndpg==}
     peerDependencies:
       '@preact/signals-core': '>=1.8'
       '@tanstack/react-query': '>=5'
@@ -5839,13 +5839,7 @@ snapshots:
       - svelte
       - vue
 
-  '@charcuterie/logic@2.4.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react@19.2.7)':
-    optionalDependencies:
-      '@preact/signals-core': 1.14.4
-      preact: 10.29.5
-      react: 19.2.7
-
-  '@charcuterie/logic@2.9.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@charcuterie/logic@2.12.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@tanstack/charts': 0.18.0(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
     optionalDependencies:
@@ -5864,6 +5858,12 @@ snapshots:
       - solid-js
       - svelte
       - vue
+
+  '@charcuterie/logic@2.4.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react@19.2.7)':
+    optionalDependencies:
+      '@preact/signals-core': 1.14.4
+      preact: 10.29.5
+      react: 19.2.7
 
   '@charcuterie/playwright-config@2.0.0(@playwright/test@1.62.1)(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(msw@2.15.0(@types/node@26.1.0)(typescript@6.0.3))(vite@8.1.2(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))(vitest@4.1.11))(playwright@1.62.1)(vitest@4.1.11)':
     dependencies:
