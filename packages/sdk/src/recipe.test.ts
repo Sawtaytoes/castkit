@@ -150,3 +150,13 @@ test("keycap emoji count as wide glyphs", () => {
   )
   expect(pages.some((page) => page.isComplete)).toBe(false)
 })
+test("keycap emoji take two cells and never split from their marks across lines", () => {
+  const lines = wrapRecipeText("1️⃣2️⃣3️⃣", 4)
+  expect(lines).toEqual(["1️⃣2️⃣", "3️⃣"])
+  expect(
+    wrapRecipeText("é".normalize("NFD").repeat(3), 2),
+  ).toEqual([
+    "é".normalize("NFD").repeat(2),
+    "é".normalize("NFD"),
+  ])
+})
