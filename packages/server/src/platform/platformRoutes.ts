@@ -14,6 +14,7 @@ import {
   createCameraFrameService,
 } from "../camera/cameraFrameService.ts"
 import { assertActionAllowed } from "./actionPolicy.ts"
+import { attachCookingRoutes } from "./cookingRoutes.ts"
 import {
   getDisplayCompatibility,
   getPlatformDisplayCapabilities,
@@ -258,6 +259,7 @@ export const attachPlatformRoutes = ({
       )
     await next()
   })
+  attachCookingRoutes({ app, platform })
   attachPluginRoutes({
     app,
     plugins: platform.pluginRuntime,

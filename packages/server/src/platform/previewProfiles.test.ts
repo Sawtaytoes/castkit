@@ -172,6 +172,7 @@ test("image preview requires management authorization, coalesces renders, and ne
     publisher,
     renderPreview,
   } = await fixture()
+  publisher.publish.mockClear()
   const before = JSON.stringify(platform.store.get())
   expect(
     (

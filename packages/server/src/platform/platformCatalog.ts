@@ -23,6 +23,7 @@ import {
   DEFAULT_KIDS_POINTS_SCAN_TOPIC,
   DEFAULT_KIDS_POINTS_STATE_TOPIC,
 } from "./sources/kidsPoints.ts"
+import { createMealieSource } from "./sources/mealie.ts"
 import { createMqttSource } from "./sources/mqtt.ts"
 import { createMusicAssistantSource } from "./sources/musicAssistant.ts"
 import {
@@ -70,6 +71,25 @@ const entityField: SettingField = {
     "Select entities from source discovery or enter their entity IDs.",
 }
 const adapters: AdapterDefinition[] = [
+  {
+    id: "mealie",
+    name: "Mealie",
+    description:
+      "Saved recipes and link imports for cooking sessions.",
+    channelTypes: ["recipe.v1"],
+    settings: [
+      urlField,
+      {
+        key: "apiToken",
+        label: "API token",
+        type: "secret",
+      },
+    ],
+    channelSettings: [
+      { key: "slug", label: "Recipe slug", type: "text" },
+    ],
+    actions: [],
+  },
   {
     id: "bambuddy",
     name: "Bambuddy",
@@ -610,6 +630,23 @@ const imageSettings: SettingField[] = [
   },
 ]
 const viewSpecs: ViewSpec[] = [
+  {
+    id: "recipe",
+    name: "Recipe",
+    description:
+      "Static recipe pages, advanced explicitly from a phone or automation.",
+    inputs: [
+      {
+        key: "data",
+        label: "Recipe",
+        type: "recipe.v1",
+        isRequired: true,
+      },
+    ],
+    settings: [],
+    renderers: ["browser", "image"],
+    minimumRepaint: "super-slow",
+  },
   {
     ...view({
       id: "text",
@@ -1448,6 +1485,7 @@ viewSpecs.forEach((spec) => {
 const sourceFactories: NonNullable<
   CastKitPlugin["adapters"]
 > = {
+  mealie: createMealieSource,
   mqtt: createMqttSource,
   bambuddy: createBambuddySource,
   "home-assistant": createHomeAssistantSource,
@@ -1475,6 +1513,7 @@ const sourceFactories: NonNullable<
   },
 }
 const viewGroups = [
+  { id: "recipes", name: "Recipes", specs: ["recipe"] },
   {
     id: "clock-weather",
     name: "Clock and weather",

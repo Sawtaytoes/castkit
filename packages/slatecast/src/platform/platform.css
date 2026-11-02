@@ -4006,3 +4006,18 @@ html[data-repaint="instant"]
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+/* Recipe sessions budget the whole usable page; no card chrome or scrolling. */
+.platform:has(
+  .platform-layout[data-layout="single"]
+    > [data-spec="recipe"]
+) {
+  padding: 0;
+}
+.platform-layout[data-layout="single"]
+  > .platform-panel[data-spec="recipe"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+}

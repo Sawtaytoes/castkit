@@ -27,6 +27,7 @@ import { KidsPointsView } from "./KidsPointsView.tsx"
 import { PointsHistoryView } from "./PointsHistoryView.tsx"
 import { safeMediaUrl } from "./protocol.ts"
 import { QueuePicker } from "./QueuePicker.tsx"
+import { RecipeView } from "./RecipeView.tsx"
 import { ReportContent } from "./ReportContent.tsx"
 import { TimersView } from "./TimersView.tsx"
 import { WeatherView } from "./WeatherView.tsx"
@@ -149,6 +150,14 @@ export const BuiltinView = ({
   const properties = useDisplayProperties()
   const isShortPanel = useIsShortPanel()
   switch (panel.specId) {
+    case "recipe":
+      return (
+        <RecipeView
+          data={
+            data as import("@castkit/sdk/recipe").RecipeDisplay
+          }
+        />
+      )
     case "idle-dashboard":
       return (
         <IdleDashboard
