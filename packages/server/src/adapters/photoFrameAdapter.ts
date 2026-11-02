@@ -60,8 +60,8 @@ export const getShouldRefetchOnRecompose = ({
 /**
  * How each photo view fits a single photo to the panel: the plain "Photo Frame"
  * letterboxes when faces don't fit; "(Fill)" and "(Duo)" fill the panel. (Duo
- * only falls back to a single photo when two portraits aren't available, and it
- * fills when it does.)
+ * shows a single selected landscape photo, or pairs a selected portrait when
+ * a second portrait is available.)
  */
 const getPhotoFitMode = (
   viewName: ViewName,
@@ -75,10 +75,8 @@ const HISTORY_LIMIT = 20
 const DUAL_PORTRAIT_GUTTER_PIXELS = 8
 
 /**
- * How many candidate assets to draw when building a dual-portrait frame. The
- * draw is already portrait-only (the pool records each asset's orientation), so
- * two candidates almost always suffice; the third is a spare for the rare asset
- * whose stored dimensions disagree with the preview JPEG we crop.
+ * Companion candidates are portrait-only. Three leaves room to skip the selected
+ * primary and an asset whose recorded orientation disagrees with its preview.
  */
 const DUAL_PORTRAIT_CANDIDATE_DRAW = 3
 
@@ -183,17 +181,20 @@ export const createPhotoFrameAdapter = ({
     assetId,
     personIds,
     fitMode,
+    previewBytes,
   }: {
     device: ConfiguredDevice
     assetId: string
     personIds: readonly string[]
     fitMode: PhotoFitMode
+    previewBytes?: Buffer
   }) => {
     const [jpegBytes, faceBoxes] = await Promise.all([
-      fetchPreviewJpeg({
-        config: immichConfig,
-        assetId,
-      }),
+      previewBytes ??
+        fetchPreviewJpeg({
+          config: immichConfig,
+          assetId,
+        }),
       fetchFaceBoxes({
         config: immichConfig,
         assetId,
@@ -255,17 +256,16 @@ export const createPhotoFrameAdapter = ({
   }
 
   /**
-   * Try to build a dual-portrait frame: two portrait photos face-steered into
-   * their own half-panel columns and composited side by side. Draws portrait
-   * candidates only and keeps the first two whose preview verifies as portrait.
-   * Returns false (caller falls back to a single photo) when the pool genuinely
-   * holds fewer than two portraits. The primary (left) asset is what history
-   * records.
+   * Pair the selected portrait with a different portrait. Candidate metadata
+   * is verified against its preview; a missing companion keeps the original
+   * selection as a single full-panel photo. History records the primary asset.
    */
   const showDualPortrait = async ({
     device,
     source,
+    primary,
   }: {
+    primary: { assetId: string; jpegBytes: Buffer }
     device: ConfiguredDevice
     source: {
       personIds: readonly string[]
@@ -282,38 +282,34 @@ export const createPhotoFrameAdapter = ({
       peopleMinimum: getPeopleMinimum(device.id),
       count: DUAL_PORTRAIT_CANDIDATE_DRAW,
       isPortraitOnly: true,
-    })
+    }).catch(() => [])
 
     const candidates = await Promise.all(
-      candidateAssetIds.map(async (assetId) => {
-        try {
-          const jpegBytes = await fetchPreviewJpeg({
-            config: immichConfig,
-            assetId,
-          })
-          return {
-            assetId,
-            jpegBytes,
-            isPortrait: await isPortraitImage({
+      candidateAssetIds
+        .filter((assetId) => assetId !== primary.assetId)
+        .map(async (assetId) => {
+          try {
+            const jpegBytes = await fetchPreviewJpeg({
+              config: immichConfig,
+              assetId,
+            })
+            return {
+              assetId,
               jpegBytes,
-            }),
+              isPortrait: await isPortraitImage({
+                jpegBytes,
+              }),
+            }
+          } catch {
+            return null
           }
-        } catch {
-          return null
-        }
-      }),
+        }),
     )
-    const portraits = candidates
-      .filter((candidate) => candidate?.isPortrait)
-      .slice(0, 2)
-    if (portraits.length < 2) {
-      return false
-    }
-
-    const [left, right] = portraits as [
-      NonNullable<(typeof portraits)[number]>,
-      NonNullable<(typeof portraits)[number]>,
-    ]
+    const right = candidates.find(
+      (candidate) => candidate?.isPortrait,
+    )
+    if (!right) return false
+    const left = primary
     const [leftFaceBoxes, rightFaceBoxes] =
       await Promise.all([
         fetchFaceBoxes({
@@ -379,36 +375,6 @@ export const createPhotoFrameAdapter = ({
 
       const activeView = getActiveView(deviceId)
 
-      // The dual-portrait view tries two side-by-side portraits first;
-      // showDualPortrait returns false (and we fall through to a single photo)
-      // when two portraits aren't available this cycle. It only engages when
-      // the panel reads horizontal AND its width axis is horizontal on the wall
-      // — native landscape with rotation 0/180 — so the two columns sit side by
-      // side. A quarter-turn (90/270) would rotate them into a stack, so those
-      // fall through to a single fill photo.
-      const effectiveRotation =
-        deviceConfigStore.getRotationOverride(device.id) ??
-        device.rotation
-      const isWidthAxisHorizontal =
-        effectiveRotation === 0 || effectiveRotation === 180
-      // Measured on the VISIBLE box, not the panel: a deep mat on the left and
-      // right is what decides whether two columns still fit side by side.
-      const photoTargetSize = resolvePhotoTargetSize(device)
-      const isDualPortrait =
-        activeView === DUAL_PHOTO_VIEW &&
-        photoTargetSize.targetWidth >
-          photoTargetSize.targetHeight &&
-        isWidthAxisHorizontal
-      if (isDualPortrait) {
-        const hasShownDual = await showDualPortrait({
-          device,
-          source,
-        })
-        if (hasShownDual) {
-          return true
-        }
-      }
-
       const assetId = await pickRandomAssetId({
         config: immichConfig,
         personIds: source.personIds,
@@ -424,11 +390,45 @@ export const createPhotoFrameAdapter = ({
         return false
       }
 
+      const effectiveRotation =
+        deviceConfigStore.getRotationOverride(device.id) ??
+        device.rotation
+      const isWidthAxisHorizontal =
+        effectiveRotation === 0 || effectiveRotation === 180
+      // Measured on the VISIBLE box, not the panel: a deep mat on the left and
+      // right is what decides whether two columns still fit side by side.
+      const photoTargetSize = resolvePhotoTargetSize(device)
+      const isDualPortrait =
+        activeView === DUAL_PHOTO_VIEW &&
+        photoTargetSize.targetWidth >
+          photoTargetSize.targetHeight &&
+        isWidthAxisHorizontal
+
+      // Draw from the full matching pool first. Orientation decides the layout,
+      // so landscape photos are never starved by a portrait-only companion pool.
+      const previewBytes = isDualPortrait
+        ? await fetchPreviewJpeg({
+            config: immichConfig,
+            assetId,
+          })
+        : undefined
+      if (
+        previewBytes &&
+        (await isPortraitImage({ jpegBytes: previewBytes }))
+      ) {
+        const hasShownDual = await showDualPortrait({
+          device,
+          source,
+          primary: { assetId, jpegBytes: previewBytes },
+        })
+        if (hasShownDual) return true
+      }
       await showAsset({
         device,
         assetId,
         personIds: source.personIds,
         fitMode: getPhotoFitMode(activeView),
+        previewBytes,
       })
       recordShownAsset({ deviceId, assetId })
       return true
