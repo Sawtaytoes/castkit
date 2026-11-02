@@ -1,7 +1,12 @@
 import { createReadStream } from "node:fs"
 import { mkdir, readFile, stat } from "node:fs/promises"
 import { createServer } from "node:http"
-import { extname, resolve, sep } from "node:path"
+import {
+  extname,
+  matchesGlob,
+  resolve,
+  sep,
+} from "node:path"
 import { chromium } from "@playwright/test"
 import { captureDitherStory } from "./captureDitherStory.ts"
 
@@ -60,19 +65,54 @@ try {
   const filters = (process.env.VRT_INCLUDE ?? "")
     .split(/[\s,]+/)
     .filter(Boolean)
-  const storyIds = Object.values(index.entries)
+  const allStoryIds = Object.values(index.entries)
     .filter((entry) => entry.type === "story")
     .map((entry) => entry.id)
-    .filter(
-      (storyId) =>
-        storyId.endsWith("-dithered") ||
-        comparisons.includes(storyId),
+  const capturedStoryIds = allStoryIds.filter(
+    (storyId) =>
+      storyId.endsWith("-dithered") ||
+      comparisons.includes(storyId),
+  )
+  const workflow = await readFile(
+    resolve(".github/workflows/ci.yml"),
+    "utf8",
+  )
+  const exclusionText = workflow.match(
+    /^ {6}storybookExclude: \|\r?\n((?: {8}[^\r\n]*\r?\n)+)/m,
+  )?.[1]
+  if (!exclusionText)
+    throw new Error("Missing dither capture exclusions")
+  const exclusions = exclusionText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const excludedStoryIds = allStoryIds.filter((storyId) =>
+    exclusions.some((pattern) =>
+      matchesGlob(storyId, pattern),
+    ),
+  )
+  if (
+    JSON.stringify(excludedStoryIds.toSorted()) !==
+    JSON.stringify(capturedStoryIds.toSorted())
+  ) {
+    const missing = excludedStoryIds.filter(
+      (storyId) => !capturedStoryIds.includes(storyId),
     )
-    .filter(
-      (storyId) =>
-        filters.length === 0 ||
-        filters.some((filter) => storyId.includes(filter)),
+    const unexpected = capturedStoryIds.filter(
+      (storyId) => !excludedStoryIds.includes(storyId),
     )
+    throw new Error(
+      `Dither capture coverage mismatch: ${excludedStoryIds.length} excluded, ${capturedStoryIds.length} recaptured; missing ${JSON.stringify(missing)}; unexpected ${JSON.stringify(unexpected)}`,
+    )
+  }
+  console.log(
+    `[vrt] dither coverage: ${excludedStoryIds.length} excluded, ${capturedStoryIds.length} recaptured`,
+  )
+  const storyIds = capturedStoryIds.filter(
+    (storyId) =>
+      filters.length === 0 ||
+      filters.some((filter) => storyId.includes(filter)),
+  )
   if (storyIds.length === 0)
     throw new Error("No dithered stories matched")
   await storyIds.reduce(async (previous, storyId) => {

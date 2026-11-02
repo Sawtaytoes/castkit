@@ -18,8 +18,11 @@ still be rendering or can have failed after those events.
 Capture dithered stories and the six-panel comparisons through the app's serial
 capture after their expected previews finish. Reject any marked rasterization
 error before writing a PNG. Keep the same story filenames and full-root capture.
-The generic capture excludes those stories so it cannot publish a loading or
-error state under their names.
+The generic capture excludes those exact stories so it cannot publish a loading
+or error state under their names. Check the built index against the workflow
+exclusions before capture; every excluded story must be recaptured, and every
+recaptured story must have been excluded. Preserve the other comparison stories
+in the generic capture.
 
 Read the built Storybook index to select the dithered stories. A selection with
 no matching stories fails explicitly. Preserve the component's visible error
