@@ -12,6 +12,7 @@ import {
   useNavLayout,
 } from "@charcuterie/ui"
 import {
+  BookOpen,
   Cpu,
   KeyRound,
   LayoutTemplate,
@@ -28,6 +29,7 @@ import { useLocation } from "react-router"
 import { Access, type AccessSession } from "./Access.tsx"
 import { Brand } from "./Brand.tsx"
 import { CollectionPage } from "./CollectionPage.tsx"
+import { Cooking } from "./Cooking.tsx"
 import { Devices } from "./Devices.tsx"
 import { Plugins } from "./Plugins.tsx"
 import {
@@ -43,6 +45,7 @@ import {
  * navigates (`NavRailItem` makes the type checker say so).
  */
 const destinations: NavRailItem[] = [
+  { label: "Recipes", icon: <BookOpen /> },
   { label: "Views", icon: <LayoutTemplate /> },
   { label: "Screens", icon: <Monitor /> },
   { label: "Devices", icon: <Cpu /> },
@@ -281,6 +284,8 @@ export const App = () => {
               platform={platform}
               onRefresh={refreshPlatform}
             />
+          ) : platform && section === "recipes" ? (
+            <Cooking platform={platform} />
           ) : platform && section === "plugins" ? (
             <Plugins
               platform={platform}

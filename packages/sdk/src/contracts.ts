@@ -1,7 +1,12 @@
 import { z } from "zod"
+import {
+  recipeDisplaySchema,
+  recipeSchema,
+} from "./recipe.ts"
 
 /** Stable names for the versioned data contracts shared by every renderer. */
 export const CONTRACT_TYPES = [
+  "recipe.v1",
   "now-playing.v1",
   "queue.v1",
   "queue-picker.v1",
@@ -563,6 +568,10 @@ const musicPlayer = z.object({
     .optional(),
 })
 export const builtinContractSchemas = {
+  "recipe.v1": z.union([
+    recipeDisplaySchema,
+    z.object({ recipe: recipeSchema }),
+  ]),
   "ams.v1": z.object({ printers: z.array(spoolsPrinter) }),
   "cutters.v1": z.object({ cutters: z.array(cutter) }),
   "music-player.v1": musicPlayer,

@@ -337,6 +337,13 @@ export const createApp = ({
   )
 
   if (managementDistDirectory) {
+    app.use(
+      "/cook/*",
+      createStaticHandler({
+        rootDir: managementDistDirectory,
+        rewriteRequestPath: () => "/index.html",
+      }),
+    )
     app.get("/manage", (context) =>
       context.redirect("/manage/"),
     )
