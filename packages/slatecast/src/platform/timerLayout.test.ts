@@ -45,3 +45,14 @@ test("small panels retain the first timer while large panels retain all", () => 
     })?.visibleCount,
   ).toBe(4)
 })
+
+test("a crowded source still keeps only the earliest timer on a tiny panel", () => {
+  expect(
+    chooseTimerLayout({
+      count: 1000,
+      width: 200,
+      height: 200,
+      hasControls: true,
+    })?.visibleCount,
+  ).toBe(1)
+})

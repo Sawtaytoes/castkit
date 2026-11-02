@@ -1052,6 +1052,13 @@ const viewSpecs: ViewSpec[] = [
           "Match the source timer room value. Empty shows all rooms.",
       },
       {
+        key: "additionalRooms",
+        label: "Shared timer rooms",
+        type: "text",
+        description:
+          "Additional comma-separated room values to include, such as a whole-home target.",
+      },
+      {
         key: "automaticDeviceIds",
         label: "Automatic displays",
         type: "text",

@@ -80,7 +80,14 @@ export const selectPanelData = ({
         (entity) =>
           entity.domain === "timer" &&
           (!settings.room ||
-            entity.attributes.room === settings.room) &&
+            entity.attributes.room === settings.room ||
+            (typeof settings.additionalRooms === "string" &&
+              settings.additionalRooms
+                .split(",")
+                .map((room) => room.trim())
+                .includes(
+                  String(entity.attributes.room),
+                ))) &&
           (settings.isActiveOnly !== true ||
             ["active", "paused"].includes(entity.state)),
       ),

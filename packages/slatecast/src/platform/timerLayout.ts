@@ -33,8 +33,17 @@ export const chooseTimerLayout = ({
 }) => {
   const minimumHeight = hasControls ? 164 : 120
   const minimumWidth = hasControls ? 180 : 140
+  const maximumVisible = Math.min(
+    count,
+    Math.max(
+      1,
+      Math.floor(
+        (width * height) / (minimumWidth * minimumHeight),
+      ),
+    ),
+  )
   const candidates = Array.from(
-    { length: count },
+    { length: maximumVisible },
     (_, index) => index + 1,
   ).flatMap((visibleCount) =>
     Array.from(
@@ -85,7 +94,7 @@ export const chooseTimerLayout = ({
     }),
   )
   const rails = Array.from(
-    { length: Math.max(0, count - 1) },
+    { length: Math.max(0, maximumVisible - 1) },
     (_, index) => index + 2,
   ).map((visibleCount) => ({
     id: `rail:${visibleCount}`,
