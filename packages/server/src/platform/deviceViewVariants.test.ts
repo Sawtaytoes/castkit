@@ -159,7 +159,7 @@ const fixture = async ({
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     })
-  return { platform, devices, request, channels }
+  return { platform, devices, request, channels, app }
 }
 
 test("the same saved view resolves room inputs before snapshots and frame keys", async () => {
@@ -904,6 +904,32 @@ test("manual foreground targets preserve device data, grants, override priority,
     (await request("/api/display/view/points?device=one"))
       .status,
   ).toBe(200)
+})
+
+test("foreground authorization retains the incoming host and port on synthetic WebSocket URLs", async () => {
+  const { platform, app } = await fixture({
+    isBrowser: true,
+  })
+  platform.store.update((previous) => ({
+    ...previous,
+    deviceScreens: {},
+  }))
+  platform.setDeviceNavigationReader(() => ({
+    url: "http://display.example:8080/view/points",
+  }))
+  const response = await app.request(
+    "http://localhost/api/display/view/points?device=one",
+    {
+      headers: {
+        Host: "display.example:8080",
+        Authorization: "Bearer fixture-token",
+      },
+    },
+  )
+  expect(response.status).toBe(200)
+  expect((await response.json()).channels).toHaveProperty(
+    "points/one",
+  )
 })
 
 test.each([

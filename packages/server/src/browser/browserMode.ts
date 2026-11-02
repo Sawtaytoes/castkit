@@ -585,6 +585,14 @@ export const createBrowserMode = ({
     preloadViewIds: platform?.getDevicePreloadViewIds,
   }
 
+  const readActiveBrowserView = (
+    device: BrowserDeviceConfig,
+  ) =>
+    getBrowserViewByName({
+      device,
+      name: stateStore.getActiveView(device.id),
+    }) ?? getBrowserViewsForDevice(device)[0]
+
   const buildSnapshot = (
     deviceId: string,
   ): Extract<
@@ -596,10 +604,7 @@ export const createBrowserMode = ({
       return null
     }
     const browserViews = getBrowserViewsForDevice(device)
-    const activeView = getBrowserViewByName({
-      device,
-      name: stateStore.getActiveView(deviceId),
-    })
+    const activeView = readActiveBrowserView(device)
     return {
       type: "snapshot",
       device: {
@@ -2097,10 +2102,7 @@ export const createBrowserMode = ({
       if (!device) {
         return undefined
       }
-      const selected = getBrowserViewByName({
-        device,
-        name: stateStore.getActiveView(deviceId),
-      })
+      const selected = readActiveBrowserView(device)
       const index = /^external-view:(\d+)$/.exec(
         selected?.clientId ?? "",
       )?.[1]

@@ -65,6 +65,9 @@ export const getDisplay = ({
   id: string
 }) => {
   const deviceId = context.req.query("device")
+  const requestUrl = new URL(context.req.url)
+  // The WebSocket adapter's synthetic URL omits the incoming host and port.
+  const origin = `${requestUrl.protocol}//${context.req.header("host") ?? requestUrl.host}`
   const isPreload = Boolean(
     deviceId &&
       kind === "view" &&
@@ -72,13 +75,13 @@ export const getDisplay = ({
       platform.getIsAssignedDeviceView({
         deviceId,
         viewId: id,
-        origin: new URL(context.req.url).origin,
+        origin,
       }),
   )
   const deviceTarget = deviceId
     ? platform.getDeviceForegroundTarget({
         deviceId,
-        origin: new URL(context.req.url).origin,
+        origin,
       })
     : undefined
   if (

@@ -416,10 +416,21 @@ test("devices customize one shared points view without sharing room scans", asyn
     await second
       .getByRole("button", { name: view.name, exact: true })
       .click()
+    const manualResponse = await request.get(
+      `/api/display/view/${viewId}?device=e2e-square`,
+    )
+    expect(
+      manualResponse.status(),
+      await manualResponse.text(),
+    ).toBe(200)
     await expect(
-      first.locator(
-        ".kids-points-total strong:not([aria-hidden=true])",
-      ),
+      first.locator("main.platform"),
+    ).toHaveAttribute("data-connection", "connected")
+    await expect(
+      second.locator("main.platform"),
+    ).toHaveAttribute("data-connection", "connected")
+    await expect(
+      first.locator(".kids-points-activity-total strong"),
     ).toHaveText("123")
     await expect(
       second.locator(
@@ -475,6 +486,71 @@ test("devices customize one shared points view without sharing room scans", asyn
         '.kids-points-card[data-scanned="true"]',
       ),
     ).toHaveCount(1)
+    const updateNavigation = async ({
+      name,
+      path,
+    }: {
+      name: string
+      path: string
+    }) => {
+      const currentRegistry = (await (
+        await request.get("/api/manage/devices")
+      ).json()) as { devices: Device[] }
+      const current = currentRegistry.devices.find(
+        (candidate) => candidate.id === "e2e-square",
+      )
+      if (!current) {
+        throw new Error("Missing navigation fixture")
+      }
+      expect(
+        (
+          await request.put(
+            "/api/manage/devices/e2e-square",
+            {
+              data: {
+                ...current,
+                views: [name, "Now Playing"],
+                externalViews: [
+                  {
+                    name,
+                    url: new URL(path, first.url()).href,
+                  },
+                ],
+              },
+            },
+          )
+        ).ok(),
+      ).toBe(true)
+      await expect(
+        first.locator("main.platform"),
+      ).toHaveAttribute("data-connection", "connected")
+      await expect(
+        first.locator(
+          ".kids-points-total strong:not([aria-hidden=true])",
+        ),
+      ).toHaveText("124")
+      await first.reload()
+      await expect(
+        first.locator(
+          ".kids-points-total strong:not([aria-hidden=true])",
+        ),
+      ).toHaveText("124")
+      await expect(
+        first.locator("main.platform"),
+      ).toHaveAttribute("data-connection", "connected")
+    }
+    await updateNavigation({
+      name: "Tally Marks Renamed",
+      path: `/view/${viewId}`,
+    })
+    await updateNavigation({
+      name: "Tally Marks Screen",
+      path: "/screen/variant-screen",
+    })
+    await updateNavigation({
+      name: view.name,
+      path: `/view/${viewId}`,
+    })
     await page.reload()
     await expect(
       page.getByRole("checkbox", {
