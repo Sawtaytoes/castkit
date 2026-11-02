@@ -16,6 +16,7 @@ import type {
   ViewDefinition,
 } from "@castkit/sdk/contracts"
 import {
+  isInstructionPage,
   paginateRecipe,
   type Recipe,
   type RecipeDisplay,
@@ -227,20 +228,15 @@ export const createCookingSessions = ({
         session.width,
         session.height,
       )
-      const firstInstruction = pages.findIndex(
-        (page) =>
-          page.heading.startsWith("Step ") ||
-          page.heading === "Instructions missing",
+      const firstInstruction = Math.max(
+        0,
+        pages.findIndex(isInstructionPage),
       )
-      const savedInstruction =
-        pages[session.instructionPage]
-      const instructionPage =
-        savedInstruction &&
-        (savedInstruction.heading.startsWith("Step ") ||
-          savedInstruction.heading ===
-            "Instructions missing")
-          ? session.instructionPage
-          : firstInstruction
+      const instructionPage = isInstructionPage(
+        pages[session.instructionPage],
+      )
+        ? session.instructionPage
+        : firstInstruction
       const pageIndex =
         action === "ingredients"
           ? 0
@@ -258,12 +254,9 @@ export const createCookingSessions = ({
       const updated = {
         ...session,
         pageIndex,
-        instructionPage:
-          pages[pageIndex]?.heading.startsWith("Step ") ||
-          pages[pageIndex]?.heading ===
-            "Instructions missing"
-            ? pageIndex
-            : session.instructionPage,
+        instructionPage: isInstructionPage(pages[pageIndex])
+          ? pageIndex
+          : session.instructionPage,
         revision: session.revision + 1,
       }
       save(

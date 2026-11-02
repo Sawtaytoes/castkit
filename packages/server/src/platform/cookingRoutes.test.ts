@@ -83,7 +83,10 @@ const setup = async () => {
       name: "Skillet",
       slug: "skillet",
       recipeIngredient: [{ display: "2 cans chickpeas" }],
-      recipeInstructions: [{ text: "Warm and serve." }],
+      // Long enough to page, so Next has somewhere to go.
+      recipeInstructions: [
+        { text: "Warm and serve. ".repeat(250) },
+      ],
     }),
   )
   vi.stubGlobal("fetch", fetchMock)
@@ -241,7 +244,7 @@ test("MQTT controls require a current session revision and an unexpired command"
       slug: "skillet",
       url: "https://recipes.example/g/home/r/skillet",
       ingredients: ["1 lemon"],
-      instructions: ["Serve."],
+      instructions: ["Serve. ".repeat(500)],
       notes: [],
     },
   })
