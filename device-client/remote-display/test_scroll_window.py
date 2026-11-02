@@ -683,6 +683,14 @@ class BrowserScrollTests(unittest.IsolatedAsyncioTestCase):
               side.innerHTML = '<div style="height:200px"></div>';
               document.body.append(side) }"""
         )
+        # Flush the fixture's initial layout/font events before counting only the
+        # changes deliberately introduced by each stitch below.
+        await self.page.evaluate(
+            """async () => {
+              await document.fonts.ready;
+              await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            }"""
+        )
         options = self.scroll.options(top=96, bottom=416)
 
         async def stitch(during):

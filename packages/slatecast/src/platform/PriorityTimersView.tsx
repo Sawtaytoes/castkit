@@ -209,6 +209,7 @@ export const PriorityTimersView = ({
                           [
                             "pause",
                             "cancel",
+                            "add_5_minutes",
                             ...(entity.state === "paused"
                               ? ["start"]
                               : []),
@@ -217,8 +218,28 @@ export const PriorityTimersView = ({
                         .map((action) => (
                           <button
                             type="button"
+                            aria-label={
+                              action === "add_5_minutes"
+                                ? "Add 5 minutes"
+                                : action === "start"
+                                  ? "Resume"
+                                  : action === "pause"
+                                    ? "Pause"
+                                    : "Cancel"
+                            }
+                            title={
+                              action === "add_5_minutes"
+                                ? "Add 5 minutes"
+                                : action === "start"
+                                  ? "Resume"
+                                  : action === "pause"
+                                    ? "Pause"
+                                    : "Cancel"
+                            }
                             style={{
                               minHeight: 40,
+                              minWidth: 40,
+                              justifyContent: "center",
                               padding: "4px 8px",
                               fontSize: 14,
                               display: "flex",
@@ -232,18 +253,27 @@ export const PriorityTimersView = ({
                           >
                             <Icon
                               path={
-                                action === "pause"
-                                  ? ICON_PATHS.pause
-                                  : action === "start"
-                                    ? ICON_PATHS.play
-                                    : ICON_PATHS.stop
+                                action === "add_5_minutes"
+                                  ? ICON_PATHS.plus
+                                  : action === "pause"
+                                    ? ICON_PATHS.pause
+                                    : action === "start"
+                                      ? ICON_PATHS.play
+                                      : ICON_PATHS.stop
                               }
                             />
-                            {action === "start"
-                              ? "Resume"
-                              : action === "pause"
-                                ? "Pause"
-                                : "Cancel"}
+                            {(layout?.sections[index]
+                              ?.width ?? size.width) >= 250
+                              ? action === "add_5_minutes"
+                                ? "5 min"
+                                : action === "start"
+                                  ? "Resume"
+                                  : action === "pause"
+                                    ? "Pause"
+                                    : "Cancel"
+                              : action === "add_5_minutes"
+                                ? "5"
+                                : null}
                           </button>
                         ))}
                     </div>
