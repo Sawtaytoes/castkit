@@ -4,6 +4,7 @@ import type { ServerToClientMessage } from "@castkit/shared/protocol/ws"
 import { describe, expect, test } from "vitest"
 import {
   createStreamFrameCache,
+  readSavedViewTarget,
   readStreamDestinations,
   STREAM_TARGETS_SCRIPT,
   type StreamDestination,
@@ -97,6 +98,31 @@ const readContents = ({
       destination.content,
     ]),
   )
+
+describe("readSavedViewTarget", () => {
+  const savedViews = [
+    { id: "kids-points" },
+    { id: "agenda" },
+  ]
+
+  test("a request that names a saved view targets that view", () => {
+    expect(
+      readSavedViewTarget({
+        savedViews,
+        requested: "kids-points",
+      }),
+    ).toEqual({ kind: "view", id: "kids-points" })
+  })
+
+  test("a request that names no saved view has no target", () => {
+    expect(
+      readSavedViewTarget({
+        savedViews,
+        requested: "points-for-this-room",
+      }),
+    ).toBeUndefined()
+  })
+})
 
 describe("readStreamDestinations", () => {
   test("lists each swipe destination with the view it renders", () => {
@@ -207,6 +233,43 @@ describe("readStreamDestinations", () => {
       id: "points-for-this-room",
     })
     expect(points?.channelIds).toEqual(["points-channel"])
+  })
+
+  test("before the house answers, a left-swipe request that names a saved view is drawn as that view", () => {
+    const readSavedViewTarget = (requested: string) =>
+      requested === "kids-points"
+        ? { kind: "view" as const, id: "kids-points" }
+        : undefined
+    const readPlatformContent = () => ({
+      content: "points",
+      isTimeDriven: false,
+      channelIds: ["points-channel"],
+    })
+    const [points] = readStreamDestinations({
+      snapshot: buildPanelSnapshot(),
+      nowMs: NOW,
+      readLearnedTarget: () => undefined,
+      readSavedViewTarget,
+      readPlatformContent,
+    }).filter(({ viewId }) => viewId === "kids-points")
+    expect(points?.snapshot.displayTarget).toEqual({
+      kind: "view",
+      id: "kids-points",
+    })
+    const [learned] = readStreamDestinations({
+      snapshot: buildPanelSnapshot(),
+      nowMs: NOW,
+      readLearnedTarget: () => ({
+        kind: "view",
+        id: "points-for-this-room",
+      }),
+      readSavedViewTarget,
+      readPlatformContent,
+    }).filter(({ viewId }) => viewId === "kids-points")
+    expect(learned?.snapshot.displayTarget).toEqual({
+      kind: "view",
+      id: "points-for-this-room",
+    })
   })
 })
 

@@ -5,6 +5,7 @@ import { readPlatformTargetContent } from "../platform/platformFrameKey.ts"
 import type { BrowserMode } from "./browserMode.ts"
 import {
   createStreamFrameCache,
+  readSavedViewTarget,
   readStreamDestinations,
   STREAM_TARGETS_SCRIPT,
   type StreamTarget,
@@ -62,6 +63,14 @@ export const startStreamFrameService = ({
                 deviceId,
                 requested,
               ),
+            // Learned targets live in memory and come only from a reply that
+            // carries this panel's navigation ID. Until then, a request naming
+            // a saved view is drawn as that view.
+            readSavedViewTarget: (requested) =>
+              readSavedViewTarget({
+                savedViews: platform.store.get().views,
+                requested,
+              }),
             readLocalTarget: (viewId) => {
               const index = /^external-view:(\d+)$/.exec(
                 viewId,
