@@ -168,7 +168,7 @@ test.each([
     ).toBeLessThanOrEqual(height)
 })
 
-test("unbroken words, a long title, and a long yield wrap inside the panel", async () => {
+test("unbroken words, a long title, and a long yield wrap inside the panel width", async () => {
   await page.viewport(800, 480)
   const recipe = {
     ...bananaCake,
@@ -179,12 +179,12 @@ test("unbroken words, a long title, and a long yield wrap inside the panel", asy
       ...bananaCake.instructions.slice(1),
     ],
   }
-  const { pages, ...geometry } = paginateRecipe(
-    recipe,
+  // Render the one-screen layout directly: this checks wrapping, not the fit estimate.
+  const { pages: _, ...geometry } = paginateRecipe(
+    bananaCake,
     800,
     480,
   )
-  expect(pages[0]?.isComplete).toBe(true)
   const result = render(
     <div
       style={{
@@ -198,9 +198,13 @@ test("unbroken words, a long title, and a long yield wrap inside the panel", asy
         data={{
           ...geometry,
           recipe,
-          page: pages[0]!,
+          page: {
+            heading: "Recipe",
+            lines: [],
+            isComplete: true,
+          },
           pageIndex: 0,
-          pageCount: pages.length,
+          pageCount: 1,
         }}
       />
     </div>,
@@ -212,14 +216,90 @@ test("unbroken words, a long title, and a long yield wrap inside the panel", asy
   expect(article.scrollWidth).toBeLessThanOrEqual(
     article.clientWidth + 1,
   )
-  expect(article.scrollHeight).toBeLessThanOrEqual(
-    article.clientHeight + 1,
-  )
   for (const element of article.querySelectorAll(
     "h1, span, p",
   )) {
     const box = element.getBoundingClientRect()
     expect(box.right).toBeLessThanOrEqual(801)
-    expect(box.bottom).toBeLessThanOrEqual(481)
+  }
+})
+
+const hardRecipes = [
+  {
+    ...bananaCake,
+    name: "Recipe",
+    yieldText: undefined,
+    ingredients: ["WWWWW ".repeat(18)],
+    instructions: ["Serve."],
+    notes: [],
+  },
+  {
+    ...bananaCake,
+    name: "MAMMOTH WEEKNIGHT WAFFLE MEAL",
+    ingredients: Array(6).fill("MMMM WWWW MMMM WWWW"),
+  },
+  {
+    ...bananaCake,
+    ingredients: Array(12).fill("1 cup flour"),
+    instructions: Array(6).fill("Mix well."),
+  },
+  {
+    ...bananaCake,
+    name: "鶏の照り焼き",
+    ingredients: ["鶏もも肉 二枚", "醤油 大さじ二"],
+    instructions: [
+      "鶏肉を焼き、タレを絡めて照りが出るまで煮詰める。",
+    ],
+  },
+]
+test.each([
+  { width: 320, height: 240 },
+  { width: 800, height: 480 },
+  { width: 480, height: 800 },
+])("every recipe the server puts on one $width × $height screen fits it", async ({
+  width,
+  height,
+}) => {
+  await page.viewport(width, height)
+  for (const recipe of hardRecipes) {
+    const { pages, ...geometry } = paginateRecipe(
+      recipe,
+      width,
+      height,
+    )
+    if (!pages[0]?.isComplete) continue
+    const result = render(
+      <div
+        style={{
+          width,
+          height,
+          position: "fixed",
+          inset: 0,
+        }}
+      >
+        <RecipeView
+          data={{
+            ...geometry,
+            recipe,
+            page: pages[0],
+            pageIndex: 0,
+            pageCount: 1,
+          }}
+        />
+      </div>,
+    )
+    const article = result.getByLabelText("Recipe page")
+    await waitFor(() =>
+      expect(article.getBoundingClientRect().width).toBe(
+        width,
+      ),
+    )
+    expect(article.scrollHeight).toBeLessThanOrEqual(
+      article.clientHeight + 1,
+    )
+    expect(article.scrollWidth).toBeLessThanOrEqual(
+      article.clientWidth + 1,
+    )
+    result.unmount()
   }
 })

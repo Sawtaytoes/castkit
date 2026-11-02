@@ -120,3 +120,18 @@ test("a title too long for the header sends the recipe to pages instead of hidin
   expect(pages.length).toBeGreaterThan(1)
   expect(pages.some((page) => page.isComplete)).toBe(false)
 })
+test("wide letters that would wrap past a small screen send the recipe to pages", () => {
+  const { pages } = paginateRecipe(
+    {
+      slug: "probe",
+      name: "Recipe",
+      url: "https://example.com",
+      ingredients: ["WWWWW ".repeat(18)],
+      instructions: ["Serve."],
+      notes: [],
+    },
+    320,
+    240,
+  )
+  expect(pages.some((page) => page.isComplete)).toBe(false)
+})

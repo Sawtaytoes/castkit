@@ -85,7 +85,8 @@ export const completeRecipeLayout = {
   lineHeight: 1.27,
   titleScale: 1.45,
   /** Average sans-serif glyph width, kept wide so the estimate errs toward paging. */
-  glyphWidth: 0.58,
+  /** Lowercase and other narrow glyphs; wider letters use more. */
+  glyphWidth: 0.6,
   ingredientShare: 0.34,
   yieldShare: 0.33,
   columnGap: 1.2,
@@ -95,21 +96,59 @@ export const completeRecipeLayout = {
   largestFont: 22,
   smallestFont: 13,
 }
+/**
+ * Each glyph's width in em, rounded up from Arial and Helvetica so the
+ * estimate errs toward paging. The widest Latin letters get a full em.
+ */
+const glyphEm = (letter: string) => {
+  const size = cells(letter)
+  if (size === 0) return 0
+  if (size === 2) return 1.05
+  if (letter === " ") return 0.3
+  if (/[MWmw@%]/.test(letter)) return 1
+  if (/\p{Lu}/u.test(letter)) return 0.8
+  return completeRecipeLayout.glyphWidth
+}
+/** Lines a paragraph takes when wrapped at word boundaries, or anywhere in a long word. */
 const countLines = (
   value: string,
   width: number,
   fontSize: number,
-) =>
-  wrapRecipeText(
-    value,
-    Math.max(
-      8,
-      Math.floor(
-        width /
-          (fontSize * completeRecipeLayout.glyphWidth),
-      ),
-    ),
-  ).length
+) => {
+  const room = Math.max(1, width / fontSize)
+  let lines = 0
+  for (const paragraph of value
+    .replace(/\r\n?/g, "\n")
+    .replace(/\t/g, "    ")
+    .split("\n")) {
+    lines += 1
+    let used = 0
+    for (const word of paragraph.split(/(?<= )/)) {
+      const letters = Array.from(word)
+      const size = letters.reduce(
+        (total, letter) => total + glyphEm(letter),
+        0,
+      )
+      if (used > 0 && used + size - 0.3 > room) {
+        lines += 1
+        used = 0
+      }
+      for (const letter of letters) {
+        const letterSize = glyphEm(letter)
+        if (
+          used > 0 &&
+          used + letterSize > room &&
+          letter !== " "
+        ) {
+          lines += 1
+          used = 0
+        }
+        used += letterSize
+      }
+    }
+  }
+  return lines
+}
 /**
  * The largest body font that fits the whole recipe on one screen, or null
  * when the recipe needs pages. The view still shrinks to fit after layout.
