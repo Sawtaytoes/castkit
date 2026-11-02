@@ -490,7 +490,10 @@ const main = async () => {
     getPlatformSelection: (deviceId) => {
       const target = platform.getDeviceTarget(deviceId)
       return target
-        ? JSON.stringify(platform.getTarget(target)?.view)
+        ? JSON.stringify(
+            platform.getTarget({ ...target, deviceId })
+              ?.view,
+          )
         : undefined
     },
     renderPlatform: async ({
@@ -2242,7 +2245,7 @@ const main = async () => {
         definitions: deviceDefinitionStore.getAll(),
       })
       if (changes) {
-        platform.notify()
+        platform.refreshDeviceViews()
         changes.forEach((deviceId) => {
           void browserMode
             .refreshDeviceDefinition(deviceId)
@@ -2377,6 +2380,12 @@ const main = async () => {
       return true
     },
   })
+  platform.setDeviceNavigationReader(
+    browserMode.readSelectedExternalView,
+  )
+  platform.setDeviceCaptureReader(
+    browserMode.readCaptureTarget,
+  )
   const streamFrameService = startStreamFrameService({
     browserMode,
     platform,

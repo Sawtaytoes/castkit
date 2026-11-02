@@ -10,6 +10,7 @@ const LIVE_FIELDS = new Set([
   "spoolsChannel",
   "printQueueChannel",
   "leftSwipeViewId",
+  "viewOverrides",
   "power",
   "ditherProfile",
 ])

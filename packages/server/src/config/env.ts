@@ -9,6 +9,7 @@ import type { MqttConnectionConfig } from "@castkit/shared/mqtt/publisher"
 import { PIXEL_GRIDS } from "@castkit/shared/panels/pixelGrid"
 import { REPAINT_GRADES } from "@castkit/shared/panels/repaint"
 import * as z from "zod/mini"
+import { deviceViewOverrideSchema } from "./deviceViewOverrideSchema.ts"
 
 /**
  * Runtime configuration, validated from environment variables. Everything
@@ -138,6 +139,7 @@ export const migrateLegacyDeviceEntry = (
 }
 
 const DeviceConfigSchema = z.object({
+  viewOverrides: deviceViewOverrideSchema,
   id: z.string(),
   label: z.string(),
   mac: z.string(),
@@ -195,6 +197,7 @@ const DeviceConfigSchema = z.object({
  * devices. `renderer: "browser"` is the discriminator in the shared file.
  */
 const BrowserDeviceConfigSchema = z.object({
+  viewOverrides: deviceViewOverrideSchema,
   renderer: z.literal("browser"),
   id: z.string(),
   label: z.string(),

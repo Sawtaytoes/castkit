@@ -164,6 +164,82 @@ test("profiles merge identical settings but retain rotation and capabilities", a
   expect(profiles[0]?.unsupportedViews.camera).toBeDefined()
 })
 
+test("identical displays with different view variants keep separate profiles and preview captures", async () => {
+  const {
+    platform,
+    definitions,
+    pushController,
+    devices,
+    request,
+    renderPreview,
+  } = await fixture()
+  const viewOverrides = {
+    agenda: { name: "Agenda · First panel", panels: {} },
+  }
+  const device = devices[0]
+  const definition = definitions.getAll()[0]
+  if (!device || !definition)
+    throw new Error("Missing fixture display")
+  Object.assign(device, { viewOverrides })
+  Object.assign(definition, { viewOverrides })
+  platform.store.update((previous) => ({
+    ...previous,
+    sources: [
+      {
+        id: "events",
+        name: "Events",
+        adapter: "mqtt",
+        settings: {},
+        isEnabled: false,
+      },
+    ],
+    channels: [
+      {
+        id: "agenda/data",
+        name: "Agenda",
+        sourceId: "events",
+        type: "agenda.v1",
+        settings: {},
+      },
+    ],
+    views: previous.views.map((view) =>
+      view.id === "agenda"
+        ? {
+            ...view,
+            panels: view.panels.map((panel) => ({
+              ...panel,
+              bindings: { data: "agenda/data" },
+            })),
+          }
+        : view,
+    ),
+  }))
+  platform.validateDeviceViews()
+  const profiles = getPreviewProfiles({
+    platform,
+    definitions,
+    pushController,
+  })
+  expect(profiles).toHaveLength(3)
+  expect(
+    profiles.find((profile) => profile.deviceId === "one")
+      ?.deviceIds,
+  ).toEqual(["one"])
+  expect(
+    profiles.find((profile) => profile.deviceId === "one")
+      ?.label,
+  ).toContain("Customized views")
+  expect(
+    (await request("/api/manage/previews/one/view/agenda"))
+      .status,
+  ).toBe(200)
+  expect(
+    (await request("/api/manage/previews/two/view/agenda"))
+      .status,
+  ).toBe(200)
+  expect(renderPreview).toHaveBeenCalledTimes(2)
+})
+
 test("image preview requires management authorization, coalesces renders, and never changes targets", async () => {
   const {
     app,

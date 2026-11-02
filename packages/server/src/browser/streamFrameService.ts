@@ -1,4 +1,5 @@
 import type { StreamFrameRequest } from "@castkit/render/engine"
+import { readLocalDisplayTarget } from "@castkit/shared/views/localDisplayTarget"
 import type { Platform } from "../platform/platform.ts"
 import { readPlatformTargetContent } from "../platform/platformFrameKey.ts"
 import type { BrowserMode } from "./browserMode.ts"
@@ -37,6 +38,10 @@ export const startStreamFrameService = ({
     | "getDeviceProperties"
     | "channelsForView"
     | "hub"
+    | "publicUrl"
+    | "store"
+    | "subscribe"
+    | "screens"
   >
   captureStreamFrame: (
     request: StreamFrameRequest,
@@ -57,13 +62,57 @@ export const startStreamFrameService = ({
                 deviceId,
                 requested,
               ),
-            readPlatformContent: (deviceTarget) =>
-              readPlatformTargetContent({
+            readLocalTarget: (viewId) => {
+              const index = /^external-view:(\d+)$/.exec(
+                viewId,
+              )?.[1]
+              const origin =
+                platform.publicUrl ||
+                `http://127.0.0.1:${port}`
+              return index === undefined
+                ? undefined
+                : (readLocalDisplayTarget({
+                    view: snapshot.device.externalViews[
+                      Number(index)
+                    ],
+                    origin,
+                    baseUrl: new URL(
+                      `/d/${encodeURIComponent(deviceId)}`,
+                      origin,
+                    ).href,
+                  }) ?? undefined)
+            },
+            readPlatformContent: (deviceTarget) => {
+              const resolved = platform.getTarget({
+                ...deviceTarget,
+                deviceId,
+              })
+              // A separate capture context cannot inherit the worker's access session.
+              const hasAdminControls =
+                resolved?.view.isControlEnabled &&
+                resolved.view.panels.some(
+                  (panel) =>
+                    panel.specId === "printer-status",
+                )
+              if (
+                !resolved ||
+                resolved.view.access === "pin" ||
+                resolved.screen?.access === "pin" ||
+                // A multi-view screen also draws inactive tabs and their activity.
+                // Keep its worker capture until those dependencies have a cache key.
+                (resolved.screen &&
+                  resolved.screen.viewIds.length > 1) ||
+                hasAdminControls
+              ) {
+                return undefined
+              }
+              return readPlatformTargetContent({
                 platform,
                 deviceId,
                 deviceTarget,
                 now: nowMs,
-              }),
+              })
+            },
           })
         : undefined
     },
@@ -122,11 +171,29 @@ export const startStreamFrameService = ({
       streamFrames.markChannelChanged(channel.id)
     },
   )
+  const configuration = { value: platform.store.get() }
+  const stopScreenChanges = platform.screens.subscribe(
+    streamFrames.refreshAll,
+  )
+  const stopConfigurationChanges = platform.subscribe(
+    () => {
+      const next = platform.store.get()
+      if (next !== configuration.value) {
+        configuration.value = next
+        streamFrames.refreshAll()
+      } else {
+        // Scan expiry and paused-music expiry notify without a store write.
+        streamFrames.markAllChanged()
+      }
+    },
+  )
   return {
     streamFrames,
     stop: () => {
       stopDeviceChanges()
       stopPlatformChanges()
+      stopConfigurationChanges()
+      stopScreenChanges()
       streamFrames.dispose()
     },
   }

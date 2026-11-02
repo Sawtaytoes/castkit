@@ -176,9 +176,9 @@ export const createApp = ({
     if (new Set(deviceIds).size !== deviceIds.length) {
       throw new Error("Each device must have a unique id.")
     }
-    deviceDefinitionStore.replaceAll(
-      definitions.map(parseDeviceDefinition),
-    )
+    const parsed = definitions.map(parseDeviceDefinition)
+    platform?.validateDeviceViews({ definitions: parsed })
+    deviceDefinitionStore.replaceAll(parsed)
     return onDeviceDefinitionsChanged() !== false
   }
 

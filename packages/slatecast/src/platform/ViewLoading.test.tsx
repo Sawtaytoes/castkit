@@ -119,6 +119,42 @@ const setup = async () => {
   return { answer, fetch, push }
 }
 
+test("a token capture loads its scoped composition once without a live subscription", async () => {
+  const previousUrl = window.location.href
+  window.history.replaceState(
+    null,
+    "",
+    "/d/test-panel?capture=fixture-capture",
+  )
+  onTestFinished(() =>
+    window.history.replaceState(null, "", previousUrl),
+  )
+  const { answer, fetch } = await setup()
+  render(
+    <PlatformApp
+      target={{
+        kind: "view",
+        id: "activity",
+        deviceId: "test-panel",
+      }}
+      isDeviceShell
+    />,
+  )
+  await answer(
+    "/api/display/view/activity?device=test-panel&capture=fixture-capture",
+    compositionFixture,
+  )
+  await waitFor(() =>
+    expect(
+      document.querySelector("main.platform"),
+    ).toHaveAttribute("data-connection", "connected"),
+  )
+  expect(fetch).toHaveBeenCalledOnce()
+  expect(
+    screen.getByRole("article", { name: "Printer One" }),
+  ).toBeVisible()
+})
+
 test("retains the old view while loading, disables its controls, and ignores a superseded response", async () => {
   const { answer, fetch } = await setup()
   const mounted = render(
@@ -245,7 +281,7 @@ test("the device shell opens local CastKit links in place and survives a tempora
     mounted.unmount()
   })
   await answer(
-    "/api/display/view/activity",
+    "/api/display/view/activity?device=test-panel",
     compositionFixture,
   )
   await screen.findByText("Printer One")

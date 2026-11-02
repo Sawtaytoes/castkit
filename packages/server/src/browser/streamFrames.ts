@@ -161,6 +161,7 @@ export const readStreamDestinations = ({
   nowMs,
   readLearnedTarget,
   readPlatformContent,
+  readLocalTarget = () => undefined,
 }: {
   snapshot: DeviceSnapshot
   nowMs: number
@@ -174,6 +175,9 @@ export const readStreamDestinations = ({
         channelIds: readonly string[]
       }
     | undefined
+  readLocalTarget?: (
+    viewId: string,
+  ) => DisplayTarget | undefined
 }): StreamDestination[] => {
   const minute = Math.floor(nowMs / 60_000)
   const viewIds = listSwipeDestinations({
@@ -186,7 +190,10 @@ export const readStreamDestinations = ({
     limit: STREAM_FRAME_LIMIT,
   })
   return viewIds.flatMap((viewId): StreamDestination[] => {
+    const localTarget = readLocalTarget(viewId)
     if (
+      !localTarget &&
+      !viewId.startsWith("external-view:") &&
       snapshot.device.views.some(
         (view) => view.clientId === viewId,
       )
@@ -209,7 +216,7 @@ export const readStreamDestinations = ({
         },
       ]
     }
-    const target = readLearnedTarget(viewId)
+    const target = localTarget ?? readLearnedTarget(viewId)
     const platform = target
       ? readPlatformContent(target)
       : undefined
@@ -218,6 +225,7 @@ export const readStreamDestinations = ({
     }
     const destination = {
       ...snapshot,
+      ...(localTarget ? { view: viewId } : {}),
       displayTarget: target,
     }
     return [
@@ -557,6 +565,12 @@ export const createStreamFrameCache = ({
   return {
     subscribe,
     markChanged,
+    /** Activity expiry can change pixels without publishing new channel data. */
+    markAllChanged: () =>
+      Array.from(devices.keys()).forEach(markChanged),
+    /** Configuration and access changes invalidate affected destinations immediately. */
+    refreshAll: () =>
+      Array.from(devices.keys()).forEach(refresh),
     /** Recompute the keys of every panel with a destination on `channelId`. */
     markChannelChanged: (channelId: string) => {
       devices.forEach((device, deviceId) => {

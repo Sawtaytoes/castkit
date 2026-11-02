@@ -201,7 +201,14 @@ export const startTestServer = async ({
     publisher,
     devices: config.devices,
     browserDevices: config.browserDevices,
+    publicUrl: config.publicUrl,
   })
+  platform.setDeviceNavigationReader(
+    browserMode.readSelectedExternalView,
+  )
+  platform.setDeviceCaptureReader(
+    browserMode.readCaptureTarget,
+  )
   platform.store.update((previous) => ({
     ...previous,
     adminHash: hashPin("2468"),
@@ -565,7 +572,7 @@ export const startTestServer = async ({
         definitions: deviceDefinitionStore.getAll(),
       })
       if (!changes) return true
-      platform.notify()
+      platform.refreshDeviceViews()
       changes.forEach((deviceId) => {
         void browserMode.refreshDeviceDefinition(deviceId)
       })

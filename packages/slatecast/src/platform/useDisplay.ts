@@ -32,10 +32,10 @@ export const useDisplay = (
     new URLSearchParams(window.location.search).get(
       "preview",
     ) === "1"
-  const isCapture =
-    new URLSearchParams(window.location.search).get(
-      "capture",
-    ) === "1"
+  const captureToken = new URLSearchParams(
+    window.location.search,
+  ).get("capture")
+  const isCapture = Boolean(captureToken)
   const targetKey = displayCacheKey(target)
   const [revision, setRevision] = useState(0)
   const cachedSnapshot = useMemo(
@@ -111,7 +111,7 @@ export const useDisplay = (
   const modeQuery = isPreview
     ? "preview=1"
     : isCapture
-      ? "capture=1"
+      ? `capture=${encodeURIComponent(captureToken ?? "")}`
       : ""
   const displayQuery = `${deviceQuery}${modeQuery ? `${deviceQuery ? "&" : "?"}${modeQuery}` : ""}`
   const path = `/api/display/${target.kind}/${encodeURIComponent(target.id)}`

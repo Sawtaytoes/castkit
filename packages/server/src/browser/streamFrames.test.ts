@@ -257,6 +257,168 @@ const settle = () =>
   new Promise((resolve) => setTimeout(resolve, 20))
 
 describe("createStreamFrameCache", () => {
+  test("activity expiry refreshes listening panels without a channel publication", async () => {
+    const destinationsByDevice = new Map([
+      [
+        "panel-one",
+        [buildDestination("points", "recent-scan")],
+      ],
+      [
+        "panel-two",
+        [buildDestination("points", "settled")],
+      ],
+    ])
+    const { cache, captures } = startCache({
+      destinationsByDevice,
+    })
+    cache.subscribe("panel-one")
+    cache.subscribe("panel-two")
+    await settle()
+    destinationsByDevice.set("panel-one", [
+      buildDestination("points", "settled"),
+    ])
+    cache.markAllChanged()
+    cache.markAllChanged()
+    await settle()
+    expect(cache.read("panel-one", "points")?.png).toBe(
+      cache.read("panel-two", "points")?.png,
+    )
+    expect(captures).toEqual(["recent-scan", "settled"])
+    expect(cache.getStats().entries).toBe(1)
+    cache.dispose()
+  })
+
+  test("manual local variants have distinct frame keys and track their own channel changes", async () => {
+    const buildLocal = ({
+      deviceId,
+      channelId,
+      total,
+    }: {
+      deviceId: string
+      channelId: string
+      total: number
+    }) => {
+      const snapshot = buildPanelSnapshot({ deviceId })
+      const destinations = readStreamDestinations({
+        snapshot: {
+          ...snapshot,
+          device: {
+            ...snapshot.device,
+            leftSwipeViewId: "external-view:0",
+            views: [
+              {
+                name: "Points",
+                clientId: "external-view:0",
+              },
+            ],
+          },
+        },
+        nowMs: NOW,
+        readLearnedTarget: () => undefined,
+        readLocalTarget: (viewId) =>
+          viewId === "external-view:0"
+            ? { kind: "view", id: "points" }
+            : undefined,
+        readPlatformContent: () => ({
+          content: JSON.stringify({ channelId, total }),
+          isTimeDriven: false,
+          channelIds: [channelId],
+        }),
+      })
+      expect(
+        destinations[0]?.snapshot.displayTarget,
+      ).toEqual({ kind: "view", id: "points" })
+      expect(destinations[0]?.snapshot.view).toBe(
+        "external-view:0",
+      )
+      expect(destinations[0]?.channelIds).toEqual([
+        channelId,
+      ])
+      return destinations
+    }
+    const destinationsByDevice = new Map([
+      [
+        "panel-one",
+        buildLocal({
+          deviceId: "panel-one",
+          channelId: "points/one",
+          total: 100,
+        }),
+      ],
+      [
+        "panel-two",
+        buildLocal({
+          deviceId: "panel-two",
+          channelId: "points/two",
+          total: 200,
+        }),
+      ],
+    ])
+    const { cache, captures } = startCache({
+      destinationsByDevice,
+    })
+    cache.subscribe("panel-one")
+    cache.subscribe("panel-two")
+    await settle()
+    const firstKey = cache.read(
+      "panel-one",
+      "external-view:0",
+    )?.key
+    const secondKey = cache.read(
+      "panel-two",
+      "external-view:0",
+    )?.key
+    expect(firstKey).toBeDefined()
+    expect(secondKey).toBeDefined()
+    expect(firstKey).not.toBe(secondKey)
+    destinationsByDevice.set(
+      "panel-one",
+      buildLocal({
+        deviceId: "panel-one",
+        channelId: "points/one",
+        total: 101,
+      }),
+    )
+    cache.markChannelChanged("points/one")
+    await settle()
+    expect(
+      cache.read("panel-one", "external-view:0")?.key,
+    ).not.toBe(firstKey)
+    expect(
+      cache.read("panel-two", "external-view:0")?.key,
+    ).toBe(secondKey)
+    expect(captures).toHaveLength(3)
+    destinationsByDevice.set("panel-one", [])
+    cache.refreshAll()
+    expect(
+      cache.read("panel-one", "external-view:0"),
+    ).toBeUndefined()
+    cache.dispose()
+  })
+
+  test("unresolved external applications are not cached as native frames", () => {
+    const snapshot = buildPanelSnapshot()
+    const destinations = readStreamDestinations({
+      snapshot: {
+        ...snapshot,
+        device: {
+          ...snapshot.device,
+          leftSwipeViewId: "external-view:0",
+          views: [
+            {
+              name: "External",
+              clientId: "external-view:0",
+            },
+          ],
+        },
+      },
+      nowMs: NOW,
+      readLearnedTarget: () => undefined,
+      readPlatformContent: () => undefined,
+    })
+    expect(destinations).toEqual([])
+  })
+
   test("identical panels share one render and one buffer", async () => {
     const shared = [
       buildDestination("queue", "queue-a"),

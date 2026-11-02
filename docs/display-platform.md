@@ -146,3 +146,62 @@ components belong in plugins; a plugin does not need a dedicated saved view mere
 to make its component reusable. Keep planned compositions when they have a known
 future use, and check screen, device, and automation references before removing a
 standalone view. Removing a saved view does not remove its plugin.
+
+## Device view variants
+
+Open **Devices → View variants**, select a shared saved view, and turn on
+**Customize this view on this device**. Choose a different compatible channel
+for an existing panel input, or enable only the settings this device changes.
+A variant can have a display name without creating another saved view or URL.
+Save the device to apply changes live; no server restart is required.
+
+Plain links to this CastKit's saved views or screens in the device's navigation
+use the same device customizations. The server checks the selected foreground
+target for every snapshot, media request, and action. Temporary targets retain
+priority, and background preload grants remain read-only.
+
+Image-stream frames resolve local compositions before building cache identity
+and tracking channel changes. Temporary capture tokens authorize reads of only
+their destination; they do not unlock PIN-protected views or permit actions.
+Compositions that require a PIN or administrator-only controls are not prepared
+in the shared frame cache because a separate capture context cannot inherit a
+viewer’s access session.
+Multi-view screens retain the worker's normal capture because inactive tabs
+have additional names and activity dependencies.
+
+The device inherits the shared view's layout, appearance, panel specifications,
+access, and control permissions. Settings inherit by field, so changing a
+shared setting reaches every device that has not customized that field. Reset
+a panel or turn off customization to restore inheritance. An empty optional
+input removes its binding; required inputs still need a compatible channel.
+
+Customizations live under `viewOverrides` in the existing device definition:
+
+```json
+{
+  "viewOverrides": {
+    "points": {
+      "name": "Tally Marks · Practice",
+      "panels": {
+        "board": {
+          "bindings": { "data": "points/practice" },
+          "settings": { "isAllChildrenVisible": true }
+        }
+      }
+    }
+  }
+}
+```
+
+The outer key is the saved view ID, and panel keys are existing panel IDs.
+Unknown views, panels, input names, settings, or incompatible channels are
+rejected. Shared edits and deletions are checked against saved customizations.
+A device customization cannot change access or enable controls on a read-only
+shared view.
+
+For reader-specific feedback, bind a channel that filters both scans and timed
+activities at the source. Filtering only the last scan after a shared channel
+has replaced it cannot recover another room's previous feedback. Browser
+snapshots, activity, controls, media URLs, image frames, and previews all resolve effective
+device bindings before choosing data. Frame identity includes the resulting
+view and data; preview profiles separate different device customizations.

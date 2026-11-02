@@ -19,6 +19,11 @@ import {
   getDisplayCompatibility,
   getPlatformDisplayCapabilities,
 } from "./displayCompatibility.ts"
+import {
+  DISPLAY_MEDIA_CONTEXT_KEYS,
+  scopeDisplayMediaPlaylist,
+  withDisplayMediaContext,
+} from "./displayMediaScope.ts"
 import { attachMapTiles } from "./mapTiles.ts"
 import type { Platform } from "./platform.ts"
 import { buildPlatformPage } from "./platformPages.ts"
@@ -60,6 +65,18 @@ export const getDisplay = ({
   id: string
 }) => {
   const deviceId = context.req.query("device")
+  const requestUrl = new URL(context.req.url)
+  // The WebSocket adapter's synthetic URL omits the incoming host and port.
+  const origin = `${requestUrl.protocol}//${context.req.header("host") ?? requestUrl.host}`
+  const isDeviceCapture = Boolean(
+    deviceId &&
+      platform.getIsDeviceCaptureTarget({
+        token: context.req.query("capture") ?? "",
+        deviceId,
+        kind,
+        id,
+      }),
+  )
   const isPreload = Boolean(
     deviceId &&
       kind === "view" &&
@@ -67,15 +84,19 @@ export const getDisplay = ({
       platform.getIsAssignedDeviceView({
         deviceId,
         viewId: id,
-        origin: new URL(context.req.url).origin,
+        origin,
       }),
   )
   const deviceTarget = deviceId
-    ? platform.getDeviceTarget(deviceId)
+    ? platform.getDeviceForegroundTarget({
+        deviceId,
+        origin,
+      })
     : undefined
   if (
     deviceId &&
     !isPreload &&
+    !isDeviceCapture &&
     !(
       (context.req.query("preview") === "1" ||
         context.req.query("capture") === "1") &&
@@ -87,7 +108,7 @@ export const getDisplay = ({
       error: "device-assignment-changed",
       status: 409 as const,
     }
-  const target = platform.getTarget({ kind, id })
+  const target = platform.getTarget({ kind, id, deviceId })
   if (!target)
     return {
       error: "unknown display",
@@ -116,10 +137,14 @@ export const getDisplay = ({
       typeof value === "string" &&
       value.startsWith("/api/platform/channels/")
     ) {
-      return value.replace(
+      const rewritten = value.replace(
         /^\/api\/platform\/channels\/([^/]+)\/media\//,
-        `/api/display/${kind}/${id}/media/$1/`,
+        `/api/display/${kind}/${encodeURIComponent(id)}/media/$1/`,
       )
+      return withDisplayMediaContext({
+        url: rewritten,
+        requestUrl: context.req.url,
+      })
     }
     if (Array.isArray(value)) return value.map(rewriteMedia)
     if (isRecord(value))
@@ -145,9 +170,15 @@ export const getDisplay = ({
       },
       availableViews: screen
         ? screen.viewIds.flatMap((viewId) => {
-            const candidate = platform.store
+            const savedCandidate = platform.store
               .get()
               .views.find((item) => item.id === viewId)
+            const candidate =
+              savedCandidate &&
+              platform.getViewForDevice({
+                view: savedCandidate,
+                deviceId,
+              })
             return candidate
               ? [
                   {
@@ -828,6 +859,17 @@ export const attachPlatformRoutes = ({
               record as ScreenDefinition,
             ]
           : previous.screens
+      platform.validateDeviceViews({
+        views: candidateViews,
+        channels:
+          collection === "channels"
+            ? previous.channels
+                .filter(
+                  (channel) => channel.id !== record.id,
+                )
+                .concat(record as ChannelDefinition)
+            : previous.channels,
+      })
       Object.entries(previous.deviceScreens).forEach(
         ([deviceId, screenId]) => {
           const display =
@@ -842,7 +884,10 @@ export const attachPlatformRoutes = ({
               )
               if (view) {
                 const result = getDisplayCompatibility({
-                  view,
+                  view: platform.getViewForDevice({
+                    view,
+                    deviceId,
+                  }),
                   catalog,
                   display,
                 })
@@ -931,6 +976,27 @@ export const attachPlatformRoutes = ({
             { error: "Unknown item" },
             404,
           )
+        try {
+          platform.validateDeviceViews({
+            views:
+              collection === "views"
+                ? previous.views.filter(
+                    (view) => view.id !== id,
+                  )
+                : previous.views,
+            channels:
+              collection === "channels"
+                ? previous.channels.filter(
+                    (channel) => channel.id !== id,
+                  )
+                : previous.channels,
+          })
+        } catch (error) {
+          return context.json(
+            { error: getError(error) },
+            409,
+          )
+        }
         const isUsed =
           collection === "sources"
             ? previous.channels.some(
@@ -1277,6 +1343,18 @@ export const attachPlatformRoutes = ({
       return context.json({ ok: true })
     },
   )
+  app.use("/api/display/*", async (context, next) => {
+    if (
+      context.req.query("capture") &&
+      !["GET", "HEAD"].includes(context.req.method)
+    ) {
+      return context.json(
+        { error: "Capture grants are read-only" },
+        403,
+      )
+    }
+    await next()
+  })
   app.get("/api/display/:kind/:id", (context) => {
     const kind = targetKind.safeParse(
       context.req.param("kind"),
@@ -1539,7 +1617,12 @@ const sendMedia = async ({
       channelId: context.req.param("channelId") ?? "",
       assetId: context.req.param("assetId") ?? "",
       kind: context.req.query("kind"),
-      query: context.req.query(),
+      query: Object.fromEntries(
+        Object.entries(context.req.query()).filter(
+          ([key]) =>
+            !DISPLAY_MEDIA_CONTEXT_KEYS.includes(key),
+        ),
+      ),
       signal: context.req.raw.signal,
     })
     if (!response.ok)
@@ -1570,7 +1653,19 @@ const sendMedia = async ({
      * origin, so it is served sandboxed with nothing it may load.
      */
     const isSvg = /^image\/svg\+xml/i.test(contentType)
-    return new Response(response.body, {
+    const isPlaylist =
+      isHls &&
+      /^application\/(vnd\.apple\.mpegurl|x-mpegurl)\b/i.test(
+        contentType,
+      )
+    const body =
+      isPlaylist && context.req.query("device")
+        ? scopeDisplayMediaPlaylist({
+            playlist: await response.text(),
+            requestUrl: context.req.url,
+          })
+        : response.body
+    return new Response(body, {
       headers: {
         "content-type": contentType,
         "cache-control": "private, no-store",
