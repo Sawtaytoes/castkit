@@ -564,9 +564,9 @@ class DisplaySession:
 
         Every touch path ends here (the stage gesture and every native touch),
         once per contact. Only a request newer than the contact's start counts.
-        Whatever the panel was still sending for the pull (its "Release for ..."
-        hint) is stopped, and frames captured before the release are dropped, so
-        the destination never waits behind them.
+        Whatever the panel was still sending while the finger moved is stopped,
+        and frames captured before the release are dropped, so the destination
+        never waits behind them.
         """
         if self.feed is None or not isinstance(self.client, PrestoTransport):
             return

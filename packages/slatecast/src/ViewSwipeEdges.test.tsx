@@ -202,7 +202,7 @@ describe("shell navigation from all four edges", () => {
   })
 })
 
-test("a pull acknowledges locally, keeps loading feedback through a cancelled pull, and deduplicates retries", async () => {
+test("a pull shows no release hint, keeps loading feedback through a cancelled pull, and deduplicates retries", async () => {
   const { server } = await mountExternal()
   const target = screen.getByRole("button", {
     name: "Pull inward from the bottom for time",
@@ -218,8 +218,11 @@ test("a pull acknowledges locally, keeps loading feedback through a cancelled pu
     clientY: 175,
   })
   expect(
-    await screen.findByText("Release for time"),
-  ).toBeVisible()
+    screen.queryByText(/Release for/),
+  ).not.toBeInTheDocument()
+  expect(
+    document.querySelector(".navigation-feedback"),
+  ).toBeNull()
   fireEvent.pointerMove(target, {
     pointerId: 7,
     clientX: 100,

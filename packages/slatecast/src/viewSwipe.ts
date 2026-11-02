@@ -4,10 +4,6 @@ import {
 } from "@castkit/shared/views/swipeDestinations"
 import { signal } from "@preact/signals"
 import {
-  cancelNavigationPull,
-  showNavigationPull,
-} from "./navigationFeedback.ts"
-import {
   activeView,
   agenda,
   device,
@@ -98,23 +94,6 @@ export const trackViewSwipe = (event: PointerEvent) => {
   }
   const distanceX = event.clientX - swipe.startX
   const distanceY = event.clientY - swipe.startY
-  const isVerticalPull =
-    Math.abs(distanceY) > Math.abs(distanceX)
-  if (isVerticalPull || swipe.isRightEdge) {
-    showNavigationPull({
-      label: isVerticalPull
-        ? distanceY > 0
-          ? "audio"
-          : "time"
-        : device.value?.leftSwipeViewId === "kids-points"
-          ? "Points"
-          : "view",
-      progress:
-        (isVerticalPull
-          ? Math.abs(distanceY)
-          : Math.max(0, -distanceX)) / SWIPE_COMMIT_PIXELS,
-    })
-  }
   // More vertical than horizontal, or the artwork's own left/right drag would
   // double as a view change every time it went slightly off-axis.
   if (
@@ -163,7 +142,6 @@ export const endViewSwipe = (
   } = swipe
   swipe = null
   isViewSwipe.value = false
-  cancelNavigationPull()
   if (!isCommitted) {
     return
   }
@@ -211,5 +189,4 @@ export const endViewSwipe = (
 export const cancelViewSwipe = () => {
   swipe = null
   isViewSwipe.value = false
-  cancelNavigationPull()
 }

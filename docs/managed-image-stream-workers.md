@@ -84,7 +84,7 @@ asks for nothing and shows nothing. One contact releases once. The shell's
 `data-requested-view` is **not** the signal: it renders a microtask later, and on
 loopback the server applies a native view so quickly that its answer had often removed
 the loading feedback before the worker looked, so production showed `releases_ahead=0`
-on every panel. At a release the worker stops the "Release for …" frame still being
+on every panel. At a release the worker stops any frame still being
 sent (between chunks; a frame whose chunks all reached the board becomes the base), and
 drops any frame captured before the release. It then shows the destination:
 

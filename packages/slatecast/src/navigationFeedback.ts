@@ -3,7 +3,7 @@ import { computed, signal } from "@preact/signals"
 type Feedback = {
   label: string
   progress: number
-  phase: "pulling" | "loading" | "error"
+  phase: "loading" | "error"
   requestedView?: string
   navigationId?: string
 }
@@ -21,16 +21,19 @@ declare global {
   }
 }
 
-const pull = signal<Feedback | null>(null)
 const request = signal<Feedback | null>(null)
 const lifetime = { timer: 0 }
 
-/** Local input feedback is independent of the controller's navigation policy. */
+/**
+ * Feedback for a released request, independent of the controller's navigation
+ * policy. A pull in progress shows no hint: the owner removed the "Release for …"
+ * label (docs/decisions/2026-11-02-a-pull-shows-no-release-hint.md).
+ */
 export const navigationFeedback = computed(
-  () => pull.value ?? request.value,
+  () => request.value,
 )
 
-/** The outstanding local request, independently of a new pull preview. */
+/** The outstanding local request. */
 export const navigationRequestId = computed(() =>
   request.value?.phase === "loading"
     ? (request.value.navigationId ?? null)
@@ -41,24 +44,6 @@ export const navigationRequestId = computed(() =>
 export const hasNavigationTimedOut = computed(
   () => request.value?.phase === "error",
 )
-
-/** A pull previews the next destination while an earlier request can still finish. */
-export const showNavigationPull = ({
-  label,
-  progress,
-}: {
-  label: string
-  progress: number
-}) => {
-  pull.value =
-    progress > 0
-      ? {
-          label,
-          progress: Math.min(1, progress),
-          phase: "pulling",
-        }
-      : null
-}
 
 /** Repeating an unanswered gesture must not enqueue the same navigation again. */
 export const hasNavigationRequest = (
@@ -101,11 +86,6 @@ export const showNavigationLoading = ({
     }
   }, 8000)
   return navigationId
-}
-
-/** Cancelling a contact restores feedback for any running request. */
-export const cancelNavigationPull = () => {
-  pull.value = null
 }
 
 /** The selected view has painted, or its request has ended. */
