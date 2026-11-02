@@ -10,7 +10,7 @@ Recipes are a reading view with explicit pages. They do not scroll, auto-advance
 4. Select **Show recipe**. Use **Ingredients**, **Instructions**, **Previous**, **Next**, and **Done cooking**.
 5. Expand the 800 × 480 display preview to inspect the static page. **Open phone controls** gives a separate, session-scoped reading page. **Copy cooking link** copies that link for another browser.
 
-The phone-only option does not change a physical display. Placement and hardware can be chosen later. A physical target must have at least 320 × 240 usable pixels. A session snapshots the recipe and page dimensions so the phone and panel follow the same page sequence; source edits affect the next session.
+The phone-only option does not change a physical display. Placement and hardware can be chosen later. Physical targets in this first version use image delivery and must have at least 320 × 240 usable pixels. Browser kiosks are excluded until they have session-scoped device authorization; phones use the separate cooking controller. A session snapshots the recipe and page dimensions so the phone and panel follow the same page sequence; source edits affect the next session.
 
 Cooking links are bearer capabilities for one active session. Share them only with someone allowed to read and control that recipe. The key travels in the URL fragment, is removed from the address after loading, and is retained only in that tab's session storage. Ending a session revokes it. Source editing and recipe browsing remain behind management authentication.
 

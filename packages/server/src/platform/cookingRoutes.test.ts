@@ -278,3 +278,23 @@ test("MQTT controls require a current session revision and an unexpired command"
     }),
   )
 })
+
+test("browser kiosk targets are refused before fetching or importing a recipe", async () => {
+  const { platform, request, fetchMock } = await setup()
+  const device = platform.getDeviceProperties("panel")!
+  vi.spyOn(platform, "getDeviceProperties").mockReturnValue(
+    { ...device, delivery: "browser" },
+  )
+  const response = await request(
+    "/api/manage/cooking",
+    {
+      sourceId: "recipes",
+      deviceId: "panel",
+      link: "skillet",
+    },
+    { Authorization: "Bearer test-admin-token" },
+  )
+  expect(response.status).toBe(400)
+  expect(fetchMock).not.toHaveBeenCalled()
+  expect(platform.cooking.list()).toEqual([])
+})

@@ -95,3 +95,30 @@ test("Done revokes the old link, and a stale Done cannot affect the next session
     newer.id,
   )
 })
+
+test("visiting notes does not replace the saved instruction position", () => {
+  const cooking = createCookingSessions({
+    onChanged: vi.fn(),
+  })
+  const session = cooking.start({
+    ...input,
+    recipe: {
+      ...recipe,
+      instructions: ["Warm the pan.", "Serve warm."],
+      notes: ["Store leftovers chilled."],
+    },
+  })
+  cooking.command(session.id, "instructions")
+  const second = cooking.command(session.id, "next")!
+  const note = cooking.command(session.id, "next")!
+  expect(cooking.display(note).page.heading).toBe("Note 1")
+  cooking.command(session.id, "ingredients")
+  const restored = cooking.command(
+    session.id,
+    "instructions",
+  )!
+  expect(restored.pageIndex).toBe(second.pageIndex)
+  expect(cooking.display(restored).page.heading).toBe(
+    "Step 2 of 2",
+  )
+})

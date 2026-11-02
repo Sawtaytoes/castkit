@@ -263,6 +263,7 @@ export const Cooking = ({
       label: string
       width: number
       height: number
+      renderer?: "browser"
     }[]
   >([])
   const [recipes, setRecipes] = useState<
@@ -291,7 +292,9 @@ export const Cooking = ({
         setDevices(
           value.devices.filter(
             (item) =>
-              item.width >= 320 && item.height >= 240,
+              item.renderer !== "browser" &&
+              item.width >= 320 &&
+              item.height >= 240,
           ),
         ),
       )

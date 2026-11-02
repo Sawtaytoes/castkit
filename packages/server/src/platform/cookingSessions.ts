@@ -232,14 +232,20 @@ export const createCookingSessions = ({
           page.heading.startsWith("Step ") ||
           page.heading === "Instructions missing",
       )
+      const savedInstruction =
+        pages[session.instructionPage]
+      const instructionPage =
+        savedInstruction &&
+        (savedInstruction.heading.startsWith("Step ") ||
+          savedInstruction.heading ===
+            "Instructions missing")
+          ? session.instructionPage
+          : firstInstruction
       const pageIndex =
         action === "ingredients"
           ? 0
           : action === "instructions"
-            ? Math.max(
-                firstInstruction,
-                session.instructionPage,
-              )
+            ? instructionPage
             : Math.max(
                 0,
                 Math.min(
@@ -253,7 +259,9 @@ export const createCookingSessions = ({
         ...session,
         pageIndex,
         instructionPage:
-          pageIndex >= firstInstruction
+          pages[pageIndex]?.heading.startsWith("Step ") ||
+          pages[pageIndex]?.heading ===
+            "Instructions missing"
             ? pageIndex
             : session.instructionPage,
         revision: session.revision + 1,

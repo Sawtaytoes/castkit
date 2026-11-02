@@ -84,9 +84,17 @@ export const attachCookingRoutes = ({
     const device = /^phone-only\/[a-f0-9-]{36}$/.test(
       request.deviceId,
     )
-      ? { width: 800, height: 480 }
+      ? {
+          width: 800,
+          height: 480,
+          delivery: "image" as const,
+        }
       : platform.getDeviceProperties(request.deviceId)
     if (!device) throw new Error("Unknown display.")
+    if (device.delivery !== "image")
+      throw new Error(
+        "Choose phone-only controls or an image-delivery display. Browser kiosk targets are not supported for cooking sessions yet.",
+      )
     const context = contextFor(request.sourceId)
     const active = platform.cooking.getForDevice(
       request.deviceId,
