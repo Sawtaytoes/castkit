@@ -4,7 +4,7 @@
 - **Date:** 2026-07-12
 - **Type:** Product behavior
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-11-01: Duo chooses a photo before choosing its layout](2026-11-01-duo-chooses-a-photo-before-choosing-its-layout.md) — selection now includes landscape singles as well as portrait pairs
 - **Refined by:** [2026-09-07-photo-views-compose-for-the-visible-window](2026-09-07-photo-views-compose-for-the-visible-window.md) — the two columns and the gutter are measured on the visible window when a mat is configured
 
 ## Decision
