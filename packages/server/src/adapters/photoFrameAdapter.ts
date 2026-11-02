@@ -44,10 +44,9 @@ export const getPhotoTargetWidth = ({
  * Whether a recompose must refetch rather than replay the photo history.
  *
  * The history remembers single assets, not the PAIR a dual-portrait frame is
- * built from, so replaying it on a Duo device would quietly collapse two
- * columns into one. A Duo device takes a fresh pair instead: the owner sees a
- * different picture, but the frame keeps its shape, which is the property worth
- * protecting while tuning a crop. An empty history has nothing to replay.
+ * built from, so replaying it on a Duo device could collapse a portrait pair
+ * into one image. Duo makes a fresh selection and resolves its orientation-based
+ * layout again. An empty history has nothing to replay.
  */
 export const getShouldRefetchOnRecompose = ({
   activeView,
