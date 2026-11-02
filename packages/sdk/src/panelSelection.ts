@@ -69,6 +69,30 @@ export const selectPanelData = ({
   if (data === null || data === undefined) {
     return data
   }
+  if (
+    specId === "timers" &&
+    settings.presentation === "priority"
+  ) {
+    const timers = data as ContractData["entities.v1"]
+    return {
+      ...timers,
+      entities: timers.entities.filter(
+        (entity) =>
+          entity.domain === "timer" &&
+          (!settings.room ||
+            entity.attributes.room === settings.room ||
+            (typeof settings.additionalRooms === "string" &&
+              settings.additionalRooms
+                .split(",")
+                .map((room) => room.trim())
+                .includes(
+                  String(entity.attributes.room),
+                ))) &&
+          (settings.isActiveOnly !== true ||
+            ["active", "paused"].includes(entity.state)),
+      ),
+    }
+  }
   if (specId === "printer-status") {
     const printers = data as ContractData["printers.v1"]
     return {

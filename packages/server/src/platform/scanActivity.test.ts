@@ -133,3 +133,39 @@ test("a countdown expires at its target even without another MQTT message", () =
   expect(onExpire).toHaveBeenCalledTimes(2)
   activity.dispose()
 })
+
+test("room timer deadlines refresh targets even when the producer disconnects", () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(1_000_000)
+  const onExpire = vi.fn()
+  const activity = createScanActivity({
+    getViews: () => [],
+    onExpire,
+  })
+  const snapshot: ChannelSnapshot = {
+    id: "timers",
+    type: "entities.v1",
+    status: "ready",
+    data: {
+      entities: [10, 20].map((seconds) => ({
+        id: String(seconds),
+        name: "Tea",
+        domain: "timer",
+        state: "active",
+        attributes: {
+          finishes_at: new Date(
+            Date.now() + seconds * 1000,
+          ).toISOString(),
+        },
+        actions: [],
+      })),
+    },
+  }
+  activity.observe(snapshot)
+  activity.observe(snapshot)
+  vi.advanceTimersByTime(10_000)
+  expect(onExpire).toHaveBeenCalledTimes(1)
+  vi.advanceTimersByTime(10_000)
+  expect(onExpire).toHaveBeenCalledTimes(2)
+  activity.dispose()
+})

@@ -241,3 +241,30 @@ test("usage details retain quiet and unmeasured windows while honoring account s
     "usage_limit_resets",
   ])
 })
+
+test("priority timers include their room and configured shared rooms only", () => {
+  const data = {
+    entities: ["lounge", "whole-home", "study"].map(
+      (room) => ({
+        id: room,
+        name: room,
+        domain: "timer",
+        state: "active",
+        attributes: { room },
+        actions: [],
+      }),
+    ),
+  }
+  const selected = selectPanelData({
+    specId: "timers",
+    settings: {
+      presentation: "priority",
+      room: "lounge",
+      additionalRooms: "whole-home",
+    },
+    data,
+  }) as typeof data
+  expect(
+    selected.entities.map((entity) => entity.id),
+  ).toEqual(["lounge", "whole-home"])
+})
