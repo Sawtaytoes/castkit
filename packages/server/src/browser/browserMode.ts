@@ -2091,6 +2091,23 @@ export const createBrowserMode = ({
       hub.stop()
     },
     attach,
+    /** The configured external application selected by the device's live navigation. */
+    readSelectedExternalView: (deviceId: string) => {
+      const device = stateStore.deviceById.get(deviceId)
+      if (!device) {
+        return undefined
+      }
+      const selected = getBrowserViewByName({
+        device,
+        name: stateStore.getActiveView(deviceId),
+      })
+      const index = /^external-view:(\d+)$/.exec(
+        selected?.clientId ?? "",
+      )?.[1]
+      return index === undefined
+        ? undefined
+        : toClientExternalViews(device)[Number(index)]
+    },
     /** The panel's snapshot as its page would receive it now. */
     readDeviceSnapshot: (deviceId: string) =>
       buildSnapshot(deviceId) ?? undefined,

@@ -76,7 +76,10 @@ export const getDisplay = ({
       }),
   )
   const deviceTarget = deviceId
-    ? platform.getDeviceTarget(deviceId)
+    ? platform.getDeviceForegroundTarget({
+        deviceId,
+        origin: new URL(context.req.url).origin,
+      })
     : undefined
   if (
     deviceId &&

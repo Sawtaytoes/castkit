@@ -540,6 +540,63 @@ export const createPlatform = async ({
       ? { kind: "screen", id: screenId }
       : undefined
   }
+  const navigationReader: {
+    read?: (deviceId: string) =>
+      | {
+          url: string
+          zoom?: number
+          isAvailable?: boolean
+        }
+      | undefined
+  } = {}
+  const getDeviceForegroundTarget = ({
+    deviceId,
+    origin,
+  }: {
+    deviceId: string
+    origin: string
+  }) => {
+    const assigned = getDeviceTarget(deviceId)
+    if (assigned) {
+      return assigned
+    }
+    const selected = navigationReader.read?.(deviceId)
+    if (
+      !selected ||
+      selected.zoom ||
+      selected.isAvailable === false
+    ) {
+      return undefined
+    }
+    try {
+      const url = new URL(
+        selected.url,
+        new URL(
+          `/d/${encodeURIComponent(deviceId)}`,
+          publicUrl || origin,
+        ),
+      )
+      const expectedOrigin = new URL(publicUrl || origin)
+        .origin
+      const match = /^\/(view|screen)\/([^/]+)\/?$/.exec(
+        url.pathname,
+      )
+      if (
+        url.origin !== expectedOrigin ||
+        url.search ||
+        url.hash ||
+        !match
+      ) {
+        return undefined
+      }
+      return {
+        kind: match[1] as "view" | "screen",
+        id: decodeURIComponent(match[2] ?? ""),
+      }
+    } catch {
+      return undefined
+    }
+  }
   /**
    * Put a view on one display for a while, whatever it normally shows.
    *
@@ -817,6 +874,13 @@ export const createPlatform = async ({
     runtime,
     getTarget,
     getDeviceTarget,
+    getDeviceForegroundTarget,
+    /** Link live browser navigation after both runtimes are initialized. */
+    setDeviceNavigationReader: (
+      read: NonNullable<typeof navigationReader.read>,
+    ) => {
+      navigationReader.read = read
+    },
     showOnDevice,
     testOnDevice,
     deviceTests,

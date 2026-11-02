@@ -202,6 +202,9 @@ export const startTestServer = async ({
     devices: config.devices,
     browserDevices: config.browserDevices,
   })
+  platform.setDeviceNavigationReader(
+    browserMode.readSelectedExternalView,
+  )
   platform.store.update((previous) => ({
     ...previous,
     adminHash: hashPin("2468"),

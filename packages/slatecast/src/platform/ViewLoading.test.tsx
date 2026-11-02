@@ -245,7 +245,7 @@ test("the device shell opens local CastKit links in place and survives a tempora
     mounted.unmount()
   })
   await answer(
-    "/api/display/view/activity",
+    "/api/display/view/activity?device=test-panel",
     compositionFixture,
   )
   await screen.findByText("Printer One")

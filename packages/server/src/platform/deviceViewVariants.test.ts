@@ -226,9 +226,12 @@ test("different settings cannot share a frame even with identical geometry and b
   expect(firstKey).not.toBe(secondKey)
 })
 
-test("customized media retains device and preview scope through the follow-up request", async () => {
+test.each([
+  "preview",
+  "navigation",
+])("customized media retains device scope through %s follow-up requests", async (mode) => {
   const { platform, devices, request, channels } =
-    await fixture()
+    await fixture({ isBrowser: true })
   const imageChannels = ["shared", "one"].map((id) => ({
     id: `images/${id}`,
     name: id,
@@ -275,15 +278,25 @@ test("customized media retains device and preview scope through the follow-up re
       ],
     },
   })
+  if (mode === "navigation") {
+    platform.store.update((previous) => ({
+      ...previous,
+      deviceScreens: {},
+    }))
+    platform.setDeviceNavigationReader(() => ({
+      url: "http://localhost/view/photos",
+    }))
+  }
+  const modeQuery = mode === "preview" ? "&preview=1" : ""
   const snapshot = await (
     await request(
-      "/api/display/view/photos?device=one&preview=1",
+      `/api/display/view/photos?device=one${modeQuery}`,
     )
   ).json()
   const url =
     snapshot.channels["images/one"].data.images[0].url
   expect(url).toBe(
-    "/api/display/view/photos/media/images%2Fone/asset?size=preview&device=one&preview=1",
+    `/api/display/view/photos/media/images%2Fone/asset?size=preview&device=one${modeQuery}`,
   )
   const media = vi
     .spyOn(platform.runtime, "getMedia")
@@ -711,9 +724,12 @@ test("scan expiry observes a channel used only by a device variant", async () =>
   expect(notified).toHaveBeenCalledOnce()
 })
 
-test("controls resolve the customized channel and reject another room's player", async () => {
+test.each([
+  "preview",
+  "navigation",
+])("%s controls resolve the customized channel and reject another room's player", async (mode) => {
   const { platform, devices, request, channels } =
-    await fixture()
+    await fixture({ isBrowser: true })
   const musicChannels = ["shared", "one"].map((id) => ({
     id: `music/${id}`,
     name: id,
@@ -764,8 +780,16 @@ test("controls resolve the customized channel and reject another room's player",
   const execute = vi
     .spyOn(platform.runtime, "executeAction")
     .mockResolvedValue(undefined)
-  const path =
-    "/api/display/view/music/actions?device=one&preview=1"
+  if (mode === "navigation") {
+    platform.store.update((previous) => ({
+      ...previous,
+      deviceScreens: {},
+    }))
+    platform.setDeviceNavigationReader(() => ({
+      url: "http://localhost/view/music",
+    }))
+  }
+  const path = `/api/display/view/music/actions?device=one${mode === "preview" ? "&preview=1" : ""}`
   expect(
     (
       await request(path, "POST", {
@@ -790,6 +814,122 @@ test("controls resolve the customized channel and reject another room's player",
     action: "play_pause",
     payload: { entityId: "media_player.one" },
   })
+})
+
+test("manual foreground targets preserve device data, grants, override priority, and stale-target rejection", async () => {
+  const { platform, request } = await fixture({
+    isBrowser: true,
+  })
+  platform.store.update((previous) => ({
+    ...previous,
+    deviceScreens: {},
+    deviceRecentViews: { one: ["points"] },
+  }))
+  const selection: {
+    view:
+      | {
+          url: string
+          zoom?: number
+          isAvailable?: boolean
+        }
+      | undefined
+  } = { view: { url: "http://localhost/view/points" } }
+  platform.setDeviceNavigationReader(() => selection.view)
+  const first = await (
+    await request("/api/display/view/points?device=one")
+  ).json()
+  const second = await (
+    await request("/api/display/view/points?device=two")
+  ).json()
+  expect(
+    first.channels["points/one"].data.kids[0].pointsToday,
+  ).toBe(100)
+  expect(
+    second.channels["points/two"].data.kids[0].pointsToday,
+  ).toBe(200)
+  expect(first.canControl).toBe(true)
+  expect(
+    (
+      await request(
+        "/api/display/view/points?device=one",
+        "GET",
+        undefined,
+        false,
+      )
+    ).status,
+  ).toBe(401)
+  expect(
+    (
+      await (
+        await request(
+          "/api/display/view/points?device=one&preload=1",
+        )
+      ).json()
+    ).canControl,
+  ).toBe(false)
+  platform.store.update((previous) => ({
+    ...previous,
+    views: previous.views.map((view) => ({
+      ...view,
+      isControlEnabled: false,
+    })),
+  }))
+  expect(
+    (
+      await (
+        await request("/api/display/view/points?device=one")
+      ).json()
+    ).canControl,
+  ).toBe(false)
+  selection.view = { url: "http://localhost/screen/shared" }
+  expect(
+    (
+      await (
+        await request(
+          "/api/display/screen/shared?device=one",
+        )
+      ).json()
+    ).channels,
+  ).toHaveProperty("points/one")
+  platform.showOnDevice({
+    deviceId: "one",
+    viewId: "points",
+    durationSeconds: 30,
+  })
+  expect(
+    (await request("/api/display/screen/shared?device=one"))
+      .status,
+  ).toBe(409)
+  expect(
+    (await request("/api/display/view/points?device=one"))
+      .status,
+  ).toBe(200)
+})
+
+test.each([
+  undefined,
+  { url: "https://external.example/view/points" },
+  { url: "http://localhost/view/points?preview=1" },
+  { url: "http://localhost/view/points#section" },
+  { url: "http://localhost/view/points", zoom: 2 },
+  {
+    url: "http://localhost/view/points",
+    isAvailable: false,
+  },
+  { url: "http://localhost/view/%invalid" },
+])("inactive or external foreground targets cannot grant device access: %j", async (selected) => {
+  const { platform, request } = await fixture({
+    isBrowser: true,
+  })
+  platform.store.update((previous) => ({
+    ...previous,
+    deviceScreens: {},
+  }))
+  platform.setDeviceNavigationReader(() => selected)
+  expect(
+    (await request("/api/display/view/points?device=one"))
+      .status,
+  ).toBe(409)
 })
 
 test.each([

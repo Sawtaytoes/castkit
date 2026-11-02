@@ -2380,6 +2380,9 @@ const main = async () => {
       return true
     },
   })
+  platform.setDeviceNavigationReader(
+    browserMode.readSelectedExternalView,
+  )
   const streamFrameService = startStreamFrameService({
     browserMode,
     platform,

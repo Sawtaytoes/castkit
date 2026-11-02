@@ -155,6 +155,11 @@ for an existing panel input, or enable only the settings this device changes.
 A variant can have a display name without creating another saved view or URL.
 Save the device to apply changes live; no server restart is required.
 
+Plain links to this CastKit's saved views or screens in the device's navigation
+use the same device customizations. The server checks the selected foreground
+target for every snapshot, media request, and action. Temporary targets retain
+priority, and background preload grants remain read-only.
+
 The device inherits the shared view's layout, appearance, panel specifications,
 access, and control permissions. Settings inherit by field, so changing a
 shared setting reaches every device that has not customized that field. Reset

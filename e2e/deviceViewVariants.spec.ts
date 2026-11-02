@@ -349,6 +349,132 @@ test("devices customize one shared points view without sharing room scans", asyn
     await expect(
       second.getByText("Piano", { exact: true }),
     ).toHaveCount(0)
+    const navigationDevices = (await (
+      await request.get("/api/manage/devices")
+    ).json()) as { devices: Device[] }
+    await devices.reduce<Promise<void>>(
+      async (previous, original) => {
+        await previous
+        const current = navigationDevices.devices.find(
+          (candidate) => candidate.id === original.id,
+        )
+        if (!current) {
+          throw new Error(
+            "Missing navigation fixture device",
+          )
+        }
+        const update = await request.put(
+          `/api/manage/devices/${original.id}`,
+          {
+            data: {
+              ...current,
+              hasViewDrawer: true,
+              views: ["Now Playing", view.name],
+              externalViews: [
+                {
+                  name: view.name,
+                  url: new URL(
+                    `/view/${viewId}`,
+                    first.url(),
+                  ).href,
+                },
+              ],
+            },
+          },
+        )
+        expect(await update.json()).toEqual({
+          isRestarting: false,
+        })
+        expect(
+          (
+            await request.put(
+              `/api/manage/platform/device-screens/${original.id}`,
+              { data: { screenId: null } },
+            )
+          ).ok(),
+        ).toBe(true)
+      },
+      Promise.resolve(),
+    )
+    await first.reload()
+    await second.reload()
+    await first
+      .getByRole("button", {
+        name: "Open views from left edge",
+        exact: true,
+      })
+      .click()
+    await first
+      .getByRole("button", { name: view.name, exact: true })
+      .click()
+    await second
+      .getByRole("button", {
+        name: "Open views from left edge",
+        exact: true,
+      })
+      .click()
+    await second
+      .getByRole("button", { name: view.name, exact: true })
+      .click()
+    await expect(
+      first.locator(
+        ".kids-points-total strong:not([aria-hidden=true])",
+      ),
+    ).toHaveText("123")
+    await expect(
+      second.locator(
+        ".kids-points-total strong:not([aria-hidden=true])",
+      ),
+    ).toHaveText("331")
+    await expect(
+      first.getByText("Piano", { exact: true }),
+    ).toBeVisible()
+    await expect(
+      second.getByText("Piano", { exact: true }),
+    ).toHaveCount(0)
+    await first.screenshot({
+      path: `__screenshots__/device-variants-${testInfo.project.name}-manual-one.png`,
+      fullPage: true,
+    })
+    await second.screenshot({
+      path: `__screenshots__/device-variants-${testInfo.project.name}-manual-two.png`,
+      fullPage: true,
+    })
+    expect(
+      (
+        await request.post("/__test__/mqtt", {
+          data: {
+            topic: "castkit/channels/variants/one/set",
+            payload: {
+              ...points(124),
+              lastScan: {
+                kidId: "robin",
+                reader: "First room reader",
+                result: "awarded",
+                atMs: Date.now(),
+                points: 1,
+                taskName: "Practice",
+              },
+            },
+          },
+        })
+      ).ok(),
+    ).toBe(true)
+    await expect(
+      first.locator(
+        ".kids-points-total strong:not([aria-hidden=true])",
+      ),
+    ).toHaveText("124")
+    await expect(
+      second.locator(
+        ".kids-points-total strong:not([aria-hidden=true])",
+      ),
+    ).toHaveText("331")
+    await expect(
+      first.locator(
+        '.kids-points-card[data-scanned="true"]',
+      ),
+    ).toHaveCount(1)
     await page.reload()
     await expect(
       page.getByRole("checkbox", {
@@ -411,6 +537,12 @@ test("devices customize one shared points view without sharing room scans", asyn
     await devices.reduce<Promise<void>>(
       async (previous, device: { id: string }) => {
         await previous
+        await request.post("/__test__/mqtt", {
+          data: {
+            topic: `castkit/${device.id}/view/set`,
+            payload: "Now Playing",
+          },
+        })
         await request.put(
           `/api/manage/devices/${device.id}`,
           { data: device },
