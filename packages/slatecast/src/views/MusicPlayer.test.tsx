@@ -219,6 +219,12 @@ test("dragging on the waveform moves the position and seeks once on release", as
 })
 
 test("lyrics follow the position and a line seeks to its time", async () => {
+  // The fixture timestamp is set at module load. Keep its lyric position fixed
+  // while real browser interactions run, even when other CI work takes seconds.
+  const clock = vi
+    .spyOn(Date, "now")
+    .mockReturnValue(NOW_MS)
+  onTestFinished(() => clock.mockRestore())
   const { onAction, user } = await renderPlayer()
   await user.click(
     screen.getByRole("tab", { name: "Lyrics" }),
