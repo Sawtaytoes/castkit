@@ -67,6 +67,11 @@ export const createMqttPublisher = async ({
       ? [readFileSync(config.caFile)]
       : undefined,
     rejectUnauthorized: config.isRejectUnauthorized,
+    /*
+     * This wrapper resubscribes after a reconnect itself; see
+     * `resubscribeAll` below for why mqtt.js must not.
+     */
+    resubscribe: false,
     will: {
       topic: availabilityTopic,
       payload: Buffer.from("offline"),
@@ -97,9 +102,52 @@ export const createMqttPublisher = async ({
     })
   }, 60_000)
 
-  // mqtt.js auto-reconnects; re-assert availability on every reconnect.
+  /*
+   * Every topic this client has asked for, so a reconnect can ask again.
+   *
+   * mqtt.js keeps its own list for this, and loses all of it at once: it
+   * resends the whole list as ONE SUBSCRIBE packet, and when the broker
+   * refuses any single topic in that packet's SUBACK, mqtt.js deletes every
+   * topic the packet carried. The connection that was open keeps the topics
+   * the broker did grant, so nothing looks wrong — until the next reconnect,
+   * which then resubscribes to nothing. Every MQTT channel goes stale while
+   * the client stays connected and keeps publishing its heartbeat. That
+   * happened when a broker ACL change refused one topic for a single restart.
+   *
+   * So the list lives here, each topic is resent in its own packet, and a
+   * refused topic stays on the list: one refusal costs only that topic, and
+   * the next reconnect tries it again in case the broker now allows it.
+   */
+  const subscribedTopics = new Set<string>()
+
+  const subscribeTopics = (topics: string[]) =>
+    // mqtt.js types the flag as an intersection its own index signature
+    // contradicts, so no object literal satisfies it without a cast.
+    client.subscribeAsync({
+      ...Object.fromEntries(
+        topics.map((topic) => [topic, { qos: 1 }]),
+      ),
+      resubscribe: true,
+    } as ISubscriptionMap)
+
+  const resubscribeAll = () =>
+    Promise.all(
+      Array.from(subscribedTopics).map((topic) =>
+        subscribeTopics([topic]).catch((error: unknown) => {
+          console.error(
+            `[mqtt] resubscribing to ${topic} failed`,
+            error,
+          )
+        }),
+      ),
+    )
+
+  // mqtt.js auto-reconnects; re-assert availability and every subscription on
+  // each reconnect. The first connection resolved `connectAsync` before this
+  // listener existed, so this runs only for reconnects.
   client.on("connect", () => {
     publishOnline().catch(() => {})
+    void resubscribeAll()
   })
 
   /*
@@ -136,24 +184,23 @@ export const createMqttPublisher = async ({
       })
     },
     /*
-     * ⚠️ `resubscribe: true` is load-bearing. mqtt.js silently drops a
-     * SUBSCRIBE for a topic this client already holds, and the broker sends a
-     * topic's retained message only in answer to a SUBSCRIBE. A source that
-     * restarts — which every channel edit does — subscribes again and would
-     * otherwise never see the retained value it lost with its old instance.
-     * A producer that publishes only on change (a points service between
-     * scans) then leaves the channel waiting for hours.
+     * ⚠️ A repeat subscription must reach the broker. The broker sends a
+     * topic's retained message only in answer to a SUBSCRIBE, and a source
+     * that restarts — which every channel edit does — subscribes again to get
+     * back the retained value it lost with its old instance. A producer that
+     * publishes only on change (a points service between scans) otherwise
+     * leaves the channel waiting for hours. mqtt.js drops a SUBSCRIBE for a
+     * topic on its own resubscribe list; that list stays empty while its
+     * `resubscribe` option is off, and `subscribeTopics` also sends
+     * `resubscribe: true`, so turning the option back on cannot bring the
+     * drop back.
      */
     subscribe: async ({ topics, handler }) => {
       messageHandlers.add(handler)
-      // mqtt.js types the flag as an intersection its own index signature
-      // contradicts, so no object literal satisfies it without a cast.
-      await client.subscribeAsync({
-        ...Object.fromEntries(
-          topics.map((topic) => [topic, { qos: 1 }]),
-        ),
-        resubscribe: true,
-      } as ISubscriptionMap)
+      topics.forEach((topic) => {
+        subscribedTopics.add(topic)
+      })
+      await subscribeTopics(topics)
     },
     close: async () => {
       clearInterval(heartbeatInterval)
