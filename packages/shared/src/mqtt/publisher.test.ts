@@ -14,15 +14,20 @@ import {
  */
 class FakeClient extends EventEmitter {
   publishAsync = vi.fn(async () => {})
-  subscribeAsync = vi.fn(async () => {})
+  subscribeAsync = vi.fn(
+    async (_subscriptions: object) => {},
+  )
   endAsync = vi.fn(async () => {})
 }
 
 const fakeClient = new FakeClient()
 
+const connectAsync = vi.fn(async () => fakeClient)
+
 vi.mock("mqtt", () => ({
   default: {
-    connectAsync: async () => fakeClient,
+    connectAsync: (...args: unknown[]) =>
+      connectAsync(...(args as [])),
   },
 }))
 
@@ -45,7 +50,11 @@ const buildPublisher = () =>
 beforeEach(() => {
   fakeClient.removeAllListeners()
   fakeClient.publishAsync.mockClear()
-  fakeClient.subscribeAsync.mockClear()
+  fakeClient.subscribeAsync.mockReset()
+  fakeClient.subscribeAsync.mockImplementation(
+    async () => {},
+  )
+  connectAsync.mockClear()
   vi.spyOn(console, "log").mockImplementation(() => {})
 })
 
@@ -153,5 +162,111 @@ test("a repeat subscription is sent again so the broker re-sends retained values
     "points/resp/scan": { qos: 1 },
     resubscribe: true,
   })
+  await publisher.close()
+})
+
+/** The topics of each SUBSCRIBE sent since the last `mockClear`, one array per packet. */
+const getSubscribedPackets = () =>
+  fakeClient.subscribeAsync.mock.calls.map((call) =>
+    Object.keys(call[0]).filter(
+      (key) => key !== "resubscribe",
+    ),
+  )
+
+/** Lets the reconnect handler's subscriptions settle. */
+const flushReconnect = () =>
+  new Promise((resolve) => setImmediate(resolve))
+
+test("mqtt.js's own resubscribe is off, because this wrapper owns it", async () => {
+  const publisher = await buildPublisher()
+  expect(connectAsync).toHaveBeenCalledWith(
+    "mqtt://broker.example:1883",
+    expect.objectContaining({ resubscribe: false }),
+  )
+  await publisher.close()
+})
+
+test("a reconnect resubscribes every topic, each in its own packet", async () => {
+  const publisher = await buildPublisher()
+  await publisher.subscribe({
+    topics: ["points/state/+", "points/resp/scan"],
+    handler: () => {},
+  })
+  await publisher.subscribe({
+    topics: ["ai-usage/state"],
+    handler: () => {},
+  })
+  fakeClient.subscribeAsync.mockClear()
+  fakeClient.emit("connect")
+  await flushReconnect()
+  /*
+   * One packet per topic: a broker that refuses one topic in a packet makes
+   * mqtt.js forget every topic in it, so a shared packet would let one
+   * refusal take the rest down with it.
+   */
+  expect(getSubscribedPackets()).toEqual([
+    ["points/state/+"],
+    ["points/resp/scan"],
+    ["ai-usage/state"],
+  ])
+  await publisher.close()
+})
+
+test("a refused topic on reconnect costs only that topic and is retried next time", async () => {
+  const publisher = await buildPublisher()
+  const consoleError = vi
+    .spyOn(console, "error")
+    .mockImplementation(() => {})
+  await publisher.subscribe({
+    topics: ["points/ledger", "ai-usage/state"],
+    handler: () => {},
+  })
+  fakeClient.subscribeAsync.mockImplementation(
+    async (subscriptions) => {
+      if (Object.hasOwn(subscriptions, "points/ledger")) {
+        throw new Error(
+          "Subscribe error: Unspecified error",
+        )
+      }
+    },
+  )
+  fakeClient.subscribeAsync.mockClear()
+  fakeClient.emit("connect")
+  await flushReconnect()
+  expect(getSubscribedPackets()).toEqual([
+    ["points/ledger"],
+    ["ai-usage/state"],
+  ])
+  expect(consoleError).toHaveBeenCalledWith(
+    "[mqtt] resubscribing to points/ledger failed",
+    expect.any(Error),
+  )
+  fakeClient.subscribeAsync.mockClear()
+  fakeClient.emit("connect")
+  await flushReconnect()
+  expect(getSubscribedPackets()).toEqual([
+    ["points/ledger"],
+    ["ai-usage/state"],
+  ])
+  await publisher.close()
+})
+
+test("a topic refused at first subscription is still retried after a reconnect", async () => {
+  const publisher = await buildPublisher()
+  fakeClient.subscribeAsync.mockRejectedValueOnce(
+    new Error("Subscribe error: Unspecified error"),
+  )
+  await expect(
+    publisher.subscribe({
+      topics: ["points/ledger"],
+      handler: () => {},
+    }),
+  ).rejects.toThrow("Subscribe error")
+  fakeClient.subscribeAsync.mockClear()
+  fakeClient.emit("connect")
+  await flushReconnect()
+  expect(getSubscribedPackets()).toEqual([
+    ["points/ledger"],
+  ])
   await publisher.close()
 })
