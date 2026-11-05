@@ -62,6 +62,13 @@ Both accept a `providerIds` channel setting. Leave it empty for every provider.
 accounts share the OpenAI mark. Subscription plan labels are omitted; cached
 data and provider errors remain visible.
 
+**A numbered account keeps its product title.** The producer numbers extra
+accounts of one product: `claude`, `claude_2` and `claude_3` are all titled
+Claude, and the producer's `owner` field follows the title, so a third account
+reads `Claude <owner>` rather than `Claude 3`. An id the source has no title for
+falls back to its words split on `_`, which is why each new account id needs
+its own entry.
+
 **One row per provider: its weekly limit.** A panel is read from across a desk,
 not scanned like a table, so the view answers one question — how much of the
 week is left — and stays quiet about the rest. The headline is the longest

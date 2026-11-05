@@ -13,6 +13,7 @@ import {
 const PROVIDER_TITLES: Record<string, string> = {
   claude: "Claude",
   claude_2: "Claude",
+  claude_3: "Claude",
   codex: "Codex",
   codex_2: "Codex Alt",
   cursor: "Cursor",
