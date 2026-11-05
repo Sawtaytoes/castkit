@@ -14,12 +14,14 @@ import { useDisplayProperties } from "./displayProperties.ts"
 import { KidOpenButton } from "./KidOpenButton.tsx"
 import { KidTasksToday } from "./KidTasksToday.tsx"
 import {
+  ALL_CHILDREN_FINISHING_ROW_HEIGHTS,
   ALL_CHILDREN_ROW_HEIGHT,
   formatClockTime,
   formatPointsDelta,
   getConfettiPieces,
   getGoalPercent,
   getIsScanShowing,
+  getKidRowContent,
   getKidsPointsLayout,
   getScanKey,
   getScanMotion,
@@ -598,12 +600,10 @@ const KidRow = ({
         )}
       </span>
     </div>
-    {isTimerShowing &&
-    kid.activeTask?.isCountdown !== true &&
-    now !== undefined &&
-    (!scan ||
-      scan.result === "started" ||
-      scan.result === "progress") ? (
+    {now !== undefined &&
+    ["timer", "banked-timer"].includes(
+      getKidRowContent({ kid, scan, isTimerShowing }),
+    ) ? (
       <TimerProgress kid={kid} now={now} isLive={isLive} />
     ) : (
       <>
@@ -740,13 +740,28 @@ export const KidsPointsView = ({
   const scannedKid = scan
     ? data.kids.find((kid) => kid.id === scan.kidId)
     : undefined
+  const firstKid = data.kids[0]
   const layout = getKidsPointsLayout({
     ...size,
     kidCount: data.kids.length,
-    minimumRowHeight:
-      settings?.isAllChildrenVisible === true
-        ? ALL_CHILDREN_ROW_HEIGHT
-        : undefined,
+    ...(settings?.isAllChildrenVisible === true && firstKid
+      ? {
+          minimumRowHeight: ALL_CHILDREN_ROW_HEIGHT,
+          finishingRowHeight:
+            ALL_CHILDREN_FINISHING_ROW_HEIGHTS[
+              getKidRowContent({
+                kid: firstKid,
+                scan:
+                  scan?.kidId === firstKid.id
+                    ? scan
+                    : undefined,
+                isTimerShowing: runningKids.some(
+                  (running) => running.id === firstKid.id,
+                ),
+              })
+            ],
+        }
+      : {}),
   })
   const isDetailOverlaid =
     selectedKid !== undefined &&
