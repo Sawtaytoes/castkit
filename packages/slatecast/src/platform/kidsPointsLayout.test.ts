@@ -1,5 +1,7 @@
 import { expect, test } from "vitest"
 import {
+  ALL_CHILDREN_FINISHING_ROW_HEIGHT,
+  ALL_CHILDREN_ROW_HEIGHT,
   DEFAULT_SCAN_SECONDS,
   getConfettiPieces,
   getGoalPercent,
@@ -102,6 +104,44 @@ test("rows are drawn only when they finish, with room kept to say what was dropp
       kidCount: 3,
     }).rowCount,
   ).toBe(0)
+})
+
+const allChildrenRows = (height: number) =>
+  getKidsPointsLayout({
+    width: 659,
+    height,
+    kidCount: 3,
+    minimumRowHeight: ALL_CHILDREN_ROW_HEIGHT,
+    finishingRowHeight: ALL_CHILDREN_FINISHING_ROW_HEIGHT,
+  }).rowCount
+
+test("an all-children box with room for a child draws one, whichever scheme rounded it", () => {
+  // The 1024 x 600 desk at 1.5x zoom: 154 px in the dark scheme, 156 px in the light.
+  expect(allChildrenRows(154)).toBe(1)
+  expect(allChildrenRows(156)).toBe(1)
+})
+
+test("only the first row gives the overflow line its room, and only while that row still finishes", () => {
+  expect(allChildrenRows(139)).toBe(0)
+  expect(allChildrenRows(140)).toBe(1)
+  // A second row is dropped rather than shrink every row's initial and total.
+  expect(allChildrenRows(295)).toBe(1)
+  expect(allChildrenRows(296)).toBe(2)
+  expect(allChildrenRows(407)).toBe(2)
+  expect(allChildrenRows(408)).toBe(3)
+})
+
+test("rows without a separate finishing height keep the line outside them", () => {
+  const defaultRows = (height: number) =>
+    getKidsPointsLayout({
+      width: 226,
+      height,
+      kidCount: 3,
+    }).rowCount
+  expect(defaultRows(91)).toBe(0)
+  expect(defaultRows(92)).toBe(1)
+  expect(defaultRows(167)).toBe(1)
+  expect(defaultRows(168)).toBe(2)
 })
 
 test("a scan shows for its window, and never on a panel too slow to draw it in time", () => {

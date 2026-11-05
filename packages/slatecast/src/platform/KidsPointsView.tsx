@@ -14,6 +14,7 @@ import { useDisplayProperties } from "./displayProperties.ts"
 import { KidOpenButton } from "./KidOpenButton.tsx"
 import { KidTasksToday } from "./KidTasksToday.tsx"
 import {
+  ALL_CHILDREN_FINISHING_ROW_HEIGHT,
   ALL_CHILDREN_ROW_HEIGHT,
   formatClockTime,
   formatPointsDelta,
@@ -743,10 +744,13 @@ export const KidsPointsView = ({
   const layout = getKidsPointsLayout({
     ...size,
     kidCount: data.kids.length,
-    minimumRowHeight:
-      settings?.isAllChildrenVisible === true
-        ? ALL_CHILDREN_ROW_HEIGHT
-        : undefined,
+    ...(settings?.isAllChildrenVisible === true
+      ? {
+          minimumRowHeight: ALL_CHILDREN_ROW_HEIGHT,
+          finishingRowHeight:
+            ALL_CHILDREN_FINISHING_ROW_HEIGHT,
+        }
+      : {}),
   })
   const isDetailOverlaid =
     selectedKid !== undefined &&

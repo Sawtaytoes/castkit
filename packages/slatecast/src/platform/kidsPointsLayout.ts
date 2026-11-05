@@ -31,6 +31,15 @@ export const KID_CARD_MIN_HEIGHT = 200
 export const KID_ROW_HEIGHT = 64
 /** Readable row floor when a persistent overview must show every child. */
 export const ALL_CHILDREN_ROW_HEIGHT = 128
+/**
+ * The least height in which an all-children row still finishes.
+ *
+ * Measured in Chromium, both schemes: an idle row needs 80 px, a running
+ * timer 88 px, and a scan banner 99 px. The readable floor above is what the
+ * composition asks for; this is how far the overflow line may squeeze the
+ * one row left before that row stops finishing.
+ */
+export const ALL_CHILDREN_FINISHING_ROW_HEIGHT = 100
 export const KIDS_POINTS_GAP = 12
 /*
  * Reserved whether or not it is needed, for the same reason the AI Usage
@@ -185,17 +194,26 @@ const dataSections = ({
  * The shared priority policy chooses columns or stacked cards from each
  * candidate's readable area. Every card must meet its minimum size. Anything smaller
  * gets one row per child and draws only the rows that finish on the glass.
+ *
+ * Rows are counted at `minimumRowHeight`, and a box that cannot hold another
+ * readable row drops it rather than shrink every row's initial and total.
+ * The first row is the exception: a box that holds that row but not the row
+ * plus the overflow line would otherwise draw only "3 more", the smallest
+ * form, while it has room for a child. That row gives the line its room, down
+ * to `finishingRowHeight`.
  */
 export const getKidsPointsLayout = ({
   width,
   height,
   kidCount,
   minimumRowHeight = KID_ROW_HEIGHT,
+  finishingRowHeight = minimumRowHeight,
 }: {
   width: number
   height: number
   kidCount: number
   minimumRowHeight?: number
+  finishingRowHeight?: number
 }) => {
   const candidates = Array.from(
     { length: kidCount },
@@ -238,10 +256,17 @@ export const getKidsPointsLayout = ({
           (minimumRowHeight + KIDS_POINTS_GAP),
       ),
     )
+  // The line and the gap above it come out of the one row that would remain.
+  const hasRoomForOneFinishedRow =
+    height - OVERFLOW_LINE_HEIGHT - KIDS_POINTS_GAP >=
+    finishingRowHeight
   const rowCount =
     rowsThatFit(height) >= kidCount
       ? kidCount
-      : rowsThatFit(height - OVERFLOW_LINE_HEIGHT)
+      : Math.max(
+          rowsThatFit(height - OVERFLOW_LINE_HEIGHT),
+          hasRoomForOneFinishedRow ? 1 : 0,
+        )
   return { isBoard, rowCount, columnCount }
 }
 
