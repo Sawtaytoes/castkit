@@ -13,7 +13,7 @@ test.each([
   isPrinting,
 }) => {
   /*
-   * Three Claude accounts, two Codex accounts and SpaceXAI. The page is
+   * Three Claude accounts, two Codex accounts, and SpaceXAI. The page is
    * sized to the desk, so the claim holds in every test window.
    */
   await page.viewport(1024, 600)

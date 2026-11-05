@@ -355,7 +355,7 @@ export const AiUsage: Story = {
 }
 
 /**
- * Three Claude accounts, two Codex accounts and SpaceXAI. One Claude account
+ * Three Claude accounts, two Codex accounts, and SpaceXAI. One Claude account
  * is spent and another has a nearly spent session limit.
  */
 export const AiUsageSixAccounts: Story = {

@@ -198,7 +198,7 @@ const HOUR_MILLISECONDS = 3_600_000
 
 /**
  * Six subscriptions in the shape AI Usage publishes once a third Claude
- * account joins: three Claude accounts, two Codex accounts and SpaceXAI. The
+ * account joins: three Claude accounts, two Codex accounts, and SpaceXAI. The
  * windows follow the producer's own ids and labels, and the names are the
  * source's product title joined to an invented owner, so the longest names
  * are as long as a real installation's.

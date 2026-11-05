@@ -23,7 +23,7 @@ import "./platform.css"
 
 /**
  * Visual-regression shots of AI Usage carrying six subscriptions: three
- * Claude accounts, two Codex accounts and SpaceXAI.
+ * Claude accounts, two Codex accounts, and SpaceXAI.
  *
  * The desk shots reproduce the adaptive activity composition at 1024 x 600,
  * idle and while a printer runs, at the browser's own size and zoomed. The
