@@ -1,11 +1,12 @@
 import { expect, test } from "vitest"
 import {
-  ALL_CHILDREN_FINISHING_ROW_HEIGHT,
+  ALL_CHILDREN_FINISHING_ROW_HEIGHTS,
   ALL_CHILDREN_ROW_HEIGHT,
   DEFAULT_SCAN_SECONDS,
   getConfettiPieces,
   getGoalPercent,
   getIsScanShowing,
+  getKidRowContent,
   getKidsPointsLayout,
   getScanMotion,
   getScanText,
@@ -106,29 +107,134 @@ test("rows are drawn only when they finish, with room kept to say what was dropp
   ).toBe(0)
 })
 
-const allChildrenRows = (height: number) =>
+const allChildrenRows = ({
+  height,
+  kidCount = 3,
+  content = "goal",
+}: {
+  height: number
+  kidCount?: number
+  content?: keyof typeof ALL_CHILDREN_FINISHING_ROW_HEIGHTS
+}) =>
   getKidsPointsLayout({
     width: 659,
     height,
-    kidCount: 3,
+    kidCount,
     minimumRowHeight: ALL_CHILDREN_ROW_HEIGHT,
-    finishingRowHeight: ALL_CHILDREN_FINISHING_ROW_HEIGHT,
+    finishingRowHeight:
+      ALL_CHILDREN_FINISHING_ROW_HEIGHTS[content],
   }).rowCount
 
 test("an all-children box with room for a child draws one, whichever scheme rounded it", () => {
   // The 1024 x 600 desk at 1.5x zoom: 154 px in the dark scheme, 156 px in the light.
-  expect(allChildrenRows(154)).toBe(1)
-  expect(allChildrenRows(156)).toBe(1)
+  expect(allChildrenRows({ height: 154 })).toBe(1)
+  expect(allChildrenRows({ height: 156 })).toBe(1)
 })
 
-test("only the first row gives the overflow line its room, and only while that row still finishes", () => {
-  expect(allChildrenRows(139)).toBe(0)
-  expect(allChildrenRows(140)).toBe(1)
-  // A second row is dropped rather than shrink every row's initial and total.
-  expect(allChildrenRows(295)).toBe(1)
-  expect(allChildrenRows(296)).toBe(2)
-  expect(allChildrenRows(407)).toBe(2)
-  expect(allChildrenRows(408)).toBe(3)
+test("the first row is squeezed only down to what its own content needs", () => {
+  // The overflow line and its gap take 40 px from the box.
+  expect(allChildrenRows({ height: 128 })).toBe(0)
+  expect(allChildrenRows({ height: 129 })).toBe(1)
+  expect(
+    allChildrenRows({ height: 139, content: "scan" }),
+  ).toBe(0)
+  expect(
+    allChildrenRows({ height: 140, content: "scan" }),
+  ).toBe(1)
+  expect(
+    allChildrenRows({ height: 142, content: "timer" }),
+  ).toBe(0)
+  expect(
+    allChildrenRows({ height: 143, content: "timer" }),
+  ).toBe(1)
+  // Banked minutes need 129 px, so this box cannot hold that row and the line.
+  expect(
+    allChildrenRows({
+      height: 155,
+      content: "banked-timer",
+    }),
+  ).toBe(0)
+})
+
+test("the first-row exception never adds a second row", () => {
+  expect(allChildrenRows({ height: 295 })).toBe(1)
+  expect(allChildrenRows({ height: 296 })).toBe(2)
+  expect(allChildrenRows({ height: 407 })).toBe(2)
+  expect(allChildrenRows({ height: 408 })).toBe(3)
+})
+
+test("an only child needs no overflow line, so its row takes the whole box", () => {
+  expect(allChildrenRows({ height: 88, kidCount: 1 })).toBe(
+    0,
+  )
+  expect(allChildrenRows({ height: 89, kidCount: 1 })).toBe(
+    1,
+  )
+  expect(
+    allChildrenRows({ height: 127, kidCount: 1 }),
+  ).toBe(1)
+  expect(
+    allChildrenRows({
+      height: 102,
+      kidCount: 1,
+      content: "timer",
+    }),
+  ).toBe(0)
+})
+
+test("a compact row draws its timer only while it runs, and its scan otherwise", () => {
+  const kid = {
+    id: "robin",
+    name: "Robin",
+    pointsToday: 10,
+    activeTask: {
+      name: "Reading",
+      startedAtMs: 0,
+      bankedMinutes: 45,
+    },
+  }
+  expect(
+    getKidRowContent({
+      kid,
+      scan: undefined,
+      isTimerShowing: true,
+    }),
+  ).toBe("banked-timer")
+  expect(
+    getKidRowContent({
+      kid: {
+        ...kid,
+        activeTask: { name: "Reading", startedAtMs: 0 },
+      },
+      scan: { ...scan, result: "started" as const },
+      isTimerShowing: true,
+    }),
+  ).toBe("timer")
+  expect(
+    getKidRowContent({ kid, scan, isTimerShowing: true }),
+  ).toBe("scan")
+  expect(
+    getKidRowContent({
+      kid: {
+        ...kid,
+        activeTask: {
+          name: "Reading",
+          startedAtMs: 0,
+          isCountdown: true,
+          goalMinutes: 20,
+        },
+      },
+      scan: undefined,
+      isTimerShowing: true,
+    }),
+  ).toBe("goal")
+  expect(
+    getKidRowContent({
+      kid,
+      scan: undefined,
+      isTimerShowing: false,
+    }),
+  ).toBe("goal")
 })
 
 test("rows without a separate finishing height keep the line outside them", () => {

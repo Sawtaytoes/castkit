@@ -32,11 +32,13 @@ goal bar. Other children’s timers stay visible.
 Running activities remain on their own rows, including simultaneous count-up
 and countdown activities. Instant panels show seconds; slower panels use whole
 minutes. Larger panels keep their existing complete cards, and panels with more
-children than readable rows report the remaining count. A panel drops a row
-rather than shrink every child's initial and total, with one exception: when
-the panel has room for one child's row but not that row and the count at full
-height, the row gets shorter to make room for the count. The panel never shows
-the count alone while one row can still fit.
+children than readable rows report the remaining count. When the panel has
+room for the first child's row but not for that row and the count at full
+height, the row gets shorter to make room for the count. It gets only as short
+as its own content allows: a running timer needs more room than a goal bar,
+and banked minutes need the most. A panel with one child shows no count, so
+that child's row can use the whole panel. The panel shows the count alone only
+when the first child's row cannot fit beside it.
 
 ![Three children stay visible during a scan on a 480×480 panel](images/kids-points-compact/after.png)
 
