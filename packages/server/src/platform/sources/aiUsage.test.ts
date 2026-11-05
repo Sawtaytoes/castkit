@@ -312,3 +312,51 @@ test("AI Usage includes producer account labels without changing ids", () => {
     { id: "grok", name: "SpaceXAI" },
   ])
 })
+
+test("AI Usage titles a third Claude account Claude and carries its owner", () => {
+  /*
+   * The producer numbers a provider's extra accounts. Without its own title a
+   * third Claude account falls back to the split id and reads "Claude 3",
+   * which names a model rather than a subscription.
+   */
+  const snapshot = normalizeAiUsage({
+    providers: [
+      {
+        provider: "claude",
+        owner: "Personal",
+        windows: [],
+      },
+      {
+        provider: "claude_2",
+        owner: "Business",
+        windows: [],
+      },
+      {
+        provider: "claude_3",
+        owner: "Family",
+        windows: [],
+      },
+      { provider: "codex", windows: [] },
+      { provider: "codex_2", windows: [] },
+      { provider: "grok", windows: [] },
+    ],
+  })
+  expect(
+    snapshot.providers.map(({ id, name }) => ({
+      id,
+      name,
+    })),
+  ).toEqual([
+    { id: "claude", name: "Claude Personal" },
+    { id: "claude_2", name: "Claude Business" },
+    { id: "claude_3", name: "Claude Family" },
+    { id: "codex", name: "Codex" },
+    { id: "codex_2", name: "Codex Alt" },
+    { id: "grok", name: "SpaceXAI" },
+  ])
+  expect(
+    normalizeAiUsage({
+      providers: [{ provider: "claude_3", windows: [] }],
+    }).providers[0]?.name,
+  ).toBe("Claude")
+})

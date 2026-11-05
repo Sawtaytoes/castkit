@@ -194,6 +194,165 @@ export const aiUsageFixture: DisplaySnapshot = {
   },
 }
 
+const HOUR_MILLISECONDS = 3_600_000
+
+/**
+ * Six subscriptions in the shape AI Usage publishes once a third Claude
+ * account joins: three Claude accounts, two Codex accounts, and SpaceXAI. The
+ * windows follow the producer's own ids and labels, and the names are the
+ * source's product title joined to an invented owner, so the longest names
+ * are as long as a real installation's.
+ *
+ * One Claude account is spent and another has a nearly spent session, which
+ * is the busiest the view gets: the spent bar draws in the danger color and
+ * the session limit earns the taller escalated row.
+ */
+export const buildSixAccountUsage = ({
+  nowMs,
+}: {
+  nowMs: number
+}) => ({
+  providers: [
+    {
+      id: "claude",
+      name: "Claude Avery",
+      isOk: true,
+      windows: [
+        {
+          id: "weekly_all",
+          label: "Weekly (all models)",
+          periodHours: 168,
+          percentUsed: 33,
+          resetsAtMs: nowMs + 98 * HOUR_MILLISECONDS,
+        },
+        {
+          id: "weekly_scoped_fable",
+          label: "Weekly Fable",
+          periodHours: 168,
+          percentUsed: 0,
+          resetsAtMs: nowMs + 98 * HOUR_MILLISECONDS,
+        },
+      ],
+    },
+    {
+      id: "claude_2",
+      name: "Claude Jordan",
+      isOk: true,
+      windows: [
+        {
+          id: "weekly_all",
+          label: "Weekly (all models)",
+          periodHours: 168,
+          percentUsed: 100,
+          resetsAtMs: nowMs + 120 * HOUR_MILLISECONDS,
+        },
+        {
+          id: "weekly_scoped_fable",
+          label: "Weekly Fable",
+          periodHours: 168,
+          percentUsed: 0,
+          resetsAtMs: nowMs + 120 * HOUR_MILLISECONDS,
+        },
+      ],
+    },
+    {
+      id: "claude_3",
+      name: "Claude Morgan",
+      isOk: true,
+      windows: [
+        {
+          id: "session_5h",
+          label: "5-hour limit",
+          periodHours: 5,
+          percentUsed: 86,
+          resetsAtMs: nowMs + 2 * HOUR_MILLISECONDS,
+        },
+        {
+          id: "weekly_all",
+          label: "Weekly (all models)",
+          periodHours: 168,
+          percentUsed: 41,
+          resetsAtMs: nowMs + 150 * HOUR_MILLISECONDS,
+        },
+      ],
+    },
+    {
+      id: "codex",
+      name: "Codex Avery",
+      isOk: true,
+      windows: [
+        {
+          id: "primary",
+          label: "Weekly",
+          periodHours: 168,
+          percentUsed: 97,
+          resetsAtMs: nowMs + 79 * HOUR_MILLISECONDS,
+        },
+        {
+          id: "credits",
+          label: "Credits",
+          usedText: "0 credits",
+        },
+        {
+          id: "usage_limit_resets",
+          label: "Usage limit resets",
+          usedText: "0 available",
+        },
+      ],
+    },
+    {
+      id: "codex_2",
+      name: "Codex Alt Taylor",
+      isOk: true,
+      windows: [
+        {
+          id: "primary",
+          label: "Monthly",
+          periodHours: 720,
+          percentUsed: 11,
+          resetsAtMs: nowMs + 368 * HOUR_MILLISECONDS,
+        },
+        {
+          id: "usage_limit_resets",
+          label: "Usage limit resets",
+          usedText: "0 available",
+        },
+      ],
+    },
+    {
+      id: "grok",
+      name: "SpaceXAI",
+      isOk: true,
+      windows: [
+        {
+          id: "weekly",
+          label: "Weekly SuperGrok",
+          periodHours: 168,
+          percentUsed: 12,
+          resetsAtMs: nowMs + 162 * HOUR_MILLISECONDS,
+        },
+      ],
+    },
+  ],
+})
+
+/** The AI Usage view alone, carrying all six subscriptions. */
+export const sixAccountUsageFixture = ({
+  nowMs,
+}: {
+  nowMs: number
+}): DisplaySnapshot => ({
+  ...aiUsageFixture,
+  channels: {
+    usage: {
+      id: "usage",
+      type: "ai-usage.v1",
+      status: "ready",
+      data: buildSixAccountUsage({ nowMs }),
+    },
+  },
+})
+
 /**
  * Four invented children on one board. Times are relative to the fixture's
  * own clock, which the Storybook freezes under automation, so the scan is
