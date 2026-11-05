@@ -31,6 +31,57 @@ export const KID_CARD_MIN_HEIGHT = 200
 export const KID_ROW_HEIGHT = 64
 /** Readable row floor when a persistent overview must show every child. */
 export const ALL_CHILDREN_ROW_HEIGHT = 128
+/**
+ * What a compact row draws under its name and total. `KidRow` draws from this,
+ * and the layout reads it to know how short the first row may get.
+ */
+export type KidRowContent =
+  | "goal"
+  | "scan"
+  | "timer"
+  | "banked-timer"
+
+/** A running count-up draws its timer unless a finished scan replaces it. */
+export const getKidRowContent = ({
+  kid,
+  scan,
+  isTimerShowing,
+}: {
+  kid: KidEntry
+  scan: KidScan | undefined
+  isTimerShowing: boolean
+}): KidRowContent => {
+  if (
+    isTimerShowing &&
+    kid.activeTask?.isCountdown !== true &&
+    (!scan ||
+      scan.result === "started" ||
+      scan.result === "progress")
+  ) {
+    return kid.activeTask?.bankedMinutes === undefined
+      ? "timer"
+      : "banked-timer"
+  }
+  return scan ? "scan" : "goal"
+}
+
+/**
+ * The least height in which an all-children row still finishes, by what it
+ * draws. Measured in Chromium in both schemes, on instant and slow panels:
+ * a goal bar with an activity line needs 89 px, a scan banner 100 px, a
+ * running count-up 103 px, and a count-up with banked minutes 129 px. The
+ * readable floor above is what the composition asks for; these are how far
+ * the overflow line may squeeze the one row left before it stops finishing.
+ */
+export const ALL_CHILDREN_FINISHING_ROW_HEIGHTS: Record<
+  KidRowContent,
+  number
+> = {
+  goal: 89,
+  scan: 100,
+  timer: 103,
+  "banked-timer": 129,
+}
 export const KIDS_POINTS_GAP = 12
 /*
  * Reserved whether or not it is needed, for the same reason the AI Usage
@@ -185,17 +236,25 @@ const dataSections = ({
  * The shared priority policy chooses columns or stacked cards from each
  * candidate's readable area. Every card must meet its minimum size. Anything smaller
  * gets one row per child and draws only the rows that finish on the glass.
+ *
+ * Rows are counted at `minimumRowHeight` beside the overflow line. The first
+ * row may also be drawn shorter, down to `finishingRowHeight`, the height its
+ * own content needs: otherwise a box that holds that row but not the row plus
+ * the line draws only "3 more", the smallest form, while it has room for a
+ * child. An only child has no line to make room for.
  */
 export const getKidsPointsLayout = ({
   width,
   height,
   kidCount,
   minimumRowHeight = KID_ROW_HEIGHT,
+  finishingRowHeight = minimumRowHeight,
 }: {
   width: number
   height: number
   kidCount: number
   minimumRowHeight?: number
+  finishingRowHeight?: number
 }) => {
   const candidates = Array.from(
     { length: kidCount },
@@ -238,10 +297,20 @@ export const getKidsPointsLayout = ({
           (minimumRowHeight + KIDS_POINTS_GAP),
       ),
     )
+  // The line and the gap above it come out of the one row that would remain.
+  const roomForFirstRow =
+    kidCount === 1
+      ? height
+      : height - OVERFLOW_LINE_HEIGHT - KIDS_POINTS_GAP
+  const hasRoomForOneFinishedRow =
+    roomForFirstRow >= finishingRowHeight
   const rowCount =
     rowsThatFit(height) >= kidCount
       ? kidCount
-      : rowsThatFit(height - OVERFLOW_LINE_HEIGHT)
+      : Math.max(
+          rowsThatFit(height - OVERFLOW_LINE_HEIGHT),
+          hasRoomForOneFinishedRow ? 1 : 0,
+        )
   return { isBoard, rowCount, columnCount }
 }
 
