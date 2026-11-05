@@ -8,6 +8,7 @@ import {
   compositionFixture,
   kidsPointsFixture,
   pointsHistoryFixture,
+  sixAccountUsageFixture,
 } from "./fixtures.ts"
 import { PinKeypad } from "./PinKeypad.tsx"
 import { DisplayComposition } from "./PlatformApp.tsx"
@@ -346,6 +347,24 @@ export const AiUsage: Story = {
     <main class="platform">
       <DisplayComposition
         snapshot={aiUsageFixture}
+        isConnected
+        onAction={async () => undefined}
+      />
+    </main>
+  ),
+}
+
+/**
+ * Three Claude accounts, two Codex accounts and SpaceXAI. One Claude account
+ * is spent and another has a nearly spent session limit.
+ */
+export const AiUsageSixAccounts: Story = {
+  render: () => (
+    <main class="platform">
+      <DisplayComposition
+        snapshot={sixAccountUsageFixture({
+          nowMs: Date.now(),
+        })}
         isConnected
         onAction={async () => undefined}
       />
