@@ -27,7 +27,7 @@
     "mqtt": "^5.15.1",
     "react": "^19.2.7",
     "rxjs": "^7.8.2",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@charcuterie/vitest-config": "^2.0.0",
@@ -35,7 +35,7 @@
     "@types/react": "^19.2.17",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9",
+    "vitest": "^4.1.12",
     "ws": "8.21.0",
     "@types/ws": "8.18.1"
   }

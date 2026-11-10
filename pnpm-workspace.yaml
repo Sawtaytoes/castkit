@@ -12,5 +12,15 @@ allowBuilds:
   electron-winstaller: true
   esbuild: true
   msw: true
+overrides:
+  # Dependabot fixes for transitive packages. See docs/dependency-security.md.
+  "glob@>=9.0.0 <14.0.2": ^14.0.4
+  "minimatch@>=7.0.0 <11.0.1": ^11.0.5
+  "undici@>=6.0.0 <6.29.1": ^6.29.1
+  "undici@>=7.0.0 <7.30.1": ^7.30.1
+  "source-map-js@<1.2.2": ^1.2.2
+  "vitest>vite": ^8.1.6
+  "satori>fflate": 0.7.5
+  "@scalar/types>zod": ^4.6.6
 patchedDependencies:
   satori@0.56.1: patches/satori@0.56.1.patch
