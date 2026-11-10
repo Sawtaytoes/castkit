@@ -5,7 +5,10 @@ import {
   type ClockAgendaEvent,
   ClockAgendaView,
 } from "./ClockAgendaView.tsx"
-import { PhotoAgendaView } from "./PhotoAgendaView.tsx"
+import {
+  PhotoAgendaView,
+  splitDateLines,
+} from "./PhotoAgendaView.tsx"
 import { countRowsThatFit } from "./viewStyles.ts"
 
 /**
@@ -267,5 +270,35 @@ describe("PhotoAgendaView keeps every drawn row on the panel", () => {
     expect(collectText(node)).toContain(
       "Nothing else today",
     )
+  })
+})
+
+describe("PhotoAgendaView shows the whole date", () => {
+  test("a long weekday and month break onto two whole lines", () => {
+    expect(
+      splitDateLines("Wednesday, September 30"),
+    ).toEqual(["Wednesday", "September 30"])
+  })
+
+  test("a numeric date stays on one line", () => {
+    expect(splitDateLines("11/10/2026")).toEqual([
+      "11/10/2026",
+    ])
+  })
+
+  test("the Kitchen rail draws the weekday and the month on their own lines", () => {
+    const node = PhotoAgendaView({
+      width: 678,
+      height: 416,
+      colorMode: "spectra6",
+      photoDataUri: "data:image/png;base64,AAAA",
+      date: "Wednesday, September 30",
+      events: EVENTS,
+      emptyText: "Nothing else today",
+    })
+
+    const text = collectText(node)
+    expect(text).toContain("Wednesday")
+    expect(text).toContain("September 30")
   })
 })

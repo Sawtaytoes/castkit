@@ -14,6 +14,28 @@ import {
 /** Every event row is `fontSize x this`, matching the rows' line height. */
 const EVENT_LINE_HEIGHT = 1.15
 
+/** Each date line is `fontSize x this`; two lines stack without touching. */
+const DATE_LINE_HEIGHT = 1.08
+
+/**
+ * `Tuesday, November 10` → `["Tuesday", "November 10"]`.
+ *
+ * The rail is half the panel, and a long weekday plus a long month does not
+ * fit on one line at a size read from across the room. Breaking at the first
+ * comma keeps every word whole and the type large. A date with no comma (the
+ * numeric `11/10/2026` form) stays on one line.
+ */
+export const splitDateLines = (date: string) => {
+  const commaIndex = date.indexOf(", ")
+  if (commaIndex === -1) {
+    return [date]
+  }
+  return [
+    date.slice(0, commaIndex),
+    date.slice(commaIndex + 2),
+  ]
+}
+
 export type PhotoAgendaViewProps = PanelViewProps & {
   photoDataUri?: string
   date: string
@@ -68,12 +90,21 @@ export const PhotoAgendaView = ({
     railWidth - railPadding - dividerWidth
   const readableFloor = READABLE_FONT_FLOOR_PX[colorMode]
 
+  const dateLines = splitDateLines(date)
+  const longestDateLine = dateLines.reduce(
+    (longest, line) =>
+      line.length > longest.length ? line : longest,
+    "",
+  )
   const fittedDate = fitText({
     baseFontSize: Math.round(height * 0.09),
     minimumFontSize: readableFloor,
     availableWidth: railContentWidth,
-    text: date,
+    text: longestDateLine,
   })
+  const dateLineHeight = Math.ceil(
+    fittedDate.fontSize * DATE_LINE_HEIGHT,
+  )
   const weatherFontSize = Math.max(
     readableFloor,
     Math.round(height * 0.065),
@@ -108,7 +139,7 @@ export const PhotoAgendaView = ({
     Math.ceil(eventFontSize * EVENT_LINE_HEIGHT)
   const headerHeight =
     topPadding +
-    fittedDate.fontSize +
+    dateLineHeight * dateLines.length +
     (hasWeather ? weatherGap + weatherFontSize : 0) +
     dividerGap +
     dividerHeight +
@@ -173,7 +204,7 @@ export const PhotoAgendaView = ({
     fontSize: fittedDate.fontSize,
     letterSpacing: fittedDate.letterSpacing,
     fontWeight: 700,
-    lineHeight: 1,
+    lineHeight: `${dateLineHeight}px`,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -286,7 +317,11 @@ export const PhotoAgendaView = ({
       </div>
 
       <div style={railStyle}>
-        <div style={dateStyle}>{date}</div>
+        {dateLines.map((line) => (
+          <div key={line} style={dateStyle}>
+            {line}
+          </div>
+        ))}
 
         {hasWeather ? (
           <div style={weatherRowStyle}>
