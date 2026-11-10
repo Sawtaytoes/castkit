@@ -46,24 +46,34 @@ const SIGKILL_AFTER_MS = 5_000
  * ffmpeg keeps writing segments until it exits, so removing the directory
  * right after SIGTERM races those writes and fails with ENOTEMPTY. A failed
  * removal is logged and never rejects: an unhandled rejection here crashed
- * the whole server.
+ * the whole server. An ffmpeg that ignores SIGTERM gets SIGKILL.
  */
-export const stopAndRemoveDirectory = (
-  child: Pick<
-    ChildProcess,
-    "exitCode" | "signalCode" | "kill" | "once"
-  >,
-  directory: string,
-  removeDirectory: (
-    directory: string,
-  ) => Promise<unknown> = (path) =>
+export const stopAndRemoveDirectory = ({
+  child,
+  directory,
+  removeDirectory = (path) =>
     rm(path, {
       recursive: true,
       force: true,
       maxRetries: 3,
     }),
-) =>
+}: {
+  child: Pick<
+    ChildProcess,
+    "exitCode" | "signalCode" | "kill" | "once"
+  >
+  directory: string
+  removeDirectory?: (path: string) => Promise<unknown>
+}) =>
   new Promise<void>((resolve) => {
+    const hasExited =
+      child.exitCode !== null || child.signalCode !== null
+    const forceKill = hasExited
+      ? undefined
+      : setTimeout(() => {
+          child.kill("SIGKILL")
+        }, SIGKILL_AFTER_MS)
+    forceKill?.unref?.()
     const remove = () => {
       clearTimeout(forceKill)
       removeDirectory(directory)
@@ -75,14 +85,6 @@ export const stopAndRemoveDirectory = (
         })
         .finally(resolve)
     }
-    const hasExited =
-      child.exitCode !== null || child.signalCode !== null
-    const forceKill = hasExited
-      ? undefined
-      : setTimeout(() => {
-          child.kill("SIGKILL")
-        }, SIGKILL_AFTER_MS)
-    forceKill?.unref?.()
     if (hasExited) {
       remove()
       return
@@ -100,10 +102,10 @@ export const createPrinterHls = () => {
     const session = sessions.get(id)
     if (!session) return
     sessions.delete(id)
-    void stopAndRemoveDirectory(
-      session.process,
-      session.directory,
-    )
+    void stopAndRemoveDirectory({
+      child: session.process,
+      directory: session.directory,
+    })
   }
   const reap = setInterval(() => {
     for (const [id, session] of sessions) {
