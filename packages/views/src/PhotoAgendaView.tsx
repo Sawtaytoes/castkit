@@ -101,8 +101,17 @@ const estimateDateWidth = ({
   ) * fontSize
 
 /**
+ * The most a one-line date may tighten its letter-spacing, in em. Half of
+ * `fitText`'s condense limit, so the squeeze is not visible. It absorbs the
+ * gap between the measured table and Satori, which draws a little narrower
+ * than Chromium, so a date that truly fits never splits and costs a row.
+ */
+const MAXIMUM_DATE_CONDENSE_EM = 0.03
+
+/**
  * Letter-spacing (0 or negative, to a tenth of a pixel, rounded toward
- * tighter) that brings a one-line date inside the safety margin.
+ * tighter) that brings a one-line date inside the safety margin, or
+ * `undefined` when that would take more than `MAXIMUM_DATE_CONDENSE_EM`.
  */
 const getOneLineDateLetterSpacing = ({
   text,
@@ -120,14 +129,22 @@ const getOneLineDateLetterSpacing = ({
   if (overflow <= 0) {
     return 0
   }
-  return -Math.ceil((overflow / text.length) * 10) / 10
+  const condensePerCharacter = overflow / text.length
+  if (
+    condensePerCharacter >
+    MAXIMUM_DATE_CONDENSE_EM * fontSize
+  ) {
+    return undefined
+  }
+  return -Math.ceil(condensePerCharacter * 10) / 10
 }
 
 /**
  * The date as the lines the rail draws.
  *
- * The rail is half the panel. A date that fits on one line at full size stays
- * on one line, so it costs no agenda row. A longer one (`Tuesday, November
+ * The rail is half the panel. A date that fits on one line at full size,
+ * allowing a slight letter-spacing squeeze, stays on one line, so it costs no
+ * agenda row. A longer one (`Tuesday, November
  * 10` on a 678px window) breaks at its first comma into `["Tuesday",
  * "November 10"]`: every word stays whole and the type stays large, where one
  * line would end in an ellipsis. A date with no comma stays on one line.
@@ -143,8 +160,11 @@ export const splitDateLines = ({
 }) => {
   const commaIndex = date.indexOf(", ")
   const isFitOnOneLine =
-    estimateDateWidth({ text: date, fontSize }) <=
-    availableWidth
+    getOneLineDateLetterSpacing({
+      text: date,
+      fontSize,
+      availableWidth,
+    }) !== undefined
   if (commaIndex === -1 || isFitOnOneLine) {
     return [date]
   }
@@ -219,27 +239,26 @@ export const PhotoAgendaView = ({
       line.length > longest.length ? line : longest,
     "",
   )
-  const isDateInsideRail =
-    dateLines.length === 1 &&
-    estimateDateWidth({
-      text: date,
-      fontSize: baseDateFontSize,
-    }) <= railContentWidth
-  const fittedDate = isDateInsideRail
-    ? {
-        fontSize: baseDateFontSize,
-        letterSpacing: getOneLineDateLetterSpacing({
+  const oneLineLetterSpacing =
+    dateLines.length === 1
+      ? getOneLineDateLetterSpacing({
           text: date,
           fontSize: baseDateFontSize,
           availableWidth: railContentWidth,
-        }),
-      }
-    : fitText({
-        baseFontSize: baseDateFontSize,
-        minimumFontSize: readableFloor,
-        availableWidth: railContentWidth,
-        text: longestDateLine,
-      })
+        })
+      : undefined
+  const fittedDate =
+    oneLineLetterSpacing !== undefined
+      ? {
+          fontSize: baseDateFontSize,
+          letterSpacing: oneLineLetterSpacing,
+        }
+      : fitText({
+          baseFontSize: baseDateFontSize,
+          minimumFontSize: readableFloor,
+          availableWidth: railContentWidth,
+          text: longestDateLine,
+        })
   const dateLineHeight = Math.ceil(
     fittedDate.fontSize * DATE_LINE_HEIGHT,
   )
