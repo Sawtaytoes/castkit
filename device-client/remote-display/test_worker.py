@@ -37,9 +37,10 @@ class WedgedPage:
     stays open, and its ready-selector query never resolves either.
     """
 
-    def __init__(self, is_closing):
+    def __init__(self, is_closing, close_error=None):
         self.url = "about:blank"
         self.is_closing = is_closing
+        self.close_error = close_error
         self.is_page_closed = False
         self.close_started = AsyncMock()
 
@@ -52,6 +53,8 @@ class WedgedPage:
 
     async def close(self):
         await self.close_started()
+        if self.close_error is not None:
+            raise self.close_error
         if not self.is_closing:
             await asyncio.Event().wait()
         self.is_page_closed = True
@@ -399,6 +402,23 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         replacement.close_started.assert_awaited_once()
         self.assertFalse(replacement.is_closed())
         transport.stop.assert_awaited_once()
+
+    async def test_replacement_whose_close_fails_and_stays_open_restarts_the_worker(self):
+        # The close raises a browser error instead of timing out, and the page is
+        # still open. Treating that as closed would leave the page behind.
+        replacement = WedgedPage(is_closing=False, close_error=BrowserError("close failed"))
+        new_page = AsyncMock(side_effect=[LoadingPage(True), replacement])
+        guard = AsyncMock(side_effect=[None, RuntimeError("guard failed")])
+        runs = []
+
+        async def run(session, event_key, loading_frame):
+            runs.append(session)
+            raise TimeoutError("Browser capture stalled")
+
+        await self.serve_after_capture_stall(new_page, run, guard=guard)
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(new_page.await_count, 2)
+        self.assertFalse(replacement.is_closed())
 
     async def test_stalled_native_capture_times_out_and_releases_touch_session(self):
         await self.task_cancel_for_capture_test()

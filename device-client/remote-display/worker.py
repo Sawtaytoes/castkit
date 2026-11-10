@@ -1343,9 +1343,12 @@ async def close_stalled_page(page):
     except TimeoutError as error:
         LOG.error("The stalled page did not close; restarting worker")
         raise WorkerStalledError("The stalled page did not close") from error
-    except Exception:
-        # A page the browser already discarded is closed enough to replace.
-        pass
+    except Exception as error:
+        # A page the browser already discarded is closed enough to replace; one
+        # that is still open would be reused or lost by the next attempt.
+        if not page.is_closed():
+            LOG.error("The stalled page did not close; restarting worker")
+            raise WorkerStalledError("The stalled page did not close") from error
 
 
 async def replace_closed_page(context, page, origin):
