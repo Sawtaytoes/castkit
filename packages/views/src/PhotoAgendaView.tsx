@@ -18,16 +18,36 @@ const EVENT_LINE_HEIGHT = 1.15
 const DATE_LINE_HEIGHT = 1.08
 
 /**
- * `Tuesday, November 10` → `["Tuesday", "November 10"]`.
- *
- * The rail is half the panel, and a long weekday plus a long month does not
- * fit on one line at a size read from across the room. Breaking at the first
- * comma keeps every word whole and the type large. A date with no comma (the
- * numeric `11/10/2026` form) stays on one line.
+ * Widest bold Atkinson Hyperlegible advance per character over every
+ * `en-US` long date, measured in Chromium: 0.559 em for `Wednesday,
+ * November 30`. `fitText` estimates 0.52, which is why a date it judged to
+ * fit was cut off on the glass. Rounded up for a small safety margin.
  */
-export const splitDateLines = (date: string) => {
+const DATE_BOLD_ADVANCE_RATIO = 0.58
+
+/**
+ * The date as the lines the rail draws.
+ *
+ * The rail is half the panel. A date that fits on one line at full size stays
+ * on one line, so it costs no agenda row. A longer one (`Tuesday, November
+ * 10` on a 678px window) breaks at its first comma into `["Tuesday",
+ * "November 10"]`: every word stays whole and the type stays large, where one
+ * line would end in an ellipsis. A date with no comma stays on one line.
+ */
+export const splitDateLines = ({
+  date,
+  fontSize,
+  availableWidth,
+}: {
+  date: string
+  fontSize: number
+  availableWidth: number
+}) => {
   const commaIndex = date.indexOf(", ")
-  if (commaIndex === -1) {
+  const isFitOnOneLine =
+    date.length * fontSize * DATE_BOLD_ADVANCE_RATIO <=
+    availableWidth
+  if (commaIndex === -1 || isFitOnOneLine) {
     return [date]
   }
   return [
@@ -90,14 +110,19 @@ export const PhotoAgendaView = ({
     railWidth - railPadding - dividerWidth
   const readableFloor = READABLE_FONT_FLOOR_PX[colorMode]
 
-  const dateLines = splitDateLines(date)
+  const baseDateFontSize = Math.round(height * 0.09)
+  const dateLines = splitDateLines({
+    date,
+    fontSize: baseDateFontSize,
+    availableWidth: railContentWidth,
+  })
   const longestDateLine = dateLines.reduce(
     (longest, line) =>
       line.length > longest.length ? line : longest,
     "",
   )
   const fittedDate = fitText({
-    baseFontSize: Math.round(height * 0.09),
+    baseFontSize: baseDateFontSize,
     minimumFontSize: readableFloor,
     availableWidth: railContentWidth,
     text: longestDateLine,
