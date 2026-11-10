@@ -22,11 +22,45 @@ from worker import (
     PAGE_STATE_SCRIPT,
     TARGETS_SCRIPT,
     DisplaySession,
+    WorkerStalledError,
     create_browser_context,
     guard_navigation,
     is_navigation_error,
     serve,
 )
+
+
+class WedgedPage:
+    """A kiosk page whose renderer stops answering once a capture stalls.
+
+    `is_closing` says whether `close()` still finishes. When it does not, the page
+    stays open, and its ready-selector query never resolves either.
+    """
+
+    def __init__(self, is_closing):
+        self.url = "about:blank"
+        self.is_closing = is_closing
+        self.is_page_closed = False
+        self.close_started = AsyncMock()
+
+    def load(self, response):
+        self.url = "https://panel.example/display"
+        return response
+
+    def is_closed(self):
+        return self.is_page_closed
+
+    async def close(self):
+        await self.close_started()
+        if not self.is_closing:
+            await asyncio.Event().wait()
+        self.is_page_closed = True
+
+    def locator(self, selector):
+        async def count():
+            await asyncio.Event().wait()
+
+        return types.SimpleNamespace(count=count, wait_for=AsyncMock())
 
 
 class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
@@ -209,6 +243,94 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.wait_for(serve(config), timeout=3)
         transport.connect.assert_awaited_once()
         transport.disconnect.assert_awaited_once()
+        transport.stop.assert_awaited_once()
+
+    async def serve_after_capture_stall(self, page, new_page):
+        """Run serve() until it exits after one stalled capture session.
+
+        The first session ends with the stall the worker logs in production, so the
+        test exercises only the recovery path that follows it.
+        """
+        await self.task_cancel_for_capture_test()
+        transport = types.SimpleNamespace(
+            start=AsyncMock(),
+            stop=AsyncMock(),
+            connect=AsyncMock(),
+            disconnect=AsyncMock(),
+            build_marker="test-firmware",
+        )
+        manifest = types.SimpleNamespace(
+            ok=True, url="https://panel.example/manifest", json=AsyncMock()
+        )
+        browser_api = types.SimpleNamespace(
+            chromium=types.SimpleNamespace(launch=AsyncMock(return_value=self.browser))
+        )
+
+        @contextlib.asynccontextmanager
+        async def browser_manager():
+            yield browser_api
+
+        async def stall(session, event_key, loading_frame):
+            raise TimeoutError("Browser capture stalled")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as credentials:
+            credentials.write("api_encryption_key: test-key\n")
+            credentials.flush()
+            config = {
+                "transport": "esphome-presto",
+                "mac": "020000000001",
+                "host": "127.0.0.1",
+                "secrets_path": credentials.name,
+                "manifest_url": manifest.url,
+            }
+            parsed = {
+                "url": "https://panel.example/display",
+                "ready_selector": "[data-castkit-ready]",
+                "cache_url": None,
+                "max_fps": 8,
+            }
+            page.goto = AsyncMock(side_effect=lambda *args, **kwargs: page.load(manifest))
+            with (
+                patch("worker.async_playwright", browser_manager),
+                patch("worker.create_browser_context", AsyncMock(return_value=self.context)),
+                patch.object(self.context.request, "get", AsyncMock(return_value=manifest)),
+                patch("worker.parse_manifest", return_value=parsed),
+                patch.object(self.context, "new_page", new_page),
+                patch("worker.guard_navigation", AsyncMock()),
+                patch("worker.ESPHomePrestoTransport", return_value=transport),
+                patch.object(DisplaySession, "run", stall),
+                patch("worker.BROWSER_TIMEOUT_SECONDS", 0.05),
+                patch("worker.RECOVERY_TIMEOUT_SECONDS", 0.2),
+                self.assertRaises(WorkerStalledError),
+            ):
+                await asyncio.wait_for(serve(config), timeout=5)
+        return transport
+
+    async def test_page_that_does_not_close_after_a_stall_restarts_the_worker(self):
+        # Seen in production: the stalled page would not close, so the next attempt
+        # reused it and waited on its ready selector for two hours with the panel dark.
+        page = WedgedPage(is_closing=False)
+        transport = await self.serve_after_capture_stall(page, AsyncMock(return_value=page))
+        page.close_started.assert_awaited_once()
+        transport.connect.assert_awaited_once()
+        transport.disconnect.assert_awaited_once()
+        transport.stop.assert_awaited_once()
+
+    async def test_recovery_step_that_never_finishes_restarts_the_worker(self):
+        page = WedgedPage(is_closing=True)
+        opened = asyncio.Event()
+
+        async def new_page():
+            if opened.is_set():
+                await asyncio.Event().wait()
+            opened.set()
+            return page
+
+        transport = await self.serve_after_capture_stall(page, new_page)
+        page.close_started.assert_awaited_once()
+        # The stalled reopen never reaches connect, but each attempt still disconnects.
+        transport.connect.assert_awaited_once()
+        self.assertEqual(transport.disconnect.await_count, 2)
         transport.stop.assert_awaited_once()
 
     async def test_stalled_native_capture_times_out_and_releases_touch_session(self):

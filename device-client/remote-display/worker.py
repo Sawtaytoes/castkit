@@ -42,8 +42,17 @@ from stream_frames import StreamFrameFeed, plan_slots
 
 LOG = logging.getLogger("castkit.remote-display")
 ROOT = pathlib.Path(__file__).resolve().parent
-BUILD_MARKER = "castkit-remote-display-v31b-stitch-change-count"
+BUILD_MARKER = "castkit-remote-display-v31c-stalled-page-restart"
 BROWSER_TIMEOUT_SECONDS = 5
+# Opening the kiosk page allows 15 s to navigate and 15 s for its ready selector.
+# A reconnect step that runs past this deadline is waiting on a wedged browser.
+RECOVERY_TIMEOUT_SECONDS = 60
+
+
+class WorkerStalledError(RuntimeError):
+    """The capture browser stopped answering; only a fresh worker process recovers."""
+
+
 TARGETS_SCRIPT = """({attribute, loadingSelector, width = 480, height = 320}) => {
 const stage = document.querySelector('.stage');
 const gestures = stage ? [{identity: `view-gesture:${stage.dataset.view}`,x:0,y:0,width,height,loading:false}] : [];
@@ -1310,6 +1319,51 @@ async def poll_controls(context, config, transport, stop):
         await asyncio.sleep(0.5)
 
 
+async def within_recovery_deadline(step, awaitable):
+    """Bound a reconnect step so a wedged browser exits the worker instead of hanging it.
+
+    The service supervisor restarts an exited worker with a fresh browser in a few
+    seconds; a step that never returns leaves the display dark until someone notices.
+    """
+    try:
+        return await asyncio.wait_for(awaitable, timeout=RECOVERY_TIMEOUT_SECONDS)
+    except TimeoutError as error:
+        LOG.error("%s did not finish; restarting worker", step)
+        raise WorkerStalledError(f"{step} did not finish") from error
+
+
+async def close_stalled_page(page):
+    """Close the page a stalled capture used, or exit when its renderer cannot close it.
+
+    A page that is still open after a stall keeps its wedged renderer, and the next
+    attempt would wait on it without any timeout.
+    """
+    try:
+        await asyncio.wait_for(page.close(), timeout=BROWSER_TIMEOUT_SECONDS)
+    except TimeoutError as error:
+        LOG.error("The stalled page did not close; restarting worker")
+        raise WorkerStalledError("The stalled page did not close") from error
+    except Exception:
+        # A page the browser already discarded is closed enough to replace.
+        pass
+
+
+async def open_kiosk_page(context, page, origin, config):
+    """Return a loaded kiosk page, replacing a closed one and reloading a blank one."""
+    if page.is_closed():
+        page = await context.new_page()
+        await guard_navigation(page, origin)
+    if page.url == "about:blank" or (
+        config["ready_selector"] and not await page.locator(config["ready_selector"]).count()
+    ):
+        response = await page.goto(config["url"], wait_until="domcontentloaded", timeout=15000)
+        if response is None or not response.ok:
+            raise ConnectionError("Kiosk page unavailable")
+        if config["ready_selector"]:
+            await page.locator(config["ready_selector"]).wait_for(timeout=15000)
+    return page
+
+
 async def serve(config):
     if config.get("transport") == "esphome-lvgl":
         from native_lvgl import run
@@ -1397,20 +1451,9 @@ async def serve(config):
             while not stop.is_set():
                 client = presto or APIClient(config["host"], 6053, None, noise_psk=api_key)
                 try:
-                    if page.is_closed():
-                        page = await context.new_page()
-                        await guard_navigation(page, origin)
-                    if page.url == "about:blank" or (
-                        config["ready_selector"]
-                        and not await page.locator(config["ready_selector"]).count()
-                    ):
-                        response = await page.goto(
-                            config["url"], wait_until="domcontentloaded", timeout=15000
-                        )
-                        if response is None or not response.ok:
-                            raise ConnectionError("Kiosk page unavailable")
-                        if config["ready_selector"]:
-                            await page.locator(config["ready_selector"]).wait_for(timeout=15000)
+                    page = await within_recovery_deadline(
+                        "Opening the kiosk page", open_kiosk_page(context, page, origin, config)
+                    )
                     await client.connect(login=True)
                     if is_presto:
                         actions, event_key = {}, 1
@@ -1435,6 +1478,8 @@ async def serve(config):
                         LOG.info("Display connected; firmware=%s", info.compilation_time)
                     session = DisplaySession(config, page, client, actions, stop, preview, feed)
                     await session.run(event_key, loading_frame)
+                except WorkerStalledError:
+                    raise
                 except Exception as error:
                     LOG.warning(
                         "Display session ended: %s: %s; reconnecting", type(error).__name__, error
@@ -1445,10 +1490,9 @@ async def serve(config):
                         LOG.error("Capture browser disconnected; restarting worker")
                         raise
                     # Recreate a stalled page instead of reusing its compositor.
-                    with contextlib.suppress(Exception):
-                        await asyncio.wait_for(page.close(), timeout=BROWSER_TIMEOUT_SECONDS)
+                    await close_stalled_page(page)
                 finally:
-                    await client.disconnect()
+                    await within_recovery_deadline("Disconnecting the display", client.disconnect())
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=2)
         finally:
@@ -1459,7 +1503,10 @@ async def serve(config):
             await preview.stop()
             if presto is not None:
                 await presto.stop()
-            await browser.close()
+            # A wedged browser may not answer a close either; leaving the
+            # Playwright context stops its driver and the browser with it.
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(browser.close(), timeout=BROWSER_TIMEOUT_SECONDS)
 
 
 if __name__ == "__main__":
