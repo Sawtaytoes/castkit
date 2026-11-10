@@ -22,11 +22,70 @@ from worker import (
     PAGE_STATE_SCRIPT,
     TARGETS_SCRIPT,
     DisplaySession,
+    WorkerStalledError,
     create_browser_context,
     guard_navigation,
     is_navigation_error,
     serve,
 )
+
+
+class WedgedPage:
+    """A kiosk page whose renderer stops answering once a capture stalls.
+
+    `is_closing` says whether `close()` still finishes. When it does not, the page
+    stays open, and its ready-selector query never resolves either.
+    """
+
+    def __init__(self, is_closing, close_error=None):
+        self.url = "about:blank"
+        self.is_closing = is_closing
+        self.close_error = close_error
+        self.is_page_closed = False
+        self.close_started = AsyncMock()
+
+    async def goto(self, url, **options):
+        self.url = url
+        return types.SimpleNamespace(ok=True)
+
+    def is_closed(self):
+        return self.is_page_closed
+
+    async def close(self):
+        await self.close_started()
+        if self.close_error is not None:
+            raise self.close_error
+        if not self.is_closing:
+            await asyncio.Event().wait()
+        self.is_page_closed = True
+
+    def locator(self, selector):
+        async def count():
+            await asyncio.Event().wait()
+
+        return types.SimpleNamespace(count=count, wait_for=AsyncMock())
+
+
+class LoadingPage:
+    """A kiosk page whose navigation succeeds or fails, and which closes on request."""
+
+    def __init__(self, is_loading):
+        self.url = "about:blank"
+        self.is_loading = is_loading
+        self.is_page_closed = False
+
+    async def goto(self, url, **options):
+        self.url = url
+        return types.SimpleNamespace(ok=self.is_loading)
+
+    def is_closed(self):
+        return self.is_page_closed
+
+    async def close(self):
+        self.is_page_closed = True
+
+    def locator(self, selector):
+        return types.SimpleNamespace(count=AsyncMock(return_value=1), wait_for=AsyncMock())
 
 
 class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
@@ -210,6 +269,156 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         transport.connect.assert_awaited_once()
         transport.disconnect.assert_awaited_once()
         transport.stop.assert_awaited_once()
+
+    async def serve_after_capture_stall(
+        self, new_page, run=None, expected_error=WorkerStalledError, timeout=5, guard=None
+    ):
+        """Run serve() until it exits, starting with one stalled capture session.
+
+        By default every session ends with the stall the worker logs in production,
+        so the test exercises only the recovery path that follows it.
+        """
+        await self.task_cancel_for_capture_test()
+        transport = types.SimpleNamespace(
+            start=AsyncMock(),
+            stop=AsyncMock(),
+            connect=AsyncMock(),
+            disconnect=AsyncMock(),
+            build_marker="test-firmware",
+        )
+        manifest = types.SimpleNamespace(
+            ok=True, url="https://panel.example/manifest", json=AsyncMock()
+        )
+        browser_api = types.SimpleNamespace(
+            chromium=types.SimpleNamespace(launch=AsyncMock(return_value=self.browser))
+        )
+
+        @contextlib.asynccontextmanager
+        async def browser_manager():
+            yield browser_api
+
+        async def stall(session, event_key, loading_frame):
+            raise TimeoutError("Browser capture stalled")
+
+        run = run or stall
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as credentials:
+            credentials.write("api_encryption_key: test-key\n")
+            credentials.flush()
+            config = {
+                "transport": "esphome-presto",
+                "mac": "020000000001",
+                "host": "127.0.0.1",
+                "secrets_path": credentials.name,
+                "manifest_url": manifest.url,
+            }
+            parsed = {
+                "url": "https://panel.example/display",
+                "ready_selector": "[data-castkit-ready]",
+                "cache_url": None,
+                "max_fps": 8,
+            }
+            with (
+                patch("worker.async_playwright", browser_manager),
+                patch("worker.create_browser_context", AsyncMock(return_value=self.context)),
+                patch.object(self.context.request, "get", AsyncMock(return_value=manifest)),
+                patch("worker.parse_manifest", return_value=parsed),
+                patch.object(self.context, "new_page", new_page),
+                patch("worker.guard_navigation", guard or AsyncMock()),
+                patch("worker.ESPHomePrestoTransport", return_value=transport),
+                patch.object(DisplaySession, "run", run),
+                patch("worker.BROWSER_TIMEOUT_SECONDS", 0.05),
+                patch("worker.RECOVERY_TIMEOUT_SECONDS", 0.2),
+                self.assertRaises(expected_error),
+            ):
+                await asyncio.wait_for(serve(config), timeout=timeout)
+        return transport
+
+    async def test_page_that_does_not_close_after_a_stall_restarts_the_worker(self):
+        # Seen in production: the stalled page would not close, so the next attempt
+        # reused it and waited on its ready selector for two hours with the panel dark.
+        page = WedgedPage(is_closing=False)
+        transport = await self.serve_after_capture_stall(AsyncMock(return_value=page))
+        page.close_started.assert_awaited_once()
+        transport.connect.assert_awaited_once()
+        transport.disconnect.assert_awaited_once()
+        transport.stop.assert_awaited_once()
+
+    async def test_recovery_step_that_never_finishes_restarts_the_worker(self):
+        page = WedgedPage(is_closing=True)
+        opened = asyncio.Event()
+
+        async def new_page():
+            if opened.is_set():
+                await asyncio.Event().wait()
+            opened.set()
+            return page
+
+        transport = await self.serve_after_capture_stall(new_page)
+        page.close_started.assert_awaited_once()
+        # The stalled reopen never reaches connect, but each attempt still disconnects.
+        transport.connect.assert_awaited_once()
+        self.assertEqual(transport.disconnect.await_count, 2)
+        transport.stop.assert_awaited_once()
+
+    async def test_replacement_pages_that_fail_to_load_are_closed_before_the_next_try(self):
+        # After a stall, two replacement pages fail to load before a third succeeds.
+        # Each failed replacement must be closed, so only the working page stays open.
+        load_results = [True, False, False, True]
+        pages = []
+
+        async def new_page():
+            pages.append(LoadingPage(load_results.pop(0)))
+            return pages[-1]
+
+        runs = []
+
+        async def run(session, event_key, loading_frame):
+            runs.append([page for page in pages if not page.is_closed()])
+            if len(runs) == 1:
+                raise TimeoutError("Browser capture stalled")
+            await self.browser.close()
+            raise RuntimeError("test finished")
+
+        await self.serve_after_capture_stall(new_page, run, expected_error=RuntimeError, timeout=20)
+        self.assertEqual(len(pages), 4)
+        self.assertEqual(runs, [[pages[0]], [pages[3]]])
+        self.assertTrue(all(page.is_closed() for page in pages[:3]))
+
+    async def test_replacement_that_cannot_close_after_a_guard_failure_restarts_the_worker(self):
+        # The navigation guard fails on the replacement page, and that page will not
+        # close. Retrying would leave it open, so the worker exits instead.
+        replacement = WedgedPage(is_closing=False)
+        new_page = AsyncMock(side_effect=[LoadingPage(True), replacement])
+        guard = AsyncMock(side_effect=[None, RuntimeError("guard failed")])
+        runs = []
+
+        async def run(session, event_key, loading_frame):
+            runs.append(session)
+            raise TimeoutError("Browser capture stalled")
+
+        transport = await self.serve_after_capture_stall(new_page, run, guard=guard)
+        self.assertEqual(len(runs), 1)
+        replacement.close_started.assert_awaited_once()
+        self.assertFalse(replacement.is_closed())
+        transport.stop.assert_awaited_once()
+
+    async def test_replacement_whose_close_fails_and_stays_open_restarts_the_worker(self):
+        # The close raises a browser error instead of timing out, and the page is
+        # still open. Treating that as closed would leave the page behind.
+        replacement = WedgedPage(is_closing=False, close_error=BrowserError("close failed"))
+        new_page = AsyncMock(side_effect=[LoadingPage(True), replacement])
+        guard = AsyncMock(side_effect=[None, RuntimeError("guard failed")])
+        runs = []
+
+        async def run(session, event_key, loading_frame):
+            runs.append(session)
+            raise TimeoutError("Browser capture stalled")
+
+        await self.serve_after_capture_stall(new_page, run, guard=guard)
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(new_page.await_count, 2)
+        self.assertFalse(replacement.is_closed())
 
     async def test_stalled_native_capture_times_out_and_releases_touch_session(self):
         await self.task_cancel_for_capture_test()
