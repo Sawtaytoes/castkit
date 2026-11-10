@@ -1348,11 +1348,26 @@ async def close_stalled_page(page):
         pass
 
 
-async def open_kiosk_page(context, page, origin, config):
-    """Return a loaded kiosk page, replacing a closed one and reloading a blank one."""
-    if page.is_closed():
-        page = await context.new_page()
-        await guard_navigation(page, origin)
+async def replace_closed_page(context, page, origin):
+    """Return `page`, or a new guarded page when it is closed.
+
+    The caller takes the replacement before loading it, so a failed load closes the
+    replacement on the next stall cleanup instead of leaving it open.
+    """
+    if not page.is_closed():
+        return page
+    replacement = await context.new_page()
+    try:
+        await guard_navigation(replacement, origin)
+    except BaseException:
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(replacement.close(), timeout=BROWSER_TIMEOUT_SECONDS)
+        raise
+    return replacement
+
+
+async def load_kiosk_page(page, config):
+    """Load the kiosk into a blank page, or reload one whose ready marker is gone."""
     if page.url == "about:blank" or (
         config["ready_selector"] and not await page.locator(config["ready_selector"]).count()
     ):
@@ -1361,7 +1376,6 @@ async def open_kiosk_page(context, page, origin, config):
             raise ConnectionError("Kiosk page unavailable")
         if config["ready_selector"]:
             await page.locator(config["ready_selector"]).wait_for(timeout=15000)
-    return page
 
 
 async def serve(config):
@@ -1452,7 +1466,10 @@ async def serve(config):
                 client = presto or APIClient(config["host"], 6053, None, noise_psk=api_key)
                 try:
                     page = await within_recovery_deadline(
-                        "Opening the kiosk page", open_kiosk_page(context, page, origin, config)
+                        "Opening a kiosk page", replace_closed_page(context, page, origin)
+                    )
+                    await within_recovery_deadline(
+                        "Loading the kiosk page", load_kiosk_page(page, config)
                     )
                     await client.connect(login=True)
                     if is_presto:

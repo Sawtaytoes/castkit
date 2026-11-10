@@ -43,9 +43,9 @@ class WedgedPage:
         self.is_page_closed = False
         self.close_started = AsyncMock()
 
-    def load(self, response):
-        self.url = "https://panel.example/display"
-        return response
+    async def goto(self, url, **options):
+        self.url = url
+        return types.SimpleNamespace(ok=True)
 
     def is_closed(self):
         return self.is_page_closed
@@ -61,6 +61,28 @@ class WedgedPage:
             await asyncio.Event().wait()
 
         return types.SimpleNamespace(count=count, wait_for=AsyncMock())
+
+
+class LoadingPage:
+    """A kiosk page whose navigation succeeds or fails, and which closes on request."""
+
+    def __init__(self, is_loading):
+        self.url = "about:blank"
+        self.is_loading = is_loading
+        self.is_page_closed = False
+
+    async def goto(self, url, **options):
+        self.url = url
+        return types.SimpleNamespace(ok=self.is_loading)
+
+    def is_closed(self):
+        return self.is_page_closed
+
+    async def close(self):
+        self.is_page_closed = True
+
+    def locator(self, selector):
+        return types.SimpleNamespace(count=AsyncMock(return_value=1), wait_for=AsyncMock())
 
 
 class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
@@ -245,11 +267,13 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         transport.disconnect.assert_awaited_once()
         transport.stop.assert_awaited_once()
 
-    async def serve_after_capture_stall(self, page, new_page):
-        """Run serve() until it exits after one stalled capture session.
+    async def serve_after_capture_stall(
+        self, new_page, run=None, expected_error=WorkerStalledError, timeout=5
+    ):
+        """Run serve() until it exits, starting with one stalled capture session.
 
-        The first session ends with the stall the worker logs in production, so the
-        test exercises only the recovery path that follows it.
+        By default every session ends with the stall the worker logs in production,
+        so the test exercises only the recovery path that follows it.
         """
         await self.task_cancel_for_capture_test()
         transport = types.SimpleNamespace(
@@ -273,6 +297,8 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         async def stall(session, event_key, loading_frame):
             raise TimeoutError("Browser capture stalled")
 
+        run = run or stall
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as credentials:
             credentials.write("api_encryption_key: test-key\n")
             credentials.flush()
@@ -289,7 +315,6 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                 "cache_url": None,
                 "max_fps": 8,
             }
-            page.goto = AsyncMock(side_effect=lambda *args, **kwargs: page.load(manifest))
             with (
                 patch("worker.async_playwright", browser_manager),
                 patch("worker.create_browser_context", AsyncMock(return_value=self.context)),
@@ -298,19 +323,19 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                 patch.object(self.context, "new_page", new_page),
                 patch("worker.guard_navigation", AsyncMock()),
                 patch("worker.ESPHomePrestoTransport", return_value=transport),
-                patch.object(DisplaySession, "run", stall),
+                patch.object(DisplaySession, "run", run),
                 patch("worker.BROWSER_TIMEOUT_SECONDS", 0.05),
                 patch("worker.RECOVERY_TIMEOUT_SECONDS", 0.2),
-                self.assertRaises(WorkerStalledError),
+                self.assertRaises(expected_error),
             ):
-                await asyncio.wait_for(serve(config), timeout=5)
+                await asyncio.wait_for(serve(config), timeout=timeout)
         return transport
 
     async def test_page_that_does_not_close_after_a_stall_restarts_the_worker(self):
         # Seen in production: the stalled page would not close, so the next attempt
         # reused it and waited on its ready selector for two hours with the panel dark.
         page = WedgedPage(is_closing=False)
-        transport = await self.serve_after_capture_stall(page, AsyncMock(return_value=page))
+        transport = await self.serve_after_capture_stall(AsyncMock(return_value=page))
         page.close_started.assert_awaited_once()
         transport.connect.assert_awaited_once()
         transport.disconnect.assert_awaited_once()
@@ -326,12 +351,36 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
             opened.set()
             return page
 
-        transport = await self.serve_after_capture_stall(page, new_page)
+        transport = await self.serve_after_capture_stall(new_page)
         page.close_started.assert_awaited_once()
         # The stalled reopen never reaches connect, but each attempt still disconnects.
         transport.connect.assert_awaited_once()
         self.assertEqual(transport.disconnect.await_count, 2)
         transport.stop.assert_awaited_once()
+
+    async def test_replacement_pages_that_fail_to_load_are_closed_before_the_next_try(self):
+        # After a stall, two replacement pages fail to load before a third succeeds.
+        # Each failed replacement must be closed, so only the working page stays open.
+        load_results = [True, False, False, True]
+        pages = []
+
+        async def new_page():
+            pages.append(LoadingPage(load_results.pop(0)))
+            return pages[-1]
+
+        runs = []
+
+        async def run(session, event_key, loading_frame):
+            runs.append([page for page in pages if not page.is_closed()])
+            if len(runs) == 1:
+                raise TimeoutError("Browser capture stalled")
+            await self.browser.close()
+            raise RuntimeError("test finished")
+
+        await self.serve_after_capture_stall(new_page, run, expected_error=RuntimeError, timeout=20)
+        self.assertEqual(len(pages), 4)
+        self.assertEqual(runs, [[pages[0]], [pages[3]]])
+        self.assertTrue(all(page.is_closed() for page in pages[:3]))
 
     async def test_stalled_native_capture_times_out_and_releases_touch_session(self):
         await self.task_cancel_for_capture_test()
