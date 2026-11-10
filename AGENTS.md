@@ -442,9 +442,8 @@ don't batch pushes.
 checks are expected" (measured 2026-09-12). So: push a branch, open a pull request,
 and **squash-merge it yourself once the checks are green**. Complete independent adversarial review as described below before merging.
 Never merge on red or pending. Then finish the
-job: `midclt call app.pull_images castkit` and `app.redeploy castkit` on
-`root@storeman.octen`, and verify a **marker from the new build** — a 200 is also true
-of the old image.
+job: deploy the merged commit's image to the host that runs CastKit, and verify a
+**marker from the new build** — a 200 is also true of the old image.
 
 ⚠️ **A browser panel is verified ON THE PANEL, never by loading its `/d/<id>` page
 somewhere else.** That page is the server rendering the current bundle on demand; the
