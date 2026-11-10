@@ -18,12 +18,83 @@ const EVENT_LINE_HEIGHT = 1.15
 const DATE_LINE_HEIGHT = 1.08
 
 /**
- * Widest bold Atkinson Hyperlegible advance per character over every
- * `en-US` long date, measured in Chromium: 0.559 em for `Wednesday,
- * November 30`. `fitText` estimates 0.52, which is why a date it judged to
- * fit was cut off on the glass. Rounded up for a small safety margin.
+ * Bold Atkinson Hyperlegible advance per character, in em, for every
+ * character an `en-US` date can contain. Measured in Chromium with the
+ * bundled font. Summed over a whole date, these land within 0.5% of the
+ * rendered width for every weekday, month, and day. `fitText`'s flat 0.52
+ * estimate is what let a long date be cut off on the glass.
  */
-const DATE_BOLD_ADVANCE_RATIO = 0.58
+const DATE_BOLD_ADVANCE_EM: Readonly<
+  Record<string, number>
+> = {
+  "0": 0.652,
+  "1": 0.448,
+  "2": 0.586,
+  "3": 0.605,
+  "4": 0.626,
+  "5": 0.612,
+  "6": 0.632,
+  "7": 0.543,
+  "8": 0.625,
+  "9": 0.561,
+  " ": 0.32,
+  ",": 0.243,
+  "/": 0.442,
+  A: 0.69,
+  D: 0.686,
+  F: 0.544,
+  J: 0.56,
+  M: 0.842,
+  N: 0.7,
+  O: 0.764,
+  S: 0.619,
+  T: 0.617,
+  W: 0.883,
+  a: 0.553,
+  b: 0.596,
+  c: 0.52,
+  d: 0.596,
+  e: 0.566,
+  g: 0.597,
+  h: 0.572,
+  i: 0.315,
+  l: 0.314,
+  m: 0.886,
+  n: 0.572,
+  o: 0.573,
+  p: 0.596,
+  r: 0.372,
+  s: 0.534,
+  t: 0.379,
+  u: 0.57,
+  v: 0.526,
+  y: 0.518,
+}
+
+/** An unlisted character counts as the widest glyph in the table. */
+const WIDEST_DATE_ADVANCE_EM = Math.max(
+  ...Object.values(DATE_BOLD_ADVANCE_EM),
+)
+
+/** Covers kerning and rounding between the summed and the drawn width. */
+const DATE_WIDTH_SAFETY = 1.02
+
+const estimateDateWidth = ({
+  text,
+  fontSize,
+}: {
+  text: string
+  fontSize: number
+}) =>
+  [...text].reduce(
+    (total, character) =>
+      total +
+      (DATE_BOLD_ADVANCE_EM[character] ??
+        WIDEST_DATE_ADVANCE_EM),
+    0,
+  ) *
+  fontSize *
+  DATE_WIDTH_SAFETY
 
 /**
  * The date as the lines the rail draws.
@@ -45,7 +116,7 @@ export const splitDateLines = ({
 }) => {
   const commaIndex = date.indexOf(", ")
   const isFitOnOneLine =
-    date.length * fontSize * DATE_BOLD_ADVANCE_RATIO <=
+    estimateDateWidth({ text: date, fontSize }) <=
     availableWidth
   if (commaIndex === -1 || isFitOnOneLine) {
     return [date]

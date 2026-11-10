@@ -297,11 +297,11 @@ describe("PhotoAgendaView shows the whole date", () => {
   test("a date that fits at full size stays on one line", () => {
     expect(
       splitDateLines({
-        date: "Friday, May 1",
+        date: "Friday, July 10",
         fontSize: 37,
         availableWidth: 317,
       }),
-    ).toEqual(["Friday, May 1"])
+    ).toEqual(["Friday, July 10"])
   })
 
   test("a short date costs no agenda row", () => {
@@ -325,8 +325,11 @@ describe("PhotoAgendaView shows the whole date", () => {
         }),
         events: eightEvents,
       }).length
-    expect(countDrawn("Friday, May 1")).toBe(
+    expect(countDrawn("Friday, July 10")).toBe(
       countDrawn("11/10/2026"),
+    )
+    expect(countDrawn("Friday, July 10")).toBeGreaterThan(
+      countDrawn("Wednesday, September 30"),
     )
   })
 
