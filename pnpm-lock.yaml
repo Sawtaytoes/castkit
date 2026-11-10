@@ -212,7 +212,7 @@ overrides:
   undici@>=6.0.0 <6.29.1: ^6.29.1
   undici@>=7.0.0 <7.30.1: ^7.30.1
   source-map-js@<1.2.2: ^1.2.2
-  vite@>=8.0.0 <8.1.6: ^8.1.6
+  vitest>vite: ^8.1.6
   satori>fflate: 0.7.5
   '@scalar/types>zod': ^4.6.6
 
@@ -1037,7 +1037,7 @@ packages:
       '@hono/node-server': '>=1.13'
       hono: '>=4'
       mqtt: '>=5'
-      vite: ^8.1.6
+      vite: '>=5'
     peerDependenciesMeta:
       mqtt:
         optional: true
@@ -1133,7 +1133,7 @@ packages:
   '@charcuterie/vite-config@1.1.0':
     resolution: {integrity: sha512-rPrdgrJIkO0/UqCVIOOHRVWJXyWCJsf1EYNQ1kEwUQCivD9N8b/hBK1eP5aBHd35qaLa3DSYk4RLZ3DNSIbMmg==}
     peerDependencies:
-      vite: ^8.1.6
+      vite: '>=5'
 
   '@charcuterie/vitest-config@2.0.0':
     resolution: {integrity: sha512-pllIxgvddka7UtdsysHyrxQv/Cw3XTi8FPhKm9yDYKLkaMoz8cuZg3R+OrvlBCWsRlyCvfbXrZwuagnARd7OEw==}
@@ -1724,7 +1724,7 @@ packages:
     resolution: {integrity: sha512-qvsTEwEFefhdirGOPnu9Wp6ChfIwy2dBCRuETU3uE+4cC+PFoxMSiiEhxk4lOluA34eARHA0OxqsEUYDqRMgeQ==}
     peerDependencies:
       typescript: '>= 4.3.x'
-      vite: ^8.1.6
+      vite: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
     peerDependenciesMeta:
       typescript:
         optional: true
@@ -2032,7 +2032,7 @@ packages:
     resolution: {integrity: sha512-p0vJpxiVO7KWWazWny3LUZ+saXyZKWv6Ju0bYMWNJRp2YveufRPgSUB1C4MTqGJfz07EehMgfN+AJNwQy+w6Iw==}
     peerDependencies:
       '@babel/core': 7.x
-      vite: ^8.1.6
+      vite: 2.x || 3.x || 4.x || 5.x || 6.x || 7.x || 8.x
 
   '@preact/signals-core@1.14.4':
     resolution: {integrity: sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA==}
@@ -2057,7 +2057,7 @@ packages:
     resolution: {integrity: sha512-FY1fzXpUjiuosznMV0YM7XAOPZjB5FIdWS0W24+XnlxYkt9hNAwwsiKYn+cuTEoMtD/ZVazS5QVssBr9YhpCQA==}
     peerDependencies:
       preact: ^10.4.0 || ^11.0.0-0
-      vite: ^8.1.6
+      vite: '>=2.0.0'
 
   '@resvg/resvg-js-android-arm-eabi@2.6.2':
     resolution: {integrity: sha512-FrJibrAk6v29eabIPgcTUMPXiEz8ssrAk7TXxsiZzww9UTQ1Z5KAbFJs+Z0Ez+VZTYgnE5IQJqBcoSiMebtPHA==}
@@ -2436,7 +2436,7 @@ packages:
     resolution: {integrity: sha512-6DI3XP4He/nMMK4vGLl9tkneygr5bJvYx5EwNZMzw15tCosvGuWRREBvWqTHjZdoRa8HJpqosoFm60splBoAew==}
     peerDependencies:
       storybook: ^10.6.7
-      vite: ^8.1.6
+      vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
 
   '@storybook/global@5.0.0':
     resolution: {integrity: sha512-FcOqPAXACP0I3oJ/ws6/rrPT9WGhu915Cg8D02a9YxLo0DE9zI+a9A5gRGvmQ09fiWPukqI8ZAEoQEdWUKMQdQ==}
@@ -2451,7 +2451,7 @@ packages:
     peerDependencies:
       preact: '>=10'
       storybook: ^10.6.7
-      vite: ^8.1.6
+      vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
 
   '@storybook/preact@10.6.7':
     resolution: {integrity: sha512-GInIp4I6EewM7nms5pVoAmYZOFRCXeLBDMqwDZZxwFTaY5LanqE97JF8EEZxyvliDbz82bCf8ortrhMbB6u3hg==}
@@ -2480,7 +2480,7 @@ packages:
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       storybook: ^10.6.7
       typescript: '>= 4.9.x'
-      vite: ^8.1.6
+      vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
     peerDependenciesMeta:
       typescript:
         optional: true
@@ -2594,7 +2594,7 @@ packages:
   '@tailwindcss/vite@4.3.3':
     resolution: {integrity: sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw==}
     peerDependencies:
-      vite: ^8.1.6
+      vite: ^5.2.0 || ^6 || ^7 || ^8
 
   '@tanstack/charts@0.18.0':
     resolution: {integrity: sha512-JzJ0nkdpZWPla1FPEo6YY6spMRkkVxvtpAF+zvwATV1DpwHegvW7N55Pyts6Gu+do+RmnCAtnOWIcQAwtNAOaw==}
@@ -2910,7 +2910,7 @@ packages:
     peerDependencies:
       '@rolldown/plugin-babel': ^0.1.7 || ^0.2.0
       babel-plugin-react-compiler: ^1.0.0
-      vite: ^8.1.6
+      vite: ^8.0.0
     peerDependenciesMeta:
       '@rolldown/plugin-babel':
         optional: true
@@ -2954,7 +2954,7 @@ packages:
     resolution: {integrity: sha512-fKShNpKZzupWZuY0z7egydvL0sqW4INEZBEExMBMAa6izlENEVHwoXgdaTCaBZ5fwlr4xf2o1wXC83n9RpO+NA==}
     peerDependencies:
       msw: ^2.4.9
-      vite: ^8.1.6
+      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
     peerDependenciesMeta:
       msw:
         optional: true
@@ -5333,7 +5333,7 @@ packages:
   vite-prerender-plugin@0.5.13:
     resolution: {integrity: sha512-IKSpYkzDBsKAxa05naRbj7GvNVMSdww/Z/E89oO3xndz+gWnOBOKOAbEXv7qDhktY/j3vHgJmoV1pPzqU2tx9g==}
     peerDependencies:
-      vite: ^8.1.6
+      vite: 5.x || 6.x || 7.x || 8.x
 
   vite@7.3.8:
     resolution: {integrity: sha512-3tTi78MAKhVk9h+YZVXMQ8POmneJuE97QUPAWtJghHzhH7BAyiqQOC2KZh1DWOsu/USB2cRXhznPByaabvYXfw==}
