@@ -38,6 +38,59 @@ export const rewritePrinterPlaylist = (playlist: string) =>
       (_, name: string) => `?kind=hls&resource=${name}`,
     )
 
+const SIGKILL_AFTER_MS = 5_000
+
+/**
+ * Stop ffmpeg, then delete its segment directory once it has exited.
+ *
+ * ffmpeg keeps writing segments until it exits, so removing the directory
+ * right after SIGTERM races those writes and fails with ENOTEMPTY. A failed
+ * removal is logged and never rejects: an unhandled rejection here crashed
+ * the whole server.
+ */
+export const stopAndRemoveDirectory = (
+  child: Pick<
+    ChildProcess,
+    "exitCode" | "signalCode" | "kill" | "once"
+  >,
+  directory: string,
+  removeDirectory: (
+    directory: string,
+  ) => Promise<unknown> = (path) =>
+    rm(path, {
+      recursive: true,
+      force: true,
+      maxRetries: 3,
+    }),
+) =>
+  new Promise<void>((resolve) => {
+    const remove = () => {
+      clearTimeout(forceKill)
+      removeDirectory(directory)
+        .catch((error: unknown) => {
+          console.warn(
+            `[printer-hls] could not remove ${directory}:`,
+            error,
+          )
+        })
+        .finally(resolve)
+    }
+    const hasExited =
+      child.exitCode !== null || child.signalCode !== null
+    const forceKill = hasExited
+      ? undefined
+      : setTimeout(() => {
+          child.kill("SIGKILL")
+        }, SIGKILL_AFTER_MS)
+    forceKill?.unref?.()
+    if (hasExited) {
+      remove()
+      return
+    }
+    child.once("exit", remove)
+    child.kill("SIGTERM")
+  })
+
 /** Copy printer H.264 into short browser-playable HLS segments. */
 export const createPrinterHls = () => {
   const sessions = new Map<string, Session>()
@@ -47,11 +100,10 @@ export const createPrinterHls = () => {
     const session = sessions.get(id)
     if (!session) return
     sessions.delete(id)
-    session.process.kill("SIGTERM")
-    void rm(session.directory, {
-      recursive: true,
-      force: true,
-    })
+    void stopAndRemoveDirectory(
+      session.process,
+      session.directory,
+    )
   }
   const reap = setInterval(() => {
     for (const [id, session] of sessions) {
