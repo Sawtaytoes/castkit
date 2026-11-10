@@ -5,7 +5,10 @@ import {
   type ClockAgendaEvent,
   ClockAgendaView,
 } from "./ClockAgendaView.tsx"
-import { PhotoAgendaView } from "./PhotoAgendaView.tsx"
+import {
+  PhotoAgendaView,
+  splitDateLines,
+} from "./PhotoAgendaView.tsx"
 import { countRowsThatFit } from "./viewStyles.ts"
 
 /**
@@ -267,5 +270,88 @@ describe("PhotoAgendaView keeps every drawn row on the panel", () => {
     expect(collectText(node)).toContain(
       "Nothing else today",
     )
+  })
+})
+
+describe("PhotoAgendaView shows the whole date", () => {
+  test("a long weekday and month break onto two whole lines", () => {
+    expect(
+      splitDateLines({
+        date: "Wednesday, September 30",
+        fontSize: 37,
+        availableWidth: 317,
+      }),
+    ).toEqual(["Wednesday", "September 30"])
+  })
+
+  test("a numeric date stays on one line", () => {
+    expect(
+      splitDateLines({
+        date: "11/10/2026",
+        fontSize: 37,
+        availableWidth: 317,
+      }),
+    ).toEqual(["11/10/2026"])
+  })
+
+  test("a date that fits at full size stays on one line", () => {
+    expect(
+      splitDateLines({
+        date: "Friday, July 10",
+        fontSize: 37,
+        availableWidth: 317,
+      }),
+    ).toEqual(["Friday, July 10"])
+  })
+
+  test("a short date costs no agenda row", () => {
+    const eightEvents = [
+      ...EVENTS,
+      { timeText: "9:00 PM", summary: "Seventh" },
+      { timeText: "9:30 PM", summary: "Eighth" },
+    ]
+    const countDrawn = (date: string) =>
+      getDrawnSummaries({
+        node: PhotoAgendaView({
+          width: 678,
+          height: 416,
+          colorMode: "spectra6",
+          photoDataUri: "data:image/png;base64,AAAA",
+          date,
+          temperatureText: "71°",
+          conditionText: "Clear night",
+          events: eightEvents,
+          emptyText: "Nothing else today",
+        }),
+        events: eightEvents,
+      }).length
+    expect(countDrawn("Friday, July 10")).toBe(
+      countDrawn("11/10/2026"),
+    )
+    expect(countDrawn("Monday, March 15")).toBe(
+      countDrawn("11/10/2026"),
+    )
+    expect(countDrawn("Monday, March 22")).toBe(
+      countDrawn("11/10/2026"),
+    )
+    expect(countDrawn("Friday, July 10")).toBeGreaterThan(
+      countDrawn("Wednesday, September 30"),
+    )
+  })
+
+  test("the Kitchen rail draws the weekday and the month on their own lines", () => {
+    const node = PhotoAgendaView({
+      width: 678,
+      height: 416,
+      colorMode: "spectra6",
+      photoDataUri: "data:image/png;base64,AAAA",
+      date: "Wednesday, September 30",
+      events: EVENTS,
+      emptyText: "Nothing else today",
+    })
+
+    const text = collectText(node)
+    expect(text).toContain("Wednesday")
+    expect(text).toContain("September 30")
   })
 })

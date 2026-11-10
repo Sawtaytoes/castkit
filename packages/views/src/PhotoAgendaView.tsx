@@ -14,6 +14,166 @@ import {
 /** Every event row is `fontSize x this`, matching the rows' line height. */
 const EVENT_LINE_HEIGHT = 1.15
 
+/** Each date line is `fontSize x this`; two lines stack without touching. */
+const DATE_LINE_HEIGHT = 1.08
+
+/**
+ * Bold Atkinson Hyperlegible advance per character, in em, for every
+ * character an `en-US` date can contain. Measured in Chromium with the
+ * bundled font. Summed over a whole date, these land within 0.5% of the
+ * rendered width for every weekday, month, and day. `fitText`'s flat 0.52
+ * estimate is what let a long date be cut off on the glass.
+ */
+const DATE_BOLD_ADVANCE_EM: Readonly<
+  Record<string, number>
+> = {
+  "0": 0.652,
+  "1": 0.448,
+  "2": 0.586,
+  "3": 0.605,
+  "4": 0.626,
+  "5": 0.612,
+  "6": 0.632,
+  "7": 0.543,
+  "8": 0.625,
+  "9": 0.561,
+  " ": 0.32,
+  ",": 0.243,
+  "/": 0.442,
+  A: 0.69,
+  D: 0.686,
+  F: 0.544,
+  J: 0.56,
+  M: 0.842,
+  N: 0.7,
+  O: 0.764,
+  S: 0.619,
+  T: 0.617,
+  W: 0.883,
+  a: 0.553,
+  b: 0.596,
+  c: 0.52,
+  d: 0.596,
+  e: 0.566,
+  g: 0.597,
+  h: 0.572,
+  i: 0.315,
+  l: 0.314,
+  m: 0.886,
+  n: 0.572,
+  o: 0.573,
+  p: 0.596,
+  r: 0.372,
+  s: 0.534,
+  t: 0.379,
+  u: 0.57,
+  v: 0.526,
+  y: 0.518,
+}
+
+/** An unlisted character counts as the widest glyph in the table. */
+const WIDEST_DATE_ADVANCE_EM = Math.max(
+  ...Object.values(DATE_BOLD_ADVANCE_EM),
+)
+
+/**
+ * Kerning and rounding margin between the summed and the drawn width. A
+ * one-line date inside the raw estimate but not this margin tightens its
+ * letter-spacing by the difference, so a near-boundary date neither splits
+ * (and costs a row) nor ends in an ellipsis.
+ */
+const DATE_WIDTH_SAFETY = 1.02
+
+/** Raw width of `text` in bold at `fontSize`, from the measured table. */
+const estimateDateWidth = ({
+  text,
+  fontSize,
+}: {
+  text: string
+  fontSize: number
+}) =>
+  [...text].reduce(
+    (total, character) =>
+      total +
+      (DATE_BOLD_ADVANCE_EM[character] ??
+        WIDEST_DATE_ADVANCE_EM),
+    0,
+  ) * fontSize
+
+/**
+ * The most a one-line date may tighten its letter-spacing, in em. Half of
+ * `fitText`'s condense limit, so the squeeze is not visible. It absorbs the
+ * gap between the measured table and Satori, which draws a little narrower
+ * than Chromium, so a date that truly fits never splits and costs a row.
+ */
+const MAXIMUM_DATE_CONDENSE_EM = 0.03
+
+/**
+ * Letter-spacing (0 or negative, to a tenth of a pixel, rounded toward
+ * tighter) that brings a one-line date inside the safety margin, or
+ * `undefined` when that would take more than `MAXIMUM_DATE_CONDENSE_EM`.
+ */
+const getOneLineDateLetterSpacing = ({
+  text,
+  fontSize,
+  availableWidth,
+}: {
+  text: string
+  fontSize: number
+  availableWidth: number
+}) => {
+  const overflow =
+    estimateDateWidth({ text, fontSize }) *
+      DATE_WIDTH_SAFETY -
+    availableWidth
+  if (overflow <= 0) {
+    return 0
+  }
+  const condensePerCharacter = overflow / text.length
+  if (
+    condensePerCharacter >
+    MAXIMUM_DATE_CONDENSE_EM * fontSize
+  ) {
+    return undefined
+  }
+  return -Math.ceil(condensePerCharacter * 10) / 10
+}
+
+/**
+ * The date as the lines the rail draws.
+ *
+ * The rail is half the panel. A date that fits on one line at full size,
+ * allowing a slight letter-spacing squeeze, stays on one line, so it costs no
+ * agenda row. A longer one (`Tuesday, November
+ * 10` on a 678px window) breaks at its first comma into `["Tuesday",
+ * "November 10"]`: every word stays whole and the type stays large, where one
+ * line would end in an ellipsis. A date with no comma stays on one line.
+ */
+export const splitDateLines = ({
+  date,
+  fontSize,
+  availableWidth,
+}: {
+  date: string
+  fontSize: number
+  availableWidth: number
+}) => {
+  const commaIndex = date.indexOf(", ")
+  const isFitOnOneLine =
+    getOneLineDateLetterSpacing({
+      text: date,
+      fontSize,
+      availableWidth,
+    }) !== undefined
+  if (commaIndex === -1 || isFitOnOneLine) {
+    return [date]
+  }
+  return [
+    date.slice(0, commaIndex),
+    date.slice(commaIndex + 2),
+  ]
+}
+
 export type PhotoAgendaViewProps = PanelViewProps & {
   photoDataUri?: string
   date: string
@@ -68,12 +228,40 @@ export const PhotoAgendaView = ({
     railWidth - railPadding - dividerWidth
   const readableFloor = READABLE_FONT_FLOOR_PX[colorMode]
 
-  const fittedDate = fitText({
-    baseFontSize: Math.round(height * 0.09),
-    minimumFontSize: readableFloor,
+  const baseDateFontSize = Math.round(height * 0.09)
+  const dateLines = splitDateLines({
+    date,
+    fontSize: baseDateFontSize,
     availableWidth: railContentWidth,
-    text: date,
   })
+  const longestDateLine = dateLines.reduce(
+    (longest, line) =>
+      line.length > longest.length ? line : longest,
+    "",
+  )
+  const oneLineLetterSpacing =
+    dateLines.length === 1
+      ? getOneLineDateLetterSpacing({
+          text: date,
+          fontSize: baseDateFontSize,
+          availableWidth: railContentWidth,
+        })
+      : undefined
+  const fittedDate =
+    oneLineLetterSpacing !== undefined
+      ? {
+          fontSize: baseDateFontSize,
+          letterSpacing: oneLineLetterSpacing,
+        }
+      : fitText({
+          baseFontSize: baseDateFontSize,
+          minimumFontSize: readableFloor,
+          availableWidth: railContentWidth,
+          text: longestDateLine,
+        })
+  const dateLineHeight = Math.ceil(
+    fittedDate.fontSize * DATE_LINE_HEIGHT,
+  )
   const weatherFontSize = Math.max(
     readableFloor,
     Math.round(height * 0.065),
@@ -108,7 +296,7 @@ export const PhotoAgendaView = ({
     Math.ceil(eventFontSize * EVENT_LINE_HEIGHT)
   const headerHeight =
     topPadding +
-    fittedDate.fontSize +
+    dateLineHeight * dateLines.length +
     (hasWeather ? weatherGap + weatherFontSize : 0) +
     dividerGap +
     dividerHeight +
@@ -173,7 +361,7 @@ export const PhotoAgendaView = ({
     fontSize: fittedDate.fontSize,
     letterSpacing: fittedDate.letterSpacing,
     fontWeight: 700,
-    lineHeight: 1,
+    lineHeight: `${dateLineHeight}px`,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -286,7 +474,11 @@ export const PhotoAgendaView = ({
       </div>
 
       <div style={railStyle}>
-        <div style={dateStyle}>{date}</div>
+        {dateLines.map((line) => (
+          <div key={line} style={dateStyle}>
+            {line}
+          </div>
+        ))}
 
         {hasWeather ? (
           <div style={weatherRowStyle}>
