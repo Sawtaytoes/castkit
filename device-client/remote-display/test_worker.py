@@ -268,7 +268,7 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         transport.stop.assert_awaited_once()
 
     async def serve_after_capture_stall(
-        self, new_page, run=None, expected_error=WorkerStalledError, timeout=5
+        self, new_page, run=None, expected_error=WorkerStalledError, timeout=5, guard=None
     ):
         """Run serve() until it exits, starting with one stalled capture session.
 
@@ -321,7 +321,7 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
                 patch.object(self.context.request, "get", AsyncMock(return_value=manifest)),
                 patch("worker.parse_manifest", return_value=parsed),
                 patch.object(self.context, "new_page", new_page),
-                patch("worker.guard_navigation", AsyncMock()),
+                patch("worker.guard_navigation", guard or AsyncMock()),
                 patch("worker.ESPHomePrestoTransport", return_value=transport),
                 patch.object(DisplaySession, "run", run),
                 patch("worker.BROWSER_TIMEOUT_SECONDS", 0.05),
@@ -381,6 +381,24 @@ class BrowserTouchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(pages), 4)
         self.assertEqual(runs, [[pages[0]], [pages[3]]])
         self.assertTrue(all(page.is_closed() for page in pages[:3]))
+
+    async def test_replacement_that_cannot_close_after_a_guard_failure_restarts_the_worker(self):
+        # The navigation guard fails on the replacement page, and that page will not
+        # close. Retrying would leave it open, so the worker exits instead.
+        replacement = WedgedPage(is_closing=False)
+        new_page = AsyncMock(side_effect=[LoadingPage(True), replacement])
+        guard = AsyncMock(side_effect=[None, RuntimeError("guard failed")])
+        runs = []
+
+        async def run(session, event_key, loading_frame):
+            runs.append(session)
+            raise TimeoutError("Browser capture stalled")
+
+        transport = await self.serve_after_capture_stall(new_page, run, guard=guard)
+        self.assertEqual(len(runs), 1)
+        replacement.close_started.assert_awaited_once()
+        self.assertFalse(replacement.is_closed())
+        transport.stop.assert_awaited_once()
 
     async def test_stalled_native_capture_times_out_and_releases_touch_session(self):
         await self.task_cancel_for_capture_test()

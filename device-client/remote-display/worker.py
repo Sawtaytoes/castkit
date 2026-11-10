@@ -1333,10 +1333,10 @@ async def within_recovery_deadline(step, awaitable):
 
 
 async def close_stalled_page(page):
-    """Close the page a stalled capture used, or exit when its renderer cannot close it.
+    """Close a page the worker is giving up on, or exit when its renderer cannot close it.
 
     A page that is still open after a stall keeps its wedged renderer, and the next
-    attempt would wait on it without any timeout.
+    attempt would wait on it without any timeout or leave it open for good.
     """
     try:
         await asyncio.wait_for(page.close(), timeout=BROWSER_TIMEOUT_SECONDS)
@@ -1360,8 +1360,8 @@ async def replace_closed_page(context, page, origin):
     try:
         await guard_navigation(replacement, origin)
     except BaseException:
-        with contextlib.suppress(Exception):
-            await asyncio.wait_for(replacement.close(), timeout=BROWSER_TIMEOUT_SECONDS)
+        # A replacement that cannot close is lost to the caller; exit instead.
+        await close_stalled_page(replacement)
         raise
     return replacement
 
