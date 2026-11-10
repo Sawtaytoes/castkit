@@ -434,17 +434,16 @@ reads the runner's `TZ=America/Chicago`
 Commit small and often; conventional commits; one logical change per commit.
 
 **Push as you go — no go-ahead needed.** Commit each logical change and get it onto
-`master` yourself so CI rebuilds the `:latest` image and TrueNAS/Home Assistant
-self-update without the maintainer touching the server. Don't wait to be asked and
-don't batch pushes.
+`master` yourself so CI publishes that commit's image. Merging does not deploy it: the
+running install pins its image to a commit, so finish with the deploy step below.
+Don't wait to be asked and don't batch pushes.
 
 ⚠️ **`master` is protected and a direct push is REJECTED** — "6 of 6 required status
 checks are expected" (measured 2026-09-12). So: push a branch, open a pull request,
 and **squash-merge it yourself once the checks are green**. Complete independent adversarial review as described below before merging.
 Never merge on red or pending. Then finish the
-job: `midclt call app.pull_images castkit` and `app.redeploy castkit` on
-`root@truenas-host`, and verify a **marker from the new build** — a 200 is also true
-of the old image.
+job: deploy the merged commit's image to the host that runs CastKit, and verify a
+**marker from the new build** — a 200 is also true of the old image.
 
 ⚠️ **A browser panel is verified ON THE PANEL, never by loading its `/d/<id>` page
 somewhere else.** That page is the server rendering the current bundle on demand; the
