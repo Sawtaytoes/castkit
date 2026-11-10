@@ -76,9 +76,15 @@ const WIDEST_DATE_ADVANCE_EM = Math.max(
   ...Object.values(DATE_BOLD_ADVANCE_EM),
 )
 
-/** Covers kerning and rounding between the summed and the drawn width. */
+/**
+ * Kerning and rounding margin between the summed and the drawn width. A
+ * one-line date inside the raw estimate but not this margin tightens its
+ * letter-spacing by the difference, so a near-boundary date neither splits
+ * (and costs a row) nor ends in an ellipsis.
+ */
 const DATE_WIDTH_SAFETY = 1.02
 
+/** Raw width of `text` in bold at `fontSize`, from the measured table. */
 const estimateDateWidth = ({
   text,
   fontSize,
@@ -92,9 +98,30 @@ const estimateDateWidth = ({
       (DATE_BOLD_ADVANCE_EM[character] ??
         WIDEST_DATE_ADVANCE_EM),
     0,
-  ) *
-  fontSize *
-  DATE_WIDTH_SAFETY
+  ) * fontSize
+
+/**
+ * Letter-spacing (0 or negative, to a tenth of a pixel, rounded toward
+ * tighter) that brings a one-line date inside the safety margin.
+ */
+const getOneLineDateLetterSpacing = ({
+  text,
+  fontSize,
+  availableWidth,
+}: {
+  text: string
+  fontSize: number
+  availableWidth: number
+}) => {
+  const overflow =
+    estimateDateWidth({ text, fontSize }) *
+      DATE_WIDTH_SAFETY -
+    availableWidth
+  if (overflow <= 0) {
+    return 0
+  }
+  return -Math.ceil((overflow / text.length) * 10) / 10
+}
 
 /**
  * The date as the lines the rail draws.
@@ -192,12 +219,27 @@ export const PhotoAgendaView = ({
       line.length > longest.length ? line : longest,
     "",
   )
-  const fittedDate = fitText({
-    baseFontSize: baseDateFontSize,
-    minimumFontSize: readableFloor,
-    availableWidth: railContentWidth,
-    text: longestDateLine,
-  })
+  const isDateInsideRail =
+    dateLines.length === 1 &&
+    estimateDateWidth({
+      text: date,
+      fontSize: baseDateFontSize,
+    }) <= railContentWidth
+  const fittedDate = isDateInsideRail
+    ? {
+        fontSize: baseDateFontSize,
+        letterSpacing: getOneLineDateLetterSpacing({
+          text: date,
+          fontSize: baseDateFontSize,
+          availableWidth: railContentWidth,
+        }),
+      }
+    : fitText({
+        baseFontSize: baseDateFontSize,
+        minimumFontSize: readableFloor,
+        availableWidth: railContentWidth,
+        text: longestDateLine,
+      })
   const dateLineHeight = Math.ceil(
     fittedDate.fontSize * DATE_LINE_HEIGHT,
   )

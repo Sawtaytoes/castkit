@@ -328,6 +328,9 @@ describe("PhotoAgendaView shows the whole date", () => {
     expect(countDrawn("Friday, July 10")).toBe(
       countDrawn("11/10/2026"),
     )
+    expect(countDrawn("Monday, March 15")).toBe(
+      countDrawn("11/10/2026"),
+    )
     expect(countDrawn("Friday, July 10")).toBeGreaterThan(
       countDrawn("Wednesday, September 30"),
     )
