@@ -74,7 +74,8 @@ const CompleteRecipe = ({
         boxSizing: "border-box",
         padding: display.padding,
         overflow: "hidden",
-        fontFamily: "Arial, Helvetica, sans-serif",
+        fontFamily:
+          'Arial, Helvetica, "Noto Sans JP", sans-serif',
         // A long unbroken word wraps instead of running off the panel.
         overflowWrap: "anywhere",
         fontSize: display.fontSize,
@@ -292,7 +293,7 @@ export const RecipeView = ({
             padding: display.padding,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
-            fontFamily: "monospace",
+            fontFamily: 'monospace, "Noto Sans JP"',
             fontSize: display.fontSize,
             lineHeight: `${display.lineHeight}px`,
             display: "flex",
@@ -305,7 +306,7 @@ export const RecipeView = ({
               height: display.lineHeight * 2,
               flexShrink: 0,
               overflow: "hidden",
-              fontFamily: "sans-serif",
+              fontFamily: '"Noto Sans JP", sans-serif',
               fontWeight: 700,
               fontSize: display.fontSize * 1.2,
               lineHeight: `${display.lineHeight}px`,
@@ -336,7 +337,7 @@ export const RecipeView = ({
             style={{
               display: "flex",
               justifyContent: "space-between",
-              fontFamily: "sans-serif",
+              fontFamily: '"Noto Sans JP", sans-serif',
               fontSize: display.fontSize * 0.7,
               height: display.lineHeight,
               flexShrink: 0,

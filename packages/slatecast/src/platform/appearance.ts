@@ -2,8 +2,9 @@ import type { ViewDefinition } from "@castkit/sdk/contracts"
 
 /**
  * A chosen font family rarely carries kana or kanji, so Noto Sans JP follows it
- * (see `japaneseFont.css`). The browser falls through per character, so the
- * chosen face still draws every glyph it has.
+ * (see `japaneseFont.css`). It goes last because the chosen stack may end in a
+ * generic family; the browser still falls through per character, so the
+ * chosen faces draw every glyph they have and Noto Sans JP draws the rest.
  */
 const withJapaneseFallback = (
   fontFamily: string | undefined,

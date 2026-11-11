@@ -654,9 +654,6 @@ importers:
         specifier: ^10.29.1
         version: 10.29.5
     devDependencies:
-      '@castkit/render':
-        specifier: workspace:*
-        version: link:../render
       '@charcuterie/server':
         specifier: ^0.5.1
         version: 0.5.1(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@7.3.8(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))

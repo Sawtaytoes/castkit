@@ -2,49 +2,76 @@ import { expect, test } from "vitest"
 import { viewAppearance } from "./platform/appearance.ts"
 import "./styles.css"
 
-const japaneseTitle = "星のピアノ"
-
 // Chromium reports a family name with or without its CSS quotes.
-const getIsJapaneseFace = (fontFace: FontFace) =>
-  fontFace.family.replaceAll('"', "") === "Noto Sans JP"
+const getJapaneseFaces = () =>
+  [...document.fonts].filter(
+    (fontFace) =>
+      fontFace.family.replaceAll('"', "") ===
+      "Noto Sans JP",
+  )
 
-const getLoadedJapaneseWeights = () =>
-  [...document.fonts]
-    .filter(getIsJapaneseFace)
+const getLoadedJapaneseFaces = () =>
+  getJapaneseFaces()
     .filter((fontFace) => fontFace.status === "loaded")
-    .map((fontFace) => fontFace.weight)
+    .map(
+      (fontFace) =>
+        `${fontFace.weight} ${fontFace.unicodeRange.includes("U+4E00") ? "kanji" : "kana"}`,
+    )
 
-const renderText = (
-  fontFamily: string,
-  fontWeight: string,
-) => {
+const renderText = (text: string) => {
   const element = document.createElement("div")
-  element.style.fontFamily = fontFamily
-  element.style.fontWeight = fontWeight
-  element.textContent = japaneseTitle
+  element.style.fontFamily = "var(--font-sans)"
+  element.style.fontWeight = "600"
+  element.textContent = text
   document.body.append(element)
   return element
 }
 
-test("Japanese text in the default stack loads Noto Sans JP", async () => {
-  const element = renderText("var(--font-sans)", "600")
+const getTextWidth = (fontFamily: string, text: string) => {
+  const context = document
+    .createElement("canvas")
+    .getContext("2d")
+  if (!context) {
+    throw new Error("no 2d context")
+  }
+  context.font = `700 40px ${fontFamily}`
+  return context.measureText(text).width
+}
+
+// One test, because `document.fonts` is shared and a face never unloads:
+// each step depends on what the earlier steps did and did not download.
+test("Japanese text downloads only the Noto Sans JP slices it uses", async () => {
+  expect(getJapaneseFaces()).toHaveLength(4)
+
+  const latin = renderText(
+    "Super Mario Galaxy 2 Original Soundtrack",
+  )
   await document.fonts.ready
+  expect(getLoadedJapaneseFaces()).toEqual([])
 
-  expect(getLoadedJapaneseWeights()).toEqual(["700"])
-  element.remove()
-})
+  const kana = renderText("ロゼッタのテーマ")
+  await document.fonts.ready
+  expect(getLoadedJapaneseFaces()).toEqual(["700 kana"])
 
-test("a Japanese weight no text uses is never downloaded", async () => {
-  const fontFaces = [...document.fonts].filter(
-    getIsJapaneseFace,
+  const kanji = renderText("星の子チコ")
+  await document.fonts.ready
+  expect(getLoadedJapaneseFaces().sort()).toEqual([
+    "700 kana",
+    "700 kanji",
+  ])
+
+  // The stack draws these characters with Noto Sans JP itself, not with a
+  // system fallback or missing-glyph boxes.
+  expect(getTextWidth('"Noto Sans JP"', "星の子チコ")).toBe(
+    getTextWidth(
+      'Outfit, "Noto Sans JP", sans-serif',
+      "星の子チコ",
+    ),
   )
 
-  expect(fontFaces).toHaveLength(2)
-  expect(
-    fontFaces.filter(
-      (fontFace) => fontFace.weight === "400",
-    )[0]?.status,
-  ).toBe("unloaded")
+  for (const element of [latin, kana, kanji]) {
+    element.remove()
+  }
 })
 
 test("a view's own font family keeps the Japanese fallback", () => {
