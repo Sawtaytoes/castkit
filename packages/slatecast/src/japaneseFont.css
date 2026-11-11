@@ -1,0 +1,39 @@
+/*
+ * Japanese glyphs for the live view.
+ *
+ * Outfit has no kana or kanji, and a kiosk Pi ships no Japanese system font,
+ * so a Japanese track title drew as empty boxes. The server-rendered frames
+ * already embed Noto Sans JP (`@castkit/render/src/fonts.ts`); the live view
+ * now loads the same two files instead of relying on the panel's operating
+ * system.
+ *
+ * `unicode-range` keeps the cost at zero for Latin pages: the browser fetches
+ * a face only when the page contains a character in its range. The files are
+ * about 5.7 MB each, so a page with Japanese text loads one or both once and
+ * then revalidates them with an ETag.
+ */
+@font-face {
+  font-family: "Noto Sans JP";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("@castkit/render/assets/fonts/NotoSansJP-Regular.ttf")
+    format("truetype");
+  unicode-range:
+    U+3000-30FF, U+3190-319F, U+31F0-31FF, U+3200-33FF,
+    U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F,
+    U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("@castkit/render/assets/fonts/NotoSansJP-Bold.ttf")
+    format("truetype");
+  unicode-range:
+    U+3000-30FF, U+3190-319F, U+31F0-31FF, U+3200-33FF,
+    U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F,
+    U+FF00-FFEF;
+}
