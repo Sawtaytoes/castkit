@@ -20,6 +20,7 @@
  * a rule names, so Baloo 2 and Victor Mono cost nothing here.
  */
 @import "@charcuterie/tokens/fonts.css";
+@import "./japaneseFont.css";
 
 /*
  * Five names, and every rule below still uses them.
@@ -55,6 +56,16 @@
    * not override would end that feature.
    */
   --accent-content: var(--color-intent-accent-content);
+  /*
+   * The token's stack with Noto Sans JP placed before the generic families.
+   * A browser falls through the list one character at a time, so Latin text
+   * stays in Outfit and only kana and kanji reach Noto Sans JP. A view that
+   * sets its own font family gets the same fallback from `viewAppearance`.
+   */
+  --font-sans:
+    Outfit, "Noto Sans JP", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
 }
 
 * {
