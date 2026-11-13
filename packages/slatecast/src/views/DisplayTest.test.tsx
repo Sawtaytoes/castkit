@@ -131,3 +131,41 @@ test("the saved diagnostic renders without a channel and keeps patterns inside i
   expect(field.getBoundingClientRect().width).toBe(298)
   expect(field.getBoundingClientRect().height).toBe(248)
 })
+
+test("Escape closes an open pattern list without changing the pattern, and the open list holds the controls up", async () => {
+  await mountSlatecast({
+    snapshot: buildSnapshot({ view: "display-test" }),
+  })
+  const user = userEvent.setup()
+  const field = document.querySelector(
+    ".display-test",
+  ) as HTMLElement
+  await user.click(await screen.findByText("Test pattern"))
+  screen.getByRole("option", { name: "Full white" }).focus()
+  await new Promise((resolve) => setTimeout(resolve, 4_500))
+  expect(
+    screen.getByRole("region", {
+      name: "Display test controls",
+    }),
+  ).toBeVisible()
+  await user.keyboard("{Escape}")
+  expect(screen.queryByRole("listbox")).toBeNull()
+  expect(document.activeElement?.tagName).toBe("SUMMARY")
+  expect(field.getAttribute("data-pattern")).toBe(
+    "Full black",
+  )
+  expect(
+    screen.getByRole("region", {
+      name: "Display test controls",
+    }),
+  ).toBeVisible()
+  await expect
+    .poll(
+      () =>
+        screen.queryByRole("region", {
+          name: "Display test controls",
+        }),
+      { timeout: 5_000 },
+    )
+    .toBeNull()
+})

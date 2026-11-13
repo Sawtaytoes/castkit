@@ -56,6 +56,17 @@ export const HomePicker = ({
       onToggle={(event) =>
         setIsOpen(event.currentTarget.open)
       }
+      onKeyDown={(event) => {
+        // Escape closes an open list, as it does a native one, and leaves
+        // focus on the trigger.
+        if (event.key === "Escape" && isOpen) {
+          event.preventDefault()
+          event.currentTarget.removeAttribute("open")
+          event.currentTarget
+            .querySelector("summary")
+            ?.focus()
+        }
+      }}
     >
       <summary>
         {label}

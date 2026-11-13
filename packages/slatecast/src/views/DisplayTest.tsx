@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks"
+import { useEffect, useRef, useState } from "preact/hooks"
 import { DeferredHomeControl } from "../platform/DeferredHomeControl.tsx"
 
 const PATTERNS = [
@@ -42,6 +42,8 @@ export const DisplayTest = () => {
   const [patternIndex, setPatternIndex] = useState(0)
   const [isControlsVisible, setIsControlsVisible] =
     useState(true)
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
+  const controlsRef = useRef<HTMLElement>(null)
   const pattern = PATTERNS[patternIndex]!
 
   const advancePattern = (direction: number) => {
@@ -54,7 +56,9 @@ export const DisplayTest = () => {
   }
 
   useEffect(() => {
-    if (!isControlsVisible) {
+    // An open pattern list holds the controls up; they hide four seconds
+    // after it closes.
+    if (!isControlsVisible || isPickerOpen) {
       return
     }
     const timeout = window.setTimeout(
@@ -62,7 +66,29 @@ export const DisplayTest = () => {
       4_000,
     )
     return () => window.clearTimeout(timeout)
-  }, [isControlsVisible, patternIndex])
+  }, [isControlsVisible, isPickerOpen, patternIndex])
+
+  useEffect(() => {
+    // Hidden controls take the open list with them.
+    if (!isControlsVisible) {
+      setIsPickerOpen(false)
+      return
+    }
+    // `toggle` does not bubble, so the controls listen while it captures.
+    const controls = controlsRef.current
+    const handleToggle = (event: Event) => {
+      if (event.target instanceof HTMLDetailsElement) {
+        setIsPickerOpen(event.target.open)
+      }
+    }
+    controls?.addEventListener("toggle", handleToggle, true)
+    return () =>
+      controls?.removeEventListener(
+        "toggle",
+        handleToggle,
+        true,
+      )
+  }, [isControlsVisible])
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -108,12 +134,15 @@ export const DisplayTest = () => {
         <section
           aria-label="Display test controls"
           onPointerDown={(event) => event.stopPropagation()}
+          ref={controlsRef}
           style={{
             position: "absolute",
             left: "50%",
             top: "50%",
             transform: "translate(-50%, -50%)",
             width: "min(88%, 38rem)",
+            maxHeight: "100%",
+            overflowY: "auto",
             boxSizing: "border-box",
             padding: "clamp(12px, 3vmin, 24px)",
             borderRadius: "1rem",
