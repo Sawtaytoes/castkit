@@ -39,7 +39,10 @@ import { createPlatform } from "./platform/platform.ts"
 import { readPlatformFrameKey } from "./platform/platformFrameKey.ts"
 import { attachPlatformSockets } from "./platform/platformSockets.ts"
 import { createPushController } from "./pushController.ts"
-import { fetchArtworkDataUri } from "./render/artworkFetch.ts"
+import {
+  createLatestRequestTracker,
+  fetchArtworkDataUri,
+} from "./render/artworkFetch.ts"
 import { createRenderService } from "./render/renderService.ts"
 import { startClockTicker } from "./schedulers/clockTicker.ts"
 import { applyDeviceDefinitions } from "./state/applyDeviceDefinitions.ts"
@@ -61,6 +64,7 @@ import { createDeviceDefinitionStore } from "./state/deviceDefinitionStore.ts"
 import { createDeviceStore } from "./state/deviceStore.ts"
 import { createRenderTokenStore } from "./state/renderTokenStore.ts"
 import { createViewDataStore } from "./state/viewDataStore.ts"
+import { logUnhandledRejections } from "./unhandledRejectionLogger.ts"
 import {
   getIsAgendaView,
   getIsClockBearingView,
@@ -313,6 +317,9 @@ const RETAINED_SETTLE_MILLISECONDS = 5_000
 // stream workers keep their own allocators.
 delete process.env.LD_PRELOAD
 delete process.env.MALLOC_CONF
+
+// One failed render, push, or Immich call must not stop every display.
+logUnhandledRejections()
 
 const main = async () => {
   loadEnvironmentFile()
@@ -578,6 +585,7 @@ const main = async () => {
       return undefined
     }
   }
+  const nowPlayingRequests = createLatestRequestTracker()
   const applyNowPlayingPayload = async ({
     deviceId,
     payload,
@@ -585,6 +593,7 @@ const main = async () => {
     deviceId: string
     payload: string
   }) => {
+    const request = nowPlayingRequests.begin(deviceId)
     const nowPlaying = parseNowPlayingPayload(
       parseJsonPayload(payload),
     )
@@ -595,6 +604,11 @@ const main = async () => {
           url: nowPlaying.artworkPath,
         })
       : undefined
+    // A newer payload for this display arrived during the download; it owns
+    // the display now, so this older track must not overwrite it.
+    if (!request.getIsLatest()) {
+      return
+    }
     viewDataStore.setNowPlaying({
       deviceId,
       data: artworkDataUri

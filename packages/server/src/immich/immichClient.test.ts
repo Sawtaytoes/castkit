@@ -1,8 +1,18 @@
-import { describe, expect, test } from "vitest"
+import {
+  afterEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest"
 import {
   applyPeopleMinimum,
   computeRecencyWeight,
+  fetchPreviewJpeg,
   getIsPortraitAsset,
+  IMMICH_REQUEST_TIMEOUT_MILLISECONDS,
+  type ImmichConfig,
+  listPeople,
   pickWeightedIndex,
 } from "./immichClient.ts"
 
@@ -241,5 +251,67 @@ describe("applyPeopleMinimum", () => {
     expect(
       applyPeopleMinimum({ pool: [], peopleMinimum: 2 }),
     ).toEqual([])
+  })
+})
+
+describe("Immich requests time out", () => {
+  const config: ImmichConfig = {
+    url: "http://immich.example:2283/",
+    apiKey: "test-key",
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test("a JSON request carries an abort signal", async () => {
+    const fetchSpy = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ people: [] })),
+    )
+    vi.stubGlobal("fetch", fetchSpy)
+    await listPeople(config)
+    expect(
+      fetchSpy.mock.calls[0]?.[1]?.signal,
+    ).toBeInstanceOf(AbortSignal)
+  })
+
+  test("a preview download carries an abort signal", async () => {
+    const fetchSpy = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(new Uint8Array([1, 2, 3])),
+    )
+    vi.stubGlobal("fetch", fetchSpy)
+    const preview = await fetchPreviewJpeg({
+      config,
+      assetId: "asset-1",
+    })
+    expect(preview.byteLength).toBe(3)
+    expect(
+      fetchSpy.mock.calls[0]?.[1]?.signal,
+    ).toBeInstanceOf(AbortSignal)
+  })
+
+  test("a request that outlives its signal rejects instead of hanging", async () => {
+    vi.stubGlobal(
+      "fetch",
+      (_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          if (init?.signal?.aborted) {
+            reject(init.signal.reason)
+          }
+          init?.signal?.addEventListener("abort", () => {
+            reject(init.signal?.reason)
+          })
+        }),
+    )
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockImplementation(() => AbortSignal.abort())
+    await expect(listPeople(config)).rejects.toThrow()
+    expect(timeoutSpy).toHaveBeenCalledWith(
+      IMMICH_REQUEST_TIMEOUT_MILLISECONDS,
+    )
+    timeoutSpy.mockRestore()
   })
 })

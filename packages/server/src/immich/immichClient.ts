@@ -63,6 +63,14 @@ const PAGE_SIZE = 1_000
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1_000
 const RECENCY_WEIGHT_FLOOR = 0.15
 const DEFAULT_RECENCY_HALF_LIFE_DAYS = 365
+/*
+ * Every Immich call gives up after this long, body included. Without it a
+ * stalled Immich held the photo frame's render forever: `fetch` has no
+ * default timeout. Thirty seconds still covers a 1,000-asset search page and
+ * a large preview on a busy server.
+ */
+export const IMMICH_REQUEST_TIMEOUT_MILLISECONDS = 30_000
+
 /** 1 = "any of the listed people", the behavior before the knob existed. */
 export const DEFAULT_PEOPLE_MINIMUM = 1
 
@@ -95,6 +103,9 @@ const requestJson = async ({
         body === undefined
           ? undefined
           : JSON.stringify(body),
+      signal: AbortSignal.timeout(
+        IMMICH_REQUEST_TIMEOUT_MILLISECONDS,
+      ),
     },
   )
   if (!response.ok) {
@@ -621,7 +632,12 @@ export const fetchPreviewJpeg = async ({
 }): Promise<Buffer> => {
   const response = await fetch(
     `${config.url.replace(/\/$/, "")}/api/assets/${assetId}/thumbnail?size=preview`,
-    { headers: { "x-api-key": config.apiKey } },
+    {
+      headers: { "x-api-key": config.apiKey },
+      signal: AbortSignal.timeout(
+        IMMICH_REQUEST_TIMEOUT_MILLISECONDS,
+      ),
+    },
   )
   if (!response.ok) {
     throw new Error(
