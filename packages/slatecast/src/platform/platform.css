@@ -2811,6 +2811,29 @@
     var(--surface)
   );
 }
+/* The display test draws its controls in fixed neutral colors, so a
+   theme tint never reaches the panel it is measuring. */
+.display-test .home-picker {
+  --accent: #ffffff;
+  --bg: #101010;
+  --surface: #262626;
+}
+.display-test .home-picker summary,
+.display-test .home-picker [role="option"] {
+  color: #ffffff;
+  background: #262626;
+  border: 1px solid #888888;
+  border-radius: 0.5rem;
+  font: inherit;
+  min-block-size: 44px;
+}
+.display-test .home-picker [role="option"] {
+  padding: 0.7rem 1rem;
+}
+.display-test .home-picker [aria-selected="true"] {
+  border-color: #ffffff;
+  background: #3a3a3a;
+}
 .home-camera-grid {
   display: grid;
   grid-template-columns: repeat(

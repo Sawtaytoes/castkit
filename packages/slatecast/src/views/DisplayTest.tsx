@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks"
+import { DeferredHomeControl } from "../platform/DeferredHomeControl.tsx"
 
 const PATTERNS = [
   { name: "Full black", background: "#000000" },
@@ -66,8 +67,9 @@ export const DisplayTest = () => {
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if (
-        event.target instanceof HTMLSelectElement ||
-        event.target instanceof HTMLButtonElement
+        event.target instanceof HTMLButtonElement ||
+        (event.target instanceof HTMLElement &&
+          event.target.closest("details"))
       ) {
         return
       }
@@ -128,22 +130,22 @@ export const DisplayTest = () => {
           >
             Display test
           </h1>
-          <select
-            aria-label="Test pattern"
-            value={patternIndex}
-            onChange={(event) =>
+          <DeferredHomeControl
+            kind="choice"
+            label="Test pattern"
+            value={pattern.name}
+            options={PATTERNS.map((choice) => choice.name)}
+            onChange={(name) =>
               setPatternIndex(
-                Number(event.currentTarget.value),
+                Math.max(
+                  0,
+                  PATTERNS.findIndex(
+                    (choice) => choice.name === name,
+                  ),
+                ),
               )
             }
-            style={{ ...buttonStyle, width: "100%" }}
-          >
-            {PATTERNS.map((choice, index) => (
-              <option key={choice.name} value={index}>
-                {choice.name}
-              </option>
-            ))}
-          </select>
+          />
           <div
             style={{
               display: "flex",
