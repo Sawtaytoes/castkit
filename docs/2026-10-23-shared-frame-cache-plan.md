@@ -1,6 +1,8 @@
 # Shared frame cache and instant image-stream navigation — plan
 
-Status: in progress (2026-10-23). Decision:
+Status: complete (2026-10-26; status checked against the code on 2026-11-13). Every
+phase below is built: phase 1 in #301, phase 2 in #303 and #306, phase 3 in #307 and
+#308, and phase 4 in `Sawtaytoes/esphome-presto` #3, #5, and #6. Decision:
 [`2026-10-23-a-cached-frame-is-keyed-by-what-changes-its-pixels`](decisions/2026-10-23-a-cached-frame-is-keyed-by-what-changes-its-pixels.md).
 
 ## Goal
@@ -165,6 +167,9 @@ never written to disk.
    Inflate is ~4% of a full frame; the rest is PSRAM copies, pauses and the swap.
    Decoding straight into the back buffer with a lazy second-buffer sync is expected to
    take a full frame from ~0.53 s to ~0.2 s with no wire-format change.
+   - **Built.** `Sawtaytoes/esphome-presto` #3 streams each frame into the back buffer,
+     #5 synchronizes the other framebuffer in idle time after each live swap, and #6
+     decodes the JPEG camera patches (codec 2).
 
 ## Verification for each phase
 
