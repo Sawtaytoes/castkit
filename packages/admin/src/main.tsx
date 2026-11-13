@@ -2,7 +2,7 @@ import { ReactRouterAdapter } from "@charcuterie/ui/react-router"
 import { createRoot } from "react-dom/client"
 import { BrowserRouter } from "react-router"
 import { App } from "./App.tsx"
-import { CookingController } from "./Cooking.tsx"
+import { CookingController } from "./CookingController.tsx"
 import { PublicPages } from "./PublicPages.tsx"
 import "./styles/tailwind.css"
 

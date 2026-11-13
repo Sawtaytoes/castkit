@@ -1,4 +1,3 @@
-import type { RecipeDisplay } from "@castkit/sdk/recipe"
 import {
   Button,
   Card,
@@ -6,280 +5,22 @@ import {
   Picker,
 } from "@charcuterie/ui"
 import {
-  ArrowLeft,
-  ArrowRight,
-  BookOpen,
-  Check,
-  ClipboardList,
   Copy,
-  ExternalLink,
   Link as LinkIcon,
   Monitor,
   Play,
 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import {
+  CookingPage,
+  type CookingSession,
+} from "./CookingPage.tsx"
+import {
   api,
   inputClass,
   mutate,
   type Platform,
 } from "./platformApi.ts"
-
-type Session = {
-  id: string
-  revision: number
-  sourceId: string
-  deviceId: string
-  display: RecipeDisplay
-  targetId: string
-  controlPath: string
-}
-const CookingPage = ({
-  session,
-  send,
-  isBusy,
-}: {
-  session: Session
-  send: (action: string) => void
-  isBusy: boolean
-}) => {
-  const data = session.display
-  return (
-    <div className="grid min-w-0 gap-4">
-      <Card>
-        <div className="grid gap-3">
-          <p className="text-sm text-content-secondary">
-            COOKING · Page {data.pageIndex + 1} of{" "}
-            {data.pageCount}
-          </p>
-          <h2 className="font-semibold text-2xl">
-            {data.recipe.name}
-          </h2>
-          <p className="text-content-secondary">
-            {data.recipe.yieldText}
-          </p>
-          {data.page.isComplete ? (
-            <>
-              <h3 className="font-semibold text-lg">
-                Ingredients
-              </h3>
-              <ul className="list-disc break-words pl-6 text-lg leading-relaxed">
-                {data.recipe.ingredients.map(
-                  (item, index) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: ingredients can repeat and never reorder
-                    <li key={index}>{item}</li>
-                  ),
-                )}
-              </ul>
-              <h3 className="font-semibold text-lg">
-                Method
-              </h3>
-              <ol className="list-decimal break-words pl-6 text-lg leading-relaxed">
-                {data.recipe.instructions.map(
-                  (step, index) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: steps never reorder
-                    <li key={index}>{step}</li>
-                  ),
-                )}
-              </ol>
-              {data.recipe.notes.length ? (
-                <>
-                  <h3 className="font-semibold text-lg">
-                    Notes
-                  </h3>
-                  {data.recipe.notes.map((note, index) => (
-                    <p
-                      // biome-ignore lint/suspicious/noArrayIndexKey: notes never reorder
-                      key={index}
-                      className="whitespace-pre-wrap break-words text-lg leading-relaxed"
-                    >
-                      {note}
-                    </p>
-                  ))}
-                </>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <h3 className="font-semibold text-lg">
-                {data.page.heading}
-              </h3>
-              <p className="whitespace-pre-wrap break-words font-mono text-lg leading-relaxed">
-                {data.page.lines.join("\n")}
-              </p>
-            </>
-          )}
-          <a
-            className="inline-flex items-center gap-2 underline"
-            href={data.recipe.url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <ExternalLink size={18} />
-            Open in Mealie
-          </a>
-        </div>
-      </Card>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          appearance="outline"
-          isDisabled={isBusy || data.pageIndex === 0}
-          onClick={() => send("previous")}
-        >
-          <ArrowLeft />
-          Previous
-        </Button>
-        <Button
-          isDisabled={
-            isBusy || data.pageIndex + 1 === data.pageCount
-          }
-          onClick={() => send("next")}
-        >
-          <ArrowRight />
-          Next
-        </Button>
-        <Button
-          appearance="outline"
-          isDisabled={isBusy}
-          onClick={() => send("ingredients")}
-        >
-          <ClipboardList />
-          Ingredients
-        </Button>
-        <Button
-          appearance="outline"
-          isDisabled={isBusy}
-          onClick={() => send("instructions")}
-        >
-          <BookOpen />
-          Instructions
-        </Button>
-        <Button
-          appearance="outline"
-          isDisabled={isBusy}
-          onClick={() => send("done")}
-        >
-          <Check />
-          Done cooking
-        </Button>
-      </div>
-      <p className="text-sm text-content-secondary">
-        The display stays on this page until you change it.
-        ePaper needs power to receive another page; an
-        unplugged panel retains its last image. Page changes
-        can take a full screen refresh.
-      </p>
-    </div>
-  )
-}
-
-/** A revocable cooking link can control one session without management access. */
-export const CookingController = () => {
-  const id =
-    window.location.pathname.split("/").at(-1) ?? ""
-  const [key] = useState(() => {
-    const value =
-      window.location.hash.slice(1) ||
-      sessionStorage.getItem(`cooking:${id}`) ||
-      ""
-    if (value)
-      sessionStorage.setItem(`cooking:${id}`, value)
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname,
-    )
-    return value
-  })
-  const [session, setSession] = useState<Session | null>(
-    null,
-  )
-  const [error, setError] = useState("")
-  const [isDone, setIsDone] = useState(false)
-  const [isBusy, setIsBusy] = useState(false)
-  const headers = { "x-castkit-cooking-key": key }
-  useEffect(() => {
-    if (isDone) return
-    let isMounted = true
-    const refresh = () =>
-      void api<Session>(`/api/cooking/${id}/state`, {
-        headers: { "x-castkit-cooking-key": key },
-      })
-        .then((value) => {
-          if (isMounted) {
-            setSession((previous) =>
-              previous && previous.revision > value.revision
-                ? previous
-                : value,
-            )
-            setError("")
-          }
-        })
-        .catch((error) => {
-          if (isMounted) setError(String(error.message))
-        })
-    refresh()
-    const timer = setInterval(refresh, 3000)
-    return () => {
-      isMounted = false
-      clearInterval(timer)
-    }
-  }, [id, key, isDone])
-  const send = async (action: string) => {
-    setIsBusy(true)
-    try {
-      const result = await api<{ session: Session | null }>(
-        `/api/cooking/${id}/command`,
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            action,
-            revision: session?.revision,
-          }),
-        },
-      )
-      setSession(result.session)
-      setIsDone(!result.session)
-      setError("")
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Could not update the recipe.",
-      )
-    } finally {
-      setIsBusy(false)
-    }
-  }
-  return (
-    <main className="mx-auto grid max-w-3xl gap-5 p-4 sm:p-6">
-      <h1 className="flex items-center gap-2 font-semibold text-xl">
-        <BookOpen />
-        CastKit Recipes
-      </h1>
-      {isDone ? (
-        <Card>
-          Cooking finished. The display returns to its
-          normal selection when connected.
-        </Card>
-      ) : (
-        <>
-          {error ? <p role="alert">{error}</p> : null}
-          {session ? (
-            <CookingPage
-              session={session}
-              send={(action) => void send(action)}
-              isBusy={isBusy}
-            />
-          ) : !error ? (
-            <p role="status">Loading recipe…</p>
-          ) : null}
-        </>
-      )}
-    </main>
-  )
-}
 
 /** Management owns source setup and the explicit choice of a recipe and target. */
 export const Cooking = ({
@@ -315,14 +56,16 @@ export const Cooking = ({
     { slug: string; name: string }[]
   >([])
   const [link, setLink] = useState("")
-  const [sessions, setSessions] = useState<Session[]>([])
+  const [sessions, setSessions] = useState<
+    CookingSession[]
+  >([])
   const [error, setError] = useState("")
   const [isBusy, setIsBusy] = useState(false)
   const refresh = useCallback(
     async () =>
       setSessions(
         (
-          await api<{ sessions: Session[] }>(
+          await api<{ sessions: CookingSession[] }>(
             "/api/manage/cooking",
           )
         ).sessions,
@@ -385,7 +128,7 @@ export const Cooking = ({
     }
   }
   const command = async (
-    session: Session,
+    session: CookingSession,
     action: string,
   ) => {
     setIsBusy(true)

@@ -1,5 +1,6 @@
 import { Button, Card, Field } from "@charcuterie/ui"
 import { useState } from "react"
+import { AccessFields } from "./AccessFields.tsx"
 import {
   inputClass,
   mutate,
@@ -7,7 +8,6 @@ import {
   type Screen,
 } from "./platformApi.ts"
 import { SearchSelect } from "./SearchSelect.tsx"
-import { AccessFields } from "./ViewEditor.tsx"
 
 export const ScreenEditor = ({
   section = "general",

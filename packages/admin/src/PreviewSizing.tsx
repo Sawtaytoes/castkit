@@ -1,51 +1,12 @@
 import type { PreviewProfile } from "@castkit/shared/panels/previewProfile"
 import { Button, Combobox, Field } from "@charcuterie/ui"
 import { useEffect, useState } from "react"
-import { inputClass } from "./platformApi.ts"
+import { DimensionField } from "./DimensionField.tsx"
 
 export type PreviewSize = {
   width: number
   height: number
 } | null
-
-const DimensionField = ({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: number
-  onChange: (value: number) => void
-}) => {
-  const [draft, setDraft] = useState(String(value))
-  useEffect(() => setDraft(String(value)), [value])
-  return (
-    <Field label={label}>
-      <input
-        className={inputClass}
-        type="number"
-        min={120}
-        max={7680}
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => {
-          if (
-            draft.trim() &&
-            Number.isFinite(Number(draft))
-          )
-            onChange(Number(draft))
-          else setDraft(String(value))
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault()
-            event.currentTarget.blur()
-          }
-        }}
-      />
-    </Field>
-  )
-}
 
 /** A viewport choice never creates a device or changes its assignment. */
 export const usePreviewSizing = (isEnabled = true) => {
