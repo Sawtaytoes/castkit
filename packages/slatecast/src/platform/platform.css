@@ -2756,7 +2756,6 @@
   margin-block-start: 4px;
 }
 .home-light-details summary,
-.home-picker summary,
 .home-chart-details summary {
   cursor: pointer;
   min-block-size: 44px;
@@ -2769,47 +2768,16 @@
   background: var(--surface);
 }
 .home-light-details summary::after,
-.home-picker summary::after,
 .home-chart-details summary::after {
   content: "⌄";
   margin-inline-start: auto;
 }
 .home-light-details[open] summary::after,
-.home-picker[open] summary::after,
 .home-chart-details[open] summary::after {
   content: "⌃";
 }
 .home-light-details[open] > label {
   margin-block-start: 12px;
-}
-.home-picker {
-  inline-size: 100%;
-  min-inline-size: 0;
-}
-.home-picker summary strong {
-  margin-inline-start: auto;
-  overflow-wrap: anywhere;
-}
-.home-picker [role="listbox"] {
-  max-block-size: 240px;
-  overflow: auto;
-  padding: 5px;
-  background: var(--bg);
-  border-radius: 9px;
-}
-.home-picker [role="option"] {
-  display: block;
-  inline-size: 100%;
-  text-align: start;
-  margin-block: 3px;
-}
-.home-picker [aria-selected="true"] {
-  border-color: var(--accent);
-  background: color-mix(
-    in srgb,
-    var(--accent) 18%,
-    var(--surface)
-  );
 }
 .home-camera-grid {
   display: grid;

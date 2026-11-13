@@ -55,10 +55,14 @@ try {
     "web",
   )
   await mkdir(output, { recursive: true })
-  const comparisons = [
-    "dither-comparison--every-sample-photo",
-    "dither-comparison--impression-every-algorithm",
-  ]
+  // Every comparison story draws several previews, and each one is shot
+  // only after all of them finish. The generic post-mount wait caught the
+  // supersample story with a canvas still processing.
+  const comparisonPrefix = "dither-comparison--"
+  const comparisonPreviewCounts = {
+    "dither-comparison--supersample-factors": 4,
+  }
+  const algorithmPreviewCount = 6
   const index = JSON.parse(
     await readFile(resolve(root, "index.json"), "utf8"),
   )
@@ -71,7 +75,7 @@ try {
   const capturedStoryIds = allStoryIds.filter(
     (storyId) =>
       storyId.endsWith("-dithered") ||
-      comparisons.includes(storyId),
+      storyId.startsWith(comparisonPrefix),
   )
   const workflow = await readFile(
     resolve(".github/workflows/ci.yml"),
@@ -122,7 +126,10 @@ try {
       storyId,
       url: `http://127.0.0.1:${server.address().port}/iframe.html?id=${storyId}&viewMode=story`,
       outputPath: `${output}/${storyId}.png`,
-      previewCount: comparisons.includes(storyId) ? 6 : 1,
+      previewCount: storyId.startsWith(comparisonPrefix)
+        ? (comparisonPreviewCounts[storyId] ??
+          algorithmPreviewCount)
+        : 1,
     })
     console.log(`[vrt] complete dither preview ${storyId}`)
   }, Promise.resolve())

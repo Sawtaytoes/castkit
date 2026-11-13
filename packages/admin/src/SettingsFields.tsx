@@ -10,10 +10,8 @@ import {
   type SettingField,
   type Settings,
 } from "./platformApi.ts"
-import {
-  StringListField,
-  StructuredField,
-} from "./StructuredField.tsx"
+import { StringListField } from "./StringListField.tsx"
+import { StructuredField } from "./StructuredField.tsx"
 
 /** Renders the configuration declared by a CastKit extension. */
 export const SettingsFields = ({

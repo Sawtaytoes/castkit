@@ -261,8 +261,8 @@ importers:
         specifier: ^1.7.1
         version: 1.7.1(@typescript-eslint/eslint-plugin@8.68.0(@typescript-eslint/parser@8.68.0(eslint@10.6.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.6.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.6.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@4.1.12)
       '@charcuterie/playwright-config':
-        specifier: ^2.0.0
-        version: 2.0.0(@playwright/test@1.62.1)(@vitest/browser-playwright@4.1.12)(@vitest/browser@4.1.12(msw@2.15.0(@types/node@26.1.0)(typescript@6.0.3))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))(vitest@4.1.12))(playwright@1.62.1)(vitest@4.1.12)
+        specifier: ^2.2.0
+        version: 2.2.0(@playwright/test@1.62.1)(@vitest/browser-playwright@4.1.12)(@vitest/browser@4.1.12(msw@2.15.0(@types/node@26.1.0)(typescript@6.0.3))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))(vitest@4.1.12))(playwright@1.62.1)(vitest@4.1.12)
       '@charcuterie/tsconfig':
         specifier: ^1.0.0
         version: 1.0.0
@@ -318,17 +318,17 @@ importers:
         specifier: workspace:*
         version: link:../sdk
       '@charcuterie/logic':
-        specifier: ^2.4.0
-        version: 2.4.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react@19.2.7)
+        specifier: ^2.12.0
+        version: 2.12.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@charcuterie/tokens':
         specifier: ^1.10.2
         version: 1.10.2
       '@charcuterie/ui':
-        specifier: ^4.10.1
-        version: 4.10.1(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
+        specifier: ^4.28.2
+        version: 4.28.2(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
       lucide-react:
-        specifier: ^0.560.0
-        version: 0.560.0(react@19.2.7)
+        specifier: ^1.72.0
+        version: 1.72.0(@types/react@19.2.17)(react@19.2.7)
       react:
         specifier: ^19.2.7
         version: 19.2.7
@@ -340,8 +340,8 @@ importers:
         version: 8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
     devDependencies:
       '@charcuterie/server':
-        specifier: ^0.5.1
-        version: 0.5.1(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
+        specifier: ^0.6.0
+        version: 0.6.0(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
       '@charcuterie/vite-config':
         specifier: ^1.1.0
         version: 1.1.0(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
@@ -389,14 +389,14 @@ importers:
   packages/desktop:
     devDependencies:
       '@charcuterie/logic':
-        specifier: ^2.10.0
-        version: 2.10.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^2.12.0
+        version: 2.12.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@charcuterie/tokens':
         specifier: ^1.10.2
         version: 1.10.2
       '@charcuterie/ui':
-        specifier: ^4.24.0
-        version: 4.24.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
+        specifier: ^4.28.2
+        version: 4.28.2(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
       '@charcuterie/vite-config':
         specifier: ^1.1.0
         version: 1.1.0(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
@@ -452,8 +452,8 @@ importers:
         specifier: ^0.28.1
         version: 0.28.1
       lucide-react:
-        specifier: ^0.560.0
-        version: 0.560.0(react@19.2.7)
+        specifier: ^1.72.0
+        version: 1.72.0(@types/react@19.2.17)(react@19.2.7)
       playwright:
         specifier: ^1.61.1
         version: 1.62.1
@@ -553,8 +553,8 @@ importers:
         specifier: workspace:*
         version: link:../views
       '@charcuterie/server':
-        specifier: ^0.5.1
-        version: 0.5.1(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
+        specifier: ^0.6.0
+        version: 0.6.0(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
       '@hono/node-server':
         specifier: ^2.0.6
         version: 2.1.3(hono@4.13.13)
@@ -655,8 +655,8 @@ importers:
         version: 10.29.5
     devDependencies:
       '@charcuterie/server':
-        specifier: ^0.5.1
-        version: 0.5.1(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@7.3.8(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))
+        specifier: ^0.6.0
+        version: 0.6.0(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@7.3.8(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))
       '@charcuterie/vitest-config':
         specifier: ^2.0.0
         version: 2.0.0(@vitest/browser-playwright@4.1.12)(@vitest/browser@4.1.12(msw@2.15.0(@types/node@26.1.0)(typescript@6.0.3))(vite@7.3.8(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))(vitest@4.1.12))(playwright@1.62.1)(vitest@4.1.12)
@@ -948,32 +948,6 @@ packages:
     peerDependencies:
       eslint: '>=10'
 
-  '@charcuterie/logic@2.10.0':
-    resolution: {integrity: sha512-xBGHPQR40hw8whFMo8bN/d+Y04gdKe9A44oj4wA5Ka89NZbK+stxFzHeglevetrr/+L9yOsAyihZ6QxeHaXCdQ==}
-    peerDependencies:
-      '@preact/signals-core': '>=1.8'
-      '@tanstack/react-query': '>=5'
-      jotai: '>=2'
-      openapi-fetch: '>=0.17'
-      openapi-react-query: '>=0.5'
-      preact: '>=10.11'
-      react: '>=18'
-    peerDependenciesMeta:
-      '@preact/signals-core':
-        optional: true
-      '@tanstack/react-query':
-        optional: true
-      jotai:
-        optional: true
-      openapi-fetch:
-        optional: true
-      openapi-react-query:
-        optional: true
-      preact:
-        optional: true
-      react:
-        optional: true
-
   '@charcuterie/logic@2.12.0':
     resolution: {integrity: sha512-yWRg5BFUxcxFatlnKp+oenObfTGYK+Ym8TXRznlL6bWM0k1lHw4aym1MyP1rNNybfcf1eF2R8sF83H44akWdoQ==}
     peerDependencies:
@@ -1000,39 +974,13 @@ packages:
       react:
         optional: true
 
-  '@charcuterie/logic@2.4.0':
-    resolution: {integrity: sha512-DfHDWCRggHSmoPA+dUsN5mjVGOXLORiCvOBkYzgUlnHYJNhz2bSC4UCPspHK0Nv1ZSLKVv5Iyot3BmHze9Ndpg==}
-    peerDependencies:
-      '@preact/signals-core': '>=1.8'
-      '@tanstack/react-query': '>=5'
-      jotai: '>=2'
-      openapi-fetch: '>=0.17'
-      openapi-react-query: '>=0.5'
-      preact: '>=10.11'
-      react: '>=18'
-    peerDependenciesMeta:
-      '@preact/signals-core':
-        optional: true
-      '@tanstack/react-query':
-        optional: true
-      jotai:
-        optional: true
-      openapi-fetch:
-        optional: true
-      openapi-react-query:
-        optional: true
-      preact:
-        optional: true
-      react:
-        optional: true
-
-  '@charcuterie/playwright-config@2.0.0':
-    resolution: {integrity: sha512-1lfWS0rgUjW+Q3N1xcUoXULiLYItfN/w2ZPkTB+U0YimR0yj9223DnaZ2ASdWCv9Oooak0fdz0KBy5TKKPhxhg==}
+  '@charcuterie/playwright-config@2.2.0':
+    resolution: {integrity: sha512-5i9pbV8xUCNX5jOoHWIQtMkticZZojVW/bScpBEngcex0RG9Q0+gLHLafmTdSG+YVkwCsAYh9+g1QdF7pU8Vpw==}
     peerDependencies:
       '@playwright/test': '>=1.40'
 
-  '@charcuterie/server@0.5.1':
-    resolution: {integrity: sha512-cFONTS//vj8NyQRsa1KtZlUyZZcciWxF9DyRllYqz1aCecqXZIWV041RvUH7Ek45EMs57RwAP+an0OriwQ0pJg==}
+  '@charcuterie/server@0.6.0':
+    resolution: {integrity: sha512-kmB0GIrvgzv28KfSjbPBjf5gRcj6qoBKPkY5k+yKU48fjDVG+QMiApXXQlj+T3YxFKplMcLC3E8QHv2bkPEcUA==}
     peerDependencies:
       '@hono/node-server': '>=1.13'
       hono: '>=4'
@@ -1050,36 +998,8 @@ packages:
   '@charcuterie/tsconfig@1.0.0':
     resolution: {integrity: sha512-sv28zRxllZSiuSoRfG97vvfZCKPcGx2zDNcglBBsNqHvrNj4Zb237vtrjFFAEJcAaY/SK9O0Lc1wQ3qpuiWeOQ==}
 
-  '@charcuterie/ui@4.10.1':
-    resolution: {integrity: sha512-dAeRBN3FjWBiDjJ1sqyViBJvfFl8bnDuU0cNp9Oq5+9XksUO3dML5i1cKyXpVCDv7BD33Dw5xRFzavceaYflZA==}
-    peerDependencies:
-      '@codemirror/commands': ^6
-      '@codemirror/lang-markdown': ^6
-      '@codemirror/language': ^6
-      '@codemirror/state': ^6
-      '@codemirror/view': ^6
-      '@lezer/common': ^1
-      react: '>=19'
-      react-dom: '>=19'
-      react-router: '>=7'
-    peerDependenciesMeta:
-      '@codemirror/commands':
-        optional: true
-      '@codemirror/lang-markdown':
-        optional: true
-      '@codemirror/language':
-        optional: true
-      '@codemirror/state':
-        optional: true
-      '@codemirror/view':
-        optional: true
-      '@lezer/common':
-        optional: true
-      react-router:
-        optional: true
-
-  '@charcuterie/ui@4.24.0':
-    resolution: {integrity: sha512-wosYVT0M6E3j+GN5k7Kh3zcpM1/+h5OdxATAl89Au63vaOH1gA5ZTi5dtzJ6hEnNMrEK8p6Hf/LVas4ug/VFtw==}
+  '@charcuterie/ui@4.28.2':
+    resolution: {integrity: sha512-MCOXHX0Q9BIql3zr70xMqoyCiNfZSd+xMFNe2Z1yJsfiorJ335SqtH4knx1L5muLFYl7qGSEu9DPsa2Iht3L1w==}
     peerDependencies:
       '@codemirror/commands': ^6
       '@codemirror/lang-markdown': ^6
@@ -4394,10 +4314,14 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-react@0.560.0:
-    resolution: {integrity: sha512-NwKoUA/aBShsdL8WE5lukV2F/tjHzQRlonQs7fkNGI1sCT0Ay4a9Ap3ST2clUUkcY+9eQ0pBe2hybTQd2fmyDA==}
+  lucide-react@1.72.0:
+    resolution: {integrity: sha512-fbF5i1GU8GODETa3Q7rXqrJrcx3iPYrQtxthom103zGx+Z0BGwKYAW9s+9435ohYJ7hQm0av0PoZcqI1CRwNrg==}
     peerDependencies:
+      '@types/react': '*'
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -5790,26 +5714,6 @@ snapshots:
       - typescript
       - vitest
 
-  '@charcuterie/logic@2.10.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
-    dependencies:
-      '@tanstack/charts': 0.18.0(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-    optionalDependencies:
-      '@preact/signals-core': 1.14.4
-      preact: 10.29.5
-      react: 19.2.7
-    transitivePeerDependencies:
-      - '@angular/core'
-      - '@angular/platform-browser'
-      - alpinejs
-      - lit
-      - octane
-      - react-dom
-      - react-native
-      - react-native-svg
-      - solid-js
-      - svelte
-      - vue
-
   '@charcuterie/logic@2.12.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@tanstack/charts': 0.18.0(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -5830,13 +5734,7 @@ snapshots:
       - svelte
       - vue
 
-  '@charcuterie/logic@2.4.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react@19.2.7)':
-    optionalDependencies:
-      '@preact/signals-core': 1.14.4
-      preact: 10.29.5
-      react: 19.2.7
-
-  '@charcuterie/playwright-config@2.0.0(@playwright/test@1.62.1)(@vitest/browser-playwright@4.1.12)(@vitest/browser@4.1.12(msw@2.15.0(@types/node@26.1.0)(typescript@6.0.3))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))(vitest@4.1.12))(playwright@1.62.1)(vitest@4.1.12)':
+  '@charcuterie/playwright-config@2.2.0(@playwright/test@1.62.1)(@vitest/browser-playwright@4.1.12)(@vitest/browser@4.1.12(msw@2.15.0(@types/node@26.1.0)(typescript@6.0.3))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))(vitest@4.1.12))(playwright@1.62.1)(vitest@4.1.12)':
     dependencies:
       '@charcuterie/vitest-config': 2.0.0(@vitest/browser-playwright@4.1.12)(@vitest/browser@4.1.12(msw@2.15.0(@types/node@26.1.0)(typescript@6.0.3))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))(vitest@4.1.12))(playwright@1.62.1)(vitest@4.1.12)
       '@playwright/test': 1.62.1
@@ -5846,7 +5744,7 @@ snapshots:
       - playwright
       - vitest
 
-  '@charcuterie/server@0.5.1(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@7.3.8(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))':
+  '@charcuterie/server@0.6.0(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@7.3.8(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))':
     dependencies:
       '@hono/node-server': 2.1.3(hono@4.13.13)
       hono: 4.13.13
@@ -5854,7 +5752,7 @@ snapshots:
       mqtt: 5.15.1(supports-color@7.2.0)
       vite: 7.3.8(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)
 
-  '@charcuterie/server@0.5.1(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))':
+  '@charcuterie/server@0.6.0(@hono/node-server@2.1.3(hono@4.13.13))(hono@4.13.13)(mqtt@5.15.1(supports-color@7.2.0))(vite@8.3.7(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))':
     dependencies:
       '@hono/node-server': 2.1.3(hono@4.13.13)
       hono: 4.13.13
@@ -5866,28 +5764,9 @@ snapshots:
 
   '@charcuterie/tsconfig@1.0.0': {}
 
-  '@charcuterie/ui@4.10.1(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)':
+  '@charcuterie/ui@4.28.2(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@charcuterie/logic': 2.4.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react@19.2.7)
-      '@charcuterie/tokens': 1.10.2
-      '@floating-ui/react': 0.27.20(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@tanstack/react-virtual': 3.14.10(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      react: 19.2.7
-      react-dom: 19.2.7(react@19.2.7)
-      tailwind-merge: 3.6.0
-    optionalDependencies:
-      react-router: 8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-    transitivePeerDependencies:
-      - '@preact/signals-core'
-      - '@tanstack/react-query'
-      - jotai
-      - openapi-fetch
-      - openapi-react-query
-      - preact
-
-  '@charcuterie/ui@4.24.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)':
-    dependencies:
-      '@charcuterie/logic': 2.10.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@charcuterie/logic': 2.12.0(@preact/signals-core@1.14.4)(preact@10.29.5)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@charcuterie/tokens': 1.10.2
       '@floating-ui/react': 0.27.20(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-virtual': 3.14.10(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -9216,9 +9095,11 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-react@0.560.0(react@19.2.7):
+  lucide-react@1.72.0(@types/react@19.2.17)(react@19.2.7):
     dependencies:
       react: 19.2.7
+    optionalDependencies:
+      '@types/react': 19.2.17
 
   lz-string@1.5.0: {}
 

@@ -137,63 +137,27 @@ export const EntityControls = ({
   }) =>
     entity.actions.includes(action) &&
     Array.isArray(entity.attributes[optionsAttribute]) ? (
-      isHome ? (
-        <DeferredHomeControl
-          kind="choice"
-          label={label}
-          value={
-            attribute
-              ? String(entity.attributes[attribute] ?? "")
-              : entity.state
-          }
-          options={(
-            entity.attributes[optionsAttribute] as unknown[]
-          ).filter(
-            (option): option is string =>
-              typeof option === "string",
-          )}
-          onChange={(value) =>
-            request({
-              action,
-              payload: { [parameter]: value },
-            })
-          }
-        />
-      ) : (
-        <label>
-          {label}
-          <select
-            value={
-              attribute
-                ? String(entity.attributes[attribute] ?? "")
-                : entity.state
-            }
-            onChange={(event) =>
-              request({
-                action,
-                payload: {
-                  [parameter]: event.currentTarget.value,
-                },
-              })
-            }
-          >
-            {(
-              entity.attributes[
-                optionsAttribute
-              ] as unknown[]
-            )
-              .filter(
-                (option): option is string =>
-                  typeof option === "string",
-              )
-              .map((option) => (
-                <option value={option} key={option}>
-                  {option}
-                </option>
-              ))}
-          </select>
-        </label>
-      )
+      <DeferredHomeControl
+        kind="choice"
+        label={label}
+        value={
+          attribute
+            ? String(entity.attributes[attribute] ?? "")
+            : entity.state
+        }
+        options={(
+          entity.attributes[optionsAttribute] as unknown[]
+        ).filter(
+          (option): option is string =>
+            typeof option === "string",
+        )}
+        onChange={(value) =>
+          request({
+            action,
+            payload: { [parameter]: value },
+          })
+        }
+      />
     ) : null
   return (
     <div class="platform-actions">

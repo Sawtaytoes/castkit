@@ -1,4 +1,5 @@
-import { useEffect, useState } from "preact/hooks"
+import { useEffect, useRef, useState } from "preact/hooks"
+import { DeferredHomeControl } from "../platform/DeferredHomeControl.tsx"
 
 const PATTERNS = [
   { name: "Full black", background: "#000000" },
@@ -41,6 +42,8 @@ export const DisplayTest = () => {
   const [patternIndex, setPatternIndex] = useState(0)
   const [isControlsVisible, setIsControlsVisible] =
     useState(true)
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
+  const controlsRef = useRef<HTMLElement>(null)
   const pattern = PATTERNS[patternIndex]!
 
   const advancePattern = (direction: number) => {
@@ -53,7 +56,9 @@ export const DisplayTest = () => {
   }
 
   useEffect(() => {
-    if (!isControlsVisible) {
+    // An open pattern list holds the controls up; they hide four seconds
+    // after it closes.
+    if (!isControlsVisible || isPickerOpen) {
       return
     }
     const timeout = window.setTimeout(
@@ -61,13 +66,36 @@ export const DisplayTest = () => {
       4_000,
     )
     return () => window.clearTimeout(timeout)
-  }, [isControlsVisible, patternIndex])
+  }, [isControlsVisible, isPickerOpen, patternIndex])
+
+  useEffect(() => {
+    // Hidden controls take the open list with them.
+    if (!isControlsVisible) {
+      setIsPickerOpen(false)
+      return
+    }
+    // `toggle` does not bubble, so the controls listen while it captures.
+    const controls = controlsRef.current
+    const handleToggle = (event: Event) => {
+      if (event.target instanceof HTMLDetailsElement) {
+        setIsPickerOpen(event.target.open)
+      }
+    }
+    controls?.addEventListener("toggle", handleToggle, true)
+    return () =>
+      controls?.removeEventListener(
+        "toggle",
+        handleToggle,
+        true,
+      )
+  }, [isControlsVisible])
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if (
-        event.target instanceof HTMLSelectElement ||
-        event.target instanceof HTMLButtonElement
+        event.target instanceof HTMLButtonElement ||
+        (event.target instanceof HTMLElement &&
+          event.target.closest("details"))
       ) {
         return
       }
@@ -106,12 +134,15 @@ export const DisplayTest = () => {
         <section
           aria-label="Display test controls"
           onPointerDown={(event) => event.stopPropagation()}
+          ref={controlsRef}
           style={{
             position: "absolute",
             left: "50%",
             top: "50%",
             transform: "translate(-50%, -50%)",
             width: "min(88%, 38rem)",
+            maxHeight: "100%",
+            overflowY: "auto",
             boxSizing: "border-box",
             padding: "clamp(12px, 3vmin, 24px)",
             borderRadius: "1rem",
@@ -128,22 +159,22 @@ export const DisplayTest = () => {
           >
             Display test
           </h1>
-          <select
-            aria-label="Test pattern"
-            value={patternIndex}
-            onChange={(event) =>
+          <DeferredHomeControl
+            kind="choice"
+            label="Test pattern"
+            value={pattern.name}
+            options={PATTERNS.map((choice) => choice.name)}
+            onChange={(name) =>
               setPatternIndex(
-                Number(event.currentTarget.value),
+                Math.max(
+                  0,
+                  PATTERNS.findIndex(
+                    (choice) => choice.name === name,
+                  ),
+                ),
               )
             }
-            style={{ ...buttonStyle, width: "100%" }}
-          >
-            {PATTERNS.map((choice, index) => (
-              <option key={choice.name} value={index}>
-                {choice.name}
-              </option>
-            ))}
-          </select>
+          />
           <div
             style={{
               display: "flex",

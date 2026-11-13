@@ -66,9 +66,9 @@ test("timer helper controls send text and choice parameters through the bound so
     entityId: "input_text.timer_name",
     value: "Tea",
   })
-  await user.selectOptions(
-    screen.getByLabelText("Selection"),
-    "Studio",
+  await user.click(await screen.findByText("Selection"))
+  await user.click(
+    screen.getByRole("option", { name: "Studio" }),
   )
   expect(onAction).toHaveBeenCalledWith("select_option", {
     entityId: "input_select.timer_room",

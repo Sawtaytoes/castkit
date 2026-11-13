@@ -14,6 +14,7 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router"
+import { ChannelEditor } from "./ChannelEditor.tsx"
 import { LivePreviewFrame } from "./LivePreviewFrame.tsx"
 import {
   PreviewSizing,
@@ -34,10 +35,7 @@ import {
   type View,
 } from "./platformApi.ts"
 import { ScreenEditor } from "./ScreenEditor.tsx"
-import {
-  ChannelEditor,
-  SourceEditor,
-} from "./SourceEditor.tsx"
+import { SourceEditor } from "./SourceEditor.tsx"
 import { TagField } from "./TagField.tsx"
 import { ViewEditor } from "./ViewEditor.tsx"
 import { ViewGallery } from "./ViewGallery.tsx"

@@ -7,6 +7,14 @@ import { Panel } from "../platform/Panel.tsx"
 import "../styles.css"
 import "../platform/platform.css"
 
+const choosePattern = async (
+  user: ReturnType<typeof userEvent.setup>,
+  name: string,
+) => {
+  await user.click(await screen.findByText("Test pattern"))
+  await user.click(screen.getByRole("option", { name }))
+}
+
 test("full black and white cover the entire stage with no theme tint or visible controls", async () => {
   await mountSlatecast({
     snapshot: buildSnapshot({ view: "display-test" }),
@@ -27,10 +35,7 @@ test("full black and white cover the entire stage with no theme tint or visible 
   expect(field.getBoundingClientRect().height).toBe(
     stage.getBoundingClientRect().height,
   )
-  await user.selectOptions(
-    screen.getByRole("combobox", { name: "Test pattern" }),
-    "1",
-  )
+  await choosePattern(user, "Full white")
   expect(getComputedStyle(field).backgroundColor).toBe(
     "rgb(255, 255, 255)",
   )
@@ -49,10 +54,7 @@ test("full black and white cover the entire stage with no theme tint or visible 
       name: "Display test controls",
     }),
   ).toBeVisible()
-  await user.selectOptions(
-    screen.getByRole("combobox", { name: "Test pattern" }),
-    "0",
-  )
+  await choosePattern(user, "Full black")
   await user.click(
     screen.getByRole("button", { name: "Hide controls" }),
   )
@@ -78,8 +80,10 @@ test("controls disappear automatically and keyboard navigation works without tou
   const user = userEvent.setup()
   await user.keyboard("{ArrowRight}")
   expect(
-    screen.getByRole("combobox", { name: "Test pattern" }),
-  ).toHaveValue("1")
+    document
+      .querySelector(".display-test")
+      ?.getAttribute("data-pattern"),
+  ).toBe("Full white")
   await user.keyboard("{Escape}")
   expect(
     screen.queryByRole("region", {
@@ -88,8 +92,10 @@ test("controls disappear automatically and keyboard navigation works without tou
   ).toBeNull()
   await user.keyboard("{ArrowLeft}")
   expect(
-    screen.getByRole("combobox", { name: "Test pattern" }),
-  ).toHaveValue("0")
+    document
+      .querySelector(".display-test")
+      ?.getAttribute("data-pattern"),
+  ).toBe("Full black")
 })
 
 test("the saved diagnostic renders without a channel and keeps patterns inside its own panel", async () => {
@@ -108,6 +114,9 @@ test("the saved diagnostic renders without a channel and keeps patterns inside i
       layoutStyle={{ width: "300px", height: "250px" }}
     />,
   )
+  // The pattern picker loads on demand and says so while it does; once it
+  // is in, nothing on the panel waits for a channel.
+  await screen.findByText("Test pattern")
   expect(screen.queryByRole("status")).toBeNull()
   const user = userEvent.setup()
   await user.click(
@@ -121,4 +130,42 @@ test("the saved diagnostic renders without a channel and keeps patterns inside i
   )
   expect(field.getBoundingClientRect().width).toBe(298)
   expect(field.getBoundingClientRect().height).toBe(248)
+})
+
+test("Escape closes an open pattern list without changing the pattern, and the open list holds the controls up", async () => {
+  await mountSlatecast({
+    snapshot: buildSnapshot({ view: "display-test" }),
+  })
+  const user = userEvent.setup()
+  const field = document.querySelector(
+    ".display-test",
+  ) as HTMLElement
+  await user.click(await screen.findByText("Test pattern"))
+  screen.getByRole("option", { name: "Full white" }).focus()
+  await new Promise((resolve) => setTimeout(resolve, 4_500))
+  expect(
+    screen.getByRole("region", {
+      name: "Display test controls",
+    }),
+  ).toBeVisible()
+  await user.keyboard("{Escape}")
+  expect(screen.queryByRole("listbox")).toBeNull()
+  expect(document.activeElement?.tagName).toBe("SUMMARY")
+  expect(field.getAttribute("data-pattern")).toBe(
+    "Full black",
+  )
+  expect(
+    screen.getByRole("region", {
+      name: "Display test controls",
+    }),
+  ).toBeVisible()
+  await expect
+    .poll(
+      () =>
+        screen.queryByRole("region", {
+          name: "Display test controls",
+        }),
+      { timeout: 5_000 },
+    )
+    .toBeNull()
 })
