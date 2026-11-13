@@ -122,6 +122,23 @@ test("artwork exactly at the limit is kept", async () => {
   ).toBe(true)
 })
 
+test("artwork sent in many tiny chunks is assembled in order", async () => {
+  const chunks = Array.from(
+    { length: 20_000 },
+    (_unused, index) => new Uint8Array([index % 256]),
+  )
+  const dataUri = await fetchArtworkDataUri({
+    url: "http://art.example/tiny-chunks.png",
+    fetchImage: async () => buildChunkedResponse(chunks),
+  })
+  const decoded = Buffer.from(
+    dataUri?.replace("data:image/png;base64,", "") ?? "",
+    "base64",
+  )
+  expect(decoded.byteLength).toBe(20_000)
+  expect(decoded[257]).toBe(1)
+})
+
 test("a newer request for the same display makes the older one stale", () => {
   const tracker = createLatestRequestTracker()
   const older = tracker.begin("display-a")

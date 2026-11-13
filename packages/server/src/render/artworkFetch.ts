@@ -47,28 +47,25 @@ const readBodyWithinLimit = async ({
     return Buffer.alloc(0)
   }
   const reader = response.body.getReader()
-  const readChunks = async ({
-    chunks,
-    byteCount,
-  }: {
-    chunks: readonly Uint8Array[]
-    byteCount: number
-  }): Promise<Buffer | undefined> => {
+  // One buffer at the limit, filled in place: copying a growing chunk list
+  // on every read would cost quadratic time on a body sent in tiny chunks.
+  const received = Buffer.allocUnsafe(maxBytes)
+  const readChunks = async (
+    byteCount: number,
+  ): Promise<Buffer | undefined> => {
     const chunk = await reader.read()
     if (chunk.done) {
-      return Buffer.concat(chunks, byteCount)
+      return Buffer.from(received.subarray(0, byteCount))
     }
     const nextByteCount = byteCount + chunk.value.byteLength
     if (nextByteCount > maxBytes) {
       await reader.cancel()
       return undefined
     }
-    return readChunks({
-      chunks: chunks.concat(chunk.value),
-      byteCount: nextByteCount,
-    })
+    received.set(chunk.value, byteCount)
+    return readChunks(nextByteCount)
   }
-  return readChunks({ chunks: [], byteCount: 0 })
+  return readChunks(0)
 }
 
 export const fetchArtworkDataUri = async ({
