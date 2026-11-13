@@ -5363,3 +5363,77 @@ html[data-input="touch"] .music-seek-handle {
   transform: translateX(-50%);
   pointer-events: none;
 }
+
+/* The shared option picker (`HomePicker`). It lives here, not in
+   platform.css, because the display test view draws it outside a platform
+   page too. */
+.home-picker summary {
+  cursor: pointer;
+  min-block-size: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--surface);
+}
+.home-picker summary::after {
+  content: "⌄";
+  margin-inline-start: auto;
+}
+.home-picker[open] summary::after {
+  content: "⌃";
+}
+.home-picker {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.home-picker summary strong {
+  margin-inline-start: auto;
+  overflow-wrap: anywhere;
+}
+.home-picker [role="listbox"] {
+  max-block-size: 240px;
+  overflow: auto;
+  padding: 5px;
+  background: var(--bg);
+  border-radius: 9px;
+}
+.home-picker [role="option"] {
+  display: block;
+  inline-size: 100%;
+  text-align: start;
+  margin-block: 3px;
+}
+.home-picker [aria-selected="true"] {
+  border-color: var(--accent);
+  background: color-mix(
+    in srgb,
+    var(--accent) 18%,
+    var(--surface)
+  );
+}
+/* The display test draws its controls in fixed neutral colors, so a
+   theme tint never reaches the panel it is measuring. */
+.display-test .home-picker {
+  --accent: #ffffff;
+  --bg: #101010;
+  --surface: #262626;
+}
+.display-test .home-picker summary,
+.display-test .home-picker [role="option"] {
+  color: #ffffff;
+  background: #262626;
+  border: 1px solid #888888;
+  border-radius: 0.5rem;
+  font: inherit;
+  min-block-size: 44px;
+}
+.display-test .home-picker [role="option"] {
+  padding: 0.7rem 1rem;
+}
+.display-test .home-picker [aria-selected="true"] {
+  border-color: #ffffff;
+  background: #3a3a3a;
+}
