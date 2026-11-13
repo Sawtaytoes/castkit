@@ -139,6 +139,14 @@ test("artwork sent in many tiny chunks is assembled in order", async () => {
   expect(decoded[257]).toBe(1)
 })
 
+test("an empty artwork body gives an empty data URI", async () => {
+  const dataUri = await fetchArtworkDataUri({
+    url: "http://art.example/empty.png",
+    fetchImage: async () => buildChunkedResponse([]),
+  })
+  expect(dataUri).toBe("data:image/png;base64,")
+})
+
 test("a newer request for the same display makes the older one stale", () => {
   const tracker = createLatestRequestTracker()
   const older = tracker.begin("display-a")
@@ -151,7 +159,7 @@ test("a newer request for the same display makes the older one stale", () => {
 
 test("a slow older download cannot replace newer now-playing art", async () => {
   const tracker = createLatestRequestTracker()
-  const applied: string[] = []
+  const applyArtwork = vi.fn((_dataUri: string) => {})
   const pending = new Map<
     string,
     (response: Response) => void
@@ -167,7 +175,7 @@ test("a slow older download cannot replace newer now-playing art", async () => {
       fetchImage,
     })
     if (request.getIsLatest() && dataUri) {
-      applied.push(dataUri)
+      applyArtwork(dataUri)
     }
   }
   const olderTrack = apply(
@@ -184,5 +192,7 @@ test("a slow older download cannot replace newer now-playing art", async () => {
     buildChunkedResponse([new Uint8Array([1])]),
   )
   await olderTrack
-  expect(applied).toEqual(["data:image/png;base64,Ag=="])
+  expect(applyArtwork.mock.calls).toEqual([
+    ["data:image/png;base64,Ag=="],
+  ])
 })
