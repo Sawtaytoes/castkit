@@ -39,7 +39,10 @@ import { createPlatform } from "./platform/platform.ts"
 import { readPlatformFrameKey } from "./platform/platformFrameKey.ts"
 import { attachPlatformSockets } from "./platform/platformSockets.ts"
 import { createPushController } from "./pushController.ts"
-import { fetchArtworkDataUri } from "./render/artworkFetch.ts"
+import {
+  createLatestRequestTracker,
+  fetchArtworkDataUri,
+} from "./render/artworkFetch.ts"
 import { createRenderService } from "./render/renderService.ts"
 import { startClockTicker } from "./schedulers/clockTicker.ts"
 import { applyDeviceDefinitions } from "./state/applyDeviceDefinitions.ts"
@@ -582,6 +585,7 @@ const main = async () => {
       return undefined
     }
   }
+  const nowPlayingRequests = createLatestRequestTracker()
   const applyNowPlayingPayload = async ({
     deviceId,
     payload,
@@ -589,6 +593,7 @@ const main = async () => {
     deviceId: string
     payload: string
   }) => {
+    const request = nowPlayingRequests.begin(deviceId)
     const nowPlaying = parseNowPlayingPayload(
       parseJsonPayload(payload),
     )
@@ -599,6 +604,11 @@ const main = async () => {
           url: nowPlaying.artworkPath,
         })
       : undefined
+    // A newer payload for this display arrived during the download; it owns
+    // the display now, so this older track must not overwrite it.
+    if (!request.getIsLatest()) {
+      return
+    }
     viewDataStore.setNowPlaying({
       deviceId,
       data: artworkDataUri
