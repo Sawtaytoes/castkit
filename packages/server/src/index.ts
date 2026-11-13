@@ -61,6 +61,7 @@ import { createDeviceDefinitionStore } from "./state/deviceDefinitionStore.ts"
 import { createDeviceStore } from "./state/deviceStore.ts"
 import { createRenderTokenStore } from "./state/renderTokenStore.ts"
 import { createViewDataStore } from "./state/viewDataStore.ts"
+import { logUnhandledRejections } from "./unhandledRejectionLogger.ts"
 import {
   getIsAgendaView,
   getIsClockBearingView,
@@ -313,6 +314,9 @@ const RETAINED_SETTLE_MILLISECONDS = 5_000
 // stream workers keep their own allocators.
 delete process.env.LD_PRELOAD
 delete process.env.MALLOC_CONF
+
+// One failed render, push, or Immich call must not stop every display.
+logUnhandledRejections()
 
 const main = async () => {
   loadEnvironmentFile()

@@ -41,6 +41,25 @@ export type MqttPublisher = {
   close: () => Promise<void>
 }
 
+/*
+ * Runs one handler so that every failure becomes a rejection the caller can
+ * log. The handler still starts synchronously, but a synchronous throw lands
+ * in the returned promise instead of escaping into mqtt.js's packet handling,
+ * and an async rejection no longer goes unhandled. One failed render, push, or
+ * Immich call must cost only that message, never the whole server.
+ */
+const runHandler = async ({
+  handler,
+  topic,
+  payload,
+}: {
+  handler: CommandHandler
+  topic: string
+  payload: string
+}) => {
+  await handler({ topic, payload })
+}
+
 const createNoopPublisher = () => ({
   isEnabled: false,
   publish: async () => {},
@@ -167,7 +186,14 @@ export const createMqttPublisher = async ({
   client.on("message", (topic, payloadBuffer) => {
     const payload = payloadBuffer.toString()
     messageHandlers.forEach((handler) => {
-      void handler({ topic, payload })
+      runHandler({ handler, topic, payload }).catch(
+        (error: unknown) => {
+          console.error(
+            `[mqtt] handler for ${topic} failed`,
+            error,
+          )
+        },
+      )
     })
   })
 

@@ -270,3 +270,69 @@ test("a topic refused at first subscription is still retried after a reconnect",
   ])
   await publisher.close()
 })
+
+test("a handler that rejects is logged and the other handlers still run", async () => {
+  const publisher = await buildPublisher()
+  const consoleError = vi
+    .spyOn(console, "error")
+    .mockImplementation(() => {})
+  const failure = new Error("render failed")
+  const failing = vi.fn(async () => {
+    throw failure
+  })
+  const healthy = vi.fn()
+  await publisher.subscribe({
+    topics: ["castkit/a/#"],
+    handler: failing,
+  })
+  await publisher.subscribe({
+    topics: ["castkit/a/#"],
+    handler: healthy,
+  })
+  fakeClient.emit(
+    "message",
+    "castkit/a/view/set",
+    Buffer.from("Clock"),
+  )
+  await flushReconnect()
+  expect(healthy).toHaveBeenCalledTimes(1)
+  expect(consoleError).toHaveBeenCalledWith(
+    "[mqtt] handler for castkit/a/view/set failed",
+    failure,
+  )
+  await publisher.close()
+})
+
+test("a handler that throws synchronously cannot break the message listener", async () => {
+  const publisher = await buildPublisher()
+  const consoleError = vi
+    .spyOn(console, "error")
+    .mockImplementation(() => {})
+  const failure = new Error("bad payload")
+  const healthy = vi.fn()
+  await publisher.subscribe({
+    topics: ["castkit/a/#"],
+    handler: () => {
+      throw failure
+    },
+  })
+  await publisher.subscribe({
+    topics: ["castkit/a/#"],
+    handler: healthy,
+  })
+  expect(() =>
+    fakeClient.emit(
+      "message",
+      "castkit/a/view/set",
+      Buffer.from("Clock"),
+    ),
+  ).not.toThrow()
+  // The handlers start synchronously, so the next one has already run.
+  expect(healthy).toHaveBeenCalledTimes(1)
+  await flushReconnect()
+  expect(consoleError).toHaveBeenCalledWith(
+    "[mqtt] handler for castkit/a/view/set failed",
+    failure,
+  )
+  await publisher.close()
+})
