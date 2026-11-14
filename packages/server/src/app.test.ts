@@ -1,4 +1,19 @@
-import { describe, expect, test } from "vitest"
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest"
 import { createApp } from "./app.ts"
 import { loadConfig } from "./config/env.ts"
 import { createDeviceDefinitionStore } from "./state/deviceDefinitionStore.ts"
@@ -178,5 +193,121 @@ describe("server identity", () => {
       product: "castkit",
       publicUrl: null,
     })
+  })
+})
+
+describe("management shell", () => {
+  const SHELL =
+    "<!doctype html><title>CastKit management</title>"
+  const ASSET = "console.log('management')"
+  const distDirectory = mkdtempSync(
+    join(tmpdir(), "castkit-management-dist-"),
+  )
+
+  beforeAll(() => {
+    mkdirSync(join(distDirectory, "assets"))
+    writeFileSync(join(distDirectory, "index.html"), SHELL)
+    writeFileSync(
+      join(distDirectory, "assets", "index-abc123.js"),
+      ASSET,
+    )
+    vi.stubEnv("CASTKIT_MANAGEMENT_DIST_DIR", distDirectory)
+  })
+
+  afterAll(() => {
+    vi.unstubAllEnvs()
+    rmSync(distDirectory, { force: true, recursive: true })
+  })
+
+  test.each([
+    "/",
+    "/views",
+    "/cook/6f1c1f3e-5a43-4f43-9a3e-6d6b2d1f9a10",
+    "/manage/",
+    "/manage/views",
+    "/manage/devices/inky-phat",
+  ])("the client route %s gets the shell with no-cache", async (path) => {
+    const response = await makeApp().request(path)
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toMatch(
+      /^text\/html/,
+    )
+    expect(response.headers.get("cache-control")).toBe(
+      "no-cache",
+    )
+    expect(await response.text()).toBe(SHELL)
+  })
+
+  test("a HEAD request to a client route answers like a GET", async () => {
+    const response = await makeApp().request(
+      "/manage/views",
+      { method: "HEAD" },
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toMatch(
+      /^text\/html/,
+    )
+  })
+
+  test("/manage redirects to the admin's base", async () => {
+    const response = await makeApp().request("/manage")
+    expect(response.status).toBe(302)
+    expect(response.headers.get("location")).toBe(
+      "/manage/",
+    )
+  })
+
+  test("a built asset is served immutable from its /manage/assets/ URL", async () => {
+    const response = await makeApp().request(
+      "/manage/assets/index-abc123.js",
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=31536000, immutable",
+    )
+    expect(await response.text()).toBe(ASSET)
+  })
+
+  test.each([
+    "/manage/assets/definitely-missing-abc123.js",
+    "/cook/assets/definitely-missing-abc123.js",
+    "/assets/definitely-missing-abc123.js",
+    "/manage/favicon-missing.svg",
+  ])("the missing file %s is a 404, not the shell", async (path) => {
+    const response = await makeApp().request(path)
+    expect(response.status).toBe(404)
+    expect(response.headers.get("cache-control")).toBeNull()
+    expect(await response.text()).not.toBe(SHELL)
+  })
+
+  test.each([
+    "/api/definitely-missing",
+    "/definitely-missing",
+  ])("the server path %s is the server's 404, not the shell", async (path) => {
+    const response = await makeApp().request(path)
+    expect(response.status).toBe(404)
+    expect(await response.text()).not.toBe(SHELL)
+  })
+
+  test.each([
+    "/",
+    "/views",
+    "/manage/views",
+    "/cook/abc",
+    "/definitely-missing",
+  ])("a POST to %s does not return the shell", async (path) => {
+    const response = await makeApp().request(path, {
+      method: "POST",
+    })
+    expect(response.status).toBe(404)
+    expect(await response.text()).not.toBe(SHELL)
+  })
+
+  test("a missing API route under /api/manage stays out of the shell", async () => {
+    const response = await makeApp().request(
+      "/api/manage/definitely-missing",
+    )
+    expect(response.status).toBe(404)
+    expect(await response.text()).not.toBe(SHELL)
   })
 })
