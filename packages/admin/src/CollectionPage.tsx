@@ -15,6 +15,7 @@ import {
   useSearchParams,
 } from "react-router"
 import { ChannelEditor } from "./ChannelEditor.tsx"
+import { defaultViewSpec } from "./defaultViewSpec.ts"
 import { LivePreviewFrame } from "./LivePreviewFrame.tsx"
 import {
   PreviewSizing,
@@ -89,10 +90,11 @@ const blank = (
       panels: [
         {
           id: crypto.randomUUID(),
-          specId: platform.viewSpecs[0]?.id ?? "",
+          specId:
+            defaultViewSpec(platform.viewSpecs)?.id ?? "",
           bindings: {},
           settings: initialSettings(
-            platform.viewSpecs[0]?.settings,
+            defaultViewSpec(platform.viewSpecs)?.settings,
           ),
         },
       ],

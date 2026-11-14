@@ -37,7 +37,7 @@ test("a scoped phone link changes static pages, rejects stale commands, and ends
     .click()
   await expect(
     page.getByRole("heading", {
-      name: "Step 1 of 2",
+      name: "Step 1 of 6",
       exact: true,
     }),
   ).toBeVisible()
@@ -63,14 +63,14 @@ test("a scoped phone link changes static pages, rejects stale commands, and ends
     .click()
   await expect(
     page.getByRole("heading", {
-      name: "Step 1 of 2",
+      name: "Step 1 of 6",
       exact: true,
     }),
   ).toBeVisible()
   await page.reload()
   await expect(
     page.getByRole("heading", {
-      name: "Step 1 of 2",
+      name: "Step 1 of 6",
       exact: true,
     }),
   ).toBeVisible()
@@ -126,7 +126,7 @@ test("a full 800 × 480 platform page fits the ePaper canvas and changes only on
     fit.clientHeight,
   )
   await expect(
-    page.getByText("Page 1 / 3", { exact: true }),
+    page.getByText("Page 1 / 7", { exact: true }),
   ).toBeVisible()
   if (testInfo.project.name === "chromium-wide")
     await page.screenshot({
@@ -150,7 +150,7 @@ test("a full 800 × 480 platform page fits the ePaper canvas and changes only on
     `/view/${state.targetId}?device=e2e-eink&capture=1`,
   )
   await expect(
-    page.getByText("Step 1 of 2", { exact: true }),
+    page.getByText("Step 1 of 6", { exact: true }),
   ).toBeVisible()
   await request.post(`/api/cooking/${session.id}/command`, {
     headers: { "x-castkit-cooking-key": session.key },
@@ -192,23 +192,40 @@ test("Recipes starts a phone-only session through the Mealie source without assi
       exact: true,
     })
     .click()
+  /*
+   * Scoped to this test's own session: the page lists every active
+   * session, and a session another test left behind has the same recipe
+   * name and the same preview label.
+   */
+  const phoneSession = page.locator("section").filter({
+    has: page.getByRole("heading", {
+      name: "Phone only",
+      exact: true,
+    }),
+  })
   await expect(
-    page.getByRole("heading", {
+    phoneSession.getByRole("heading", {
       name: "Lemon chickpea skillet",
       exact: true,
     }),
   ).toBeVisible()
+  // This recipe fits one screen, so it is one complete page (#344).
   await expect(
-    page.getByRole("heading", {
-      name: "Phone only",
+    phoneSession.getByText("COOKING · Page 1 of 1", {
       exact: true,
     }),
   ).toBeVisible()
-  await page
+  await expect(
+    phoneSession.getByRole("button", {
+      name: "Next",
+      exact: true,
+    }),
+  ).toBeDisabled()
+  await phoneSession
     .getByText("800 × 480 display preview", { exact: true })
     .click()
   await expect(
-    page
+    phoneSession
       .frameLocator(
         'iframe[title="Recipe display preview"]',
       )
@@ -227,18 +244,13 @@ test("Recipes starts a phone-only session through the Mealie source without assi
     await page.request.get("/api/manage/platform")
   ).json()
   expect(after.deviceScreens).toEqual(before.deviceScreens)
-  await page
+  await phoneSession
     .getByRole("button", {
       name: "Done cooking",
       exact: true,
     })
     .click()
-  await expect(
-    page.getByRole("heading", {
-      name: "Lemon chickpea skillet",
-      exact: true,
-    }),
-  ).not.toBeVisible()
+  await expect(phoneSession).toHaveCount(0)
   await page.request.delete(
     "/api/manage/platform/sources/mealie-e2e",
   )

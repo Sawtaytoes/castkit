@@ -467,6 +467,16 @@ test("browser previews get live data without making a panel online or publishing
   page,
   request,
 }) => {
+  /*
+   * The recording stub keeps every publish since the window's server
+   * started, and earlier specs connect `e2e-preview` as a real display.
+   * Only what this test publishes is evidence about the preview.
+   */
+  const publishedBefore = (
+    (await (
+      await request.get("/__test__/published")
+    ).json()) as unknown[]
+  ).length
   await page.goto("/d/e2e-preview?preview=1")
   await page.evaluate(async () => {
     await new Promise<void>((resolve) => {
@@ -498,9 +508,11 @@ test("browser previews get live data without making a panel online or publishing
   await expect(
     page.getByText("Preview update"),
   ).toBeVisible()
-  const published = (await (
-    await request.get("/__test__/published")
-  ).json()) as { topic: string; payload: string }[]
+  const published = (
+    (await (
+      await request.get("/__test__/published")
+    ).json()) as { topic: string; payload: string }[]
+  ).slice(publishedBefore)
   expect(
     published.filter(
       ({ topic, payload }) =>

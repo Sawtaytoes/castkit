@@ -615,6 +615,12 @@ export const startTestServer = async ({
         : context.json({ error: "Unknown recipe" }, 404)
     },
   )
+  /*
+   * A recipe too long for one 800 × 480 screen, so the session pages:
+   * Ingredients, then Step 1 of 6 through Step 6 of 6 — seven pages. A
+   * recipe that fits gets one complete page instead (#344); the Mealie
+   * fixture above is that short case.
+   */
   app.post("/__test__/cooking", (context) => {
     for (const session of platform.cooking.list())
       platform.cooking.command(session.id, "done")
@@ -630,13 +636,21 @@ export const startTestServer = async ({
         yieldText: "4 servings",
         ingredients: [
           "2 cans chickpeas, drained",
-          "1 lemon",
+          "1 lemon, juiced",
           "2 tablespoons olive oil",
-          "Salt, to taste",
+          "1 small red onion, finely chopped",
+          "2 cloves garlic, minced",
+          "1 teaspoon ground cumin",
+          "1 cup cherry tomatoes, halved",
+          "2 cups baby spinach",
         ],
         instructions: [
-          "Warm the olive oil in a skillet. Add the drained chickpeas and stir gently until warmed through.",
-          "Stir in the lemon juice. Season to taste and serve warm.",
+          "Warm the olive oil in a large skillet over medium heat. Add the chopped onion and cook, stirring now and then, until it is soft and golden at the edges, about eight minutes.",
+          "Add the garlic and cumin. Stir for one more minute until the spices smell toasted, and lower the heat if the garlic starts to brown.",
+          "Add the drained chickpeas and the halved tomatoes. Stir gently and cook until the chickpeas are warmed through and the tomatoes begin to soften and release their juice, about six minutes.",
+          "Fold in the spinach a handful at a time, waiting for each handful to wilt before adding the next, so the skillet does not cool down or overflow.",
+          "Stir in the lemon juice. Season with salt and black pepper to taste, then let the skillet rest off the heat for two minutes.",
+          "Spoon the chickpeas into warm bowls and finish each bowl with a drizzle of olive oil.",
         ],
         notes: [],
       },

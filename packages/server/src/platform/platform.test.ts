@@ -1001,6 +1001,75 @@ describe("platform access and saved compositions", () => {
       ).status,
     ).toBe(429)
   })
+  test("only a rejected PIN counts toward the one-minute limit", async () => {
+    const fixture = await createFixture()
+    const signIns = await Promise.all(
+      Array.from({ length: 6 }, () =>
+        fixture.request("/api/access/login", "POST", {
+          pin: "123456",
+        }),
+      ),
+    )
+    expect(signIns.map(({ status }) => status)).toEqual([
+      200, 200, 200, 200, 200, 200,
+    ])
+    await Promise.all(
+      Array.from({ length: 5 }, () =>
+        fixture.request("/api/access/login", "POST", {
+          pin: "wrong",
+        }),
+      ),
+    )
+    expect(
+      (
+        await fixture.request("/api/access/login", "POST", {
+          pin: "123456",
+        })
+      ).status,
+    ).toBe(429)
+  })
+  test("unlocking a display counts only rejected PINs, for the display and for management", async () => {
+    const fixture = await createFixture()
+    await fixture.save("views", {
+      ...fixture.view,
+      id: "keyed",
+      access: "pin",
+      pin: "4477",
+    })
+    const unlock = (pin: string) =>
+      fixture.request("/api/access/unlock", "POST", {
+        kind: "view",
+        id: "keyed",
+        pin,
+      })
+    const unlocks = await Promise.all(
+      [
+        "4477",
+        "123456",
+        "4477",
+        "123456",
+        "4477",
+        "123456",
+      ].map(unlock),
+    )
+    expect(unlocks.map(({ status }) => status)).toEqual([
+      200, 200, 200, 200, 200, 200,
+    ])
+    const rejected = await Promise.all(
+      Array.from({ length: 5 }, () => unlock("0000")),
+    )
+    expect(rejected.map(({ status }) => status)).toEqual([
+      401, 401, 401, 401, 401,
+    ])
+    expect((await unlock("4477")).status).toBe(429)
+    expect(
+      (
+        await fixture.request("/api/access/login", "POST", {
+          pin: "123456",
+        })
+      ).status,
+    ).toBe(429)
+  })
   test("disabled component plugins hide dependent presets and cannot be used", async () => {
     const fixture = await createFixture()
     const response = await fixture.request(

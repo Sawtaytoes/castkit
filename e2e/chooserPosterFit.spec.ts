@@ -1,5 +1,20 @@
 import { expect, test } from "@playwright/test"
 
+/*
+ * Each test holds the shared `e2e-preview` display on the queue chooser for
+ * five minutes at priority 90. Release it afterward: the window's test
+ * server outlives the test, and a later spec that shows its own view on
+ * that display would otherwise get the chooser.
+ */
+test.afterEach(async ({ request }) => {
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/e2e-preview/override/clear",
+      payload: { viewId: "queue-chooser" },
+    },
+  })
+})
+
 ;[0, 2, 3, 4].forEach((count) => {
   test(`${count} queue posters use the measured square panel`, async ({
     page,

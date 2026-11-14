@@ -8,6 +8,7 @@ import {
 } from "@charcuterie/ui"
 import { useState } from "react"
 import { AccessFields } from "./AccessFields.tsx"
+import { defaultViewSpec } from "./defaultViewSpec.ts"
 import {
   initialSettings,
   inputClass,
@@ -48,10 +49,10 @@ export const ViewEditor = ({
     })
   const newPanel = (): Panel => ({
     id: crypto.randomUUID(),
-    specId: platform.viewSpecs[0]?.id ?? "",
+    specId: defaultViewSpec(platform.viewSpecs)?.id ?? "",
     bindings: {},
     settings: initialSettings(
-      platform.viewSpecs[0]?.settings,
+      defaultViewSpec(platform.viewSpecs)?.settings,
     ),
   })
   return (

@@ -2,6 +2,21 @@ import { execFileSync } from "node:child_process"
 import { defined } from "@castkit/sdk/defined"
 import { expect, test } from "@playwright/test"
 
+/*
+ * Each test holds the shared `e2e-preview` display on the queue chooser for
+ * five minutes at priority 90. Release it afterward: the window's test
+ * server outlives the test, and a later spec that shows its own view on
+ * that display would otherwise get the chooser.
+ */
+test.afterEach(async ({ request }) => {
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/e2e-preview/override/clear",
+      payload: { viewId: "queue-chooser" },
+    },
+  })
+})
+
 // The normal projects verify the responsive page; the square case exercises
 // the exact streamed-panel geometry rather than inferring fit from a desktop.
 const sizes = ["window", "square"] as const
@@ -102,11 +117,21 @@ sizes.forEach((size) => {
           ),
       )
       .toBeGreaterThan(0)
-    const tileBounds = await choices.first().boundingBox()
-    if (!tileBounds) throw new Error("Missing tile")
-    expect(
-      Math.abs(tileBounds.width - tileBounds.height),
-    ).toBeLessThan(1)
+    /*
+     * The display starts on its own view and switches to the chooser when
+     * the hold arrives, so the first tile can be measured before the new
+     * layout settles. Wait for the square tile rather than reading it once.
+     */
+    await expect
+      .poll(async () => {
+        const tileBounds = await choices
+          .first()
+          .boundingBox()
+        return tileBounds
+          ? Math.abs(tileBounds.width - tileBounds.height)
+          : Number.POSITIVE_INFINITY
+      })
+      .toBeLessThan(1)
     const panel = await chooser.boundingBox()
     if (!panel) throw new Error("Missing chooser bounds")
     await expect(

@@ -160,14 +160,23 @@ export const createPlatformAccess = ({
       maxAge: sessionLifetimeSeconds,
     })
   }
-  const checkAttempt = (key: string) => {
+  /**
+   * False once a key has five rejected PINs in the last minute. Only a
+   * rejected PIN counts (`recordFailedAttempt`): the limit stops guessing,
+   * and a person who enters the correct PIN again and again within a minute
+   * is not guessing. Until 2026-11-14 every attempt counted, so the sixth
+   * correct sign-in in a minute was refused with 429.
+   */
+  const isAttemptAllowed = (key: string) => {
     const attempt = attempts.get(key)
-    if (
+    return !(
       attempt &&
       attempt.expiresAt > now() &&
       attempt.count >= 5
     )
-      return false
+  }
+  const recordFailedAttempt = (key: string) => {
+    const attempt = attempts.get(key)
     if (!attempt || attempt.expiresAt <= now())
       attempts.set(key, {
         count: 1,
@@ -178,7 +187,6 @@ export const createPlatformAccess = ({
         ...attempt,
         count: attempt.count + 1,
       })
-    return true
   }
   const isSameOrigin = (context: Context) => {
     const origin = context.req.header("origin")
@@ -198,7 +206,8 @@ export const createPlatformAccess = ({
     isMachine,
     canAccess,
     issue,
-    checkAttempt,
+    isAttemptAllowed,
+    recordFailedAttempt,
     isSameOrigin,
     setup: ({
       pin,
