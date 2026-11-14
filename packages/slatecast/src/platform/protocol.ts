@@ -3,6 +3,7 @@ import type {
   ScreenDefinition,
   ViewDefinition,
 } from "@castkit/sdk/contracts"
+import { defined } from "@castkit/sdk/defined"
 import type { ViewInput } from "@castkit/sdk/plugin"
 import type { DisplayProperties } from "./displayProperties.ts"
 import { recallMediaUrl } from "./mediaCache.ts"
@@ -66,7 +67,7 @@ export const readDisplayTarget = (
   try {
     return {
       kind: matched[1] as DisplayTarget["kind"],
-      id: decodeURIComponent(matched[2]!),
+      id: decodeURIComponent(defined(matched[2])),
     }
   } catch {
     return null

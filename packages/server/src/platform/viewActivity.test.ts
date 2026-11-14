@@ -2,6 +2,7 @@ import type {
   ChannelSnapshot,
   ViewDefinition,
 } from "@castkit/sdk/contracts"
+import { defined } from "@castkit/sdk/defined"
 import { expect, test, vi } from "vitest"
 import {
   getPanelActivity,
@@ -450,7 +451,7 @@ test("a saved local count-up keeps an active-only view open until it stops", () 
 
 test("the room clock has no idle state when optional music is its only binding", () => {
   const room = view([{ id: "idle-dashboard" }])
-  room.panels[0]!.bindings = { music: "music" }
+  defined(room.panels[0]).bindings = { music: "music" }
   expect(
     getPanelActivity({
       view: room,

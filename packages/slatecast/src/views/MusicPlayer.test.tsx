@@ -14,6 +14,7 @@ import { buildMusicPlayer } from "../__fixtures__/buildMusicPlayer.ts"
 import { formatTime } from "../formatTime.ts"
 import { MusicPlayer } from "./MusicPlayer.tsx"
 import "../styles.css"
+import { defined } from "@castkit/sdk/defined"
 
 const NOW_MS = Date.now()
 
@@ -422,10 +423,14 @@ test("the seek handle is visible on hover and drag, and waveform bars keep a rea
       (bar) => bar.getBoundingClientRect().height > 3,
     ),
   ).toBe(true)
-  const handle = wave.querySelector(".music-seek-handle")!
+  const handle = defined(
+    wave.querySelector(".music-seek-handle"),
+  )
   await browserUser.hover(wave)
   expect(getComputedStyle(handle).opacity).toBe("1")
-  const tooltip = wave.querySelector(".music-seek-hover")!
+  const tooltip = defined(
+    wave.querySelector(".music-seek-hover"),
+  )
   const title = document.querySelector(".music-title")
   if (!title)
     throw new Error("Missing current track metadata")
@@ -465,14 +470,16 @@ test("a touch panel shows its seek handle even when the renderer has a mouse", a
   await renderPlayer()
   const wave = screen.getByRole("slider", { name: "Seek" })
   await browserUser.hover(
-    document.querySelector(".music-track")!,
+    defined(document.querySelector(".music-track")),
   )
   expect(window.matchMedia("(hover: hover)").matches).toBe(
     true,
   )
   expect(wave.matches(":hover")).toBe(false)
   expect(wave).not.toHaveFocus()
-  const handle = wave.querySelector(".music-seek-handle")!
+  const handle = defined(
+    wave.querySelector(".music-seek-handle"),
+  )
   expect(getComputedStyle(handle).opacity).toBe("1")
   document.documentElement.dataset.input = "pointer"
   expect(getComputedStyle(handle).opacity).toBe("0")
@@ -505,10 +512,10 @@ test("hover previews a distinct seek interval without moving playback, including
   const playedCount =
     wave.querySelectorAll(".is-played").length
   await user.pointer(pointOnWave({ wave, fraction: 0.75 }))
-  const preview = wave.querySelector(".is-preview")!
-  const played = wave.querySelector(
-    ".is-played:not(.is-preview)",
-  )!
+  const preview = defined(wave.querySelector(".is-preview"))
+  const played = defined(
+    wave.querySelector(".is-played:not(.is-preview)"),
+  )
   expect(getComputedStyle(wave).cursor).toBe("pointer")
   expect(
     getComputedStyle(preview).backgroundColor,

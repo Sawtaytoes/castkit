@@ -11,6 +11,7 @@ import graceAvatar from "../../../../e2e/__fixtures__/avatars/grace.jpg"
 import { QueuePicker } from "./QueuePicker.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 const data = {
   sessionId: "session-one",
@@ -211,7 +212,9 @@ test("photos fall back to initials after failure and retry a replacement URL", a
   }
   const view = render(<QueuePicker {...props} />)
   const avatar = () =>
-    view.container.querySelector(".queue-picker-avatar")!
+    defined(
+      view.container.querySelector(".queue-picker-avatar"),
+    )
   await expect
     .poll(
       () =>
@@ -222,7 +225,7 @@ test("photos fall back to initials after failure and retry a replacement URL", a
         )?.naturalWidth ?? 0,
     )
     .toBeGreaterThan(0)
-  fireEvent.error(avatar().querySelector("img")!)
+  fireEvent.error(defined(avatar().querySelector("img")))
   expect(avatar().textContent).toBe("A")
   view.rerender(
     <QueuePicker

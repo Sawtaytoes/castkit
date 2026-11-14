@@ -1,4 +1,5 @@
 import { expect, test } from "vitest"
+import { defined } from "./defined.ts"
 import {
   getCountdownKid,
   getCountdownKids,
@@ -186,7 +187,7 @@ test("count-up timers survive their goal and restart, but stop at the matching t
         ...running,
         kids: [
           {
-            ...running.kids[0]!,
+            ...defined(running.kids[0]),
             activeTask: {
               ...running.kids[0]?.activeTask,
               startedAtMs: 100_000,

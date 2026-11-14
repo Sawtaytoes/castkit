@@ -1,6 +1,7 @@
 import { IMPRESSION_DEVICE } from "@castkit/core/devices/device"
 import { MONOCHROME_PALETTE } from "@castkit/core/panels/palette"
 import type { ViewDefinition } from "@castkit/sdk/contracts"
+import { defined } from "@castkit/sdk/defined"
 import { Hono } from "hono"
 import sharp from "sharp"
 import { afterEach, expect, test, vi } from "vitest"
@@ -364,11 +365,13 @@ test("panel-side dithering previews simulate the palette and disclose that appro
     .png()
     .toBuffer()
   renderPreview.mockResolvedValue(image)
-  const profile = getPreviewProfiles({
-    platform,
-    definitions,
-    pushController,
-  })[0]!
+  const profile = defined(
+    getPreviewProfiles({
+      platform,
+      definitions,
+      pushController,
+    })[0],
+  )
   expect(profile.isPaletteSimulation).toBe(true)
   expect(profile.label).toContain("panel-side dithering")
   const response = await request(

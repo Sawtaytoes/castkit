@@ -32,6 +32,7 @@ import {
 import { RipDeckView } from "./RipDeckView.tsx"
 import { ViewTabs } from "./ViewTabs.tsx"
 import "../styles.css"
+import { defined } from "@castkit/sdk/defined"
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -206,7 +207,7 @@ test("stale or failed sources keep their last value and disable controls", () =>
     channels: {
       ...compositionFixture.channels,
       prints: {
-        ...compositionFixture.channels.prints!,
+        ...defined(compositionFixture.channels.prints),
         status: "error" as const,
         error: "Provider disconnected",
       },
@@ -1170,15 +1171,15 @@ test("automatic reflows three quotas below three cameras without clipping select
       ...compositionFixture.view,
       layout: "adaptive",
       panels: [
-        compositionFixture.view.panels[0]!,
-        aiUsageFixture.view.panels[0]!,
+        defined(compositionFixture.view.panels[0]),
+        defined(aiUsageFixture.view.panels[0]),
       ],
     },
     channels: {
       ...compositionFixture.channels,
       ...aiUsageFixture.channels,
       prints: {
-        ...channel!,
+        ...defined(channel),
         data: {
           printers: Array.from(
             { length: 3 },
@@ -1194,7 +1195,7 @@ test("automatic reflows three quotas below three cameras without clipping select
         },
       },
       usage: {
-        ...aiUsageFixture.channels.usage!,
+        ...defined(aiUsageFixture.channels.usage),
         data: {
           providers: ["Alpha", "Beta", "Gamma"].map(
             (name) => ({

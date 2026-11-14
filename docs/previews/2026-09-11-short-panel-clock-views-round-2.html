@@ -12,12 +12,12 @@ body{margin:0;padding:24px 20px 60px;background:#05070b;color:#cfd5df;font-famil
 h1{font-size:26px;font-weight:700;color:#fff;margin:0 0 6px}
 h2{font-size:22px;font-weight:700;color:#fff;margin:36px 0 10px;padding-top:18px;border-top:1px solid #222a36}
 .lead{max-width:920px;font-size:16px;line-height:1.45;margin:0 0 4px}
-.lead b{color:#fff}
 .row{display:flex;flex-wrap:wrap;gap:26px 22px;align-items:flex-start}
 figure{margin:0;width:480px}
 figcaption{margin-top:8px;font-size:15px;line-height:1.4}
 figcaption b{color:#fff;font-size:16px}
 figcaption span{display:block;color:#98a2b3}
+.lead b{color:#fff}
 
 .panel{width:480px;height:320px;overflow:hidden;background:var(--bg);color:var(--fg);position:relative;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;outline:1px solid #2a3140;user-select:none}
 .panel *{box-sizing:border-box;margin:0;padding:0}
@@ -44,6 +44,7 @@ ul{list-style:none}
 .b-clock.m-beside .stack .h{font-size:72px}
 .b-clock.m-beside .stack .m{font-size:30px;margin-top:0}
 
+.a-cal .time{display:flex;align-items:baseline;gap:8px;font-weight:700;line-height:1;letter-spacing:-.02em;white-space:nowrap;flex:none}
 /* ---------- Weather B: temperature at the left, the mark and the clock at the right ---------- */
 .b-weather{flex-direction:row;gap:22px;padding:0 18px;justify-content:space-between}
 .b-weather .main{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-width:0}
@@ -62,7 +63,6 @@ ul{list-style:none}
 /* ---------- Calendar A with a horizontal header ---------- */
 .a-cal{padding:10px 12px;gap:8px;align-items:stretch;justify-content:flex-start}
 .a-cal .head{display:flex;align-items:center;justify-content:space-between;gap:12px;height:66px;flex:none}
-.a-cal .time{display:flex;align-items:baseline;gap:8px;font-weight:700;line-height:1;letter-spacing:-.02em;white-space:nowrap;flex:none}
 .a-cal .time .h{font-size:60px}
 .a-cal .time .m{font-size:26px;font-weight:600;color:var(--dim);letter-spacing:0}
 .a-cal .right{display:flex;flex-direction:column;align-items:flex-end;text-align:right;min-width:0;gap:2px}

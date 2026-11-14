@@ -489,15 +489,15 @@
   gap: 6px;
   font-size: clamp(16px, 3cqi, 22px);
 }
-.platform .platform-rip-disc progress {
-  block-size: 12px;
-  margin-block-start: 4px;
-}
 .platform progress {
   accent-color: var(--accent);
   inline-size: 100%;
   block-size: 18px;
   margin-block-start: 12px;
+}
+.platform .platform-rip-disc progress {
+  block-size: 12px;
+  margin-block-start: 4px;
 }
 .platform-photo {
   position: relative;
@@ -667,9 +667,6 @@
   display: flex;
   gap: 8px;
   margin-block-end: 8px;
-}
-.platform-location-map figcaption a {
-  color: var(--accent-content);
 }
 .platform-timers {
   display: flex;
@@ -942,6 +939,17 @@
   flex: none;
   align-self: center;
 }
+.ai-usage-window-label {
+  font-size: calc(15px * var(--ai-usage-scale));
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ai-usage-window-percent {
+  font-size: calc(17px * var(--ai-usage-scale));
+  font-weight: 700;
+  white-space: nowrap;
+}
 .ai-usage-provider-head h3,
 .ai-usage-details .ai-usage-window-label {
   font-size: calc(18px * var(--ai-usage-scale));
@@ -976,17 +984,6 @@
   align-items: baseline;
   justify-content: space-between;
   gap: calc(12px * var(--ai-usage-scale));
-}
-.ai-usage-window-label {
-  font-size: calc(15px * var(--ai-usage-scale));
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.ai-usage-window-percent {
-  font-size: calc(17px * var(--ai-usage-scale));
-  font-weight: 700;
-  white-space: nowrap;
 }
 .ai-usage-bar {
   position: relative;
@@ -1209,6 +1206,9 @@
   text-decoration: none;
   white-space: nowrap;
 }
+.platform-location-map figcaption a {
+  color: var(--accent-content);
+}
 .platform-view-tabs a:hover {
   color: var(--fg);
   background: var(--surface);
@@ -1356,16 +1356,8 @@
   gap: 6px;
   flex: none;
 }
-.kids-points-card-head .kids-points-total strong,
-.kids-points-card-head
-  .kids-points-total
-  .kids-points-number {
+.kids-points-card-head .kids-points-total strong {
   font-size: clamp(28px, 22cqmin, 80px);
-}
-.kids-points-card-head
-  .kids-points-total
-  .kids-points-number {
-  align-self: baseline;
 }
 .kids-points-card-head .kids-points-total-label {
   font-size: clamp(14px, 8cqmin, 28px);
@@ -1585,17 +1577,6 @@
   font-size: clamp(18px, 18cqb, 26px);
   -webkit-line-clamp: 1;
 }
-.kids-points-rows[data-all-children="true"]
-  .kids-points-row-total {
-  font-size: clamp(12px, 11cqb, 18px);
-}
-.kids-points-rows[data-all-children="true"]
-  .kids-points-row-total
-  strong {
-  font-size: clamp(48px, 46cqb, 72px);
-  font-weight: 800;
-  line-height: 1;
-}
 .kids-points-row-total {
   display: flex;
   align-items: baseline;
@@ -1608,6 +1589,17 @@
 }
 .kids-points-row-total strong {
   font-size: clamp(20px, 15cqmin, 64px);
+}
+.kids-points-rows[data-all-children="true"]
+  .kids-points-row-total {
+  font-size: clamp(12px, 11cqb, 18px);
+}
+.kids-points-rows[data-all-children="true"]
+  .kids-points-row-total
+  strong {
+  font-size: clamp(48px, 46cqb, 72px);
+  font-weight: 800;
+  line-height: 1;
 }
 .kids-points-row .kids-points-bar {
   block-size: clamp(10px, 5cqmin, 20px);
@@ -1660,6 +1652,12 @@
 .kids-points-focus .kids-points-number {
   align-self: baseline;
   font-size: clamp(48px, 34cqmin, 240px);
+}
+.kids-points-card-head
+  .kids-points-total
+  .kids-points-number {
+  font-size: clamp(28px, 22cqmin, 80px);
+  align-self: baseline;
 }
 .kids-points-total .kids-points-number > strong {
   grid-area: 1 / 1;
@@ -1737,11 +1735,6 @@
 .kids-points-goal-reached[data-motion="goal"] {
   transform-origin: 0 50%;
 }
-/* A flip turns about the number's own middle, or it folds into its edge. */
-.kids-points-number[data-motion="bonus"]
-.kids-points-number-after {
-  transform-origin: 50% 85%;
-}
 .kids-points-focus[data-motion] .kids-points-scan-headline {
   font-size: clamp(20px, 9cqmin, 64px);
 }
@@ -1814,6 +1807,11 @@
     .kids-points-scan {
     animation: kids-points-rise 0.5s 1.7s ease-out both;
   }
+}
+/* A flip turns about the number's own middle, or it folds into its edge. */
+.kids-points-number[data-motion="bonus"]
+.kids-points-number-after {
+  transform-origin: 50% 85%;
 }
 
 @keyframes kids-points-chip-drop {

@@ -2319,10 +2319,6 @@ html[data-grayscale-text="true"] {
   border: 0;
 }
 
-.printer-swatch .fss-swatch {
-  border-radius: inherit;
-}
-
 .printer-filament-button {
   position: absolute;
   z-index: 1;
@@ -2898,6 +2894,10 @@ html[data-grayscale-text="true"] {
   flex: none;
   border-radius: 16px;
   background: var(--c);
+}
+
+.printer-swatch .fss-swatch {
+  border-radius: inherit;
 }
 
 .fss-swatch::after {
@@ -3791,6 +3791,10 @@ html[data-grayscale-text="true"] {
   min-inline-size: 0;
   min-block-size: 0;
 }
+.expandable-media-hint {
+  flex: none;
+  font-size: 14px;
+}
 .expandable-media-dialog:not([open]),
 .expandable-media-dialog:not([open])
   .expandable-media-close {
@@ -3861,10 +3865,6 @@ html[data-grayscale-text="true"] {
   block-size: 100%;
   max-block-size: calc(100dvh - 80px);
   object-fit: contain;
-}
-.expandable-media-hint {
-  flex: none;
-  font-size: 14px;
 }
 
 .zoomable-media,

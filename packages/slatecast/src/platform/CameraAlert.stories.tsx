@@ -3,6 +3,7 @@ import { cameraAlertSnapshot } from "./__fixtures__/cameraAlert.ts"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 const meta = {
   title: "Views/Camera Alert",
@@ -17,7 +18,7 @@ export const Snapshots: Story = {
       ...cameraAlertSnapshot,
       channels: {
         camera: {
-          ...cameraAlertSnapshot.channels.camera!,
+          ...defined(cameraAlertSnapshot.channels.camera),
           data: {
             cameras: [
               {

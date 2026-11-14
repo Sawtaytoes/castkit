@@ -1,4 +1,5 @@
 import type { ContractData } from "@castkit/sdk/contracts"
+import { defined } from "@castkit/sdk/defined"
 import { render, screen } from "@testing-library/preact"
 import { afterEach, expect, test, vi } from "vitest"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
@@ -368,7 +369,7 @@ test("a progress notification uses the saved countdown rather than a refusal ban
     value: {
       ...countdown,
       lastScan: {
-        ...countdown.lastScan!,
+        ...defined(countdown.lastScan),
         result: "progress",
         atMs: now - 3000,
       },
@@ -403,7 +404,7 @@ test("a canceled countdown returns to the scan result", () => {
         activeTask: undefined,
       })),
       lastScan: {
-        ...countdown.lastScan!,
+        ...defined(countdown.lastScan),
         result: "stopped",
         atMs: now - 3000,
       },
@@ -465,7 +466,9 @@ test("the totals board defaults to full names and preserves negative scores", ()
     width: 200,
     height: 200,
     value: {
-      kids: [{ ...data.kids[0]!, pointsToday: -25 }],
+      kids: [
+        { ...defined(data.kids[0]), pointsToday: -25 },
+      ],
     },
     settings: { isTotalsOnly: true },
   })
@@ -483,9 +486,9 @@ const simultaneousCountdowns: ContractData["kids-points.v1"] =
   {
     ...countdown,
     timerScans: [
-      countdown.lastScan!,
+      defined(countdown.lastScan),
       {
-        ...countdown.lastScan!,
+        ...defined(countdown.lastScan),
         kidId: "sky",
         atMs: now - 60_000,
       },
@@ -504,7 +507,7 @@ const simultaneousCountdowns: ContractData["kids-points.v1"] =
         : kid,
     ),
     lastScan: {
-      ...countdown.lastScan!,
+      ...defined(countdown.lastScan),
       kidId: "sky",
       atMs: now - 60_000,
     },
@@ -548,7 +551,7 @@ test("stopping the latest timer leaves the other countdown visible past scan exp
           : kid,
       ),
       lastScan: {
-        ...simultaneousCountdowns.lastScan!,
+        ...defined(simultaneousCountdowns.lastScan),
         result: "stopped",
         atMs: now - 30_000,
       },
@@ -647,7 +650,7 @@ test("count-up scans lead with accumulated minutes and advance the session indep
     reader: "Practice Reader",
   }
   const running = {
-    kids: [{ ...data.kids[0]!, activeTask: task }],
+    kids: [{ ...defined(data.kids[0]), activeTask: task }],
     lastScan: {
       kidId: "robin",
       result: "started" as const,
@@ -763,7 +766,7 @@ test("a slow count-up states the banked baseline and start instead of a stale ru
     value: {
       kids: [
         {
-          ...data.kids[0]!,
+          ...defined(data.kids[0]),
           activeTask: {
             name: "Instrument Practice",
             reader: "Practice Reader",

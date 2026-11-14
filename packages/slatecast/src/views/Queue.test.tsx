@@ -16,6 +16,7 @@ import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "../__tests__/setup/slatecastServer.ts"
 
 import "../styles.css"
+import { defined } from "@castkit/sdk/defined"
 
 const mountQueueView = async (
   data: ViewDataState,
@@ -356,8 +357,9 @@ test("a passive audio queue fills complete rows around the current track and ref
     ).queryByRole("button"),
   ).toBeNull()
   const assertFit = () => {
-    const root =
-      document.querySelector<HTMLElement>(".queue")!
+    const root = defined(
+      document.querySelector<HTMLElement>(".queue"),
+    )
     const rows = queueItems()
     const gap = Number.parseFloat(
       getComputedStyle(root).rowGap,

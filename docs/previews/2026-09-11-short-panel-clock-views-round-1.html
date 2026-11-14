@@ -15,12 +15,12 @@ body{margin:0;padding:24px 20px 60px;background:#05070b;color:#cfd5df;font-famil
 h1{font-size:26px;font-weight:700;color:#fff;margin:0 0 6px}
 h2{font-size:22px;font-weight:700;color:#fff;margin:36px 0 10px;padding-top:18px;border-top:1px solid #222a36}
 .lead{max-width:920px;font-size:16px;line-height:1.45;margin:0 0 4px}
-.lead b{color:#fff}
 .row{display:flex;flex-wrap:wrap;gap:26px 22px;align-items:flex-start}
 figure{margin:0;width:480px}
 figcaption{margin-top:8px;font-size:15px;line-height:1.4}
 figcaption b{color:#fff;font-size:16px}
 figcaption span{display:block;color:#98a2b3}
+.lead b{color:#fff}
 
 /* The glass: 480x320, dark scheme, Outfit, no cursor, nothing selectable. */
 .panel{width:480px;height:320px;overflow:hidden;background:var(--bg);color:var(--fg);position:relative;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;outline:1px solid #2a3140;user-select:none}
@@ -28,6 +28,8 @@ figcaption span{display:block;color:#98a2b3}
 .tab{font-variant-numeric:tabular-nums}
 .dim{color:var(--dim)}
 .acc{color:var(--accent-content)}
+/* Sun mark, an owned path: Slatecast draws no emoji (they render as tofu on WPE). */
+.mark{fill:none;stroke:var(--accent-content);stroke-width:2.2;stroke-linecap:round}
 .nowrap{white-space:nowrap}
 ul{list-style:none}
 .ellipsis{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -87,6 +89,8 @@ ul{list-style:none}
 .a-cal li .s{font-weight:600}
 
 /* ---------- B: beside, two columns, like Now Playing ---------- */
+.b-cal .wd{font-size:30px;font-weight:600;margin-top:12px;line-height:1.1}
+.b-cal .md{font-size:24px;font-weight:600;line-height:1.1}
 .b-clock{flex-direction:row;gap:26px;padding:0 20px}
 .b-clock .tile{width:176px;height:232px;border-radius:18px;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;flex:none}
 .b-clock .tile .wd{font-size:28px;font-weight:700;letter-spacing:.1em;color:var(--dim)}
@@ -111,8 +115,6 @@ ul{list-style:none}
 .b-cal .time{display:flex;align-items:baseline;gap:8px;font-weight:700;line-height:1;letter-spacing:-.02em}
 .b-cal .time .h{font-size:60px}
 .b-cal .time .m{font-size:24px;font-weight:600;color:var(--dim);letter-spacing:0}
-.b-cal .wd{font-size:30px;font-weight:600;margin-top:12px;line-height:1.1}
-.b-cal .md{font-size:24px;font-weight:600;line-height:1.1}
 .b-cal .wx{display:flex;align-items:baseline;gap:8px;margin-top:14px}
 .b-cal .temp{font-size:28px;font-weight:600}
 .b-cal .cond{font-size:22px;font-weight:600}
@@ -142,8 +144,6 @@ ul{list-style:none}
 .c-cal li .s{font-weight:600}
 .c-cal .empty{font-size:28px;font-weight:600;color:var(--dim);text-align:center;margin:auto}
 
-/* Sun mark, an owned path: Slatecast draws no emoji (they render as tofu on WPE). */
-.mark{fill:none;stroke:var(--accent-content);stroke-width:2.2;stroke-linecap:round}
 </style>
 <body>
 <h1>Clock, Weather and Calendar on the 480x320 glass</h1>

@@ -104,6 +104,14 @@
   line-height: 1.2;
   margin: 0 0 calc(14 * var(--idle-unit));
 }
+.idle-dashboard-agenda ul {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  gap: calc(12 * var(--idle-unit));
+  margin: 0;
+  padding: 0;
+}
 .idle-dashboard-side {
   display: flex;
   flex-direction: column;
@@ -150,6 +158,12 @@
   border-radius: calc(16 * var(--idle-unit));
   background: var(--surface);
 }
+.idle-dashboard-points {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: calc(14 * var(--idle-unit));
+}
 .idle-dashboard[data-music-expanded="true"] {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
@@ -169,14 +183,6 @@
   grid-column: 1 / -1;
   grid-row: 1 / -1;
   min-height: 0;
-}
-.idle-dashboard-agenda ul {
-  display: flex;
-  flex-direction: column;
-  list-style: none;
-  gap: calc(12 * var(--idle-unit));
-  margin: 0;
-  padding: 0;
 }
 .idle-dashboard-agenda li {
   display: grid;
@@ -201,12 +207,6 @@
 .idle-dashboard-empty {
   color: var(--fg-dim);
   font-size: calc(22 * var(--idle-unit));
-}
-.idle-dashboard-points {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  gap: calc(14 * var(--idle-unit));
 }
 .idle-dashboard-points article {
   border-top: calc(5 * var(--idle-unit)) solid

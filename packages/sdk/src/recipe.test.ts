@@ -1,4 +1,5 @@
 import { expect, test } from "vitest"
+import { defined } from "./defined.ts"
 import {
   fitCompleteRecipe,
   isInstructionPage,
@@ -98,7 +99,7 @@ test("a longer recipe shrinks the font before it falls back to pages", () => {
       {
         ...medium,
         instructions: Array(40).fill(
-          medium.instructions[0]!,
+          defined(medium.instructions[0]),
         ),
       },
       800,

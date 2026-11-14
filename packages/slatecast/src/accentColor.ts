@@ -1,3 +1,5 @@
+import { defined } from "@castkit/sdk/defined"
+
 type Channels = readonly [number, number, number]
 
 /**
@@ -166,15 +168,17 @@ export const extractAccentColor = (
           index < data.length;
           index += 4
         ) {
-          const red = data[index]! / 255
-          const green = data[index + 1]! / 255
-          const blue = data[index + 2]! / 255
+          const red = defined(data[index]) / 255
+          const green = defined(data[index + 1]) / 255
+          const blue = defined(data[index + 2]) / 255
           const max = Math.max(red, green, blue)
           const min = Math.min(red, green, blue)
           const delta = max - min
           const saturation = max === 0 ? 0 : delta / max
           const score =
-            saturation * max * (data[index + 3]! / 255)
+            saturation *
+            max *
+            (defined(data[index + 3]) / 255)
           if (score < 0.15) {
             continue // Grays/near-blacks don't vote.
           }
@@ -192,8 +196,8 @@ export const extractAccentColor = (
           const bucket = Math.floor(
             (hue / 360) * bucketCount,
           )
-          scores[bucket]! += score
-          const sum = sums[bucket]!
+          scores[bucket] = defined(scores[bucket]) + score
+          const sum = defined(sums[bucket])
           sum.r += red * score
           sum.g += green * score
           sum.b += blue * score
@@ -210,11 +214,12 @@ export const extractAccentColor = (
             (_unusedValue, pixelIndex) => pixelIndex * 4,
           ).reduce(
             (sum, pixelOffset) => {
-              const opacity = data[pixelOffset + 3]! / 255
+              const opacity =
+                defined(data[pixelOffset + 3]) / 255
               const value =
-                (data[pixelOffset]! +
-                  data[pixelOffset + 1]! +
-                  data[pixelOffset + 2]!) /
+                (defined(data[pixelOffset]) +
+                  defined(data[pixelOffset + 1]) +
+                  defined(data[pixelOffset + 2])) /
                 3
               return {
                 value: sum.value + value * opacity,

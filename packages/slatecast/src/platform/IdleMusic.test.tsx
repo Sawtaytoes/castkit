@@ -19,6 +19,7 @@ import type { DisplaySnapshot } from "./protocol.ts"
 import "../styles.css"
 import "./platform.css"
 import "./idleDashboard.css"
+import { defined } from "@castkit/sdk/defined"
 
 const snapshot = (): DisplaySnapshot => {
   const base = pointsOverviewFixture({ hasMusic: true })
@@ -193,7 +194,7 @@ test("the room queue yields to all visible agenda rows before the compact card d
           channels: {
             ...value.channels,
             agenda: {
-              ...value.channels.agenda!,
+              ...defined(value.channels.agenda),
               data: { events },
             },
           },
@@ -214,16 +215,20 @@ test("the room queue yields to all visible agenda rows before the compact card d
     expect(screen.getByText(event.summary)).toBeVisible()
   expect(
     getComputedStyle(
-      mounted.container.querySelector(
-        ".idle-dashboard-agenda",
-      )!,
+      defined(
+        mounted.container.querySelector(
+          ".idle-dashboard-agenda",
+        ),
+      ),
     ).paddingTop,
   ).toBe("22px")
   expect(
     getComputedStyle(
-      mounted.container.querySelector(
-        ".idle-dashboard-agenda h2",
-      )!,
+      defined(
+        mounted.container.querySelector(
+          ".idle-dashboard-agenda h2",
+        ),
+      ),
     ).fontSize,
   ).toBe("26px")
   const time = mounted.container.querySelector(
@@ -240,7 +245,7 @@ test("optional-feed failure does not couple music controls to the agenda, and st
   const value = snapshot()
   const onAction = vi.fn(async () => undefined)
   value.channels.agenda = {
-    ...value.channels.agenda!,
+    ...defined(value.channels.agenda),
     status: "error",
     error: "Fixture unavailable",
   }
@@ -265,7 +270,7 @@ test("optional-feed failure does not couple music controls to the agenda, and st
           channels: {
             ...value.channels,
             music: {
-              ...value.channels.music!,
+              ...defined(value.channels.music),
               status: "stale",
             },
           },
@@ -327,7 +332,10 @@ test("a return-to-time request closes nested music and idle retained metadata le
           ...value,
           channels: {
             ...value.channels,
-            music: { ...value.channels.music!, data: idle },
+            music: {
+              ...defined(value.channels.music),
+              data: idle,
+            },
           },
         }}
         isConnected
@@ -365,7 +373,7 @@ test("stale optional music stays inside its slot without shrinking the room cloc
   await exactTarget()
   const value = snapshot()
   value.channels.music = {
-    ...value.channels.music!,
+    ...defined(value.channels.music),
     status: "stale",
   }
   const mounted = mount(value)
@@ -383,9 +391,11 @@ test("stale optional music stays inside its slot without shrinking the room cloc
   ).toBeNull()
   expect(
     getComputedStyle(
-      mounted.container.querySelector(
-        ".idle-dashboard-time",
-      )!,
+      defined(
+        mounted.container.querySelector(
+          ".idle-dashboard-time",
+        ),
+      ),
     ).fontSize,
   ).toBe("210px")
 })
@@ -418,7 +428,7 @@ test("stopping expanded music restores the room without stealing the next child'
           channels: {
             ...value.channels,
             music: {
-              ...value.channels.music!,
+              ...defined(value.channels.music),
               data: buildMusicPlayer({
                 nowMs: Date.now(),
                 state: "idle",
@@ -526,7 +536,7 @@ test("paused room music expires once, survives idle reports, and gets a fresh mi
               channels: {
                 ...value.channels,
                 music: {
-                  ...value.channels.music!,
+                  ...defined(value.channels.music),
                   data: buildMusicPlayer({
                     nowMs: Date.now(),
                     state,

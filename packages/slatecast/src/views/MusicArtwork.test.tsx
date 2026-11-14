@@ -7,6 +7,7 @@ import { CompactMusicPlayer } from "./CompactMusicPlayer.tsx"
 import { MusicPlayer } from "./MusicPlayer.tsx"
 import "../styles.css"
 import "../platform/platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 const worker = setupWorker(
   http.get(
@@ -50,7 +51,7 @@ test.each([
         data={{
           ...data,
           current: {
-            ...data.current!,
+            ...defined(data.current),
             queueItemId: `artwork-${color}`,
             artworkPath: `/music-artwork-${color}.svg`,
           },
@@ -64,11 +65,13 @@ test.each([
     </main>
   )
   const mounted = render(content("red"))
-  const card = mounted.container.querySelector(
-    presentation === "compact"
-      ? ".compact-music"
-      : ".music-player",
-  )!
+  const card = defined(
+    mounted.container.querySelector(
+      presentation === "compact"
+        ? ".compact-music"
+        : ".music-player",
+    ),
+  )
   await waitFor(() =>
     expect(
       getComputedStyle(card).getPropertyValue(

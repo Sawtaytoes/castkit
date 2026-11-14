@@ -58,7 +58,8 @@ export const parseLowLatencyPlaylist = (
         const uri = readAttribute(line, "URI")
         if (!uri) return state
         return {
-          ...state,
+          mediaSequence: state.mediaSequence,
+          completeSegments: state.completeSegments,
           parts: state.parts.concat({
             mediaSequence: state.mediaSequence,
             index: state.partIndex,
@@ -72,7 +73,7 @@ export const parseLowLatencyPlaylist = (
       }
       if (line.startsWith("#")) return state
       return {
-        ...state,
+        parts: state.parts,
         completeSegments: state.completeSegments.concat(
           state.mediaSequence,
         ),

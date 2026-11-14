@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { screen } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, test, vi } from "vitest"
@@ -295,7 +296,7 @@ describe("pause and stop", () => {
     ])
     const user = userEvent.setup()
 
-    await user.click(cardActions(".is-stop")[0]!)
+    await user.click(defined(cardActions(".is-stop")[0]))
 
     expect(
       screen.getByText("Stop this print?"),
@@ -309,7 +310,7 @@ describe("pause and stop", () => {
     ])
     const user = userEvent.setup()
 
-    await user.click(cardActions(".is-stop")[0]!)
+    await user.click(defined(cardActions(".is-stop")[0]))
     await user.click(
       screen.getByRole("button", {
         name: "Keep printing",
@@ -329,8 +330,8 @@ describe("pause and stop", () => {
     ])
     const user = userEvent.setup()
 
-    await user.click(cardActions(".is-stop")[1]!)
-    await user.click(commitButton()!)
+    await user.click(defined(cardActions(".is-stop")[1]))
+    await user.click(defined(commitButton()))
 
     await waitUntil(() => server.commands.length > 0)
     expect(server.commands).toEqual([
@@ -344,8 +345,8 @@ describe("pause and stop", () => {
     ])
     const user = userEvent.setup()
 
-    await user.click(cardActions(".is-pause")[0]!)
-    await user.click(commitButton()!)
+    await user.click(defined(cardActions(".is-pause")[0]))
+    await user.click(defined(commitButton()))
 
     await waitUntil(() => server.commands.length > 0)
     expect(server.commands).toEqual([
@@ -497,7 +498,7 @@ describe("a finished or failed print", () => {
     ])
     const user = userEvent.setup()
 
-    await user.click(clearButton()!)
+    await user.click(defined(clearButton()))
 
     // No question in between: the command is the first thing that happens.
     expect(screen.queryByRole("dialog")).toBeNull()
@@ -516,7 +517,7 @@ describe("a finished or failed print", () => {
     ])
     const user = userEvent.setup()
 
-    await user.click(clearButton()!)
+    await user.click(defined(clearButton()))
     await waitUntil(() => server.commands.length > 0)
 
     server.push({
@@ -551,7 +552,7 @@ describe("a clear that nothing answers", () => {
       const user = userEvent.setup({
         advanceTimers: vi.advanceTimersByTime,
       })
-      await user.click(clearButton()!)
+      await user.click(defined(clearButton()))
       expect(clearButton()?.textContent).toBe("Clearing…")
 
       vi.advanceTimersByTime(9_000)

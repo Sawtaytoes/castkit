@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import { dirname, isAbsolute, resolve } from "node:path"
+import { defined } from "@castkit/sdk/defined"
 import { z } from "zod"
 
 const workerSchema = z.array(
@@ -47,7 +48,7 @@ export const readWorkerDefinitions = async ({
   await Promise.all(paths.map((path) => readFile(path)))
   return definitions.map((definition, index) => ({
     ...definition,
-    configPath: paths[index]!,
+    configPath: defined(paths[index]),
   }))
 }
 

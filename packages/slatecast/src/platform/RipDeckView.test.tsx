@@ -9,6 +9,7 @@ import { expect, test, vi } from "vitest"
 import { page } from "vitest/browser"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 import { compositionFixture } from "./fixtures.ts"
 import { RipDeckView } from "./RipDeckView.tsx"
 
@@ -63,7 +64,7 @@ test("dense poster requests keep all jobs and hide artwork instead", async () =>
   const data = {
     ...original,
     bays: Array.from({ length: 9 }, (_unused, index) => ({
-      ...original.bays[0]!,
+      ...defined(original.bays[0]),
       id: `bay-${index}`,
       name: `Bay ${index + 1}`,
       title: `Movie ${index + 1}`,
@@ -117,14 +118,14 @@ test("jobs without artwork use their space for rip status and preserve real warn
             ...original,
             bays: [
               {
-                ...original.bays[0]!,
+                ...defined(original.bays[0]),
                 id: "healthy",
                 name: "Bay 1",
                 title: "Healthy rip",
                 phase: "Reading disc",
               },
               {
-                ...original.bays[0]!,
+                ...defined(original.bays[0]),
                 id: "error",
                 name: "Bay 2",
                 title: "Troubled rip",
@@ -180,7 +181,7 @@ test("unpadded slot numbers leave title and progress readable in a narrow rail",
           data={{
             ...original,
             bays: [3, 4].map((percent) => ({
-              ...original.bays[0]!,
+              ...defined(original.bays[0]),
               id: `bay-${percent}`,
               name: `0${percent} - Example Optical Drive`,
               slotNumber: percent,
@@ -205,15 +206,19 @@ test("unpadded slot numbers leave title and progress readable in a narrow rail",
     )
     expect(rows).toHaveLength(2)
     rows.forEach((row) => {
-      const name = row.querySelector<HTMLElement>(
-        ".platform-rip-number",
-      )!
-      const title = row.querySelector<HTMLElement>(
-        ".platform-rip-title",
-      )!
-      const percent = row.querySelector<HTMLElement>(
-        ":scope > strong",
-      )!
+      const name = defined(
+        row.querySelector<HTMLElement>(
+          ".platform-rip-number",
+        ),
+      )
+      const title = defined(
+        row.querySelector<HTMLElement>(
+          ".platform-rip-title",
+        ),
+      )
+      const percent = defined(
+        row.querySelector<HTMLElement>(":scope > strong"),
+      )
       const bounds = row.getBoundingClientRect()
       expect(name.textContent).toBe(
         String(rows.indexOf(row) + 3),
@@ -270,7 +275,7 @@ test("a detail header keeps Back usable inside its small composed panel", async 
             ...original,
             bays: [
               {
-                ...original.bays[0]!,
+                ...defined(original.bays[0]),
                 id: "bay-3",
                 slotNumber: 3,
                 name: "03 - Example Optical Drive",
@@ -280,7 +285,7 @@ test("a detail header keeps Back usable inside its small composed panel", async 
                 remainingSeconds: 420,
               },
               {
-                ...original.bays[0]!,
+                ...defined(original.bays[0]),
                 id: "bay-4",
                 slotNumber: 4,
                 name: "04 - Other Optical Drive",
@@ -313,9 +318,9 @@ test("a detail header keeps Back usable inside its small composed panel", async 
   expect(
     screen.queryByText(/Tray controls are unavailable/),
   ).toBeNull()
-  const panel = container.querySelector<HTMLElement>(
-    ".platform-panel",
-  )!
+  const panel = defined(
+    container.querySelector<HTMLElement>(".platform-panel"),
+  )
   const bounds = panel.getBoundingClientRect()
   const backBounds = back.getBoundingClientRect()
   expect(backBounds.top).toBeGreaterThanOrEqual(bounds.top)
@@ -351,19 +356,19 @@ test("older channels keep slot labels stable when idle bays are filtered", async
         ...original,
         bays: [
           {
-            ...original.bays[0]!,
+            ...defined(original.bays[0]),
             id: "idle",
             name: "01 - Optical Drive",
             state: "idle",
           },
           {
-            ...original.bays[0]!,
+            ...defined(original.bays[0]),
             id: "active",
             name: "03 - Optical Drive",
             title: "Active film",
           },
           {
-            ...original.bays[0]!,
+            ...defined(original.bays[0]),
             id: "tenth",
             name: "10 - Optical Drive",
             title: "Tenth film",
@@ -415,7 +420,7 @@ test("long titles and genuine errors leave the detail return outside scrolling c
             ],
             bays: [
               {
-                ...original.bays[0]!,
+                ...defined(original.bays[0]),
                 title: "A very long film title ".repeat(10),
                 problemText:
                   "A sector could not be read. ".repeat(20),
@@ -434,13 +439,15 @@ test("long titles and genuine errors leave the detail return outside scrolling c
       name: /A very long film title/,
     }),
   )
-  const panel = container.querySelector<HTMLElement>(
-    ".platform-panel",
-  )!
+  const panel = defined(
+    container.querySelector<HTMLElement>(".platform-panel"),
+  )
   const back = screen.getByRole("button", { name: "Back" })
-  const content = container.querySelector<HTMLElement>(
-    ".platform-rip-detail-content",
-  )!
+  const content = defined(
+    container.querySelector<HTMLElement>(
+      ".platform-rip-detail-content",
+    ),
+  )
   content.scrollTop = content.scrollHeight
   expect(content.scrollHeight).toBeGreaterThan(
     content.clientHeight,

@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { useEffect, useRef, useState } from "preact/hooks"
 import { DeferredHomeControl } from "../platform/DeferredHomeControl.tsx"
 
@@ -44,7 +45,7 @@ export const DisplayTest = () => {
     useState(true)
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const controlsRef = useRef<HTMLElement>(null)
-  const pattern = PATTERNS[patternIndex]!
+  const pattern = defined(PATTERNS[patternIndex])
 
   const advancePattern = (direction: number) => {
     setPatternIndex(

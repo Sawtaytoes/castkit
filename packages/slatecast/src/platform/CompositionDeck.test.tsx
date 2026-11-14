@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { render, waitFor } from "@testing-library/preact"
 import { useState } from "preact/hooks"
 import { afterEach, expect, test } from "vitest"
@@ -60,12 +61,16 @@ test("prepared screens retain their DOM identity and only the selected one accep
       screen.container.querySelectorAll("button"),
     ).toHaveLength(2),
   )
-  const points = Array.from(
-    screen.container.querySelectorAll("button"),
-  ).find((button) => button.textContent === "points")!
-  const main = Array.from(
-    screen.container.querySelectorAll("button"),
-  ).find((button) => button.textContent === "main")!
+  const points = defined(
+    Array.from(
+      screen.container.querySelectorAll("button"),
+    ).find((button) => button.textContent === "points"),
+  )
+  const main = defined(
+    Array.from(
+      screen.container.querySelectorAll("button"),
+    ).find((button) => button.textContent === "main"),
+  )
   expect(points.closest("[inert]")).not.toBeNull()
   expect(points).not.toBeVisible()
   screen.rerender(drawing("points"))

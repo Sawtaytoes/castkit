@@ -11,6 +11,7 @@ import { DisplayPropertiesContext } from "./displayProperties.ts"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -136,7 +137,7 @@ test("an instant browser shows snapshots during video startup and restores them 
       screen.getByRole("img", { name: "Entrance camera" }),
     ).toBeVisible(),
   )
-  const video = document.querySelector("video")!
+  const video = defined(document.querySelector("video"))
   expect(video.muted).toBe(true)
   await act(async () => {
     video.dispatchEvent(

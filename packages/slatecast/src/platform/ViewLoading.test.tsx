@@ -32,6 +32,7 @@ import {
 import { PlatformApp } from "./PlatformApp.tsx"
 import { ViewTransition } from "./ViewTransition.tsx"
 import "../styles.css"
+import { defined } from "@castkit/sdk/defined"
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -486,11 +487,14 @@ test("the identical socket bootstrap does not restart rendering or readiness", a
       if (record.oldValue) changes.push(record.oldValue)
     })
   })
-  observer.observe(document.querySelector(".platform")!, {
-    attributes: true,
-    attributeFilter: ["data-castkit-ready"],
-    attributeOldValue: true,
-  })
+  observer.observe(
+    defined(document.querySelector(".platform")),
+    {
+      attributes: true,
+      attributeFilter: ["data-castkit-ready"],
+      attributeOldValue: true,
+    },
+  )
   onTestFinished(() => observer.disconnect())
   push({ type: "snapshot", ...compositionFixture })
   await new Promise<void>((resolve) =>

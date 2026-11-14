@@ -11,6 +11,7 @@ import { compositionFixture } from "./fixtures.ts"
 import { RipDeckView } from "./RipDeckView.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 /** Fixture capture of missing artwork and unmeasured health on a compact rip panel. */
 test("rip status without optional metadata", async () => {
@@ -22,7 +23,7 @@ test("rip status without optional metadata", async () => {
     ...source,
     alerts: [],
     bays: [3, 4].map((percent) => ({
-      ...source.bays[0]!,
+      ...defined(source.bays[0]),
       id: `bay-${percent}`,
       name: `0${percent} - Example Optical Drive`,
       slotNumber: percent,
@@ -73,9 +74,11 @@ test("rip status without optional metadata", async () => {
     fullPage: false,
   })
   await userEvent.setup().click(
-    screen.getAllByRole("button", {
-      name: /Sample film/,
-    })[0]!,
+    defined(
+      screen.getAllByRole("button", {
+        name: /Sample film/,
+      })[0],
+    ),
   )
   await page.screenshot({
     element: panel,

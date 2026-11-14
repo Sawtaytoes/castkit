@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { expect, test, vi } from "vitest"
 import { sourceContext } from "./__fixtures__/sourceContext.ts"
 import { createSourceMedia } from "./mediaAssets.ts"
@@ -67,14 +68,14 @@ test("warms queue posters before channel selection without granting other channe
   }) as { artworkPath: string }
   const result = await media.getMedia({
     channelId: "chooser",
-    assetId: data.artworkPath.split("/").at(-1)!,
+    assetId: defined(data.artworkPath.split("/").at(-1)),
   })
   expect(await result.text()).toBe("poster")
   expect(fetcher).toHaveBeenCalledTimes(2)
   await expect(
     media.getMedia({
       channelId: "other",
-      assetId: data.artworkPath.split("/").at(-1)!,
+      assetId: defined(data.artworkPath.split("/").at(-1)),
     }),
   ).rejects.toThrow("not part")
 })
@@ -99,7 +100,7 @@ test.each([
   }) as { artworkPath: string }
   const response = await media.getMedia({
     channelId: "chooser",
-    assetId: data.artworkPath.split("/").at(-1)!,
+    assetId: defined(data.artworkPath.split("/").at(-1)),
   })
   expect(response.status).toBe(404)
   expect(fetcher).toHaveBeenCalledTimes(1)

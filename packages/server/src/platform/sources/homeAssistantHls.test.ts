@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { expect, test, vi } from "vitest"
 import { sourceContext } from "./__fixtures__/sourceContext.ts"
 import { createHomeAssistantHls } from "./homeAssistantHls.ts"
@@ -84,7 +85,7 @@ test("HA HLS stays behind CastKit media URLs and forwards low-latency playlist r
     expect(masterText).not.toContain("abcdef012345")
     expect(masterText).toContain("?kind=hls&session=")
     const childUrl = new URL(
-      masterText.trim().split("\n").at(-1)!,
+      defined(masterText.trim().split("\n").at(-1)),
       "https://castkit.example/media/camera.example",
     )
     const child = await hls.fetchResource({

@@ -5,6 +5,7 @@ import { DisplayPropertiesContext } from "./displayProperties.ts"
 import { KidsPointsView } from "./KidsPointsView.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 const now = Date.parse("2026-01-15T16:00:00Z")
 
@@ -67,10 +68,12 @@ test.each([
       container.querySelectorAll(".kids-points-card"),
     ).toHaveLength(3)
   })
-  const card = container.querySelector<HTMLElement>(
-    '[data-scanned="true"]',
-  )!
-  const name = card.querySelector("h3")!
+  const card = defined(
+    container.querySelector<HTMLElement>(
+      '[data-scanned="true"]',
+    ),
+  )
+  const name = defined(card.querySelector("h3"))
   const nameBounds = name.getBoundingClientRect()
   // Overflow:hidden must not let flex layout shrink the name to a sliver.
   expect(nameBounds.height).toBeGreaterThanOrEqual(
@@ -87,7 +90,9 @@ test.each([
   expect(
     card.querySelector(".kids-points-total"),
   ).toHaveTextContent("500")
-  const bar = card.querySelector('[role="progressbar"]')!
+  const bar = defined(
+    card.querySelector('[role="progressbar"]'),
+  )
   expect(
     bar.getBoundingClientRect().height,
   ).toBeGreaterThanOrEqual(10)

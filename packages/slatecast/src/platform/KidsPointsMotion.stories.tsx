@@ -10,6 +10,7 @@ import { DisplayComposition } from "./PlatformApp.tsx"
 import type { DisplaySnapshot } from "./protocol.ts"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 /**
  * Stamps `data-repaint="instant"` on `<html>`, where the server stamps it on
@@ -260,7 +261,7 @@ const CountdownStage = ({
     atMs: startedAtMs,
     repaint: "instant",
   })
-  const points = base.channels.points!
+  const points = defined(base.channels.points)
   const data = points.data as KidsPointsData
   const snapshot = {
     ...base,
@@ -283,7 +284,7 @@ const CountdownStage = ({
               : kid,
           ),
           lastScan: {
-            ...data.lastScan!,
+            ...defined(data.lastScan),
             result: "started" as const,
           },
         },

@@ -7,6 +7,7 @@ import { DisplayPropertiesContext } from "./displayProperties.ts"
 import { KidsPointsView } from "./KidsPointsView.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 const now = Date.parse("2026-01-15T18:45:00Z")
 const capture = async (name: string) => {
@@ -44,13 +45,15 @@ test.each([
         }}
         agenda={{
           events: Array.from({ length: 8 }, (_, index) => ({
-            summary: [
-              "Swimming lessons",
-              "Library returns",
-              "Grocery delivery",
-              "Book club",
-              "Dinner with neighbors",
-            ][index % 5]!,
+            summary: defined(
+              [
+                "Swimming lessons",
+                "Library returns",
+                "Grocery delivery",
+                "Book club",
+                "Dinner with neighbors",
+              ][index % 5],
+            ),
             startMs: now + index * 3600000,
             isAllDay: false,
           })),
@@ -102,12 +105,14 @@ const mountKids = () => {
                   { length: 12 },
                   (_, index) => ({
                     id: `task-${index}`,
-                    name: [
-                      "Reading",
-                      "Practice piano",
-                      "Feed the cat",
-                      "Tidy bedroom",
-                    ][index % 4]!,
+                    name: defined(
+                      [
+                        "Reading",
+                        "Practice piano",
+                        "Feed the cat",
+                        "Tidy bedroom",
+                      ][index % 4],
+                    ),
                     atMs: now - (index + 1) * 600000,
                     points: 30,
                     minutes:
@@ -157,7 +162,9 @@ test("daily task summary and individual scan history", async () => {
     .poll(
       () =>
         getComputedStyle(
-          document.querySelector(".kids-points-tasks")!,
+          defined(
+            document.querySelector(".kids-points-tasks"),
+          ),
         ).opacity,
     )
     .toBe("1")

@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import type { LayoutSection } from "@charcuterie/logic/core"
 import { selectPriorityLayout } from "@charcuterie/logic/core"
 import type { JSX } from "preact"
@@ -661,7 +662,7 @@ export const chooseCompositionLayout = (
         height -
         summaries.reduce(
           (total, item) =>
-            total + item.summaryHeight! + gap,
+            total + defined(item.summaryHeight) + gap,
           0,
         ),
       gap,

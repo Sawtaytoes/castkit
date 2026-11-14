@@ -114,11 +114,11 @@ export const createSourceMedia = (
         redirect: "error",
       })
       .then(async (response) => {
+        const contentType =
+          response.headers.get("content-type")
         if (
           !response.ok ||
-          !response.headers
-            .get("content-type")
-            ?.startsWith("image/")
+          !contentType?.startsWith("image/")
         )
           return
         const reader = response.body?.getReader()
@@ -147,7 +147,7 @@ export const createSourceMedia = (
           cached.delete(cached.keys().next().value ?? "")
         cached.set(url, {
           bytes,
-          type: response.headers.get("content-type")!,
+          type: contentType,
           at: Date.now(),
         })
       })

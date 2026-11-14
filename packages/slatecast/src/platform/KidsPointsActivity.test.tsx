@@ -5,6 +5,7 @@ import { DisplayPropertiesContext } from "./displayProperties.ts"
 import { KidsPointsView } from "./KidsPointsView.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 const now = Date.parse("2026-01-15T16:00:00Z")
 const kids: ContractData["kids-points.v1"]["kids"] = [
@@ -60,10 +61,14 @@ test.each([
       container.querySelectorAll(".kids-points-card"),
     ).toHaveLength(3)
   })
-  const card = container.querySelector(".kids-points-card")!
-  const total = card.querySelector(
-    ".kids-points-activity-total, .kids-points-total",
-  )!
+  const card = defined(
+    container.querySelector(".kids-points-card"),
+  )
+  const total = defined(
+    card.querySelector(
+      ".kids-points-activity-total, .kids-points-total",
+    ),
+  )
   expect(total).toHaveTextContent("130")
   expect(
     card.querySelector(".kids-points-countup-total"),

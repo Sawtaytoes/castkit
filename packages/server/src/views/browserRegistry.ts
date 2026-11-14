@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import type { BrowserDeviceConfig } from "../config/env.ts"
 
 /**
@@ -94,7 +95,9 @@ export const BROWSER_VIEWS: readonly BrowserViewDefinition[] =
     },
   ]
 
-export const DEFAULT_BROWSER_VIEW = BROWSER_VIEWS[0]!
+export const DEFAULT_BROWSER_VIEW = defined(
+  BROWSER_VIEWS[0],
+)
 
 /** The views this device's capabilities allow. */
 export const getBrowserViewsForDevice = (
