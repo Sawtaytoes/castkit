@@ -315,7 +315,13 @@ which is the thing to read before touching any of this.
   standing in for the server socket. `pnpm vitest run` for one-shot/CI.
 - `pnpm e2e` — Playwright specs against the real server (`e2e/testServer.ts`,
   MQTT swapped for a recording stub). Run when you touch the browser-mode
-  server, the page shell, or the WebSocket protocol.
+  server, the page shell, the WebSocket protocol, or the management app. CI runs it as
+  the required `e2e` check, one `e2e (<window>)` job per window. A window's
+  specs share one stateful server, so the suite runs one worker; run one window
+  with `CASTKIT_E2E_WINDOWS=wide pnpm e2e`, or windows side by side as separate
+  runs with their own `PORT`. A spec that holds a shared display, publishes to a
+  shared channel, or starts a session releases it afterward — the next spec on
+  that server sees whatever it leaves.
 - **Every browser test runs in four windows** — `narrow` 384x824 (a phone),
   `tall` 1080x1920, `wide` 1920x1080, `ultrawide` 3440x1440 — as the
   `slatecast-<window>` Vitest instances and the `chromium-<window>` Playwright

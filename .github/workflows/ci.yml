@@ -148,6 +148,85 @@ jobs:
         timeout-minutes: 10
         run: pnpm check:preview-fonts
 
+  # The Playwright suite against the real server (`e2e/testServer.ts`).
+  # Until 2026-11-14 no workflow ran it, and 37 of its 368 tests had gone
+  # red on master without anyone seeing it.
+  #
+  # One job per window. A window's specs share one stateful test server, so
+  # they run one at a time (`workers: 1` in playwright.config.ts); serially
+  # the four windows take about four times as long as one. Each job starts
+  # only its own window's server (`CASTKIT_E2E_WINDOWS`), so a job holds one
+  # Node server and one Chromium — well inside a hosted runner's 16 GB.
+  e2e-window:
+    needs: [changes]
+    if: ${{ needs.changes.outputs.isDocsOnly != 'true' }}
+    timeout-minutes: 25
+    runs-on: ubuntu-latest
+    strategy:
+      # Every window reports, so one red window does not hide another.
+      fail-fast: false
+      matrix:
+        window: [narrow, tall, wide, ultrawide]
+    name: e2e (${{ matrix.window }})
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with: { node-version-file: .nvmrc }
+      # Node 26 uses the explicitly pinned native pnpm bootstrap.
+      - run: |
+          npm install --global --force --allow-scripts=pnpm pnpm@12.9.1
+          pnpm_global_bin="$(npm prefix --global)/bin"
+          export PATH="$pnpm_global_bin:$PATH"
+          echo "$pnpm_global_bin" >> "$GITHUB_PATH"
+      - run: pnpm install --frozen-lockfile --store-dir ~/.local/share/pnpm/store
+      # The same split install as `unit-tests`, for the same reason: the apt
+      # half can stall on a dead mirror and the runner image already has
+      # Chromium's libraries; the browser half must succeed.
+      - name: Install chromium
+        timeout-minutes: 15
+        run: |
+          DEBIAN_FRONTEND=noninteractive timeout 300 pnpm playwright install-deps chromium \
+            || echo "playwright install-deps failed or timed out (apt mirror?) — continuing; the runner image ships chromium's libs"
+          timeout 600 pnpm playwright install chromium
+      # Recorded so a failure can be read against the machine it ran on.
+      - name: Runner resources
+        run: |
+          nproc
+          free -m
+          df -h /dev/shm /tmp
+      - name: Run the e2e suite in the ${{ matrix.window }} window
+        run: pnpm e2e
+        env:
+          CASTKIT_E2E_WINDOWS: ${{ matrix.window }}
+      - name: Keep the failure traces
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-${{ matrix.window }}-test-results
+          path: test-results/
+          retention-days: 7
+
+  # The one required check for the suite. A skipped matrix job posts no
+  # per-window context, so the ruleset names this job instead: it is green
+  # when every window passed, or when a docs-only change skipped them all.
+  e2e:
+    needs: [changes, e2e-window]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every window passed
+        run: |
+          result="${{ needs.e2e-window.result }}"
+          echo "e2e-window: ${result}"
+          if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+            exit 1
+          fi
+          if [ "$result" = "skipped" ] && [ "${{ needs.changes.outputs.isDocsOnly }}" != "true" ]; then
+            echo "::error::the e2e windows were skipped on a change that is not docs-only"
+            exit 1
+          fi
+
   storybook:
     needs: [changes]
     # Skipped, not absent: this still posts its status context.
