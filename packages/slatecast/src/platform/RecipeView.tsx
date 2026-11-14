@@ -147,7 +147,7 @@ const CompleteRecipe = ({
           <h2 style={sectionHeading}>Ingredients</h2>
           {ingredients.map((item, index) => (
             <p
-              // biome-ignore lint/suspicious/noArrayIndexKey: ingredients can repeat and never reorder
+              // Ingredients can repeat and never reorder, so the index is the key.
               key={index}
               style={{
                 margin: `0 0 ${layout.itemGap}em`,
@@ -161,7 +161,7 @@ const CompleteRecipe = ({
           <h2 style={sectionHeading}>Method</h2>
           {steps.map((step, index) => (
             <p
-              // biome-ignore lint/suspicious/noArrayIndexKey: steps never reorder
+              // Steps never reorder, so the index is the key.
               key={index}
               data-recipe-step={index + 1}
               style={{
@@ -195,7 +195,7 @@ const CompleteRecipe = ({
               <h2 style={sectionHeading}>Notes</h2>
               {recipe.notes.map((note, index) => (
                 <p
-                  // biome-ignore lint/suspicious/noArrayIndexKey: notes never reorder
+                  // Notes never reorder, so the index is the key.
                   key={index}
                   style={{
                     margin: `0 0 ${layout.itemGap}em`,

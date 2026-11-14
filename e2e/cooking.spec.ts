@@ -160,7 +160,6 @@ test("a full 800 × 480 platform page fits the ePaper canvas and changes only on
 
 test("Recipes starts a phone-only session through the Mealie source without assigning hardware", async ({
   page,
-  request,
   baseURL,
 }) => {
   await page.request.post("/api/access/login", {

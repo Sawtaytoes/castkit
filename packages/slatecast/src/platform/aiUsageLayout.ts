@@ -115,7 +115,6 @@ export type PlacedSection = {
  */
 const placeAtScale = ({
   providerRows,
-  width,
   height,
   scale,
   columnCount,
@@ -125,8 +124,7 @@ const placeAtScale = ({
   columnCount: number
   hasViewHeading: boolean
   providerRows: readonly ProviderRows[]
-  /** The panel's content box, before the view heading is taken. */
-  width: number
+  /** The panel's content height, before the view heading is taken. */
   height: number
 }) => {
   const columnHeight =
@@ -194,7 +192,11 @@ const placeAtScale = ({
             // CSS lengths may differ by floating-point dust after scaling.
             return budget.isFull ||
               budget.heightLeft < height - 0.001
-              ? { ...budget, isFull: true }
+              ? {
+                  count: budget.count,
+                  heightLeft: budget.heightLeft,
+                  isFull: true,
+                }
               : {
                   count: budget.count + 1,
                   heightLeft: budget.heightLeft - height,
@@ -288,7 +290,6 @@ export const placeSections = ({
     return placeAtScale({
       providerRows,
       hasViewHeading,
-      width,
       height,
       scale,
       columnCount: getColumnCount({ width, height, scale }),
@@ -307,7 +308,6 @@ export const placeSections = ({
       const result = placeAtScale({
         providerRows,
         hasViewHeading,
-        width,
         height,
         scale,
         columnCount,
@@ -349,7 +349,6 @@ export const placeSections = ({
     placeAtScale({
       providerRows,
       hasViewHeading,
-      width,
       height,
       scale: 1,
       columnCount: 1,

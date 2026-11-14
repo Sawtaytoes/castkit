@@ -211,7 +211,7 @@ export const KidTasksToday = ({
         ) : null}
       </div>
       {hasActivity ? (
-        // biome-ignore lint/a11y/noNoninteractiveTabindex: The scroll region needs keyboard scrolling.
+        // The scroll region takes focus so the keyboard can scroll it.
         <section
           key={selected?.name ?? "summary"}
           class="kids-points-task-list"
