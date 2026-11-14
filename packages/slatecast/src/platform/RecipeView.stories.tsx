@@ -3,6 +3,7 @@ import type { StoryObj } from "@storybook/preact-vite"
 import { RecipeView } from "./RecipeView.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 const meta = {
   title: "Views/Recipe",
@@ -41,7 +42,7 @@ const show = (index: number) => (
       data={{
         ...geometry,
         recipe,
-        page: pages[index]!,
+        page: defined(pages[index]),
         pageIndex: index,
         pageCount: pages.length,
       }}
@@ -88,7 +89,7 @@ export const CompleteRecipe: Story = {
         data={{
           ...complete,
           recipe: bananaCake,
-          page: complete.pages[0]!,
+          page: defined(complete.pages[0]),
           pageIndex: 0,
           pageCount: 1,
         }}

@@ -1,4 +1,5 @@
 import { MONOCHROME_PALETTE } from "@castkit/core/panels/palette"
+import { defined } from "@castkit/sdk/defined"
 import type { CommandHandler } from "@castkit/shared/mqtt/publisher"
 import { Hono } from "hono"
 import { afterEach, expect, test, vi } from "vitest"
@@ -198,7 +199,9 @@ test("normal data changes do not displace a recipe and an interruption returns t
       notes: [],
     },
   })
-  const next = platform.cooking.command(session.id, "next")!
+  const next = defined(
+    platform.cooking.command(session.id, "next"),
+  )
   platform.store.update((previous) => ({
     ...previous,
     views: [
@@ -284,7 +287,9 @@ test("MQTT controls require a current session revision and an unexpired command"
 
 test("browser kiosk targets are refused before fetching or importing a recipe", async () => {
   const { platform, request, fetchMock } = await setup()
-  const device = platform.getDeviceProperties("panel")!
+  const device = defined(
+    platform.getDeviceProperties("panel"),
+  )
   vi.spyOn(platform, "getDeviceProperties").mockReturnValue(
     { ...device, delivery: "browser" },
   )

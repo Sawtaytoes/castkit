@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import { ditherToPanel } from "@castkit/core/pipeline/dither"
+import { defined } from "@castkit/sdk/defined"
 import type { PreviewProfile } from "@castkit/shared/panels/previewProfile"
 import type { Hono } from "hono"
 import sharp from "sharp"
@@ -276,11 +277,11 @@ export const attachPreviewRoutes = ({
         })
         if (state.cache.size > 64)
           state.cache.delete(
-            state.cache.keys().next().value!,
+            defined(state.cache.keys().next().value),
           )
         void pending.catch(() => state.cache.delete(key))
       }
-      const work = state.cache.get(key)!
+      const work = defined(state.cache.get(key))
       work.consumers.add(context.req.raw.signal)
       try {
         const image = await work.promise

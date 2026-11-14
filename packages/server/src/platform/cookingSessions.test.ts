@@ -7,6 +7,7 @@ import {
 } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { defined } from "@castkit/sdk/defined"
 import { expect, test, vi } from "vitest"
 import { createCookingSessions } from "./cookingSessions.ts"
 
@@ -41,7 +42,9 @@ test("restart restores recipe, exact page, control key, and non-expiring selecti
     })
     const session = first.start(input)
     first.command(session.id, "instructions")
-    const active = first.command(session.id, "next")!
+    const active = defined(
+      first.command(session.id, "next"),
+    )
     const restored = createCookingSessions({
       file,
       onChanged: vi.fn(),
@@ -66,12 +69,11 @@ test("duplicate shares retain progress and Ingredients preserves the instruction
   })
   const session = cooking.start(input)
   cooking.command(session.id, "instructions")
-  const step = cooking.command(session.id, "next")!
+  const step = defined(cooking.command(session.id, "next"))
   cooking.command(session.id, "ingredients")
-  const resumed = cooking.command(
-    session.id,
-    "instructions",
-  )!
+  const resumed = defined(
+    cooking.command(session.id, "instructions"),
+  )
   expect(resumed.pageIndex).toBe(step.pageIndex)
   expect(cooking.start(input).id).toBe(session.id)
   expect(() =>
@@ -87,7 +89,7 @@ test("Done revokes the old link, and a stale Done cannot affect the next session
   })
   const session = cooking.start(input)
   const firstTarget = cooking.targetId(session)
-  const next = cooking.command(session.id, "next")!
+  const next = defined(cooking.command(session.id, "next"))
   expect(cooking.targetId(next)).not.toBe(firstTarget)
   expect(cooking.view(firstTarget)).toBeNull()
   cooking.command(session.id, "done")
@@ -116,14 +118,15 @@ test("visiting notes does not replace the saved instruction position", () => {
     },
   })
   cooking.command(session.id, "instructions")
-  const second = cooking.command(session.id, "next")!
-  const note = cooking.command(session.id, "next")!
+  const second = defined(
+    cooking.command(session.id, "next"),
+  )
+  const note = defined(cooking.command(session.id, "next"))
   expect(cooking.display(note).page.heading).toBe("Note 1")
   cooking.command(session.id, "ingredients")
-  const restored = cooking.command(
-    session.id,
-    "instructions",
-  )!
+  const restored = defined(
+    cooking.command(session.id, "instructions"),
+  )
   expect(restored.pageIndex).toBe(second.pageIndex)
   expect(cooking.display(restored).page.heading).toBe(
     "Step 2 of 2",
@@ -203,15 +206,19 @@ test("a saved position follows its heading when a wrapping change moves the page
       onChanged: vi.fn(),
     })
     const id = "6f1c1f3e-5a43-4f43-9a3e-6d6b2d1f9a10"
-    const session = cooking.get(id)!
+    const session = defined(cooking.get(id))
     const display = cooking.display(session)
     expect(display.pageIndex).not.toBe(0)
     expect(display.page.heading).toBe("Step 1 of 4")
-    const previous = cooking.command(id, "previous")!
+    const previous = defined(
+      cooking.command(id, "previous"),
+    )
     expect(cooking.display(previous).page.heading).toMatch(
       /^Ingredients/,
     )
-    const back = cooking.command(id, "instructions")!
+    const back = defined(
+      cooking.command(id, "instructions"),
+    )
     expect(cooking.display(back).page.heading).toBe(
       "Step 1 of 4",
     )
@@ -233,7 +240,9 @@ test("a session saved before anchors gets them on load and keeps its step", () =
     })
     const session = first.start(input)
     first.command(session.id, "instructions")
-    const active = first.command(session.id, "next")!
+    const active = defined(
+      first.command(session.id, "next"),
+    )
     const heading = first.display(active).page.heading
     // Rewrite the file the way the earlier version saved it: no anchors.
     const {
@@ -251,7 +260,7 @@ test("a session saved before anchors gets them on load and keeps its step", () =
       onChanged,
     })
     expect(onChanged).not.toHaveBeenCalled()
-    const upgraded = restored.get(session.id)!
+    const upgraded = defined(restored.get(session.id))
     expect(upgraded.pageAnchor?.heading).toBe(heading)
     expect(upgraded.revision).toBe(active.revision)
     expect(
@@ -317,9 +326,9 @@ test("a saved page past the end still normalizes on Next, with a new revision", 
       const id = "0b6f3c55-8a0e-4d8b-9a44-2f7a1c3e5d21"
       expect(cooking.get(id)?.pageAnchor).toBeUndefined()
       expect(
-        cooking.display(cooking.get(id)!).pageIndex,
+        cooking.display(defined(cooking.get(id))).pageIndex,
       ).toBe(0)
-      const next = cooking.command(id, "next")!
+      const next = defined(cooking.command(id, "next"))
       expect(next.pageIndex).toBe(0)
       expect(next.revision).toBe(4)
     },
@@ -333,10 +342,9 @@ test("a saved instruction position past the end returns Instructions to Step 1",
       expect(
         cooking.get(id)?.instructionAnchor,
       ).toBeUndefined()
-      const instructions = cooking.command(
-        id,
-        "instructions",
-      )!
+      const instructions = defined(
+        cooking.command(id, "instructions"),
+      )
       expect(
         cooking.display(instructions).page.heading,
       ).toBe("Step 1 of 2")
@@ -366,9 +374,9 @@ test.skipIf(process.getuid?.() === 0)(
         file,
         onChanged: vi.fn(),
       })
-      const session = cooking.get(
-        "0b6f3c55-8a0e-4d8b-9a44-2f7a1c3e5d21",
-      )!
+      const session = defined(
+        cooking.get("0b6f3c55-8a0e-4d8b-9a44-2f7a1c3e5d21"),
+      )
       expect(session.pageAnchor?.heading).toBe(
         "Ingredients",
       )
@@ -402,11 +410,15 @@ test("a session saved on Step 1 under the earlier wrapping still shows Step 1", 
     }),
     (cooking) => {
       const id = "0b6f3c55-8a0e-4d8b-9a44-2f7a1c3e5d21"
-      const display = cooking.display(cooking.get(id)!)
+      const display = cooking.display(
+        defined(cooking.get(id)),
+      )
       expect(display.pageIndex).not.toBe(9)
       expect(display.page.heading).toBe("Step 1 of 4")
       cooking.command(id, "ingredients")
-      const back = cooking.command(id, "instructions")!
+      const back = defined(
+        cooking.command(id, "instructions"),
+      )
       expect(cooking.display(back).page.heading).toBe(
         "Step 1 of 4",
       )

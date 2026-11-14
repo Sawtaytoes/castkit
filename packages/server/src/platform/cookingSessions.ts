@@ -15,6 +15,7 @@ import type {
   ChannelSnapshot,
   ViewDefinition,
 } from "@castkit/sdk/contracts"
+import { defined } from "@castkit/sdk/defined"
 import {
   isInstructionPage,
   paginateRecipe,
@@ -60,9 +61,11 @@ const locatePage = (
     page.heading === anchor.heading ? [position] : [],
   )
   if (matches.length)
-    return matches[
-      Math.min(anchor.occurrence, matches.length - 1)
-    ]!
+    return defined(
+      matches[
+        Math.min(anchor.occurrence, matches.length - 1)
+      ],
+    )
   const firstOfSection = pages.findIndex(
     (page) =>
       page.heading ===
@@ -203,7 +206,7 @@ export const createCookingSessions = ({
     return {
       ...geometry,
       recipe: session.recipe,
-      page: pages[pageIndex]!,
+      page: defined(pages[pageIndex]),
       pageIndex,
       pageCount: pages.length,
     }

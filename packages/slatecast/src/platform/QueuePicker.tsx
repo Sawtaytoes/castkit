@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks"
 import { useCompositionVisibility } from "./CompositionVisibility.ts"
 import { safeMediaUrl } from "./protocol.ts"
 import "./queuePicker.css"
+import { defined } from "@castkit/sdk/defined"
 
 // Lucide paths, rendered inline to keep the display client dependency-free.
 const iconPaths = {
@@ -158,7 +159,7 @@ export const QueuePicker = ({
       }
     },
   )
-  const layout = selectPriorityLayout(candidates)!
+  const layout = defined(selectPriorityLayout(candidates))
   useEffect(() => {
     const element = list.current
     if (!element) return

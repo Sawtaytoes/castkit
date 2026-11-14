@@ -12,6 +12,7 @@ import { pointsOverviewFixture } from "./__fixtures__/pointsOverview.ts"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 test("compact queue spends only spare height and transport stays bound", async () => {
   const onAction = vi.fn(async () => undefined)
@@ -213,7 +214,7 @@ test.each([
           channels: {
             ...base.channels,
             music: {
-              ...base.channels.music!,
+              ...defined(base.channels.music),
               data: {
                 ...music,
                 current: hasCurrent
@@ -417,7 +418,7 @@ test("expanded playback draws a waveform that arrives after opening, and keeps s
           channels: {
             ...value.channels,
             music: {
-              ...value.channels.music!,
+              ...defined(value.channels.music),
               data: {
                 ...music,
                 waveform: hasWaveform

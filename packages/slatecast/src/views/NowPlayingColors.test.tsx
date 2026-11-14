@@ -7,6 +7,7 @@ import {
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
 import { getCachedAccentColor } from "../accentColor.ts"
 import "../styles.css"
+import { defined } from "@castkit/sdk/defined"
 
 test("artwork changes update control colors and missing artwork restores the theme", async () => {
   const artwork = (color: string) => {
@@ -144,9 +145,11 @@ test("black-and-white artwork supplies a readable neutral accent instead of the 
     ).color,
   ).not.toBe(
     getComputedStyle(
-      view.container.querySelector<HTMLElement>(
-        ".seek-knob",
-      )!,
+      defined(
+        view.container.querySelector<HTMLElement>(
+          ".seek-knob",
+        ),
+      ),
     ).backgroundColor,
   )
 })
@@ -164,9 +167,11 @@ test("a playing track retains its hue across artwork proxy changes, failures and
     }),
   })
   const panel = () =>
-    view.container.querySelector<HTMLElement>(
-      ".now-playing",
-    )!
+    defined(
+      view.container.querySelector<HTMLElement>(
+        ".now-playing",
+      ),
+    )
   await waitFor(() =>
     expect(
       panel().style.getPropertyValue("--accent"),

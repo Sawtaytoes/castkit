@@ -11,6 +11,7 @@ import { DisplayPropertiesContext } from "./displayProperties.ts"
 import { KidsPointsView } from "./KidsPointsView.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 const now = Date.parse("2026-01-15T16:00:00Z")
 const data: ContractData["kids-points.v1"] = {
@@ -90,7 +91,9 @@ const openKid = async (name: string) => {
     .poll(
       () =>
         getComputedStyle(
-          document.querySelector(".kids-points-tasks")!,
+          defined(
+            document.querySelector(".kids-points-tasks"),
+          ),
         ).opacity,
     )
     .toBe("1")
@@ -130,7 +133,7 @@ test("a full child card opens task totals, individual scans, and returns through
   expect(screen.queryByText("+50")).toBeNull()
   expect(
     getComputedStyle(
-      document.querySelector(".kids-points-tasks")!,
+      defined(document.querySelector(".kids-points-tasks")),
     ).animationName,
   ).toBe("kids-points-open-tasks")
   await userEvent.click(
@@ -187,7 +190,7 @@ test("image delivery groups practice and preserves zero-point scans and recorded
   const value = {
     kids: [
       {
-        ...data.kids[0]!,
+        ...defined(data.kids[0]),
         tasksToday: [
           {
             id: "piano-start",
@@ -285,7 +288,7 @@ test("running practice appears once without adding elapsed time to its recorded 
       value: {
         kids: [
           {
-            ...data.kids[0]!,
+            ...defined(data.kids[0]),
             activeTask: {
               name: "Reading",
               startedAtMs: now - 600000,
@@ -356,7 +359,7 @@ test("negative awards reduce the task total and unavailable running history neve
       value: {
         kids: [
           {
-            ...data.kids[0]!,
+            ...defined(data.kids[0]),
             tasksToday: [
               ...(data.kids[0]?.tasksToday ?? []),
               {
@@ -381,7 +384,7 @@ test("negative awards reduce the task total and unavailable running history neve
       value: {
         kids: [
           {
-            ...data.kids[0]!,
+            ...defined(data.kids[0]),
             tasksToday: undefined,
             activeTask: {
               name: "Reading",
@@ -442,7 +445,7 @@ test("task overflow scrolls to later entries without clipping the fixed header",
       value: {
         kids: [
           {
-            ...data.kids[0]!,
+            ...defined(data.kids[0]),
             tasksToday: Array.from(
               { length: 20 },
               (_, index) => ({

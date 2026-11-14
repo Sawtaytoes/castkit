@@ -2,6 +2,7 @@ import type {
   ChannelDefinition,
   ContractData,
 } from "@castkit/sdk/contracts"
+import { defined } from "@castkit/sdk/defined"
 import {
   getCountdownKids,
   getRunningKids,
@@ -649,7 +650,7 @@ test("count-up state retains zero or banked minutes and can restore only its own
       bankedMinutes: 27,
     },
   }
-  const kid = normalizeKidState(raw)!
+  const kid = defined(normalizeKidState(raw))
   expect(kid.activeTask).toMatchObject({
     bankedMinutes: 27,
     reader: "Practice Reader",

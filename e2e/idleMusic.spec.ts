@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { expect, test } from "@playwright/test"
 import { buildMusicPlayer } from "../packages/slatecast/src/__fixtures__/buildMusicPlayer.ts"
 
@@ -133,7 +134,7 @@ test("Room Overview spends agenda spare space on music and preserves clock, poin
       })
     ).ok(),
   ).toBe(true)
-  const native = page.viewportSize()!
+  const native = defined(page.viewportSize())
   await page.setViewportSize({ width: 1024, height: 600 })
   await page.goto("/view/room-idle")
   const opener = page.getByRole("button", {

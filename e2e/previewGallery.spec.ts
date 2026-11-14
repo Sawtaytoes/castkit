@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { expect, type Page, test } from "@playwright/test"
 import { managementPlatform } from "./__fixtures__/managementPlatform.ts"
 
@@ -15,7 +16,7 @@ test.beforeEach(async ({ page }) => {
   const platform = managementPlatform()
   platform.views = [
     {
-      ...platform.views[0]!,
+      ...defined(platform.views[0]),
       id: "preview-lab",
       name: "Lab preview",
       tags: ["Printers"],
@@ -155,7 +156,7 @@ test("saved previews use device, custom, and changing browser dimensions without
     page,
     name: /^Current browser window/,
   })
-  const original = page.viewportSize()!
+  const original = defined(page.viewportSize())
   await page.setViewportSize({
     width: original.width + 40,
     height: original.height + 20,
@@ -366,7 +367,7 @@ test("gallery scrolling stays stable while previews recycle and controls stay re
       main.evaluate((element) => element.scrollTop),
     )
     .toBeGreaterThan(2000)
-  const bounds = (await main.boundingBox())!
+  const bounds = defined(await main.boundingBox())
   await page.mouse.move(
     bounds.x + bounds.width / 2,
     bounds.y + bounds.height / 2,
@@ -471,7 +472,7 @@ test("intended viewport defaults follow the saved view and allow temporary overr
 }, testInfo) => {
   const platform = managementPlatform()
   const view = {
-    ...platform.views[0]!,
+    ...defined(platform.views[0]),
     id: "wrist-totals",
     name: "Wrist totals",
     intendedViewport: { width: 200, height: 200 },
@@ -558,12 +559,12 @@ test("screen preview geometry changes only after saving its default view", async
   const platform = managementPlatform()
   platform.views = [
     {
-      ...platform.views[0]!,
+      ...defined(platform.views[0]),
       id: "flexible",
       name: "Flexible",
     },
     {
-      ...platform.views[0]!,
+      ...defined(platform.views[0]),
       id: "wrist",
       name: "Wrist",
       intendedViewport: { width: 200, height: 200 },

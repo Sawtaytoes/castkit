@@ -5,6 +5,7 @@ import { workingCameraSnapshot } from "./__fixtures__/workingCameras.ts"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 test.each([
   0.75, 1, 1.25, 1.5, 2,
@@ -31,8 +32,9 @@ test.each([
       ),
     )
     expect(cards).toHaveLength(2)
-    const usage =
-      document.querySelector<HTMLElement>(".ai-usage")!
+    const usage = defined(
+      document.querySelector<HTMLElement>(".ai-usage"),
+    )
     const usageBounds = usage.getBoundingClientRect()
     expect(usageBounds.height).toBeLessThan(150)
     expect(usage.querySelector(".ai-usage-more")).toBeNull()
@@ -43,14 +45,18 @@ test.each([
       const bounds = card.getBoundingClientRect()
       expect(usageBounds.top).toBeGreaterThan(bounds.bottom)
       expect(card.querySelector(".is-filament")).toBeNull()
-      const image = card.querySelector<HTMLImageElement>(
-        ".platform-printer-image",
-      )!
+      const image = defined(
+        card.querySelector<HTMLImageElement>(
+          ".platform-printer-image",
+        ),
+      )
       expect(image.complete).toBe(true)
       expect(image.naturalWidth).toBeGreaterThan(0)
-      const media = card.querySelector<HTMLElement>(
-        ".platform-printer-media",
-      )!
+      const media = defined(
+        card.querySelector<HTMLElement>(
+          ".platform-printer-media",
+        ),
+      )
       const visibleWidth = Math.min(
         media.clientWidth,
         (media.clientHeight * image.naturalWidth) /

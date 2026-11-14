@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { paginateRecipe } from "@castkit/sdk/recipe"
 import { render, waitFor } from "@testing-library/preact"
 import { expect, test } from "vitest"
@@ -36,7 +37,7 @@ test.each([
         data={{
           ...geometry,
           recipe,
-          page: pages[1]!,
+          page: defined(pages[1]),
           pageIndex: 1,
           pageCount: pages.length,
         }}
@@ -118,7 +119,7 @@ test.each([
         data={{
           ...geometry,
           recipe: bananaCake,
-          page: pages[0]!,
+          page: defined(pages[0]),
           pageIndex: 0,
           pageCount: 1,
         }}

@@ -8,6 +8,7 @@ import { DisplayPropertiesContext } from "./displayProperties.ts"
 import { PriorityTimersView } from "./PriorityTimersView.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 const now = Date.UTC(2026, 10, 1, 12)
 const timers = [180, 30, 90].map((seconds) => ({
@@ -58,7 +59,9 @@ test.each([
       result.container.querySelectorAll("article").length,
     ).toBe(width === 200 ? 1 : 3),
   )
-  const first = result.container.querySelector("article")!
+  const first = defined(
+    result.container.querySelector("article"),
+  )
   expect(first.textContent).toContain("0:30")
   const bounds = first.getBoundingClientRect()
   first
@@ -73,7 +76,9 @@ test.each([
       )
     })
   fireEvent.click(
-    result.getAllByRole("button", { name: "Pause" })[0]!,
+    defined(
+      result.getAllByRole("button", { name: "Pause" })[0],
+    ),
   )
   await waitFor(() =>
     expect(onAction).toHaveBeenCalledWith("pause", {
@@ -81,7 +86,9 @@ test.each([
     }),
   )
   fireEvent.click(
-    result.getAllByRole("button", { name: "Cancel" })[0]!,
+    defined(
+      result.getAllByRole("button", { name: "Cancel" })[0],
+    ),
   )
   await waitFor(() =>
     expect(onAction).toHaveBeenCalledWith("cancel", {
@@ -92,9 +99,12 @@ test.each([
 
 test("a long topic and paused timer stay inside a tiny card, and expiry promotes the next timer", async () => {
   const entities = [
-    { ...timers[1]!, name: "Long timer topic ".repeat(8) },
     {
-      ...timers[0]!,
+      ...defined(timers[1]),
+      name: "Long timer topic ".repeat(8),
+    },
+    {
+      ...defined(timers[0]),
       state: "paused",
       attributes: { room: "lounge", remaining: "0:05:00" },
       actions: ["start", "cancel"],

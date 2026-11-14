@@ -4,6 +4,7 @@ import { page } from "vitest/browser"
 import { AmbientFace } from "./Ambient.tsx"
 import { ClockFace } from "./Clock.tsx"
 import "../styles.css"
+import { defined } from "@castkit/sdk/defined"
 
 // 12:45 PM in Chicago: the widest twelve-hour time.
 const currentMillis = Date.parse("2026-01-15T18:45:00Z")
@@ -41,7 +42,9 @@ test.each([
     </div>,
   )
   await document.fonts.ready
-  const time = document.querySelector(".ambient-time")!
+  const time = defined(
+    document.querySelector(".ambient-time"),
+  )
   expect(time.textContent).toBe("12:45p")
   expect(
     Number.parseFloat(getComputedStyle(time).fontSize),
@@ -70,7 +73,7 @@ test("the clock view's time takes the same size at 480 by 480", async () => {
   )
   expect(
     getComputedStyle(
-      document.querySelector(".ambient-time")!,
+      defined(document.querySelector(".ambient-time")),
     ).fontSize,
   ).toBe("163.2px")
 })
@@ -88,7 +91,7 @@ test("an ambient panel in a shared platform grid keeps 17vmin", async () => {
   )
   expect(
     getComputedStyle(
-      document.querySelector(".ambient-time")!,
+      defined(document.querySelector(".ambient-time")),
     ).fontSize,
   ).toBe("122.4px")
 })

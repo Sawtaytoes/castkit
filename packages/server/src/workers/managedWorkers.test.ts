@@ -5,6 +5,7 @@ import {
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { defined } from "@castkit/sdk/defined"
 import { expect, onTestFinished, test } from "vitest"
 import {
   readProcessMemory,
@@ -104,7 +105,7 @@ test("one failing worker restarts independently and stop prevents further launch
       { timeout: 5000 },
     )
     .toBeGreaterThan(1)
-  const healthy = (await supervisor.getStatus())[1]!
+  const healthy = defined((await supervisor.getStatus())[1])
   expect(healthy.isRunning).toBe(true)
   expect(healthy.restarts).toBe(0)
   if (process.platform === "linux") {

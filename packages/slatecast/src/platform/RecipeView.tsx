@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import {
   completeRecipeLayout,
   paginateRecipe,
@@ -253,7 +254,7 @@ export const RecipeView = ({
           return {
             ...fallback,
             recipe: data.recipe,
-            page: fallback.pages[0]!,
+            page: defined(fallback.pages[0]),
             pageIndex: 0,
             pageCount: fallback.pages.length,
           }

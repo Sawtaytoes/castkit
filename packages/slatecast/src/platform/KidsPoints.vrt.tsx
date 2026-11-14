@@ -18,6 +18,7 @@ import { DisplayComposition } from "./PlatformApp.tsx"
 import type { DisplaySnapshot } from "./protocol.ts"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 /**
  * Visual-regression shots of Tally Marks at the sizes where it changes shape.
@@ -113,7 +114,7 @@ test("a scan on a wide panel marks that child on the board", async () => {
 test("a portrait phone fills the panel with stacked cards", async () => {
   await page.viewport(390, 844)
   const snapshot = kidsPointsFixture({ hasScan: false })
-  const channel = snapshot.channels.points!
+  const channel = defined(snapshot.channels.points)
   const data =
     channel.data as import("@castkit/sdk/contracts").ContractData["kids-points.v1"]
   renderDevicePage({
@@ -125,9 +126,9 @@ test("a portrait phone fills the panel with stacked cards", async () => {
       },
     },
   })
-  const board = document.querySelector(
-    ".kids-points-board",
-  )!
+  const board = defined(
+    document.querySelector(".kids-points-board"),
+  )
   expect(board.getAttribute("data-stacked")).toBe("true")
   const cards = Array.from(
     board.querySelectorAll(".kids-points-card"),
@@ -185,7 +186,7 @@ test("compact phone rows also use the full height", async () => {
 
 const countdownSnapshot = (): DisplaySnapshot => {
   const snapshot = kidsPointsFixture({ hasScan: true })
-  const points = snapshot.channels.points!
+  const points = defined(snapshot.channels.points)
   const data =
     points.data as import("@castkit/sdk/contracts").ContractData["kids-points.v1"]
   const atMs = SCREENSHOT_EPOCH_MILLIS - 204_000
@@ -209,7 +210,7 @@ const countdownSnapshot = (): DisplaySnapshot => {
               : kid,
           ),
           lastScan: {
-            ...data.lastScan!,
+            ...defined(data.lastScan),
             result: "started",
             taskName: "Sitting Still",
             points: 0,
@@ -239,7 +240,7 @@ const timerSnapshot = (
   theme: "light" | "dark",
 ): DisplaySnapshot => {
   const fixture = kidsPointsFixture({ hasScan: false })
-  const channel = fixture.channels.points!
+  const channel = defined(fixture.channels.points)
   const data =
     channel.data as ContractData["kids-points.v1"]
   const startedAtMs = SCREENSHOT_EPOCH_MILLIS - 60_000
@@ -318,7 +319,7 @@ const compactBoardSnapshot = ({
   hasScan: boolean
 }): DisplaySnapshot => {
   const snapshot = kidsPointsFixture({ hasScan })
-  const channel = snapshot.channels.points!
+  const channel = defined(snapshot.channels.points)
   const data =
     channel.data as ContractData["kids-points.v1"]
   return {
@@ -531,7 +532,7 @@ test("large initials preserve complete longer names and totals on a compact boar
     isAllChildrenVisible: true,
     hasScan: false,
   })
-  const channel = snapshot.channels.points!
+  const channel = defined(snapshot.channels.points)
   const data =
     channel.data as ContractData["kids-points.v1"]
   renderDevicePage({
@@ -598,7 +599,7 @@ const countUpSnapshot = (
   theme: "dark" | "light",
 ): DisplaySnapshot => {
   const snapshot = kidsPointsFixture({ hasScan: false })
-  const channel = snapshot.channels.points!
+  const channel = defined(snapshot.channels.points)
   const data =
     channel.data as ContractData["kids-points.v1"]
   const startedAtMs = Date.now()
@@ -693,12 +694,14 @@ test.each([
       )
     })
   })
-  const primary = document.querySelector(
-    ".kids-points-countup-total strong",
-  )!
-  const secondary = document.querySelector(
-    ".kids-points-countup-session",
-  )!
+  const primary = defined(
+    document.querySelector(
+      ".kids-points-countup-total strong",
+    ),
+  )
+  const secondary = defined(
+    document.querySelector(".kids-points-countup-session"),
+  )
   expect(
     Number.parseFloat(getComputedStyle(primary).fontSize),
   ).toBeGreaterThan(
@@ -710,7 +713,7 @@ test.each([
 test("a focused count-up and simultaneous mixed timers fit a short panel", async () => {
   await page.viewport(480, 320)
   const snapshot = countUpSnapshot("dark")
-  const points = snapshot.channels.points!
+  const points = defined(snapshot.channels.points)
   const data = points.data as ContractData["kids-points.v1"]
   const focused = {
     ...snapshot,

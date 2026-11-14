@@ -2,6 +2,7 @@ import type {
   ChannelSnapshot,
   ViewDefinition,
 } from "@castkit/sdk/contracts"
+import { defined } from "@castkit/sdk/defined"
 import { afterEach, expect, test, vi } from "vitest"
 import { createScanActivity } from "./scanActivity.ts"
 
@@ -49,7 +50,7 @@ test("a quiet broker still expires each configured scan window; duplicates do no
         id: "brief",
         panels: [
           {
-            ...view.panels[0]!,
+            ...defined(view.panels[0]),
             settings: { scanSeconds: 15 },
           },
         ],

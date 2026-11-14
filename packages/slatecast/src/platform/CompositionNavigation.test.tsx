@@ -11,6 +11,7 @@ import { pointsOverviewFixture } from "./__fixtures__/pointsOverview.ts"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 afterEach(() => vi.restoreAllMocks())
 const now = new Date()
@@ -47,9 +48,11 @@ const openChild = async () => {
   )
 }
 const panel = (spec: string) =>
-  document.querySelector<HTMLElement>(
-    `[data-spec='${spec}']`,
-  )!
+  defined(
+    document.querySelector<HTMLElement>(
+      `[data-spec='${spec}']`,
+    ),
+  )
 const runningTransitions = () =>
   document
     .getAnimations()
@@ -189,12 +192,12 @@ test("too many selected quotas hide the rail rather than dropping numbers", asyn
   snapshot.channels = {
     ...snapshot.channels,
     usage: {
-      ...snapshot.channels.usage!,
+      ...defined(snapshot.channels.usage),
       data: {
         providers: Array.from(
           { length: 20 },
           (_, index) => ({
-            ...usage.providers[0]!,
+            ...defined(usage.providers[0]),
             id: `account-${index}`,
             name: `Account ${index}`,
           }),
@@ -359,12 +362,16 @@ test.each([
   if (initialSize.width < 900)
     await page.viewport(1024, 600)
   const snapshot = pointsOverviewFixture()
-  const points = snapshot.view.panels.find(
-    (item) => item.specId === "kids-points",
-  )!
-  const usage = snapshot.view.panels.find(
-    (item) => item.specId === "ai-usage",
-  )!
+  const points = defined(
+    snapshot.view.panels.find(
+      (item) => item.specId === "kids-points",
+    ),
+  )
+  const usage = defined(
+    snapshot.view.panels.find(
+      (item) => item.specId === "ai-usage",
+    ),
+  )
   snapshot.view = {
     ...snapshot.view,
     isActiveOnly: false,

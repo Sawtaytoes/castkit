@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { screen, waitFor } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
 import {
@@ -411,7 +412,7 @@ test("late replies cannot replay earlier local swipes, while other controllers s
     target: {
       kind: "view",
       id: "old",
-      navigationId: earlier!,
+      navigationId: defined(earlier),
     },
   })
   await new Promise((resolve) => setTimeout(resolve, 50))
@@ -421,7 +422,7 @@ test("late replies cannot replay earlier local swipes, while other controllers s
     target: {
       kind: "view",
       id: "new",
-      navigationId: latest!,
+      navigationId: defined(latest),
     },
   })
   await waitFor(() =>
@@ -433,7 +434,7 @@ test("late replies cannot replay earlier local swipes, while other controllers s
     target: {
       kind: "view",
       id: "old",
-      navigationId: earlier!,
+      navigationId: defined(earlier),
     },
   })
   await new Promise((resolve) => setTimeout(resolve, 50))
@@ -460,7 +461,7 @@ test("only a controller timeout reconciles a deferred target; local completion d
     displayTarget: {
       kind: "view",
       id: "fallback",
-      navigationId: earlier!,
+      navigationId: defined(earlier),
     },
   })
   await new Promise((resolve) => setTimeout(resolve, 50))
@@ -481,7 +482,7 @@ test("only a controller timeout reconciles a deferred target; local completion d
     target: {
       kind: "view",
       id: "stale",
-      navigationId: earlier!,
+      navigationId: defined(earlier),
     },
   })
   await new Promise((resolve) => setTimeout(resolve, 50))

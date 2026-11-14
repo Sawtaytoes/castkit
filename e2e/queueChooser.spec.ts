@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process"
+import { defined } from "@castkit/sdk/defined"
 import { expect, test } from "@playwright/test"
 
 // The normal projects verify the responsive page; the square case exercises
@@ -134,8 +135,8 @@ sizes.forEach((size) => {
       }),
     )
     for (let index = 1; index < boxes.length; index++) {
-      const current = boxes[index]!
-      const previous = boxes[index - 1]!
+      const current = defined(boxes[index])
+      const previous = defined(boxes[index - 1])
       expect(
         current.left >= previous.right - 1 ||
           current.top >= previous.bottom - 1,

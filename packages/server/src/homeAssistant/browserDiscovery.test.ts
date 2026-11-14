@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import { describe, expect, test } from "vitest"
 import type { BrowserDeviceConfig } from "../config/env.ts"
 import {
@@ -127,11 +128,13 @@ describe("buildBrowserDiscoveryMessages", () => {
   })
 
   test("the backlight is a dimmable light on the Pi agent's brightness topics", () => {
-    const backlight = messages.find((message) =>
-      message.topic.includes(
-        "light/castkit/dev-square_backlight/",
+    const backlight = defined(
+      messages.find((message) =>
+        message.topic.includes(
+          "light/castkit/dev-square_backlight/",
+        ),
       ),
-    )!
+    )
     expect(backlight.payload.command_topic).toBe(
       "castkit/dev-square/backlight/set",
     )
@@ -145,7 +148,7 @@ describe("buildBrowserDiscoveryMessages", () => {
   })
 
   test("the View select offers the capability-filtered views", () => {
-    const viewSelect = messages[0]!
+    const viewSelect = defined(messages[0])
     expect(viewSelect.payload.options).toEqual([
       "Now Playing",
       "Queue",

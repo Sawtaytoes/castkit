@@ -12,6 +12,7 @@ import {
   installTouchPointerFallback,
 } from "./touchPointerFallback.ts"
 import "./styles.css"
+import { defined } from "@castkit/sdk/defined"
 
 if (getIsTouchPointerFallbackRequired()) {
   installTouchPointerFallback()
@@ -39,12 +40,15 @@ if (displayTarget) {
     ) : (
       <PlatformApp target={displayTarget} />
     ),
-    document.getElementById("app")!,
+    defined(document.getElementById("app")),
   )
   if (displayTarget.deviceId)
     connect(displayTarget.deviceId)
 } else {
-  render(<DeviceApp />, document.getElementById("app")!)
+  render(
+    <DeviceApp />,
+    defined(document.getElementById("app")),
+  )
   // A capture page renders one view from its inlined snapshot and never
   // registers as the panel: the server uses it to render stream frames ahead.
   if (

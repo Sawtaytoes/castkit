@@ -3,6 +3,7 @@ import { expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { CalendarFace } from "./Calendar.tsx"
 import "../styles.css"
+import { defined } from "@castkit/sdk/defined"
 
 const currentMillis = Date.parse("2026-01-15T18:45:00Z")
 const agenda = {
@@ -50,7 +51,9 @@ test.each([
   await page.viewport(width, height)
   mountFace()
   await document.fonts.ready
-  const clock = document.querySelector(".calendar-time")!
+  const clock = defined(
+    document.querySelector(".calendar-time"),
+  )
   expect(
     Number.parseFloat(getComputedStyle(clock).fontSize),
   ).toBe(fontSize)
@@ -80,7 +83,7 @@ test("the short landscape agenda keeps its existing 44px time and five-row budge
   mountFace()
   expect(
     getComputedStyle(
-      document.querySelector(".calendar-time")!,
+      defined(document.querySelector(".calendar-time")),
     ).fontSize,
   ).toBe("44px")
   await expect

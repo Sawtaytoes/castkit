@@ -1,3 +1,4 @@
+import { defined } from "@castkit/sdk/defined"
 import type { SourceContext } from "@castkit/sdk/plugin"
 import type { Hono } from "hono"
 import { z } from "zod"
@@ -129,7 +130,7 @@ export const attachCookingRoutes = ({
         )
         if (!match)
           throw new Error("Choose a Mealie recipe link.")
-        slug = decodeURIComponent(match[1]!)
+        slug = decodeURIComponent(defined(match[1]))
       } else {
         // Mealie owns recipe extraction and its outbound URL policy. CastKit never renders arbitrary sites.
         const saved = z

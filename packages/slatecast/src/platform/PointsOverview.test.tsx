@@ -4,6 +4,7 @@ import { pointsOverviewFixture } from "./__fixtures__/pointsOverview.ts"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 // Each case runs at the enclosing narrow, tall, wide and ultrawide window.
 test.each([
@@ -43,12 +44,16 @@ test.each([
       ),
     ).toHaveLength(3)
   })
-  const pointsPanel = container.querySelector<HTMLElement>(
-    "[data-spec='kids-points']",
-  )!
-  const workPanel = container.querySelector<HTMLElement>(
-    `[data-spec='${isRipOnly ? "rip-deck" : "printer-status"}']`,
-  )!
+  const pointsPanel = defined(
+    container.querySelector<HTMLElement>(
+      "[data-spec='kids-points']",
+    ),
+  )
+  const workPanel = defined(
+    container.querySelector<HTMLElement>(
+      `[data-spec='${isRipOnly ? "rip-deck" : "printer-status"}']`,
+    ),
+  )
   await waitFor(() => {
     const workBox = workPanel.getBoundingClientRect()
     const pointsBox = pointsPanel.getBoundingClientRect()

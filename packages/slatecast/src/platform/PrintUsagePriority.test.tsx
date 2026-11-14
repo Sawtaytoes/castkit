@@ -5,6 +5,7 @@ import { prioritySnapshot } from "./__fixtures__/priorityComposition.ts"
 import { DisplayComposition } from "./PlatformApp.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 test.each([
   1.5, 2.5,
@@ -29,11 +30,14 @@ test.each([
   )
   await document.fonts.ready
   await waitFor(() => {
-    const card =
-      document.querySelector<HTMLElement>(".printer-card")!
-    const remaining = card.querySelector<HTMLElement>(
-      ".printer-band-remaining",
-    )!
+    const card = defined(
+      document.querySelector<HTMLElement>(".printer-card"),
+    )
+    const remaining = defined(
+      card.querySelector<HTMLElement>(
+        ".printer-band-remaining",
+      ),
+    )
     expect(remaining.textContent).toBe("25m left")
     expect(remaining.scrollWidth).toBeLessThanOrEqual(
       remaining.clientWidth,
@@ -55,14 +59,17 @@ test.each([
           bounds.top - 1,
         )
       })
-    const camera = card.querySelector<HTMLElement>(
-      ".platform-printer-media",
-    )!
+    const camera = defined(
+      card.querySelector<HTMLElement>(
+        ".platform-printer-media",
+      ),
+    )
     expect(
       camera.getBoundingClientRect().height,
     ).toBeGreaterThanOrEqual(56 * scale - 1)
-    const usage =
-      document.querySelector<HTMLElement>(".ai-usage")!
+    const usage = defined(
+      document.querySelector<HTMLElement>(".ai-usage"),
+    )
     expect(
       Array.from(usage.querySelectorAll("h3")).map(
         (heading) => heading.textContent,
@@ -94,7 +101,7 @@ test.each([
       ).toBeLessThanOrEqual(controls.top)
       expect(
         getComputedStyle(
-          card.querySelector(".printer-head")!,
+          defined(card.querySelector(".printer-head")),
         ).display,
       ).toBe("none")
     }

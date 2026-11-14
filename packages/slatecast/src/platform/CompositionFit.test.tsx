@@ -10,6 +10,7 @@ import {
 import { DisplayComposition } from "./PlatformApp.tsx"
 import "../styles.css"
 import "./platform.css"
+import { defined } from "@castkit/sdk/defined"
 
 test.each([
   { width: 1024, height: 600 },
@@ -20,10 +21,11 @@ test.each([
 }) => {
   await page.viewport(width, height)
   document.documentElement.dataset.scheme = "dark"
-  const source = compositionFixture.channels.prints!
-  const printer = (
-    source.data as ContractData["printers.v1"]
-  ).printers[0]!
+  const source = defined(compositionFixture.channels.prints)
+  const printer = defined(
+    (source.data as ContractData["printers.v1"])
+      .printers[0],
+  )
   const snapshot = {
     ...compositionFixture,
     view: {
@@ -31,17 +33,17 @@ test.each([
       layout: "adaptive" as const,
       panels: [
         {
-          ...compositionFixture.view.panels[0]!,
+          ...defined(compositionFixture.view.panels[0]),
           settings: { title: "", isCompactFacts: true },
         },
-        aiUsageFixture.view.panels[0]!,
+        defined(aiUsageFixture.view.panels[0]),
       ],
     },
     channels: {
       ...compositionFixture.channels,
       ...aiUsageFixture.channels,
       usage: {
-        ...aiUsageFixture.channels.usage!,
+        ...defined(aiUsageFixture.channels.usage),
         data: {
           providers: ["Alpha", "Beta", "Gamma"].map(
             (name) => ({
@@ -96,9 +98,11 @@ test.each([
     cards.forEach((card) => {
       const bounds = card.getBoundingClientRect()
       expect(card.dataset.detailLevel).not.toBe("3")
-      const media = card.querySelector<HTMLElement>(
-        ".platform-printer-media",
-      )!
+      const media = defined(
+        card.querySelector<HTMLElement>(
+          ".platform-printer-media",
+        ),
+      )
       expect(
         media.getBoundingClientRect().height,
       ).toBeGreaterThan(50)
