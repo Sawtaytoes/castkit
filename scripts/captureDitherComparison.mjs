@@ -9,6 +9,7 @@ import {
 } from "node:path"
 import { chromium } from "@playwright/test"
 import { captureDitherStory } from "./captureDitherStory.ts"
+import { chooseVrtSharedMemory } from "./vrtSharedMemory.ts"
 
 // Rasterized stories finish asynchronously after network idle. Capture them
 // serially after completion; failed font/image renders must never become baselines.
@@ -43,7 +44,9 @@ const server = createServer(async (request, response) => {
 await new Promise((resolve) =>
   server.listen(0, "127.0.0.1", resolve),
 )
-const browser = await chromium.launch()
+const browser = await chromium.launch({
+  ignoreDefaultArgs: await chooseVrtSharedMemory(),
+})
 try {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 800 },
