@@ -116,11 +116,19 @@ sizes.forEach((size) => {
           ),
       )
       .toBeGreaterThan(0)
-    const tileBounds = await choices.first().boundingBox()
-    if (!tileBounds) throw new Error("Missing tile")
-    expect(
-      Math.abs(tileBounds.width - tileBounds.height),
-    ).toBeLessThan(1)
+    /*
+     * The display starts on its own view and switches to the chooser when
+     * the hold arrives, so the first tile can be measured before the new
+     * layout settles. Wait for the square tile rather than reading it once.
+     */
+    await expect
+      .poll(async () => {
+        const tileBounds = await choices.first().boundingBox()
+        return tileBounds
+          ? Math.abs(tileBounds.width - tileBounds.height)
+          : Number.POSITIVE_INFINITY
+      })
+      .toBeLessThan(1)
     const panel = await chooser.boundingBox()
     if (!panel) throw new Error("Missing chooser bounds")
     await expect(
