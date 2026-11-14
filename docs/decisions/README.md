@@ -99,6 +99,7 @@
 
 - [2026-10-07: Preview profiles group rendering facts](2026-10-07-preview-profiles-group-rendering-facts.md)
 
+- [2026-10-07: Camera remains primary; the plate preview is secondary](2026-10-07-camera-remains-primary-and-plate-preview-is-secondary.md)
 - [2026-10-07: Camera and progress precede the secondary plate preview](2026-10-07-camera-and-progress-precede-the-secondary-plate-preview.md)
 - [2026-10-07: Management navigation prioritizes views and displays](2026-10-07-management-navigation-prioritizes-views-and-displays.md)
 
