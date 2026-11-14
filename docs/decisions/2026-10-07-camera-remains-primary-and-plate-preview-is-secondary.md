@@ -9,9 +9,14 @@
 
 ## Decision
 
-Keep the camera-first printer card. The camera sits above the printer details and gets
-the available media area. It is the focus of the card. An empty media area must never
-take its place.
+Keep the camera-first printer card. In the reviewed dashboard shape, the camera sits
+above the printer details and gets the available media area. It is the focus of the card.
+An empty media area must never take its place.
+
+This record does not change how a card chooses its orientation. The measured choice
+between stacked and side-by-side arrangements in
+[Printer layouts fit sections in priority order](2026-09-30-printer-layouts-fit-sections-in-priority-order.md)
+still applies. That rule already puts the camera first.
 
 A plate preview is a secondary image of the actual print. It never replaces the camera.
 
