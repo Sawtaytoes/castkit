@@ -123,7 +123,9 @@ sizes.forEach((size) => {
      */
     await expect
       .poll(async () => {
-        const tileBounds = await choices.first().boundingBox()
+        const tileBounds = await choices
+          .first()
+          .boundingBox()
         return tileBounds
           ? Math.abs(tileBounds.width - tileBounds.height)
           : Number.POSITIVE_INFINITY
