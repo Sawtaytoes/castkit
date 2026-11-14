@@ -69,7 +69,9 @@ jobs:
     # Biome + the house ESLint rules from @charcuterie/eslint-config. `check`
     # and `eslint .` without `--write`/`--fix`: the repo's `lint` script
     # rewrites the tree, which in CI would report success on code that never
-    # existed in the commit.
+    # existed in the commit. Both scripts fail on a warning, not only on an
+    # error (`--error-on-warnings`, `--max-warnings 0`): see
+    # docs/decisions/2026-11-14-lint-warnings-fail-ci.md.
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:

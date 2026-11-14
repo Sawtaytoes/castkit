@@ -304,6 +304,11 @@ which is the thing to read before touching any of this.
 ## Before every commit
 
 - `pnpm lint` — Biome (`--write --unsafe`) then ESLint (`--fix`); re-stage changed files.
+  Then `pnpm lint:biome && pnpm lint:eslint`, the check-only scripts CI runs. They fail
+  on any warning (`--error-on-warnings`, `--max-warnings 0`). Fix a finding in the code;
+  do not lower a rule. A per-line suppression is only for a name or shape an outside
+  contract fixes, and its comment names that contract
+  ([decision](docs/decisions/2026-11-14-lint-warnings-fail-ci.md)).
 - `pnpm typecheck` — full monorepo type check.
 - `pnpm build && pnpm check:server-starts` — when you change a dependency, the
   build script, or anything the server imports at load. It starts the BUILT

@@ -1,4 +1,5 @@
 # CastKit decision records
+- [2026-11-14: Lint warnings fail CI, and every rule stays at the preset's level](2026-11-14-lint-warnings-fail-ci.md)
 - [2026-11-02: Dithered story snapshots require successful rasterization](2026-11-02-dithered-story-snapshots-require-successful-rasterization.md)
 - [2026-11-02: Device view holds have independent owners](2026-11-02-device-view-holds-have-independent-owners.md)
 - [2026-10-30: Chooser posters fill the available box](2026-10-30-chooser-posters-fill-the-available-box.md)
