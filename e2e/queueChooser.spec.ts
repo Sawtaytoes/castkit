@@ -1,6 +1,21 @@
 import { execFileSync } from "node:child_process"
 import { expect, test } from "@playwright/test"
 
+/*
+ * Each test holds the shared `e2e-preview` display on the queue chooser for
+ * five minutes at priority 90. Release it afterward: the window's test
+ * server outlives the test, and a later spec that shows its own view on
+ * that display would otherwise get the chooser.
+ */
+test.afterEach(async ({ request }) => {
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/e2e-preview/override/clear",
+      payload: { viewId: "queue-chooser" },
+    },
+  })
+})
+
 // The normal projects verify the responsive page; the square case exercises
 // the exact streamed-panel geometry rather than inferring fit from a desktop.
 const sizes = ["window", "square"] as const
