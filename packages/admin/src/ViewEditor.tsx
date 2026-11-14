@@ -33,6 +33,7 @@ export const ViewEditor = ({
   onPinChange: (value: string) => void
 }) => {
   const [presetId, setPresetId] = useState("")
+  const { intendedViewport } = value
   const changePanel = (
     panelId: string,
     next: Partial<Panel>,
@@ -133,7 +134,7 @@ export const ViewEditor = ({
           start at this size; displays still use their own
           dimensions. Leave off for a flexible view.
         </p>
-        {value.intendedViewport ? (
+        {intendedViewport ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {(["width", "height"] as const).map(
               (dimension) => (
@@ -156,7 +157,7 @@ export const ViewEditor = ({
                       onChange({
                         ...value,
                         intendedViewport: {
-                          ...value.intendedViewport!,
+                          ...intendedViewport,
                           [dimension]: Number(
                             event.target.value,
                           ),

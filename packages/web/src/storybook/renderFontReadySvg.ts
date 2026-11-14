@@ -8,6 +8,14 @@ type Mask = {
   height: number
   pixels: Set<number>
 }
+/** The byte at `offset`; the scan below never reads past the image. */
+const channelAt = (image: ImageData, offset: number) => {
+  const channel = image.data[offset]
+  if (channel === undefined) {
+    throw new Error(`No pixel data at offset ${offset}`)
+  }
+  return channel
+}
 const glyphMask = (image: ImageData): Mask => {
   const points: [number, number][] = []
   let left = image.width,
@@ -18,10 +26,10 @@ const glyphMask = (image: ImageData): Mask => {
     for (let column = 0; column < image.width; column++) {
       const offset = (row * image.width + column) * 4
       if (
-        image.data[offset + 3]! > 128 &&
-        image.data[offset]! < 128 &&
-        image.data[offset + 1]! < 128 &&
-        image.data[offset + 2]! < 128
+        channelAt(image, offset + 3) > 128 &&
+        channelAt(image, offset) < 128 &&
+        channelAt(image, offset + 1) < 128 &&
+        channelAt(image, offset + 2) < 128
       ) {
         points.push([column, row])
         left = Math.min(left, column)
