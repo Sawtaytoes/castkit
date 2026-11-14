@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import { VIEW_NAMES } from "@castkit/shared/views/viewNames"
 import { createStaticHandler } from "@charcuterie/server"
@@ -22,6 +22,12 @@ import type {
 } from "./state/deviceDefinitionStore.ts"
 import type { DeviceStore } from "./state/deviceStore.ts"
 import type { RenderTokenStore } from "./state/renderTokenStore.ts"
+
+/** The admin's Vite `base`, matched on a segment boundary. */
+const MANAGEMENT_BASE_PATH_REGEX = /^\/manage(?=\/|$)/
+
+/** Where the admin's content-hashed build output is requested from. */
+const MANAGEMENT_ASSETS_PATH_PREFIX = "/manage/assets/"
 
 /**
  * The Inkcast HTTP API (Hono). Token-authenticated (a Bearer token, no
@@ -69,27 +75,41 @@ export const createApp = ({
     Boolean(directory && existsSync(directory)),
   )
 
-  // The entry page offers saved displays, management, and API documentation.
-  app.get("/", (context) =>
-    context.html(
-      managementDistDirectory
-        ? readFileSync(
-            resolve(managementDistDirectory, "index.html"),
-            "utf8",
-          )
-        : buildLandingPage(),
-    ),
-  )
-  app.get("/views", (context) =>
-    managementDistDirectory
-      ? context.html(
-          readFileSync(
-            resolve(managementDistDirectory, "index.html"),
-            "utf8",
-          ),
-        )
-      : context.redirect("/manage"),
-  )
+  // The management build is one shell for four client-route roots: the
+  // entry page `/`, the public library `/views`, a cooking link
+  // `/cook/<id>`, and the admin under its Vite base `/manage/`. The
+  // server owns every other path, so the roots are named by these
+  // mounts rather than by a list of server prefixes. Charcuterie's
+  // handler answers GET and HEAD only, serves the shell for an
+  // extensionless miss with `no-cache`, and lets a missing file such
+  // as `/manage/assets/gone.js` fall through to a 404. The cache
+  // bucket is decided on the request path, so the hashed assets are
+  // named by their `/manage/assets/` URL.
+  if (managementDistDirectory) {
+    const serveManagement = createStaticHandler({
+      immutablePathPrefixes: [
+        MANAGEMENT_ASSETS_PATH_PREFIX,
+      ],
+      rewriteRequestPath: (path) =>
+        path.replace(MANAGEMENT_BASE_PATH_REGEX, ""),
+      rootDir: managementDistDirectory,
+    })
+    app.get("/", serveManagement)
+    app.get("/views", serveManagement)
+    app.use("/cook/*", serveManagement)
+    app.get("/manage", (context) =>
+      context.redirect("/manage/"),
+    )
+    app.use("/manage/*", serveManagement)
+  } else {
+    // The entry page offers saved displays, management, and API documentation.
+    app.get("/", (context) =>
+      context.html(buildLandingPage()),
+    )
+    app.get("/views", (context) =>
+      context.redirect("/manage"),
+    )
+  }
 
   app.get("/health", (context) =>
     context.json({ status: "ok", views: VIEW_NAMES }),
@@ -335,27 +355,6 @@ export const createApp = ({
         : context.json({ error: "invalid setting" }, 400)
     },
   )
-
-  if (managementDistDirectory) {
-    app.use(
-      "/cook/*",
-      createStaticHandler({
-        rootDir: managementDistDirectory,
-        rewriteRequestPath: () => "/index.html",
-      }),
-    )
-    app.get("/manage", (context) =>
-      context.redirect("/manage/"),
-    )
-    app.use(
-      "/manage/*",
-      createStaticHandler({
-        rootDir: managementDistDirectory,
-        rewriteRequestPath: (path) =>
-          path.replace(/^\/manage/, ""),
-      }),
-    )
-  }
 
   app.get("/api/devices/:id/image", async (context) => {
     const deviceId = context.req.param("id")

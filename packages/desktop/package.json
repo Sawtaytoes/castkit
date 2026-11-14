@@ -20,7 +20,7 @@
     "@charcuterie/logic": "^2.12.0",
     "@charcuterie/tokens": "^1.10.2",
     "@charcuterie/ui": "^4.28.2",
-    "@charcuterie/vite-config": "^1.1.0",
+    "@charcuterie/vite-config": "^1.2.0",
     "@electron-forge/cli": "8.0.1",
     "@electron-forge/maker-deb": "8.0.1",
     "@electron-forge/maker-squirrel": "8.0.1",
