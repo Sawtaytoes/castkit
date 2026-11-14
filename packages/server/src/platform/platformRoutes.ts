@@ -316,7 +316,7 @@ export const attachPlatformRoutes = ({
         },
         400,
       )
-    if (!access.checkAttempt("admin-setup"))
+    if (!access.isAttemptAllowed("admin-setup"))
       return context.json(
         {
           error:
@@ -331,7 +331,8 @@ export const attachPlatformRoutes = ({
           ? store.get().setupToken
           : (parsed.data.setupToken ?? ""),
       })
-    )
+    ) {
+      access.recordFailedAttempt("admin-setup")
       return context.json(
         {
           error:
@@ -339,13 +340,14 @@ export const attachPlatformRoutes = ({
         },
         403,
       )
+    }
     access.issue({ context, isAdminSession: true })
     platform.notify()
     return context.json({ isAuthenticated: true })
   })
   app.post("/api/access/login", async (context) => {
     const input = await context.req.json().catch(() => ({}))
-    if (!access.checkAttempt("admin-login"))
+    if (!access.isAttemptAllowed("admin-login"))
       return context.json(
         {
           error:
@@ -356,8 +358,10 @@ export const attachPlatformRoutes = ({
     if (
       typeof input.pin !== "string" ||
       !access.verifyAdmin(input.pin)
-    )
+    ) {
+      access.recordFailedAttempt("admin-login")
       return context.json({ error: "Incorrect PIN" }, 401)
+    }
     access.issue({ context, isAdminSession: true })
     platform.notify()
     return context.json({ isAuthenticated: true })
@@ -379,7 +383,7 @@ export const attachPlatformRoutes = ({
         },
         400,
       )
-    if (!access.checkAttempt("admin-change"))
+    if (!access.isAttemptAllowed("admin-change"))
       return context.json(
         {
           error:
@@ -387,11 +391,13 @@ export const attachPlatformRoutes = ({
         },
         429,
       )
-    if (!access.verifyAdmin(parsed.data.currentPin))
+    if (!access.verifyAdmin(parsed.data.currentPin)) {
+      access.recordFailedAttempt("admin-change")
       return context.json(
         { error: "Incorrect current PIN" },
         401,
       )
+    }
     store.update((previous) => ({
       ...previous,
       adminHash: hashPin(parsed.data.newPin),
@@ -423,7 +429,7 @@ export const attachPlatformRoutes = ({
     const target = platform.getTarget({ kind, id })
     if (!target)
       return context.json({ error: "Unknown display" }, 404)
-    if (!access.checkAttempt(`${kind}:${id}`))
+    if (!access.isAttemptAllowed(`${kind}:${id}`))
       return context.json(
         {
           error:
@@ -442,7 +448,10 @@ export const attachPlatformRoutes = ({
       pin,
       hash: store.get().pinHashes[`${kind}:${id}`],
     })
-    if (!isViewPin && !access.checkAttempt("admin-login")) {
+    if (
+      !isViewPin &&
+      !access.isAttemptAllowed("admin-login")
+    ) {
       return context.json(
         {
           error:
@@ -453,8 +462,11 @@ export const attachPlatformRoutes = ({
     }
     const isManagementPin = access.verifyAdmin(pin)
     const isAccepted = isViewPin || isManagementPin
-    if (!isAccepted)
+    if (!isAccepted) {
+      access.recordFailedAttempt(`${kind}:${id}`)
+      access.recordFailedAttempt("admin-login")
       return context.json({ error: "Incorrect PIN" }, 401)
+    }
     access.issue({
       context,
       isAdminSession: isManagementPin,
