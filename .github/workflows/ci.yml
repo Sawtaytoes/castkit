@@ -218,7 +218,13 @@ jobs:
       - name: Every window passed
         run: |
           result="${{ needs.e2e-window.result }}"
-          echo "e2e-window: ${result}"
+          echo "changes: ${{ needs.changes.result }}, e2e-window: ${result}"
+          # A failed or cancelled detector proves nothing, even if it wrote
+          # isDocsOnly before it failed.
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "::error::the docs-only detector did not succeed"
+            exit 1
+          fi
           if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
             exit 1
           fi
