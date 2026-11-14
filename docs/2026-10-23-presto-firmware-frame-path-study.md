@@ -1,10 +1,27 @@
 # Presto firmware frame path — where a frame's time goes, and how to shorten it
 
-Status: research and proposal (2026-10-23). Phase 4 of
+Status: partly built (written 2026-10-23 as research and a proposal; status checked
+against the code on 2026-11-14). Phase 4 of
 [`2026-10-23-shared-frame-cache-plan.md`](2026-10-23-shared-frame-cache-plan.md).
-Nothing here has been flashed or uploaded to a panel. Every change below needs the
-owner's approval before a flash, and the flash procedure at the end pauses that
-panel's worker first.
+
+- **Step A is built and flashed to all four Prestos.** `Sawtaytoes/esphome-presto` #3
+  decodes each chunk straight into the back buffer, and #5 synchronizes the second buffer
+  in idle time. All four panels ran it from 2026-10-26.
+- **Frame slots are built and flashed.** esphome-presto #3 adds six on-board slots, #4
+  reports them on their own entity, and CastKit #303 draws swipe destinations ahead and
+  shows them from a slot.
+- **The camera region codec is built and flashed.** esphome-presto #6 decodes baseline
+  JPEG patches (codec 2), and #7 writes the decoded rows to PSRAM in whole bands. CastKit
+  #308 sends the camera alert as JPEG, #310 falls back to zlib after a refusal, and #311
+  sends motion frames as JPEG.
+- **Step B is not built.** The firmware still writes 960-byte batches with the production
+  pacing. esphome-presto #10 added a runtime comparison of write kernels for measurement
+  only.
+- **C1 multi-rectangle patches are not built.**
+
+The sections below keep the original study and its numbers from 2026-10-23. The flash and
+rollback procedure at the end was the plan for the first trial; the deployment records
+outside this repository hold the procedure that was used.
 
 Since #300 measured the browser at 33–67 ms for a native swipe, the board is the main
 cost of a swipe: a full changed frame takes ~0.15 s to inflate and ~0.37 s to draw. This
