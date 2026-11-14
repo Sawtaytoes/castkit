@@ -268,6 +268,18 @@ describe("management shell", () => {
     expect(await response.text()).toBe(ASSET)
   })
 
+  // The cache bucket follows the request path, so a shell served
+  // here would go out immutable and stay in a browser for a year.
+  test.each([
+    "/manage/assets/",
+    "/manage/assets/gone",
+  ])("the extensionless miss %s under the hashed prefix is a 404, not an immutable shell", async (path) => {
+    const response = await makeApp().request(path)
+    expect(response.status).toBe(404)
+    expect(response.headers.get("cache-control")).toBeNull()
+    expect(await response.text()).not.toBe(SHELL)
+  })
+
   test.each([
     "/manage/assets/definitely-missing-abc123.js",
     "/cook/assets/definitely-missing-abc123.js",
