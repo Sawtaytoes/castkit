@@ -1,5 +1,6 @@
 import { playwright } from "@vitest/browser-playwright"
 import { defineConfig } from "vitest/config"
+import { chooseVrtSharedMemory } from "../../scripts/vrtSharedMemory.ts"
 import baseConfig from "./vitest.config.ts"
 
 /**
@@ -38,6 +39,11 @@ export default defineConfig({
       // own change with its own reviewed images.
       instances: [{ browser: "chromium" }],
       provider: playwright({
+        // Chromium's shared memory in the runner's `/dev/shm` when it has
+        // room, not in temp files on disk (`scripts/vrtSharedMemory.ts`).
+        launchOptions: {
+          ignoreDefaultArgs: await chooseVrtSharedMemory(),
+        },
         contextOptions: {
           locale: "en-US",
           timezoneId: "America/Chicago",
