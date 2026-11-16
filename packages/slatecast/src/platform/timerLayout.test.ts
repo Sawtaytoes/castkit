@@ -3,6 +3,7 @@ import {
   assignTimerHues,
   chooseTimerLayout,
   getTimerFraction,
+  keepCancelingPlaces,
   rankTimers,
 } from "./timerLayout.ts"
 
@@ -161,4 +162,71 @@ test("two timers with buttons sit side by side on square and landscape panels", 
       hasControls: true,
     })?.columns,
   ).toBe(2)
+})
+
+test("a cancelled timer keeps its place on screen whatever deadline it reports", () => {
+  const timer = (
+    id: string,
+    state: string,
+    finishesAt: number | null,
+  ) => ({
+    id,
+    domain: "timer",
+    name: id,
+    state,
+    attributes: {
+      finishes_at:
+        finishesAt === null
+          ? null
+          : new Date(finishesAt * 1000).toISOString(),
+    },
+    actions: [],
+  })
+  const place = (
+    entities: ReturnType<typeof timer>[],
+    previous: string[],
+  ) =>
+    keepCancelingPlaces(rankTimers(entities), previous).map(
+      (entity) => entity.id,
+    )
+  // The first timer is cancelled and the source clears its deadline.
+  expect(
+    place(
+      [
+        timer("timer.first.r2", "canceling", null),
+        timer("timer.second.r1", "active", 60),
+        timer("timer.third.r1", "active", 90),
+      ],
+      ["timer.first", "timer.second", "timer.third"],
+    ),
+  ).toEqual([
+    "timer.first.r2",
+    "timer.second.r1",
+    "timer.third.r1",
+  ])
+  // A paused timer keeps an old deadline that would rank it first.
+  expect(
+    place(
+      [
+        timer("timer.second.r1", "active", 60),
+        timer("timer.third.r1", "active", 90),
+        timer("timer.paused.r4", "canceling", 5),
+      ],
+      ["timer.second", "timer.third", "timer.paused"],
+    ),
+  ).toEqual([
+    "timer.second.r1",
+    "timer.third.r1",
+    "timer.paused.r4",
+  ])
+  // A timer the screen has not shown yet keeps its ranked place.
+  expect(
+    place(
+      [
+        timer("timer.new.r3", "canceling", 30),
+        timer("timer.second.r1", "active", 60),
+      ],
+      ["timer.second"],
+    ),
+  ).toEqual(["timer.new.r3", "timer.second.r1"])
 })

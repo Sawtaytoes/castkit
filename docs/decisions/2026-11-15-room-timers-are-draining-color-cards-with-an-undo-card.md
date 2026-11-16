@@ -12,9 +12,9 @@ Each room timer is a card read from across a room. The card's color drains from 
 
 Each timer on screen has its own color from a set of four, and a paused timer is amber. A timer's color comes from its ID, and a clash moves the later ID to the next free color, so the colors stay put while the same timers remain. Ranking order is not used, so adding five minutes never swaps two colors.
 
-A cancelled timer keeps its card, ranked by its deadline as before, as a large Undo button with a draining bar, until the source's `cancels_at`. The source owns the undo window: CastKit draws `state: "canceling"` and sends `undo_cancel`. The card stays in place, so a second tap lands on Undo and not on the next timer.
+A cancelled timer keeps its card as a large Undo button with a "Gone in N seconds" countdown and a draining bar, until the source's `cancels_at`. The card holds the place it had on screen before the cancel, even when the source changes or clears the timer's deadline. The source owns the undo window: CastKit draws `state: "canceling"` and sends `undo_cancel`. The card stays in place, so a second tap lands on Undo and not on the next timer.
 
-A card too short for everything drops the end time first, then the room name. The countdown, the paused status and the buttons stay. Fast panels still count in ten-second steps, now without the "~" mark: the exact end time sits under the countdown.
+A paused timer shows both its paused status and its room. A card too short for everything drops the end time first, then the room name. The countdown, the paused status, the Undo countdown and the buttons stay. Fast panels still count in ten-second steps, now without the "~" mark: the exact end time sits under the countdown.
 
 ## Context
 

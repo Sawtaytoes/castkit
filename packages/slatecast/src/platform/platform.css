@@ -4285,19 +4285,27 @@ html[data-repaint="instant"]
   border-radius: inherit;
   background: var(--color-intent-danger-solid);
 }
-/* A short card drops the end time first, then the room, to keep the countdown and buttons. */
+.timer-priority-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4em;
+  max-width: 100%;
+}
+.timer-priority-gone {
+  margin: 0;
+  color: var(--timer-soft);
+  font-size: clamp(12px, min(4.2cqw, 4.6cqh), 22px);
+  font-weight: 600;
+}
+/* A short card drops the end time first, then the room, to keep the countdown and buttons. The Undo countdown always stays. */
 @container (max-height: 270px) {
-  .timer-priority-body > .timer-priority-ends {
+  .timer-priority-ends {
     display: none;
-  }
-  .timer-priority-card-canceling .timer-priority-ends {
-    display: block;
   }
 }
 @container (max-height: 230px) {
-  .timer-priority-body
-    > .timer-priority-chip:not(.timer-priority-chip-status),
-  .timer-priority-card-canceling .timer-priority-ends {
+  .timer-priority-chip-room {
     display: none;
   }
 }

@@ -180,6 +180,53 @@ test("room timer cards read from across a room, keep distinct colors, and hold a
     })
   const capture = async (name: string) => {
     await page.evaluate(() => document.fonts.ready)
+    // Every card sits inside the window, and its text and buttons sit inside the card.
+    const overflow = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll(
+          ".timer-priority-card",
+        ),
+      ].flatMap((card) => {
+        const box = card.getBoundingClientRect()
+        const isInside = (inner: DOMRect, outer: DOMRect) =>
+          inner.left >= outer.left - 1 &&
+          inner.top >= outer.top - 1 &&
+          inner.right <= outer.right + 1 &&
+          inner.bottom <= outer.bottom + 1
+        const window = new DOMRect(
+          0,
+          0,
+          innerWidth,
+          innerHeight,
+        )
+        return [
+          ...(isInside(box, window)
+            ? []
+            : [
+                `${card.querySelector("h2")?.textContent} card`,
+              ]),
+          ...[
+            ...card.querySelectorAll(
+              "h2,strong,p,button,.timer-priority-chip",
+            ),
+          ]
+            .filter(
+              (element) =>
+                getComputedStyle(element).display !==
+                  "none" &&
+                !isInside(
+                  element.getBoundingClientRect(),
+                  box,
+                ),
+            )
+            .map(
+              (element) =>
+                `${card.querySelector("h2")?.textContent}: ${element.textContent}`,
+            ),
+        ]
+      }),
+    )
+    expect(overflow).toEqual([])
     await page.screenshot({
       path: `docs/images/room-timer-cards-${name}-${testInfo.project.name}.png`,
     })
@@ -223,6 +270,7 @@ test("room timer cards read from across a room, keep distinct colors, and hold a
 
   await publish([reading])
   await expect(cards.first()).toContainText("Paused")
+  await expect(cards.first()).toContainText("Lounge")
   await expect(
     page.getByRole("button", {
       name: "Resume",
@@ -245,7 +293,53 @@ test("room timer cards read from across a room, keep distinct colors, and hold a
     bus,
   ])
   await expect(cards.first()).toContainText("Cancelled")
+  await expect(cards.first()).toContainText("Gone in")
   await capture("undo-presto")
+
+  // With three timers, a cancelled side card keeps its place and its countdown.
+  await publish([
+    tea,
+    {
+      ...bus,
+      id: "timer.bus.r2",
+      state: "canceling",
+      attributes: {
+        ...bus.attributes,
+        cancels_at: new Date(now + 30_000).toISOString(),
+      },
+      actions: ["undo_cancel"],
+    },
+    reading,
+  ])
+  await expect(cards).toHaveCount(3)
+  await expect(cards.locator("h2")).toHaveText([
+    "Tea",
+    "Bus",
+    "Reading",
+  ])
+  await expect(cards.nth(1)).toContainText("Gone in")
+  await expect(
+    page.getByRole("button", {
+      name: "Undo cancel of Bus",
+      exact: true,
+    }),
+  ).toBeVisible()
+  await capture("undo-three-presto")
+
+  await publish([
+    {
+      ...tea,
+      id: "timer.tea.r2",
+      state: "canceling",
+      attributes: {
+        ...tea.attributes,
+        cancels_at: new Date(now + 30_000).toISOString(),
+      },
+      actions: ["undo_cancel"],
+    },
+    bus,
+  ])
+  await expect(cards.first()).toContainText("Cancelled")
   await page
     .getByRole("button", {
       name: "Undo cancel of Tea",

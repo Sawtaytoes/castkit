@@ -240,3 +240,156 @@ test("a cancelled timer keeps its place as an Undo card until its window closes"
     ).toBe(1),
   )
 })
+
+test("a paused timer shows its room, and an Undo card moves no other card", async () => {
+  const card = (
+    id: string,
+    label: string,
+    state: string,
+    finishesIn: number | null,
+    actions: string[],
+  ) => ({
+    id,
+    domain: "timer",
+    name: `${label} · Lounge`,
+    state,
+    attributes: {
+      room: "lounge",
+      label,
+      duration: "0:30:00",
+      remaining: "0:12:30",
+      finishes_at:
+        finishesIn === null
+          ? null
+          : new Date(now + finishesIn).toISOString(),
+      ...(state === "canceling"
+        ? {
+            cancels_at: new Date(
+              now + 30_000,
+            ).toISOString(),
+          }
+        : {}),
+    },
+    actions,
+  })
+  const controls = [
+    "pause",
+    "start",
+    "cancel",
+    "add_5_minutes",
+  ]
+  const content = (entities: unknown[]) => (
+    <DisplayPropertiesContext.Provider
+      value={{ repaint: "fast", hasTouch: true }}
+    >
+      <div style={{ width: 438, height: 438 }}>
+        <PriorityTimersView
+          data={{ entities } as never}
+          now={now}
+          settings={{ presentation: "priority" }}
+          isControlEnabled
+          onAction={async () => undefined}
+        />
+      </div>
+    </DisplayPropertiesContext.Provider>
+  )
+  const titles = (result: ReturnType<typeof render>) =>
+    [
+      ...result.container.querySelectorAll("article h2"),
+    ].map((element) => element.textContent)
+  const before = [
+    card(
+      "timer.tea.r1",
+      "Tea",
+      "active",
+      300_000,
+      controls,
+    ),
+    card(
+      "timer.bus.r1",
+      "Bus",
+      "active",
+      600_000,
+      controls,
+    ),
+    card("timer.reading.r1", "Reading", "paused", null, [
+      "start",
+      "cancel",
+      "add_5_minutes",
+    ]),
+  ]
+  const result = render(content(before))
+  await waitFor(() =>
+    expect(titles(result)).toEqual([
+      "Tea",
+      "Bus",
+      "Reading",
+    ]),
+  )
+  const reading =
+    result.container.querySelectorAll("article")[2]
+  expect(reading?.textContent).toContain("Paused")
+  expect(reading?.textContent).toContain("Lounge")
+  // The paused timer is cancelled and still reports an old, early deadline.
+  result.rerender(
+    content([
+      before[0],
+      before[1],
+      card(
+        "timer.reading.r2",
+        "Reading",
+        "canceling",
+        1_000,
+        ["undo_cancel"],
+      ),
+    ]),
+  )
+  await waitFor(() =>
+    expect(
+      result.getByText("Gone in 30 seconds"),
+    ).toBeVisible(),
+  )
+  expect(titles(result)).toEqual(["Tea", "Bus", "Reading"])
+  // The first timer is cancelled and its deadline is cleared.
+  result.rerender(
+    content([
+      card("timer.tea.r2", "Tea", "canceling", null, [
+        "undo_cancel",
+      ]),
+      before[1],
+      before[2],
+    ]),
+  )
+  await waitFor(() =>
+    expect(
+      result.getByRole("button", {
+        name: "Undo cancel of Tea",
+      }),
+    ).toBeVisible(),
+  )
+  expect(titles(result)).toEqual(["Tea", "Bus", "Reading"])
+  // A short side card keeps its Undo countdown inside the card.
+  result.rerender(
+    content([
+      before[0],
+      card("timer.bus.r2", "Bus", "canceling", 600_000, [
+        "undo_cancel",
+      ]),
+      before[2],
+    ]),
+  )
+  await waitFor(() =>
+    expect(
+      result.getByText("Gone in 30 seconds"),
+    ).toBeVisible(),
+  )
+  const bus =
+    result.container.querySelectorAll("article")[1]
+  const gone = result.getByText("Gone in 30 seconds")
+  const box = bus?.getBoundingClientRect()
+  if (!box) throw new Error("Missing Bus card")
+  expect(box.height).toBeLessThan(230)
+  expect(
+    gone.getBoundingClientRect().bottom,
+  ).toBeLessThanOrEqual(box.bottom)
+})

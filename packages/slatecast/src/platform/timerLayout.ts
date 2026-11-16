@@ -5,8 +5,8 @@ type TimerEntity =
   ContractData["entities.v1"]["entities"][number]
 /**
  * Running timers rank by absolute deadline; paused timers follow in stable
- * ID order. A timer in its cancel-undo window keeps its deadline's place,
- * so the cards around it do not move under a finger.
+ * ID order. A timer in its cancel-undo window ranks by the deadline it
+ * still reports; `keepCancelingPlaces` holds the place it had on screen.
  */
 export const rankTimers = (entities: TimerEntity[]) =>
   entities.toSorted((left, right) => {
@@ -169,9 +169,43 @@ export const chooseTimerLayout = ({
 /** The widest stacked card, as width over height, before columns win. */
 const MAX_STACKED_ASPECT = 1.6
 
+/** A timer's ID without its revision, so it stays the same across changes. */
+export const getTimerBaseId = (id: string) =>
+  id.replace(/\.r\d+$/, "")
+/**
+ * A cancelled timer keeps the place its card had before the cancel, even
+ * when the source changes or clears its deadline, so the Undo card takes
+ * its place and no other card moves under a finger. `previous` is the
+ * last order on screen, as base IDs. A timer the screen has not shown yet
+ * keeps its ranked place.
+ */
+export const keepCancelingPlaces = (
+  ranked: TimerEntity[],
+  previous: readonly string[],
+) => {
+  const isHeld = (entity: TimerEntity) =>
+    entity.state === "canceling" &&
+    previous.includes(getTimerBaseId(entity.id))
+  return ranked
+    .filter(isHeld)
+    .map((entity) => ({
+      entity,
+      index: previous.indexOf(getTimerBaseId(entity.id)),
+    }))
+    .toSorted((left, right) => left.index - right.index)
+    .reduce(
+      (placed, { entity, index }) =>
+        placed.toSpliced(
+          Math.min(index, placed.length),
+          0,
+          entity,
+        ),
+      ranked.filter((entity) => !isHeld(entity)),
+    )
+}
+
 /** The number of distinct timer colors before one repeats. */
 export const TIMER_HUE_COUNT = 4
-const getBaseId = (id: string) => id.replace(/\.r\d+$/, "")
 /**
  * Give timers on screen different colors that stay put while the same
  * timers remain: each timer prefers a color from its own ID, and a clash
@@ -183,11 +217,13 @@ export const assignTimerHues = (ids: string[]) => {
   const hues = new Map<string, number>()
   ids
     .toSorted((left, right) =>
-      getBaseId(left).localeCompare(getBaseId(right)),
+      getTimerBaseId(left).localeCompare(
+        getTimerBaseId(right),
+      ),
     )
     .forEach((id) => {
       const preferred =
-        [...getBaseId(id)].reduce(
+        [...getTimerBaseId(id)].reduce(
           (total, character) =>
             (total * 31 + character.charCodeAt(0)) >>> 0,
           7,

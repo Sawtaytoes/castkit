@@ -7,7 +7,9 @@ import { useDisplayProperties } from "./displayProperties.ts"
 import {
   assignTimerHues,
   chooseTimerLayout,
+  getTimerBaseId,
   getTimerFraction,
+  keepCancelingPlaces,
   rankTimers,
   TIMER_HUE_COUNT,
 } from "./timerLayout.ts"
@@ -75,7 +77,9 @@ export const PriorityTimersView = ({
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  const timers = rankTimers(
+  // The last order on screen, so a cancelled timer's Undo card keeps its place.
+  const order = useRef<string[]>([])
+  const ranked = rankTimers(
     (
       selectPanelData({
         specId: "timers",
@@ -93,6 +97,10 @@ export const PriorityTimersView = ({
           Date.parse(String(entity.attributes.cancels_at)) >
             now),
     ),
+  )
+  const timers = keepCancelingPlaces(ranked, order.current)
+  order.current = timers.map((entity) =>
+    getTimerBaseId(entity.id),
   )
   const hasControls =
     isControlEnabled && properties.isInteractive
@@ -183,7 +191,7 @@ export const PriorityTimersView = ({
                   >
                     <div class="timer-priority-body">
                       <h2 title={title}>{title}</h2>
-                      <span class="timer-priority-chip">
+                      <span class="timer-priority-chip timer-priority-chip-status">
                         Cancelled
                       </span>
                       {hasControls &&
@@ -206,7 +214,7 @@ export const PriorityTimersView = ({
                           <span>Undo</span>
                         </button>
                       ) : null}
-                      <p class="timer-priority-ends">
+                      <p class="timer-priority-gone">
                         {`Gone in ${roundUp(cancelsAt - now)} seconds`}
                       </p>
                       <div
@@ -237,11 +245,18 @@ export const PriorityTimersView = ({
                   <div class="timer-priority-body">
                     <h2 title={title}>{title}</h2>
                     {isPaused || room ? (
-                      <span
-                        class={`timer-priority-chip${isPaused ? " timer-priority-chip-status" : ""}`}
-                      >
-                        {isPaused ? "Paused" : room}
-                      </span>
+                      <div class="timer-priority-chips">
+                        {isPaused ? (
+                          <span class="timer-priority-chip timer-priority-chip-status">
+                            Paused
+                          </span>
+                        ) : null}
+                        {room ? (
+                          <span class="timer-priority-chip timer-priority-chip-room">
+                            {room}
+                          </span>
+                        ) : null}
+                      </div>
                     ) : null}
                     <strong
                       role="timer"
