@@ -4073,3 +4073,231 @@ html[data-repaint="instant"]
   border-radius: 0;
   overflow: hidden;
 }
+
+/*
+ * Room timers: a card per timer, read from across a room. The card's color
+ * drains from the top as the time runs down, and each timer on screen has
+ * its own color. Sizes follow the card (container units), so one card on a
+ * 480 x 480 panel and four on a wide screen use the same rules.
+ */
+.timer-priority {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.timer-priority-area {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.timer-priority-grid {
+  display: grid;
+  height: 100%;
+  gap: 8px;
+}
+.timer-priority-card {
+  --timer-surface: #1e1c52;
+  --timer-fill-top: #4740c9;
+  --timer-fill-bottom: #332f81;
+  --timer-soft: #dcdaff;
+  --timer-strong: #332f81;
+  container-type: size;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 14px;
+  background: var(--timer-surface);
+  color: #ffffff;
+  text-align: center;
+}
+/* Container units on the card itself would measure the screen, so the layout lives one level in. */
+.timer-priority-body {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqh;
+  padding: 5cqh 4cqw;
+}
+.timer-hue-1 {
+  --timer-surface: #0f2a36;
+  --timer-fill-top: #1f8fb0;
+  --timer-fill-bottom: #176a85;
+  --timer-soft: #c6ecf8;
+  --timer-strong: #0f4a5e;
+}
+.timer-hue-2 {
+  --timer-surface: #3a1430;
+  --timer-fill-top: #c03a8f;
+  --timer-fill-bottom: #8e2a6a;
+  --timer-soft: #fbd3ec;
+  --timer-strong: #6b1f50;
+}
+.timer-hue-3 {
+  --timer-surface: #12301f;
+  --timer-fill-top: #2f9a5c;
+  --timer-fill-bottom: #217445;
+  --timer-soft: #cdf2da;
+  --timer-strong: #165232;
+}
+.timer-hue-paused {
+  --timer-surface: #302512;
+  --timer-fill-top: #7a5a1c;
+  --timer-fill-bottom: #544120;
+  --timer-soft: #ecc673;
+  --timer-strong: #544120;
+}
+.timer-priority-fill {
+  position: absolute;
+  inset: auto 0 0;
+  background: linear-gradient(
+    180deg,
+    var(--timer-fill-top),
+    var(--timer-fill-bottom)
+  );
+}
+.timer-priority-body h2 {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(16px, min(7cqw, 7.5cqh), 34px);
+  font-weight: 700;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.timer-priority-chip {
+  padding: 0.25em 0.8em;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.28);
+  color: var(--timer-soft);
+  font-size: clamp(12px, min(3.6cqw, 4cqh), 18px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.timer-priority-digits {
+  margin-top: auto;
+  font-size: clamp(30px, min(29cqw, 30cqh), 160px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+  text-shadow: 0 4px 18px rgb(0 0 0 / 0.35);
+}
+.timer-priority-ends {
+  margin: 0 0 auto;
+  color: var(--timer-soft);
+  font-size: clamp(12px, min(4.2cqw, 4.6cqh), 22px);
+  font-weight: 500;
+}
+.timer-priority-controls {
+  display: flex;
+  gap: clamp(8px, 4cqw, 24px);
+  justify-content: center;
+}
+.platform .timer-priority-button {
+  --size: clamp(48px, min(22cqw, 23cqh), 112px);
+  width: var(--size);
+  height: var(--size);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.16);
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.24);
+  color: #ffffff;
+  font-size: calc(var(--size) * 0.42);
+}
+.platform .timer-priority-button-add_5_minutes {
+  background: #ffffff;
+  box-shadow: none;
+  color: var(--timer-strong);
+}
+.platform .timer-priority-button-add_5_minutes span {
+  display: flex;
+  align-items: center;
+  gap: 0.05em;
+  font-size: 0.6em;
+  font-weight: 700;
+  line-height: 1;
+}
+.platform .timer-priority-button-start {
+  background: var(--color-intent-success-solid);
+  box-shadow: none;
+  color: var(--color-intent-success-on-solid);
+}
+.platform .timer-priority-button-cancel {
+  background: rgb(190 50 65 / 0.88);
+  box-shadow: none;
+}
+.platform .timer-priority-button:disabled,
+.platform .timer-priority-undo:disabled {
+  opacity: 0.6;
+}
+/* A cancelled timer keeps its card as an Undo button until the window closes. */
+.timer-priority-card-canceling {
+  --timer-soft: var(--color-content-secondary);
+  background: var(--color-surface-raised);
+  box-shadow: inset 0 0 0 2px
+    var(--color-intent-danger-border);
+  color: var(--color-content-primary);
+}
+.timer-priority-card-canceling .timer-priority-body h2 {
+  color: var(--color-content-secondary);
+  text-decoration: line-through;
+}
+.timer-priority-card-canceling .timer-priority-chip {
+  background: var(--color-intent-danger-surface);
+  color: var(--color-intent-danger-content);
+}
+.platform .timer-priority-undo {
+  margin-top: auto;
+  width: min(100%, 86cqw);
+  min-height: clamp(56px, 30cqh, 140px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #131822;
+  font:
+    700 clamp(22px, min(12cqw, 14cqh), 64px) / 1
+    var(--font-sans);
+}
+.timer-priority-undo-bar {
+  width: 86cqw;
+  height: clamp(6px, 2.4cqh, 14px);
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-surface-sunken);
+}
+.timer-priority-undo-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-intent-danger-solid);
+}
+/* A short card drops the end time first, then the room, to keep the countdown and buttons. */
+@container (max-height: 270px) {
+  .timer-priority-body > .timer-priority-ends {
+    display: none;
+  }
+  .timer-priority-card-canceling .timer-priority-ends {
+    display: block;
+  }
+}
+@container (max-height: 230px) {
+  .timer-priority-body
+    > .timer-priority-chip:not(.timer-priority-chip-status),
+  .timer-priority-card-canceling .timer-priority-ends {
+    display: none;
+  }
+}

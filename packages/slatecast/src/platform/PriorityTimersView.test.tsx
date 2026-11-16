@@ -134,9 +134,7 @@ test("a long topic and paused timer stay inside a tiny card, and expiry promotes
       result.container.querySelectorAll("article").length,
     ).toBe(1),
   )
-  expect(result.getByRole("timer").textContent).toBe(
-    "~0:30",
-  )
+  expect(result.getByRole("timer").textContent).toBe("0:30")
   const bounds = result.container
     .querySelector("article")
     ?.getBoundingClientRect()
@@ -155,4 +153,90 @@ test("a long topic and paused timer stay inside a tiny card, and expiry promotes
     ).toBeVisible(),
   )
   expect(result.getByText("Paused")).toBeVisible()
+})
+
+test("a cancelled timer keeps its place as an Undo card until its window closes", async () => {
+  const onAction = vi.fn(async () => undefined)
+  const entities = [
+    {
+      id: "timer.a.r2",
+      domain: "timer",
+      name: "Laundry · Lounge",
+      state: "canceling",
+      attributes: {
+        room: "lounge",
+        label: "Laundry",
+        duration: "0:10:00",
+        finishes_at: new Date(now + 60_000).toISOString(),
+        cancels_at: new Date(now + 21_000).toISOString(),
+      },
+      actions: ["undo_cancel"],
+    },
+    {
+      id: "timer.b.r1",
+      domain: "timer",
+      name: "Bus · Everywhere",
+      state: "active",
+      attributes: {
+        room: "everywhere",
+        label: "Bus",
+        kind: "end_time",
+        duration: "0:30:00",
+        finishes_at: new Date(now + 900_000).toISOString(),
+      },
+      actions: ["cancel", "add_5_minutes"],
+    },
+  ]
+  const content = (at: number) => (
+    <DisplayPropertiesContext.Provider
+      value={{ repaint: "fast", hasTouch: true }}
+    >
+      <div style={{ width: 480, height: 480 }}>
+        <PriorityTimersView
+          data={{ entities }}
+          now={at}
+          settings={{ presentation: "priority" }}
+          isControlEnabled
+          onAction={onAction}
+        />
+      </div>
+    </DisplayPropertiesContext.Provider>
+  )
+  const result = render(content(now))
+  await waitFor(() =>
+    expect(
+      result.container.querySelectorAll("article").length,
+    ).toBe(2),
+  )
+  const [first, second] = [
+    ...result.container.querySelectorAll("article"),
+  ]
+  expect(first?.textContent).toContain("Cancelled")
+  expect(first?.textContent).toContain("Gone in 30 seconds")
+  expect(second?.querySelector("h2")?.textContent).toBe(
+    "Bus",
+  )
+  expect(second?.textContent).toContain("Everywhere")
+  expect(
+    result.queryByRole("button", { name: "Pause" }),
+  ).toBeNull()
+  expect(
+    result.queryByRole("button", { name: "Cancel" }),
+  ).toBeVisible()
+  fireEvent.click(
+    result.getByRole("button", {
+      name: "Undo cancel of Laundry",
+    }),
+  )
+  await waitFor(() =>
+    expect(onAction).toHaveBeenCalledWith("undo_cancel", {
+      entityId: "timer.a.r2",
+    }),
+  )
+  result.rerender(content(now + 22_000))
+  await waitFor(() =>
+    expect(
+      result.container.querySelectorAll("article").length,
+    ).toBe(1),
+  )
 })

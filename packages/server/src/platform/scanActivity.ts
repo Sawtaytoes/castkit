@@ -41,11 +41,16 @@ export const createScanActivity = ({
           .filter(
             (entity) =>
               entity.domain === "timer" &&
-              entity.state === "active",
+              (entity.state === "active" ||
+                entity.state === "canceling"),
           )
           .map((entity) =>
             Date.parse(
-              String(entity.attributes.finishes_at),
+              String(
+                entity.state === "canceling"
+                  ? entity.attributes.cancels_at
+                  : entity.attributes.finishes_at,
+              ),
             ),
           )
           .filter(

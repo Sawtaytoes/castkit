@@ -825,6 +825,45 @@ test("room timers select fast displays, respect manual overrides, and return whe
     deviceId: "quick",
     viewId: "points",
   })
+  // A cancelled timer in its undo window keeps the view up for its Undo
+  // card, and an expired window lets the device return.
+  const canceling = {
+    ...entity,
+    state: "canceling",
+    attributes: {
+      ...entity.attributes,
+      room: "lounge",
+      cancels_at: new Date(
+        Date.now() + 30000,
+      ).toISOString(),
+    },
+    actions: ["undo_cancel"],
+  }
+  platform.hub.publish({
+    channelId: "timers",
+    data: { entities: [canceling] },
+  })
+  expect(platform.getDeviceTarget("quick")).toEqual({
+    kind: "view",
+    id: "room-timers",
+  })
+  platform.hub.publish({
+    channelId: "timers",
+    data: {
+      entities: [
+        {
+          ...canceling,
+          attributes: {
+            ...canceling.attributes,
+            cancels_at: new Date(
+              Date.now() - 1000,
+            ).toISOString(),
+          },
+        },
+      ],
+    },
+  })
+  expect(platform.getDeviceTarget("quick")).toBeUndefined()
   platform.hub.publish({
     channelId: "timers",
     data: { entities: [] },

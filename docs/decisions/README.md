@@ -309,3 +309,5 @@ proposing a change; a settled decision here overrides default instinct.
 - [2026-11-02: A pull shows no release hint](2026-11-02-a-pull-shows-no-release-hint.md)
 
 - [2026-11-02: A left-swipe saved view is drawn ahead before the first answer](2026-11-02-a-left-swipe-saved-view-is-drawn-ahead-before-the-first-answer.md)
+
+- [2026-11-15: Room timers are draining color cards with an Undo card](2026-11-15-room-timers-are-draining-color-cards-with-an-undo-card.md)

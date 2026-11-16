@@ -89,7 +89,10 @@ export const selectPanelData = ({
                   String(entity.attributes.room),
                 ))) &&
           (settings.isActiveOnly !== true ||
-            ["active", "paused"].includes(entity.state)),
+            // "canceling" is a timer in its source's undo window.
+            ["active", "paused", "canceling"].includes(
+              entity.state,
+            )),
       ),
     }
   }

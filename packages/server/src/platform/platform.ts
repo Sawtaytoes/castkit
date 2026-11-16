@@ -526,12 +526,18 @@ export const createPlatform = async ({
                 attributes: Record<string, unknown>
               }[]
             }
+            // A cancelled timer in its undo window keeps the view up,
+            // so its Undo card stays on screen until the window closes.
             return selected?.entities?.some(
               (entity) =>
                 entity.state === "paused" ||
                 (entity.state === "active" &&
                   Date.parse(
                     String(entity.attributes.finishes_at),
+                  ) > Date.now()) ||
+                (entity.state === "canceling" &&
+                  Date.parse(
+                    String(entity.attributes.cancels_at),
                   ) > Date.now()),
             )
           }),
