@@ -239,6 +239,7 @@ export const startTestServer = async ({
             "pause",
             "start",
             "cancel",
+            "undo_cancel",
             "add_5_minutes",
           ],
           commandTopic: "fixture/timers/command",

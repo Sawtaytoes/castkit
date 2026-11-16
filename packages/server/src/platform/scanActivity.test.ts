@@ -170,3 +170,42 @@ test("room timer deadlines refresh targets even when the producer disconnects", 
   expect(onExpire).toHaveBeenCalledTimes(2)
   activity.dispose()
 })
+
+test("a cancelled timer's undo window refreshes targets when it closes", () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(1_000_000)
+  const onExpire = vi.fn()
+  const activity = createScanActivity({
+    getViews: () => [],
+    onExpire,
+  })
+  activity.observe({
+    id: "timers",
+    type: "entities.v1",
+    status: "ready",
+    data: {
+      entities: [
+        {
+          id: "timer.one.r2",
+          name: "Tea",
+          domain: "timer",
+          state: "canceling",
+          attributes: {
+            finishes_at: new Date(
+              Date.now() + 600_000,
+            ).toISOString(),
+            cancels_at: new Date(
+              Date.now() + 30_000,
+            ).toISOString(),
+          },
+          actions: ["undo_cancel"],
+        },
+      ],
+    },
+  })
+  vi.advanceTimersByTime(29_999)
+  expect(onExpire).not.toHaveBeenCalled()
+  vi.advanceTimersByTime(1)
+  expect(onExpire).toHaveBeenCalledTimes(1)
+  activity.dispose()
+})
