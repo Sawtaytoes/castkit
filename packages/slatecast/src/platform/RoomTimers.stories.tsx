@@ -3,7 +3,8 @@ import type {
   Decorator,
   StoryObj,
 } from "@storybook/preact-vite"
-import { useEffect, useState } from "preact/hooks"
+import type { ComponentChildren } from "preact"
+import { useEffect, useMemo, useState } from "preact/hooks"
 import {
   type DisplayProperties,
   DisplayPropertiesContext,
@@ -20,10 +21,26 @@ type TimerEntity = Entities["entities"][number]
  * display: the palette variables resolve on `:root`, so a scheme set lower
  * down would leave the cards on the light palette.
  */
-const withDarkScheme: Decorator = (Story) => {
+const DarkScheme = ({
+  children,
+}: {
+  children: ComponentChildren
+}) => {
   document.documentElement.dataset.scheme = "dark"
-  return <Story />
+  // Leaves the next story the unstamped document it expects.
+  useEffect(
+    () => () => {
+      delete document.documentElement.dataset.scheme
+    },
+    [],
+  )
+  return <>{children}</>
 }
+const withDarkScheme: Decorator = (Story) => (
+  <DarkScheme>
+    <Story />
+  </DarkScheme>
+)
 
 const meta = {
   title: "Views/Room Timers",
@@ -34,11 +51,12 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * Read once, when the module loads. The `vrt` capture freezes the clock
- * before any story module loads, so every shot draws the same seconds; a
- * person sees the timers count down from here.
+ * A fixture timer, built from the moment its story opened. Each story starts
+ * its timers fresh, so a person sees them count down from the same place
+ * every time; the `vrt` capture's frozen clock makes that place the same
+ * moment in every shot.
  */
-const storyStart = Date.now()
+type TimerFixture = (start: number) => TimerEntity
 
 /** Ticks once a second; under the frozen capture clock it never moves. */
 const useNow = () => {
@@ -60,33 +78,35 @@ const toClock = (seconds: number) =>
 const ACTIVE_ACTIONS = ["pause", "cancel", "add_5_minutes"]
 
 /** A running timer set for `durationSeconds`, with `leftSeconds` to go. */
-const activeTimer = ({
-  id,
-  label,
-  room,
-  durationSeconds,
-  leftSeconds,
-}: {
-  id: string
-  label: string
-  room: string
-  durationSeconds: number
-  leftSeconds: number
-}): TimerEntity => ({
-  id,
-  domain: "timer",
-  name: `${label} · ${room}`,
-  state: "active",
-  attributes: {
+const activeTimer =
+  ({
+    id,
     label,
-    room: room.toLowerCase(),
-    duration: toClock(durationSeconds),
-    finishes_at: new Date(
-      storyStart + leftSeconds * 1000,
-    ).toISOString(),
-  },
-  actions: ACTIVE_ACTIONS,
-})
+    room,
+    durationSeconds,
+    leftSeconds,
+  }: {
+    id: string
+    label: string
+    room: string
+    durationSeconds: number
+    leftSeconds: number
+  }): TimerFixture =>
+  (start) => ({
+    id,
+    domain: "timer",
+    name: `${label} · ${room}`,
+    state: "active",
+    attributes: {
+      label,
+      room: room.toLowerCase(),
+      duration: toClock(durationSeconds),
+      finishes_at: new Date(
+        start + leftSeconds * 1000,
+      ).toISOString(),
+    },
+    actions: ACTIVE_ACTIONS,
+  })
 
 const pasta = activeTimer({
   id: "timer.pasta.r1",
@@ -123,7 +143,7 @@ const homework = activeTimer({
   durationSeconds: 900,
   leftSeconds: 610,
 })
-const pausedRice: TimerEntity = {
+const pausedRice: TimerFixture = () => ({
   id: "timer.rice.r1",
   domain: "timer",
   name: "Rice · Kitchen",
@@ -134,10 +154,10 @@ const pausedRice: TimerEntity = {
     duration: "0:20:00",
     remaining: "0:08:00",
   },
-  actions: ["start", "cancel"],
-}
+  actions: ["start", "add_5_minutes", "cancel"],
+})
 /** A cancelled timer inside the source's thirty-second undo window. */
-const cancelingEggs: TimerEntity = {
+const cancelingEggs: TimerFixture = (start) => ({
   id: "timer.eggs.r1",
   domain: "timer",
   name: "Eggs · Kitchen",
@@ -146,33 +166,34 @@ const cancelingEggs: TimerEntity = {
     label: "Eggs",
     room: "kitchen",
     duration: "0:07:00",
-    finishes_at: new Date(
-      storyStart + 180 * 1000,
-    ).toISOString(),
-    cancels_at: new Date(
-      storyStart + 22 * 1000,
-    ).toISOString(),
+    finishes_at: new Date(start + 180 * 1000).toISOString(),
+    cancels_at: new Date(start + 22 * 1000).toISOString(),
   },
   actions: ["undo_cancel"],
-}
+})
 
 /**
  * One panel of a fixed size. The view measures its own box to choose a
  * layout, so the sized box is the whole panel here.
  */
 const TimerStage = ({
-  entities,
+  timers,
   width,
   height,
   properties = { repaint: "instant", hasTouch: true },
   isControlEnabled = true,
 }: {
-  entities: TimerEntity[]
+  timers: TimerFixture[]
   width: number
   height: number
   properties?: DisplayProperties
   isControlEnabled?: boolean
 }) => {
+  const [start] = useState(() => Date.now())
+  const entities = useMemo(
+    () => timers.map((timer) => timer(start)),
+    [timers, start],
+  )
   const now = useNow()
   return (
     <main
@@ -195,11 +216,7 @@ const TimerStage = ({
 /** One timer fills the panel; the color drains as the time runs down. */
 export const OneTimer: Story = {
   render: () => (
-    <TimerStage
-      entities={[pasta]}
-      width={800}
-      height={480}
-    />
+    <TimerStage timers={[pasta]} width={800} height={480} />
   ),
 }
 
@@ -207,29 +224,32 @@ export const OneTimer: Story = {
 export const TwoTimers: Story = {
   render: () => (
     <TimerStage
-      entities={[pasta, tea]}
+      timers={[pasta, tea]}
       width={800}
       height={480}
     />
   ),
 }
 
-/** Five timers on a wide panel: the soonest leads and the rest share a rail. */
+/** Five timers on a wide panel: five equal columns, soonest on the left. */
 export const FiveTimersWide: Story = {
   render: () => (
     <TimerStage
-      entities={[pasta, tea, laundry, bread, homework]}
+      timers={[pasta, tea, laundry, bread, homework]}
       width={1280}
       height={720}
     />
   ),
 }
 
-/** A paused timer drops its color and says so; it keeps its deadline place. */
+/**
+ * A paused timer turns amber and says Paused. It sorts after every running
+ * timer, since it has no deadline while it waits.
+ */
 export const Paused: Story = {
   render: () => (
     <TimerStage
-      entities={[tea, pausedRice, laundry]}
+      timers={[tea, pausedRice, laundry]}
       width={800}
       height={480}
     />
@@ -237,13 +257,14 @@ export const Paused: Story = {
 }
 
 /**
- * A cancelled timer holds its card as an Undo button until the undo window
- * closes, so a second tap cannot land on the timer that would move up.
+ * A cancelled timer's card becomes an Undo button with a countdown bar until
+ * the undo window closes. That the card keeps its old place after a cancel is
+ * covered by `e2e/roomTimers.spec.ts`; a story opens with no earlier order.
  */
 export const UndoCancel: Story = {
   render: () => (
     <TimerStage
-      entities={[cancelingEggs, tea, pasta]}
+      timers={[cancelingEggs, tea, pasta]}
       width={800}
       height={480}
     />
@@ -254,7 +275,7 @@ export const UndoCancel: Story = {
 export const SmallSquare: Story = {
   render: () => (
     <TimerStage
-      entities={[pasta, tea, laundry]}
+      timers={[pasta, tea, laundry]}
       width={240}
       height={240}
     />
@@ -268,7 +289,7 @@ export const SmallSquare: Story = {
 export const SlowPanelNoTouch: Story = {
   render: () => (
     <TimerStage
-      entities={[pasta, tea, laundry]}
+      timers={[pasta, tea, laundry]}
       width={800}
       height={480}
       properties={{ repaint: "slow", hasTouch: false }}
@@ -279,6 +300,6 @@ export const SlowPanelNoTouch: Story = {
 /** No running timers. */
 export const Empty: Story = {
   render: () => (
-    <TimerStage entities={[]} width={800} height={480} />
+    <TimerStage timers={[]} width={800} height={480} />
   ),
 }
