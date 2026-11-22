@@ -3380,6 +3380,15 @@ html[data-grayscale-text="true"] {
   font-size: 14px;
 }
 
+/* A slot's swatch leads its line, as in the filament list, with every color. */
+.printer-details-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
 /*
  * A round panel's bezel cuts the corners of a full-width row, and of a quad
  * card. Four printers and up keep to the square inside the circle, so no
@@ -3394,9 +3403,12 @@ html[data-grayscale-text="true"] {
 /*
  * A narrower view drops the three facts first; the band, the plate and the
  * controls are what a person at the bench reads and touches. Each width is
- * the view's content box: the view's width less its 26 px sides.
+ * the view's content box: the view's width less its 26 px sides. The widest
+ * facts (a five-digit layer count and a finish a month out) still leave the
+ * state its whole word from 1068 px in Outfit or a fallback font; the cutoff
+ * keeps 32 px more than that. The details dialog gives what a row drops.
  */
-@container printer-status (max-width: 1048px) {
+@container printer-status (max-width: 1100px) {
   .printer-status[data-layout="list"] .printer-body {
     grid-template-columns:
       minmax(0, 1fr)

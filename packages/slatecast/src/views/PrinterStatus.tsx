@@ -328,6 +328,12 @@ const getProgressText = (job: PrinterJob) => {
         : job.totalLayers === undefined
           ? `Layer ${job.currentLayer}`
           : `Layer ${job.currentLayer} / ${job.totalLayers}`,
+      // The feed's own time left, which a narrow band drops; it can differ
+      // from the finish time.
+      job.state === "paused" ||
+      job.remainingMinutes === undefined
+        ? undefined
+        : `${formatRemaining(job.remainingMinutes)} left`,
       job.state === "paused" || finishAtMs === null
         ? undefined
         : `Finishes ${formatFinishTime({
@@ -354,16 +360,17 @@ const getFilamentLines = (job: PrinterJob) => {
     summary: job.filamentText,
   })
   const lines = [
-    ...(summaryText ? [summaryText] : []),
-    ...(job.filaments ?? []).map((filament) =>
-      [
+    ...(summaryText ? [{ text: summaryText }] : []),
+    ...(job.filaments ?? []).map((filament) => ({
+      text: [
         getFilamentSlotName(filament),
         filament.location,
         getFilamentSlotMetadata(filament),
       ]
         .filter(Boolean)
         .join(" · "),
-    ),
+      filament,
+    })),
   ]
   return lines.length ? lines : undefined
 }
@@ -978,8 +985,10 @@ export const PrinterStatus = () => {
                   getPrinterJobTitle(job) ||
                   job.jobName ||
                   "Untitled print",
+                // The file name only when a readable name stands above it.
                 fileName:
                   job.jobName &&
+                  getPrinterJobTitle(job) &&
                   job.jobName !== getPrinterJobTitle(job)
                     ? job.jobName
                     : undefined,

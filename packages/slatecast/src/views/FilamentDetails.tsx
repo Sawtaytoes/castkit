@@ -147,6 +147,24 @@ export const getFilamentSlotName = (
     .filter(Boolean)
     .join(" ") || "Filament name unavailable"
 
+/** A slot's swatch: every color it carries, or a hatch when it has none. */
+export const FilamentSlotSwatch = ({
+  filament,
+}: {
+  filament: PrinterFilamentAssignment
+}) => {
+  const rgba = filament.rgba ?? filament.color
+  return (
+    <Swatch
+      size="fill"
+      rgba={rgba}
+      extraColors={filament.extraColors}
+      effectType={filament.effectType}
+      isHatched={!rgba}
+    />
+  )
+}
+
 /** A slot's brand, finish and translucency, as the list writes them. */
 export const getFilamentSlotMetadata = (
   filament: PrinterFilamentAssignment,
@@ -196,7 +214,7 @@ export const getFilamentSummaryText = ({
       ].filter(Boolean)
       const trays = [
         filament.location,
-        filament.location.split(" · ")[0] ?? "",
+        filament.location.split(/\s*·\s*/)[0] ?? "",
       ]
       return names.some(
         (name) =>
@@ -302,18 +320,13 @@ export const FilamentDetailsDialog = ({
         {filaments?.length ? (
           <ul class="filament-details-list">
             {filaments.map((filament, index) => {
-              const rgba = filament.rgba ?? filament.color
               const metadata =
                 getFilamentSlotMetadata(filament)
               return (
                 <li key={`${filament.location}:${index}`}>
                   <span class="filament-details-swatch">
-                    <Swatch
-                      size="fill"
-                      rgba={rgba}
-                      extraColors={filament.extraColors}
-                      effectType={filament.effectType}
-                      isHatched={!rgba}
+                    <FilamentSlotSwatch
+                      filament={filament}
                     />
                   </span>
                   <span class="filament-details-info">

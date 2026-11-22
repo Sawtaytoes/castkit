@@ -231,8 +231,17 @@ test.each([
     case: "a dot without spaces",
     summary: "PLA Matte·AMS 1, slot 1",
   },
+  {
+    case: "a tray whose own dot has no spaces",
+    summary: "PLA Matte · AMS 1, slot 1",
+    location: "AMS 1, slot 1·Filament 7 · 1.8 g",
+  },
 ] as const)("the dialog does not repeat a summary with $case", ({
   summary,
+  location = "AMS 1, slot 1 · Filament 7 · 1.8 g",
+}: {
+  summary: string
+  location?: string
 }) => {
   render(
     <FilamentDetailsDialog
@@ -242,7 +251,7 @@ test.each([
         {
           name: "PLA Matte",
           color: "#1c1c1c",
-          location: "AMS 1, slot 1 · Filament 7 · 1.8 g",
+          location,
         },
       ]}
       summary={summary}

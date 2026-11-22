@@ -312,9 +312,12 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    The printers keep the order Home Assistant sends.
 4. **A tap on a job name opens the details.** The 2×2 grid and the rows have
    no room to open a name in place, so the tap lists that printer's whole job
-   name, its exact file name, its whole fault, its nozzle, its layer and
-   finish time (or, once it has stopped, when it ended), and its filament,
-   one line per slot with its brand and finish, in a dialog. A failed
+   name, its exact file name, its whole fault, its nozzle, its layer, the
+   time left and the finish time (or, once it has stopped, when it ended),
+   and its filament, one line per slot with its swatch, brand and finish,
+   in a dialog. The time left is the feed's own, which can differ from the
+   finish time. The exact file name shows only under a readable name, so
+   a job named only for its printer reads once. A failed
    printer's line gives its percentage and the layer it stopped at. A row can drop its
    Layer, Finishes and Filament tiles (see below), and the dialog keeps them
    a tap away. The hidden-printer list gives each hidden printer the same
@@ -335,8 +338,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    the circle, so its view folds at a wider outer width. The quad needs
    600 px of content (652 px view), and puts its picture beside the facts
    from 1132 px (1184 px view). A turned panel folds for the width it has.
-   A row with 1048 px of content or less (1100 px view) drops the three fact
-   blocks. At 760 px or less (812 px view) it drops the number badge, so a
+   A row with 1100 px of content or less (1152 px view) drops the three fact
+   blocks. That leaves room: the widest facts, a five-digit layer count and
+   a finish a month out, need the blocks gone only up to 1067 px, in Outfit
+   or a fallback font. At 760 px or less (812 px view) it drops the number badge, so a
    long state word such as `Preparing` stays whole beside a name at its
    4.5 em floor. At 708 px or less (760 px view) it also drops the
    nozzle and the time left, and Pause and Stop become Lucide icons whose

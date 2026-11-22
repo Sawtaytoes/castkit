@@ -1,6 +1,12 @@
 import type { PrinterJob } from "@castkit/shared/viewData/types"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, expect, test } from "vitest"
+import {
+  afterEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+} from "vitest"
 import { page } from "vitest/browser"
 import {
   buildDeviceProfile,
@@ -54,7 +60,7 @@ const PANELS = [
     { width: 3440, height: 1440 },
   ],
   /*
-   * Both sides of every cutoff: the 760 px and 1100 px row widths, the
+   * Both sides of every cutoff: the 760 px, 812 px and 1152 px row widths, the
    * height a 2×2 grid needs, the width that puts its picture beside the
    * facts, and the sizes an earlier review found clipped.
    */
@@ -65,6 +71,8 @@ const PANELS = [
   ["the 650x890 window", { width: 650, height: 890 }],
   ["the 1099x700 window", { width: 1099, height: 700 }],
   ["the 1101x700 window", { width: 1101, height: 700 }],
+  ["the 1151x700 window", { width: 1151, height: 700 }],
+  ["the 1153x700 window", { width: 1153, height: 700 }],
   ["the 1183x720 window", { width: 1183, height: 720 }],
   ["the 1184x720 window", { width: 1184, height: 720 }],
   ["the 1200x596 window", { width: 1200, height: 596 }],
@@ -2344,14 +2352,29 @@ describe("a view too narrow for a row", () => {
   })
 })
 
-/** A printing job with the widest Layer and Finishes a row can be handed. */
-const buildWidestFacts = (finishDays: number) => {
+/**
+ * A job with the widest Layer and Finishes a row can be handed: a five-digit
+ * layer count, and a finish late on a weekday, or on the 28th of next month,
+ * a two-digit day.
+ */
+const buildWidestFacts = ({
+  finishes,
+  state,
+}: {
+  finishes: "a weekday" | "a date"
+  state: "printing" | "preparing"
+}) => {
   const finish = new Date()
-  finish.setDate(finish.getDate() + finishDays)
+  if (finishes === "a weekday") {
+    finish.setDate(finish.getDate() + 5)
+  } else {
+    finish.setMonth(finish.getMonth() + 1, 28)
+  }
   finish.setHours(22, 59, 0, 0)
   const [first] = buildPrinters(1)
   return {
     ...first,
+    state,
     currentLayer: 99998,
     totalLayers: 99999,
     finishAtMs: finish.getTime(),
@@ -2361,31 +2384,85 @@ const buildWidestFacts = (finishDays: number) => {
 describe("the widest facts in a row", () => {
   test.each([
     {
-      finishDays: 5,
       finishes: "a weekday",
+      state: "printing",
+      font: "Outfit",
       shape: "square",
+      count: 5,
+      height: 900,
     },
-    { finishDays: 10, finishes: "a date", shape: "square" },
-    { finishDays: 10, finishes: "a date", shape: "round" },
-  ] as const)("keep every tile inside its grid, and its label inside it, on a $shape panel when the job finishes on $finishes", async ({
-    finishDays,
+    {
+      finishes: "a date",
+      state: "printing",
+      font: "Outfit",
+      shape: "square",
+      count: 5,
+      height: 900,
+    },
+    {
+      finishes: "a date",
+      state: "printing",
+      font: "Outfit",
+      shape: "square",
+      count: 4,
+      height: 720,
+    },
+    {
+      finishes: "a date",
+      state: "preparing",
+      font: "a fallback font",
+      shape: "square",
+      count: 4,
+      height: 720,
+    },
+    {
+      finishes: "a date",
+      state: "preparing",
+      font: "a fallback font",
+      shape: "square",
+      count: 5,
+      height: 900,
+    },
+    {
+      finishes: "a date",
+      state: "printing",
+      font: "Outfit",
+      shape: "round",
+      count: 5,
+      height: 0,
+    },
+  ] as const)("$count printers, $state, finishing on $finishes in $font, keep every tile, label and state word whole on a $shape panel", async ({
+    finishes,
+    state,
+    font,
     shape,
+    count,
+    height,
   }) => {
+    if (font !== "Outfit") {
+      // As though Outfit failed to load: the stack's next, wider fonts.
+      const fallback = document.createElement("style")
+      fallback.textContent = `.printer-status, .printer-status * {
+          font-family: "Noto Sans JP", ui-sans-serif, system-ui, Arial, sans-serif !important;
+        }`
+      document.head.append(fallback)
+      onTestFinished(() => fallback.remove())
+    }
     // A round panel insets its view, so it folds at a wider outer size.
     const sizes =
       shape === "square"
         ? { from: 1101, to: 1500 }
-        : { from: 1490, to: 1900 }
+        : { from: 1490, to: 1950 }
     const sizeFor = (along: number) =>
       shape === "square"
-        ? { width: along, height: 900 }
+        ? { width: along, height }
         : { width: along, height: along }
     await mountOnPanel({
       ...sizeFor(sizes.from),
       shape,
       printers: [
-        buildWidestFacts(finishDays),
-        ...buildPrinters(5).slice(1),
+        buildWidestFacts({ finishes, state }),
+        ...buildPrinters(count).slice(1),
       ],
     })
     const problems: string[] = []
@@ -2395,8 +2472,8 @@ describe("the widest facts in a row", () => {
       along <= sizes.to;
       along += 3
     ) {
-      const { width, height } = sizeFor(along)
-      await page.viewport(width, height)
+      const size = sizeFor(along)
+      await page.viewport(size.width, size.height)
       await nextFrame()
       if (
         isDrawn(
@@ -2409,7 +2486,8 @@ describe("the widest facts in a row", () => {
       }
       problems.push(
         ...findLayoutProblems().map(
-          (problem) => `${width}x${height}: ${problem}`,
+          (problem) =>
+            `${size.width}x${size.height}: ${problem}`,
         ),
       )
     }
@@ -2478,12 +2556,21 @@ describe("the facts a compact row drops", () => {
         },
         {
           ...rest[0],
+          state: "printing",
+          remainingMinutes: 87,
+          finishAtMs: Date.now() + 95 * 60_000,
           filaments: [
             {
               name: "PLA Matte",
               brand: "Bambu",
               color: "#1c1c1c",
               location: "AMS 1, slot 1",
+            },
+            {
+              name: "PLA Silk Dual",
+              color: "#ff0000",
+              extraColors: ["#0000ff"],
+              location: "AMS 1, slot 2",
             },
           ],
         },
@@ -2524,6 +2611,50 @@ describe("the facts a compact row drops", () => {
     expect(printing).toHaveTextContent(
       "PLA Matte · AMS 1, slot 1 · Bambu",
     )
+    // The feed's time left, which the narrow band drops, and the finish.
+    expect(printing).toHaveTextContent("1h 27m left")
+    expect(printing).toHaveTextContent("Finishes")
+    // Each slot keeps its swatch, with every color it carries.
+    const swatches = Array.from(
+      printing?.querySelectorAll(
+        ".printer-details-swatch",
+      ) ?? [],
+    )
+    expect(swatches).toHaveLength(2)
+    const dualColors = Array.from(
+      swatches[1]?.querySelectorAll<HTMLElement>("*") ?? [],
+    )
+      .map((part) => part.style.background)
+      .join(" ")
+    expect(dualColors).toMatch(/0, 0, 255|#0000ff/i)
+  })
+
+  test("a job named only for its printer gives that name once", async () => {
+    const [first, ...rest] = buildPrinters(5)
+    await mountOnPanel({
+      width: 480,
+      height: 320,
+      printers: [
+        { ...first, jobName: "Printer_1" },
+        ...rest,
+      ],
+    })
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    const text =
+      document.querySelector('[role="dialog"]')
+        ?.textContent ?? ""
+
+    expect(text.split("Printer_1")).toHaveLength(2)
   })
 
   test("the hidden-printer list gives each hidden printer's layer", async () => {

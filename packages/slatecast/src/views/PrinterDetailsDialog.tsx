@@ -1,9 +1,11 @@
+import type { PrinterFilamentAssignment } from "@castkit/shared/viewData/types"
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
 } from "preact/hooks"
+import { FilamentSlotSwatch } from "./FilamentDetails.tsx"
 import { useDialogFocus } from "./useDialogFocus.ts"
 
 /** One printer as the dialog lists it. The caller works out the words. */
@@ -26,12 +28,17 @@ export type PrinterDetailsEntry = {
    */
   progressText?: string
   /** The filament, one line per slot, which a compact row may not draw. */
-  filamentLines?: readonly string[]
+  filamentLines?: readonly {
+    text: string
+    /** The slot, for its swatch. The feed's summary line has none. */
+    filament?: PrinterFilamentAssignment
+  }[]
 }
 
 /**
  * The full facts that a compact card cannot fit: the whole job name, the whole
- * fault, the layer, the finish time and the filament, and, from the "+N more"
+ * fault, the nozzle, the layer, the time left and the finish time (or when it
+ * ended), and each filament slot with its swatch, and, from the "+N more"
  * strip, every printer the panel did not draw.
  *
  * The 2×2 grid and the compact rows have no room to open a job name in place,
@@ -186,10 +193,17 @@ export const PrinterDetailsDialog = ({
                 {printer.filamentLines?.map(
                   (line, index) => (
                     <span
-                      key={`${line}:${index}`}
+                      key={`${line.text}:${index}`}
                       class="printer-details-filament"
                     >
-                      {line}
+                      {line.filament ? (
+                        <span class="printer-details-swatch">
+                          <FilamentSlotSwatch
+                            filament={line.filament}
+                          />
+                        </span>
+                      ) : null}
+                      {line.text}
                     </span>
                   ),
                 )}
