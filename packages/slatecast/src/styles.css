@@ -2772,7 +2772,7 @@ html[data-grayscale-text="true"] {
 
 .printer-status[data-layout="list"] .printer-card {
   display: grid;
-  container: printer-row / size;
+  container-type: size;
   flex: 1 1 0;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 14px;
@@ -3005,8 +3005,21 @@ html[data-grayscale-text="true"] {
   white-space: normal;
 }
 
+/*
+ * The ended time shows only when it fits under the stopped line. The summary
+ * fills the band's height and wraps into a second column when its lines do
+ * not fit; that column falls past the band's right edge and is hidden. So a
+ * band of any width or height clips neither line: the stopped layer stays,
+ * and the ended time gives way whole.
+ */
 .printer-status[data-layout="list"] .printer-band-ended {
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-self: stretch;
+  align-content: flex-start;
+  justify-content: center;
   gap: 0;
+  overflow: hidden;
   font-size: 11px;
 }
 
@@ -3016,6 +3029,7 @@ html[data-grayscale-text="true"] {
  */
 .printer-status[data-layout="list"] .printer-band-ended
   span {
+  width: 100%;
   overflow: visible;
   line-height: 1.1;
   white-space: normal;
@@ -3028,24 +3042,6 @@ html[data-grayscale-text="true"] {
     span
     + span {
     display: none;
-  }
-}
-
-/*
- * A band shorter than 48.4 px holds three of these lines, not four. Just over
- * 180 px wide, a failed print's stopped line and its ended time can both wrap,
- * so in a row under 98 px tall that ended time gives way up to 200 px. A
- * finished print's one-word line never wraps, and a taller row holds four.
- */
-@container printer-band (max-width: 200px) {
-  @container printer-row (max-height: 97.9px) {
-    .printer-status[data-layout="list"]
-      .printer-card[data-state="failed"]
-      .printer-band-ended
-      span
-      + span {
-      display: none;
-    }
   }
 }
 

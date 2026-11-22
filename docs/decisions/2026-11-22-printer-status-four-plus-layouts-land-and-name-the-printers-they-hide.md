@@ -54,8 +54,8 @@ narrow view folds a row's columns away in a fixed order; under 300 px the band
 moves under the job and each row grows to 84 px, so the name, the state, the
 job and the controls all keep room. A finished or failed row keeps its
 `Stopped at layer N` line whole, wrapping it if it must. The `Ended` time
-gives way in a band 180 px wide or less; a failed print's also gives way up to
-200 px in a row under 98 px tall, which holds only three of the summary's lines. At 708 px of content or
+gives way, whole, in a band 180 px wide or less and in any band too short to
+hold it under the stopped line. At 708 px of content or
 less (a 760 px square-panel view) the row drops both lines, while the chip, the percentage, and the job name's dialog keep the
 state and the stopped layer. On the narrowest rows, Pause and Stop
 become Lucide icons with their words kept for assistive tech, as the 2026-09-28

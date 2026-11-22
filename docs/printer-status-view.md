@@ -322,9 +322,9 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    the band keeps the percentage, and the job name's dialog still gives the
    stopped layer. Wider than that, the stopped layer's line wraps rather
    than lose its number. The `Ended` time gives way to it in a band 180 px
-   wide or less. A failed print's `Ended` time also gives way in a band up to
-   200 px wide when the row is under 98 px tall: a band that short holds
-   three lines of the summary, not four, and both of its lines can wrap. At
+   wide or less, and in any band too short to hold it under the stopped
+   line. It gives way whole, never cut: the summary wraps it into a column
+   the band hides. At
    388 px of content or less (440 px view) the picture goes, and the name,
    the state and the job take a line each, so none of them is squeezed
    away. At 300 px or less, such as a small round panel, the band moves

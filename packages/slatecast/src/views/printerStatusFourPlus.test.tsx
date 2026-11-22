@@ -1621,7 +1621,10 @@ describe("the details dialog on a small round panel", () => {
   })
 })
 
-/** A print that failed late last night: the longest pair of ended lines. */
+/**
+ * A print that failed late last night on its last layer: the longest pair of
+ * ended lines beside the widest percentage.
+ */
 const buildLateFailure = () =>
   buildPrinterJob({
     id: "printer-1",
@@ -1629,13 +1632,17 @@ const buildLateFailure = () =>
     jobName: "Sample_Part_1_-_PLA_Basic_-_Printer_1",
     thumbnailPath: "/plate.png",
     state: "failed",
-    currentLayer: 9999,
-    totalLayers: 9999,
-    percent: 99,
+    currentLayer: 99999,
+    totalLayers: 99999,
+    percent: 100,
     finishAtMs: new Date().setHours(0, 0, 0, 0) - 60_000,
   })
 
-/** Where the ended lines leave the first row's band, if anywhere. */
+/**
+ * Where the first row's ended lines are cut, if anywhere. The stopped line
+ * must sit whole inside the band. The ended time may give way, but only
+ * whole: it is either inside the band or wrapped out of the summary's box.
+ */
 const findEndedOverflow = () => {
   const band = document.querySelector(
     ".printer-card .printer-band",
@@ -1648,9 +1655,41 @@ const findEndedOverflow = () => {
   }
   const bandBox = band.getBoundingClientRect()
   const endedBox = ended.getBoundingClientRect()
-  return isInside(endedBox, bandBox)
+  const size = `${bandBox.width.toFixed(1)}x${bandBox.height.toFixed(1)} band`
+  const [stopped, endedTime] = Array.from(
+    ended.querySelectorAll("span"),
+  )
+  if (
+    !stopped ||
+    !isInside(stopped.getBoundingClientRect(), bandBox)
+  ) {
+    return `the stopped line is cut in a ${size}`
+  }
+  if (!endedTime || !isDrawn(endedTime)) {
+    return null
+  }
+  const endedTimeBox = endedTime.getBoundingClientRect()
+  const isShownWhole = isInside(endedTimeBox, bandBox)
+  const isWrappedAway = !isOverlapping(
+    endedTimeBox,
+    endedBox,
+  )
+  return isShownWhole || isWrappedAway
     ? null
-    : `${endedBox.height.toFixed(1)} px of ended lines in a ${bandBox.width.toFixed(1)}x${bandBox.height.toFixed(1)} band`
+    : `the ended time is cut in a ${size}`
+}
+
+/** Whether a line of the band's text shows whole inside its band. */
+const isShownInBand = (line: Element) => {
+  const band = line.closest(".printer-band")
+  return (
+    band !== null &&
+    isDrawn(line) &&
+    isInside(
+      line.getBoundingClientRect(),
+      band.getBoundingClientRect(),
+    )
+  )
 }
 
 const nextFrame = () =>
@@ -1686,7 +1725,7 @@ describe("the ended lines in a short band", () => {
       orientation: 90,
       turn: "turned 90°",
     },
-  ] as const)("$count printers, $across px across, $turn, fit every band from 176 to 204 px", async ({
+  ] as const)("$count printers, $across px across, $turn, fit every band in a sweep of window sizes", async ({
     count,
     across,
     orientation,
@@ -1705,7 +1744,7 @@ describe("the ended lines in a short band", () => {
     })
     const problems: string[] = []
     let bandsSeen = 0
-    for (let along = 1150; along <= 1260; along += 1) {
+    for (let along = 1150; along <= 1300; along += 1) {
       const { width, height } = sizeFor(along)
       await page.viewport(width, height)
       await nextFrame()
@@ -1729,9 +1768,9 @@ describe("the ended lines in a short band", () => {
     expect(bandsSeen).toBeGreaterThan(5)
     expect(problems).toEqual([])
     // A sweep of a hundred window sizes outlasts the default under load.
-  }, 60_000)
+  }, 90_000)
 
-  test("a 1130 px round panel with ten printers fits its ended lines", async () => {
+  test("a round panel with ten printers fits its ended lines at every size", async () => {
     await mountOnPanel({
       width: 1100,
       height: 1100,
@@ -1742,7 +1781,7 @@ describe("the ended lines in a short band", () => {
       ],
     })
     const problems: string[] = []
-    for (let size = 1100; size <= 1180; size += 1) {
+    for (let size = 1100; size <= 1230; size += 1) {
       await page.viewport(size, size)
       await nextFrame()
       const overflow = findEndedOverflow()
@@ -1753,7 +1792,7 @@ describe("the ended lines in a short band", () => {
 
     expect(problems).toEqual([])
     expect(findLayoutProblems()).toEqual([])
-  }, 60_000)
+  }, 90_000)
 
   test("a finished print's short row on a 1280x720 panel keeps the ended time", async () => {
     await mountOnPanel({
@@ -1772,7 +1811,7 @@ describe("the ended lines in a short band", () => {
       finished?.getBoundingClientRect().height,
     ).toBeLessThan(98)
     expect(endedTime).toHaveTextContent(/^Ended /)
-    expect(endedTime && isDrawn(endedTime)).toBe(true)
+    expect(endedTime && isShownInBand(endedTime)).toBe(true)
     expect(findLayoutProblems()).toEqual([])
   })
 
@@ -1790,7 +1829,7 @@ describe("the ended lines in a short band", () => {
       ".printer-card .printer-band-ended span + span",
     )
     expect(endedTime).toHaveTextContent(/^Ended /)
-    expect(endedTime && isDrawn(endedTime)).toBe(true)
+    expect(endedTime && isShownInBand(endedTime)).toBe(true)
     expect(findEndedOverflow()).toBeNull()
     expect(findLayoutProblems()).toEqual([])
   })
