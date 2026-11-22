@@ -2509,8 +2509,17 @@ html[data-grayscale-text="true"] {
 
 .filament-details-location,
 .filament-details-metadata {
+  overflow-wrap: anywhere;
   color: var(--color-content-muted);
   font-size: 14px;
+}
+
+/* The feed's own words, whole, where it sends no per-slot list. */
+.filament-details-summary {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .filament-details-empty {
@@ -3186,16 +3195,21 @@ html[data-grayscale-text="true"] {
   font-weight: 700;
 }
 
+/*
+ * The name gives way first, down to a stub of three letters, so a long name
+ * never takes the state word: "Failed" must read in words, not tint alone.
+ */
 .printer-overflow-name {
   overflow: hidden;
-  min-width: 0;
+  flex: 0 1000 auto;
+  min-width: 3em;
   text-overflow: ellipsis;
 }
 
-/* The state gives way after the name, and never past its chip. */
+/* The state gives way only after that, and never past its chip. */
 .printer-overflow-state {
   overflow: hidden;
-  flex: 0 1000 auto;
+  flex: 0 1 auto;
   min-width: 0;
   color: var(--color-content-muted);
   font-variant-numeric: tabular-nums;

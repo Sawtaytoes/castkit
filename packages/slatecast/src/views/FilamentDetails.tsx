@@ -120,11 +120,17 @@ export const FilamentDetailsDialog = ({
   jobName,
   onClose,
   printerName,
+  summary,
 }: {
   filaments?: readonly PrinterFilamentAssignment[]
   jobName: string
   onClose: () => void
   printerName: string
+  /**
+   * The feed's one-line filament text. A tile may cut it short, so the
+   * dialog gives it whole when the feed sends no per-slot list.
+   */
+  summary?: string
 }) => {
   const dialogOverlay = useRef<HTMLDivElement>(null)
   const dialogBox = useRef<HTMLElement>(null)
@@ -244,9 +250,16 @@ export const FilamentDetailsDialog = ({
             })}
           </ul>
         ) : (
-          <p class="filament-details-empty">
-            Per-slot filament details are not available.
-          </p>
+          <>
+            {summary ? (
+              <p class="filament-details-summary">
+                {summary}
+              </p>
+            ) : null}
+            <p class="filament-details-empty">
+              Per-slot filament details are not available.
+            </p>
+          </>
         )}
       </section>
     </div>

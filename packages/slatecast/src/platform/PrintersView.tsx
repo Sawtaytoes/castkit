@@ -506,6 +506,7 @@ export const PrintersView = ({
           jobName={filamentDetailsPrinter.jobName}
           onClose={() => setFilamentDetailsId("")}
           printerName={filamentDetailsPrinter.name}
+          summary={filamentDetailsPrinter.filamentText}
         />
       ) : null}
       {confirmation && confirmedJob ? (

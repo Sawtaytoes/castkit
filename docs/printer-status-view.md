@@ -105,7 +105,9 @@ When the source provides `filaments`, the row opens a list of the filament names
 colors and AMS slots used by the print. The HA publisher reads the positive
 per-slot values from `print_weight`; it does not list every filament loaded in
 the AMS. A source that has no per-slot print mapping can still publish the
-active filament, but the dialog reports that slot details are unavailable.
+active filament, and the dialog then gives its `filamentText` whole, above a
+note that slot details are unavailable. A tile can cut that text short, so the
+dialog is where the whole name always reads.
 
 Two conveniences for an HA template. `finishAt` takes epoch milliseconds or an
 ISO timestamp, and is optional — CastKit computes the finish from
@@ -299,7 +301,8 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    printer with its number and its percentage or state, tinted like its card.
    The 1280×720 panel draws nine rows above the strip, so the tenth printer is
    the first one the strip names. The chips that fit are a glance, each
-   whole or absent; a tap on the strip lists every hidden printer with its
+   whole or absent. In a chip the name gives way first, down to three
+   letters, so a hidden `Failed` still reads in words; a tap on the strip lists every hidden printer with its
    state, job name and fault. A view of 300 px or less draws only the count,
    because no chip fits beside it.
    The printers keep the order Home Assistant sends.

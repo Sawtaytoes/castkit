@@ -1015,6 +1015,7 @@ export const PrinterStatus = () => {
           }
           onClose={() => setFilamentDetailsId(null)}
           printerName={filamentDetailsJob.name}
+          summary={filamentDetailsJob.filamentText}
         />
       ) : null}
       {details ? (

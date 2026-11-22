@@ -579,6 +579,12 @@ const findLayoutProblems = () => {
                   `the strip chip's "${state.textContent}" leaves the chip`,
                 ]
               : []),
+            ...(state &&
+            state.scrollWidth > state.clientWidth + 1
+              ? [
+                  `the strip chip's "${state.textContent}" is cut short`,
+                ]
+              : []),
           ]
         })
     : []
@@ -2074,6 +2080,104 @@ describe("the strip on a small round panel", () => {
     expect(
       document.querySelector(".printer-overflow-count"),
     ).toHaveTextContent(/more/)
+    expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+describe("a summary-only filament feed", () => {
+  test("the filament list gives the whole name the grid cuts short", async () => {
+    const summary = `${LONG_FILAMENT} · AMS 1, slot 1`
+    const [first, ...rest] = buildPrinters(4)
+    await mountOnPanel({
+      width: 652,
+      height: 872,
+      printers: [
+        {
+          ...first,
+          filamentText: summary,
+          filaments: undefined,
+        },
+        ...rest,
+      ],
+    })
+    const tile = document.querySelector<HTMLButtonElement>(
+      ".printer-card .printer-filament-button",
+    )
+    if (!tile) {
+      throw new Error(
+        "The first card has no filament tile.",
+      )
+    }
+    await userEvent.click(tile)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toHaveTextContent(summary)
+  })
+
+  test("a long unbroken tray name wraps inside the filament list", async () => {
+    const [first, ...rest] = buildPrinters(4)
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: [
+        {
+          ...first,
+          filaments: [
+            {
+              name: "PLA Matte",
+              color: "#1c1c1c",
+              location: "TRAY".repeat(25),
+            },
+          ],
+        },
+        ...rest,
+      ],
+    })
+    const tile = document.querySelector<HTMLButtonElement>(
+      ".printer-card .printer-filament-button",
+    )
+    if (!tile) {
+      throw new Error(
+        "The first card has no filament tile.",
+      )
+    }
+    await userEvent.click(tile)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    const box = document.querySelector<HTMLElement>(
+      '[role="dialog"]',
+    )
+
+    expect(box?.scrollWidth).toBeLessThanOrEqual(
+      (box?.clientWidth ?? 0) + 1,
+    )
+  })
+})
+
+describe("long printer names in the strip", () => {
+  test("a hidden failed printer's chip still says Failed", async () => {
+    await mountOnPanel({
+      width: 353,
+      height: 350,
+      printers: buildPrinters(12).map((printer, index) => ({
+        ...printer,
+        name: `Wide North Workshop Carbon Fiber Printer ${index + 1}`,
+      })),
+    })
+    const failedChip = Array.from(
+      document.querySelectorAll(".printer-overflow-item"),
+    ).find((chip) =>
+      chip
+        .querySelector(".printer-overflow-state")
+        ?.textContent?.includes("Failed"),
+    )
+
+    expect(failedChip).toBeDefined()
     expect(findLayoutProblems()).toEqual([])
   })
 })
