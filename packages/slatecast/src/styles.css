@@ -2736,6 +2736,20 @@ html[data-grayscale-text="true"] {
   padding: 0 8px 5px;
 }
 
+/*
+ * The tile is one line of name over one of location. A longer name ends in an
+ * ellipsis rather than wrapping up over the label; the filament list, a tap
+ * away, gives it whole.
+ */
+.printer-status[data-layout="quad"] .printer-metric
+  dd
+  .printer-filament-text
+  > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .printer-status[data-layout="quad"] .printer-actions {
   margin-top: 8px;
 }
@@ -3178,10 +3192,24 @@ html[data-grayscale-text="true"] {
   text-overflow: ellipsis;
 }
 
+/* The state gives way after the name, and never past its chip. */
 .printer-overflow-state {
-  flex: none;
+  overflow: hidden;
+  flex: 0 1000 auto;
+  min-width: 0;
   color: var(--color-content-muted);
   font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+}
+
+/*
+ * A strip in a view of 300 px or less has no room for a chip beside its
+ * count: the count stays, and a tap lists every hidden printer.
+ */
+@container printer-status (max-width: 300px) {
+  .printer-status .printer-overflow-list {
+    display: none;
+  }
 }
 
 .printer-overflow-item[data-intent="warning"] {

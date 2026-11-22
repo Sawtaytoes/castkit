@@ -86,8 +86,10 @@ Home Assistant publishes every active printer, together, retained, to
 dropped, because `id` is what a Pause is addressed to. `state` is `preparing`,
 `printing`, `paused`, `finished` or `failed` — the five CastKit draws.
 Everything else degrades: a job with no layer count still shows its percentage.
-`percent` may be fractional; the card writes it as a whole number rounded down,
-so `99.99` reads `99%` and only a finished print reads `100%`.
+`percent` may be fractional; the card writes the value it receives as a whole
+number rounded down, so `99.99` reads `99%`. Rounding down never turns a value
+under 100 into `100%`. A `finished` job always reads `100%`, and a source may
+itself round a value up to 100 before the card receives it.
 On a `finished` or `failed` job, `finishAt` is the time the print **ended**, and
 the card prints it as `Ended 3:47 PM` when it is present.
 
@@ -281,7 +283,9 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    the picture on the left at 38% and the facts on the right. On a narrower
    panel the card keeps the column shape, the picture above the facts. Filament
    keeps its full-width box, because at a third of the facts' width its
-   `2 filaments · Details ›` ran out of the box.
+   `2 filaments · Details ›` ran out of the box. Its name and its tray take a
+   line each; a longer name ends in an ellipsis rather than wrapping over the
+   label, and the filament list gives it whole.
 2. **Five or more are compact rows.** A row reads left to right: the picture,
    the name with its state chip over the job name, the Layer, Finishes and
    Filament blocks, the band, and then Pause and Stop (or Clear plate). Each part
@@ -294,8 +298,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    36 px strip under the last row says `+1 more printer` and names each hidden
    printer with its number and its percentage or state, tinted like its card.
    The 1280×720 panel draws nine rows above the strip, so the tenth printer is
-   the first one the strip names. The chips that fit are a glance; a tap on
-   the strip lists every hidden printer with its state, job name and fault.
+   the first one the strip names. The chips that fit are a glance, each
+   whole or absent; a tap on the strip lists every hidden printer with its
+   state, job name and fault. A view of 300 px or less draws only the count,
+   because no chip fits beside it.
    The printers keep the order Home Assistant sends.
 4. **A tap on a job name opens the details.** The 2×2 grid and the rows have
    no room to open a name in place, so the tap lists that printer's whole job

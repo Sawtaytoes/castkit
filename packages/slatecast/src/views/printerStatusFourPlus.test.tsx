@@ -432,6 +432,41 @@ const findLayoutProblems = () => {
           ]
         : []
     /*
+     * The filament's own words: inside the tile, and clear of its label. Each
+     * line's box, not its text: a line that ends in an ellipsis draws only
+     * what its box holds, and a wrapped line's box holds all of it.
+     */
+    const filamentLines =
+      filamentBox && isDrawn(filamentBox)
+        ? drawnWithin(
+            filamentBox,
+            ".printer-filament-text > span",
+          )
+        : []
+    const filamentTextProblems = filamentLines.flatMap(
+      (line) => [
+        ...(filamentBox &&
+        isInside(
+          line.getBoundingClientRect(),
+          filamentBox.getBoundingClientRect(),
+        )
+          ? []
+          : [
+              `${label}: the filament line "${line.textContent}" leaves its box`,
+            ]),
+        ...(filamentLabel &&
+        isDrawn(filamentLabel) &&
+        isOverlapping(
+          line.getBoundingClientRect(),
+          textBox(filamentLabel),
+        )
+          ? [
+              `${label}: the filament line "${line.textContent}" covers its label`,
+            ]
+          : []),
+      ],
+    )
+    /*
      * The job line is the tap that opens the whole job name and fault, so it
      * must have room and be the thing under a finger at its center.
      */
@@ -485,6 +520,7 @@ const findLayoutProblems = () => {
       ...overflowing,
       ...touching,
       ...filamentProblems,
+      ...filamentTextProblems,
       ...plateProblems,
       ...stateProblems,
       ...jobProblems,
@@ -501,6 +537,7 @@ const findLayoutProblems = () => {
           ".printer-overflow-count, .printer-overflow-item",
         ),
       )
+        .filter(isDrawn)
         .map((chip) => chip.getBoundingClientRect())
         .filter(
           (chipBox) =>
@@ -510,6 +547,40 @@ const findLayoutProblems = () => {
         .map(
           () => "a strip chip is cut by the strip's edge",
         )
+    : []
+  // A chip the strip shows carries its whole name and state.
+  const chipProblems = stripBox
+    ? Array.from(
+        document.querySelectorAll(".printer-overflow-item"),
+      )
+        .filter(isDrawn)
+        .filter((chip) =>
+          isOverlapping(
+            chip.getBoundingClientRect(),
+            stripBox,
+          ),
+        )
+        .flatMap((chip) => {
+          const chipBox = chip.getBoundingClientRect()
+          const name = chip.querySelector<HTMLElement>(
+            ".printer-overflow-name",
+          )
+          const state = chip.querySelector(
+            ".printer-overflow-state",
+          )
+          return [
+            ...(name && name.offsetWidth < 16
+              ? [
+                  `the strip chip for ${name.textContent} has no room for its name`,
+                ]
+              : []),
+            ...(state && !isInside(textBox(state), chipBox)
+              ? [
+                  `the strip chip's "${state.textContent}" leaves the chip`,
+                ]
+              : []),
+          ]
+        })
     : []
   const roundStage = document.querySelector(
     ".stage.shape-round",
@@ -554,6 +625,7 @@ const findLayoutProblems = () => {
     ...blockOverlaps,
     ...cardProblems,
     ...stripProblems,
+    ...chipProblems,
     ...roundProblems,
   ]
 }
@@ -1938,6 +2010,70 @@ describe("a fractional percentage", () => {
         ".printer-card .printer-percent",
       ),
     ).toHaveTextContent(/^99%$/)
+    expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+const LONG_FILAMENT =
+  "Glass Fiber Reinforced High Temperature Polycarbonate"
+
+describe("a long filament name", () => {
+  test.each([
+    { width: 652, height: 872, count: 4 },
+    { width: 1280, height: 720, count: 4 },
+    { width: 1280, height: 720, count: 7 },
+    { width: 761, height: 900, count: 5 },
+    { width: 2560, height: 1440, count: 4 },
+  ] as const)("stays in its tile on a $width x $height panel with $count printers", async ({
+    width,
+    height,
+    count,
+  }) => {
+    const [first, ...rest] = buildPrinters(count)
+    await mountOnPanel({
+      width,
+      height,
+      printers: [
+        {
+          ...first,
+          filamentText: `${LONG_FILAMENT} · AMS 1, slot 1`,
+          filaments: [
+            {
+              name: LONG_FILAMENT,
+              color: "#1c1c1c",
+              location: "AMS 1, slot 1",
+            },
+            {
+              name: "Support for PLA",
+              color: "#f1e7d0",
+              location: "AMS 2, slot 4",
+            },
+          ],
+        },
+        ...rest,
+      ],
+    })
+
+    expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+describe("the strip on a small round panel", () => {
+  test("twelve preparing printers leave no chip squeezed", async () => {
+    await mountOnPanel({
+      width: 320,
+      height: 320,
+      shape: "round",
+      printers: buildPrinters(12).map((printer) => ({
+        ...printer,
+        state: "preparing" as const,
+        percent: 0,
+      })),
+    })
+
+    expect(
+      document.querySelector(".printer-overflow-count"),
+    ).toHaveTextContent(/more/)
     expect(findLayoutProblems()).toEqual([])
   })
 })
