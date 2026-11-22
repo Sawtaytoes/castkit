@@ -227,6 +227,20 @@ export const App = () => {
             : `rotate(${orientation}deg)`,
         width: isSideways ? "100vh" : "100vw",
         height: isSideways ? "100vw" : "100vh",
+        /*
+         * A turned stage is wider or taller than the window. `margin: auto`
+         * cannot center a box wider than its container, so on a portrait
+         * window the stage would turn about the wrong point and leave the
+         * glass. Place its center on the window's center instead.
+         */
+        ...(isSideways
+          ? {
+              inset: "auto",
+              left: "calc((100vw - 100vh) / 2)",
+              top: "calc((100vh - 100vw) / 2)",
+              margin: 0,
+            }
+          : {}),
       }}
     >
       <ActiveView />

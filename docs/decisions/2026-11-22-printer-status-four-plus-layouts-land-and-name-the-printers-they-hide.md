@@ -37,18 +37,25 @@ design:
    panel has room for only one or two chips.
 
 The 2×2 grid and the rows have no room to open a job name in place. A tap on
-the job name lists that printer's whole job name and whole fault in a dialog
-instead. In a row, a fault takes the job name's line inside the same button.
+the job name lists that printer's whole job name, its exact file name, and its
+whole fault in a dialog instead. In a row, a fault takes the job name's line
+inside the same button. Every dialog on the view holds the keyboard while it is
+open, so a keyboard cannot open a second dialog over the first.
 
-The count picks the arrangement. The panel only decides whether it can hold it:
-four printers use rows instead of the grid when the card area is under 624 px
-tall or 600 px wide, and a narrow panel folds a row's columns away in a fixed
-order. A test checks both sides of each cutoff. On the narrowest rows, Pause and Stop become Lucide icons with their
-words kept for assistive tech, as the 2026-09-28 record asked. The state chip
-and the percentage never fold away.
+The count picks the arrangement. The panel only decides whether it can hold it.
+Four printers use rows instead of the grid when the view is under 652 px wide,
+or when the card area is too short for two cards: 624 px with the picture
+beside the facts, which needs a 1184 px view, or 836 px with the picture above
+them. The view's own width decides, not the window's, so a turned or round
+panel folds its rows for the width it really has. A round panel keeps four
+printers and up inside the square within the circle. A narrow view folds a
+row's columns away in a fixed order. On the narrowest rows, Pause and Stop
+become Lucide icons with their words kept for assistive tech, as the 2026-09-28
+record asked. The state chip and the percentage never fold away. A test checks
+both sides of each cutoff.
 
 The stories and pictures for four printers and up name every printer
-`Printer N`. The earlier stories' names are real printers' names.
+`Printer N`.
 
 ## Context
 

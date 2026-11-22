@@ -1839,6 +1839,9 @@ html[data-grayscale-text="true"] {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* The rows fold by the view's own width, not the window's: a rotated or
+     round panel gives the view less width than the window has. */
+  container: printer-status / inline-size;
   padding: 18px 26px;
   color: var(--fg);
   font-family: var(--font-sans);
@@ -2424,8 +2427,11 @@ html[data-grayscale-text="true"] {
   margin-bottom: 18px;
 }
 
+/* A long printer name wraps rather than widening the dialog past the glass. */
 .filament-details-head h2 {
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
   font-size: 24px;
 }
 
@@ -2600,7 +2606,7 @@ html[data-grayscale-text="true"] {
   padding: 12px;
 }
 
-/* The view picks the shape from the measured card area; see printerRowFit.ts. */
+/* The view picks the shape from its own width; see printerRowFit.ts. */
 .printer-status[data-quad-shape="beside"] .printer-card {
   display: grid;
   grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
@@ -3207,6 +3213,13 @@ html[data-grayscale-text="true"] {
   font-size: 15px;
 }
 
+/* The exact file name, for finding the job on the printer or in the slicer. */
+.printer-details-file {
+  overflow-wrap: anywhere;
+  color: var(--color-content-muted);
+  font-size: 13px;
+}
+
 .printer-details-problem {
   overflow-wrap: anywhere;
   color: var(--color-intent-danger-content);
@@ -3215,10 +3228,21 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * A narrower panel drops the three facts first; the band, the plate and the
- * controls are what a person at the bench reads and touches.
+ * A round panel's bezel cuts the corners of a full-width row, and of a quad
+ * card. Four printers and up keep to the square inside the circle, so no
+ * button sits where the glass is not.
  */
-@media (max-width: 1100px) {
+.stage.shape-round .printer-status[data-layout="list"],
+.stage.shape-round .printer-status[data-layout="quad"] {
+  inset: 14.7%;
+}
+
+/*
+ * A narrower view drops the three facts first; the band, the plate and the
+ * controls are what a person at the bench reads and touches. Each width is
+ * the view's content box: the view's width less its 26 px sides.
+ */
+@container printer-status (max-width: 1048px) {
   .printer-status[data-layout="list"] .printer-body {
     grid-template-columns:
       minmax(0, 1fr)
@@ -3244,13 +3268,14 @@ html[data-grayscale-text="true"] {
 /*
  * The narrowest rows: Pause and Stop become Lucide icons with their words kept
  * for assistive tech, and the badge, the nozzle and the time left go. Below
- * 760 px the words would leave the name under its 4.5 em. Below 440 px the
- * picture goes too, because the name is the one fact that says which printer
- * it is.
+ * a 760 px view the words would leave the name under its 4.5 em. Below 440 px
+ * the picture goes too, because the name is the one fact that says which
+ * printer it is, and the state moves under the name, beside the job, so the
+ * name has the whole line and the state keeps its word.
  */
-@media (max-width: 760px) {
-  .printer-status[data-layout="list"] {
-    padding-inline: 12px;
+@container printer-status (max-width: 708px) {
+  .printer-status[data-layout="list"] .printer-cards {
+    margin-inline: -14px;
   }
 
   .printer-status[data-layout="list"] .printer-card {
@@ -3337,7 +3362,7 @@ html[data-grayscale-text="true"] {
   }
 }
 
-@media (max-width: 440px) {
+@container printer-status (max-width: 388px) {
   .printer-status[data-layout="list"] .printer-card {
     grid-template-columns: minmax(0, 1fr);
     padding-left: 10px;
@@ -3345,6 +3370,41 @@ html[data-grayscale-text="true"] {
 
   .printer-status[data-layout="list"] .printer-plate {
     display: none;
+  }
+
+  .printer-status[data-layout="list"] .printer-body {
+    grid-template-columns: auto minmax(0, 1fr) 60px auto;
+  }
+
+  .printer-status[data-layout="list"] .printer-head {
+    display: contents;
+  }
+
+  .printer-status[data-layout="list"] .printer-names {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .printer-status[data-layout="list"] .printer-state {
+    flex-shrink: 0;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .printer-status[data-layout="list"] .printer-job {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .printer-status[data-layout="list"] .printer-band {
+    grid-column: 3;
+  }
+
+  .printer-status[data-layout="list"] .printer-actions,
+  .printer-status[data-layout="list"] .printer-clear {
+    grid-column: 4;
   }
 }
 

@@ -297,18 +297,25 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    The printers keep the order Home Assistant sends.
 4. **A tap on a job name opens the details.** The 2×2 grid and the rows have
    no room to open a name in place, so the tap lists that printer's whole job
-   name and whole fault in a dialog. In a row, a fault takes the job name's
+   name, its exact file name, and its whole fault in a dialog. Each of the
+   view's dialogs holds the keyboard while it is open: focus starts inside,
+   Tab stays inside, and Escape closes only that dialog. In a row, a fault takes the job name's
    line, inside the same button. In the 2×2 grid, a fault gets two lines and
    the Layer and Finishes blocks give it their room.
 5. **The count picks the arrangement; the panel only folds it.** Four printers
-   use rows instead of the quad when the card area is under 624 px tall or
-   600 px wide, where two cards of facts do not fit. A quad card puts its
-   picture beside the facts only when the card area is at least 1132 px wide;
-   a narrower grid stacks the picture above them. A row under 1100 px wide
-   drops the three fact blocks. Under 760 px it also drops the badge, the
-   nozzle and the time left, and Pause and Stop become Lucide icons whose words
-   stay in the accessibility tree. Under 440 px the picture goes, so the name
-   keeps its room. The state chip and the percentage always stay.
+   use rows instead of the quad when the view is under 652 px wide, or when the
+   card area is too short for two cards. A quad card puts its picture beside
+   the facts from a 1184 px view, and then needs a 624 px card area; a narrower
+   grid stacks the picture above the facts and needs 836 px, so the picture is
+   never squeezed away. The rows fold by the view's own width, through a
+   container query, so a turned or round panel folds for the width it has. A
+   row under 1100 px wide drops the three fact blocks. Under 760 px it also
+   drops the badge, the nozzle and the time left, and Pause and Stop become
+   Lucide icons whose words stay in the accessibility tree. Under 440 px the
+   picture goes and the state moves under the name, beside the job, so the
+   name has the whole line and the state keeps its word. The state chip and
+   the percentage always stay. On a round panel, four printers and up keep to
+   the square inside the circle.
 6. **Pause and Stop stay a fingertip tall.** Every row button is at least 48 px.
 
 ## Previews

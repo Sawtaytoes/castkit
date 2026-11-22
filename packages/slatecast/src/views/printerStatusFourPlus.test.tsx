@@ -5,6 +5,7 @@ import { page } from "vitest/browser"
 import {
   buildDeviceProfile,
   buildPrinterJob,
+  buildSettings,
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
@@ -69,6 +70,16 @@ const PANELS = [
   ["the 1200x596 window", { width: 1200, height: 596 }],
   ["the 1200x659 window", { width: 1200, height: 659 }],
   ["the 1200x660 window", { width: 1200, height: 660 }],
+  /*
+   * A stacked grid's pictures: 700x660 once drew them 0 px tall. The
+   * stacked grid starts at a 872 px window. 640x900 once switched between
+   * the grid and rows on every frame.
+   */
+  ["the 700x660 window", { width: 700, height: 660 }],
+  ["the 720x871 window", { width: 720, height: 871 }],
+  ["the 720x872 window", { width: 720, height: 872 }],
+  ["the 640x900 window", { width: 640, height: 900 }],
+  ["the 320x824 phone", { width: 320, height: 824 }],
 ] as const
 
 /**
@@ -151,11 +162,15 @@ const mountOnPanel = async ({
   height,
   printers,
   repaint = "instant",
+  shape = "square",
+  orientation = 0,
 }: {
   width: number
   height: number
   printers: PrinterJob[]
   repaint?: "instant" | "slow"
+  shape?: "square" | "round"
+  orientation?: 0 | 90
 }) => {
   __setPrinterPendingForStories(PENDING)
   await page.viewport(width, height)
@@ -167,6 +182,7 @@ const mountOnPanel = async ({
         height,
         hasTouch: true,
         repaint,
+        shape,
         views: [
           {
             name: "Printer Status",
@@ -174,6 +190,7 @@ const mountOnPanel = async ({
           },
         ],
       }),
+      settings: buildSettings({ orientation }),
       data: { printers: { printers } },
     }),
   })
@@ -350,9 +367,29 @@ const findLayoutProblems = () => {
               : []),
           ]
         : []
-    const name = card.querySelector(".printer-name")
+    const plate = card.querySelector(".printer-plate")
+    const plateProblems =
+      plate &&
+      getComputedStyle(plate).display !== "none" &&
+      plate.getBoundingClientRect().height < 48
+        ? [`${label}: the picture has no room`]
+        : []
+    const stateLabel = card.querySelector<HTMLElement>(
+      ".printer-state-label",
+    )
+    const stateProblems =
+      stateLabel &&
+      isDrawn(
+        card.querySelector(".printer-state") ?? card,
+      ) &&
+      stateLabel.offsetWidth < 24
+        ? [`${label}: the state has no room for its word`]
+        : []
+    // Layout widths, not screen boxes: a turned panel swaps the two.
+    const name =
+      card.querySelector<HTMLElement>(".printer-name")
     const nameProblems =
-      name && name.getBoundingClientRect().width >= 40
+      name && name.offsetWidth >= 40
         ? []
         : [`${label}: the printer's name has no room`]
     return [
@@ -360,6 +397,8 @@ const findLayoutProblems = () => {
       ...overflowing,
       ...touching,
       ...filamentProblems,
+      ...plateProblems,
+      ...stateProblems,
       ...nameProblems,
     ]
   })
@@ -381,11 +420,50 @@ const findLayoutProblems = () => {
           () => "a strip chip is cut by the strip's edge",
         )
     : []
+  const roundStage = document.querySelector(
+    ".stage.shape-round",
+  )
+  const roundProblems = roundStage
+    ? (() => {
+        const stageBox = roundStage.getBoundingClientRect()
+        const centerX = (stageBox.left + stageBox.right) / 2
+        const centerY = (stageBox.top + stageBox.bottom) / 2
+        const radius =
+          Math.min(stageBox.width, stageBox.height) / 2 +
+          0.5
+        return Array.from(
+          document.querySelectorAll(
+            ".printer-action, .printer-clear, .printer-name, .printer-band, .printer-overflow",
+          ),
+        )
+          .filter(isDrawn)
+          .filter((part) => {
+            const box = part.getBoundingClientRect()
+            return [
+              [box.left, box.top],
+              [box.right, box.top],
+              [box.left, box.bottom],
+              [box.right, box.bottom],
+            ].some(
+              ([cornerX = 0, cornerY = 0]) =>
+                Math.hypot(
+                  cornerX - centerX,
+                  cornerY - centerY,
+                ) > radius,
+            )
+          })
+          .map(
+            (part) =>
+              `${part.className} reaches past the round glass`,
+          )
+      })()
+    : []
   return [
     ...offGlass,
     ...blockOverlaps,
     ...cardProblems,
     ...stripProblems,
+    ...roundProblems,
   ]
 }
 
@@ -840,5 +918,216 @@ describe("the details dialog's motion", () => {
     expect(
       document.querySelector('[role="dialog"]'),
     ).toBeNull()
+  })
+})
+
+describe.each([
+  ["the 480x480 round porthole", 480, 480, "round", 0],
+  ["the 720x720 round panel", 720, 720, "round", 0],
+  ["a 1280x320 window turned 90°", 1280, 320, "square", 90],
+  ["a 720x1280 window turned 90°", 720, 1280, "square", 90],
+] as const)("Printer Status from four printers on %s", (_label, width, height, shape, orientation) => {
+  test.each(
+    COUNTS,
+  )("%i printers: every control is on the glass", async (count) => {
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      orientation,
+      printers: buildPrinters(count),
+    })
+
+    expect(findLayoutProblems()).toEqual([])
+    const drawnCount = drawnPrinterNames().length
+    const hiddenCount = document.querySelectorAll(
+      ".printer-overflow-name",
+    ).length
+    expect(drawnCount + hiddenCount).toBe(count)
+  })
+})
+
+describe("the arrangement settles", () => {
+  test.each([
+    [640, 900],
+    [650, 890],
+    [700, 660],
+  ])("four printers at %ix%i keep one arrangement", async (width, height) => {
+    await mountOnPanel({
+      width,
+      height,
+      printers: buildPrinters(4),
+    })
+    const view = document.querySelector(".printer-status")
+    if (!view) {
+      throw new Error("Printer Status did not mount.")
+    }
+    const layouts: (string | null)[] = []
+    const observer = new MutationObserver(() => {
+      layouts.push(view.getAttribute("data-layout"))
+    })
+    observer.observe(view, {
+      attributes: true,
+      attributeFilter: ["data-layout"],
+    })
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 400)
+    })
+    observer.disconnect()
+
+    expect(layouts).toEqual([])
+  })
+})
+
+describe("two dialogs never stack", () => {
+  const WORKBENCH = { width: 1280, height: 720 }
+
+  test("Tab stays in the filament list, and Escape closes only it", async () => {
+    await mountOnPanel({
+      ...WORKBENCH,
+      printers: buildPrinters(12),
+    })
+    const filamentButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-filament-button",
+      )
+    if (!filamentButton) {
+      throw new Error(
+        "The first card has no filament button.",
+      )
+    }
+    filamentButton.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    const filamentDialog = document.querySelector(
+      "#printer-filament-details",
+    )
+    await userEvent.tab({ shift: true })
+    expect(
+      filamentDialog?.contains(document.activeElement),
+    ).toBe(true)
+    await userEvent.tab()
+    expect(
+      filamentDialog?.contains(document.activeElement),
+    ).toBe(true)
+
+    await userEvent.keyboard("{Escape}")
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+    expect(document.activeElement).toBe(filamentButton)
+  })
+
+  test("a Stop question holds the keyboard and starts on Keep printing", async () => {
+    await mountOnPanel({
+      ...WORKBENCH,
+      printers: buildPrinters(9),
+    })
+    const stopButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-action.is-stop",
+      )
+    if (!stopButton) {
+      throw new Error("The first card has no Stop button.")
+    }
+    await userEvent.click(stopButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    expect(document.activeElement).toHaveTextContent(
+      "Keep printing",
+    )
+    await userEvent.tab()
+    await userEvent.tab()
+    expect(document.activeElement).toHaveTextContent(
+      "Keep printing",
+    )
+
+    await userEvent.keyboard("{Escape}")
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+  })
+})
+
+describe("an empty feed forgets the open dialog", () => {
+  test("the hidden-printer list does not come back by itself", async () => {
+    const { server } = await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildPrinters(12),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twelve printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    server.push({
+      type: "printers",
+      data: { printers: [] },
+    })
+    await expect
+      .poll(() => document.querySelector(".printer-empty"))
+      .not.toBeNull()
+    server.push({
+      type: "printers",
+      data: { printers: buildPrinters(12) },
+    })
+    await expect
+      .poll(() => drawnPrinterNames().length)
+      .toBe(9)
+
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toBeNull()
+  })
+})
+
+describe("the details dialog on a phone", () => {
+  test("a long unbroken printer name wraps inside the dialog", async () => {
+    const longName = "PrinterLongUnbrokenName".repeat(7)
+    await mountOnPanel({
+      width: 320,
+      height: 824,
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: longName,
+          jobName: "Fixture_Job_-_PLA_-_Printer 1",
+        }),
+        ...buildPrinters(4).slice(1),
+      ],
+    })
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    const dialog = document.querySelector<HTMLElement>(
+      '[role="dialog"]',
+    )
+    expect(dialog?.scrollWidth).toBeLessThanOrEqual(
+      (dialog?.clientWidth ?? 0) + 1,
+    )
+    expect(dialog).toHaveTextContent(
+      "Fixture_Job_-_PLA_-_Printer 1",
+    )
   })
 })

@@ -38,6 +38,7 @@ import {
   fitPrinterRows,
   type PrinterLayout,
 } from "./printerRowFit.ts"
+import { useDialogFocus } from "./useDialogFocus.ts"
 
 /**
  * Printer Status: one column per printer that Home Assistant calls active.
@@ -133,6 +134,64 @@ const CONFIRM_VERBS: Record<ConfirmedAction, string> = {
   pause: "Pause",
   resume: "Resume",
   stop: "Stop",
+}
+
+/**
+ * The question a Pause or Stop tap asks before it acts. It is modal, so it
+ * holds the keyboard: focus starts on the answer that changes nothing.
+ */
+const PrinterConfirmDialog = ({
+  action,
+  detail,
+  onCancel,
+  onCommit,
+}: {
+  action: ConfirmedAction
+  detail: string
+  onCancel: () => void
+  onCommit: () => void
+}) => {
+  const dialog = useRef<HTMLDivElement>(null)
+  const cancelButton = useRef<HTMLButtonElement>(null)
+  useDialogFocus({
+    dialogRef: dialog,
+    initialFocusRef: cancelButton,
+    onEscape: onCancel,
+  })
+  return (
+    <div
+      ref={dialog}
+      class="printer-confirm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={CONFIRM_QUESTIONS[action]}
+    >
+      <div class="printer-confirm-box">
+        <p class="printer-confirm-question">
+          {CONFIRM_QUESTIONS[action]}
+        </p>
+        <p class="printer-confirm-detail">{detail}</p>
+        <div class="printer-confirm-actions">
+          <button
+            ref={cancelButton}
+            type="button"
+            class="printer-confirm-cancel"
+            onClick={onCancel}
+          >
+            Keep printing
+          </button>
+          <button
+            type="button"
+            class="printer-confirm-commit"
+            data-action={action}
+            onClick={onCommit}
+          >
+            {CONFIRM_VERBS[action]}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 const PENDING_LABELS: Record<PendingAction, string> = {
@@ -558,7 +617,14 @@ export const PrinterStatus = () => {
   const closeDetails = useCallback(() => {
     setDetails(null)
   }, [])
+  const viewRef = useRef<HTMLDivElement>(null)
   const cardsRef = useRef<HTMLDivElement>(null)
+  /*
+   * The card area's height, and the whole view's width. The width is the
+   * view's, not the card area's, because the card area's sides change with
+   * the arrangement: measuring them would let the arrangement pick itself
+   * again, back and forth, on every frame.
+   */
   const [cardArea, setCardArea] = useState(() => ({
     height:
       window.innerHeight - PRINTER_STATUS_VERTICAL_PADDING,
@@ -575,26 +641,45 @@ export const PrinterStatus = () => {
    * showing it does not change what is measured.
    */
   useLayoutEffect(() => {
+    const view = viewRef.current
     const cards = cardsRef.current
-    if (!hasJobs || !cards) {
+    if (!hasJobs || !view || !cards) {
       return undefined
     }
     const measure = () => {
       setCardArea((current) =>
         current.height === cards.clientHeight &&
-        current.width === cards.clientWidth
+        current.width === view.clientWidth
           ? current
           : {
               height: cards.clientHeight,
-              width: cards.clientWidth,
+              width: view.clientWidth,
             },
       )
     }
     measure()
+    /*
+     * Only the view is watched. The card area fills the view's height, so it
+     * changes height only when the view does, and its width changes with the
+     * arrangement, which a watch on it would report back as a new size.
+     */
     const observer = new ResizeObserver(measure)
-    observer.observe(cards)
+    observer.observe(view)
     return () => {
       observer.disconnect()
+    }
+  }, [hasJobs])
+
+  /*
+   * An empty feed draws the idle message instead of the cards, which
+   * unmounts any open dialog without closing it. Forget what was open, so the
+   * next printer to arrive does not bring the dialog back unasked.
+   */
+  useEffect(() => {
+    if (!hasJobs) {
+      setDetails(null)
+      setFilamentDetailsId(null)
+      setConfirmation(null)
     }
   }, [hasJobs])
 
@@ -768,6 +853,11 @@ export const PrinterStatus = () => {
                   getPrinterJobTitle(job) ||
                   job.jobName ||
                   "Untitled print",
+                fileName:
+                  job.jobName &&
+                  job.jobName !== getPrinterJobTitle(job)
+                    ? job.jobName
+                    : undefined,
                 problemText: job.problemText,
               },
             ]
@@ -777,6 +867,7 @@ export const PrinterStatus = () => {
 
   return (
     <div
+      ref={viewRef}
       class="printer-status"
       data-count={String(jobs.length)}
       data-layout={layout}
@@ -889,42 +980,15 @@ export const PrinterStatus = () => {
         />
       ) : null}
       {confirmation && confirmedJob ? (
-        <div
-          class="printer-confirm"
-          role="dialog"
-          aria-modal="true"
-          aria-label={
-            CONFIRM_QUESTIONS[confirmation.action]
-          }
-        >
-          <div class="printer-confirm-box">
-            <p class="printer-confirm-question">
-              {CONFIRM_QUESTIONS[confirmation.action]}
-            </p>
-            <p class="printer-confirm-detail">
-              {confirmedJob.name} ·{" "}
-              {getPrinterJobTitle(confirmedJob) ||
-                confirmedJob.jobName}
-            </p>
-            <div class="printer-confirm-actions">
-              <button
-                type="button"
-                class="printer-confirm-cancel"
-                onClick={() => setConfirmation(null)}
-              >
-                Keep printing
-              </button>
-              <button
-                type="button"
-                class="printer-confirm-commit"
-                data-action={confirmation.action}
-                onClick={confirm}
-              >
-                {CONFIRM_VERBS[confirmation.action]}
-              </button>
-            </div>
-          </div>
-        </div>
+        <PrinterConfirmDialog
+          action={confirmation.action}
+          detail={`${confirmedJob.name} · ${
+            getPrinterJobTitle(confirmedJob) ||
+            confirmedJob.jobName
+          }`}
+          onCancel={() => setConfirmation(null)}
+          onCommit={confirm}
+        />
       ) : null}
     </div>
   )

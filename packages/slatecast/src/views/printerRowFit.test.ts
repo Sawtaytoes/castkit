@@ -5,13 +5,14 @@ import {
   fitPrinterRows,
   PRINTER_QUAD_BESIDE_MIN_WIDTH,
   PRINTER_QUAD_MIN_HEIGHT,
+  PRINTER_QUAD_STACKED_MIN_HEIGHT,
 } from "./printerRowFit.ts"
 
 /** The 1280x720 workbench panel's card area: 720 less 18 px top and bottom. */
 const WORKBENCH_HEIGHT = 684
 
-/** The workbench panel's card area width: 1280 less 26 px each side. */
-const WORKBENCH_WIDTH = 1228
+/** The workbench panel's view width. */
+const WORKBENCH_WIDTH = 1280
 
 /** The 480x320 short panel's card area. */
 const SHORT_PANEL_HEIGHT = 284
@@ -43,7 +44,7 @@ describe("choosePrinterLayout", () => {
     expect(
       choosePrinterLayout({
         availableHeight: SHORT_PANEL_HEIGHT,
-        availableWidth: 428,
+        availableWidth: 480,
         printerCount: 4,
       }),
     ).toBe("list")
@@ -58,6 +59,21 @@ describe("choosePrinterLayout", () => {
         choosePrinterLayout({
           availableHeight,
           availableWidth: WORKBENCH_WIDTH,
+          printerCount: 4,
+        }),
+      ),
+    ).toEqual(["list", "quad"])
+  })
+
+  test("a stacked grid needs room for its pictures too", () => {
+    expect(
+      [
+        PRINTER_QUAD_STACKED_MIN_HEIGHT - 1,
+        PRINTER_QUAD_STACKED_MIN_HEIGHT,
+      ].map((availableHeight) =>
+        choosePrinterLayout({
+          availableHeight,
+          availableWidth: 720,
           printerCount: 4,
         }),
       ),

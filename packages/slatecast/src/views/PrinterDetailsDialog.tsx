@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
 } from "preact/hooks"
+import { useDialogFocus } from "./useDialogFocus.ts"
 
 /** One printer as the dialog lists it. The caller works out the words. */
 export type PrinterDetailsEntry = {
@@ -14,6 +15,8 @@ export type PrinterDetailsEntry = {
   intent: "neutral" | "warning" | "danger" | "success"
   stateText: string
   jobName: string
+  /** The job's exact file name, when it differs from the readable name. */
+  fileName?: string
   problemText?: string
 }
 
@@ -38,24 +41,6 @@ export const PrinterDetailsDialog = ({
   const dialogBox = useRef<HTMLElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
   const [isClosing, setIsClosing] = useState(false)
-
-  /*
-   * Focus moves in when the dialog opens and goes back to the control that
-   * opened it when it closes, so a keyboard user is never left behind the
-   * overlay.
-   */
-  useEffect(() => {
-    const opener =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null
-    closeButton.current?.focus()
-    return () => {
-      if (opener?.isConnected) {
-        opener.focus()
-      }
-    }
-  }, [])
 
   /*
    * The list leaves the way it arrived. The CSS decides whether it moves at
@@ -98,28 +83,21 @@ export const PrinterDetailsDialog = ({
     }
   }, [hasPrinters, onClose])
 
+  useDialogFocus({
+    dialogRef: dialogBox,
+    initialFocusRef: closeButton,
+    onEscape: requestClose,
+  })
+
   useEffect(() => {
     const overlay = dialogOverlay.current
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        requestClose()
-        return
-      }
-      // Close is the dialog's one control, so Tab stays on it.
-      if (event.key === "Tab") {
-        event.preventDefault()
-        closeButton.current?.focus()
-      }
-    }
     const handleOverlayClick = (event: MouseEvent) => {
       if (event.target === overlay) {
         requestClose()
       }
     }
-    window.addEventListener("keydown", handleKeyDown)
     overlay?.addEventListener("click", handleOverlayClick)
     return () => {
-      window.removeEventListener("keydown", handleKeyDown)
       overlay?.removeEventListener(
         "click",
         handleOverlayClick,
@@ -175,6 +153,11 @@ export const PrinterDetailsDialog = ({
                 <span class="printer-details-job">
                   {printer.jobName}
                 </span>
+                {printer.fileName ? (
+                  <span class="printer-details-file">
+                    {printer.fileName}
+                  </span>
+                ) : null}
                 {printer.problemText ? (
                   <span class="printer-details-problem">
                     {printer.problemText}

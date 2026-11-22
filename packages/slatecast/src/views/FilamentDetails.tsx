@@ -2,6 +2,7 @@ import { filamentColorName } from "@castkit/shared/viewData/filamentColorName"
 import type { PrinterFilamentAssignment } from "@castkit/shared/viewData/types"
 import { useEffect, useRef } from "preact/hooks"
 import { parseRgba, Swatch } from "./spoolSwatch.tsx"
+import { useDialogFocus } from "./useDialogFocus.ts"
 
 /** A compact summary that opens the per-slot details for an active print. */
 export const FilamentControl = ({
@@ -126,23 +127,24 @@ export const FilamentDetailsDialog = ({
   printerName: string
 }) => {
   const dialogOverlay = useRef<HTMLDivElement>(null)
+  const dialogBox = useRef<HTMLElement>(null)
+  const closeButton = useRef<HTMLButtonElement>(null)
+
+  useDialogFocus({
+    dialogRef: dialogBox,
+    initialFocusRef: closeButton,
+    onEscape: onClose,
+  })
 
   useEffect(() => {
     const overlay = dialogOverlay.current
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose()
-      }
-    }
     const handleOverlayClick = (event: MouseEvent) => {
       if (event.target === overlay) {
         onClose()
       }
     }
-    window.addEventListener("keydown", handleKeyDown)
     overlay?.addEventListener("click", handleOverlayClick)
     return () => {
-      window.removeEventListener("keydown", handleKeyDown)
       overlay?.removeEventListener(
         "click",
         handleOverlayClick,
@@ -156,6 +158,7 @@ export const FilamentDetailsDialog = ({
       class="filament-details-dialog"
     >
       <section
+        ref={dialogBox}
         id="printer-filament-details"
         class="filament-details-box"
         role="dialog"
@@ -173,6 +176,7 @@ export const FilamentDetailsDialog = ({
             </p>
           </div>
           <button
+            ref={closeButton}
             type="button"
             class="filament-details-close"
             onClick={onClose}
