@@ -2390,6 +2390,11 @@ html[data-grayscale-text="true"] {
   line-height: 1.1;
 }
 
+/* Only a printer row draws the count on the Filament label's line. */
+.printer-filament-tally {
+  display: none;
+}
+
 .printer-filament-count {
   flex: none;
   color: var(--accent-content);
@@ -2677,13 +2682,17 @@ html[data-grayscale-text="true"] {
  * room. The tap on the job name opens the whole fault.
  */
 .printer-status[data-layout="quad"] .printer-problem {
+  margin-top: 6px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+/* The text clamps, not the box, so a third line never shows in its padding. */
+.printer-status[data-layout="quad"] .printer-problem-text {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  margin-top: 6px;
-  padding: 5px 9px;
-  font-size: 13px;
 }
 
 .printer-status[data-layout="quad"]
@@ -2709,6 +2718,29 @@ html[data-grayscale-text="true"] {
 .printer-status[data-layout="quad"] .printer-band-remaining,
 .printer-status[data-layout="quad"] .printer-band-ended {
   font-size: 14px;
+}
+
+/*
+ * As in a row, the ended lines wrap rather than end in an ellipsis. A line
+ * the band cannot hold moves, whole, to a second column the summary hides;
+ * the dialog gives the whole end time.
+ */
+.printer-status[data-layout="quad"] .printer-band-ended {
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-self: stretch;
+  align-content: flex-start;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-band-ended
+  span {
+  width: 100%;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .printer-status[data-layout="quad"] .printer-metrics {
@@ -2956,33 +2988,37 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * The value, not the tile, is the container, so the label still sets the
- * tile's narrowest width while the name inside gives way.
+ * The value's own width is contained, so the filament name inside never
+ * sets the tile's narrowest width; the label does, and the name gives way.
  */
 .printer-status[data-layout="list"] .printer-metric.is-filament
   dd {
-  container: printer-filament / inline-size;
+  container-type: inline-size;
 }
 
 /*
- * A tile too narrow for the label and the count beside it drops the count;
- * the whole tile still opens the list, and its name says how many. The
- * value is the tile less its 8 px sides: 108 px is a 124 px tile.
+ * In a row, the count sits on the label's line, floated right. A line too
+ * short for both moves the count, whole, to a second line the label hides:
+ * the count never covers the label, in any font. The whole tile still opens
+ * the list.
  */
-@container printer-filament (max-width: 108px) {
-  .printer-status[data-layout="list"]
-    .printer-filament-count {
-    display: none;
-  }
+.printer-status[data-layout="list"] .printer-metric.is-filament
+  dt {
+  height: 13px;
+  overflow: hidden;
+  line-height: 13px;
 }
 
-/* A two-digit count, such as "16 filaments", needs 16 px more. */
-@container printer-filament (max-width: 124px) {
-  .printer-status[data-layout="list"]
-    .has-long-count
-    .printer-filament-count {
-    display: none;
-  }
+.printer-status[data-layout="list"]
+  .printer-filament-tally {
+  display: block;
+  float: right;
+  margin-left: 8px;
+  color: var(--fg-dim);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .printer-status[data-layout="list"]
@@ -2991,12 +3027,10 @@ html[data-grayscale-text="true"] {
   padding: 0 8px 4px;
 }
 
+/* The tally on the label's line says the count in a row. */
 .printer-status[data-layout="list"]
-  .printer-filament-count {
-  position: absolute;
-  top: 3px;
-  right: 8px;
-  font-size: 10px;
+.printer-filament-count {
+  display: none;
 }
 
 .printer-status[data-layout="list"]
@@ -3402,33 +3436,47 @@ html[data-grayscale-text="true"] {
 
 /*
  * A narrower view drops the three facts first; the band, the plate and the
- * controls are what a person at the bench reads and touches. Each width is
- * the view's content box: the view's width less its 26 px sides. The widest
- * facts (a five-digit layer count and a finish a month out) still leave the
- * state its whole word from 1068 px in Outfit or a fallback font; the cutoff
- * keeps 32 px more than that. The details dialog gives what a row drops.
+ * controls are what a person at the bench reads and touches. The view sets
+ * `data-is-folded` at 1048 px of content or less (its width less its 26 px
+ * sides), and at any width where a drawn row would cut its state word: no
+ * fixed width holds the widest facts in every fallback font. `:where` keeps
+ * these rules no stronger than the narrower steps below. The details dialog
+ * gives what a row drops.
  */
-@container printer-status (max-width: 1100px) {
-  .printer-status[data-layout="list"] .printer-body {
-    grid-template-columns:
-      minmax(0, 1fr)
-      minmax(150px, 0.6fr)
-      auto;
-  }
+.printer-status[data-layout="list"]:where(
+  [data-is-folded="true"]
+)
+.printer-body {
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(150px, 0.6fr)
+    auto;
+}
 
-  .printer-status[data-layout="list"] .printer-metrics {
-    display: none;
-  }
+.printer-status[data-layout="list"]:where(
+    [data-is-folded="true"]
+  )
+  .printer-metrics {
+  display: none;
+}
 
-  .printer-status[data-layout="list"] .printer-band {
-    grid-column: 2;
-  }
+.printer-status[data-layout="list"]:where(
+    [data-is-folded="true"]
+  )
+  .printer-band {
+  grid-column: 2;
+}
 
-  .printer-status[data-layout="list"] .printer-actions,
-  .printer-status[data-layout="list"] .printer-clear {
-    grid-column: 3;
-    width: 180px;
-  }
+.printer-status[data-layout="list"]:where(
+    [data-is-folded="true"]
+  )
+  .printer-actions,
+.printer-status[data-layout="list"]:where(
+    [data-is-folded="true"]
+  )
+  .printer-clear {
+  grid-column: 3;
+  width: 180px;
 }
 
 /*

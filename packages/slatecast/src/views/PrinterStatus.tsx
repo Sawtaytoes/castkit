@@ -96,6 +96,31 @@ const PRINTER_STATUS_VERTICAL_PADDING = 36
 const PRINTER_STATUS_HORIZONTAL_PADDING = 52
 
 /**
+ * A row drops its Layer, Finishes and Filament tiles at this width of the
+ * view's content box or less. The view also drops them, at any width, when
+ * a drawn row's state word would be cut: no fixed width holds the widest
+ * facts in every font a panel may fall back to.
+ */
+export const PRINTER_ROW_FACTS_MIN_WIDTH = 1048
+
+/**
+ * The width of the view's content box, the box its container queries see.
+ * Computed sizes, not `clientWidth`: they keep the fraction of a pixel the
+ * container queries see, so a 300.31 px view is not taken for a 300 px one,
+ * and they ignore a turned stage's rotation.
+ */
+const getContentWidth = (view: HTMLElement) => {
+  const viewStyle = getComputedStyle(view)
+  return (
+    Number.parseFloat(viewStyle.width) -
+    Number.parseFloat(viewStyle.paddingLeft) -
+    Number.parseFloat(viewStyle.paddingRight) -
+    Number.parseFloat(viewStyle.borderLeftWidth) -
+    Number.parseFloat(viewStyle.borderRightWidth)
+  )
+}
+
+/**
  * How long a pause/stop question stays on the card before it withdraws itself.
  *
  * A confirmation nobody answered must not sit on the glass: the panel is a wall
@@ -360,7 +385,17 @@ const getFilamentLines = (job: PrinterJob) => {
     summary: job.filamentText,
   })
   const lines = [
-    ...(summaryText ? [{ text: summaryText }] : []),
+    ...(summaryText
+      ? [
+          {
+            text: summaryText,
+            // The feed's active color, when it names no slot to show it.
+            filament: job.filamentColor
+              ? { color: job.filamentColor }
+              : undefined,
+          },
+        ]
+      : []),
     ...(job.filaments ?? []).map((filament) => ({
       text: [
         getFilamentSlotName(filament),
@@ -499,7 +534,9 @@ const PrinterCard = ({
         </button>
         {job.problemText && !isProblemOnJobLine ? (
           <p class="printer-problem" role="status">
-            {job.problemText}
+            <span class="printer-problem-text">
+              {job.problemText}
+            </span>
           </p>
         ) : null}
         <div class="printer-band">
@@ -597,7 +634,22 @@ const PrinterCard = ({
                     : "printer-metric is-filament is-pending"
                 }
               >
-                <dt>Filament</dt>
+                <dt>
+                  Filament
+                  {/* A row's count, on the label's line. The button below
+                      names the count for assistive tech. */}
+                  {job.filaments?.length ? (
+                    <span
+                      class="printer-filament-tally"
+                      aria-hidden="true"
+                    >
+                      {job.filaments.length === 1
+                        ? "1 filament"
+                        : `${job.filaments.length} filaments`}{" "}
+                      ›
+                    </span>
+                  ) : null}
+                </dt>
                 <dd>
                   {job.filamentText ||
                   job.filaments?.length ? (
@@ -721,6 +773,46 @@ export const PrinterStatus = () => {
   }))
   const availableHeight = cardArea.height
   const hasJobs = jobs.length > 0
+  /*
+   * The widest view, so far, whose rows cut a state word with their facts
+   * drawn. The rows keep the facts folded at that width and narrower; a
+   * wider view, or new facts, tries them again.
+   */
+  const [crowdedWidth, setCrowdedWidth] = useState<
+    number | null
+  >(null)
+  const printersPayload = printers.value
+  useLayoutEffect(() => {
+    // New facts may fit where the old ones did not.
+    void printersPayload
+    setCrowdedWidth(null)
+  }, [printersPayload])
+  /*
+   * After every render: a row whose state word is cut while the facts are
+   * drawn folds them. A folded view is not measured, so this cannot loop:
+   * only a wider view or a new payload unfolds it, once.
+   */
+  useLayoutEffect(() => {
+    const view = viewRef.current
+    if (
+      view?.dataset.layout !== "list" ||
+      view.dataset.isFolded === "true"
+    ) {
+      return
+    }
+    const isCrowded = Array.from(
+      view.querySelectorAll<HTMLElement>(
+        ".printer-card .printer-state-label",
+      ),
+    ).some(
+      (label) => label.scrollWidth > label.clientWidth + 1,
+    )
+    // The width drawn, not the one in state: the first render draws before
+    // the view is measured.
+    if (isCrowded) {
+      setCrowdedWidth(getContentWidth(view))
+    }
+  })
 
   /*
    * The card area's size decides the arrangement and how many rows finish on
@@ -735,19 +827,8 @@ export const PrinterStatus = () => {
     if (!hasJobs || !view || !cards) {
       return undefined
     }
-    /*
-     * Computed sizes, not `clientWidth`: they keep the fraction of a pixel
-     * the container queries see, so a 300.31 px view is not taken for a
-     * 300 px one, and they ignore a turned stage's rotation.
-     */
     const measure = () => {
-      const viewStyle = getComputedStyle(view)
-      const contentWidth =
-        Number.parseFloat(viewStyle.width) -
-        Number.parseFloat(viewStyle.paddingLeft) -
-        Number.parseFloat(viewStyle.paddingRight) -
-        Number.parseFloat(viewStyle.borderLeftWidth) -
-        Number.parseFloat(viewStyle.borderRightWidth)
+      const contentWidth = getContentWidth(view)
       const cardsHeight = Number.parseFloat(
         getComputedStyle(cards).height,
       )
@@ -930,6 +1011,11 @@ export const PrinterStatus = () => {
           printerCount: jobs.length,
         })
       : { visibleCount: jobs.length }
+  const isFolded =
+    layout === "list" &&
+    (cardArea.width <= PRINTER_ROW_FACTS_MIN_WIDTH ||
+      (crowdedWidth !== null &&
+        cardArea.width <= crowdedWidth))
   const visibleJobs = jobs.slice(0, visibleCount)
   const hiddenJobs = jobs.slice(visibleCount)
   const printerNoun =
@@ -1008,6 +1094,7 @@ export const PrinterStatus = () => {
       class="printer-status"
       data-count={String(jobs.length)}
       data-layout={layout}
+      data-is-folded={isFolded ? "true" : undefined}
       data-quad-shape={
         layout === "quad"
           ? chooseQuadCardShape(cardArea.width)

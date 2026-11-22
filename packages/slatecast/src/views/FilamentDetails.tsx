@@ -64,11 +64,7 @@ export const FilamentControl = ({
   return (
     <button
       type="button"
-      class={
-        count >= 10
-          ? "printer-filament-button has-long-count"
-          : "printer-filament-button"
-      }
+      class="printer-filament-button"
       aria-haspopup="dialog"
       aria-expanded={isExpanded}
       aria-controls="printer-filament-details"
@@ -147,11 +143,17 @@ export const getFilamentSlotName = (
     .filter(Boolean)
     .join(" ") || "Filament name unavailable"
 
+/** The colors a swatch draws, from a slot or from a feed's active color. */
+export type FilamentSwatchColors = Pick<
+  PrinterFilamentAssignment,
+  "rgba" | "color" | "extraColors" | "effectType"
+>
+
 /** A slot's swatch: every color it carries, or a hatch when it has none. */
 export const FilamentSlotSwatch = ({
   filament,
 }: {
-  filament: PrinterFilamentAssignment
+  filament: FilamentSwatchColors
 }) => {
   const rgba = filament.rgba ?? filament.color
   return (

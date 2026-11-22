@@ -324,8 +324,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    facts. Each of the
    view's dialogs holds the keyboard while it is open: focus starts inside,
    Tab stays inside, and Escape closes only that dialog. In a row, a fault takes the job name's
-   line, inside the same button. In the 2×2 grid, a fault gets two lines and
-   the Layer and Finishes blocks give it their room.
+   line, inside the same button. In the 2×2 grid, a fault gets two whole
+   lines, never a third cut through its padding, and the Layer and
+   Finishes blocks give it their room. A grid card's `Ended` time wraps or
+   gives way whole, as in a row, rather than end in an ellipsis.
 5. **The count picks the arrangement; the panel only folds it.** Four printers
    use rows instead of the quad when the view is under 652 px wide, or when the
    card area is too short for two cards. A quad card puts its picture beside
@@ -338,10 +340,11 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    the circle, so its view folds at a wider outer width. The quad needs
    600 px of content (652 px view), and puts its picture beside the facts
    from 1132 px (1184 px view). A turned panel folds for the width it has.
-   A row with 1100 px of content or less (1152 px view) drops the three fact
-   blocks. That leaves room: the widest facts, a five-digit layer count and
-   a finish a month out, need the blocks gone only up to 1067 px, in Outfit
-   or a fallback font. At 760 px or less (812 px view) it drops the number badge, so a
+   A row with 1048 px of content or less (1100 px view) drops the three fact
+   blocks. A wider view drops them too while a drawn row would cut its
+   state word, as the widest facts can in a wide fallback font: no fixed
+   width holds them in every font, so the view measures the rows it draws.
+   A wider view, or the next payload, tries the blocks again. At 760 px or less (812 px view) it drops the number badge, so a
    long state word such as `Preparing` stays whole beside a name at its
    4.5 em floor. At 708 px or less (760 px view) it also drops the
    nozzle and the time left, and Pause and Stop become Lucide icons whose
@@ -368,10 +371,11 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    round panel, four printers and up keep to the square inside the circle,
    and so do the dialogs. Layer and Finishes keep their whole width; the
    filament name gives way first, and the Filament tile never gets narrower
-   than its own label. The facts column never gets narrower than Layer,
-   Finishes and that label; the name's column gives way to it. The tile's
-   `2 filaments` count shows only when the tile has room for it beside the
-   label: a value wider than 108 px, or 124 px for a two-digit count.
+   than its own label, or its `2 filaments` count. The facts column never
+   gets narrower than Layer, Finishes and that tile; the name's column
+   gives way to it. The count sits on the label's line and shows only when
+   the line holds both: a line too short for both moves the count, whole,
+   out of view.
 6. **Pause and Stop stay a fingertip tall.** Every row button is at least 48 px.
 
 ## Previews

@@ -60,7 +60,7 @@ const PANELS = [
     { width: 3440, height: 1440 },
   ],
   /*
-   * Both sides of every cutoff: the 760 px, 812 px and 1152 px row widths, the
+   * Both sides of every cutoff: the 760 px and 1100 px row widths, the
    * height a 2×2 grid needs, the width that puts its picture beside the
    * facts, and the sizes an earlier review found clipped.
    */
@@ -71,8 +71,6 @@ const PANELS = [
   ["the 650x890 window", { width: 650, height: 890 }],
   ["the 1099x700 window", { width: 1099, height: 700 }],
   ["the 1101x700 window", { width: 1101, height: 700 }],
-  ["the 1151x700 window", { width: 1151, height: 700 }],
-  ["the 1153x700 window", { width: 1153, height: 700 }],
   ["the 1183x720 window", { width: 1183, height: 720 }],
   ["the 1184x720 window", { width: 1184, height: 720 }],
   ["the 1200x596 window", { width: 1200, height: 596 }],
@@ -251,6 +249,24 @@ const textBox = (element: Element) => {
   return range.getBoundingClientRect()
 }
 
+/**
+ * A tile label's own word, without the count a row floats on its line: the
+ * label's first text node.
+ */
+const termTextBox = (term: Element) => {
+  const word = Array.from(term.childNodes).find(
+    (node) =>
+      node.nodeType === Node.TEXT_NODE &&
+      (node.textContent ?? "").trim() !== "",
+  )
+  if (!word) {
+    return textBox(term)
+  }
+  const range = document.createRange()
+  range.selectNodeContents(word)
+  return range.getBoundingClientRect()
+}
+
 const drawnWithin = (root: Element, selector: string) =>
   Array.from(root.querySelectorAll(selector)).filter(
     isDrawn,
@@ -413,7 +429,7 @@ const findLayoutProblems = () => {
             isDrawn(filamentLabel) &&
             isOverlapping(
               filamentCount.getBoundingClientRect(),
-              textBox(filamentLabel),
+              termTextBox(filamentLabel),
             )
               ? [
                   `${label}: the filament count covers its label`,
@@ -438,6 +454,34 @@ const findLayoutProblems = () => {
                 ]
               : []),
           ]
+        : []
+    /*
+     * A row's count on the label's line shows whole beside the label, or
+     * has moved, whole, below the line the label shows.
+     */
+    const tally = card.querySelector(
+      ".printer-filament-tally",
+    )
+    const tallyProblems =
+      tally && filamentLabel && isDrawn(tally)
+        ? (() => {
+            const tallyBox = tally.getBoundingClientRect()
+            const termBox =
+              filamentLabel.getBoundingClientRect()
+            if (isInside(tallyBox, termBox)) {
+              return isOverlapping(
+                tallyBox,
+                termTextBox(filamentLabel),
+              )
+                ? [
+                    `${label}: the filament count covers its label`,
+                  ]
+                : []
+            }
+            return isOverlapping(tallyBox, termBox)
+              ? [`${label}: the filament count is cut`]
+              : []
+          })()
         : []
     /*
      * The filament's own words: inside the tile, and clear of its label. Each
@@ -466,7 +510,7 @@ const findLayoutProblems = () => {
         isDrawn(filamentLabel) &&
         isOverlapping(
           line.getBoundingClientRect(),
-          textBox(filamentLabel),
+          termTextBox(filamentLabel),
         )
           ? [
               `${label}: the filament line "${line.textContent}" covers its label`,
@@ -534,7 +578,7 @@ const findLayoutProblems = () => {
         return (
           metric !== null &&
           !isInside(
-            textBox(term),
+            termTextBox(term),
             metric.getBoundingClientRect(),
           )
         )
@@ -563,6 +607,7 @@ const findLayoutProblems = () => {
           `${label}: ${metric.className} leaves its grid`,
       )
     return [
+      ...tallyProblems,
       ...metricProblems,
       ...metricLabelProblems,
       ...outside,
@@ -2353,6 +2398,26 @@ describe("a view too narrow for a row", () => {
 })
 
 /**
+ * The font a sweep draws in. A fallback font is the stack's next font, as
+ * though Outfit failed to load. A wider font adds letter spacing to it, for
+ * a machine whose fallback is wider than this one's, such as a CI runner's.
+ */
+const useTestFont = (
+  font: "Outfit" | "a fallback font" | "a wider font",
+) => {
+  if (font === "Outfit") {
+    return
+  }
+  const style = document.createElement("style")
+  style.textContent = `.printer-status, .printer-status * {
+      font-family: "Noto Sans JP", ui-sans-serif, system-ui, Arial, sans-serif !important;
+      ${font === "a wider font" ? "letter-spacing: 0.08em !important;" : ""}
+    }`
+  document.head.append(style)
+  onTestFinished(() => style.remove())
+}
+
+/**
  * A job with the widest Layer and Finishes a row can be handed: a five-digit
  * layer count, and a finish late on a weekday, or on the 28th of next month,
  * a two-digit day.
@@ -2431,6 +2496,22 @@ describe("the widest facts in a row", () => {
       count: 5,
       height: 0,
     },
+    {
+      finishes: "a date",
+      state: "preparing",
+      font: "a wider font",
+      shape: "square",
+      count: 4,
+      height: 720,
+    },
+    {
+      finishes: "a date",
+      state: "preparing",
+      font: "a wider font",
+      shape: "square",
+      count: 5,
+      height: 900,
+    },
   ] as const)("$count printers, $state, finishing on $finishes in $font, keep every tile, label and state word whole on a $shape panel", async ({
     finishes,
     state,
@@ -2439,15 +2520,7 @@ describe("the widest facts in a row", () => {
     count,
     height,
   }) => {
-    if (font !== "Outfit") {
-      // As though Outfit failed to load: the stack's next, wider fonts.
-      const fallback = document.createElement("style")
-      fallback.textContent = `.printer-status, .printer-status * {
-          font-family: "Noto Sans JP", ui-sans-serif, system-ui, Arial, sans-serif !important;
-        }`
-      document.head.append(fallback)
-      onTestFinished(() => fallback.remove())
-    }
+    useTestFont(font)
     // A round panel insets its view, so it folds at a wider outer size.
     const sizes =
       shape === "square"
@@ -2492,7 +2565,8 @@ describe("the widest facts in a row", () => {
       )
     }
 
-    expect(metricsSeen).toBeGreaterThan(100)
+    // A fallback font folds the facts over more of the sweep.
+    expect(metricsSeen).toBeGreaterThan(50)
     expect(problems).toEqual([])
     // A sweep of over a hundred window sizes outlasts the default under load.
   }, 90_000)
@@ -2614,15 +2688,15 @@ describe("the facts a compact row drops", () => {
     // The feed's time left, which the narrow band drops, and the finish.
     expect(printing).toHaveTextContent("1h 27m left")
     expect(printing).toHaveTextContent("Finishes")
-    // Each slot keeps its swatch, with every color it carries.
+    // The summary and each slot keep a swatch, with every color it carries.
     const swatches = Array.from(
       printing?.querySelectorAll(
         ".printer-details-swatch",
       ) ?? [],
     )
-    expect(swatches).toHaveLength(2)
+    expect(swatches).toHaveLength(3)
     const dualColors = Array.from(
-      swatches[1]?.querySelectorAll<HTMLElement>("*") ?? [],
+      swatches[2]?.querySelectorAll<HTMLElement>("*") ?? [],
     )
       .map((part) => part.style.background)
       .join(" ")
@@ -2692,11 +2766,19 @@ describe("the facts a compact row drops", () => {
   })
 })
 
-describe("a two-digit filament count", () => {
-  test("never covers its label in a sweep of window sizes", async () => {
+describe("a filament count", () => {
+  test.each([
+    { count: 16, font: "Outfit" },
+    { count: 16, font: "a wider font" },
+    { count: 2, font: "a wider font" },
+  ] as const)("of $count never covers its label in $font, in a sweep of window sizes", async ({
+    count: filamentCount,
+    font,
+  }) => {
+    useTestFont(font)
     const [first, ...rest] = buildPrinters(5)
     const filaments = Array.from(
-      { length: 16 },
+      { length: filamentCount },
       (_, index) => ({
         name: "PLA Basic",
         color: "#1c1c1c",
@@ -2723,9 +2805,18 @@ describe("a two-digit filament count", () => {
       await page.viewport(width, 900)
       await nextFrame()
       const count = document.querySelector(
-        ".printer-card .printer-filament-count",
+        ".printer-card .printer-filament-tally",
       )
-      if (count && isDrawn(count)) {
+      const term = count?.closest("dt")
+      if (
+        count &&
+        term &&
+        isDrawn(count) &&
+        isInside(
+          count.getBoundingClientRect(),
+          term.getBoundingClientRect(),
+        )
+      ) {
         countsSeen += 1
       }
       problems.push(
@@ -2739,4 +2830,184 @@ describe("a two-digit filament count", () => {
     expect(countsSeen).toBeGreaterThan(10)
     expect(problems).toEqual([])
   }, 90_000)
+})
+
+const areFactsDrawn = () => {
+  const metrics = document.querySelector(
+    ".printer-card .printer-metrics",
+  )
+  return metrics !== null && isDrawn(metrics)
+}
+
+describe("when a row draws its facts", () => {
+  test.each([
+    { width: 1099, height: 700, isDrawn: false },
+    { width: 1101, height: 700, isDrawn: true },
+    { width: 1280, height: 720, isDrawn: true },
+  ] as const)("$width x $height: the facts are drawn is $isDrawn", async ({
+    width,
+    height,
+    isDrawn: isExpected,
+  }) => {
+    await mountOnPanel({
+      width,
+      height,
+      printers: buildPrinters(5),
+    })
+
+    expect(areFactsDrawn()).toBe(isExpected)
+    expect(findLayoutProblems()).toEqual([])
+  })
+
+  test("a state word the facts would cut folds them, in any font", async () => {
+    // A wider state word than any font draws, so no fixed width can hold it.
+    const wide = document.createElement("style")
+    wide.textContent = `.printer-state-label { letter-spacing: 20px; }`
+    document.head.append(wide)
+    onTestFinished(() => wide.remove())
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildPrinters(5),
+    })
+    await nextFrame()
+
+    expect(areFactsDrawn()).toBe(false)
+    expect(
+      document
+        .querySelector(".printer-status")
+        ?.getAttribute("data-is-folded"),
+    ).toBe("true")
+    expect(findLayoutProblems()).toEqual([])
+
+    // Without the wide word, a wider view tries the facts again.
+    wide.remove()
+    await page.viewport(1290, 720)
+    await nextFrame()
+    expect(areFactsDrawn()).toBe(true)
+    expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+describe("a long fault in the 2×2 grid", () => {
+  test.each([
+    { width: 1280, height: 720 },
+    { width: 652, height: 872 },
+  ] as const)("shows two whole lines and no third on a $width x $height panel", async ({
+    width,
+    height,
+  }) => {
+    const [first, ...rest] = buildPrinters(4)
+    await mountOnPanel({
+      width,
+      height,
+      printers: [
+        {
+          ...first,
+          state: "paused",
+          problemText:
+            "Printer reports: HMS_0700_2000_0002_0001 AMS 1 slot 3 ran out; HMS_0300_1A00_0002_0001 nozzle temperature is abnormal; HMS_0C00_0300_0003_0008 the first layer inspection found a possible defect; HMS_0500_0400_0002_0012 the build plate is not placed",
+        },
+        ...rest,
+      ],
+    })
+    const problem = document.querySelector<HTMLElement>(
+      ".printer-card .printer-problem",
+    )
+    const text = problem?.querySelector<HTMLElement>(
+      ".printer-problem-text",
+    )
+    if (!problem || !text) {
+      throw new Error("The first card shows no fault.")
+    }
+    const problemBox = problem.getBoundingClientRect()
+    const paddingBottom = Number.parseFloat(
+      getComputedStyle(problem).paddingBottom,
+    )
+    const lineHeight = Number.parseFloat(
+      getComputedStyle(text).lineHeight,
+    )
+
+    // The clamp ends inside the box's padding, never in it.
+    expect(
+      text.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(
+      problemBox.bottom - paddingBottom + 0.5,
+    )
+    expect(text.clientHeight).toBeLessThanOrEqual(
+      lineHeight * 2 + 0.5,
+    )
+  })
+})
+
+describe("a feed with only the active filament", () => {
+  test("the details keep its color", async () => {
+    const [first, ...rest] = buildPrinters(5)
+    await mountOnPanel({
+      width: 480,
+      height: 320,
+      printers: [
+        {
+          ...first,
+          filamentText: "PLA · AMS 1 slot 1",
+          filamentColor: "#eb3f17",
+          filaments: undefined,
+        },
+        ...rest,
+      ],
+    })
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    const swatch = document.querySelector<HTMLElement>(
+      '[role="dialog"] .printer-details-swatch .fss-swatch',
+    )
+    // A one-color swatch paints its color from a custom property.
+    const colors =
+      swatch?.style.getPropertyValue("--c") ?? ""
+
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toHaveTextContent("PLA · AMS 1 slot 1")
+    expect(colors).toMatch(/235,? 63,? 23|#eb3f17/i)
+  })
+})
+
+describe("the end time in the 2×2 grid", () => {
+  test.each([
+    "Outfit",
+    "a fallback font",
+    "a wider font",
+  ] as const)("shows whole or not at all on a 652 x 872 panel in %s", async (font) => {
+    useTestFont(font)
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    yesterday.setHours(10, 58, 0, 0)
+    await mountOnPanel({
+      width: 652,
+      height: 872,
+      printers: [
+        {
+          ...buildLateFailure(),
+          finishAtMs: yesterday.getTime(),
+        },
+        ...buildPrinters(4).slice(1),
+      ],
+    })
+
+    expect(
+      document
+        .querySelector(".printer-status")
+        ?.getAttribute("data-layout"),
+    ).toBe("quad")
+    expect(findEndedOverflow()).toBeNull()
+  })
 })

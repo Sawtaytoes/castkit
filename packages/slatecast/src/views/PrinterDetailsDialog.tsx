@@ -1,11 +1,13 @@
-import type { PrinterFilamentAssignment } from "@castkit/shared/viewData/types"
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
 } from "preact/hooks"
-import { FilamentSlotSwatch } from "./FilamentDetails.tsx"
+import {
+  FilamentSlotSwatch,
+  type FilamentSwatchColors,
+} from "./FilamentDetails.tsx"
 import { useDialogFocus } from "./useDialogFocus.ts"
 
 /** One printer as the dialog lists it. The caller works out the words. */
@@ -27,11 +29,13 @@ export type PrinterDetailsEntry = {
    * compact row may not draw.
    */
   progressText?: string
-  /** The filament, one line per slot, which a compact row may not draw. */
+  /**
+   * The filament, one line per slot, which a compact row may not draw. Each
+   * line has its swatch: the slot's colors, or the feed's active color.
+   */
   filamentLines?: readonly {
     text: string
-    /** The slot, for its swatch. The feed's summary line has none. */
-    filament?: PrinterFilamentAssignment
+    filament?: FilamentSwatchColors
   }[]
 }
 
