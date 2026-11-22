@@ -436,6 +436,22 @@ test("a finger drag scrolls a long slot list, and the drag is no tap", () => {
   expect(onClose).not.toHaveBeenCalled()
 })
 
+/** A primary mouse press at a corner of the backdrop, clear of the box. */
+const backdropMouse = (overlay: HTMLElement) => {
+  const bounds = overlay.getBoundingClientRect()
+  const point = { x: bounds.left + 4, y: bounds.top + 4 }
+  expect(document.elementFromPoint(point.x, point.y)).toBe(
+    overlay,
+  )
+  return {
+    pointerId: 1,
+    pointerType: "mouse",
+    button: 0,
+    clientX: point.x,
+    clientY: point.y,
+  }
+}
+
 test("a press that began in the list does not close it from the backdrop", () => {
   const onClose = vi.fn()
   render(
@@ -451,7 +467,7 @@ test("a press that began in the list does not close it from the backdrop", () =>
   if (!overlay) {
     throw new Error("The dialog has no backdrop.")
   }
-  const mouse = { pointerId: 1, pointerType: "mouse" }
+  const mouse = backdropMouse(overlay)
   // Chromium sends a moved press's click to the shared parent.
   fireEvent.pointerDown(box, mouse)
   fireEvent.pointerUp(overlay, mouse)
@@ -482,10 +498,7 @@ test("an update between press and release keeps a backdrop tap", () => {
   if (!overlay) {
     throw new Error("The dialog has no backdrop.")
   }
-  fireEvent.pointerDown(overlay, {
-    pointerId: 1,
-    pointerType: "mouse",
-  })
+  fireEvent.pointerDown(overlay, backdropMouse(overlay))
   // A live update hands the dialog a new close before the release.
   rerender(
     <FilamentDetailsDialog
@@ -495,12 +508,34 @@ test("an update between press and release keeps a backdrop tap", () => {
       onClose={nextClose}
     />,
   )
-  fireEvent.pointerUp(overlay, {
-    pointerId: 1,
-    pointerType: "mouse",
-  })
+  fireEvent.pointerUp(overlay, backdropMouse(overlay))
   fireEvent.click(overlay, { detail: 1 })
 
   expect(nextClose).toHaveBeenCalledTimes(1)
   expect(firstClose).not.toHaveBeenCalled()
+})
+
+test("a right-click on the backdrop keeps the list open", () => {
+  const onClose = vi.fn()
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={filaments}
+      onClose={onClose}
+    />,
+  )
+  const overlay = screen.getByRole("dialog").parentElement
+  if (!overlay) {
+    throw new Error("The dialog has no backdrop.")
+  }
+  const rightButton = {
+    ...backdropMouse(overlay),
+    button: 2,
+  }
+  fireEvent.pointerDown(overlay, rightButton)
+  fireEvent.pointerUp(overlay, rightButton)
+  fireEvent.contextMenu(overlay, rightButton)
+
+  expect(onClose).not.toHaveBeenCalled()
 })

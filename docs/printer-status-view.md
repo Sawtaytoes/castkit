@@ -396,7 +396,11 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    their type from 15 px only where the tile cannot hold `99998 / 99999` or
    `Dec 28 10:59p` whole. A tap on the backdrop closes a dialog on its
    release, so a tap through the Linux WebKit touch adapter, which sends no
-   click, closes it too. In rows, Layer and Finishes keep their whole width; the
+   click, closes it too. Only a primary press that starts and lifts on the
+   backdrop closes it: a finger dragged from the backdrop into the list, or
+   a right-click, keeps it open. While the view tries its rows again, the
+   hidden-printer list keeps its entries; it closes only once no printer
+   has been hidden for two frames. In rows, Layer and Finishes keep their whole width; the
    filament name gives way first, and the Filament tile never gets narrower
    than its own label, or its `2 filaments` count. The facts column never
    gets narrower than Layer, Finishes and that tile; the name's column

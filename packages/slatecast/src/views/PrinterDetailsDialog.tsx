@@ -99,13 +99,41 @@ export const PrinterDetailsDialog = ({
     }
   }, [isClosing, onClose])
 
-  /* Nothing left to list, such as every hidden printer now drawn: close. */
+  /*
+   * Nothing left to list, such as every hidden printer now drawn: close. But
+   * only if the list is still empty two frames on. The view tries its rows
+   * again on a new payload or minute, drawing them all for one render before
+   * its check hides them again; the list keeps its last entries through that
+   * render and does not close. The frames read the latest list, not this
+   * render's, because an effect's cleanup runs only after the next paint.
+   */
   const hasPrinters = printers.length > 0
+  const lastPrinters = useRef(printers)
+  const isEmptyNow = useRef(!hasPrinters)
+  isEmptyNow.current = !hasPrinters
+  if (hasPrinters) {
+    lastPrinters.current = printers
+  }
+  const shownPrinters = lastPrinters.current
+  const latestOnClose = useRef(onClose)
+  latestOnClose.current = onClose
   useEffect(() => {
-    if (!hasPrinters) {
-      onClose()
+    if (hasPrinters) {
+      return undefined
     }
-  }, [hasPrinters, onClose])
+    const frameIds = { first: 0, second: 0 }
+    frameIds.first = requestAnimationFrame(() => {
+      frameIds.second = requestAnimationFrame(() => {
+        if (isEmptyNow.current) {
+          latestOnClose.current()
+        }
+      })
+    })
+    return () => {
+      cancelAnimationFrame(frameIds.first)
+      cancelAnimationFrame(frameIds.second)
+    }
+  }, [hasPrinters])
 
   useDialogFocus({
     dialogRef: dialogBox,
@@ -118,7 +146,7 @@ export const PrinterDetailsDialog = ({
     onClose: requestClose,
   })
 
-  if (!hasPrinters) {
+  if (shownPrinters.length === 0) {
     return null
   }
 
@@ -148,7 +176,7 @@ export const PrinterDetailsDialog = ({
           </button>
         </header>
         <ul class="filament-details-list printer-details-list">
-          {printers.map((printer) => (
+          {shownPrinters.map((printer) => (
             <li
               key={printer.id}
               class="printer-details-item"

@@ -3318,6 +3318,42 @@ describe("a finger drag in the hidden-printer list", () => {
   })
 })
 
+/**
+ * A point where the element, or a part of it, is what lies on top, so a
+ * release there lands on it: the center for most, but an edge for a
+ * backdrop, whose center the box covers.
+ */
+const findPointOn = (element: Element) => {
+  const bounds = element.getBoundingClientRect()
+  const candidates = [
+    {
+      x: bounds.left + bounds.width / 2,
+      y: bounds.top + bounds.height / 2,
+    },
+    ...Array.from({ length: 19 }, (_, index) => ({
+      x: bounds.left + (bounds.width * (index + 1)) / 20,
+      y: bounds.top + bounds.height / 2,
+    })),
+    ...Array.from({ length: 19 }, (_, index) => ({
+      x: bounds.left + bounds.width / 2,
+      y: bounds.top + (bounds.height * (index + 1)) / 20,
+    })),
+  ]
+  const hits = candidates.map((point) => ({
+    point,
+    hit: document.elementFromPoint(point.x, point.y),
+  }))
+  // The element itself first, so a backdrop is not hit through its box.
+  const point = (
+    hits.find(({ hit }) => hit === element) ??
+    hits.find(({ hit }) => element.contains(hit))
+  )?.point
+  if (!point) {
+    throw new Error("No point lands on the element.")
+  }
+  return { clientX: point.x, clientY: point.y }
+}
+
 describe("the hidden-printer list and a press that moves", () => {
   const openList = async () => {
     await mountOnPanel({
@@ -3355,26 +3391,46 @@ describe("the hidden-printer list and a press that moves", () => {
   const mouseGesture = ({
     from,
     to,
+    button = 0,
   }: {
     from: Element
     to: Element
+    button?: number
   }) => {
-    const mouse = { pointerId: 1, pointerType: "mouse" }
+    const mouse = {
+      pointerId: 1,
+      pointerType: "mouse",
+      button,
+    }
     from.dispatchEvent(
       new PointerEvent("pointerdown", {
         bubbles: true,
         ...mouse,
+        ...findPointOn(from),
       }),
     )
     to.dispatchEvent(
       new PointerEvent("pointerup", {
         bubbles: true,
         ...mouse,
+        ...findPointOn(to),
       }),
     )
-    to.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, detail: 1 }),
-    )
+    if (button === 0) {
+      to.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          detail: 1,
+        }),
+      )
+    } else {
+      to.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          button,
+        }),
+      )
+    }
   }
 
   test("a mouse pressed in the list and released on the backdrop keeps the list open", async () => {
@@ -3400,6 +3456,17 @@ describe("the hidden-printer list and a press that moves", () => {
     await expect
       .poll(() => document.querySelector('[role="dialog"]'))
       .toBeNull()
+  })
+
+  test("a right-click on the backdrop keeps the list open", async () => {
+    const { box, overlay } = await openList()
+    mouseGesture({ from: overlay, to: overlay, button: 2 })
+
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(overlay.dataset.closing).toBeUndefined()
+    expect(document.querySelector('[role="dialog"]')).toBe(
+      box,
+    )
   })
 
   test("after a finger drag from Close, Enter still closes the list", async () => {
@@ -4086,5 +4153,123 @@ describe("a backdrop tap through the WebKit touch adapter", () => {
     await expect
       .poll(() => document.querySelector('[role="dialog"]'))
       .toBeNull()
+  })
+})
+
+describe("a finger dragged from the backdrop into the list", () => {
+  test("keeps the hidden-printer list open", async () => {
+    await mountOnPanel({
+      width: 480,
+      height: 480,
+      shape: "round",
+      printers: buildPrinters(12),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twelve printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+    const box = document.querySelector<HTMLElement>(
+      '[role="dialog"]',
+    )
+    const overlay = box?.parentElement
+    if (!box || !overlay) {
+      throw new Error("The list did not open.")
+    }
+    const from = { x: 20, y: 240 }
+    const to = { x: 240, y: 240 }
+    expect(document.elementFromPoint(from.x, from.y)).toBe(
+      overlay,
+    )
+    expect(
+      box.contains(document.elementFromPoint(to.x, to.y)),
+    ).toBe(true)
+
+    dragWithAdapter({ from, to })
+
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(overlay.dataset.closing).toBeUndefined()
+    expect(document.querySelector('[role="dialog"]')).toBe(
+      box,
+    )
+  })
+})
+
+describe("the hidden-printer list with no row drawn", () => {
+  test("in a much wider font, keeps every entry through a minute tick and a fresh payload", async () => {
+    useTestFont("a much wider font")
+    const clock = {
+      ms: new Date(2026, 0, 5, 7, 59, 30).getTime(),
+    }
+    const now = vi
+      .spyOn(Date, "now")
+      .mockImplementation(() => clock.ms)
+    onTestFinished(() => {
+      now.mockRestore()
+      nowMs.value = Date.now()
+    })
+    nowMs.value = clock.ms
+    const printers = buildPrinters(5).map((printer) => ({
+      ...printer,
+      state: "preparing" as const,
+      percent: 0,
+    }))
+    const { server } = await mountOnPanel({
+      width: 240,
+      height: 824,
+      printers,
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    // The case under test: the strip stands in for every row.
+    expect(
+      document.querySelectorAll(".printer-card"),
+    ).toHaveLength(0)
+    expect(strip).toHaveTextContent("5 printers")
+    if (!strip) {
+      throw new Error("Five printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+    const box = document.querySelector<HTMLElement>(
+      '[role="dialog"]',
+    )
+    const countEntries = () =>
+      box?.querySelectorAll(".printer-details-item").length
+    expect(countEntries()).toBe(5)
+
+    clock.ms = new Date(2026, 0, 5, 8, 0, 30).getTime()
+    nowMs.value = clock.ms
+    await nextFrame()
+    await nextFrame()
+    await nextFrame()
+
+    expect(document.querySelector('[role="dialog"]')).toBe(
+      box,
+    )
+    expect(countEntries()).toBe(5)
+
+    server.push({
+      type: "printers",
+      data: { printers: structuredClone(printers) },
+    })
+    await nextFrame()
+    await nextFrame()
+    await nextFrame()
+
+    expect(document.querySelector('[role="dialog"]')).toBe(
+      box,
+    )
+    expect(countEntries()).toBe(5)
   })
 })
