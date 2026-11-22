@@ -46,15 +46,17 @@ The count picks the arrangement. The panel only decides whether it can hold it.
 Four printers use rows instead of the grid when the view is under 652 px wide,
 or when the card area is too short for two cards: 624 px with the picture
 beside the facts, which needs a 1184 px view, or 836 px with the picture above
-them. The view's own width decides, not the window's, so a turned or round
-panel folds its rows for the width it really has. A round panel keeps four
+them. Those widths are a square panel's view; the cutoffs themselves measure
+the view's content box, its width less its padding (52 px on a square panel),
+so a turned or round panel folds its rows for the width it really has. A round panel keeps four
 printers and up, and the dialogs, inside the square within the circle. A
 narrow view folds a row's columns away in a fixed order; under 300 px the band
 moves under the job and each row grows to 84 px, so the name, the state, the
 job and the controls all keep room. A finished or failed row keeps its
-`Stopped at layer N` line whole, wrapping it if it must; in a band under
-180 px the `Ended` time gives way, and under a 760 px view the row drops both
-lines, while the chip, the percentage, and the job name's dialog keep the
+`Stopped at layer N` line whole, wrapping it if it must. The `Ended` time
+gives way in a band 180 px wide or less; a failed print's also gives way up to
+200 px in a row under 98 px tall, which holds only three of the summary's lines. At 708 px of content or
+less (a 760 px square-panel view) the row drops both lines, while the chip, the percentage, and the job name's dialog keep the
 state and the stopped layer. On the narrowest rows, Pause and Stop
 become Lucide icons with their words kept for assistive tech, as the 2026-09-28
 record asked. The state chip and the percentage never fold away. A test checks

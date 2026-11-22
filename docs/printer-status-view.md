@@ -307,20 +307,28 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    card area is too short for two cards. A quad card puts its picture beside
    the facts from a 1184 px view, and then needs a 624 px card area; a narrower
    grid stacks the picture above the facts and needs 836 px, so the picture is
-   never squeezed away. The rows fold by the view's own width, through a
-   container query, so a turned or round panel folds for the width it has. A
-   row under 1100 px wide drops the three fact blocks. Under 760 px it also
-   drops the badge, the nozzle and the time left, and Pause and Stop become
-   Lucide icons whose words stay in the accessibility tree. A settled row
-   drops its `Finished` or `Stopped at layer N` lines there too: the chip
-   still names the state, the band keeps the percentage, and the job name's
-   dialog still gives the stopped layer. Wider than that, the stopped layer's
-   line wraps rather than lose its number, and in a band under 180 px the
-   `Ended` time gives way to it. Under 440 px the
-   picture goes, and the name, the state and the job take a line each, so
-   none of them is squeezed away. Under 300 px of content, such as a small
-   round panel, the band moves under the job as a slim fourth line and each
-   row grows to 84 px. The state chip and the percentage always stay. On a
+   never squeezed away. Every cutoff measures the view's **content box**:
+   its width less its own padding, the box its container queries see. On a
+   square panel the padding is 52 px, so the view widths in brackets below
+   are the same cutoffs; a round panel pads its view to the square inside
+   the circle, so its view folds at a wider outer width. The quad needs
+   600 px of content (652 px view), and puts its picture beside the facts
+   from 1132 px (1184 px view). A turned panel folds for the width it has.
+   A row with 1048 px of content or less (1100 px view) drops the three fact
+   blocks. At 708 px or less (760 px view) it also drops the badge, the
+   nozzle and the time left, and Pause and Stop become Lucide icons whose
+   words stay in the accessibility tree. A settled row drops its `Finished`
+   or `Stopped at layer N` lines there too: the chip still names the state,
+   the band keeps the percentage, and the job name's dialog still gives the
+   stopped layer. Wider than that, the stopped layer's line wraps rather
+   than lose its number. The `Ended` time gives way to it in a band 180 px
+   wide or less. A failed print's `Ended` time also gives way in a band up to
+   200 px wide when the row is under 98 px tall: a band that short holds
+   three lines of the summary, not four, and both of its lines can wrap. At
+   388 px of content or less (440 px view) the picture goes, and the name,
+   the state and the job take a line each, so none of them is squeezed
+   away. At 300 px or less, such as a small round panel, the band moves
+   under the job as a slim fourth line and each row grows to 84 px. The state chip and the percentage always stay. On a
    round panel, four printers and up keep to the square inside the circle,
    and so do the dialogs. Layer and Finishes keep their whole width; the
    filament name gives way first.

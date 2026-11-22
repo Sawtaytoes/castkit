@@ -1620,3 +1620,178 @@ describe("the details dialog on a small round panel", () => {
     }
   })
 })
+
+/** A print that failed late last night: the longest pair of ended lines. */
+const buildLateFailure = () =>
+  buildPrinterJob({
+    id: "printer-1",
+    name: "Printer 1",
+    jobName: "Sample_Part_1_-_PLA_Basic_-_Printer_1",
+    thumbnailPath: "/plate.png",
+    state: "failed",
+    currentLayer: 9999,
+    totalLayers: 9999,
+    percent: 99,
+    finishAtMs: new Date().setHours(0, 0, 0, 0) - 60_000,
+  })
+
+/** Where the ended lines leave the first row's band, if anywhere. */
+const findEndedOverflow = () => {
+  const band = document.querySelector(
+    ".printer-card .printer-band",
+  )
+  const ended = document.querySelector(
+    ".printer-card .printer-band-ended",
+  )
+  if (!band || !ended || !isDrawn(ended)) {
+    return null
+  }
+  const bandBox = band.getBoundingClientRect()
+  const endedBox = ended.getBoundingClientRect()
+  return isInside(endedBox, bandBox)
+    ? null
+    : `${endedBox.height.toFixed(1)} px of ended lines in a ${bandBox.width.toFixed(1)}x${bandBox.height.toFixed(1)} band`
+}
+
+const nextFrame = () =>
+  new Promise((resolve) =>
+    requestAnimationFrame(() =>
+      requestAnimationFrame(resolve),
+    ),
+  )
+
+describe("the ended lines in a short band", () => {
+  test.each([
+    {
+      count: 10,
+      across: 660,
+      orientation: 0,
+      turn: "upright",
+    },
+    {
+      count: 6,
+      across: 520,
+      orientation: 0,
+      turn: "upright",
+    },
+    {
+      count: 7,
+      across: 720,
+      orientation: 0,
+      turn: "upright",
+    },
+    {
+      count: 10,
+      across: 660,
+      orientation: 90,
+      turn: "turned 90°",
+    },
+  ] as const)("$count printers, $across px across, $turn, fit every band from 176 to 204 px", async ({
+    count,
+    across,
+    orientation,
+  }) => {
+    const sizeFor = (along: number) =>
+      orientation === 0
+        ? { width: along, height: across }
+        : { width: across, height: along }
+    await mountOnPanel({
+      ...sizeFor(1150),
+      orientation,
+      printers: [
+        buildLateFailure(),
+        ...buildPrinters(count).slice(1),
+      ],
+    })
+    const problems: string[] = []
+    let bandsSeen = 0
+    for (let along = 1150; along <= 1260; along += 1) {
+      const { width, height } = sizeFor(along)
+      await page.viewport(width, height)
+      await nextFrame()
+      const bandWidth =
+        document
+          .querySelector(".printer-card .printer-band")
+          ?.getBoundingClientRect() ?? null
+      const span = Math.max(
+        bandWidth?.width ?? 0,
+        bandWidth?.height ?? 0,
+      )
+      if (span >= 176 && span <= 204) {
+        bandsSeen += 1
+      }
+      const overflow = findEndedOverflow()
+      if (overflow) {
+        problems.push(`${width}x${height}: ${overflow}`)
+      }
+    }
+
+    expect(bandsSeen).toBeGreaterThan(5)
+    expect(problems).toEqual([])
+    // A sweep of a hundred window sizes outlasts the default under load.
+  }, 60_000)
+
+  test("a 1130 px round panel with ten printers fits its ended lines", async () => {
+    await mountOnPanel({
+      width: 1100,
+      height: 1100,
+      shape: "round",
+      printers: [
+        buildLateFailure(),
+        ...buildPrinters(10).slice(1),
+      ],
+    })
+    const problems: string[] = []
+    for (let size = 1100; size <= 1180; size += 1) {
+      await page.viewport(size, size)
+      await nextFrame()
+      const overflow = findEndedOverflow()
+      if (overflow) {
+        problems.push(`${size}: ${overflow}`)
+      }
+    }
+
+    expect(problems).toEqual([])
+    expect(findLayoutProblems()).toEqual([])
+  }, 60_000)
+
+  test("a finished print's short row on a 1280x720 panel keeps the ended time", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildPrinters(7),
+    })
+    const finished = document.querySelector(
+      '.printer-card[data-state="finished"]',
+    )
+    const endedTime = finished?.querySelector(
+      ".printer-band-ended span + span",
+    )
+
+    expect(
+      finished?.getBoundingClientRect().height,
+    ).toBeLessThan(98)
+    expect(endedTime).toHaveTextContent(/^Ended /)
+    expect(endedTime && isDrawn(endedTime)).toBe(true)
+    expect(findLayoutProblems()).toEqual([])
+  })
+
+  test("a 1280x720 panel with five printers keeps the ended time", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: [
+        buildLateFailure(),
+        ...buildPrinters(5).slice(1),
+      ],
+    })
+
+    const endedTime = document.querySelector(
+      ".printer-card .printer-band-ended span + span",
+    )
+    expect(endedTime).toHaveTextContent(/^Ended /)
+    expect(endedTime && isDrawn(endedTime)).toBe(true)
+    expect(findEndedOverflow()).toBeNull()
+    expect(findLayoutProblems()).toEqual([])
+  })
+})
