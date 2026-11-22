@@ -396,10 +396,20 @@ test("a paused timer shows its room, and an Undo card moves no other card", asyn
 
 test.each([
   { repaint: "instant", power: "wired", isDraining: true },
+  {
+    repaint: "instant",
+    power: "battery",
+    isDraining: true,
+  },
   { repaint: "fast", power: "wired", isDraining: true },
   { repaint: "fast", power: "battery", isDraining: false },
   { repaint: "slow", power: "wired", isDraining: false },
-] as const)("the drain and the Undo bar follow the progress freshness rule on a $repaint $power panel", async ({
+  {
+    repaint: "super-slow",
+    power: "wired",
+    isDraining: false,
+  },
+] as const)("the drain and the Undo countdown follow the progress freshness rule on a $repaint $power panel", async ({
   repaint,
   power,
   isDraining,

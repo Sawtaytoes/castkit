@@ -218,20 +218,24 @@ export const PriorityTimersView = ({
                           <span>Undo</span>
                         </button>
                       ) : null}
-                      <p class="timer-priority-gone">
-                        {`Gone in ${roundUp(cancelsAt - now)} seconds`}
-                      </p>
+                      {/* The Undo countdown and its bar change faster than a slow
+                          panel can draw them, so only Cancelled and Undo stay. */}
                       {properties.hasProgress ? (
-                        <div
-                          class="timer-priority-undo-bar"
-                          aria-hidden="true"
-                        >
-                          <i
-                            style={{
-                              width: `${Math.min(100, Math.max(0, ((cancelsAt - now) / 30000) * 100))}%`,
-                            }}
-                          />
-                        </div>
+                        <>
+                          <p class="timer-priority-gone">
+                            {`Gone in ${roundUp(cancelsAt - now)} seconds`}
+                          </p>
+                          <div
+                            class="timer-priority-undo-bar"
+                            aria-hidden="true"
+                          >
+                            <i
+                              style={{
+                                width: `${Math.min(100, Math.max(0, ((cancelsAt - now) / 30000) * 100))}%`,
+                              }}
+                            />
+                          </div>
+                        </>
                       ) : null}
                     </div>
                   </article>
