@@ -198,7 +198,8 @@ column width.
 | 1 | The picture on the left, the facts in a column on the right. Type grows to fill the panel, because there is room and the panel is read a step back from the bench. |
 | 2 | Two columns. The picture sits above the facts and takes the slack height. |
 | 3 | Three columns, same shape as two. |
-| 4 or more | **Not designed.** See below. |
+| 4 | A 2×2 grid. On a landscape panel each card puts the picture beside the facts. |
+| 5 or more | One compact row per printer, and only the rows that finish on the glass. See below. |
 
 The plate picture has no box around it. The cover is square and carries its own
 dark background, so a surrounding panel letterboxes the square inside a
@@ -270,31 +271,35 @@ to close it. Hover or keyboard focus shows the file name the printer reported.
 
 ### Four or more printers
 
-The three-printer arrangement does not extend. A fourth column leaves each card
-too narrow for the band, the four metric blocks and the picture at a readable
-size on a 1280 px panel.
+Approved by the owner on 2026-09-28 and built on 2026-11-22
+([layouts](decisions/2026-09-28-printer-status-adds-layouts-from-four.md),
+[what landed](decisions/2026-11-22-printer-status-four-plus-layouts-land-and-name-the-printers-they-hide.md)).
 
-Notes for whoever takes this on:
-
-1. **Four is a quad: two rows, two columns.** Each cell is about half the panel
-   in each direction, which is close to the two-column cell in width and half its
-   height. The picture must shrink first, and the metric blocks fold from three
-   across to two.
-2. **Five or more needs a different view, not a smaller card.** Past four cells
-   the plate picture stops earning its space. The likely answer is a row list
-   with no picture: the number chip, the job name, the band, and a finish time,
-   which is what the optical-tower kiosk already does at nine rows.
-3. **The switch is a count, not a panel width.** A panel does not change size,
-   and the same view must answer for one printer and for nine. Read the count and
-   pick the arrangement; do not reach for a media query.
-4. **Keep the state readable at the smallest size.** The percentage and the
-   state chip are the two things a person reads from across the room. Whatever
-   folds away, those two stay. The chip rides with the buttons, so an
-   arrangement that drops the buttons must find the chip another home rather
-   than dropping it with them.
-5. **A count above three is untested here.** The installation this was built for
-   has three printers. Build the arrangement behind fixture data first, and shoot
-   it at the panel's true size before it reaches glass.
+1. **Four is a quad: two rows, two columns.** On a landscape panel each card
+   puts the picture on the left at 38% and the facts on the right. On a squarer
+   panel the card keeps the column shape, the picture above the facts. Filament
+   keeps its full-width box, because at a third of the facts' width its
+   `2 filaments · Details ›` ran out of the box.
+2. **Five or more are compact rows.** A row reads left to right: the picture,
+   the name with its state chip over the job name, the Layer, Finishes and
+   Filament blocks, the band, and then Pause and Stop (or Clear plate). Each part
+   has its own column, so nothing sits on another. A row is at least 64 px, and
+   rows share the height left over, so five rows are 132 px each and nine are 71
+   px each on the 1280×720 panel. The picture is as tall as its row, and the
+   name, band and buttons grow with it within fixed floors and caps.
+3. **Only the rows that finish are drawn.** The view measures its card area and
+   divides it by the row (`printerRowFit.ts`). When a printer does not fit, a
+   36 px strip under the last row says `+1 more printer` and names each hidden
+   printer with its number and its percentage or state, tinted like its card.
+   The 1280×720 panel draws nine rows above the strip, so the tenth printer is
+   the first one the strip names. The printers keep the order Home Assistant
+   sends.
+4. **The count picks the arrangement; the panel only folds it.** Four printers
+   use rows instead of the quad when the card area is under 560 px tall, where
+   two cards of facts cannot stack. A row under 1100 px wide drops the three
+   fact blocks. Under 600 px it also drops the badge, the nozzle and the time
+   left. The state chip and the percentage always stay.
+5. **Pause and Stop stay a fingertip tall.** Every row button is at least 48 px.
 
 ## Previews
 
@@ -308,7 +313,8 @@ The canonical preview is this view's Storybook story, rendered from fixture
 data at the panel profile, like every other view here. `Views/Printer Status`
 carries one story per panel plus the states that change the layout: one, two and
 three printers, a paused card, a card reporting a problem, a preparing card, and
-the idle panel. The settled states are on **every** panel, because they change
+the idle panel. Four through ten printers, and twelve, are on the 1280×720
+workbench panel only. The settled states are on **every** panel, because they change
 the card's shape: a finished card, a failed card, the two beside a running
 printer, and the finished card mid-clear reading `Clearing…`. They are the
 `vrt` job's pictures of this change.
