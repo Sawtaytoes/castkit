@@ -3189,9 +3189,10 @@ html[data-grayscale-text="true"] {
   gap: 8px;
 }
 
+/* Narrow sides, so "Resume" keeps its whole word in a wide fallback font. */
 .printer-status[data-layout="list"] .printer-action {
   height: clamp(48px, 44cqh, 56px);
-  padding: 4px 8px;
+  padding: 4px 6px;
   border-radius: 10px;
   font-size: 15px;
 }
@@ -3365,6 +3366,35 @@ html[data-grayscale-text="true"] {
   stroke-width: 2;
 }
 
+/*
+ * A pending button in a row shows its spinner alone, with its words kept
+ * for assistive tech: "Resuming…" is wider than half of Pause and Stop's
+ * 196 px in some fonts, and the wait is a few seconds.
+ */
+.printer-status[data-layout="list"]
+.printer-action[data-is-pending="true"] {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.printer-status[data-layout="list"]
+  .printer-action[data-is-pending="true"]
+  .printer-action-icon {
+  display: block;
+}
+
+.printer-status[data-layout="list"]
+  .printer-action[data-is-pending="true"]
+  .printer-action-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* The details list: the filament dialog's frame, one row per printer. */
 @keyframes printer-details-enter {
   from {
@@ -3520,7 +3550,7 @@ html[data-grayscale-text="true"] {
   )
   .printer-clear {
   grid-column: 3;
-  width: 180px;
+  width: 196px;
 }
 
 /*

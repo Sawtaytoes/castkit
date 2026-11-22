@@ -111,6 +111,24 @@ export const PRINTER_ROW_FACTS_MIN_WIDTH = 1048
  * container queries see, so a 300.31 px view is not taken for a 300 px one,
  * and they ignore a turned stage's rotation.
  */
+/**
+ * Whether an element's words run past its box, to the fraction of a pixel.
+ * `scrollWidth` and `clientWidth` round, so a word 0.4 px too long reads as
+ * whole while its last letters are an ellipsis. A turned stage turns both
+ * boxes alike, so each is taken along its longer side, which for one line
+ * of words is the line.
+ */
+export const isTextCut = (element: HTMLElement) => {
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  const text = range.getBoundingClientRect()
+  const box = element.getBoundingClientRect()
+  return (
+    Math.max(text.width, text.height) >
+    Math.max(box.width, box.height) + 0.1
+  )
+}
+
 const getContentWidth = (view: HTMLElement) => {
   const viewStyle = getComputedStyle(view)
   return (
@@ -693,6 +711,12 @@ const PrinterCard = ({
                 type="button"
                 class="printer-action is-pause"
                 data-castkit-target={`printer-${isPaused ? "resume" : "pause"}:${job.id}`}
+                data-is-pending={
+                  pendingAction === "pause" ||
+                  pendingAction === "resume"
+                    ? "true"
+                    : undefined
+                }
                 disabled={isPending}
                 onClick={() =>
                   onRequest(isPaused ? "resume" : "pause")
@@ -721,6 +745,11 @@ const PrinterCard = ({
                 type="button"
                 class="printer-action is-stop"
                 data-castkit-target={`printer-stop:${job.id}`}
+                data-is-pending={
+                  pendingAction === "stop"
+                    ? "true"
+                    : undefined
+                }
                 disabled={isPending}
                 onClick={() => onRequest("stop")}
               >
@@ -797,6 +826,15 @@ export const PrinterStatus = () => {
     number | null
   >(null)
   /*
+   * The widest view, so far, whose rows cut a state word with their facts
+   * already folded: nothing is left to give way, so the view draws no rows
+   * there and the strip counts every printer, as a view under 188 px does.
+   * The same changes try the rows again.
+   */
+  const [rowlessWidth, setRowlessWidth] = useState<
+    number | null
+  >(null)
+  /*
    * A font that finishes loading changes every word's width without a new
    * size or payload, so it counts as a change too.
    */
@@ -826,31 +864,34 @@ export const PrinterStatus = () => {
     void cardAreaHeight
     void fontLoads
     setCrowdedWidth(null)
+    setRowlessWidth(null)
   }, [printersPayload, cardAreaHeight, fontLoads])
   /*
    * After every render: a row whose state word is cut while the facts are
-   * drawn folds them. A folded view is not measured, so this cannot loop:
-   * only a wider view or a new payload unfolds it, once.
+   * drawn folds them; one cut with the facts folded draws no rows. Each
+   * step only removes what is measured, so this cannot loop: only a wider
+   * view, another height or font, or a new payload tries the rows again.
    */
   useLayoutEffect(() => {
     const view = viewRef.current
-    if (
-      view?.dataset.layout !== "list" ||
-      view.dataset.isFolded === "true"
-    ) {
+    if (view?.dataset.layout !== "list") {
       return
     }
     const isCrowded = Array.from(
       view.querySelectorAll<HTMLElement>(
         ".printer-card .printer-state-label",
       ),
-    ).some(
-      (label) => label.scrollWidth > label.clientWidth + 1,
-    )
+    ).some(isTextCut)
+    if (!isCrowded) {
+      return
+    }
     // The width drawn, not the one in state: the first render draws before
     // the view is measured.
-    if (isCrowded) {
-      setCrowdedWidth(getContentWidth(view))
+    const width = getContentWidth(view)
+    if (view.dataset.isFolded === "true") {
+      setRowlessWidth(width)
+    } else {
+      setCrowdedWidth(width)
     }
   })
   /*
@@ -880,7 +921,7 @@ export const PrinterStatus = () => {
       return (
         item.offsetTop < list.clientHeight &&
         state !== null &&
-        state.scrollWidth > state.clientWidth + 1
+        isTextCut(state)
       )
     })
     if (isCut) {
@@ -1077,14 +1118,20 @@ export const PrinterStatus = () => {
     availableWidth: cardArea.width,
     printerCount: jobs.length,
   })
+  const isRowless =
+    layout === "list" &&
+    rowlessWidth !== null &&
+    cardArea.width <= rowlessWidth
   const { visibleCount } =
-    layout === "list"
-      ? fitPrinterRows({
-          availableHeight,
-          availableWidth: cardArea.width,
-          printerCount: jobs.length,
-        })
-      : { visibleCount: jobs.length }
+    layout !== "list"
+      ? { visibleCount: jobs.length }
+      : isRowless
+        ? { visibleCount: 0 }
+        : fitPrinterRows({
+            availableHeight,
+            availableWidth: cardArea.width,
+            printerCount: jobs.length,
+          })
   const isFolded =
     layout === "list" &&
     (cardArea.width <= PRINTER_ROW_FACTS_MIN_WIDTH ||

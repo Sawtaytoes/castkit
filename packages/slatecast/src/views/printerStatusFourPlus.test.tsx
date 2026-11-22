@@ -17,7 +17,10 @@ import {
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
 import { installTouchPointerFallback } from "../touchPointerFallback.ts"
-import { __setPrinterPendingForStories } from "./PrinterStatus.tsx"
+import {
+  __setPrinterPendingForStories,
+  isTextCut,
+} from "./PrinterStatus.tsx"
 // This file measures boxes, so it needs the real rules.
 import "../styles.css"
 
@@ -2412,13 +2415,16 @@ describe("a view too narrow for a row", () => {
  * a machine whose fallback is wider than this one's, such as a CI runner's.
  */
 /*
- * The runner's fallback font is DejaVu Sans, wider than this machine's.
- * "A much wider font" stands in for it here, and for a wider one still.
+ * The runner's fallback font is DejaVu Sans, wider than this machine's, and
+ * "a wider font" adds 0.08 em to it there. "A much wider font" brings that
+ * widest runner font here: DejaVu Sans Bold sets "Preparing" at 5.46 em, so
+ * 6.18 em with the 0.08 em; this machine's fallback sets it at 4.67 em, and
+ * 0.17 em of spacing on its nine letters makes up the difference.
  */
 const LETTER_SPACING = {
   "a fallback font": "0",
   "a wider font": "0.08em",
-  "a much wider font": "0.2em",
+  "a much wider font": "0.17em",
 } as const
 
 const useTestFont = (
@@ -3414,14 +3420,25 @@ const FONTS = [
   "a much wider font",
 ] as const
 
-/** Every drawn state word or chip state whose end is cut. */
+/**
+ * Every drawn word whose end is cut, to the fraction of a pixel: the words'
+ * own box against the element's, each along its longer side, so a turned
+ * stage measures the same. `scrollWidth` rounds and misses a 0.4 px cut.
+ */
 const findCutWords = (selector: string) =>
   drawnWithin(document.body, selector)
-    .filter(
-      (word) =>
-        word instanceof HTMLElement &&
-        word.scrollWidth > word.clientWidth + 1,
-    )
+    .filter((word) => {
+      const words = textBox(word)
+      const box = word.getBoundingClientRect()
+      // Words kept only for assistive tech sit in a 1 px box on purpose.
+      if (Math.max(box.width, box.height) <= 1) {
+        return false
+      }
+      return (
+        Math.max(words.width, words.height) >
+        Math.max(box.width, box.height) + 0.1
+      )
+    })
     .map((word) => word.textContent)
 
 /** Every printer, mounted once, then measured at each width in turn. */
@@ -3461,7 +3478,10 @@ describe("a narrow row's state word", () => {
   )("in %s, a narrow row never cuts Preparing", async (font) => {
     useTestFont(font)
     const problems = await sweepWidths({
-      widths: [389, 410, 441, 480, 560, 640, 708, 760],
+      widths: [
+        188, 200, 220, 240, 260, 289, 300, 301, 340, 388,
+        389, 410, 441, 480, 560, 640, 708, 760,
+      ],
       height: 824,
       printers: buildPrinters(10).map((printer) => ({
         ...printer,
@@ -3508,6 +3528,36 @@ describe("a strip chip's state", () => {
   test.each(
     FONTS.flatMap((font) =>
       [
+        {
+          width: 457,
+          height: 457,
+          shape: "round",
+          orientation: 0,
+        },
+        {
+          width: 457,
+          height: 457,
+          shape: "round",
+          orientation: 270,
+        },
+        {
+          width: 458,
+          height: 458,
+          shape: "round",
+          orientation: 0,
+        },
+        {
+          width: 499,
+          height: 499,
+          shape: "round",
+          orientation: 0,
+        },
+        {
+          width: 500,
+          height: 500,
+          shape: "round",
+          orientation: 270,
+        },
         {
           width: 480,
           height: 480,
@@ -3569,5 +3619,103 @@ describe("a strip chip's state", () => {
         ".printer-overflow-item .printer-overflow-state",
       ),
     ).toEqual([])
+  })
+})
+
+describe("a small round panel's state word", () => {
+  test.each(
+    FONTS.flatMap((font) =>
+      ([0, 90, 270] as const).map((orientation) => ({
+        font,
+        orientation,
+      })),
+    ),
+  )("in $font on a 289 px round panel turned $orientation°, no drawn row cuts its state", async ({
+    font,
+    orientation,
+  }) => {
+    useTestFont(font)
+    await mountOnPanel({
+      width: 289,
+      height: 289,
+      shape: "round",
+      orientation,
+      printers: buildPrinters(12).map((printer, index) =>
+        index === 0
+          ? {
+              ...printer,
+              state: "preparing" as const,
+              percent: 0,
+            }
+          : printer,
+      ),
+    })
+    await nextFrame()
+
+    expect(
+      findCutWords(".printer-card .printer-state-label"),
+    ).toEqual([])
+    expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+describe("a pending button in a row", () => {
+  test.each(
+    FONTS,
+  )("in %s, says Resuming… and Stopping… without cutting a word", async (font) => {
+    useTestFont(font)
+    const problems = await sweepWidths({
+      widths: [709, 761, 900, 1049, 1101, 1280, 1500],
+      height: 720,
+      printers: buildPrinters(9),
+      findProblems: () => [
+        ...findCutWords(
+          ".printer-card .printer-action-label, .printer-card .printer-clear",
+        ).map((word) => `"${word}" is cut`),
+        ...findLayoutProblems(),
+      ],
+    })
+
+    expect(problems).toEqual([])
+    expect(
+      page
+        .getByRole("button", { name: "Resuming…" })
+        .element(),
+    ).toBeDisabled()
+    expect(
+      page
+        .getByRole("button", { name: "Stopping…" })
+        .element(),
+    ).toBeDisabled()
+  })
+})
+
+describe("a word cut by less than a pixel", () => {
+  test.each([
+    0, 90, 270,
+  ])("counts as cut on a stage turned %i°, though the rounded widths match", (turn) => {
+    const stage = document.createElement("div")
+    stage.style.cssText = `position: absolute; top: 100px; left: 100px; transform: rotate(${turn}deg)`
+    const word = document.createElement("span")
+    word.style.cssText =
+      "display: block; overflow: hidden; font: 600 13px sans-serif; white-space: nowrap; text-overflow: ellipsis"
+    word.textContent = "Preparing"
+    stage.append(word)
+    document.body.append(stage)
+    onTestFinished(() => stage.remove())
+    word.style.width = "max-content"
+    const fullWidth = Number.parseFloat(
+      getComputedStyle(word).width,
+    )
+    word.style.width = `${fullWidth - 0.4}px`
+
+    expect(word.scrollWidth).toBeLessThanOrEqual(
+      word.clientWidth + 1,
+    )
+    expect(isTextCut(word)).toBe(true)
+
+    word.style.width = `${fullWidth + 0.4}px`
+
+    expect(isTextCut(word)).toBe(false)
   })
 })
