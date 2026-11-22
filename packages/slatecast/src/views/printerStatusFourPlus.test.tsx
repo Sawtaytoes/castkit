@@ -6,6 +6,7 @@ import {
   expect,
   onTestFinished,
   test,
+  vi,
 } from "vitest"
 import { page } from "vitest/browser"
 import {
@@ -15,6 +16,7 @@ import {
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
+import { installTouchPointerFallback } from "../touchPointerFallback.ts"
 import { __setPrinterPendingForStories } from "./PrinterStatus.tsx"
 // This file measures boxes, so it needs the real rules.
 import "../styles.css"
@@ -187,7 +189,7 @@ const mountOnPanel = async ({
   printers: PrinterJob[]
   repaint?: "instant" | "slow"
   shape?: "square" | "round"
-  orientation?: 0 | 90
+  orientation?: 0 | 90 | 180 | 270
 }) => {
   __setPrinterPendingForStories(PENDING)
   await page.viewport(width, height)
@@ -351,7 +353,7 @@ const findLayoutProblems = () => {
      */
     const clippedValues = drawnWithin(
       card,
-      ".printer-metric:not(.is-filament) dd span, .printer-band-remaining, .printer-band-ended span, .printer-percent",
+      ".printer-metric:not(.is-filament) dd span, .printer-metric.is-pending dd span:not(.printer-swatch), .printer-band-remaining, .printer-band-ended span, .printer-percent",
     )
       .filter(
         (value) =>
@@ -3125,5 +3127,153 @@ describe("the folded facts after a font loads", () => {
 
     expect(areFactsDrawn()).toBe(isDrawnAfter)
     expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+/*
+ * The Linux WebKit touch adapter cancels the native touch scroll and replays
+ * the finger as pointer events, so the list must scroll from those alone.
+ * WebKit also accepts pointer capture without keeping later events on the
+ * box, which the stubbed capture reproduces.
+ */
+const dragWithAdapter = ({
+  from,
+  to,
+}: {
+  from: { x: number; y: number }
+  to: { x: number; y: number }
+}) => {
+  const capture = vi
+    .spyOn(Element.prototype, "setPointerCapture")
+    .mockImplementation(() => {})
+  onTestFinished(() => capture.mockRestore())
+  onTestFinished(installTouchPointerFallback())
+  const target = document.elementFromPoint(from.x, from.y)
+  if (!target) {
+    throw new Error("Nothing lies under the finger.")
+  }
+  const touchEvent = (
+    type: string,
+    point: { x: number; y: number },
+  ) =>
+    target.dispatchEvent(
+      new TouchEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        changedTouches: [
+          new Touch({
+            identifier: 7,
+            target,
+            clientX: point.x,
+            clientY: point.y,
+          }),
+        ],
+      }),
+    )
+  const pointer = (point: { x: number; y: number }) => ({
+    pointerId: 2,
+    pointerType: "touch",
+    clientX: point.x,
+    clientY: point.y,
+  })
+  target.dispatchEvent(
+    new PointerEvent("pointerdown", {
+      bubbles: true,
+      ...pointer(from),
+    }),
+  )
+  touchEvent("touchstart", from)
+  const steps = 6
+  Array.from({ length: steps }, (_, index) => ({
+    x: from.x + ((to.x - from.x) * (index + 1)) / steps,
+    y: from.y + ((to.y - from.y) * (index + 1)) / steps,
+  })).forEach((point) => {
+    document.body.dispatchEvent(
+      new PointerEvent("pointermove", {
+        bubbles: true,
+        ...pointer(point),
+      }),
+    )
+    touchEvent("touchmove", point)
+  })
+  document.body.dispatchEvent(
+    new PointerEvent("pointerup", {
+      bubbles: true,
+      ...pointer(to),
+    }),
+  )
+  touchEvent("touchend", to)
+  return target
+}
+
+describe("a finger drag in the hidden-printer list", () => {
+  test.each([
+    {
+      name: "a 320x320 round panel",
+      width: 320,
+      height: 320,
+      shape: "round" as const,
+      orientation: 0 as const,
+      from: { x: 160, y: 250 },
+      to: { x: 160, y: 90 },
+    },
+    {
+      name: "a 320x1280 window turned 90°",
+      width: 320,
+      height: 1280,
+      orientation: 90 as const,
+      from: { x: 60, y: 640 },
+      to: { x: 220, y: 640 },
+    },
+    {
+      name: "a 320x1280 window turned 270°",
+      width: 320,
+      height: 1280,
+      orientation: 270 as const,
+      from: { x: 260, y: 640 },
+      to: { x: 100, y: 640 },
+    },
+  ])("on $name, scrolls the list with the WebKit touch adapter", async ({
+    width,
+    height,
+    shape,
+    orientation,
+    from,
+    to,
+  }) => {
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      orientation,
+      printers: buildFaultedPrinters(12),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twelve printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+    const box = document.querySelector<HTMLElement>(
+      '[role="dialog"]',
+    )
+    if (!box) {
+      throw new Error("The list did not open.")
+    }
+    const travel = Math.hypot(to.x - from.x, to.y - from.y)
+    const room = box.scrollHeight - box.clientHeight
+
+    expect(room).toBeGreaterThan(travel)
+    expect(
+      box.contains(dragWithAdapter({ from, to })),
+    ).toBe(true)
+    expect(box.scrollTop).toBeGreaterThan(travel - 10)
+    expect(box.scrollTop).toBeLessThan(travel + 10)
+    expect(page.getByRole("dialog").element()).toBeVisible()
   })
 })

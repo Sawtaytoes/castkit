@@ -672,8 +672,13 @@ const PrinterCard = ({
                   ) : (
                     <>
                       <span class="printer-swatch is-pending" />
-                      <span>
+                      {/* A row's tile is too narrow for the full
+                          sentence, so a row says it shorter. */}
+                      <span class="printer-pending-long">
                         Chosen when the print starts
+                      </span>
+                      <span class="printer-pending-short">
+                        Not yet
                       </span>
                     </>
                   )}

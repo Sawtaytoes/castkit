@@ -99,7 +99,9 @@ Publishing nothing leaves the last job on the panel forever.
 The **Filament** row is always drawn. A print always runs from a tray, but
 Home Assistant reports `active_tray` only once the print starts, so a preparing
 job has none. Dropping the row made that card shorter than its neighbors; it
-shows a dashed empty swatch and `Chosen when the print starts` instead.
+shows a dashed empty swatch and `Chosen when the print starts` instead. A
+compact row's tile is too narrow for that sentence, so a row says
+`Not yet`.
 
 When the source provides `filaments`, the row opens a list of the filament names,
 colors and AMS slots used by the print. The HA publisher reads the positive

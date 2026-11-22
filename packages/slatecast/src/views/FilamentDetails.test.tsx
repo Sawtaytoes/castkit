@@ -1,5 +1,9 @@
 import type { PrinterFilamentAssignment } from "@castkit/shared/viewData/types"
-import { render, screen } from "@testing-library/preact"
+import {
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/preact"
 import { expect, test, vi } from "vitest"
 import {
   FilamentControl,
@@ -188,6 +192,17 @@ test.each([
     ],
   },
   {
+    case: "it names a slot's filament but no tray",
+    summary: "PLA Matte",
+    list: [
+      {
+        name: "PLA Matte",
+        color: "#1c1c1c",
+        location: "AMS 1, slot 1",
+      },
+    ],
+  },
+  {
     case: "it says more than the slot",
     summary: "PLA Matte · AMS 1 slot 1 · Active spool",
     list: [
@@ -226,7 +241,6 @@ test.each([
     case: "a tray written without its comma",
     summary: "PLA Matte · AMS 1 slot 1",
   },
-  { case: "no tray", summary: "pla matte" },
   {
     case: "a dot without spaces",
     summary: "PLA Matte·AMS 1, slot 1",
@@ -346,4 +360,77 @@ test("the dialog keeps the active color on the summary when two slots could say 
   ).toMatch(/235,? 63,? 23|#eb3f17/i)
   expect(swatches[0]).toHaveClass("is-hatched")
   expect(swatches[1]).toHaveClass("is-hatched")
+})
+
+test("the dialog keeps the active color on a summary with no tray, though one slot has its name", () => {
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={[
+        { name: "PLA Basic", location: "AMS 1 slot 1" },
+        { location: "AMS 1 slot 2" },
+      ]}
+      summary="PLA Basic"
+      activeColor="#eb3f17"
+      onClose={vi.fn()}
+    />,
+  )
+  const swatches = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      ".filament-details-swatch .fss-swatch",
+    ),
+  )
+
+  // The unnamed second slot may be the one printing, so the first slot's
+  // name alone does not make it the active one.
+  const summary = document.querySelector(
+    ".filament-details-summary",
+  )
+  expect(summary).toHaveTextContent("PLA Basic")
+  expect(
+    summary
+      ?.querySelector<HTMLElement>(".fss-swatch")
+      ?.style.getPropertyValue("--c"),
+  ).toMatch(/235,? 63,? 23|#eb3f17/i)
+  expect(swatches[0]).toHaveClass("is-hatched")
+  expect(swatches[1]).toHaveClass("is-hatched")
+})
+
+test("a finger drag scrolls a long slot list, and the drag is no tap", () => {
+  const onClose = vi.fn()
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={Array.from({ length: 16 }, (_, index) => ({
+        name: `PLA ${index + 1}`,
+        location: `AMS ${Math.floor(index / 4) + 1} slot ${(index % 4) + 1}`,
+      }))}
+      onClose={onClose}
+    />,
+  )
+  const box = screen.getByRole("dialog")
+  box.style.cssText =
+    "height:160px;max-height:160px;overflow:auto"
+  const touch = (clientY: number) => ({
+    pointerId: 3,
+    pointerType: "touch",
+    clientX: 100,
+    clientY,
+  })
+  // The finger starts on Close, so a drag that ended in a tap would close.
+  const closeButton = screen.getByRole("button", {
+    name: "Close",
+  })
+  fireEvent.pointerDown(closeButton, touch(150))
+  fireEvent.pointerMove(closeButton, touch(110))
+  fireEvent.pointerMove(closeButton, touch(50))
+  fireEvent.pointerUp(closeButton, touch(50))
+  fireEvent.click(closeButton)
+
+  expect(box.dataset.castkitScroll).toBe("true")
+  expect(getComputedStyle(box).touchAction).toBe("none")
+  expect(box.scrollTop).toBe(100)
+  expect(onClose).not.toHaveBeenCalled()
 })

@@ -9,6 +9,7 @@ import {
   type FilamentSwatchColors,
 } from "./FilamentDetails.tsx"
 import { useDialogFocus } from "./useDialogFocus.ts"
+import { useDragScroll } from "./useDragScroll.ts"
 
 /** One printer as the dialog lists it. The caller works out the words. */
 export type PrinterDetailsEntry = {
@@ -60,6 +61,7 @@ export const PrinterDetailsDialog = ({
 }) => {
   const dialogOverlay = useRef<HTMLDivElement>(null)
   const dialogBox = useRef<HTMLElement>(null)
+  const dragScroll = useDragScroll()
   const closeButton = useRef<HTMLButtonElement>(null)
   const [isClosing, setIsClosing] = useState(false)
 
@@ -139,6 +141,7 @@ export const PrinterDetailsDialog = ({
       <section
         ref={dialogBox}
         class="filament-details-box"
+        {...dragScroll}
         role="dialog"
         aria-modal="true"
         aria-labelledby="printer-details-title"

@@ -3,6 +3,7 @@ import type { PrinterFilamentAssignment } from "@castkit/shared/viewData/types"
 import { useEffect, useRef } from "preact/hooks"
 import { parseRgba, Swatch } from "./spoolSwatch.tsx"
 import { useDialogFocus } from "./useDialogFocus.ts"
+import { useDragScroll } from "./useDragScroll.ts"
 
 /** A compact summary that opens the per-slot details for an active print. */
 export const FilamentControl = ({
@@ -214,8 +215,9 @@ export const getFilamentSummaryText = ({
 
 /**
  * The one slot that says the feed's whole summary, if exactly one does: its
- * name, alone or followed by its tray. A summary two slots could say, such
- * as a name with no tray, names neither.
+ * name followed by its tray. A summary with no tray names no slot, even when
+ * one slot carries that name, because the active spool may be a slot the
+ * feed left unnamed.
  */
 export const findSummarySlot = ({
   filaments,
@@ -240,14 +242,12 @@ export const findSummarySlot = ({
       filament.location,
       filament.location.split(/\s*·\s*/)[0] ?? "",
     ]
-    return names.some(
-      (name) =>
-        toTrayKey(name) === summaryKey ||
-        trays.some(
-          (tray) =>
-            toTrayKey(`${name} ${tray}`) === summaryKey ||
-            toTrayKey(`${name} · ${tray}`) === summaryKey,
-        ),
+    return names.some((name) =>
+      trays.some(
+        (tray) =>
+          toTrayKey(`${name} ${tray}`) === summaryKey ||
+          toTrayKey(`${name} · ${tray}`) === summaryKey,
+      ),
     )
   })
   return matches.length === 1 ? matches[0] : undefined
@@ -298,6 +298,7 @@ export const FilamentDetailsDialog = ({
 }) => {
   const dialogOverlay = useRef<HTMLDivElement>(null)
   const dialogBox = useRef<HTMLElement>(null)
+  const dragScroll = useDragScroll()
   const closeButton = useRef<HTMLButtonElement>(null)
 
   /* A slot list can lack the active material's name, or omit it entirely. */
@@ -341,6 +342,7 @@ export const FilamentDetailsDialog = ({
         ref={dialogBox}
         id="printer-filament-details"
         class="filament-details-box"
+        {...dragScroll}
         role="dialog"
         aria-modal="true"
         aria-labelledby="printer-filament-title"

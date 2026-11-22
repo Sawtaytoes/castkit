@@ -2318,6 +2318,19 @@ html[data-grayscale-text="true"] {
   background: transparent;
 }
 
+.printer-pending-short {
+  display: none;
+}
+
+/* A row's filament tile cannot hold the whole sentence in every font. */
+.printer-status[data-layout="list"] .printer-pending-long {
+  display: none;
+}
+
+.printer-status[data-layout="list"] .printer-pending-short {
+  display: inline;
+}
+
 .printer-filament-summary .printer-swatch {
   border: 0;
 }
@@ -2423,11 +2436,14 @@ html[data-grayscale-text="true"] {
 /*
  * As tall as the overlay allows, not the window: a turned stage is shorter
  * than the window is tall, and the last entry must still scroll into view.
+ * A finger drag scrolls it through pointer events (useDragScroll), since the
+ * Linux WebKit touch adapter cancels the native touch scroll.
  */
 .filament-details-box {
   width: min(620px, 100%);
   max-height: 100%;
   overflow: auto;
+  touch-action: none;
   padding: 24px;
   border: 1px solid var(--color-border-subtle);
   border-radius: 18px;
