@@ -1656,25 +1656,35 @@ const findEndedOverflow = () => {
   const bandBox = band.getBoundingClientRect()
   const endedBox = ended.getBoundingClientRect()
   const size = `${bandBox.width.toFixed(1)}x${bandBox.height.toFixed(1)} band`
+  // The text itself, not its box: a word wider than its box overflows it.
+  const isTextShown = (line: Element) => {
+    const lineText = textBox(line)
+    return (
+      isInside(lineText, bandBox) &&
+      isInside(lineText, endedBox)
+    )
+  }
   const [stopped, endedTime] = Array.from(
     ended.querySelectorAll("span"),
   )
-  if (
-    !stopped ||
-    !isInside(stopped.getBoundingClientRect(), bandBox)
-  ) {
+  if (!stopped || !isTextShown(stopped)) {
     return `the stopped line is cut in a ${size}`
+  }
+  const percent = band.querySelector(".printer-percent")
+  if (
+    percent &&
+    isOverlapping(textBox(percent), textBox(stopped))
+  ) {
+    return `the stopped line runs into the percentage in a ${size}`
   }
   if (!endedTime || !isDrawn(endedTime)) {
     return null
   }
-  const endedTimeBox = endedTime.getBoundingClientRect()
-  const isShownWhole = isInside(endedTimeBox, bandBox)
   const isWrappedAway = !isOverlapping(
-    endedTimeBox,
+    textBox(endedTime),
     endedBox,
   )
-  return isShownWhole || isWrappedAway
+  return isTextShown(endedTime) || isWrappedAway
     ? null
     : `the ended time is cut in a ${size}`
 }
@@ -1833,4 +1843,44 @@ describe("the ended lines in a short band", () => {
     expect(findEndedOverflow()).toBeNull()
     expect(findLayoutProblems()).toEqual([])
   })
+})
+
+describe("the ended lines in a fallback font", () => {
+  test.each([
+    { count: 5, height: 900 },
+    { count: 10, height: 660 },
+  ] as const)("$count printers, $height px tall, fit every band without the Outfit font", async ({
+    count,
+    height,
+  }) => {
+    // As though Outfit failed to load: the stack's next, wider fonts.
+    const fallback = document.createElement("style")
+    fallback.textContent = `.printer-status, .printer-status * {
+        font-family: "Noto Sans JP", ui-sans-serif, system-ui, Arial, sans-serif !important;
+      }`
+    document.head.append(fallback)
+    try {
+      await mountOnPanel({
+        width: 761,
+        height,
+        printers: [
+          buildLateFailure(),
+          ...buildPrinters(count).slice(1),
+        ],
+      })
+      const problems: string[] = []
+      for (let width = 761; width <= 1300; width += 3) {
+        await page.viewport(width, height)
+        await nextFrame()
+        const overflow = findEndedOverflow()
+        if (overflow) {
+          problems.push(`${width}x${height}: ${overflow}`)
+        }
+      }
+
+      expect(problems).toEqual([])
+    } finally {
+      fallback.remove()
+    }
+  }, 90_000)
 })

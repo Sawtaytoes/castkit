@@ -4,7 +4,7 @@
 - **Date:** 2026-09-28 (landed 2026-11-22)
 - **Type:** View / layout
 - **Supersedes:** [Printer Status gives each active printer a column](2026-09-23-printer-status-gives-each-active-printer-a-column.md), for counts four and above only.
-- **Superseded by:** —
+- **Superseded by:** in part — [Printer Status's four-plus layouts land and name the printers they hide](2026-11-22-printer-status-four-plus-layouts-land-and-name-the-printers-they-hide.md), for the picture's place in a 2×2 grid: a grid narrower than a 1184 px view stacks each card's picture above its facts.
 - **Related:** [Printer Status's four-plus layouts land and name the printers they hide](2026-11-22-printer-status-four-plus-layouts-land-and-name-the-printers-they-hide.md), which records the 2026-11-22 approval to build these layouts on the current card, the three fixes, the `+N more` strip, and when a panel too small for the 2×2 grid gives four printers rows instead.
 
 ## Decision

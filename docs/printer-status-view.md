@@ -324,7 +324,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    than lose its number. The `Ended` time gives way to it in a band 180 px
    wide or less, and in any band too short to hold it under the stopped
    line. It gives way whole, never cut: the summary wraps it into a column
-   the band hides. At
+   the band hides. In a band 180 px wide or less, a settled card's
+   percentage also shrinks with the band, to 22.5 px in the narrowest
+   150 px band, so the stopped line keeps room even in a wider fallback
+   font. At
    388 px of content or less (440 px view) the picture goes, and the name,
    the state and the job take a line each, so none of them is squeezed
    away. At 300 px or less, such as a small round panel, the band moves

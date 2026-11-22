@@ -3033,15 +3033,31 @@ html[data-grayscale-text="true"] {
   overflow: visible;
   line-height: 1.1;
   white-space: normal;
+  /* A last resort for a wider fallback font: break a word, never cut it. */
+  overflow-wrap: anywhere;
 }
 
-/* In a narrow band, the time the print ended gives way to it. */
+/*
+ * In a narrow band, the time the print ended gives way to it, and a settled
+ * card's percentage shrinks with the band so the stopped line keeps room
+ * beside it, even in a wider fallback font: 22.5 px in the narrowest 150 px
+ * band.
+ */
 @container printer-band (max-width: 180px) {
   .printer-status[data-layout="list"]
     .printer-band-ended
     span
     + span {
     display: none;
+  }
+
+  /* Only where the row shows the summary: over 708 px of content. */
+  @container printer-status (width > 708px) {
+    .printer-status[data-layout="list"]
+      .printer-band-ended
+      ~ .printer-percent {
+      font-size: min(clamp(26px, 28cqh, 34px), 15cqw);
+    }
   }
 }
 
