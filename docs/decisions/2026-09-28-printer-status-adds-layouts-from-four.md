@@ -10,7 +10,8 @@
 ## Decision
 
 The existing one-, two- and three-printer layouts stay unchanged. Four printers
-use a 2×2 grid. Each card puts the print preview on the left and the printer
+use a 2×2 grid (where a panel cannot hold two cards of facts, four printers use
+rows instead; see the 2026-11-22 record in Related). Each card puts the print preview on the left and the printer
 facts on the right. Five or more printers use compact rows. Each row keeps the
 print preview, printer state, job name, progress, finish, and Pause or Resume
 and Stop controls.

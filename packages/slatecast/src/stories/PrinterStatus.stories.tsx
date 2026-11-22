@@ -425,10 +425,8 @@ export const ClearingPiTouchPortrait: Story = stateVariant({
  * for. Four is a 2×2 grid; five and more are rows, and nine rows fit. From ten
  * the rows that do not fit are named in a "+N more" strip under the last one.
  *
- * Every printer here is named "Printer N", including the first three: the
- * names in the stories above are real printers', and these stories add more
- * pictures of the panel, so they carry none of them. Each printer from the
- * fourth on has a different state, so the rows show every shape a row can
+ * Every printer here is named "Printer N", including the first three. Each
+ * printer from the fourth on has a different state, so the rows show every shape a row can
  * take: running, paused, finished, preparing, a problem, and failed. The
  * plates cycle through the three slicer-style renders above.
  */

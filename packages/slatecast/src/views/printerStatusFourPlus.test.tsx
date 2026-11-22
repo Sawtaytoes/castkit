@@ -114,8 +114,14 @@ const buildPrinters = (count: number): PrinterJob[] =>
       totalLayers: 999,
     }
     if (index === 0) {
+      // The longest facts a row carries: a tall print's layers, two days and
+      // more left, and two filaments.
       return buildPrinterJob({
         ...shared,
+        currentLayer: 2236,
+        totalLayers: 3360,
+        percent: 99,
+        finishAtMs: Date.now() + (50 * 60 + 50) * 60_000,
         filaments: [
           {
             name: "PLA Matte",
@@ -226,6 +232,13 @@ const isDrawn = (element: Element) => {
     box.height > 0 &&
     getComputedStyle(element).display !== "none"
   )
+}
+
+/** The box of an element's words, not of the element: a label is a block. */
+const textBox = (element: Element) => {
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  return range.getBoundingClientRect()
 }
 
 const drawnWithin = (root: Element, selector: string) =>
@@ -360,12 +373,23 @@ const findLayoutProblems = () => {
     const filamentSummary = card.querySelector(
       ".printer-filament-summary",
     )
+    const filamentLabel = filamentBox?.querySelector("dt")
     const filamentProblems =
       filamentBox &&
       filamentCount &&
       isDrawn(filamentBox) &&
       isDrawn(filamentCount)
         ? [
+            ...(filamentLabel &&
+            isDrawn(filamentLabel) &&
+            isOverlapping(
+              filamentCount.getBoundingClientRect(),
+              textBox(filamentLabel),
+            )
+              ? [
+                  `${label}: the filament count covers its label`,
+                ]
+              : []),
             ...(isInside(
               filamentCount.getBoundingClientRect(),
               filamentBox.getBoundingClientRect(),
@@ -968,6 +992,8 @@ describe("the details dialog's motion", () => {
 
 describe.each([
   ["the 320x320 round panel", 320, 320, "round", 0],
+  ["the 448x448 round panel", 448, 448, "round", 0],
+  ["the 449x449 round panel", 449, 449, "round", 0],
   ["the 384x384 round panel", 384, 384, "round", 0],
   ["the 421x421 round panel", 421, 421, "round", 0],
   ["the 480x480 round porthole", 480, 480, "round", 0],
@@ -1329,5 +1355,87 @@ describe("a question about a printer that left", () => {
     expect(
       document.querySelector('[role="dialog"]'),
     ).toBeNull()
+  })
+})
+
+describe("the tiny-row cutoff", () => {
+  test.each([
+    448, 449,
+  ])("a %i px round panel draws four printers that fit", async (size) => {
+    await mountOnPanel({
+      width: size,
+      height: size,
+      shape: "round",
+      printers: buildPrinters(4),
+    })
+
+    expect(drawnPrinterNames()).toHaveLength(4)
+    expect(
+      document.querySelector(".printer-overflow"),
+    ).toBeNull()
+  })
+})
+
+describe("a Stop question on a small round panel", () => {
+  test("keeps its answers inside the circle and under a finger", async () => {
+    await mountOnPanel({
+      width: 320,
+      height: 320,
+      shape: "round",
+      printers: buildPrinters(12),
+    })
+    const stopButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-action.is-stop",
+      )
+    if (!stopButton) {
+      throw new Error("The first card has no Stop button.")
+    }
+    await userEvent.click(stopButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    const answers = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".printer-confirm-actions button",
+      ),
+    )
+    const box = document
+      .querySelector(".printer-confirm-box")
+      ?.getBoundingClientRect()
+    const isInCircle = (pointX: number, pointY: number) =>
+      Math.hypot(pointX - 160, pointY - 160) <= 160.5
+
+    expect(answers).toHaveLength(2)
+    expect(
+      box &&
+        [
+          [box.left, box.top],
+          [box.right, box.top],
+          [box.left, box.bottom],
+          [box.right, box.bottom],
+        ].every(([cornerX = 0, cornerY = 0]) =>
+          isInCircle(cornerX, cornerY),
+        ),
+    ).toBe(true)
+    expect(
+      answers.flatMap((answer) => {
+        const answerBox = answer.getBoundingClientRect()
+        // 8 px in from the corners: inside the buttons' 12 px rounding.
+        return [
+          [answerBox.left + 8, answerBox.top + 8],
+          [answerBox.right - 8, answerBox.bottom - 8],
+        ]
+          .filter(
+            ([pointX = 0, pointY = 0]) =>
+              !isInCircle(pointX, pointY) ||
+              !answer.contains(
+                document.elementFromPoint(pointX, pointY),
+              ),
+          )
+          .map(() => answer.textContent)
+      }),
+    ).toEqual([])
   })
 })

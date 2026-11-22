@@ -649,18 +649,28 @@ export const PrinterStatus = () => {
     if (!hasJobs || !view || !cards) {
       return undefined
     }
+    /*
+     * Computed sizes, not `clientWidth`: they keep the fraction of a pixel
+     * the container queries see, so a 300.31 px view is not taken for a
+     * 300 px one, and they ignore a turned stage's rotation.
+     */
     const measure = () => {
       const viewStyle = getComputedStyle(view)
       const contentWidth =
-        view.clientWidth -
+        Number.parseFloat(viewStyle.width) -
         Number.parseFloat(viewStyle.paddingLeft) -
-        Number.parseFloat(viewStyle.paddingRight)
+        Number.parseFloat(viewStyle.paddingRight) -
+        Number.parseFloat(viewStyle.borderLeftWidth) -
+        Number.parseFloat(viewStyle.borderRightWidth)
+      const cardsHeight = Number.parseFloat(
+        getComputedStyle(cards).height,
+      )
       setCardArea((current) =>
-        current.height === cards.clientHeight &&
+        current.height === cardsHeight &&
         current.width === contentWidth
           ? current
           : {
-              height: cards.clientHeight,
+              height: cardsHeight,
               width: contentWidth,
             },
       )

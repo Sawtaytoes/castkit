@@ -2924,9 +2924,21 @@ html[data-grayscale-text="true"] {
  */
 .printer-status[data-layout="list"]
 .printer-metric.is-filament {
+  container: printer-filament / inline-size;
   grid-column: auto;
   min-height: 0;
   margin-top: 0;
+}
+
+/*
+ * A tile too narrow for the label and the count beside it drops the count;
+ * the whole tile still opens the list, and its name says how many.
+ */
+@container printer-filament (max-width: 124px) {
+  .printer-status[data-layout="list"]
+    .printer-filament-count {
+    display: none;
+  }
 }
 
 .printer-status[data-layout="list"]
@@ -2983,9 +2995,13 @@ html[data-grayscale-text="true"] {
   font-size: clamp(26px, 28cqh, 34px);
 }
 
+/* A long time left wraps onto a second line rather than losing its end. */
 .printer-status[data-layout="list"]
-  .printer-band-remaining {
+.printer-band-remaining {
+  overflow: visible;
   font-size: 12px;
+  line-height: 1.1;
+  white-space: normal;
 }
 
 .printer-status[data-layout="list"] .printer-band-ended {
@@ -3429,6 +3445,32 @@ html[data-grayscale-text="true"] {
   }
 }
 
+/* A small view's question: the whole width, and smaller words. */
+@container printer-status (max-width: 388px) {
+  .printer-status .printer-confirm-box {
+    width: 100%;
+    padding: 16px;
+  }
+
+  .printer-status .printer-confirm-question {
+    font-size: 20px;
+  }
+
+  .printer-status .printer-confirm-detail {
+    font-size: 14px;
+  }
+
+  .printer-status .printer-confirm-actions {
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .printer-status .printer-confirm-actions button {
+    padding: 11px 14px;
+    font-size: 16px;
+  }
+}
+
 /*
  * TINY rows, under a 300 px content box, such as a small round panel: the
  * band leaves its column and becomes a slim fourth line under the job, so
@@ -3491,13 +3533,21 @@ html[data-grayscale-text="true"] {
   position: absolute;
   z-index: 10;
   display: grid;
+  /* One definite cell, so the question never widens the overlay. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   inset: 0;
   background: rgb(0 0 0 / 62%);
 }
 
+/* On a round panel the question keeps to the square inside the circle. */
+.stage.shape-round .printer-confirm {
+  padding: 8px;
+}
+
 .printer-confirm-box {
   width: min(560px, 78%);
+  max-width: 100%;
   padding: 28px;
   border: 1px solid var(--color-border-subtle);
   border-radius: 18px;
@@ -3519,8 +3569,10 @@ html[data-grayscale-text="true"] {
   white-space: nowrap;
 }
 
+/* The two answers wrap rather than widening the box past a small panel. */
 .printer-confirm-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
   margin-top: 22px;
