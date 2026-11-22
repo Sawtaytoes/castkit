@@ -463,4 +463,13 @@ test.each([
       ".timer-priority-undo-bar",
     ) !== null,
   ).toBe(isDraining)
+  expect(
+    result.queryByText(/^Gone in \d+ seconds$/) !== null,
+  ).toBe(isDraining)
+  expect(result.getByText("Cancelled")).toBeVisible()
+  expect(
+    result.getByRole("button", {
+      name: /^Undo cancel of /,
+    }),
+  ).toBeVisible()
 })
