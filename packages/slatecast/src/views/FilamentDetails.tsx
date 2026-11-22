@@ -128,13 +128,37 @@ export const FilamentDetailsDialog = ({
   printerName: string
   /**
    * The feed's one-line filament text. A tile may cut it short, so the
-   * dialog gives it whole when the feed sends no per-slot list.
+   * dialog gives it whole unless a slot below already names that filament.
    */
   summary?: string
 }) => {
   const dialogOverlay = useRef<HTMLDivElement>(null)
   const dialogBox = useRef<HTMLElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
+
+  // A slot list can lack the active material's name, or omit it entirely.
+  const summaryText = summary?.trim() ?? ""
+  const summaryName = summaryText
+    .split(" · ")[0]
+    ?.trim()
+    .toLowerCase()
+  const isSummaryInList = Boolean(
+    summaryName &&
+      filaments?.some((filament) =>
+        [
+          filament.colorName ||
+            filamentColorName(filament.color),
+          filament.name,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(summaryName),
+      ),
+  )
+  const isSummaryShown = Boolean(
+    summaryText && !isSummaryInList,
+  )
 
   useDialogFocus({
     dialogRef: dialogBox,
@@ -190,6 +214,11 @@ export const FilamentDetailsDialog = ({
             Close
           </button>
         </header>
+        {isSummaryShown ? (
+          <p class="filament-details-summary">
+            {summaryText}
+          </p>
+        ) : null}
         {filaments?.length ? (
           <ul class="filament-details-list">
             {filaments.map((filament, index) => {
@@ -250,16 +279,9 @@ export const FilamentDetailsDialog = ({
             })}
           </ul>
         ) : (
-          <>
-            {summary ? (
-              <p class="filament-details-summary">
-                {summary}
-              </p>
-            ) : null}
-            <p class="filament-details-empty">
-              Per-slot filament details are not available.
-            </p>
-          </>
+          <p class="filament-details-empty">
+            Per-slot filament details are not available.
+          </p>
         )}
       </section>
     </div>

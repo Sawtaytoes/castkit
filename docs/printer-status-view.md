@@ -105,9 +105,10 @@ When the source provides `filaments`, the row opens a list of the filament names
 colors and AMS slots used by the print. The HA publisher reads the positive
 per-slot values from `print_weight`; it does not list every filament loaded in
 the AMS. A source that has no per-slot print mapping can still publish the
-active filament, and the dialog then gives its `filamentText` whole, above a
-note that slot details are unavailable. A tile can cut that text short, so the
-dialog is where the whole name always reads.
+active filament, and the dialog notes that slot details are unavailable. A
+tile can cut `filamentText` short, so the dialog gives it whole at the top
+unless a slot in its list already names that filament: a list can lack the
+active material's name, or leave it out entirely.
 
 Two conveniences for an HA template. `finishAt` takes epoch milliseconds or an
 ISO timestamp, and is optional — CastKit computes the finish from

@@ -96,3 +96,48 @@ test("the summary swatch follows the active AMS slot instead of the first archiv
     getComputedStyle(swatch, "::before").backgroundColor,
   ).toBe("rgba(247, 78, 2, 0.5)")
 })
+
+const LONG_SUMMARY =
+  "Glass Fiber Reinforced High Temperature Polycarbonate · AMS 1, slot 1"
+
+test.each([
+  { case: "no slot list", list: undefined },
+  {
+    case: "a slot with only a color",
+    list: [{ color: "#1c2c6c", location: "AMS 1, slot 1" }],
+  },
+  {
+    case: "a slot with neither name nor color",
+    list: [{ location: "AMS 1, slot 1" }],
+  },
+] as const)("the dialog gives the feed's whole summary with $case", ({
+  list,
+}) => {
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Bracket"
+      filaments={list}
+      summary={LONG_SUMMARY}
+      onClose={vi.fn()}
+    />,
+  )
+
+  expect(screen.getByText(LONG_SUMMARY)).toBeVisible()
+})
+
+test("the dialog does not repeat a summary a slot already names", () => {
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Ornament"
+      filaments={filaments}
+      summary="PLA Basic · AMS 2, slot 4"
+      onClose={vi.fn()}
+    />,
+  )
+
+  expect(
+    document.querySelector(".filament-details-summary"),
+  ).toBeNull()
+})

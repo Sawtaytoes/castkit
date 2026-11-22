@@ -2164,20 +2164,78 @@ describe("long printer names in the strip", () => {
     await mountOnPanel({
       width: 353,
       height: 350,
+      // Every printer the panel hides has failed, so the first chip is one.
       printers: buildPrinters(12).map((printer, index) => ({
         ...printer,
         name: `Wide North Workshop Carbon Fiber Printer ${index + 1}`,
+        ...(index >= 3
+          ? {
+              state: "failed" as const,
+              finishAtMs: Date.now() - 300_000,
+            }
+          : {}),
       })),
     })
-    const failedChip = Array.from(
-      document.querySelectorAll(".printer-overflow-item"),
-    ).find((chip) =>
-      chip
-        .querySelector(".printer-overflow-state")
-        ?.textContent?.includes("Failed"),
+    const strip = document.querySelector(
+      ".printer-overflow",
     )
+    const firstChip = document.querySelector(
+      ".printer-overflow-item",
+    )
+    const state = firstChip?.querySelector<HTMLElement>(
+      ".printer-overflow-state",
+    )
+    if (!strip || !firstChip || !state) {
+      throw new Error("The strip drew no chip.")
+    }
 
-    expect(failedChip).toBeDefined()
+    expect(state).toHaveTextContent("Failed")
+    expect(
+      isInside(
+        firstChip.getBoundingClientRect(),
+        strip.getBoundingClientRect(),
+      ),
+    ).toBe(true)
+    expect(state.scrollWidth).toBeLessThanOrEqual(
+      state.clientWidth + 1,
+    )
     expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+describe("a slot list without the active material's name", () => {
+  test("the filament list still gives the whole summary", async () => {
+    const summary = `${LONG_FILAMENT} · AMS 1, slot 1`
+    const [first, ...rest] = buildPrinters(4)
+    await mountOnPanel({
+      width: 652,
+      height: 872,
+      printers: [
+        {
+          ...first,
+          filamentText: summary,
+          filaments: [
+            { color: "#1c2c6c", location: "AMS 1, slot 1" },
+          ],
+        },
+        ...rest,
+      ],
+    })
+    const tile = document.querySelector<HTMLButtonElement>(
+      ".printer-card .printer-filament-button",
+    )
+    if (!tile) {
+      throw new Error(
+        "The first card has no filament tile.",
+      )
+    }
+    await userEvent.click(tile)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toHaveTextContent(summary)
   })
 })
