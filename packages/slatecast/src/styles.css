@@ -3367,24 +3367,33 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * A pending button in a row shows its spinner alone, with its words kept
- * for assistive tech: "Resuming…" is wider than half of Pause and Stop's
- * 196 px in some fonts, and the wait is a few seconds.
+ * A pending button in a 2×2 card or a row shows its spinner alone, with its
+ * words kept for assistive tech: "Resuming…" is wider than half of Pause
+ * and Stop in some fonts, and the wait is a few seconds.
  */
-.printer-status[data-layout="list"]
+.printer-status:is(
+  [data-layout="quad"],
+  [data-layout="list"]
+)
 .printer-action[data-is-pending="true"] {
   position: relative;
   display: grid;
   place-items: center;
 }
 
-.printer-status[data-layout="list"]
+.printer-status:is(
+    [data-layout="quad"],
+    [data-layout="list"]
+  )
   .printer-action[data-is-pending="true"]
   .printer-action-icon {
   display: block;
 }
 
-.printer-status[data-layout="list"]
+.printer-status:is(
+    [data-layout="quad"],
+    [data-layout="list"]
+  )
   .printer-action[data-is-pending="true"]
   .printer-action-label {
   position: absolute;

@@ -157,7 +157,7 @@ The actions are `printer_pause`, `printer_resume`, `printer_stop` and
 entity. CastKit does NOT predict the result the way the media controls do: a
 pause takes seconds to take effect on the machine in the room, so the button
 shows its own pending label and the card waits for the printer's own state.
-In a compact row the pending button shows its spinner alone and keeps
+In the 2×2 grid and a compact row the pending button shows its spinner alone and keeps
 `Resuming…` or `Stopping…` for assistive tech, because those words do not fit
 half of Pause and Stop's 196 px in every font.
 
@@ -386,9 +386,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    `+` or `more`, and a tap lists them all. This is a stated limit in
    [panel limits](panel-limits.md). A wider row that still cuts its state
    word with its facts folded, as a wide fallback font can, does the same:
-   nothing is left to give way. The view measures the words to the fraction
-   of a pixel after every render, and a wider view, another height or font,
-   or a new payload tries the rows again. On a
+   nothing is left to give way. Each card measures its state word to the
+   fraction of a pixel after every render of its own, so a clock tick that
+   widens the finish time folds the facts too; a wider view, another height
+   or font, or a new payload tries the rows again. On a
    round panel, four printers and up keep to the square inside the circle,
    and so do the dialogs. Layer and Finishes keep their whole width; the
    filament name gives way first, and the Filament tile never gets narrower

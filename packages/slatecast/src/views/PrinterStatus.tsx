@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "preact/hooks"
@@ -123,11 +124,19 @@ export const isTextCut = (element: HTMLElement) => {
   range.selectNodeContents(element)
   const text = range.getBoundingClientRect()
   const box = element.getBoundingClientRect()
+  /*
+   * Chromium lays out in 1/64 px units. A word one unit over its box still
+   * draws whole ("Failed" at 37 px in 36.984 px); two units, 0.03 px, end
+   * in an ellipsis. So the line is drawn between them.
+   */
   return (
     Math.max(text.width, text.height) >
-    Math.max(box.width, box.height) + 0.1
+    Math.max(box.width, box.height) + 0.02
   )
 }
+
+/** A width the view measured, and the payload, height and fonts it held. */
+type MeasuredWidth = { width: number; key: object }
 
 const getContentWidth = (view: HTMLElement) => {
   const viewStyle = getComputedStyle(view)
@@ -446,6 +455,7 @@ const PrinterCard = ({
   onClear,
   onToggleExpanded,
   onShowFilaments,
+  onStateCut,
   pendingAction,
   onRequest,
 }: {
@@ -457,9 +467,23 @@ const PrinterCard = ({
   onClear: () => void
   onToggleExpanded: () => void
   onShowFilaments: () => void
+  /** Called after any render that leaves the state word cut. */
+  onStateCut: () => void
   pendingAction: PendingAction | null
   onRequest: (action: ConfirmedAction) => void
 }) => {
+  /*
+   * After every render of this card, its own included: a clock tick that
+   * widens the finish time re-renders the card alone, and can cut the state
+   * word with no change to the view around it.
+   */
+  const stateLabelRef = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const label = stateLabelRef.current
+    if (label && isTextCut(label)) {
+      onStateCut()
+    }
+  })
   const clock = clockConfig.value
   const isPaused = job.state === "paused"
   const isSettled = isSettledPrinterJob(job)
@@ -539,7 +563,10 @@ const PrinterCard = ({
               class="printer-state-dot"
               aria-hidden="true"
             />
-            <span class="printer-state-label">
+            <span
+              ref={stateLabelRef}
+              class="printer-state-label"
+            >
               {STATE_LABELS[job.state]}
             </span>
           </div>
@@ -822,18 +849,16 @@ export const PrinterStatus = () => {
    * wider view, another height, a font that loads, or new facts tries them
    * again.
    */
-  const [crowdedWidth, setCrowdedWidth] = useState<
-    number | null
-  >(null)
+  const [crowded, setCrowded] =
+    useState<MeasuredWidth | null>(null)
   /*
    * The widest view, so far, whose rows cut a state word with their facts
    * already folded: nothing is left to give way, so the view draws no rows
    * there and the strip counts every printer, as a view under 188 px does.
    * The same changes try the rows again.
    */
-  const [rowlessWidth, setRowlessWidth] = useState<
-    number | null
-  >(null)
+  const [rowless, setRowless] =
+    useState<MeasuredWidth | null>(null)
   /*
    * A font that finishes loading changes every word's width without a new
    * size or payload, so it counts as a change too.
@@ -854,46 +879,49 @@ export const PrinterStatus = () => {
   }, [])
   const printersPayload = printers.value
   const cardAreaHeight = cardArea.height
-  useLayoutEffect(() => {
-    /*
-     * New facts may fit where the old ones did not. So may another height
-     * (a row's height sizes its picture, which takes width from the rest)
-     * or another font.
-     */
+  /*
+   * New facts may fit where the old ones did not. So may another height (a
+   * row's height sizes its picture, which takes width from the rest) or
+   * another font. A width counts only under the key it was measured with,
+   * so no effect has to clear it, and a card that reports a cut in the same
+   * commit as a change keeps its report.
+   */
+  const measureKey = useMemo(() => {
     void printersPayload
     void cardAreaHeight
     void fontLoads
-    setCrowdedWidth(null)
-    setRowlessWidth(null)
+    return {}
   }, [printersPayload, cardAreaHeight, fontLoads])
+  const measureKeyRef = useRef(measureKey)
+  measureKeyRef.current = measureKey
+  const crowdedWidth =
+    crowded?.key === measureKey ? crowded.width : null
+  const rowlessWidth =
+    rowless?.key === measureKey ? rowless.width : null
   /*
-   * After every render: a row whose state word is cut while the facts are
-   * drawn folds them; one cut with the facts folded draws no rows. Each
-   * step only removes what is measured, so this cannot loop: only a wider
-   * view, another height or font, or a new payload tries the rows again.
+   * A row whose state word is cut while the facts are drawn folds them; one
+   * cut with the facts folded draws no rows. Each card reports a cut after
+   * its own render. Each step only removes what is measured, so this cannot
+   * loop: only a wider view, another height or font, or a new payload tries
+   * the rows again.
    */
-  useLayoutEffect(() => {
+  const handleStateCut = useCallback(() => {
     const view = viewRef.current
     if (view?.dataset.layout !== "list") {
       return
     }
-    const isCrowded = Array.from(
-      view.querySelectorAll<HTMLElement>(
-        ".printer-card .printer-state-label",
-      ),
-    ).some(isTextCut)
-    if (!isCrowded) {
-      return
-    }
     // The width drawn, not the one in state: the first render draws before
     // the view is measured.
-    const width = getContentWidth(view)
-    if (view.dataset.isFolded === "true") {
-      setRowlessWidth(width)
-    } else {
-      setCrowdedWidth(width)
+    const measured = {
+      width: getContentWidth(view),
+      key: measureKeyRef.current,
     }
-  })
+    if (view.dataset.isFolded === "true") {
+      setRowless(measured)
+    } else {
+      setCrowded(measured)
+    }
+  }, [])
   /*
    * After every render: a strip whose first line would cut a chip's state
    * draws no chips, only its count, as on a small round panel. A chip that
@@ -1236,6 +1264,7 @@ export const PrinterStatus = () => {
             }
             job={job}
             layout={layout}
+            onStateCut={handleStateCut}
             pendingAction={pending[job.id] ?? null}
             onClear={() => {
               clear(job.id)

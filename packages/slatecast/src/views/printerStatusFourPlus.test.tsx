@@ -16,6 +16,7 @@ import {
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
+import { nowMs } from "../state.ts"
 import { installTouchPointerFallback } from "../touchPointerFallback.ts"
 import {
   __setPrinterPendingForStories,
@@ -2414,18 +2415,31 @@ describe("a view too narrow for a row", () => {
  * though Outfit failed to load. A wider font adds letter spacing to it, for
  * a machine whose fallback is wider than this one's, such as a CI runner's.
  */
+const FALLBACK_FONT_STACK =
+  '"Noto Sans JP", ui-sans-serif, system-ui, Arial, sans-serif'
+
 /*
- * The runner's fallback font is DejaVu Sans, wider than this machine's, and
- * "a wider font" adds 0.08 em to it there. "A much wider font" brings that
- * widest runner font here: DejaVu Sans Bold sets "Preparing" at 5.46 em, so
- * 6.18 em with the 0.08 em; this machine's fallback sets it at 4.67 em, and
- * 0.17 em of spacing on its nine letters makes up the difference.
+ * The widest font the runner draws: DejaVu Sans, its fallback, with the
+ * 0.08 em "a wider font" adds. DejaVu Sans Bold sets "Preparing" at 5.46 em,
+ * so 6.18 em with that spacing.
  */
-const LETTER_SPACING = {
-  "a fallback font": "0",
-  "a wider font": "0.08em",
-  "a much wider font": "0.17em",
-} as const
+const WIDEST_PREPARING_EM = 6.18
+
+/**
+ * "A much wider font" brings the runner's widest font to any machine: the
+ * fallback here, with the spacing its nine letters of "Preparing" need to
+ * reach 6.18 em. On the runner that is the 0.08 em again; on a machine with
+ * a narrower fallback it is more. A fixed spacing would pile onto DejaVu.
+ */
+const getMuchWiderSpacing = () => {
+  const probe = document.createElement("span")
+  probe.style.cssText = `position: absolute; font: 700 100px ${FALLBACK_FONT_STACK}; white-space: nowrap`
+  probe.textContent = "Preparing"
+  document.body.append(probe)
+  const em = probe.getBoundingClientRect().width / 100
+  probe.remove()
+  return `${Math.max(0.08, (WIDEST_PREPARING_EM - em) / 9).toFixed(3)}em`
+}
 
 const useTestFont = (
   font:
@@ -2437,10 +2451,16 @@ const useTestFont = (
   if (font === "Outfit") {
     return
   }
+  const letterSpacing =
+    font === "a much wider font"
+      ? getMuchWiderSpacing()
+      : font === "a wider font"
+        ? "0.08em"
+        : "0"
   const style = document.createElement("style")
   style.textContent = `.printer-status, .printer-status * {
-      font-family: "Noto Sans JP", ui-sans-serif, system-ui, Arial, sans-serif !important;
-      letter-spacing: ${LETTER_SPACING[font]} !important;
+      font-family: ${FALLBACK_FONT_STACK} !important;
+      letter-spacing: ${letterSpacing} !important;
     }`
   document.head.append(style)
   onTestFinished(() => style.remove())
@@ -3690,7 +3710,7 @@ describe("a pending button in a row", () => {
   })
 })
 
-describe("a word cut by less than a pixel", () => {
+describe("a word cut by a twentieth of a pixel", () => {
   test.each([
     0, 90, 270,
   ])("counts as cut on a stage turned %i°, though the rounded widths match", (turn) => {
@@ -3707,15 +3727,138 @@ describe("a word cut by less than a pixel", () => {
     const fullWidth = Number.parseFloat(
       getComputedStyle(word).width,
     )
-    word.style.width = `${fullWidth - 0.4}px`
+    // The reviewer's chip: 0.03 px short, and it read "Prepari…".
+    word.style.width = `${fullWidth - 0.05}px`
 
     expect(word.scrollWidth).toBeLessThanOrEqual(
       word.clientWidth + 1,
     )
     expect(isTextCut(word)).toBe(true)
 
+    // One 1/64 px layout unit over still draws whole, as "Failed" did.
+    word.style.width = `${fullWidth - 1 / 64}px`
+
+    expect(isTextCut(word)).toBe(false)
+
     word.style.width = `${fullWidth + 0.4}px`
 
     expect(isTextCut(word)).toBe(false)
+  })
+})
+
+describe("a clock tick that widens the finish time", () => {
+  test.each(
+    FONTS,
+  )("in %s, folds a row whose state word it would cut", async (font) => {
+    useTestFont(font)
+    const clock = {
+      ms: new Date(2026, 0, 5, 7, 59, 30).getTime(),
+    }
+    const now = vi
+      .spyOn(Date, "now")
+      .mockImplementation(() => clock.ms)
+    onTestFinished(() => {
+      now.mockRestore()
+      nowMs.value = Date.now()
+    })
+    nowMs.value = clock.ms
+    const [, ...rest] = buildPrinters(5)
+    const widths = Array.from(
+      { length: 100 },
+      (_, index) => 1101 + index * 2,
+    )
+    const [firstWidth = 0] = widths
+    await mountOnPanel({
+      width: firstWidth,
+      height: 900,
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: "Printer 1",
+          state: "preparing",
+          percent: 0,
+          currentLayer: 99998,
+          totalLayers: 99999,
+          remainingMinutes: 120,
+          finishAtMs: undefined,
+        }),
+        ...rest,
+      ],
+    })
+    const problems: string[] = []
+    let ticksSeen = 0
+    for (const width of widths) {
+      clock.ms = new Date(2026, 0, 5, 7, 59, 30).getTime()
+      nowMs.value = clock.ms
+      await page.viewport(width, 900)
+      await nextFrame()
+      if (!areFactsDrawn()) {
+        continue
+      }
+      // 9:59a becomes 10:00a, one character wider, with no new payload.
+      clock.ms = new Date(2026, 0, 5, 8, 0, 30).getTime()
+      nowMs.value = clock.ms
+      await nextFrame()
+      ticksSeen += 1
+      problems.push(
+        ...findCutWords(
+          ".printer-card .printer-state-label",
+        ).map((word) => `${width}x900: "${word}" is cut`),
+      )
+    }
+
+    expect(ticksSeen).toBeGreaterThan(20)
+    expect(problems).toEqual([])
+  })
+})
+
+describe("a pending button in the 2×2 grid", () => {
+  test.each(
+    FONTS,
+  )("in %s, keeps Resuming… inside its button", async (font) => {
+    useTestFont(font)
+    const problems = await sweepWidths({
+      widths: [601, 652, 700, 900, 1183, 1184, 1280],
+      height: 872,
+      printers: buildPrinters(4),
+      findProblems: () => [
+        ...findCutWords(
+          ".printer-card .printer-action-label",
+        ).map((word) => `"${word}" is cut`),
+        ...drawnWithin(
+          document.body,
+          ".printer-card .printer-action-label",
+        )
+          .filter((label) => {
+            const button = label.closest("button")
+            const box = label.getBoundingClientRect()
+            return (
+              button !== null &&
+              Math.max(box.width, box.height) > 1 &&
+              !isInside(
+                textBox(label),
+                button.getBoundingClientRect(),
+              )
+            )
+          })
+          .map(
+            (label) =>
+              `"${label.textContent}" leaves its button`,
+          ),
+        ...findLayoutProblems(),
+      ],
+    })
+
+    expect(
+      document.querySelector(
+        '.printer-status[data-layout="quad"]',
+      ),
+    ).not.toBeNull()
+    expect(problems).toEqual([])
+    expect(
+      page
+        .getByRole("button", { name: "Resuming…" })
+        .element(),
+    ).toBeDisabled()
   })
 })
