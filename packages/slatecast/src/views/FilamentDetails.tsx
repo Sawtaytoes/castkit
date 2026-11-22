@@ -64,7 +64,11 @@ export const FilamentControl = ({
   return (
     <button
       type="button"
-      class="printer-filament-button"
+      class={
+        count >= 10
+          ? "printer-filament-button has-long-count"
+          : "printer-filament-button"
+      }
       aria-haspopup="dialog"
       aria-expanded={isExpanded}
       aria-controls="printer-filament-details"
@@ -114,9 +118,16 @@ export const FilamentControl = ({
   )
 }
 
-/** Text as a reader sees it: spaces collapsed, case ignored. */
+/**
+ * Text as a reader sees it: spaces collapsed, a dot with or without spaces
+ * around it, and case ignored.
+ */
 const toMatchKey = (text: string) =>
-  text.replace(/\s+/g, " ").trim().toLowerCase()
+  text
+    .replace(/\s*·\s*/g, " · ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
 
 /** A tray as written either way: "AMS 1 slot 1" or "AMS 1, slot 1". */
 const toTrayKey = (text: string) =>
@@ -135,6 +146,26 @@ export const getFilamentSlotName = (
   ]
     .filter(Boolean)
     .join(" ") || "Filament name unavailable"
+
+/** A slot's brand, finish and translucency, as the list writes them. */
+export const getFilamentSlotMetadata = (
+  filament: PrinterFilamentAssignment,
+) => {
+  const rgba = filament.rgba ?? filament.color
+  const isTranslucent = rgba
+    ? parseRgba(rgba).isTranslucent
+    : false
+  return [
+    filament.brand,
+    filament.effectType?.replace(/[_-]/g, " "),
+    isTranslucent &&
+    !/translucent|transparent/i.test(filament.name ?? "")
+      ? "Translucent"
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+}
 
 /**
  * The feed's one-line filament text, whole, when no slot in the list already
@@ -272,21 +303,8 @@ export const FilamentDetailsDialog = ({
           <ul class="filament-details-list">
             {filaments.map((filament, index) => {
               const rgba = filament.rgba ?? filament.color
-              const isTranslucent = rgba
-                ? parseRgba(rgba).isTranslucent
-                : false
-              const metadata = [
-                filament.brand,
-                filament.effectType?.replace(/[_-]/g, " "),
-                isTranslucent &&
-                !/translucent|transparent/i.test(
-                  filament.name ?? "",
-                )
-                  ? "Translucent"
-                  : undefined,
-              ]
-                .filter(Boolean)
-                .join(" · ")
+              const metadata =
+                getFilamentSlotMetadata(filament)
               return (
                 <li key={`${filament.location}:${index}`}>
                   <span class="filament-details-swatch">

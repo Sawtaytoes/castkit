@@ -2822,9 +2822,11 @@ html[data-grayscale-text="true"] {
 
 .printer-status[data-layout="list"] .printer-body {
   display: grid;
+  /* The facts column is never narrower than the facts it holds: Layer and
+     Finishes whole, and the Filament tile's label. */
   grid-template-columns:
     minmax(0, 1.15fr)
-    minmax(0, 1.45fr)
+    minmax(min-content, 1.45fr)
     minmax(150px, 0.75fr)
     auto;
   grid-template-rows: auto auto;
@@ -2969,6 +2971,15 @@ html[data-grayscale-text="true"] {
  */
 @container printer-filament (max-width: 108px) {
   .printer-status[data-layout="list"]
+    .printer-filament-count {
+    display: none;
+  }
+}
+
+/* A two-digit count, such as "16 filaments", needs 16 px more. */
+@container printer-filament (max-width: 124px) {
+  .printer-status[data-layout="list"]
+    .has-long-count
     .printer-filament-count {
     display: none;
   }
@@ -3360,7 +3371,8 @@ html[data-grayscale-text="true"] {
   font-weight: 600;
 }
 
-/* The layer, the finish time and each filament slot a compact row hides. */
+/* The nozzle, the layer, the finish time and each slot a compact row hides. */
+.printer-details-nozzle,
 .printer-details-progress,
 .printer-details-filament {
   overflow-wrap: anywhere;

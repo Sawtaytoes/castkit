@@ -18,7 +18,12 @@ export type PrinterDetailsEntry = {
   /** The job's exact file name, when it differs from the readable name. */
   fileName?: string
   problemText?: string
-  /** The layer and the finish time, which a compact row may not draw. */
+  /** The nozzle, which a narrow row drops. */
+  nozzleText?: string
+  /**
+   * The layer and the finish time, or when a settled job ended, which a
+   * compact row may not draw.
+   */
   progressText?: string
   /** The filament, one line per slot, which a compact row may not draw. */
   filamentLines?: readonly string[]
@@ -166,6 +171,11 @@ export const PrinterDetailsDialog = ({
                 {printer.problemText ? (
                   <span class="printer-details-problem">
                     {printer.problemText}
+                  </span>
+                ) : null}
+                {printer.nozzleText ? (
+                  <span class="printer-details-nozzle">
+                    {printer.nozzleText}
                   </span>
                 ) : null}
                 {printer.progressText ? (

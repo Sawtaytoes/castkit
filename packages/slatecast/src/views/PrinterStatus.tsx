@@ -19,6 +19,7 @@ import { ExpandableMedia } from "./ExpandableMedia.tsx"
 import {
   FilamentControl,
   FilamentDetailsDialog,
+  getFilamentSlotMetadata,
   getFilamentSlotName,
   getFilamentSummaryText,
 } from "./FilamentDetails.tsx"
@@ -304,11 +305,17 @@ const ActionIcon = ({ name }: { name: ActionIconName }) => (
 /**
  * The layer and the finish time in words, for the details dialog. A compact
  * row drops its Layer and Finishes tiles, so the dialog keeps them reachable.
- * A settled job has neither.
+ * A settled job gives when it ended instead, which a narrow band drops.
  */
 const getProgressText = (job: PrinterJob) => {
   if (isSettledPrinterJob(job)) {
-    return undefined
+    return job.finishAtMs === undefined
+      ? undefined
+      : `Ended ${formatEndedTime({
+          clock: clockConfig.value,
+          endedAtMs: job.finishAtMs,
+          nowMillis: nowMs.value,
+        })}`
   }
   const finishAtMs = getFinishAtMs({
     job,
@@ -349,7 +356,11 @@ const getFilamentLines = (job: PrinterJob) => {
   const lines = [
     ...(summaryText ? [summaryText] : []),
     ...(job.filaments ?? []).map((filament) =>
-      [getFilamentSlotName(filament), filament.location]
+      [
+        getFilamentSlotName(filament),
+        filament.location,
+        getFilamentSlotMetadata(filament),
+      ]
         .filter(Boolean)
         .join(" · "),
     ),
@@ -952,9 +963,16 @@ export const PrinterStatus = () => {
                   job.state === "printing" ||
                   job.state === "paused"
                     ? `${STATE_LABELS[job.state]} · ${formatPercent(job.percent)}`
-                    : job.state === "failed" &&
-                        job.currentLayer !== undefined
-                      ? `${STATE_LABELS[job.state]} · stopped at layer ${job.currentLayer}`
+                    : job.state === "failed"
+                      ? [
+                          STATE_LABELS[job.state],
+                          formatPercent(job.percent),
+                          job.currentLayer === undefined
+                            ? undefined
+                            : `stopped at layer ${job.currentLayer}`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
                       : STATE_LABELS[job.state],
                 jobName:
                   getPrinterJobTitle(job) ||
@@ -966,6 +984,7 @@ export const PrinterStatus = () => {
                     ? job.jobName
                     : undefined,
                 problemText: job.problemText,
+                nozzleText: job.nozzleText,
                 progressText: getProgressText(job),
                 filamentLines: getFilamentLines(job),
               },

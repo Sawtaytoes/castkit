@@ -108,7 +108,8 @@ the AMS. A source that has no per-slot print mapping can still publish the
 active filament, and the dialog notes that slot details are unavailable. A
 tile can cut `filamentText` short, so the dialog gives it whole at the top
 unless a slot in its list already says all of it: the slot's name, alone or
-followed by its tray, with spacing, case and commas ignored. A list can lack
+followed by its tray, with spacing (around a `·` too), case and commas
+ignored. A list can lack
 the active material's name or leave it out entirely, and a summary can say
 more than the slot, so anything else keeps the summary.
 
@@ -311,8 +312,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    The printers keep the order Home Assistant sends.
 4. **A tap on a job name opens the details.** The 2×2 grid and the rows have
    no room to open a name in place, so the tap lists that printer's whole job
-   name, its exact file name, its whole fault, its layer and finish time,
-   and its filament, one line per slot, in a dialog. A row can drop its
+   name, its exact file name, its whole fault, its nozzle, its layer and
+   finish time (or, once it has stopped, when it ended), and its filament,
+   one line per slot with its brand and finish, in a dialog. A failed
+   printer's line gives its percentage and the layer it stopped at. A row can drop its
    Layer, Finishes and Filament tiles (see below), and the dialog keeps them
    a tap away. The hidden-printer list gives each hidden printer the same
    facts. Each of the
@@ -360,7 +363,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    round panel, four printers and up keep to the square inside the circle,
    and so do the dialogs. Layer and Finishes keep their whole width; the
    filament name gives way first, and the Filament tile never gets narrower
-   than its own label.
+   than its own label. The facts column never gets narrower than Layer,
+   Finishes and that label; the name's column gives way to it. The tile's
+   `2 filaments` count shows only when the tile has room for it beside the
+   label: a value wider than 108 px, or 124 px for a two-digit count.
 6. **Pause and Stop stay a fingertip tall.** Every row button is at least 48 px.
 
 ## Previews

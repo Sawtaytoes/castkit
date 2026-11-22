@@ -52,8 +52,9 @@ so a turned or round panel folds its rows for the width it really has. A round p
 printers and up, and the dialogs, inside the square within the circle. A
 narrow view folds a row's columns away in a fixed order; under 300 px the band
 moves under the job and each row grows to 84 px, so the name, the state, the
-job and the controls all keep room. A finished or failed row keeps its
-`Stopped at layer N` line whole, wrapping it if it must. The `Ended` time
+job and the controls all keep room. A failed row keeps its
+`Stopped at layer N` line whole, wrapping it if it must, and a finished row
+keeps its `Finished` line. The `Ended` time
 gives way, whole, in a band 180 px wide or less and in any band too short to
 hold it under the stopped line. At 708 px of content or
 less (a 760 px square-panel view) the row drops both lines, while the chip, the percentage, and the job name's dialog keep the

@@ -227,6 +227,10 @@ test.each([
     summary: "PLA Matte · AMS 1 slot 1",
   },
   { case: "no tray", summary: "pla matte" },
+  {
+    case: "a dot without spaces",
+    summary: "PLA Matte·AMS 1, slot 1",
+  },
 ] as const)("the dialog does not repeat a summary with $case", ({
   summary,
 }) => {

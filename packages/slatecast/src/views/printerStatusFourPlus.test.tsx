@@ -535,7 +535,27 @@ const findLayoutProblems = () => {
         (term) =>
           `${label}: the "${term.textContent}" label leaves its tile`,
       )
+    // A tile spills out of a grid too narrow for the facts it holds.
+    const metricProblems = drawnWithin(
+      card,
+      ".printer-metric",
+    )
+      .filter((metric) => {
+        const metrics = metric.closest(".printer-metrics")
+        return (
+          metrics !== null &&
+          !isInside(
+            metric.getBoundingClientRect(),
+            metrics.getBoundingClientRect(),
+          )
+        )
+      })
+      .map(
+        (metric) =>
+          `${label}: ${metric.className} leaves its grid`,
+      )
     return [
+      ...metricProblems,
       ...metricLabelProblems,
       ...outside,
       ...overflowing,
@@ -2340,14 +2360,29 @@ const buildWidestFacts = (finishDays: number) => {
 
 describe("the widest facts in a row", () => {
   test.each([
-    { finishDays: 5, finishes: "a weekday" },
-    { finishDays: 10, finishes: "a date" },
-  ] as const)("keep every tile's label inside it when the job finishes on $finishes", async ({
+    {
+      finishDays: 5,
+      finishes: "a weekday",
+      shape: "square",
+    },
+    { finishDays: 10, finishes: "a date", shape: "square" },
+    { finishDays: 10, finishes: "a date", shape: "round" },
+  ] as const)("keep every tile inside its grid, and its label inside it, on a $shape panel when the job finishes on $finishes", async ({
     finishDays,
+    shape,
   }) => {
+    // A round panel insets its view, so it folds at a wider outer size.
+    const sizes =
+      shape === "square"
+        ? { from: 1101, to: 1500 }
+        : { from: 1490, to: 1900 }
+    const sizeFor = (along: number) =>
+      shape === "square"
+        ? { width: along, height: 900 }
+        : { width: along, height: along }
     await mountOnPanel({
-      width: 1101,
-      height: 900,
+      ...sizeFor(sizes.from),
+      shape,
       printers: [
         buildWidestFacts(finishDays),
         ...buildPrinters(5).slice(1),
@@ -2355,8 +2390,13 @@ describe("the widest facts in a row", () => {
     })
     const problems: string[] = []
     let metricsSeen = 0
-    for (let width = 1101; width <= 1500; width += 3) {
-      await page.viewport(width, 900)
+    for (
+      let along = sizes.from;
+      along <= sizes.to;
+      along += 3
+    ) {
+      const { width, height } = sizeFor(along)
+      await page.viewport(width, height)
       await nextFrame()
       if (
         isDrawn(
@@ -2369,7 +2409,7 @@ describe("the widest facts in a row", () => {
       }
       problems.push(
         ...findLayoutProblems().map(
-          (problem) => `${width}x900: ${problem}`,
+          (problem) => `${width}x${height}: ${problem}`,
         ),
       )
     }
@@ -2423,6 +2463,69 @@ describe("the facts a compact row drops", () => {
     )
   })
 
+  test("a narrow row's details give the nozzle, the end, and each slot's brand", async () => {
+    const [first, ...rest] = buildPrinters(5)
+    await mountOnPanel({
+      width: 480,
+      height: 320,
+      printers: [
+        {
+          ...first,
+          state: "failed",
+          percent: 47,
+          currentLayer: 25,
+          finishAtMs: Date.now() - 300_000,
+        },
+        {
+          ...rest[0],
+          filaments: [
+            {
+              name: "PLA Matte",
+              brand: "Bambu",
+              color: "#1c1c1c",
+              location: "AMS 1, slot 1",
+            },
+          ],
+        },
+        ...rest.slice(1),
+      ],
+    })
+    const openDetails = async (index: number) => {
+      const jobButton =
+        document.querySelectorAll<HTMLButtonElement>(
+          ".printer-card .printer-job",
+        )[index]
+      if (!jobButton) {
+        throw new Error(
+          `Card ${index + 1} has no job button.`,
+        )
+      }
+      await userEvent.click(jobButton)
+      await expect
+        .element(page.getByRole("dialog"))
+        .toBeVisible()
+      return document.querySelector('[role="dialog"]')
+    }
+
+    const failed = await openDetails(0)
+    expect(failed).toHaveTextContent(
+      "Failed · 47% · stopped at layer 25",
+    )
+    expect(failed).toHaveTextContent("Ended")
+    expect(failed).toHaveTextContent(
+      "0.4 mm hardened steel",
+    )
+    await userEvent.keyboard("{Escape}")
+    await expect
+      .element(page.getByRole("dialog"))
+      .not.toBeInTheDocument()
+
+    const printing = await openDetails(1)
+    expect(printing).toHaveTextContent(
+      "PLA Matte · AMS 1, slot 1 · Bambu",
+    )
+  })
+
   test("the hidden-printer list gives each hidden printer's layer", async () => {
     await mountOnPanel({
       width: 1280,
@@ -2456,4 +2559,53 @@ describe("the facts a compact row drops", () => {
       expect.stringContaining("Layer 888 / 999"),
     ])
   })
+})
+
+describe("a two-digit filament count", () => {
+  test("never covers its label in a sweep of window sizes", async () => {
+    const [first, ...rest] = buildPrinters(5)
+    const filaments = Array.from(
+      { length: 16 },
+      (_, index) => ({
+        name: "PLA Basic",
+        color: "#1c1c1c",
+        location: `AMS ${Math.floor(index / 4) + 1}, slot ${(index % 4) + 1}`,
+      }),
+    )
+    await mountOnPanel({
+      width: 1101,
+      height: 900,
+      printers: [
+        {
+          ...first,
+          currentLayer: 888,
+          totalLayers: 999,
+          finishAtMs: Date.now() + 60 * 60_000,
+          filaments,
+        },
+        ...rest,
+      ],
+    })
+    const problems: string[] = []
+    let countsSeen = 0
+    for (let width = 1101; width <= 1500; width += 3) {
+      await page.viewport(width, 900)
+      await nextFrame()
+      const count = document.querySelector(
+        ".printer-card .printer-filament-count",
+      )
+      if (count && isDrawn(count)) {
+        countsSeen += 1
+      }
+      problems.push(
+        ...findLayoutProblems().map(
+          (problem) => `${width}x900: ${problem}`,
+        ),
+      )
+    }
+
+    // The count shows once the tile has room for it, and covers nothing.
+    expect(countsSeen).toBeGreaterThan(10)
+    expect(problems).toEqual([])
+  }, 90_000)
 })
