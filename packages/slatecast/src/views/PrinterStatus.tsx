@@ -1,4 +1,5 @@
 import type { PrinterJob } from "@castkit/shared/viewData/types"
+import { computed } from "@preact/signals"
 import {
   useCallback,
   useEffect,
@@ -137,6 +138,16 @@ export const isTextCut = (element: HTMLElement) => {
 
 /** A width the view measured, and the payload, height and fonts it held. */
 type MeasuredWidth = { width: number; key: object }
+
+/*
+ * The clock's minute. A finish time can narrow as the clock moves ("Tue
+ * 10:59p" becomes "10:59p" once it is today), so a width measured in one
+ * minute is tried again in the next. The view reads the minute, not the
+ * second, so the clock re-renders it once a minute.
+ */
+const nowMinute = computed(() =>
+  Math.floor(nowMs.value / 60_000),
+)
 
 const getContentWidth = (view: HTMLElement) => {
   const viewStyle = getComputedStyle(view)
@@ -886,14 +897,18 @@ export const PrinterStatus = () => {
    * so no effect has to clear it, and a card that reports a cut in the same
    * commit as a change keeps its report.
    */
+  const minute = nowMinute.value
   const measureKey = useMemo(() => {
     void printersPayload
     void cardAreaHeight
     void fontLoads
+    void minute
     return {}
-  }, [printersPayload, cardAreaHeight, fontLoads])
+  }, [printersPayload, cardAreaHeight, fontLoads, minute])
   const measureKeyRef = useRef(measureKey)
   measureKeyRef.current = measureKey
+  const cardAreaWidthRef = useRef(cardArea.width)
+  cardAreaWidthRef.current = cardArea.width
   const crowdedWidth =
     crowded?.key === measureKey ? crowded.width : null
   const rowlessWidth =
@@ -910,16 +925,29 @@ export const PrinterStatus = () => {
     if (view?.dataset.layout !== "list") {
       return
     }
-    // The width drawn, not the one in state: the first render draws before
-    // the view is measured.
+    /*
+     * The width drawn, or the width the view lays out for if that is wider:
+     * the first render, and a turned stage, draw before the view's own
+     * measure catches up, and the record must cover the width in use or
+     * the cut stays and reports again.
+     */
     const measured = {
-      width: getContentWidth(view),
+      width: Math.max(
+        getContentWidth(view),
+        cardAreaWidthRef.current,
+      ),
       key: measureKeyRef.current,
     }
+    // The same record again changes nothing, so a report renders no more.
+    const keepWider = (previous: MeasuredWidth | null) =>
+      previous?.key === measured.key &&
+      previous.width >= measured.width
+        ? previous
+        : measured
     if (view.dataset.isFolded === "true") {
-      setRowless(measured)
+      setRowless(keepWider)
     } else {
-      setCrowded(measured)
+      setCrowded(keepWider)
     }
   }, [])
   /*

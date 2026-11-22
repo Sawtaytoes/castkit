@@ -3862,3 +3862,229 @@ describe("a pending button in the 2×2 grid", () => {
     ).toBeDisabled()
   })
 })
+
+describe("a live turn of the stage", () => {
+  test.each(
+    FONTS,
+  )("in %s, the rows settle after the stage turns 90°", async (font) => {
+    useTestFont(font)
+    const [, ...rest] = buildPrinters(5)
+    const { server } = await mountOnPanel({
+      width: 1200,
+      height: 1137,
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: "Printer 1",
+          state: "preparing",
+          percent: 0,
+          currentLayer: 99998,
+          totalLayers: 99999,
+          // Just over a day away, so it reads with its weekday.
+          finishAtMs: Date.now() + (24 * 60 + 5) * 60_000,
+        }),
+        ...rest,
+      ],
+    })
+    server.push({
+      type: "settings",
+      settings: buildSettings({ orientation: 90 }),
+    })
+    await expect
+      .poll(
+        () =>
+          document
+            .querySelector<HTMLElement>(".stage")
+            ?.style.transform.includes("90deg") ?? false,
+      )
+      .toBe(true)
+    await nextFrame()
+    await nextFrame()
+
+    // Settled: no more measuring than a second's clock tick asks for.
+    const measure = vi.spyOn(
+      Range.prototype,
+      "getBoundingClientRect",
+    )
+    onTestFinished(() => measure.mockRestore())
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    expect(measure.mock.calls.length).toBeLessThan(40)
+    expect(
+      findCutWords(".printer-card .printer-state-label"),
+    ).toEqual([])
+    expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+describe("a clock that makes room again", () => {
+  test.each(
+    FONTS,
+  )("in %s, the facts come back once the finish drops its weekday", async (font) => {
+    useTestFont(font)
+    const clock = {
+      ms: new Date(2026, 0, 5, 22, 58, 30).getTime(),
+    }
+    const now = vi
+      .spyOn(Date, "now")
+      .mockImplementation(() => clock.ms)
+    onTestFinished(() => {
+      now.mockRestore()
+      nowMs.value = Date.now()
+    })
+    nowMs.value = clock.ms
+    const [, ...rest] = buildPrinters(5)
+    const widths = Array.from(
+      { length: 120 },
+      (_, index) => 1101 + index * 2,
+    )
+    const [firstWidth = 0] = widths
+    const printers = [
+      buildPrinterJob({
+        id: "printer-1",
+        name: "Printer 1",
+        state: "preparing",
+        percent: 0,
+        currentLayer: 99998,
+        totalLayers: 99999,
+        // 10:59 p.m. tomorrow: a weekday now, a bare time after midnight.
+        finishAtMs: new Date(2026, 0, 6, 22, 59).getTime(),
+      }),
+      ...rest,
+    ]
+    const { server } = await mountOnPanel({
+      width: firstWidth,
+      height: 900,
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: "Printer 1",
+          state: "preparing",
+          percent: 0,
+          currentLayer: 99998,
+          totalLayers: 99999,
+          // 10:59 p.m. tomorrow: a weekday now, a bare time after midnight.
+          finishAtMs: new Date(
+            2026,
+            0,
+            6,
+            22,
+            59,
+          ).getTime(),
+        }),
+        ...rest,
+      ],
+    })
+    const problems: string[] = []
+    let foldsSeen = 0
+    for (const width of widths) {
+      clock.ms = new Date(2026, 0, 5, 22, 58, 30).getTime()
+      nowMs.value = clock.ms
+      await page.viewport(width, 900)
+      await nextFrame()
+      if (areFactsDrawn()) {
+        continue
+      }
+      foldsSeen += 1
+      // Past midnight the finish is today, and needs no weekday.
+      clock.ms = new Date(2026, 0, 6, 0, 1, 30).getTime()
+      nowMs.value = clock.ms
+      await nextFrame()
+      await nextFrame()
+      const isDrawnAfterTick = areFactsDrawn()
+      // The same payload again is a fresh look at the same words.
+      server.push({
+        type: "printers",
+        data: { printers: structuredClone(printers) },
+      })
+      await nextFrame()
+      await nextFrame()
+      if (isDrawnAfterTick !== areFactsDrawn()) {
+        problems.push(
+          `${width}x900: the tick left the facts ${isDrawnAfterTick ? "drawn" : "folded"}, a fresh look ${isDrawnAfterTick ? "folds" : "draws"} them`,
+        )
+      }
+    }
+
+    expect(problems).toEqual([])
+    // Only a wide font folds these rows at all.
+    if (font === "a much wider font") {
+      expect(foldsSeen).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe("Layer and Finishes in a narrow 2×2 card", () => {
+  test.each(
+    FONTS,
+  )("in %s, keep their whole values", async (font) => {
+    useTestFont(font)
+    const finish = new Date()
+    finish.setMonth(finish.getMonth() + 1, 28)
+    finish.setHours(22, 59, 0, 0)
+    const [first, ...rest] = buildPrinters(4)
+    const problems = await sweepWidths({
+      widths: [
+        601, 640, 652, 670, 700, 800, 1000, 1183, 1184,
+        1280,
+      ],
+      height: 872,
+      printers: [
+        {
+          ...first,
+          state: "preparing" as const,
+          percent: 0,
+          currentLayer: 99998,
+          totalLayers: 99999,
+          finishAtMs: finish.getTime(),
+        } as PrinterJob,
+        ...rest,
+      ],
+      findProblems: () => [
+        ...findCutWords(
+          ".printer-card .printer-metric:not(.is-filament) dd span",
+        ).map((word) => `"${word}" is cut`),
+        ...findLayoutProblems(),
+      ],
+    })
+
+    expect(
+      document.querySelector(
+        '.printer-status[data-layout="quad"]',
+      ),
+    ).not.toBeNull()
+    expect(problems).toEqual([])
+  })
+})
+
+describe("a backdrop tap through the WebKit touch adapter", () => {
+  test("closes the hidden-printer list", async () => {
+    await mountOnPanel({
+      width: 480,
+      height: 480,
+      shape: "round",
+      printers: buildPrinters(12),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twelve printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+    const point = { x: 20, y: 240 }
+    expect(
+      document.elementFromPoint(point.x, point.y),
+    ).toHaveClass("filament-details-dialog")
+
+    dragWithAdapter({ from: point, to: point })
+
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+  })
+})

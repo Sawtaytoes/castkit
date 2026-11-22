@@ -389,9 +389,14 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    nothing is left to give way. Each card measures its state word to the
    fraction of a pixel after every render of its own, so a clock tick that
    widens the finish time folds the facts too; a wider view, another height
-   or font, or a new payload tries the rows again. On a
+   or font, a new payload, or the next minute tries the rows again, so a
+   finish that drops its weekday at midnight brings the facts back. On a
    round panel, four printers and up keep to the square inside the circle,
-   and so do the dialogs. Layer and Finishes keep their whole width; the
+   and so do the dialogs. In a narrow 2×2 card, Layer and Finishes shrink
+   their type from 15 px only where the tile cannot hold `99998 / 99999` or
+   `Dec 28 10:59p` whole. A tap on the backdrop closes a dialog on its
+   release, so a tap through the Linux WebKit touch adapter, which sends no
+   click, closes it too. In rows, Layer and Finishes keep their whole width; the
    filament name gives way first, and the Filament tile never gets narrower
    than its own label, or its `2 filaments` count. The facts column never
    gets narrower than Layer, Finishes and that tile; the name's column

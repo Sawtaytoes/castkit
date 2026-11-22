@@ -454,17 +454,20 @@ test("a press that began in the list does not close it from the backdrop", () =>
   const mouse = { pointerId: 1, pointerType: "mouse" }
   // Chromium sends a moved press's click to the shared parent.
   fireEvent.pointerDown(box, mouse)
+  fireEvent.pointerUp(overlay, mouse)
   fireEvent.click(overlay, { detail: 1 })
 
   expect(onClose).not.toHaveBeenCalled()
 
   fireEvent.pointerDown(overlay, mouse)
+  fireEvent.pointerUp(overlay, mouse)
   fireEvent.click(overlay, { detail: 1 })
 
+  // Once: the release closes, and the pointer's own click adds nothing.
   expect(onClose).toHaveBeenCalledTimes(1)
 })
 
-test("an update between press and release keeps a backdrop click", () => {
+test("an update between press and release keeps a backdrop tap", () => {
   const firstClose = vi.fn()
   const nextClose = vi.fn()
   const { rerender } = render(
@@ -492,6 +495,10 @@ test("an update between press and release keeps a backdrop click", () => {
       onClose={nextClose}
     />,
   )
+  fireEvent.pointerUp(overlay, {
+    pointerId: 1,
+    pointerType: "mouse",
+  })
   fireEvent.click(overlay, { detail: 1 })
 
   expect(nextClose).toHaveBeenCalledTimes(1)

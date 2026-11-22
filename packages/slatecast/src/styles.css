@@ -3798,6 +3798,25 @@ html[data-grayscale-text="true"] {
   }
 }
 
+/*
+ * Layer and Finishes in a narrow 2×2 card: the value shrinks from 15 px only
+ * where its tile cannot hold "99998 / 99999" or "Dec 28 10:59p" whole, about
+ * 9.5 em in a wide fallback font. A wide card keeps the 15 px.
+ */
+.printer-status[data-layout="quad"] .printer-card
+  .printer-metrics
+  .printer-metric:not(.is-filament) {
+  container-type: inline-size;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-card
+  .printer-metrics
+  .printer-metric:not(.is-filament)
+  dd {
+  font-size: min(15px, 100cqi / 9.5);
+}
+
 .printer-empty {
   display: flex;
   flex: 1;
