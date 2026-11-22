@@ -3089,3 +3089,41 @@ describe("a slot that says the summary but brings no color", () => {
     ).toMatch(/235,? 63,? 23|#eb3f17/i)
   })
 })
+
+describe("the folded facts after a font loads", () => {
+  test.each([
+    { from: "wide", to: "narrow", isDrawnAfter: true },
+    { from: "narrow", to: "wide", isDrawnAfter: false },
+  ] as const)("a $from state word that turns $to checks the rows again", async ({
+    from,
+    to,
+    isDrawnAfter,
+  }) => {
+    // A wide state word stands in for a font whose words are wider.
+    const wide = document.createElement("style")
+    wide.textContent = `.printer-state-label { letter-spacing: 20px; }`
+    onTestFinished(() => wide.remove())
+    if (from === "wide") {
+      document.head.append(wide)
+    }
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildPrinters(5),
+    })
+    await nextFrame()
+    expect(areFactsDrawn()).toBe(from !== "wide")
+
+    if (to === "wide") {
+      document.head.append(wide)
+    } else {
+      wide.remove()
+    }
+    // What the browser fires once a font face finishes loading.
+    document.fonts.dispatchEvent(new Event("loadingdone"))
+    await nextFrame()
+
+    expect(areFactsDrawn()).toBe(isDrawnAfter)
+    expect(findLayoutProblems()).toEqual([])
+  })
+})

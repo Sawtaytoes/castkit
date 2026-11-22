@@ -312,3 +312,38 @@ test("the dialog paints the slot that says the summary in the feed's color when 
   // Another slot without a color is still unknown, not the active one.
   expect(swatches[1]).toHaveClass("is-hatched")
 })
+
+test("the dialog keeps the active color on the summary when two slots could say it", () => {
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={[
+        { name: "PLA Basic", location: "AMS 1 slot 1" },
+        { name: "PLA Basic", location: "AMS 1 slot 2" },
+      ]}
+      summary="PLA Basic"
+      activeColor="#eb3f17"
+      onClose={vi.fn()}
+    />,
+  )
+  const swatches = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      ".filament-details-swatch .fss-swatch",
+    ),
+  )
+
+  // Neither slot is named the active one, so neither takes its color; the
+  // summary keeps it.
+  const summary = document.querySelector(
+    ".filament-details-summary",
+  )
+  expect(summary).toHaveTextContent("PLA Basic")
+  expect(
+    summary
+      ?.querySelector<HTMLElement>(".fss-swatch")
+      ?.style.getPropertyValue("--c"),
+  ).toMatch(/235,? 63,? 23|#eb3f17/i)
+  expect(swatches[0]).toHaveClass("is-hatched")
+  expect(swatches[1]).toHaveClass("is-hatched")
+})

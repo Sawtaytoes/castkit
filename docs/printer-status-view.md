@@ -111,7 +111,11 @@ unless a slot in its list already says all of it: the slot's name, alone or
 followed by its tray, with spacing (around a `·` too), case and commas
 ignored. A list can lack
 the active material's name or leave it out entirely, and a summary can say
-more than the slot, so anything else keeps the summary.
+more than the slot, so anything else keeps the summary. The summary carries
+the feed's active color as a swatch. When exactly one slot says it, that
+slot takes the active color if it has none of its own; when two slots could
+say it, such as a name with no tray, the summary keeps its own line and
+color, and neither slot is named active.
 
 Two conveniences for an HA template. `finishAt` takes epoch milliseconds or an
 ISO timestamp, and is optional — CastKit computes the finish from
@@ -344,7 +348,8 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    blocks. A wider view drops them too while a drawn row would cut its
    state word, as the widest facts can in a wide fallback font: no fixed
    width holds them in every font, so the view measures the rows it draws.
-   A wider view, or the next payload, tries the blocks again. At 760 px or less (812 px view) it drops the number badge, so a
+   A wider view, another height, a font that finishes loading, or the next
+   payload tries the blocks again. At 760 px or less (812 px view) it drops the number badge, so a
    long state word such as `Preparing` stays whole beside a name at its
    4.5 em floor. At 708 px or less (760 px view) it also drops the
    nozzle and the time left, and Pause and Stop become Lucide icons whose

@@ -213,8 +213,9 @@ export const getFilamentSummaryText = ({
 }
 
 /**
- * The slot that says the feed's whole summary, if one does: its name, alone
- * or followed by its tray.
+ * The one slot that says the feed's whole summary, if exactly one does: its
+ * name, alone or followed by its tray. A summary two slots could say, such
+ * as a name with no tray, names neither.
  */
 export const findSummarySlot = ({
   filaments,
@@ -230,7 +231,7 @@ export const findSummarySlot = ({
     return undefined
   }
   const summaryKey = toTrayKey(summaryText)
-  return filaments?.find((filament) => {
+  const matches = (filaments ?? []).filter((filament) => {
     const names = [
       filament.name ?? "",
       getFilamentSlotName(filament),
@@ -249,6 +250,7 @@ export const findSummarySlot = ({
         ),
     )
   })
+  return matches.length === 1 ? matches[0] : undefined
 }
 
 /**
@@ -364,6 +366,13 @@ export const FilamentDetailsDialog = ({
         </header>
         {summaryText ? (
           <p class="filament-details-summary">
+            {activeColor ? (
+              <span class="printer-details-swatch">
+                <FilamentSlotSwatch
+                  filament={{ color: activeColor }}
+                />
+              </span>
+            ) : null}
             {summaryText}
           </p>
         ) : null}

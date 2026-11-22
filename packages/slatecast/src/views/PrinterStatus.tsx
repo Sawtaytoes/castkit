@@ -785,22 +785,43 @@ export const PrinterStatus = () => {
   /*
    * The widest view, so far, whose rows cut a state word with their facts
    * drawn. The rows keep the facts folded at that width and narrower; a
-   * wider view, another height, or new facts tries them again.
+   * wider view, another height, a font that loads, or new facts tries them
+   * again.
    */
   const [crowdedWidth, setCrowdedWidth] = useState<
     number | null
   >(null)
+  /*
+   * A font that finishes loading changes every word's width without a new
+   * size or payload, so it counts as a change too.
+   */
+  const [fontLoads, setFontLoads] = useState(0)
+  useEffect(() => {
+    const fonts = document.fonts
+    const handleLoadingDone = () => {
+      setFontLoads((count) => count + 1)
+    }
+    fonts.addEventListener("loadingdone", handleLoadingDone)
+    return () => {
+      fonts.removeEventListener(
+        "loadingdone",
+        handleLoadingDone,
+      )
+    }
+  }, [])
   const printersPayload = printers.value
   const cardAreaHeight = cardArea.height
   useLayoutEffect(() => {
     /*
-     * New facts may fit where the old ones did not. So may another height:
-     * a row's height sizes its picture, which takes width from the rest.
+     * New facts may fit where the old ones did not. So may another height
+     * (a row's height sizes its picture, which takes width from the rest)
+     * or another font.
      */
     void printersPayload
     void cardAreaHeight
+    void fontLoads
     setCrowdedWidth(null)
-  }, [printersPayload, cardAreaHeight])
+  }, [printersPayload, cardAreaHeight, fontLoads])
   /*
    * After every render: a row whose state word is cut while the facts are
    * drawn folds them. A folded view is not measured, so this cannot loop:
