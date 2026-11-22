@@ -187,6 +187,17 @@ test.each([
       },
     ],
   },
+  {
+    case: "it says more than the slot",
+    summary: "PLA Matte · AMS 1 slot 1 · Active spool",
+    list: [
+      {
+        name: "PLA Matte",
+        color: "#1c1c1c",
+        location: "AMS 1, slot 1",
+      },
+    ],
+  },
 ] as const)("the dialog gives the summary when $case", ({
   summary,
   list,
@@ -231,6 +242,28 @@ test.each([
         },
       ]}
       summary={summary}
+      onClose={vi.fn()}
+    />,
+  )
+
+  expect(
+    document.querySelector(".filament-details-summary"),
+  ).toBeNull()
+})
+
+test("the dialog does not repeat a slot whose own name has a dot", () => {
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={[
+        {
+          name: "PLA · Silk",
+          color: "#c0c0c0",
+          location: "AMS 1, slot 1",
+        },
+      ]}
+      summary="PLA · Silk · AMS 1 slot 1"
       onClose={vi.fn()}
     />,
   )

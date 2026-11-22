@@ -516,7 +516,27 @@ const findLayoutProblems = () => {
       name && name.offsetWidth >= 40
         ? []
         : [`${label}: the printer's name has no room`]
+    // A tile's label is its own word; a tile narrower than it spills it.
+    const metricLabelProblems = drawnWithin(
+      card,
+      ".printer-metric dt",
+    )
+      .filter((term) => {
+        const metric = term.closest(".printer-metric")
+        return (
+          metric !== null &&
+          !isInside(
+            textBox(term),
+            metric.getBoundingClientRect(),
+          )
+        )
+      })
+      .map(
+        (term) =>
+          `${label}: the "${term.textContent}" label leaves its tile`,
+      )
     return [
+      ...metricLabelProblems,
       ...outside,
       ...overflowing,
       ...touching,
@@ -2301,5 +2321,139 @@ describe("a view too narrow for a row", () => {
       document.querySelectorAll(".printer-card").length,
     ).toBeGreaterThan(0)
     expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+/** A printing job with the widest Layer and Finishes a row can be handed. */
+const buildWidestFacts = (finishDays: number) => {
+  const finish = new Date()
+  finish.setDate(finish.getDate() + finishDays)
+  finish.setHours(22, 59, 0, 0)
+  const [first] = buildPrinters(1)
+  return {
+    ...first,
+    currentLayer: 99998,
+    totalLayers: 99999,
+    finishAtMs: finish.getTime(),
+  }
+}
+
+describe("the widest facts in a row", () => {
+  test.each([
+    { finishDays: 5, finishes: "a weekday" },
+    { finishDays: 10, finishes: "a date" },
+  ] as const)("keep every tile's label inside it when the job finishes on $finishes", async ({
+    finishDays,
+  }) => {
+    await mountOnPanel({
+      width: 1101,
+      height: 900,
+      printers: [
+        buildWidestFacts(finishDays),
+        ...buildPrinters(5).slice(1),
+      ],
+    })
+    const problems: string[] = []
+    let metricsSeen = 0
+    for (let width = 1101; width <= 1500; width += 3) {
+      await page.viewport(width, 900)
+      await nextFrame()
+      if (
+        isDrawn(
+          document.querySelector(
+            ".printer-card .printer-metrics",
+          ) ?? document.body,
+        )
+      ) {
+        metricsSeen += 1
+      }
+      problems.push(
+        ...findLayoutProblems().map(
+          (problem) => `${width}x900: ${problem}`,
+        ),
+      )
+    }
+
+    expect(metricsSeen).toBeGreaterThan(100)
+    expect(problems).toEqual([])
+    // A sweep of over a hundred window sizes outlasts the default under load.
+  }, 90_000)
+})
+
+describe("the facts a compact row drops", () => {
+  test("a tap on the job gives the layer, the finish time and the filament", async () => {
+    const [first, ...rest] = buildPrinters(5)
+    await mountOnPanel({
+      width: 1080,
+      height: 720,
+      printers: [
+        {
+          ...first,
+          filamentText: "PLA Matte · AMS 3 slot 3",
+        },
+        ...rest,
+      ],
+    })
+    const card = document.querySelector(".printer-card")
+    const metrics = card?.querySelector(".printer-metrics")
+    // The row is narrow enough to drop its three fact tiles.
+    expect(metrics && isDrawn(metrics)).toBe(false)
+    const jobButton =
+      card?.querySelector<HTMLButtonElement>(".printer-job")
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    const dialog = document.querySelector('[role="dialog"]')
+
+    expect(dialog).toHaveTextContent("Layer 2236 / 3360")
+    expect(dialog).toHaveTextContent("Finishes")
+    expect(dialog).toHaveTextContent(
+      "PLA Matte · AMS 3, slot 3",
+    )
+    expect(dialog).toHaveTextContent(
+      "Support for PLA · AMS 1, slot 1",
+    )
+    // A slot already says the summary, so it is not given twice.
+    expect(dialog).not.toHaveTextContent(
+      "PLA Matte · AMS 3 slot 3",
+    )
+  })
+
+  test("the hidden-printer list gives each hidden printer's layer", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildPrinters(12).map((printer) => ({
+        ...printer,
+        state: "printing",
+        currentLayer: 888,
+        problemText: undefined,
+      })),
+    })
+    const strip = document.querySelector<HTMLElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twelve printers draw no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    const progress = Array.from(
+      document.querySelectorAll(
+        '[role="dialog"] .printer-details-progress',
+      ),
+    ).map((line) => line.textContent)
+
+    expect(progress).toEqual([
+      expect.stringContaining("Layer 888 / 999"),
+      expect.stringContaining("Layer 888 / 999"),
+      expect.stringContaining("Layer 888 / 999"),
+    ])
   })
 })

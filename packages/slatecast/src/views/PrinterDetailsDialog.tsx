@@ -18,11 +18,16 @@ export type PrinterDetailsEntry = {
   /** The job's exact file name, when it differs from the readable name. */
   fileName?: string
   problemText?: string
+  /** The layer and the finish time, which a compact row may not draw. */
+  progressText?: string
+  /** The filament, one line per slot, which a compact row may not draw. */
+  filamentLines?: readonly string[]
 }
 
 /**
  * The full facts that a compact card cannot fit: the whole job name, the whole
- * fault, and, from the "+N more" strip, every printer the panel did not draw.
+ * fault, the layer, the finish time and the filament, and, from the "+N more"
+ * strip, every printer the panel did not draw.
  *
  * The 2×2 grid and the compact rows have no room to open a job name in place,
  * so a tap opens this instead. It reuses the filament dialog's frame, so the
@@ -163,6 +168,21 @@ export const PrinterDetailsDialog = ({
                     {printer.problemText}
                   </span>
                 ) : null}
+                {printer.progressText ? (
+                  <span class="printer-details-progress">
+                    {printer.progressText}
+                  </span>
+                ) : null}
+                {printer.filamentLines?.map(
+                  (line, index) => (
+                    <span
+                      key={`${line}:${index}`}
+                      class="printer-details-filament"
+                    >
+                      {line}
+                    </span>
+                  ),
+                )}
               </span>
             </li>
           ))}

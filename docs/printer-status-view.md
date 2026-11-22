@@ -107,8 +107,10 @@ per-slot values from `print_weight`; it does not list every filament loaded in
 the AMS. A source that has no per-slot print mapping can still publish the
 active filament, and the dialog notes that slot details are unavailable. A
 tile can cut `filamentText` short, so the dialog gives it whole at the top
-unless a slot in its list already names that filament: a list can lack the
-active material's name, or leave it out entirely.
+unless a slot in its list already says all of it: the slot's name, alone or
+followed by its tray, with spacing, case and commas ignored. A list can lack
+the active material's name or leave it out entirely, and a summary can say
+more than the slot, so anything else keeps the summary.
 
 Two conveniences for an HA template. `finishAt` takes epoch milliseconds or an
 ISO timestamp, and is optional — CastKit computes the finish from
@@ -309,7 +311,11 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    The printers keep the order Home Assistant sends.
 4. **A tap on a job name opens the details.** The 2×2 grid and the rows have
    no room to open a name in place, so the tap lists that printer's whole job
-   name, its exact file name, and its whole fault in a dialog. Each of the
+   name, its exact file name, its whole fault, its layer and finish time,
+   and its filament, one line per slot, in a dialog. A row can drop its
+   Layer, Finishes and Filament tiles (see below), and the dialog keeps them
+   a tap away. The hidden-printer list gives each hidden printer the same
+   facts. Each of the
    view's dialogs holds the keyboard while it is open: focus starts inside,
    Tab stays inside, and Escape closes only that dialog. In a row, a fault takes the job name's
    line, inside the same button. In the 2×2 grid, a fault gets two lines and
@@ -353,7 +359,8 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    [panel limits](panel-limits.md). On a
    round panel, four printers and up keep to the square inside the circle,
    and so do the dialogs. Layer and Finishes keep their whole width; the
-   filament name gives way first.
+   filament name gives way first, and the Filament tile never gets narrower
+   than its own label.
 6. **Pause and Stop stay a fingertip tall.** Every row button is at least 48 px.
 
 ## Previews

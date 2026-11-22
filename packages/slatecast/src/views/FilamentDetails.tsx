@@ -122,6 +122,65 @@ const toMatchKey = (text: string) =>
 const toTrayKey = (text: string) =>
   toMatchKey(text.replace(/,/g, " "))
 
+/**
+ * A slot's name as the list writes it. The color leads, in words: a swatch
+ * alone does not say which of two dark spools to load.
+ */
+export const getFilamentSlotName = (
+  filament: PrinterFilamentAssignment,
+) =>
+  [
+    filament.colorName || filamentColorName(filament.color),
+    filament.name,
+  ]
+    .filter(Boolean)
+    .join(" ") || "Filament name unavailable"
+
+/**
+ * The feed's one-line filament text, whole, when no slot in the list already
+ * says all of it; otherwise nothing. A slot says it when the whole summary
+ * reads as that slot's name, alone or followed by its tray. A summary with
+ * more than that, such as a qualifier, or a name that only contains it, such
+ * as "Support for PLA" for "PLA", is still shown.
+ */
+export const getFilamentSummaryText = ({
+  filaments,
+  summary,
+}: {
+  filaments?: readonly PrinterFilamentAssignment[]
+  summary?: string
+}) => {
+  const summaryText = (summary ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+  if (!summaryText) {
+    return undefined
+  }
+  const summaryKey = toTrayKey(summaryText)
+  const isSummaryInList = Boolean(
+    filaments?.some((filament) => {
+      const names = [
+        filament.name ?? "",
+        getFilamentSlotName(filament),
+      ].filter(Boolean)
+      const trays = [
+        filament.location,
+        filament.location.split(" · ")[0] ?? "",
+      ]
+      return names.some(
+        (name) =>
+          toTrayKey(name) === summaryKey ||
+          trays.some(
+            (tray) =>
+              toTrayKey(`${name} ${tray}`) === summaryKey ||
+              toTrayKey(`${name} · ${tray}`) === summaryKey,
+          ),
+      )
+    }),
+  )
+  return isSummaryInList ? undefined : summaryText
+}
+
 /** The full list of loaded AMS slots that supply the active print. */
 export const FilamentDetailsDialog = ({
   filaments,
@@ -144,46 +203,11 @@ export const FilamentDetailsDialog = ({
   const dialogBox = useRef<HTMLElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
 
-  /*
-   * A slot list can lack the active material's name, or omit it entirely, so
-   * the summary shows unless one slot says the same thing: the same name,
-   * whole, and the same tray when the summary names one. A name that only
-   * contains it, such as "Support for PLA" for "PLA", is another filament.
-   */
-  const [summaryName = "", ...summaryTrayParts] = (
-    summary ?? ""
-  ).split(" · ")
-  const summaryNameKey = toMatchKey(summaryName)
-  const summaryTrayKey = toTrayKey(
-    summaryTrayParts[0] ?? "",
-  )
-  const isSummaryInList = Boolean(
-    summaryNameKey &&
-      filaments?.some((filament) => {
-        const names = [
-          filament.name,
-          [
-            filament.colorName ||
-              filamentColorName(filament.color),
-            filament.name,
-          ]
-            .filter(Boolean)
-            .join(" "),
-        ].map((name) => toMatchKey(name ?? ""))
-        const isSameTray =
-          !summaryTrayKey ||
-          toTrayKey(
-            filament.location.split(" · ")[0] ?? "",
-          ) === summaryTrayKey
-        return names.includes(summaryNameKey) && isSameTray
-      }),
-  )
-  const summaryText = (summary ?? "")
-    .replace(/\s+/g, " ")
-    .trim()
-  const isSummaryShown = Boolean(
-    summaryText && !isSummaryInList,
-  )
+  /* A slot list can lack the active material's name, or omit it entirely. */
+  const summaryText = getFilamentSummaryText({
+    filaments,
+    summary,
+  })
 
   useDialogFocus({
     dialogRef: dialogBox,
@@ -239,7 +263,7 @@ export const FilamentDetailsDialog = ({
             Close
           </button>
         </header>
-        {isSummaryShown ? (
+        {summaryText ? (
           <p class="filament-details-summary">
             {summaryText}
           </p>
@@ -247,11 +271,6 @@ export const FilamentDetailsDialog = ({
         {filaments?.length ? (
           <ul class="filament-details-list">
             {filaments.map((filament, index) => {
-              // The color leads, in words: a swatch alone does not say
-              // which of two dark spools to load.
-              const colorName =
-                filament.colorName ||
-                filamentColorName(filament.color)
               const rgba = filament.rgba ?? filament.color
               const isTranslucent = rgba
                 ? parseRgba(rgba).isTranslucent
@@ -281,10 +300,7 @@ export const FilamentDetailsDialog = ({
                   </span>
                   <span class="filament-details-info">
                     <span class="filament-details-name">
-                      {[colorName, filament.name]
-                        .filter(Boolean)
-                        .join(" ") ||
-                        "Filament name unavailable"}
+                      {getFilamentSlotName(filament)}
                     </span>
                     {metadata ? (
                       <span class="filament-details-metadata">

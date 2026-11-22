@@ -2918,9 +2918,10 @@ html[data-grayscale-text="true"] {
   grid-column: 2;
   grid-row: 1 / -1;
   /* Layer and Finishes are short numbers and keep their whole width; the
-     filament name gives way, and its dialog lists it in full. */
+     filament name gives way, and its dialog lists it in full. The Filament
+     tile keeps at least its own label. */
   grid-template-columns: max-content max-content minmax(
-      0,
+      min-content,
       1fr
     );
   gap: 6px;
@@ -2947,17 +2948,26 @@ html[data-grayscale-text="true"] {
  */
 .printer-status[data-layout="list"]
 .printer-metric.is-filament {
-  container: printer-filament / inline-size;
   grid-column: auto;
   min-height: 0;
   margin-top: 0;
 }
 
 /*
- * A tile too narrow for the label and the count beside it drops the count;
- * the whole tile still opens the list, and its name says how many.
+ * The value, not the tile, is the container, so the label still sets the
+ * tile's narrowest width while the name inside gives way.
  */
-@container printer-filament (max-width: 124px) {
+.printer-status[data-layout="list"] .printer-metric.is-filament
+  dd {
+  container: printer-filament / inline-size;
+}
+
+/*
+ * A tile too narrow for the label and the count beside it drops the count;
+ * the whole tile still opens the list, and its name says how many. The
+ * value is the tile less its 8 px sides: 108 px is a 124 px tile.
+ */
+@container printer-filament (max-width: 108px) {
   .printer-status[data-layout="list"]
     .printer-filament-count {
     display: none;
@@ -3348,6 +3358,14 @@ html[data-grayscale-text="true"] {
   color: var(--color-intent-danger-content);
   font-size: 14px;
   font-weight: 600;
+}
+
+/* The layer, the finish time and each filament slot a compact row hides. */
+.printer-details-progress,
+.printer-details-filament {
+  overflow-wrap: anywhere;
+  color: var(--fg-dim);
+  font-size: 14px;
 }
 
 /*

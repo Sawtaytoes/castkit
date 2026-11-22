@@ -19,6 +19,8 @@ import { ExpandableMedia } from "./ExpandableMedia.tsx"
 import {
   FilamentControl,
   FilamentDetailsDialog,
+  getFilamentSlotName,
+  getFilamentSummaryText,
 } from "./FilamentDetails.tsx"
 import {
   PrinterDetailsDialog,
@@ -299,6 +301,62 @@ const ActionIcon = ({ name }: { name: ActionIconName }) => (
 )
 
 /** Left-to-right ordering is HA's; the badge only counts the columns. */
+/**
+ * The layer and the finish time in words, for the details dialog. A compact
+ * row drops its Layer and Finishes tiles, so the dialog keeps them reachable.
+ * A settled job has neither.
+ */
+const getProgressText = (job: PrinterJob) => {
+  if (isSettledPrinterJob(job)) {
+    return undefined
+  }
+  const finishAtMs = getFinishAtMs({
+    job,
+    nowMillis: nowMs.value,
+  })
+  return (
+    [
+      job.currentLayer === undefined
+        ? undefined
+        : job.totalLayers === undefined
+          ? `Layer ${job.currentLayer}`
+          : `Layer ${job.currentLayer} / ${job.totalLayers}`,
+      job.state === "paused" || finishAtMs === null
+        ? undefined
+        : `Finishes ${formatFinishTime({
+            clock: clockConfig.value,
+            finishAtMs,
+            nowMillis: nowMs.value,
+          })}`,
+    ]
+      .filter(Boolean)
+      .join(" · ") || undefined
+  )
+}
+
+/**
+ * The filament for the details dialog: the feed's summary when no slot says
+ * it, then each slot with its tray, as the filament dialog lists them.
+ */
+const getFilamentLines = (job: PrinterJob) => {
+  if (isSettledPrinterJob(job)) {
+    return undefined
+  }
+  const summaryText = getFilamentSummaryText({
+    filaments: job.filaments,
+    summary: job.filamentText,
+  })
+  const lines = [
+    ...(summaryText ? [summaryText] : []),
+    ...(job.filaments ?? []).map((filament) =>
+      [getFilamentSlotName(filament), filament.location]
+        .filter(Boolean)
+        .join(" · "),
+    ),
+  ]
+  return lines.length ? lines : undefined
+}
+
 const PrinterCard = ({
   index,
   isExpanded,
@@ -908,6 +966,8 @@ export const PrinterStatus = () => {
                     ? job.jobName
                     : undefined,
                 problemText: job.problemText,
+                progressText: getProgressText(job),
+                filamentLines: getFilamentLines(job),
               },
             ]
           : [],
