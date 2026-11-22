@@ -3277,3 +3277,118 @@ describe("a finger drag in the hidden-printer list", () => {
     expect(page.getByRole("dialog").element()).toBeVisible()
   })
 })
+
+describe("the hidden-printer list and a press that moves", () => {
+  const openList = async () => {
+    await mountOnPanel({
+      width: 320,
+      height: 320,
+      shape: "round",
+      printers: buildFaultedPrinters(12),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twelve printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+    const box = document.querySelector<HTMLElement>(
+      '[role="dialog"]',
+    )
+    const overlay = box?.parentElement
+    if (!box || !overlay) {
+      throw new Error("The list did not open.")
+    }
+    return { box, overlay }
+  }
+
+  /*
+   * Chromium sends the click of a press that moved to the nearest parent
+   * of where it began and ended. Pressed in the list and released on the
+   * backdrop, that parent is the backdrop itself.
+   */
+  const mouseGesture = ({
+    from,
+    to,
+  }: {
+    from: Element
+    to: Element
+  }) => {
+    const mouse = { pointerId: 1, pointerType: "mouse" }
+    from.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        ...mouse,
+      }),
+    )
+    to.dispatchEvent(
+      new PointerEvent("pointerup", {
+        bubbles: true,
+        ...mouse,
+      }),
+    )
+    to.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, detail: 1 }),
+    )
+  }
+
+  test("a mouse pressed in the list and released on the backdrop keeps the list open", async () => {
+    const { box, overlay } = await openList()
+    const entry = box.querySelector(".printer-details-item")
+    if (!entry) {
+      throw new Error("The list has no entries.")
+    }
+    mouseGesture({ from: entry, to: overlay })
+
+    // Longer than the close's motion and its 400 ms fallback.
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(overlay.dataset.closing).toBeUndefined()
+    expect(document.querySelector('[role="dialog"]')).toBe(
+      box,
+    )
+  })
+
+  test("a mouse pressed and released on the backdrop still closes the list", async () => {
+    const { overlay } = await openList()
+    mouseGesture({ from: overlay, to: overlay })
+
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+  })
+
+  test("after a finger drag from Close, Enter still closes the list", async () => {
+    const { box } = await openList()
+    const closeButton =
+      box.querySelector<HTMLButtonElement>(
+        ".filament-details-close",
+      )
+    if (!closeButton) {
+      throw new Error("The list has no Close.")
+    }
+    const bounds = closeButton.getBoundingClientRect()
+    const from = {
+      x: bounds.left + bounds.width / 2,
+      y: bounds.top + bounds.height / 2,
+    }
+    dragWithAdapter({
+      from,
+      to: { x: from.x, y: from.y - 65 },
+    })
+
+    expect(document.querySelector('[role="dialog"]')).toBe(
+      box,
+    )
+    closeButton.focus()
+    await userEvent.keyboard("{Enter}")
+
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+  })
+})

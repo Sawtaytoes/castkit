@@ -8,6 +8,7 @@ import {
   FilamentSlotSwatch,
   type FilamentSwatchColors,
 } from "./FilamentDetails.tsx"
+import { useBackdropClose } from "./useBackdropClose.ts"
 import { useDialogFocus } from "./useDialogFocus.ts"
 import { useDragScroll } from "./useDragScroll.ts"
 
@@ -112,21 +113,10 @@ export const PrinterDetailsDialog = ({
     onEscape: requestClose,
   })
 
-  useEffect(() => {
-    const overlay = dialogOverlay.current
-    const handleOverlayClick = (event: MouseEvent) => {
-      if (event.target === overlay) {
-        requestClose()
-      }
-    }
-    overlay?.addEventListener("click", handleOverlayClick)
-    return () => {
-      overlay?.removeEventListener(
-        "click",
-        handleOverlayClick,
-      )
-    }
-  }, [requestClose])
+  useBackdropClose({
+    overlayRef: dialogOverlay,
+    onClose: requestClose,
+  })
 
   if (!hasPrinters) {
     return null

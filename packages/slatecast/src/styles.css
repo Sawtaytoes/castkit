@@ -2322,13 +2322,34 @@ html[data-grayscale-text="true"] {
   display: none;
 }
 
-/* A row's filament tile cannot hold the whole sentence in every font. */
-.printer-status[data-layout="list"] .printer-pending-long {
+/*
+ * A 2×2 card's or a row's filament tile cannot hold the whole sentence in
+ * every font, so they say it short.
+ */
+.printer-status:is(
+  [data-layout="quad"],
+  [data-layout="list"]
+)
+.printer-pending-long {
   display: none;
 }
 
-.printer-status[data-layout="list"] .printer-pending-short {
+.printer-status:is(
+    [data-layout="quad"],
+    [data-layout="list"]
+  )
+  .printer-pending-short {
   display: inline;
+}
+
+/*
+ * A filament name gives way to the row, but the short placeholder does not:
+ * its tile is as wide as the words, so no font cuts them. A row too crowded
+ * for that cuts its state word, and then folds its facts.
+ */
+.printer-status[data-layout="list"] .printer-metric.is-filament.is-pending
+  dd {
+  container-type: normal;
 }
 
 .printer-filament-summary .printer-swatch {

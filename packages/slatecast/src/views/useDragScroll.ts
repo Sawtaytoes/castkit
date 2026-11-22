@@ -97,8 +97,14 @@ export const useDragScroll = () => {
     onClickCapture: (
       event: JSX.TargetedMouseEvent<HTMLElement>,
     ) => {
-      if (hasDragged.current) {
-        hasDragged.current = false
+      const isDragClick =
+        hasDragged.current && event.detail !== 0
+      hasDragged.current = false
+      // Only the drag's own click, which a pointer sends with a detail of
+      // 1 or more. A key on a focused button clicks with detail 0, and the
+      // touch adapter sends no click after a drag, so the next key press
+      // must still work.
+      if (isDragClick) {
         event.preventDefault()
         event.stopPropagation()
       }

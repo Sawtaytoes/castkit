@@ -427,10 +427,39 @@ test("a finger drag scrolls a long slot list, and the drag is no tap", () => {
   fireEvent.pointerMove(closeButton, touch(110))
   fireEvent.pointerMove(closeButton, touch(50))
   fireEvent.pointerUp(closeButton, touch(50))
-  fireEvent.click(closeButton)
+  // A pointer's own click carries a detail of 1.
+  fireEvent.click(closeButton, { detail: 1 })
 
   expect(box.dataset.castkitScroll).toBe("true")
   expect(getComputedStyle(box).touchAction).toBe("none")
   expect(box.scrollTop).toBe(100)
   expect(onClose).not.toHaveBeenCalled()
+})
+
+test("a press that began in the list does not close it from the backdrop", () => {
+  const onClose = vi.fn()
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={filaments}
+      onClose={onClose}
+    />,
+  )
+  const box = screen.getByRole("dialog")
+  const overlay = box.parentElement
+  if (!overlay) {
+    throw new Error("The dialog has no backdrop.")
+  }
+  const mouse = { pointerId: 1, pointerType: "mouse" }
+  // Chromium sends a moved press's click to the shared parent.
+  fireEvent.pointerDown(box, mouse)
+  fireEvent.click(overlay, { detail: 1 })
+
+  expect(onClose).not.toHaveBeenCalled()
+
+  fireEvent.pointerDown(overlay, mouse)
+  fireEvent.click(overlay, { detail: 1 })
+
+  expect(onClose).toHaveBeenCalledTimes(1)
 })

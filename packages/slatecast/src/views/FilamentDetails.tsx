@@ -1,7 +1,8 @@
 import { filamentColorName } from "@castkit/shared/viewData/filamentColorName"
 import type { PrinterFilamentAssignment } from "@castkit/shared/viewData/types"
-import { useEffect, useRef } from "preact/hooks"
+import { useRef } from "preact/hooks"
 import { parseRgba, Swatch } from "./spoolSwatch.tsx"
+import { useBackdropClose } from "./useBackdropClose.ts"
 import { useDialogFocus } from "./useDialogFocus.ts"
 import { useDragScroll } from "./useDragScroll.ts"
 
@@ -317,21 +318,10 @@ export const FilamentDetailsDialog = ({
     onEscape: onClose,
   })
 
-  useEffect(() => {
-    const overlay = dialogOverlay.current
-    const handleOverlayClick = (event: MouseEvent) => {
-      if (event.target === overlay) {
-        onClose()
-      }
-    }
-    overlay?.addEventListener("click", handleOverlayClick)
-    return () => {
-      overlay?.removeEventListener(
-        "click",
-        handleOverlayClick,
-      )
-    }
-  }, [onClose])
+  useBackdropClose({
+    overlayRef: dialogOverlay,
+    onClose: onClose,
+  })
 
   return (
     <div
