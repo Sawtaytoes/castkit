@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest"
 import {
   choosePrinterLayout,
+  chooseQuadCardShape,
   fitPrinterRows,
+  PRINTER_QUAD_BESIDE_MIN_WIDTH,
+  PRINTER_QUAD_MIN_HEIGHT,
 } from "./printerRowFit.ts"
 
 /** The 1280x720 workbench panel's card area: 720 less 18 px top and bottom. */
@@ -44,6 +47,21 @@ describe("choosePrinterLayout", () => {
         printerCount: 4,
       }),
     ).toBe("list")
+  })
+
+  test("four printers use rows one pixel under the grid's height", () => {
+    expect(
+      [
+        PRINTER_QUAD_MIN_HEIGHT - 1,
+        PRINTER_QUAD_MIN_HEIGHT,
+      ].map((availableHeight) =>
+        choosePrinterLayout({
+          availableHeight,
+          availableWidth: WORKBENCH_WIDTH,
+          printerCount: 4,
+        }),
+      ),
+    ).toEqual(["list", "quad"])
   })
 
   test("four printers use rows on a phone, however tall", () => {
@@ -119,5 +137,22 @@ describe("fitPrinterRows", () => {
         printerCount: 5,
       }),
     ).toEqual({ visibleCount: 0, hiddenCount: 5 })
+  })
+})
+
+describe("chooseQuadCardShape", () => {
+  test("the workbench panel puts the picture beside the facts", () => {
+    expect(chooseQuadCardShape(WORKBENCH_WIDTH)).toBe(
+      "beside",
+    )
+  })
+
+  test("a narrower grid stacks the picture above the facts", () => {
+    expect(
+      [
+        PRINTER_QUAD_BESIDE_MIN_WIDTH - 1,
+        PRINTER_QUAD_BESIDE_MIN_WIDTH,
+      ].map(chooseQuadCardShape),
+    ).toEqual(["stacked", "beside"])
   })
 })

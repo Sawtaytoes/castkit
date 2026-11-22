@@ -198,7 +198,7 @@ column width.
 | 1 | The picture on the left, the facts in a column on the right. Type grows to fill the panel, because there is room and the panel is read a step back from the bench. |
 | 2 | Two columns. The picture sits above the facts and takes the slack height. |
 | 3 | Three columns, same shape as two. |
-| 4 | A 2×2 grid. On a landscape panel each card puts the picture beside the facts. |
+| 4 | A 2×2 grid. On a wide panel each card puts the picture beside the facts. |
 | 5 or more | One compact row per printer, and only the rows that finish on the glass. See below. |
 
 The plate picture has no box around it. The cover is square and carries its own
@@ -275,8 +275,8 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
 ([layouts](decisions/2026-09-28-printer-status-adds-layouts-from-four.md),
 [what landed](decisions/2026-11-22-printer-status-four-plus-layouts-land-and-name-the-printers-they-hide.md)).
 
-1. **Four is a quad: two rows, two columns.** On a landscape panel each card
-   puts the picture on the left at 38% and the facts on the right. On a squarer
+1. **Four is a quad: two rows, two columns.** On a wide panel each card puts
+   the picture on the left at 38% and the facts on the right. On a narrower
    panel the card keeps the column shape, the picture above the facts. Filament
    keeps its full-width box, because at a third of the facts' width its
    `2 filaments · Details ›` ran out of the box.
@@ -301,9 +301,11 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    line, inside the same button. In the 2×2 grid, a fault gets two lines and
    the Layer and Finishes blocks give it their room.
 5. **The count picks the arrangement; the panel only folds it.** Four printers
-   use rows instead of the quad when the card area is under 560 px tall or
-   600 px wide, where two cards of facts do not fit. A row under 1100 px wide
-   drops the three fact blocks. Under 600 px it also drops the badge, the
+   use rows instead of the quad when the card area is under 624 px tall or
+   600 px wide, where two cards of facts do not fit. A quad card puts its
+   picture beside the facts only when the card area is at least 1132 px wide;
+   a narrower grid stacks the picture above them. A row under 1100 px wide
+   drops the three fact blocks. Under 760 px it also drops the badge, the
    nozzle and the time left, and Pause and Stop become Lucide icons whose words
    stay in the accessibility tree. Under 440 px the picture goes, so the name
    keeps its room. The state chip and the percentage always stay.

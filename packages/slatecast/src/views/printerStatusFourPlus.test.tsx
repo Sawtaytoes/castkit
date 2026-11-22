@@ -52,6 +52,23 @@ const PANELS = [
     "the 3440x1440 ultrawide window",
     { width: 3440, height: 1440 },
   ],
+  /*
+   * Both sides of every cutoff: the 760 px and 1100 px row widths, the
+   * height a 2×2 grid needs, the width that puts its picture beside the
+   * facts, and the sizes an earlier review found clipped.
+   */
+  ["the 759x700 window", { width: 759, height: 700 }],
+  ["the 761x700 window", { width: 761, height: 700 }],
+  ["the 601x470 window", { width: 601, height: 470 }],
+  ["the 650x620 window", { width: 650, height: 620 }],
+  ["the 650x890 window", { width: 650, height: 890 }],
+  ["the 1099x700 window", { width: 1099, height: 700 }],
+  ["the 1101x700 window", { width: 1101, height: 700 }],
+  ["the 1183x720 window", { width: 1183, height: 720 }],
+  ["the 1184x720 window", { width: 1184, height: 720 }],
+  ["the 1200x596 window", { width: 1200, height: 596 }],
+  ["the 1200x659 window", { width: 1200, height: 659 }],
+  ["the 1200x660 window", { width: 1200, height: 660 }],
 ] as const
 
 /**
@@ -133,20 +150,23 @@ const mountOnPanel = async ({
   width,
   height,
   printers,
+  repaint = "instant",
 }: {
   width: number
   height: number
   printers: PrinterJob[]
+  repaint?: "instant" | "slow"
 }) => {
   __setPrinterPendingForStories(PENDING)
   await page.viewport(width, height)
-  await mountSlatecast({
+  const mounted = await mountSlatecast({
     snapshot: buildSnapshot({
       view: "printer-status",
       device: buildDeviceProfile({
         width,
         height,
         hasTouch: true,
+        repaint,
         views: [
           {
             name: "Printer Status",
@@ -158,6 +178,7 @@ const mountOnPanel = async ({
     }),
   })
   await document.fonts.ready
+  return mounted
 }
 
 type Box = Pick<
@@ -560,8 +581,11 @@ describe("the full job name and fault are a tap away", () => {
     }
     await userEvent.click(jobButton)
 
+    // The list rises into place, so wait for it to finish arriving.
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
     const dialog = document.querySelector('[role="dialog"]')
-    expect(dialog).toBeVisible()
     expect(dialog).toHaveTextContent(LONG_FAULT)
     expect(dialog).toHaveTextContent(
       "Very Long Multi Plate Assembly With Many Parts",
@@ -597,6 +621,9 @@ describe.each([
     }
     const drawnCount = drawnPrinterNames().length
     await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
 
     const listedNames = Array.from(
       document.querySelectorAll(
@@ -612,5 +639,206 @@ describe.each([
     expect(
       document.querySelector('[role="dialog"]'),
     ).toHaveTextContent("Failed")
+  })
+})
+
+describe("the layout follows live updates", () => {
+  const WORKBENCH = { width: 1280, height: 720 }
+
+  test.each([
+    4, 9,
+  ])("a job name opened with three printers closes when %i arrive", async (count) => {
+    const { server } = await mountOnPanel({
+      ...WORKBENCH,
+      printers: buildPrinters(3),
+    })
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+    expect(
+      document
+        .querySelector(".printer-card")
+        ?.getAttribute("data-expanded"),
+    ).toBe("true")
+
+    server.push({
+      type: "printers",
+      data: { printers: buildPrinters(count) },
+    })
+
+    await expect
+      .poll(() => drawnPrinterNames().length)
+      .toBe(count)
+    expect(
+      document.querySelectorAll(
+        '.printer-card[data-expanded="true"]',
+      ),
+    ).toHaveLength(0)
+    expect(findLayoutProblems()).toEqual([])
+  })
+
+  test("the hidden-printer list follows the strip, and closes when it empties", async () => {
+    const { server } = await mountOnPanel({
+      ...WORKBENCH,
+      printers: buildPrinters(12),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twelve printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    server.push({
+      type: "printers",
+      data: { printers: buildPrinters(10) },
+    })
+
+    await expect
+      .poll(() =>
+        Array.from(
+          document.querySelectorAll(
+            '[role="dialog"] .filament-details-name',
+          ),
+        ).map((name) => name.textContent?.split(" · ")[0]),
+      )
+      .toEqual(["Printer 10"])
+    expect(
+      document.querySelector("#printer-details-title"),
+    ).toHaveTextContent("+1 more printer")
+
+    server.push({
+      type: "printers",
+      data: { printers: buildPrinters(9) },
+    })
+
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+  })
+})
+
+describe("the details dialog and the keyboard", () => {
+  const WORKBENCH = { width: 1280, height: 720 }
+
+  test("Enter opens it on Close, Tab stays inside, and Escape returns to the job", async () => {
+    await mountOnPanel({
+      ...WORKBENCH,
+      printers: buildPrinters(9),
+    })
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    jobButton.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    const closeButton = document.querySelector(
+      '[role="dialog"] .filament-details-close',
+    )
+    expect(document.activeElement).toBe(closeButton)
+
+    await userEvent.tab()
+    expect(document.activeElement).toBe(closeButton)
+    await userEvent.tab({ shift: true })
+    expect(document.activeElement).toBe(closeButton)
+
+    await userEvent.keyboard("{Escape}")
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+    expect(document.activeElement).toBe(jobButton)
+  })
+})
+
+describe("the details dialog's motion", () => {
+  const WORKBENCH = { width: 1280, height: 720 }
+
+  const openFirstJob = async () => {
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+  }
+
+  const closeButton = () => {
+    const button =
+      document.querySelector<HTMLButtonElement>(
+        '[role="dialog"] .filament-details-close',
+      )
+    if (!button) {
+      throw new Error("The dialog has no Close button.")
+    }
+    return button
+  }
+
+  const dialogBoxAnimation = () => {
+    const box = document.querySelector('[role="dialog"]')
+    return box ? getComputedStyle(box).animationName : null
+  }
+
+  test("an instant panel rises it in and sinks it out before it goes", async () => {
+    await mountOnPanel({
+      ...WORKBENCH,
+      printers: buildPrinters(9),
+    })
+    await openFirstJob()
+
+    expect(dialogBoxAnimation()).toBe(
+      "printer-details-enter",
+    )
+
+    await userEvent.click(closeButton())
+
+    expect(
+      document
+        .querySelector(".printer-details-dialog")
+        ?.getAttribute("data-closing"),
+    ).toBe("true")
+    expect(dialogBoxAnimation()).toBe(
+      "printer-details-exit",
+    )
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+  })
+
+  test("a slow panel shows and removes it without motion", async () => {
+    await mountOnPanel({
+      ...WORKBENCH,
+      printers: buildPrinters(9),
+      repaint: "slow",
+    })
+    await openFirstJob()
+
+    expect(dialogBoxAnimation()).toBe("none")
+
+    await userEvent.click(closeButton())
+
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toBeNull()
   })
 })

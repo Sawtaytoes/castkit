@@ -26,10 +26,11 @@ export const PRINTER_ROW_GAP = 6
 export const PRINTER_OVERFLOW_HEIGHT = 36
 
 /**
- * The shortest card area that holds two quad cards, one above the other.
- * Below it, four printers use rows like five do.
+ * The shortest card area that holds two quad cards, one above the other. A
+ * card's facts and buttons measure 276 px, plus 26 px of padding and border,
+ * twice, plus the 12 px gap. Below it, four printers use rows like five do.
  */
-export const PRINTER_QUAD_MIN_HEIGHT = 560
+export const PRINTER_QUAD_MIN_HEIGHT = 624
 
 /**
  * The narrowest card area that holds two quad cards side by side. Below it,
@@ -37,6 +38,21 @@ export const PRINTER_QUAD_MIN_HEIGHT = 560
  * chip and for the buttons' words, so a phone gets rows.
  */
 export const PRINTER_QUAD_MIN_WIDTH = 600
+
+/**
+ * The narrowest card area where each quad card can put its picture BESIDE the
+ * facts: two 560 px cards and the gap. A narrower grid stacks the picture
+ * above the facts, as the one-to-three-printer columns do.
+ */
+export const PRINTER_QUAD_BESIDE_MIN_WIDTH = 1132
+
+/** How a quad card arranges its picture and its facts. */
+export const chooseQuadCardShape = (
+  availableWidth: number,
+) =>
+  availableWidth >= PRINTER_QUAD_BESIDE_MIN_WIDTH
+    ? "beside"
+    : "stacked"
 
 export type PrinterLayout = "columns" | "quad" | "list"
 

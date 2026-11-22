@@ -2582,10 +2582,10 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * FOUR printers: a 2×2 grid. On a landscape panel each card puts the plate
- * beside the facts, so a quarter of the glass still carries a readable picture
- * and the full set of facts. On a squarer panel the card keeps the column
- * shape, the plate above the facts. Filament keeps its full-width row: at a
+ * FOUR printers: a 2×2 grid. On a wide panel each card puts the plate beside
+ * the facts, so a quarter of the glass still carries a readable picture and
+ * the full set of facts. On a narrower one the card keeps the column shape,
+ * the plate above the facts. Filament keeps its full-width row: at a
  * third of the facts' width its "2 filaments · Details ›" ran out of its box.
  */
 .printer-status[data-layout="quad"] .printer-cards {
@@ -2600,17 +2600,16 @@ html[data-grayscale-text="true"] {
   padding: 12px;
 }
 
-@media (min-aspect-ratio: 4 / 3) {
-  .printer-status[data-layout="quad"] .printer-card {
-    display: grid;
-    grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
-    gap: 14px;
-  }
+/* The view picks the shape from the measured card area; see printerRowFit.ts. */
+.printer-status[data-quad-shape="beside"] .printer-card {
+  display: grid;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  gap: 14px;
+}
 
-  .printer-status[data-layout="quad"]
-    .printer-card[data-has-thumbnail="false"] {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.printer-status[data-quad-shape="beside"]
+  .printer-card[data-has-thumbnail="false"] {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* `safe`: a card whose facts outgrow it loses the bottom, never the name. */
@@ -2810,8 +2809,10 @@ html[data-grayscale-text="true"] {
   font-size: 13px;
 }
 
+/* At every width, the state chip gives up width before the name does. */
 .printer-status[data-layout="list"] .printer-names {
   flex: 1 1 0;
+  min-width: 4.5em;
 }
 
 .printer-status[data-layout="list"] .printer-name {
@@ -2823,7 +2824,9 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-status[data-layout="list"] .printer-state {
+  flex-shrink: 1;
   gap: 5px;
+  min-width: 0;
   padding: 3px 8px;
   font-size: 11px;
 }
@@ -3142,8 +3145,16 @@ html[data-grayscale-text="true"] {
   }
 }
 
+@keyframes printer-details-exit {
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
 /*
- * The list rises into place, so the tap that opened it reads as its cause.
+ * The list rises into place, so the tap that opened it reads as its cause,
+ * and sinks away when it closes. The dialog unmounts when the exit ends.
  * Only a panel that repaints instantly animates; see the rule at the top.
  */
 @media (prefers-reduced-motion: no-preference) {
@@ -3152,6 +3163,13 @@ html[data-grayscale-text="true"] {
     .filament-details-box {
     animation: printer-details-enter 180ms
       cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  html[data-repaint="instant"]
+    .printer-details-dialog[data-closing="true"]
+    .filament-details-box {
+    animation: printer-details-exit 140ms
+      cubic-bezier(0.4, 0, 1, 1) forwards;
   }
 }
 
@@ -3225,11 +3243,12 @@ html[data-grayscale-text="true"] {
 
 /*
  * The narrowest rows: Pause and Stop become Lucide icons with their words kept
- * for assistive tech, the badge, the nozzle and the time left go, and the
- * state chip gives up width before the name does. Below 440 px the picture
- * goes too, because the name is the one fact that says which printer it is.
+ * for assistive tech, and the badge, the nozzle and the time left go. Below
+ * 760 px the words would leave the name under its 4.5 em. Below 440 px the
+ * picture goes too, because the name is the one fact that says which printer
+ * it is.
  */
-@media (max-width: 600px) {
+@media (max-width: 760px) {
   .printer-status[data-layout="list"] {
     padding-inline: 12px;
   }
@@ -3260,17 +3279,11 @@ html[data-grayscale-text="true"] {
     gap: 6px;
   }
 
-  .printer-status[data-layout="list"] .printer-names {
-    min-width: 4.5em;
-  }
-
   .printer-status[data-layout="list"] .printer-name {
     font-size: 14px;
   }
 
   .printer-status[data-layout="list"] .printer-state {
-    flex-shrink: 1;
-    min-width: 0;
     padding: 2px 7px;
     font-size: 10px;
   }

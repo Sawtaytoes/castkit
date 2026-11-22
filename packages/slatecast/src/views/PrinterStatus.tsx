@@ -1,5 +1,6 @@
 import type { PrinterJob } from "@castkit/shared/viewData/types"
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -33,6 +34,7 @@ import {
 } from "./printerJob.ts"
 import {
   choosePrinterLayout,
+  chooseQuadCardShape,
   fitPrinterRows,
   type PrinterLayout,
 } from "./printerRowFit.ts"
@@ -543,10 +545,19 @@ export const PrinterStatus = () => {
   const [pending, setPending] = useState<
     Record<string, PendingAction>
   >(() => storyPending.value)
-  const [details, setDetails] = useState<{
-    title: string
-    printerIds: readonly string[]
-  } | null>(null)
+  /*
+   * What the details dialog lists: one printer, or the printers the panel
+   * could not draw. The hidden set is worked out again on every render, so an
+   * open list follows a live update rather than keeping a stale snapshot.
+   */
+  const [details, setDetails] = useState<
+    | { kind: "printer"; printerId: string }
+    | { kind: "hidden" }
+    | null
+  >(null)
+  const closeDetails = useCallback(() => {
+    setDetails(null)
+  }, [])
   const cardsRef = useRef<HTMLDivElement>(null)
   const [cardArea, setCardArea] = useState(() => ({
     height:
@@ -728,9 +739,20 @@ export const PrinterStatus = () => {
     ? jobs.find((job) => job.id === filamentDetailsId)
     : undefined
   /* A printer that left the payload drops out of an open details list. */
+  const detailsPrinterIds =
+    details?.kind === "printer"
+      ? [details.printerId]
+      : details?.kind === "hidden"
+        ? hiddenJobs.map((job) => job.id)
+        : []
+  const detailsTitle =
+    details?.kind === "printer"
+      ? (jobs.find((job) => job.id === details.printerId)
+          ?.name ?? "")
+      : hiddenCountText
   const detailsEntries: PrinterDetailsEntry[] = details
     ? jobs.flatMap((job, index) =>
-        details.printerIds.includes(job.id)
+        detailsPrinterIds.includes(job.id)
           ? [
               {
                 id: job.id,
@@ -758,13 +780,21 @@ export const PrinterStatus = () => {
       class="printer-status"
       data-count={String(jobs.length)}
       data-layout={layout}
+      data-quad-shape={
+        layout === "quad"
+          ? chooseQuadCardShape(cardArea.width)
+          : undefined
+      }
     >
       <div class="printer-cards" ref={cardsRef}>
         {visibleJobs.map((job, index) => (
           <PrinterCard
             key={job.id}
             index={index}
-            isExpanded={expandedIds.includes(job.id)}
+            isExpanded={
+              layout === "columns" &&
+              expandedIds.includes(job.id)
+            }
             isFilamentDetailsOpen={
               filamentDetailsId === job.id
             }
@@ -783,8 +813,8 @@ export const PrinterStatus = () => {
             onToggleExpanded={() => {
               if (layout !== "columns") {
                 setDetails({
-                  title: job.name,
-                  printerIds: [job.id],
+                  kind: "printer",
+                  printerId: job.id,
                 })
                 return
               }
@@ -805,10 +835,7 @@ export const PrinterStatus = () => {
             class="printer-overflow"
             aria-haspopup="dialog"
             onClick={() => {
-              setDetails({
-                title: hiddenCountText,
-                printerIds: hiddenJobs.map((job) => job.id),
-              })
+              setDetails({ kind: "hidden" })
             }}
           >
             <span class="printer-overflow-count">
@@ -854,11 +881,11 @@ export const PrinterStatus = () => {
           printerName={filamentDetailsJob.name}
         />
       ) : null}
-      {details && detailsEntries.length > 0 ? (
+      {details ? (
         <PrinterDetailsDialog
-          title={details.title}
+          title={detailsTitle}
           printers={detailsEntries}
-          onClose={() => setDetails(null)}
+          onClose={closeDetails}
         />
       ) : null}
       {confirmation && confirmedJob ? (

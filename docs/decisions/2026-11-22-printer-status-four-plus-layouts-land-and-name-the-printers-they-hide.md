@@ -41,9 +41,9 @@ the job name lists that printer's whole job name and whole fault in a dialog
 instead. In a row, a fault takes the job name's line inside the same button.
 
 The count picks the arrangement. The panel only decides whether it can hold it:
-four printers use rows instead of the grid when the card area is under 560 px
+four printers use rows instead of the grid when the card area is under 624 px
 tall or 600 px wide, and a narrow panel folds a row's columns away in a fixed
-order. On the narrowest rows, Pause and Stop become Lucide icons with their
+order. A test checks both sides of each cutoff. On the narrowest rows, Pause and Stop become Lucide icons with their
 words kept for assistive tech, as the 2026-09-28 record asked. The state chip
 and the percentage never fold away.
 
