@@ -86,6 +86,8 @@ Home Assistant publishes every active printer, together, retained, to
 dropped, because `id` is what a Pause is addressed to. `state` is `preparing`,
 `printing`, `paused`, `finished` or `failed` — the five CastKit draws.
 Everything else degrades: a job with no layer count still shows its percentage.
+`percent` may be fractional; the card writes it as a whole number rounded down,
+so `99.99` reads `99%` and only a finished print reads `100%`.
 On a `finished` or `failed` job, `finishAt` is the time the print **ended**, and
 the card prints it as `Ended 3:47 PM` when it is present.
 

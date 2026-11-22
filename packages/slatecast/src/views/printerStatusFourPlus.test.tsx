@@ -337,6 +337,25 @@ const findLayoutProblems = () => {
         (value) =>
           `${label}: "${value.textContent}" is clipped in ${value.className || value.tagName}`,
       )
+    // The band clips what it cannot hold, so measure the percentage's text.
+    const percentProblems = drawnWithin(
+      card,
+      ".printer-percent",
+    )
+      .filter((percent) => {
+        const band = percent.closest(".printer-band")
+        return (
+          band !== null &&
+          !isInside(
+            textBox(percent),
+            band.getBoundingClientRect(),
+          )
+        )
+      })
+      .map(
+        (percent) =>
+          `${label}: "${percent.textContent}" is cut by its band`,
+      )
     const overflowing = drawnWithin(card, TEXT_BOX_SELECTOR)
       .filter(
         (box) =>
@@ -470,6 +489,7 @@ const findLayoutProblems = () => {
       ...stateProblems,
       ...jobProblems,
       ...clippedValues,
+      ...percentProblems,
       ...nameProblems,
     ]
   })
@@ -1883,4 +1903,41 @@ describe("the ended lines in a fallback font", () => {
       fallback.remove()
     }
   }, 90_000)
+})
+
+describe("a fractional percentage", () => {
+  test.each([
+    { width: 480, height: 660, shape: "square" },
+    { width: 320, height: 824, shape: "square" },
+    { width: 761, height: 900, shape: "square" },
+    { width: 1280, height: 720, shape: "square" },
+    { width: 480, height: 480, shape: "round" },
+  ] as const)("shows whole and rounded down on a $width x $height $shape panel", async ({
+    width,
+    height,
+    shape,
+  }) => {
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: "Printer 1",
+          jobName: "Sample_Part_1_-_PLA_Basic_-_Printer_1",
+          thumbnailPath: "/plate.png",
+          percent: 99.99,
+        }),
+        ...buildPrinters(5).slice(1),
+      ],
+    })
+
+    expect(
+      document.querySelector(
+        ".printer-card .printer-percent",
+      ),
+    ).toHaveTextContent(/^99%$/)
+    expect(findLayoutProblems()).toEqual([])
+  })
 })

@@ -202,6 +202,14 @@ const PENDING_LABELS: Record<PendingAction, string> = {
   clear: "Clearing…",
 }
 
+/**
+ * The percentage as the card writes it: whole numbers, rounded down. A feed
+ * may send `99.99`, which is too wide for a compact row's band, and rounding
+ * up would claim 100% for a print that is still running.
+ */
+const formatPercent = (percent: number) =>
+  `${Math.floor(percent)}%`
+
 const STATE_LABELS: Record<PrinterJob["state"], string> = {
   preparing: "Preparing",
   printing: "Printing",
@@ -446,7 +454,9 @@ const PrinterCard = ({
               </span>
             ) : null}
             <span class="printer-percent">
-              {isFinished ? 100 : job.percent}%
+              {formatPercent(
+                isFinished ? 100 : job.percent,
+              )}
             </span>
           </div>
         </div>
@@ -879,7 +889,7 @@ export const PrinterStatus = () => {
                 stateText:
                   job.state === "printing" ||
                   job.state === "paused"
-                    ? `${STATE_LABELS[job.state]} · ${job.percent}%`
+                    ? `${STATE_LABELS[job.state]} · ${formatPercent(job.percent)}`
                     : job.state === "failed" &&
                         job.currentLayer !== undefined
                       ? `${STATE_LABELS[job.state]} · stopped at layer ${job.currentLayer}`
@@ -987,7 +997,7 @@ export const PrinterStatus = () => {
                   </span>
                   <span class="printer-overflow-state">
                     {job.state === "printing"
-                      ? `${job.percent}%`
+                      ? formatPercent(job.percent)
                       : STATE_LABELS[job.state]}
                   </span>
                 </span>
