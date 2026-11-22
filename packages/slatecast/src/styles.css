@@ -2430,12 +2430,19 @@ html[data-grayscale-text="true"] {
   color: var(--fg);
 }
 
+/* The head, and its Close, stays in view however far the list scrolls. */
 .filament-details-head {
+  position: sticky;
+  z-index: 1;
+  top: -24px;
+  padding-block: 24px 8px;
+  margin-top: -24px;
+  background: var(--surface);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 /* A long printer name wraps rather than widening the dialog past the glass. */
@@ -2979,6 +2986,7 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-status[data-layout="list"] .printer-band {
+  container: printer-band / inline-size;
   grid-column: 3;
   grid-row: 1 / -1;
   height: clamp(44px, 50cqh, 60px);
@@ -3007,6 +3015,27 @@ html[data-grayscale-text="true"] {
 .printer-status[data-layout="list"] .printer-band-ended {
   gap: 0;
   font-size: 11px;
+}
+
+/*
+ * In a narrow band the stopped layer is the fact to keep: its line wraps
+ * rather than losing the number, and the time it ended gives way.
+ */
+@container printer-band (max-width: 180px) {
+  .printer-status[data-layout="list"]
+    .printer-band-ended
+    span {
+    overflow: visible;
+    line-height: 1.1;
+    white-space: normal;
+  }
+
+  .printer-status[data-layout="list"]
+    .printer-band-ended
+    span
+    + span {
+    display: none;
+  }
 }
 
 .printer-status[data-layout="list"] .printer-actions,

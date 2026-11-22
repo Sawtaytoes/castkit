@@ -880,7 +880,10 @@ export const PrinterStatus = () => {
                   job.state === "printing" ||
                   job.state === "paused"
                     ? `${STATE_LABELS[job.state]} · ${job.percent}%`
-                    : STATE_LABELS[job.state],
+                    : job.state === "failed" &&
+                        job.currentLayer !== undefined
+                      ? `${STATE_LABELS[job.state]} · stopped at layer ${job.currentLayer}`
+                      : STATE_LABELS[job.state],
                 jobName:
                   getPrinterJobTitle(job) ||
                   job.jobName ||

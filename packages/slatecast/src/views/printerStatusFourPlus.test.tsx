@@ -156,7 +156,9 @@ const buildPrinters = (count: number): PrinterJob[] =>
           "HMS_0700_2000_0002_0001 — AMS 1 slot 3 ran out",
       },
       {
+        // A tall print that failed late: the widest stopped layer.
         state: "failed",
+        currentLayer: 2236,
         finishAtMs: Date.now() - 300_000,
       },
     ]
@@ -325,7 +327,7 @@ const findLayoutProblems = () => {
      */
     const clippedValues = drawnWithin(
       card,
-      ".printer-metric:not(.is-filament) dd span, .printer-band-remaining, .printer-percent",
+      ".printer-metric:not(.is-filament) dd span, .printer-band-remaining, .printer-band-ended span, .printer-percent",
     )
       .filter(
         (value) =>
@@ -1437,5 +1439,81 @@ describe("a Stop question on a small round panel", () => {
           .map(() => answer.textContent)
       }),
     ).toEqual([])
+  })
+})
+
+describe("the hidden-printer list's Close", () => {
+  test("stays in view after the list scrolls to its end", async () => {
+    await mountOnPanel({
+      width: 320,
+      height: 320,
+      shape: "round",
+      printers: buildFaultedPrinters(6),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Six printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+
+    const box = document.querySelector<HTMLElement>(
+      '[role="dialog"]',
+    )
+    if (!box) {
+      throw new Error("The list did not open.")
+    }
+    box.scrollTop = box.scrollHeight
+    await userEvent.tab()
+    const closeButton = box.querySelector(
+      ".filament-details-close",
+    )
+
+    expect(box.scrollTop).toBeGreaterThan(0)
+    expect(document.activeElement).toBe(closeButton)
+    expect(
+      closeButton &&
+        isInside(
+          closeButton.getBoundingClientRect(),
+          box.getBoundingClientRect(),
+        ),
+    ).toBe(true)
+  })
+
+  test("a failed printer's details keep the layer it stopped at", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: "Printer 1",
+          state: "failed",
+          currentLayer: 2236,
+          percent: 99,
+        }),
+        ...buildPrinters(9).slice(1),
+      ],
+    })
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toHaveTextContent("stopped at layer 2236")
   })
 })
