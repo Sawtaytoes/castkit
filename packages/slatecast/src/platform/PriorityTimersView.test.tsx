@@ -393,3 +393,64 @@ test("a paused timer shows its room, and an Undo card moves no other card", asyn
     gone.getBoundingClientRect().bottom,
   ).toBeLessThanOrEqual(box.bottom)
 })
+
+test.each([
+  { repaint: "instant", power: "wired", isDraining: true },
+  { repaint: "fast", power: "wired", isDraining: true },
+  { repaint: "fast", power: "battery", isDraining: false },
+  { repaint: "slow", power: "wired", isDraining: false },
+] as const)("the drain and the Undo bar follow the progress freshness rule on a $repaint $power panel", async ({
+  repaint,
+  power,
+  isDraining,
+}) => {
+  const half = {
+    ...defined(timers[0]),
+    attributes: {
+      ...defined(timers[0]).attributes,
+      duration: "0:06:00",
+    },
+  }
+  const canceling = {
+    ...defined(timers[2]),
+    state: "canceling",
+    attributes: {
+      ...defined(timers[2]).attributes,
+      cancels_at: new Date(now + 15_000).toISOString(),
+    },
+    actions: ["undo_cancel"],
+  }
+  const result = render(
+    <DisplayPropertiesContext.Provider
+      value={{ repaint, power, hasTouch: true }}
+    >
+      <div style={{ width: 480, height: 480 }}>
+        <PriorityTimersView
+          data={{ entities: [half, canceling] }}
+          now={now}
+          settings={{ presentation: "priority" }}
+          isControlEnabled
+          onAction={async () => undefined}
+        />
+      </div>
+    </DisplayPropertiesContext.Provider>,
+  )
+  await waitFor(() =>
+    expect(
+      result.container.querySelectorAll("article").length,
+    ).toBe(2),
+  )
+  const fill = defined(
+    result.container.querySelector<HTMLElement>(
+      ".timer-priority-fill",
+    ),
+  )
+  expect(fill.style.height).toBe(
+    isDraining ? "50%" : "100%",
+  )
+  expect(
+    result.container.querySelector(
+      ".timer-priority-undo-bar",
+    ) !== null,
+  ).toBe(isDraining)
+})

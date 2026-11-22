@@ -98,6 +98,10 @@ it.
 - **Which fields inside a view render.** Now Playing on a `slow` panel prints
   the track, the artist and the album, and prints no position bar. The same view
   on an `instant` panel prints the bar and the running position.
+  Room timer cards drain their color only where a progress bar stays true
+  (`instant` and `fast`, on mains). On a slower effective grade each card stays
+  full, as for a timer with no known duration, and the Undo card drops its
+  draining bar.
 - **How long a temporary view stays, and whether it is allowed.** A view
   sent to a display for a while lasts at least ten repaints: thirty seconds on
   a `slow` panel. A `super-slow` panel refuses one. See
