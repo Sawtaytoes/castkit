@@ -6,6 +6,7 @@ import {
   PRINTER_QUAD_BESIDE_MIN_WIDTH,
   PRINTER_QUAD_MIN_HEIGHT,
   PRINTER_QUAD_STACKED_MIN_HEIGHT,
+  PRINTER_ROW_MIN_WIDTH,
   PRINTER_ROW_TINY_MAX_WIDTH,
 } from "./printerRowFit.ts"
 
@@ -195,5 +196,27 @@ describe("tiny rows", () => {
           }).visibleCount,
       ),
     ).toEqual([4, 5])
+  })
+})
+
+describe("the narrowest view", () => {
+  test("draws no row below its width limit, and counts every printer", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: 800,
+        availableWidth: PRINTER_ROW_MIN_WIDTH - 1,
+        printerCount: 5,
+      }),
+    ).toEqual({ visibleCount: 0, hiddenCount: 5 })
+  })
+
+  test("draws rows from its width limit", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: 800,
+        availableWidth: PRINTER_ROW_MIN_WIDTH,
+        printerCount: 5,
+      }).visibleCount,
+    ).toBe(5)
   })
 })

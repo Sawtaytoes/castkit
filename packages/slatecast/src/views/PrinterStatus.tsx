@@ -856,9 +856,13 @@ export const PrinterStatus = () => {
       : { visibleCount: jobs.length }
   const visibleJobs = jobs.slice(0, visibleCount)
   const hiddenJobs = jobs.slice(visibleCount)
-  const hiddenCountText = `+${hiddenJobs.length} more ${
+  const printerNoun =
     hiddenJobs.length === 1 ? "printer" : "printers"
-  }`
+  // A view too narrow for any row counts every printer, not "more" of them.
+  const hiddenCountText =
+    visibleCount === 0
+      ? `${hiddenJobs.length} ${printerNoun}`
+      : `+${hiddenJobs.length} more ${printerNoun}`
   const confirmedJob = confirmation
     ? jobs.find((job) => job.id === confirmation.printerId)
     : undefined

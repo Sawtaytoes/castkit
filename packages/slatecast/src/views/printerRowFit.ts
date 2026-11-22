@@ -37,6 +37,15 @@ export const getPrinterRowMinHeight = (
     ? PRINTER_ROW_TINY_MIN_HEIGHT
     : PRINTER_ROW_MIN_HEIGHT
 
+/**
+ * The narrowest view that draws a row at all. Below it a row cannot hold the
+ * state word beside Pause and Stop ("Preparing" is cut from 172 px), so the
+ * view draws no rows: the strip counts every printer, and a tap lists each
+ * one with its state, job and fault. That is a stated limit
+ * (docs/panel-limits.md), not a layout squeezed until it fits.
+ */
+export const PRINTER_ROW_MIN_WIDTH = 188
+
 /** The space between two rows, and between the last row and the strip. */
 export const PRINTER_ROW_GAP = 6
 
@@ -151,6 +160,9 @@ export const fitPrinterRows = ({
   availableWidth: number
   printerCount: number
 }) => {
+  if (availableWidth < PRINTER_ROW_MIN_WIDTH) {
+    return { visibleCount: 0, hiddenCount: printerCount }
+  }
   const rowMinHeight =
     getPrinterRowMinHeight(availableWidth)
   if (

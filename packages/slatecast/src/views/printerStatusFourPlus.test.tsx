@@ -505,7 +505,8 @@ const findLayoutProblems = () => {
       isDrawn(
         card.querySelector(".printer-state") ?? card,
       ) &&
-      stateLabel.offsetWidth < 24
+      (stateLabel.offsetWidth < 24 ||
+        stateLabel.scrollWidth > stateLabel.clientWidth + 1)
         ? [`${label}: the state has no room for its word`]
         : []
     // Layout widths, not screen boxes: a turned panel swaps the two.
@@ -2237,5 +2238,68 @@ describe("a slot list without the active material's name", () => {
     expect(
       document.querySelector('[role="dialog"]'),
     ).toHaveTextContent(summary)
+  })
+})
+
+describe("a view too narrow for a row", () => {
+  test.each([
+    { width: 240, height: 240, shape: "round" },
+    { width: 230, height: 824, shape: "square" },
+  ] as const)("a $width x $height $shape panel counts every printer and lists them on a tap", async ({
+    width,
+    height,
+    shape,
+  }) => {
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      printers: buildPrinters(4).map((printer) => ({
+        ...printer,
+        state: "preparing" as const,
+        percent: 0,
+      })),
+    })
+
+    expect(
+      document.querySelectorAll(".printer-card"),
+    ).toHaveLength(0)
+    expect(
+      document.querySelector(".printer-overflow-count"),
+    ).toHaveTextContent(/^4 printers/)
+    expect(findLayoutProblems()).toEqual([])
+
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("The view drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    expect(
+      document.querySelectorAll(".printer-details-item"),
+    ).toHaveLength(4)
+  })
+
+  test("from 188 px of content the rows come back with whole state words", async () => {
+    await mountOnPanel({
+      width: 300,
+      height: 300,
+      shape: "round",
+      printers: buildPrinters(4).map((printer) => ({
+        ...printer,
+        state: "preparing" as const,
+        percent: 0,
+      })),
+    })
+
+    expect(
+      document.querySelectorAll(".printer-card").length,
+    ).toBeGreaterThan(0)
+    expect(findLayoutProblems()).toEqual([])
   })
 })

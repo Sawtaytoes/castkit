@@ -114,6 +114,14 @@ export const FilamentControl = ({
   )
 }
 
+/** Text as a reader sees it: spaces collapsed, case ignored. */
+const toMatchKey = (text: string) =>
+  text.replace(/\s+/g, " ").trim().toLowerCase()
+
+/** A tray as written either way: "AMS 1 slot 1" or "AMS 1, slot 1". */
+const toTrayKey = (text: string) =>
+  toMatchKey(text.replace(/,/g, " "))
+
 /** The full list of loaded AMS slots that supply the active print. */
 export const FilamentDetailsDialog = ({
   filaments,
@@ -136,26 +144,43 @@ export const FilamentDetailsDialog = ({
   const dialogBox = useRef<HTMLElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
 
-  // A slot list can lack the active material's name, or omit it entirely.
-  const summaryText = summary?.trim() ?? ""
-  const summaryName = summaryText
-    .split(" · ")[0]
-    ?.trim()
-    .toLowerCase()
-  const isSummaryInList = Boolean(
-    summaryName &&
-      filaments?.some((filament) =>
-        [
-          filament.colorName ||
-            filamentColorName(filament.color),
-          filament.name,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(summaryName),
-      ),
+  /*
+   * A slot list can lack the active material's name, or omit it entirely, so
+   * the summary shows unless one slot says the same thing: the same name,
+   * whole, and the same tray when the summary names one. A name that only
+   * contains it, such as "Support for PLA" for "PLA", is another filament.
+   */
+  const [summaryName = "", ...summaryTrayParts] = (
+    summary ?? ""
+  ).split(" · ")
+  const summaryNameKey = toMatchKey(summaryName)
+  const summaryTrayKey = toTrayKey(
+    summaryTrayParts[0] ?? "",
   )
+  const isSummaryInList = Boolean(
+    summaryNameKey &&
+      filaments?.some((filament) => {
+        const names = [
+          filament.name,
+          [
+            filament.colorName ||
+              filamentColorName(filament.color),
+            filament.name,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        ].map((name) => toMatchKey(name ?? ""))
+        const isSameTray =
+          !summaryTrayKey ||
+          toTrayKey(
+            filament.location.split(" · ")[0] ?? "",
+          ) === summaryTrayKey
+        return names.includes(summaryNameKey) && isSameTray
+      }),
+  )
+  const summaryText = (summary ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
   const isSummaryShown = Boolean(
     summaryText && !isSummaryInList,
   )

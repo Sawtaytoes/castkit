@@ -141,3 +141,101 @@ test("the dialog does not repeat a summary a slot already names", () => {
     document.querySelector(".filament-details-summary"),
   ).toBeNull()
 })
+
+test.each([
+  {
+    case: "another slot's name only contains it",
+    summary: "PLA · AMS 1, slot 1",
+    list: [
+      {
+        name: "Support for PLA",
+        color: "#f1e7d0",
+        location: "AMS 2, slot 4",
+      },
+    ],
+  },
+  {
+    case: "it has no tray and another name contains it",
+    summary: "PLA",
+    list: [
+      {
+        name: "Support for PLA",
+        color: "#f1e7d0",
+        location: "AMS 2, slot 4",
+      },
+    ],
+  },
+  {
+    case: "a longer color name contains it",
+    summary: "Blue PLA Silk · AMS 1, slot 1",
+    list: [
+      {
+        name: "PLA Silk",
+        colorName: "Dark Blue",
+        location: "AMS 1, slot 1",
+      },
+    ],
+  },
+  {
+    case: "the same material sits in another tray",
+    summary: "PLA Basic · AMS 1, slot 1",
+    list: [
+      {
+        name: "PLA Basic",
+        color: "#000000",
+        location: "AMS 2, slot 4",
+      },
+    ],
+  },
+] as const)("the dialog gives the summary when $case", ({
+  summary,
+  list,
+}) => {
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Bracket"
+      filaments={list}
+      summary={summary}
+      onClose={vi.fn()}
+    />,
+  )
+
+  expect(
+    document.querySelector(".filament-details-summary"),
+  ).toHaveTextContent(summary)
+})
+
+test.each([
+  {
+    case: "a doubled space",
+    summary: "PLA  Matte · AMS 1, slot 1",
+  },
+  {
+    case: "a tray written without its comma",
+    summary: "PLA Matte · AMS 1 slot 1",
+  },
+  { case: "no tray", summary: "pla matte" },
+] as const)("the dialog does not repeat a summary with $case", ({
+  summary,
+}) => {
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Bracket"
+      filaments={[
+        {
+          name: "PLA Matte",
+          color: "#1c1c1c",
+          location: "AMS 1, slot 1 · Filament 7 · 1.8 g",
+        },
+      ]}
+      summary={summary}
+      onClose={vi.fn()}
+    />,
+  )
+
+  expect(
+    document.querySelector(".filament-details-summary"),
+  ).toBeNull()
+})

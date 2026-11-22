@@ -327,7 +327,9 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    600 px of content (652 px view), and puts its picture beside the facts
    from 1132 px (1184 px view). A turned panel folds for the width it has.
    A row with 1048 px of content or less (1100 px view) drops the three fact
-   blocks. At 708 px or less (760 px view) it also drops the badge, the
+   blocks. At 760 px or less (812 px view) it drops the number badge, so a
+   long state word such as `Preparing` stays whole beside a name at its
+   4.5 em floor. At 708 px or less (760 px view) it also drops the
    nozzle and the time left, and Pause and Stop become Lucide icons whose
    words stay in the accessibility tree. A settled row drops its `Finished`
    or `Stopped at layer N` lines there too: the chip still names the state,
@@ -343,7 +345,12 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    388 px of content or less (440 px view) the picture goes, and the name,
    the state and the job take a line each, so none of them is squeezed
    away. At 300 px or less, such as a small round panel, the band moves
-   under the job as a slim fourth line and each row grows to 84 px. The state chip and the percentage always stay. On a
+   under the job as a slim fourth line and each row grows to 84 px. The state chip and the percentage always stay.
+   A row needs 188 px of content (`PRINTER_ROW_MIN_WIDTH`), because a
+   narrower row cuts `Preparing` short. A view narrower than that, such as a
+   240 px round panel, draws no rows: the strip says `5 printers`, without
+   `+` or `more`, and a tap lists them all. This is a stated limit in
+   [panel limits](panel-limits.md). On a
    round panel, four printers and up keep to the square inside the circle,
    and so do the dialogs. Layer and Finishes keep their whole width; the
    filament name gives way first.

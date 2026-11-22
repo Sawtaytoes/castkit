@@ -3390,6 +3390,17 @@ html[data-grayscale-text="true"] {
 }
 
 /*
+ * Just above the icon step, the first column is at its narrowest. The badge
+ * goes so that a long state word, such as "Preparing", keeps its whole word
+ * beside a name at its 4.5 em floor.
+ */
+@container printer-status (max-width: 760px) {
+  .printer-status[data-layout="list"] .printer-index {
+    display: none;
+  }
+}
+
+/*
  * The narrowest rows: Pause and Stop become Lucide icons with their words kept
  * for assistive tech, and the badge, the nozzle and the time left go. Below
  * a 760 px view the words would leave the name under its 4.5 em. Below 440 px
