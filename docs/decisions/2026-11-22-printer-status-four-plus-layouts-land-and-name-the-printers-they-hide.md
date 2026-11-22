@@ -32,12 +32,23 @@ design:
    `+1 more printer` (or `+N more printers`) and names each hidden printer with
    its number and its percentage or state, tinted like its card. A hidden failed
    print still reads as a failure. The strip costs 42 px and not a whole row, so
-   the 1280×720 panel still draws nine rows above it.
+   the 1280×720 panel still draws nine rows above it. The chips that fit are a
+   glance, and a tap on the strip lists every hidden printer, because a narrow
+   panel has room for only one or two chips.
+
+The 2×2 grid and the rows have no room to open a job name in place. A tap on
+the job name lists that printer's whole job name and whole fault in a dialog
+instead. In a row, a fault takes the job name's line inside the same button.
 
 The count picks the arrangement. The panel only decides whether it can hold it:
 four printers use rows instead of the grid when the card area is under 560 px
-tall, and a narrow panel folds a row's columns away in a fixed order. The state
-chip and the percentage never fold away.
+tall or 600 px wide, and a narrow panel folds a row's columns away in a fixed
+order. On the narrowest rows, Pause and Stop become Lucide icons with their
+words kept for assistive tech, as the 2026-09-28 record asked. The state chip
+and the percentage never fold away.
+
+The stories and pictures for four printers and up name every printer
+`Printer N`. The earlier stories' names are real printers' names.
 
 ## Context
 
@@ -61,6 +72,9 @@ a tenth printer missing with nothing on the glass to say so.
   row is drawn whole or not at all, and it still says what is missing.
 - **The strip is smaller than a row.** A full row would hide a ninth printer to
   report a tenth.
+- **A count is not enough on its own.** An independent review found the strip
+  saying `+7 more printers` on a 480 px panel while it showed two names. The
+  tap makes every hidden name reachable.
 
 ## Evidence
 

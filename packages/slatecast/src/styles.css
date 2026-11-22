@@ -2613,8 +2613,9 @@ html[data-grayscale-text="true"] {
   }
 }
 
+/* `safe`: a card whose facts outgrow it loses the bottom, never the name. */
 .printer-status[data-layout="quad"] .printer-body {
-  justify-content: center;
+  justify-content: safe center;
   min-height: 0;
 }
 
@@ -2646,19 +2647,24 @@ html[data-grayscale-text="true"] {
   font-size: 14px;
 }
 
-.printer-status[data-layout="quad"]
-  .printer-card[data-expanded="true"]
-  .printer-job {
+/*
+ * A fault gets two lines, and the Layer and Finishes blocks give it their
+ * room. The tap on the job name opens the whole fault.
+ */
+.printer-status[data-layout="quad"] .printer-problem {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-}
-
-.printer-status[data-layout="quad"] .printer-problem {
   margin-top: 6px;
   padding: 5px 9px;
   font-size: 13px;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-card:has(.printer-problem)
+  .printer-metric:not(.is-filament) {
+  display: none;
 }
 
 .printer-status[data-layout="quad"] .printer-band {
@@ -2827,8 +2833,7 @@ html[data-grayscale-text="true"] {
   height: 6px;
 }
 
-.printer-status[data-layout="list"] .printer-job,
-.printer-status[data-layout="list"] .printer-problem {
+.printer-status[data-layout="list"] .printer-job {
   grid-column: 1;
   grid-row: 2;
   margin-top: 0;
@@ -2838,19 +2843,15 @@ html[data-grayscale-text="true"] {
   font-size: clamp(13px, 12cqh, 15px);
 }
 
-/* A tapped job name opens to two lines; a row has no room for a third. */
-.printer-status[data-layout="list"] .printer-card[data-expanded="true"]
-  .printer-job {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+/*
+ * A fault takes the job name's line inside the same button, because it is the
+ * more urgent fact. The tap opens the whole job name and the whole fault.
+ */
+.printer-status[data-layout="list"] .printer-job
+  .printer-problem {
+  display: block;
   overflow: hidden;
-  line-height: 1.15;
-}
-
-/* A problem takes the job name's line, and says the more urgent thing. */
-.printer-status[data-layout="list"] .printer-problem {
-  overflow: hidden;
+  margin: 0;
   padding: 1px 7px;
   border-radius: 6px;
   font-size: 12px;
@@ -2858,10 +2859,16 @@ html[data-grayscale-text="true"] {
   text-overflow: ellipsis;
 }
 
-.printer-status[data-layout="list"]
-  .printer-card:has(.printer-problem)
-  .printer-job {
-  display: none;
+.printer-status[data-layout="list"] .printer-state-label,
+.printer-status[data-layout="list"] .printer-action-label {
+  overflow: hidden;
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.printer-status[data-layout="list"] .printer-action-label {
+  display: block;
 }
 
 .printer-status[data-layout="list"] .printer-metrics {
@@ -3004,10 +3011,21 @@ html[data-grayscale-text="true"] {
   flex: none;
   gap: 12px;
   align-items: center;
+  width: 100%;
   height: 36px;
   padding: 0 6px 0 12px;
   border: 1px dashed var(--color-border-subtle);
   border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.printer-overflow:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .printer-overflow-count {
@@ -3103,6 +3121,81 @@ html[data-grayscale-text="true"] {
   color: var(--color-intent-success-content);
 }
 
+/* Shown only by the narrowest rows; see the 600 px block below. */
+.printer-action-icon {
+  display: none;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+/* The details list: the filament dialog's frame, one row per printer. */
+@keyframes printer-details-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+/*
+ * The list rises into place, so the tap that opened it reads as its cause.
+ * Only a panel that repaints instantly animates; see the rule at the top.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-repaint="instant"]
+    .printer-details-dialog
+    .filament-details-box {
+    animation: printer-details-enter 180ms
+      cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.printer-details-number {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.printer-details-item[data-intent="warning"] {
+  border-color: var(--color-intent-warning-border);
+  background: var(--color-intent-warning-surface);
+}
+
+.printer-details-item[data-intent="danger"] {
+  border-color: var(--color-intent-danger-border);
+  background: var(--color-intent-danger-surface);
+}
+
+.printer-details-item[data-intent="success"] {
+  border-color: var(--color-intent-success-border);
+  background: var(--color-intent-success-surface);
+}
+
+.printer-details-job {
+  overflow-wrap: anywhere;
+  color: var(--fg-dim);
+  font-size: 15px;
+}
+
+.printer-details-problem {
+  overflow-wrap: anywhere;
+  color: var(--color-intent-danger-content);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 /*
  * A narrower panel drops the three facts first; the band, the plate and the
  * controls are what a person at the bench reads and touches.
@@ -3126,11 +3219,21 @@ html[data-grayscale-text="true"] {
   .printer-status[data-layout="list"] .printer-actions,
   .printer-status[data-layout="list"] .printer-clear {
     grid-column: 3;
-    width: 164px;
+    width: 180px;
   }
 }
 
+/*
+ * The narrowest rows: Pause and Stop become Lucide icons with their words kept
+ * for assistive tech, the badge, the nozzle and the time left go, and the
+ * state chip gives up width before the name does. Below 440 px the picture
+ * goes too, because the name is the one fact that says which printer it is.
+ */
 @media (max-width: 600px) {
+  .printer-status[data-layout="list"] {
+    padding-inline: 12px;
+  }
+
   .printer-status[data-layout="list"] .printer-card {
     gap: 8px;
     padding-right: 8px;
@@ -3141,12 +3244,10 @@ html[data-grayscale-text="true"] {
   }
 
   .printer-status[data-layout="list"] .printer-body {
-    grid-template-columns: minmax(0, 1fr) 64px auto;
+    grid-template-columns: minmax(0, 1fr) 60px auto;
     column-gap: 8px;
   }
 
-  /* The state chip and the percentage stay: they are what a person reads
-     from across the room. The badge, the nozzle and the time left go. */
   .printer-status[data-layout="list"] .printer-index,
   .printer-status[data-layout="list"] .printer-meta,
   .printer-status[data-layout="list"]
@@ -3155,21 +3256,29 @@ html[data-grayscale-text="true"] {
     display: none;
   }
 
-  .printer-status[data-layout="list"] .printer-name {
-    font-size: 14px;
-  }
-
   .printer-status[data-layout="list"] .printer-head {
     gap: 6px;
   }
 
+  .printer-status[data-layout="list"] .printer-names {
+    min-width: 4.5em;
+  }
+
+  .printer-status[data-layout="list"] .printer-name {
+    font-size: 14px;
+  }
+
   .printer-status[data-layout="list"] .printer-state {
+    flex-shrink: 1;
+    min-width: 0;
     padding: 2px 7px;
     font-size: 10px;
   }
 
   .printer-status[data-layout="list"] .printer-job,
-  .printer-status[data-layout="list"] .printer-problem {
+  .printer-status[data-layout="list"]
+    .printer-job
+    .printer-problem {
     font-size: 11px;
   }
 
@@ -3182,19 +3291,47 @@ html[data-grayscale-text="true"] {
     font-size: 20px;
   }
 
-  .printer-status[data-layout="list"] .printer-actions,
-  .printer-status[data-layout="list"] .printer-clear {
-    width: 124px;
-  }
-
   .printer-status[data-layout="list"] .printer-actions {
     gap: 6px;
+    width: 102px;
   }
 
-  .printer-status[data-layout="list"] .printer-action,
+  .printer-status[data-layout="list"] .printer-action {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+
+  .printer-status[data-layout="list"] .printer-action-icon {
+    display: block;
+  }
+
+  .printer-status[data-layout="list"]
+    .printer-action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .printer-status[data-layout="list"] .printer-clear {
+    width: 102px;
     padding: 4px;
     font-size: 13px;
+  }
+}
+
+@media (max-width: 440px) {
+  .printer-status[data-layout="list"] .printer-card {
+    grid-template-columns: minmax(0, 1fr);
+    padding-left: 10px;
+  }
+
+  .printer-status[data-layout="list"] .printer-plate {
+    display: none;
   }
 }
 

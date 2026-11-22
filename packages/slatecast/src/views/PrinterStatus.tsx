@@ -20,6 +20,10 @@ import {
   FilamentDetailsDialog,
 } from "./FilamentDetails.tsx"
 import {
+  PrinterDetailsDialog,
+  type PrinterDetailsEntry,
+} from "./PrinterDetailsDialog.tsx"
+import {
   formatEndedTime,
   formatFinishTime,
   formatRemaining,
@@ -30,6 +34,7 @@ import {
 import {
   choosePrinterLayout,
   fitPrinterRows,
+  type PrinterLayout,
 } from "./printerRowFit.ts"
 
 /**
@@ -185,12 +190,51 @@ export const __setPrinterPendingForStories = (
   storyPending.value = pending
 }
 
+type ActionIconName =
+  | "pause"
+  | "resume"
+  | "stop"
+  | "pending"
+
+/**
+ * Lucide's `pause`, `play`, `square` and `loader-circle` glyphs, copied as
+ * paths because Slatecast installs no icon package. Only the compact rows on a
+ * narrow panel show them; the word stays in the button for assistive tech.
+ */
+const ACTION_ICON_PATHS: Record<ActionIconName, string[]> =
+  {
+    pause: [
+      "M15 3h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z",
+      "M6 3h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z",
+    ],
+    resume: [
+      "M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z",
+    ],
+    stop: [
+      "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z",
+    ],
+    pending: ["M21 12a9 9 0 1 1-6.219-8.56"],
+  }
+
+const ActionIcon = ({ name }: { name: ActionIconName }) => (
+  <svg
+    class="printer-action-icon"
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+  >
+    {ACTION_ICON_PATHS[name].map((path) => (
+      <path key={path} d={path} />
+    ))}
+  </svg>
+)
+
 /** Left-to-right ordering is HA's; the badge only counts the columns. */
 const PrinterCard = ({
   index,
   isExpanded,
   isFilamentDetailsOpen,
   job,
+  layout,
   onClear,
   onToggleExpanded,
   onShowFilaments,
@@ -201,6 +245,7 @@ const PrinterCard = ({
   isExpanded: boolean
   isFilamentDetailsOpen: boolean
   job: PrinterJob
+  layout: PrinterLayout
   onClear: () => void
   onToggleExpanded: () => void
   onShowFilaments: () => void
@@ -236,6 +281,14 @@ const PrinterCard = ({
       ? "Failed"
       : `Stopped at layer ${job.currentLayer}`
   const isPending = pendingAction !== null
+  const isCompact = layout !== "columns"
+  /*
+   * A compact row has one line under the name. A fault takes it, because it
+   * is the more urgent fact, and the line stays the control that opens the
+   * full job name and the full fault.
+   */
+  const isProblemOnJobLine =
+    layout === "list" && job.problemText !== undefined
 
   return (
     <article
@@ -278,18 +331,27 @@ const PrinterCard = ({
               class="printer-state-dot"
               aria-hidden="true"
             />
-            {STATE_LABELS[job.state]}
+            <span class="printer-state-label">
+              {STATE_LABELS[job.state]}
+            </span>
           </div>
         </div>
         <button
           type="button"
           class="printer-job"
           title={job.jobName}
+          aria-haspopup={isCompact ? "dialog" : undefined}
           onClick={onToggleExpanded}
         >
-          {jobTitle || job.jobName || "Untitled print"}
+          {isProblemOnJobLine ? (
+            <span class="printer-problem" role="status">
+              {job.problemText}
+            </span>
+          ) : (
+            jobTitle || job.jobName || "Untitled print"
+          )}
         </button>
-        {job.problemText ? (
+        {job.problemText && !isProblemOnJobLine ? (
           <p class="printer-problem" role="status">
             {job.problemText}
           </p>
@@ -422,12 +484,24 @@ const PrinterCard = ({
                   onRequest(isPaused ? "resume" : "pause")
                 }
               >
-                {pendingAction === "pause" ||
-                pendingAction === "resume"
-                  ? PENDING_LABELS[pendingAction]
-                  : isPaused
-                    ? "Resume"
-                    : "Pause"}
+                <ActionIcon
+                  name={
+                    pendingAction === "pause" ||
+                    pendingAction === "resume"
+                      ? "pending"
+                      : isPaused
+                        ? "resume"
+                        : "pause"
+                  }
+                />
+                <span class="printer-action-label">
+                  {pendingAction === "pause" ||
+                  pendingAction === "resume"
+                    ? PENDING_LABELS[pendingAction]
+                    : isPaused
+                      ? "Resume"
+                      : "Pause"}
+                </span>
               </button>
               <button
                 type="button"
@@ -436,9 +510,18 @@ const PrinterCard = ({
                 disabled={isPending}
                 onClick={() => onRequest("stop")}
               >
-                {pendingAction === "stop"
-                  ? PENDING_LABELS.stop
-                  : "Stop"}
+                <ActionIcon
+                  name={
+                    pendingAction === "stop"
+                      ? "pending"
+                      : "stop"
+                  }
+                />
+                <span class="printer-action-label">
+                  {pendingAction === "stop"
+                    ? PENDING_LABELS.stop
+                    : "Stop"}
+                </span>
               </button>
             </div>
           </>
@@ -460,15 +543,22 @@ export const PrinterStatus = () => {
   const [pending, setPending] = useState<
     Record<string, PendingAction>
   >(() => storyPending.value)
+  const [details, setDetails] = useState<{
+    title: string
+    printerIds: readonly string[]
+  } | null>(null)
   const cardsRef = useRef<HTMLDivElement>(null)
-  const [availableHeight, setAvailableHeight] = useState(
-    () =>
+  const [cardArea, setCardArea] = useState(() => ({
+    height:
       window.innerHeight - PRINTER_STATUS_VERTICAL_PADDING,
-  )
+    width: window.innerWidth,
+  }))
+  const availableHeight = cardArea.height
   const hasJobs = jobs.length > 0
 
   /*
-   * The card area's height decides how many rows finish on the glass. It is
+   * The card area's size decides the arrangement and how many rows finish on
+   * the glass. It is
    * measured, not taken from the window, because a view does not own the
    * whole window on every screen. The strip sits INSIDE the card area, so
    * showing it does not change what is measured.
@@ -479,7 +569,15 @@ export const PrinterStatus = () => {
       return undefined
     }
     const measure = () => {
-      setAvailableHeight(cards.clientHeight)
+      setCardArea((current) =>
+        current.height === cards.clientHeight &&
+        current.width === cards.clientWidth
+          ? current
+          : {
+              height: cards.clientHeight,
+              width: cards.clientWidth,
+            },
+      )
     }
     measure()
     const observer = new ResizeObserver(measure)
@@ -608,6 +706,7 @@ export const PrinterStatus = () => {
 
   const layout = choosePrinterLayout({
     availableHeight,
+    availableWidth: cardArea.width,
     printerCount: jobs.length,
   })
   const { visibleCount } =
@@ -619,12 +718,40 @@ export const PrinterStatus = () => {
       : { visibleCount: jobs.length }
   const visibleJobs = jobs.slice(0, visibleCount)
   const hiddenJobs = jobs.slice(visibleCount)
+  const hiddenCountText = `+${hiddenJobs.length} more ${
+    hiddenJobs.length === 1 ? "printer" : "printers"
+  }`
   const confirmedJob = confirmation
     ? jobs.find((job) => job.id === confirmation.printerId)
     : undefined
   const filamentDetailsJob = filamentDetailsId
     ? jobs.find((job) => job.id === filamentDetailsId)
     : undefined
+  /* A printer that left the payload drops out of an open details list. */
+  const detailsEntries: PrinterDetailsEntry[] = details
+    ? jobs.flatMap((job, index) =>
+        details.printerIds.includes(job.id)
+          ? [
+              {
+                id: job.id,
+                number: index + 1,
+                name: job.name,
+                intent: getCardIntent(job),
+                stateText:
+                  job.state === "printing" ||
+                  job.state === "paused"
+                    ? `${STATE_LABELS[job.state]} · ${job.percent}%`
+                    : STATE_LABELS[job.state],
+                jobName:
+                  getPrinterJobTitle(job) ||
+                  job.jobName ||
+                  "Untitled print",
+                problemText: job.problemText,
+              },
+            ]
+          : [],
+      )
+    : []
 
   return (
     <div
@@ -642,6 +769,7 @@ export const PrinterStatus = () => {
               filamentDetailsId === job.id
             }
             job={job}
+            layout={layout}
             pendingAction={pending[job.id] ?? null}
             onClear={() => {
               clear(job.id)
@@ -653,6 +781,13 @@ export const PrinterStatus = () => {
               })
             }}
             onToggleExpanded={() => {
+              if (layout !== "columns") {
+                setDetails({
+                  title: job.name,
+                  printerIds: [job.id],
+                })
+                return
+              }
               setExpandedIds((currentIds) =>
                 currentIds.includes(job.id)
                   ? currentIds.filter((id) => id !== job.id)
@@ -665,16 +800,25 @@ export const PrinterStatus = () => {
           />
         ))}
         {hiddenJobs.length > 0 ? (
-          <div class="printer-overflow">
+          <button
+            type="button"
+            class="printer-overflow"
+            aria-haspopup="dialog"
+            onClick={() => {
+              setDetails({
+                title: hiddenCountText,
+                printerIds: hiddenJobs.map((job) => job.id),
+              })
+            }}
+          >
             <span class="printer-overflow-count">
-              +{hiddenJobs.length} more{" "}
-              {hiddenJobs.length === 1
-                ? "printer"
-                : "printers"}
+              {hiddenCountText} ›
             </span>
-            <ul class="printer-overflow-list">
+            {/* The chips that fit are a glance; the rest wrap out of sight,
+                and the tap lists every one. */}
+            <span class="printer-overflow-list">
               {hiddenJobs.map((job, hiddenIndex) => (
-                <li
+                <span
                   key={job.id}
                   class="printer-overflow-item"
                   data-intent={getCardIntent(job)}
@@ -693,10 +837,10 @@ export const PrinterStatus = () => {
                       ? `${job.percent}%`
                       : STATE_LABELS[job.state]}
                   </span>
-                </li>
+                </span>
               ))}
-            </ul>
-          </div>
+            </span>
+          </button>
         ) : null}
       </div>
       {filamentDetailsJob ? (
@@ -708,6 +852,13 @@ export const PrinterStatus = () => {
           }
           onClose={() => setFilamentDetailsId(null)}
           printerName={filamentDetailsJob.name}
+        />
+      ) : null}
+      {details && detailsEntries.length > 0 ? (
+        <PrinterDetailsDialog
+          title={details.title}
+          printers={detailsEntries}
+          onClose={() => setDetails(null)}
         />
       ) : null}
       {confirmation && confirmedJob ? (

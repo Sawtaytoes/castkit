@@ -425,9 +425,12 @@ export const ClearingPiTouchPortrait: Story = stateVariant({
  * for. Four is a 2×2 grid; five and more are rows, and nine rows fit. From ten
  * the rows that do not fit are named in a "+N more" strip under the last one.
  *
- * Each extra printer carries a different state so the rows show every shape a
- * row can take: running, paused, finished, preparing, a problem, and failed.
- * The plates cycle through the three slicer-style renders above.
+ * Every printer here is named "Printer N", including the first three: the
+ * names in the stories above are real printers', and these stories add more
+ * pictures of the panel, so they carry none of them. Each printer from the
+ * fourth on has a different state, so the rows show every shape a row can
+ * take: running, paused, finished, preparing, a problem, and failed. The
+ * plates cycle through the three slicer-style renders above.
  */
 const PLATES = [
   PLATE_PHOTO,
@@ -437,6 +440,59 @@ const PLATES = [
 
 const plateFor = (printerNumber: number) =>
   PLATES[printerNumber % PLATES.length] as string
+
+const FIRST_PRINTERS: readonly PrinterJob[] = [
+  buildPrinterJob({
+    id: "printer-1",
+    name: "Printer 1",
+    jobName:
+      "Monitor_Stand_and_Feet_-_PLA_Matte_-_Printer_1",
+    percent: 41,
+    currentLayer: 32,
+    totalLayers: 334,
+    remainingMinutes: 128,
+    filamentText: undefined,
+    filamentColor: undefined,
+    filaments: [
+      {
+        name: "PLA Matte",
+        color: "#1c1c1c",
+        location: "AMS 3, slot 3",
+      },
+      {
+        name: "Support for PLA",
+        color: "#f1e7d0",
+        location: "AMS 1, slot 1",
+      },
+    ],
+    thumbnailPath: PLATE_PHOTO,
+  }),
+  buildPrinterJob({
+    id: "printer-2",
+    name: "Printer 2",
+    jobName:
+      "Dry_Box_Pods_-_Six_Large_-_Smoke_PETG_-_Printer_2",
+    percent: 38,
+    currentLayer: 173,
+    totalLayers: 499,
+    remainingMinutes: 537,
+    filamentText: "PETG Translucent · AMS 1 slot 4",
+    filamentColor: "#8e8e8e",
+    thumbnailPath: PODS_PLATE,
+  }),
+  buildPrinterJob({
+    id: "printer-3",
+    name: "Printer 3",
+    jobName:
+      "Storage_Canisters_x15_-_PLA_Basic_-_Printer_3",
+    percent: 2,
+    currentLayer: 13,
+    totalLayers: 503,
+    remainingMinutes: 331,
+    filamentText: "PLA Basic · AMS 2 slot 4",
+    thumbnailPath: CANISTERS_PLATE,
+  }),
+]
 
 const EXTRA_PRINTERS: readonly PrinterJob[] = [
   buildPrinterJob({
@@ -555,9 +611,9 @@ const EXTRA_PRINTERS: readonly PrinterJob[] = [
   }),
 ]
 
-/** The first `count` printers: the three above, then the extras in order. */
+/** The first `count` printers, in order. */
 const printersUpTo = (count: number) =>
-  [...THREE_PRINTERS, ...EXTRA_PRINTERS].slice(0, count)
+  [...FIRST_PRINTERS, ...EXTRA_PRINTERS].slice(0, count)
 
 export const FourPrinters: Story = {
   ...workbenchVariant(printersUpTo(4)),

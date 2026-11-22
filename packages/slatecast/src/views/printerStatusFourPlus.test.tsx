@@ -1,5 +1,6 @@
 import type { PrinterJob } from "@castkit/shared/viewData/types"
-import { describe, expect, test } from "vitest"
+import userEvent from "@testing-library/user-event"
+import { afterEach, describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import {
   buildDeviceProfile,
@@ -7,6 +8,7 @@ import {
   buildSnapshot,
 } from "../__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "../__tests__/setup/mountSlatecast.tsx"
+import { __setPrinterPendingForStories } from "./PrinterStatus.tsx"
 // This file measures boxes, so it needs the real rules.
 import "../styles.css"
 
@@ -20,6 +22,9 @@ import "../styles.css"
  * - "2 filaments · Details ›" ran out of the first card's filament box;
  * - from ten printers, the tenth was dropped with nothing on the glass to
  *   say so.
+ *
+ * The four test windows are here too, because a phone opens this view as
+ * readily as the wall panel does.
  */
 
 const PANELS = [
@@ -35,7 +40,32 @@ const PANELS = [
     { width: 720, height: 1280 },
   ],
   ["the 2560x1440 browser", { width: 2560, height: 1440 }],
+  [
+    "the 384x824 narrow window",
+    { width: 384, height: 824 },
+  ],
+  [
+    "the 1080x1920 tall window",
+    { width: 1080, height: 1920 },
+  ],
+  [
+    "the 3440x1440 ultrawide window",
+    { width: 3440, height: 1440 },
+  ],
 ] as const
+
+/**
+ * The longest labels a row's buttons carry: Printer 2 is paused and resuming,
+ * Printer 7 is printing and stopping.
+ */
+const PENDING = {
+  "printer-2": "resume",
+  "printer-7": "stop",
+} as const
+
+afterEach(() => {
+  __setPrinterPendingForStories({})
+})
 
 const COUNTS = [4, 5, 6, 7, 8, 9, 10, 12] as const
 
@@ -50,6 +80,7 @@ const buildPrinters = (count: number): PrinterJob[] =>
       id: `printer-${printerNumber}`,
       name: `Printer ${printerNumber}`,
       jobName: `Sample_Part_${printerNumber}_-_PLA_Basic_-_Printer_${printerNumber}`,
+      thumbnailPath: "/plate.png",
     }
     if (index === 0) {
       return buildPrinterJob({
@@ -107,6 +138,7 @@ const mountOnPanel = async ({
   height: number
   printers: PrinterJob[]
 }) => {
+  __setPrinterPendingForStories(PENDING)
   await page.viewport(width, height)
   await mountSlatecast({
     snapshot: buildSnapshot({
@@ -248,11 +280,14 @@ const findLayoutProblems = () => {
       (section, sectionIndex) =>
         sections
           .slice(sectionIndex + 1)
-          .filter((other) =>
-            isOverlapping(
-              section.getBoundingClientRect(),
-              other.getBoundingClientRect(),
-            ),
+          .filter(
+            (other) =>
+              !section.contains(other) &&
+              !other.contains(section) &&
+              isOverlapping(
+                section.getBoundingClientRect(),
+                other.getBoundingClientRect(),
+              ),
           )
           .map(
             (other) =>
@@ -294,14 +329,43 @@ const findLayoutProblems = () => {
               : []),
           ]
         : []
+    const name = card.querySelector(".printer-name")
+    const nameProblems =
+      name && name.getBoundingClientRect().width >= 40
+        ? []
+        : [`${label}: the printer's name has no room`]
     return [
       ...outside,
       ...overflowing,
       ...touching,
       ...filamentProblems,
+      ...nameProblems,
     ]
   })
-  return [...offGlass, ...blockOverlaps, ...cardProblems]
+  const strip = document.querySelector(".printer-overflow")
+  const stripBox = strip?.getBoundingClientRect()
+  const stripProblems = stripBox
+    ? Array.from(
+        document.querySelectorAll(
+          ".printer-overflow-count, .printer-overflow-item",
+        ),
+      )
+        .map((chip) => chip.getBoundingClientRect())
+        .filter(
+          (chipBox) =>
+            chipBox.top < stripBox.bottom &&
+            !isInside(chipBox, stripBox),
+        )
+        .map(
+          () => "a strip chip is cut by the strip's edge",
+        )
+    : []
+  return [
+    ...offGlass,
+    ...blockOverlaps,
+    ...cardProblems,
+    ...stripProblems,
+  ]
 }
 
 const drawnPrinterNames = () =>
@@ -355,8 +419,8 @@ describe.each(
           ?.textContent,
       ).toBe(
         hiddenNames.length === 1
-          ? "+1 more printer"
-          : `+${hiddenNames.length} more printers`,
+          ? "+1 more printer ›"
+          : `+${hiddenNames.length} more printers ›`,
       )
     }
   })
@@ -422,7 +486,7 @@ describe("Printer Status on the 1280x720 workbench panel", () => {
     expect(drawnPrinterNames()).toHaveLength(9)
     expect(strip).toBeVisible()
     expect(strip).toHaveTextContent(
-      "+1 more printer10Printer 10Preparing",
+      "+1 more printer ›10Printer 10Preparing",
     )
   })
 
@@ -438,5 +502,115 @@ describe("Printer Status on the 1280x720 workbench panel", () => {
 
     expect(heights.length).toBeGreaterThan(0)
     expect(Math.min(...heights)).toBeGreaterThanOrEqual(48)
+  })
+})
+
+/** A job name and a fault both longer than any card can show in full. */
+const LONG_JOB_NAME =
+  "Very_Long_Multi_Plate_Assembly_With_Many_Parts_-_Plate_3_of_7_-_Matte_PETG_HF_-_0.4_mm_-_Printer_1"
+const LONG_FAULT =
+  "HMS_0700_2000_0002_0001 — The filament in AMS 1 slot 3 ran out. Load a new spool, then resume the print from the printer or from this panel."
+
+describe("the full job name and fault are a tap away", () => {
+  const WORKBENCH = { width: 1280, height: 720 }
+
+  test.each([
+    4, 9,
+  ])("%i printers: a faulted card keeps its name and controls on the card", async (count) => {
+    await mountOnPanel({
+      ...WORKBENCH,
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: "Printer 1",
+          jobName: LONG_JOB_NAME,
+          state: "paused",
+          problemText: LONG_FAULT,
+        }),
+        ...buildPrinters(count).slice(1),
+      ],
+    })
+
+    expect(findLayoutProblems()).toEqual([])
+  })
+
+  test.each([
+    4, 9,
+  ])("%i printers: tapping a faulted job lists the whole name and fault", async (count) => {
+    await mountOnPanel({
+      ...WORKBENCH,
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: "Printer 1",
+          jobName: LONG_JOB_NAME,
+          state: "paused",
+          problemText: LONG_FAULT,
+        }),
+        ...buildPrinters(count).slice(1),
+      ],
+    })
+
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+
+    const dialog = document.querySelector('[role="dialog"]')
+    expect(dialog).toBeVisible()
+    expect(dialog).toHaveTextContent(LONG_FAULT)
+    expect(dialog).toHaveTextContent(
+      "Very Long Multi Plate Assembly With Many Parts",
+    )
+    expect(
+      document
+        .querySelector(".printer-card")
+        ?.getAttribute("data-expanded"),
+    ).toBe("false")
+  })
+})
+
+describe.each([
+  [
+    "the 1280x720 workbench panel",
+    { width: 1280, height: 720 },
+  ],
+  ["the 480x320 short panel", { width: 480, height: 320 }],
+  [
+    "the 384x824 narrow window",
+    { width: 384, height: 824 },
+  ],
+] as const)("the +N more strip on %s", (_label, panel) => {
+  test("a tap lists every hidden printer, past the chips that fit", async () => {
+    const printers = buildPrinters(20)
+    await mountOnPanel({ ...panel, printers })
+
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twenty printers drew no strip.")
+    }
+    const drawnCount = drawnPrinterNames().length
+    await userEvent.click(strip)
+
+    const listedNames = Array.from(
+      document.querySelectorAll(
+        '[role="dialog"] .filament-details-name',
+      ),
+    ).map((name) => name.textContent?.split(" · ")[0])
+
+    expect(listedNames).toEqual(
+      printers
+        .slice(drawnCount)
+        .map((printer) => printer.name),
+    )
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toHaveTextContent("Failed")
   })
 })

@@ -7,6 +7,9 @@ import {
 /** The 1280x720 workbench panel's card area: 720 less 18 px top and bottom. */
 const WORKBENCH_HEIGHT = 684
 
+/** The workbench panel's card area width: 1280 less 26 px each side. */
+const WORKBENCH_WIDTH = 1228
+
 /** The 480x320 short panel's card area. */
 const SHORT_PANEL_HEIGHT = 284
 
@@ -16,6 +19,7 @@ describe("choosePrinterLayout", () => {
       [1, 2, 3].map((printerCount) =>
         choosePrinterLayout({
           availableHeight: WORKBENCH_HEIGHT,
+          availableWidth: WORKBENCH_WIDTH,
           printerCount,
         }),
       ),
@@ -26,6 +30,7 @@ describe("choosePrinterLayout", () => {
     expect(
       choosePrinterLayout({
         availableHeight: WORKBENCH_HEIGHT,
+        availableWidth: WORKBENCH_WIDTH,
         printerCount: 4,
       }),
     ).toBe("quad")
@@ -35,6 +40,17 @@ describe("choosePrinterLayout", () => {
     expect(
       choosePrinterLayout({
         availableHeight: SHORT_PANEL_HEIGHT,
+        availableWidth: 428,
+        printerCount: 4,
+      }),
+    ).toBe("list")
+  })
+
+  test("four printers use rows on a phone, however tall", () => {
+    expect(
+      choosePrinterLayout({
+        availableHeight: 788,
+        availableWidth: 360,
         printerCount: 4,
       }),
     ).toBe("list")
@@ -45,6 +61,7 @@ describe("choosePrinterLayout", () => {
       [5, 9, 10].map((printerCount) =>
         choosePrinterLayout({
           availableHeight: WORKBENCH_HEIGHT,
+          availableWidth: WORKBENCH_WIDTH,
           printerCount,
         }),
       ),

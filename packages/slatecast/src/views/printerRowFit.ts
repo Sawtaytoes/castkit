@@ -31,14 +31,23 @@ export const PRINTER_OVERFLOW_HEIGHT = 36
  */
 export const PRINTER_QUAD_MIN_HEIGHT = 560
 
+/**
+ * The narrowest card area that holds two quad cards side by side. Below it,
+ * each card is under 300 px wide, too narrow for the name beside the state
+ * chip and for the buttons' words, so a phone gets rows.
+ */
+export const PRINTER_QUAD_MIN_WIDTH = 600
+
 export type PrinterLayout = "columns" | "quad" | "list"
 
 /** One, two and three printers keep their columns; four and up are new. */
 export const choosePrinterLayout = ({
   availableHeight,
+  availableWidth,
   printerCount,
 }: {
   availableHeight: number
+  availableWidth: number
   printerCount: number
 }): PrinterLayout => {
   if (printerCount < 4) {
@@ -46,7 +55,8 @@ export const choosePrinterLayout = ({
   }
   if (
     printerCount === 4 &&
-    availableHeight >= PRINTER_QUAD_MIN_HEIGHT
+    availableHeight >= PRINTER_QUAD_MIN_HEIGHT &&
+    availableWidth >= PRINTER_QUAD_MIN_WIDTH
   ) {
     return "quad"
   }

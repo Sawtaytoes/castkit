@@ -292,14 +292,22 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    36 px strip under the last row says `+1 more printer` and names each hidden
    printer with its number and its percentage or state, tinted like its card.
    The 1280×720 panel draws nine rows above the strip, so the tenth printer is
-   the first one the strip names. The printers keep the order Home Assistant
-   sends.
-4. **The count picks the arrangement; the panel only folds it.** Four printers
-   use rows instead of the quad when the card area is under 560 px tall, where
-   two cards of facts cannot stack. A row under 1100 px wide drops the three
-   fact blocks. Under 600 px it also drops the badge, the nozzle and the time
-   left. The state chip and the percentage always stay.
-5. **Pause and Stop stay a fingertip tall.** Every row button is at least 48 px.
+   the first one the strip names. The chips that fit are a glance; a tap on
+   the strip lists every hidden printer with its state, job name and fault.
+   The printers keep the order Home Assistant sends.
+4. **A tap on a job name opens the details.** The 2×2 grid and the rows have
+   no room to open a name in place, so the tap lists that printer's whole job
+   name and whole fault in a dialog. In a row, a fault takes the job name's
+   line, inside the same button. In the 2×2 grid, a fault gets two lines and
+   the Layer and Finishes blocks give it their room.
+5. **The count picks the arrangement; the panel only folds it.** Four printers
+   use rows instead of the quad when the card area is under 560 px tall or
+   600 px wide, where two cards of facts do not fit. A row under 1100 px wide
+   drops the three fact blocks. Under 600 px it also drops the badge, the
+   nozzle and the time left, and Pause and Stop become Lucide icons whose words
+   stay in the accessibility tree. Under 440 px the picture goes, so the name
+   keeps its room. The state chip and the percentage always stay.
+6. **Pause and Stop stay a fingertip tall.** Every row button is at least 48 px.
 
 ## Previews
 
