@@ -314,7 +314,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    whole or absent. In a chip the name gives way first, down to three
    letters, so a hidden `Failed` still reads in words; a tap on the strip lists every hidden printer with its
    state, job name and fault. A view of 300 px or less draws only the count,
-   because no chip fits beside it.
+   because no chip fits beside it. So does a strip whose first line would
+   cut a chip's state, as a wide fallback font can on a small panel: a
+   chip that says `Prepa…` names no state. The view checks after every
+   render, chips drawn, so a wider strip or a narrower font brings them back.
    The printers keep the order Home Assistant sends.
 4. **A tap on a job name opens the details.** The 2×2 grid and the rows have
    no room to open a name in place, so the tap lists that printer's whole job
@@ -355,7 +358,11 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    long state word such as `Preparing` stays whole beside a name at its
    4.5 em floor. At 708 px or less (760 px view) it also drops the
    nozzle and the time left, and Pause and Stop become Lucide icons whose
-   words stay in the accessibility tree. A settled row drops its `Finished`
+   words stay in the accessibility tree. The facts are already folded
+   there, so a state word that a wide font would cut moves onto its own
+   line under the name instead. The band is 72 px wide, and its percentage
+   shrinks from 20 px only where a wide font needs it to keep `100%`
+   inside. A settled row drops its `Finished`
    or `Stopped at layer N` lines there too: the chip still names the state,
    the band keeps the percentage, and the job name's dialog still gives the
    stopped layer. Wider than that, the stopped layer's line wraps rather

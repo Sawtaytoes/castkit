@@ -463,3 +463,37 @@ test("a press that began in the list does not close it from the backdrop", () =>
 
   expect(onClose).toHaveBeenCalledTimes(1)
 })
+
+test("an update between press and release keeps a backdrop click", () => {
+  const firstClose = vi.fn()
+  const nextClose = vi.fn()
+  const { rerender } = render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={filaments}
+      onClose={firstClose}
+    />,
+  )
+  const overlay = screen.getByRole("dialog").parentElement
+  if (!overlay) {
+    throw new Error("The dialog has no backdrop.")
+  }
+  fireEvent.pointerDown(overlay, {
+    pointerId: 1,
+    pointerType: "mouse",
+  })
+  // A live update hands the dialog a new close before the release.
+  rerender(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={filaments}
+      onClose={nextClose}
+    />,
+  )
+  fireEvent.click(overlay, { detail: 1 })
+
+  expect(nextClose).toHaveBeenCalledTimes(1)
+  expect(firstClose).not.toHaveBeenCalled()
+})

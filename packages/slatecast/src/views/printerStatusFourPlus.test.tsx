@@ -2411,8 +2411,22 @@ describe("a view too narrow for a row", () => {
  * though Outfit failed to load. A wider font adds letter spacing to it, for
  * a machine whose fallback is wider than this one's, such as a CI runner's.
  */
+/*
+ * The runner's fallback font is DejaVu Sans, wider than this machine's.
+ * "A much wider font" stands in for it here, and for a wider one still.
+ */
+const LETTER_SPACING = {
+  "a fallback font": "0",
+  "a wider font": "0.08em",
+  "a much wider font": "0.2em",
+} as const
+
 const useTestFont = (
-  font: "Outfit" | "a fallback font" | "a wider font",
+  font:
+    | "Outfit"
+    | "a fallback font"
+    | "a wider font"
+    | "a much wider font",
 ) => {
   if (font === "Outfit") {
     return
@@ -2420,7 +2434,7 @@ const useTestFont = (
   const style = document.createElement("style")
   style.textContent = `.printer-status, .printer-status * {
       font-family: "Noto Sans JP", ui-sans-serif, system-ui, Arial, sans-serif !important;
-      ${font === "a wider font" ? "letter-spacing: 0.08em !important;" : ""}
+      letter-spacing: ${LETTER_SPACING[font]} !important;
     }`
   document.head.append(style)
   onTestFinished(() => style.remove())
@@ -3390,5 +3404,170 @@ describe("the hidden-printer list and a press that moves", () => {
     await expect
       .poll(() => document.querySelector('[role="dialog"]'))
       .toBeNull()
+  })
+})
+
+const FONTS = [
+  "Outfit",
+  "a fallback font",
+  "a wider font",
+  "a much wider font",
+] as const
+
+/** Every drawn state word or chip state whose end is cut. */
+const findCutWords = (selector: string) =>
+  drawnWithin(document.body, selector)
+    .filter(
+      (word) =>
+        word instanceof HTMLElement &&
+        word.scrollWidth > word.clientWidth + 1,
+    )
+    .map((word) => word.textContent)
+
+/** Every printer, mounted once, then measured at each width in turn. */
+const sweepWidths = async ({
+  widths,
+  height,
+  printers,
+  findProblems,
+}: {
+  widths: readonly number[]
+  height: number
+  printers: PrinterJob[]
+  findProblems: () => string[]
+}) => {
+  const [firstWidth = 0] = widths
+  await mountOnPanel({
+    width: firstWidth,
+    height,
+    printers,
+  })
+  const problems: string[] = []
+  for (const width of widths) {
+    await page.viewport(width, height)
+    await nextFrame()
+    problems.push(
+      ...findProblems().map(
+        (problem) => `${width}x${height}: ${problem}`,
+      ),
+    )
+  }
+  return problems
+}
+
+describe("a narrow row's state word", () => {
+  test.each(
+    FONTS,
+  )("in %s, a narrow row never cuts Preparing", async (font) => {
+    useTestFont(font)
+    const problems = await sweepWidths({
+      widths: [389, 410, 441, 480, 560, 640, 708, 760],
+      height: 824,
+      printers: buildPrinters(10).map((printer) => ({
+        ...printer,
+        state: "preparing" as const,
+        percent: 0,
+      })),
+      findProblems: () => [
+        ...findCutWords(
+          ".printer-card .printer-state-label",
+        ).map((word) => `"${word}" is cut`),
+        ...findLayoutProblems(),
+      ],
+    })
+
+    expect(problems).toEqual([])
+  })
+})
+
+describe("a narrow row's percentage", () => {
+  test.each(
+    FONTS,
+  )("in %s, a full percentage stays inside a narrow band", async (font) => {
+    useTestFont(font)
+    const problems = await sweepWidths({
+      widths: [301, 340, 384, 389, 441, 560, 708],
+      height: 824,
+      printers: buildPrinters(10).map((printer, index) =>
+        index === 2
+          ? {
+              ...printer,
+              state: "finished" as const,
+              percent: 100,
+            }
+          : printer,
+      ),
+      findProblems: findLayoutProblems,
+    })
+
+    expect(problems).toEqual([])
+  })
+})
+
+describe("a strip chip's state", () => {
+  test.each(
+    FONTS.flatMap((font) =>
+      [
+        {
+          width: 480,
+          height: 480,
+          shape: "round",
+          orientation: 270,
+        },
+        {
+          width: 480,
+          height: 480,
+          shape: "round",
+          orientation: 0,
+        },
+        {
+          width: 720,
+          height: 720,
+          shape: "round",
+          orientation: 0,
+        },
+        {
+          width: 384,
+          height: 824,
+          shape: "square",
+          orientation: 0,
+        },
+        {
+          width: 1280,
+          height: 720,
+          shape: "square",
+          orientation: 0,
+        },
+      ].map((panel) => ({ font, ...panel }) as const),
+    ),
+  )("in $font, on a $width x $height $shape panel turned $orientation°, a drawn chip never cuts its state", async ({
+    font,
+    width,
+    height,
+    shape,
+    orientation,
+  }) => {
+    useTestFont(font)
+    await mountOnPanel({
+      width,
+      height,
+      shape: shape as "round" | "square",
+      orientation: orientation as 0 | 270,
+      printers: buildPrinters(12).map((printer) => ({
+        ...printer,
+        state: "preparing" as const,
+        percent: 0,
+      })),
+    })
+    await nextFrame()
+
+    expect(
+      document.querySelector(".printer-overflow"),
+    ).not.toBeNull()
+    expect(
+      findCutWords(
+        ".printer-overflow-item .printer-overflow-state",
+      ),
+    ).toEqual([])
   })
 })

@@ -853,6 +853,40 @@ export const PrinterStatus = () => {
       setCrowdedWidth(getContentWidth(view))
     }
   })
+  /*
+   * After every render: a strip whose first line would cut a chip's state
+   * draws no chips, only its count, as on a small round panel. A chip that
+   * says "Prepa…" names no state. The chips are drawn again first, so a
+   * wider strip or a narrower font brings them back; this is before paint,
+   * so the glass never shows the cut chip.
+   */
+  useLayoutEffect(() => {
+    const list =
+      viewRef.current?.querySelector<HTMLElement>(
+        ".printer-overflow-list",
+      )
+    if (!list) {
+      return
+    }
+    delete list.dataset.isCut
+    const isCut = Array.from(
+      list.querySelectorAll<HTMLElement>(
+        ".printer-overflow-item",
+      ),
+    ).some((item) => {
+      const state = item.querySelector<HTMLElement>(
+        ".printer-overflow-state",
+      )
+      return (
+        item.offsetTop < list.clientHeight &&
+        state !== null &&
+        state.scrollWidth > state.clientWidth + 1
+      )
+    })
+    if (isCut) {
+      list.dataset.isCut = "true"
+    }
+  })
 
   /*
    * The card area's size decides the arrangement and how many rows finish on

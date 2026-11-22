@@ -3241,7 +3241,9 @@ html[data-grayscale-text="true"] {
   white-space: nowrap;
 }
 
+/* Positioned, so each chip's offsetTop says which line it is on. */
 .printer-overflow-list {
+  position: relative;
   display: flex;
   overflow: hidden;
   flex: 1 1 0;
@@ -3316,6 +3318,11 @@ html[data-grayscale-text="true"] {
   .printer-status .printer-overflow-list {
     display: none;
   }
+}
+
+/* A first line that would cut a chip's state; see PrinterStatus.tsx. */
+.printer-overflow-list[data-is-cut="true"] {
+  display: none;
 }
 
 .printer-overflow-item[data-intent="warning"] {
@@ -3549,7 +3556,7 @@ html[data-grayscale-text="true"] {
   }
 
   .printer-status[data-layout="list"] .printer-body {
-    grid-template-columns: minmax(0, 1fr) 60px auto;
+    grid-template-columns: minmax(0, 1fr) 72px auto;
     column-gap: 8px;
   }
 
@@ -3561,8 +3568,19 @@ html[data-grayscale-text="true"] {
     display: none;
   }
 
+  /*
+   * The facts are folded here, so the fold cannot make room for a state
+   * word a wide font cuts. The state moves under the name instead: the name
+   * keeps its 4.5 em, and the state moves only when both do not fit.
+   */
   .printer-status[data-layout="list"] .printer-head {
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 1px 6px;
+  }
+
+  .printer-status[data-layout="list"] .printer-state {
+    flex-shrink: 0;
+    max-width: 100%;
   }
 
   .printer-status[data-layout="list"] .printer-name {
@@ -3586,8 +3604,12 @@ html[data-grayscale-text="true"] {
     padding: 0 4px;
   }
 
+  /*
+   * "100%" in the band's width, whatever the font: about 3.5 em is the
+   * widest it runs, so the type shrinks only where a wide font needs it.
+   */
   .printer-status[data-layout="list"] .printer-percent {
-    font-size: 20px;
+    font-size: min(20px, (100cqi - 8px) / 3.5);
   }
 
   .printer-status[data-layout="list"] .printer-actions {
@@ -3638,7 +3660,7 @@ html[data-grayscale-text="true"] {
   }
 
   .printer-status[data-layout="list"] .printer-body {
-    grid-template-columns: minmax(0, 1fr) 60px auto;
+    grid-template-columns: minmax(0, 1fr) 72px auto;
     grid-template-rows: auto auto auto;
     row-gap: 1px;
   }
