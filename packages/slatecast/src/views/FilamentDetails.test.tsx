@@ -285,3 +285,30 @@ test("the dialog does not repeat a slot whose own name has a dot", () => {
     document.querySelector(".filament-details-summary"),
   ).toBeNull()
 })
+
+test("the dialog paints the slot that says the summary in the feed's color when it has none", () => {
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={[
+        { name: "PLA", location: "AMS 1 slot 1" },
+        { name: "PETG", location: "AMS 1 slot 2" },
+      ]}
+      summary="PLA · AMS 1 slot 1"
+      activeColor="#eb3f17"
+      onClose={vi.fn()}
+    />,
+  )
+  const swatches = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      ".filament-details-swatch .fss-swatch",
+    ),
+  )
+
+  expect(
+    swatches[0]?.style.getPropertyValue("--c"),
+  ).toMatch(/235,? 63,? 23|#eb3f17/i)
+  // Another slot without a color is still unknown, not the active one.
+  expect(swatches[1]).toHaveClass("is-hatched")
+})

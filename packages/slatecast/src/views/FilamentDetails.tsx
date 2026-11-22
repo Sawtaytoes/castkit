@@ -207,39 +207,83 @@ export const getFilamentSummaryText = ({
   if (!summaryText) {
     return undefined
   }
-  const summaryKey = toTrayKey(summaryText)
-  const isSummaryInList = Boolean(
-    filaments?.some((filament) => {
-      const names = [
-        filament.name ?? "",
-        getFilamentSlotName(filament),
-      ].filter(Boolean)
-      const trays = [
-        filament.location,
-        filament.location.split(/\s*·\s*/)[0] ?? "",
-      ]
-      return names.some(
-        (name) =>
-          toTrayKey(name) === summaryKey ||
-          trays.some(
-            (tray) =>
-              toTrayKey(`${name} ${tray}`) === summaryKey ||
-              toTrayKey(`${name} · ${tray}`) === summaryKey,
-          ),
-      )
-    }),
-  )
-  return isSummaryInList ? undefined : summaryText
+  return findSummarySlot({ filaments, summary })
+    ? undefined
+    : summaryText
 }
+
+/**
+ * The slot that says the feed's whole summary, if one does: its name, alone
+ * or followed by its tray.
+ */
+export const findSummarySlot = ({
+  filaments,
+  summary,
+}: {
+  filaments?: readonly PrinterFilamentAssignment[]
+  summary?: string
+}) => {
+  const summaryText = (summary ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+  if (!summaryText) {
+    return undefined
+  }
+  const summaryKey = toTrayKey(summaryText)
+  return filaments?.find((filament) => {
+    const names = [
+      filament.name ?? "",
+      getFilamentSlotName(filament),
+    ].filter(Boolean)
+    const trays = [
+      filament.location,
+      filament.location.split(/\s*·\s*/)[0] ?? "",
+    ]
+    return names.some(
+      (name) =>
+        toTrayKey(name) === summaryKey ||
+        trays.some(
+          (tray) =>
+            toTrayKey(`${name} ${tray}`) === summaryKey ||
+            toTrayKey(`${name} · ${tray}`) === summaryKey,
+        ),
+    )
+  })
+}
+
+/**
+ * A slot with the feed's active color when it brings none of its own. A feed
+ * can read the active color and the slots from different sources, so the
+ * slot that says the summary may lack the color the summary carried.
+ */
+export const withActiveColor = (
+  filament: PrinterFilamentAssignment,
+  {
+    activeColor,
+    summarySlot,
+  }: {
+    activeColor?: string
+    summarySlot?: PrinterFilamentAssignment
+  },
+): PrinterFilamentAssignment =>
+  filament === summarySlot &&
+  activeColor &&
+  !filament.rgba &&
+  !filament.color
+    ? { ...filament, color: activeColor }
+    : filament
 
 /** The full list of loaded AMS slots that supply the active print. */
 export const FilamentDetailsDialog = ({
+  activeColor,
   filaments,
   jobName,
   onClose,
   printerName,
   summary,
 }: {
+  /** The feed's active color, for a slot that says the summary but has none. */
+  activeColor?: string
   filaments?: readonly PrinterFilamentAssignment[]
   jobName: string
   onClose: () => void
@@ -256,6 +300,10 @@ export const FilamentDetailsDialog = ({
 
   /* A slot list can lack the active material's name, or omit it entirely. */
   const summaryText = getFilamentSummaryText({
+    filaments,
+    summary,
+  })
+  const summarySlot = findSummarySlot({
     filaments,
     summary,
   })
@@ -328,7 +376,10 @@ export const FilamentDetailsDialog = ({
                 <li key={`${filament.location}:${index}`}>
                   <span class="filament-details-swatch">
                     <FilamentSlotSwatch
-                      filament={filament}
+                      filament={withActiveColor(filament, {
+                        activeColor,
+                        summarySlot,
+                      })}
                     />
                   </span>
                   <span class="filament-details-info">

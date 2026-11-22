@@ -478,8 +478,15 @@ const findLayoutProblems = () => {
                   ]
                 : []
             }
-            return isOverlapping(tallyBox, termBox)
-              ? [`${label}: the filament count is cut`]
+            if (isOverlapping(tallyBox, termBox)) {
+              return [`${label}: the filament count is cut`]
+            }
+            // Off its line, the label must clip it out of view.
+            return getComputedStyle(filamentLabel)
+              .overflowY === "visible"
+              ? [
+                  `${label}: the filament count shows below its label`,
+                ]
               : []
           })()
         : []
@@ -3009,5 +3016,76 @@ describe("the end time in the 2×2 grid", () => {
         ?.getAttribute("data-layout"),
     ).toBe("quad")
     expect(findEndedOverflow()).toBeNull()
+  })
+})
+
+describe("the folded facts after a height change", () => {
+  test("come back when the view returns to its height", async () => {
+    await mountOnPanel({
+      width: 1120,
+      height: 350,
+      printers: [
+        buildWidestFacts({
+          finishes: "a date",
+          state: "preparing",
+        }),
+        ...buildPrinters(5).slice(1),
+      ],
+    })
+    await nextFrame()
+    const isDrawnAtFirst = areFactsDrawn()
+    expect(findLayoutProblems()).toEqual([])
+
+    await page.viewport(1120, 1200)
+    await nextFrame()
+    expect(findLayoutProblems()).toEqual([])
+
+    await page.viewport(1120, 350)
+    await nextFrame()
+    expect(areFactsDrawn()).toBe(isDrawnAtFirst)
+    expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+describe("a slot that says the summary but brings no color", () => {
+  test("keeps the feed's active color in the details", async () => {
+    const [first, ...rest] = buildPrinters(5)
+    await mountOnPanel({
+      width: 480,
+      height: 320,
+      printers: [
+        {
+          ...first,
+          filamentText: "PLA · AMS 1 slot 1",
+          filamentColor: "#eb3f17",
+          filaments: [
+            { name: "PLA", location: "AMS 1 slot 1" },
+          ],
+        },
+        ...rest,
+      ],
+    })
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    const swatches = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[role="dialog"] .printer-details-swatch .fss-swatch',
+      ),
+    )
+
+    // One line: the slot says the summary, in the feed's color.
+    expect(swatches).toHaveLength(1)
+    expect(
+      swatches[0]?.style.getPropertyValue("--c"),
+    ).toMatch(/235,? 63,? 23|#eb3f17/i)
   })
 })

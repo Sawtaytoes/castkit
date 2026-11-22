@@ -19,9 +19,11 @@ import { ExpandableMedia } from "./ExpandableMedia.tsx"
 import {
   FilamentControl,
   FilamentDetailsDialog,
+  findSummarySlot,
   getFilamentSlotMetadata,
   getFilamentSlotName,
   getFilamentSummaryText,
+  withActiveColor,
 } from "./FilamentDetails.tsx"
 import {
   PrinterDetailsDialog,
@@ -384,6 +386,10 @@ const getFilamentLines = (job: PrinterJob) => {
     filaments: job.filaments,
     summary: job.filamentText,
   })
+  const summarySlot = findSummarySlot({
+    filaments: job.filaments,
+    summary: job.filamentText,
+  })
   const lines = [
     ...(summaryText
       ? [
@@ -404,7 +410,10 @@ const getFilamentLines = (job: PrinterJob) => {
       ]
         .filter(Boolean)
         .join(" · "),
-      filament,
+      filament: withActiveColor(filament, {
+        activeColor: job.filamentColor,
+        summarySlot,
+      }),
     })),
   ]
   return lines.length ? lines : undefined
@@ -776,17 +785,22 @@ export const PrinterStatus = () => {
   /*
    * The widest view, so far, whose rows cut a state word with their facts
    * drawn. The rows keep the facts folded at that width and narrower; a
-   * wider view, or new facts, tries them again.
+   * wider view, another height, or new facts tries them again.
    */
   const [crowdedWidth, setCrowdedWidth] = useState<
     number | null
   >(null)
   const printersPayload = printers.value
+  const cardAreaHeight = cardArea.height
   useLayoutEffect(() => {
-    // New facts may fit where the old ones did not.
+    /*
+     * New facts may fit where the old ones did not. So may another height:
+     * a row's height sizes its picture, which takes width from the rest.
+     */
     void printersPayload
+    void cardAreaHeight
     setCrowdedWidth(null)
-  }, [printersPayload])
+  }, [printersPayload, cardAreaHeight])
   /*
    * After every render: a row whose state word is cut while the facts are
    * drawn folds them. A folded view is not measured, so this cannot loop:
@@ -1195,6 +1209,7 @@ export const PrinterStatus = () => {
           onClose={() => setFilamentDetailsId(null)}
           printerName={filamentDetailsJob.name}
           summary={filamentDetailsJob.filamentText}
+          activeColor={filamentDetailsJob.filamentColor}
         />
       ) : null}
       {details ? (
