@@ -109,6 +109,9 @@ const buildPrinters = (count: number): PrinterJob[] =>
       name: `Printer ${printerNumber}`,
       jobName: `Sample_Part_${printerNumber}_-_PLA_Basic_-_Printer_${printerNumber}`,
       thumbnailPath: "/plate.png",
+      // The widest layer count a long print reaches.
+      currentLayer: 888,
+      totalLayers: 999,
     }
     if (index === 0) {
       return buildPrinterJob({
@@ -303,6 +306,22 @@ const findLayoutProblems = () => {
       .map(
         (part) => `${label}: ${part.className} is outside`,
       )
+    /*
+     * A fact's value is short, and a clipped one reads as a different number:
+     * `173 / 4…` is not `173 / 499`. The values never ellipsize.
+     */
+    const clippedValues = drawnWithin(
+      card,
+      ".printer-metric:not(.is-filament) dd span, .printer-band-remaining, .printer-percent",
+    )
+      .filter(
+        (value) =>
+          value.scrollWidth > value.clientWidth + 1,
+      )
+      .map(
+        (value) =>
+          `${label}: "${value.textContent}" is clipped in ${value.className || value.tagName}`,
+      )
     const overflowing = drawnWithin(card, TEXT_BOX_SELECTOR)
       .filter(
         (box) =>
@@ -367,6 +386,30 @@ const findLayoutProblems = () => {
               : []),
           ]
         : []
+    /*
+     * The job line is the tap that opens the whole job name and fault, so it
+     * must have room and be the thing under a finger at its center.
+     */
+    const job =
+      card.querySelector<HTMLElement>(".printer-job")
+    const jobBox = job?.getBoundingClientRect()
+    const elementAtJob = jobBox
+      ? document.elementFromPoint(
+          (jobBox.left + jobBox.right) / 2,
+          (jobBox.top + jobBox.bottom) / 2,
+        )
+      : null
+    const jobProblems =
+      job && isDrawn(card)
+        ? [
+            ...(job.offsetWidth >= 32
+              ? []
+              : [`${label}: the job has no room`]),
+            ...(elementAtJob && job.contains(elementAtJob)
+              ? []
+              : [`${label}: the job cannot be tapped`]),
+          ]
+        : []
     const plate = card.querySelector(".printer-plate")
     const plateProblems =
       plate &&
@@ -399,6 +442,8 @@ const findLayoutProblems = () => {
       ...filamentProblems,
       ...plateProblems,
       ...stateProblems,
+      ...jobProblems,
+      ...clippedValues,
       ...nameProblems,
     ]
   })
@@ -922,6 +967,9 @@ describe("the details dialog's motion", () => {
 })
 
 describe.each([
+  ["the 320x320 round panel", 320, 320, "round", 0],
+  ["the 384x384 round panel", 384, 384, "round", 0],
+  ["the 421x421 round panel", 421, 421, "round", 0],
   ["the 480x480 round porthole", 480, 480, "round", 0],
   ["the 720x720 round panel", 720, 720, "round", 0],
   ["a 1280x320 window turned 90°", 1280, 320, "square", 90],
@@ -1129,5 +1177,157 @@ describe("the details dialog on a phone", () => {
     expect(dialog).toHaveTextContent(
       "Fixture_Job_-_PLA_-_Printer 1",
     )
+  })
+})
+
+/** The list rises into place; measure it where it comes to rest. */
+const settleDialogMotion = async () => {
+  const box = document.querySelector('[role="dialog"]')
+  await Promise.all(
+    (box?.getAnimations() ?? []).map(
+      (animation) => animation.finished,
+    ),
+  )
+}
+
+/** Every hidden printer with a fault long enough to wrap. */
+const buildFaultedPrinters = (count: number) =>
+  buildPrinters(count).map((printer) => ({
+    ...printer,
+    state: "paused" as const,
+    problemText: LONG_FAULT,
+  }))
+
+describe("the hidden-printer list on a turned or round panel", () => {
+  test("on a 320x1280 window turned 90°, the last entry scrolls onto the glass", async () => {
+    await mountOnPanel({
+      width: 320,
+      height: 1280,
+      orientation: 90,
+      printers: buildFaultedPrinters(12),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twelve printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    await settleDialogMotion()
+    const box = document.querySelector<HTMLElement>(
+      '[role="dialog"]',
+    )
+    if (!box) {
+      throw new Error("The list did not open.")
+    }
+    box.scrollTop = box.scrollHeight
+    const glass = {
+      left: 0,
+      top: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight,
+    }
+    const entries = box.querySelectorAll(
+      ".printer-details-item",
+    )
+    const lastEntry = entries[entries.length - 1]
+
+    expect(
+      isInside(box.getBoundingClientRect(), glass),
+    ).toBe(true)
+    expect(
+      lastEntry &&
+        isInside(lastEntry.getBoundingClientRect(), glass),
+    ).toBe(true)
+  })
+
+  test.each([
+    320, 480,
+  ])("on a %i px round panel, the list keeps inside the circle", async (size) => {
+    await mountOnPanel({
+      width: size,
+      height: size,
+      shape: "round",
+      printers: buildPrinters(12),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Twelve printers drew no strip.")
+    }
+    await userEvent.click(strip)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+
+    const box = document
+      .querySelector('[role="dialog"]')
+      ?.getBoundingClientRect()
+    const radius = size / 2 + 0.5
+    const corners = box
+      ? [
+          [box.left, box.top],
+          [box.right, box.top],
+          [box.left, box.bottom],
+          [box.right, box.bottom],
+        ]
+      : []
+
+    expect(corners).toHaveLength(4)
+    expect(
+      corners.filter(
+        ([cornerX = 0, cornerY = 0]) =>
+          Math.hypot(
+            cornerX - size / 2,
+            cornerY - size / 2,
+          ) > radius,
+      ),
+    ).toEqual([])
+  })
+})
+
+describe("a question about a printer that left", () => {
+  test("does not come back when the printer does", async () => {
+    const { server } = await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildPrinters(9),
+    })
+    const stopButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-action.is-stop",
+      )
+    if (!stopButton) {
+      throw new Error("The first card has no Stop button.")
+    }
+    await userEvent.click(stopButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+
+    server.push({
+      type: "printers",
+      data: { printers: buildPrinters(9).slice(1) },
+    })
+    await expect
+      .poll(() => drawnPrinterNames().length)
+      .toBe(8)
+    server.push({
+      type: "printers",
+      data: { printers: buildPrinters(9) },
+    })
+    await expect
+      .poll(() => drawnPrinterNames().length)
+      .toBe(9)
+
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toBeNull()
   })
 })

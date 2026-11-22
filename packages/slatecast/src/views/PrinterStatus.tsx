@@ -90,6 +90,7 @@ import { useDialogFocus } from "./useDialogFocus.ts"
  * first frame, before the card area has been measured.
  */
 const PRINTER_STATUS_VERTICAL_PADDING = 36
+const PRINTER_STATUS_HORIZONTAL_PADDING = 52
 
 /**
  * How long a pause/stop question stays on the card before it withdraws itself.
@@ -620,15 +621,17 @@ export const PrinterStatus = () => {
   const viewRef = useRef<HTMLDivElement>(null)
   const cardsRef = useRef<HTMLDivElement>(null)
   /*
-   * The card area's height, and the whole view's width. The width is the
-   * view's, not the card area's, because the card area's sides change with
-   * the arrangement: measuring them would let the arrangement pick itself
-   * again, back and forth, on every frame.
+   * The card area's height, and the width of the view's content box: the box
+   * the CSS container queries measure. The width is the view's, not the card
+   * area's, because the card area's sides change with the arrangement:
+   * measuring them would let the arrangement pick itself again, back and
+   * forth, on every frame.
    */
   const [cardArea, setCardArea] = useState(() => ({
     height:
       window.innerHeight - PRINTER_STATUS_VERTICAL_PADDING,
-    width: window.innerWidth,
+    width:
+      window.innerWidth - PRINTER_STATUS_HORIZONTAL_PADDING,
   }))
   const availableHeight = cardArea.height
   const hasJobs = jobs.length > 0
@@ -647,13 +650,18 @@ export const PrinterStatus = () => {
       return undefined
     }
     const measure = () => {
+      const viewStyle = getComputedStyle(view)
+      const contentWidth =
+        view.clientWidth -
+        Number.parseFloat(viewStyle.paddingLeft) -
+        Number.parseFloat(viewStyle.paddingRight)
       setCardArea((current) =>
         current.height === cards.clientHeight &&
-        current.width === view.clientWidth
+        current.width === contentWidth
           ? current
           : {
               height: cards.clientHeight,
-              width: view.clientWidth,
+              width: contentWidth,
             },
       )
     }
@@ -735,6 +743,19 @@ export const PrinterStatus = () => {
     }
   }, [filamentDetailsId, jobs])
 
+  /*
+   * A question about a printer that left the feed withdraws itself, so the
+   * printer coming back does not bring the question back unasked.
+   */
+  useEffect(() => {
+    if (
+      confirmation &&
+      !jobs.some((job) => job.id === confirmation.printerId)
+    ) {
+      setConfirmation(null)
+    }
+  }, [confirmation, jobs])
+
   /** Mark a printer pending, and let the mark lapse if nothing answers. */
   const startPending = ({
     action,
@@ -809,6 +830,7 @@ export const PrinterStatus = () => {
     layout === "list"
       ? fitPrinterRows({
           availableHeight,
+          availableWidth: cardArea.width,
           printerCount: jobs.length,
         })
       : { visibleCount: jobs.length }

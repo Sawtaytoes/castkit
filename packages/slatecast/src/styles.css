@@ -2402,15 +2402,26 @@ html[data-grayscale-text="true"] {
   position: fixed;
   z-index: 100;
   display: grid;
+  /* One definite cell, so the box's 100% height is the overlay's. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   inset: 0;
   padding: 24px;
   background: rgb(0 0 0 / 72%);
 }
 
+/* On a round panel the list keeps to the square inside the circle. */
+.stage.shape-round .filament-details-dialog {
+  padding: 14.7%;
+}
+
+/*
+ * As tall as the overlay allows, not the window: a turned stage is shorter
+ * than the window is tall, and the last entry must still scroll into view.
+ */
 .filament-details-box {
   width: min(620px, 100%);
-  max-height: calc(100vh - 48px);
+  max-height: 100%;
   overflow: auto;
   padding: 24px;
   border: 1px solid var(--color-border-subtle);
@@ -2883,10 +2894,12 @@ html[data-grayscale-text="true"] {
 .printer-status[data-layout="list"] .printer-metrics {
   grid-column: 2;
   grid-row: 1 / -1;
-  grid-template-columns:
-    minmax(0, 0.8fr)
-    minmax(0, 0.9fr)
-    minmax(0, 1.7fr);
+  /* Layer and Finishes are short numbers and keep their whole width; the
+     filament name gives way, and its dialog lists it in full. */
+  grid-template-columns: max-content max-content minmax(
+      0,
+      1fr
+    );
   gap: 6px;
   margin-top: 0;
 }
@@ -3235,6 +3248,7 @@ html[data-grayscale-text="true"] {
 .stage.shape-round .printer-status[data-layout="list"],
 .stage.shape-round .printer-status[data-layout="quad"] {
   inset: 14.7%;
+  padding: 8px;
 }
 
 /*
@@ -3246,7 +3260,7 @@ html[data-grayscale-text="true"] {
   .printer-status[data-layout="list"] .printer-body {
     grid-template-columns:
       minmax(0, 1fr)
-      minmax(110px, 0.6fr)
+      minmax(150px, 0.6fr)
       auto;
   }
 
@@ -3270,8 +3284,7 @@ html[data-grayscale-text="true"] {
  * for assistive tech, and the badge, the nozzle and the time left go. Below
  * a 760 px view the words would leave the name under its 4.5 em. Below 440 px
  * the picture goes too, because the name is the one fact that says which
- * printer it is, and the state moves under the name, beside the job, so the
- * name has the whole line and the state keeps its word.
+ * printer it is; see the two narrower steps below.
  */
 @container printer-status (max-width: 708px) {
   .printer-status[data-layout="list"] .printer-cards {
@@ -3362,6 +3375,10 @@ html[data-grayscale-text="true"] {
   }
 }
 
+/*
+ * Under 440 px the name, the state and the job each take a whole line of the
+ * info column, so none of them is squeezed to nothing by the others.
+ */
 @container printer-status (max-width: 388px) {
   .printer-status[data-layout="list"] .printer-card {
     grid-template-columns: minmax(0, 1fr);
@@ -3373,7 +3390,9 @@ html[data-grayscale-text="true"] {
   }
 
   .printer-status[data-layout="list"] .printer-body {
-    grid-template-columns: auto minmax(0, 1fr) 60px auto;
+    grid-template-columns: minmax(0, 1fr) 60px auto;
+    grid-template-rows: auto auto auto;
+    row-gap: 1px;
   }
 
   .printer-status[data-layout="list"] .printer-head {
@@ -3381,7 +3400,7 @@ html[data-grayscale-text="true"] {
   }
 
   .printer-status[data-layout="list"] .printer-names {
-    grid-column: 1 / 3;
+    grid-column: 1;
     grid-row: 1;
     min-width: 0;
   }
@@ -3391,20 +3410,56 @@ html[data-grayscale-text="true"] {
     grid-column: 1;
     grid-row: 2;
     justify-self: start;
+    max-width: 100%;
+    margin-left: 0;
   }
 
   .printer-status[data-layout="list"] .printer-job {
-    grid-column: 2;
-    grid-row: 2;
+    grid-column: 1;
+    grid-row: 3;
   }
 
   .printer-status[data-layout="list"] .printer-band {
-    grid-column: 3;
+    grid-column: 2;
   }
 
   .printer-status[data-layout="list"] .printer-actions,
   .printer-status[data-layout="list"] .printer-clear {
-    grid-column: 4;
+    grid-column: 3;
+  }
+}
+
+/*
+ * TINY rows, under a 300 px content box, such as a small round panel: the
+ * band leaves its column and becomes a slim fourth line under the job, so
+ * the info column has the width Pause and Stop leave. Each row is 84 px
+ * tall for it; see `printerRowFit.ts`.
+ */
+@container printer-status (max-width: 300px) {
+  .printer-status[data-layout="list"] .printer-card {
+    min-height: 84px;
+  }
+
+  .printer-status[data-layout="list"] .printer-body {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .printer-status[data-layout="list"] .printer-band {
+    grid-column: 1;
+    grid-row: 4;
+    height: 18px;
+    margin-top: 2px;
+    border-radius: 5px;
+  }
+
+  .printer-status[data-layout="list"] .printer-percent {
+    font-size: 13px;
+  }
+
+  .printer-status[data-layout="list"] .printer-actions,
+  .printer-status[data-layout="list"] .printer-clear {
+    grid-column: 2;
   }
 }
 

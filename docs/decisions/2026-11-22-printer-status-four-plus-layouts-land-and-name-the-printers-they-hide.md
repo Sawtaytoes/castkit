@@ -48,8 +48,10 @@ or when the card area is too short for two cards: 624 px with the picture
 beside the facts, which needs a 1184 px view, or 836 px with the picture above
 them. The view's own width decides, not the window's, so a turned or round
 panel folds its rows for the width it really has. A round panel keeps four
-printers and up inside the square within the circle. A narrow view folds a
-row's columns away in a fixed order. On the narrowest rows, Pause and Stop
+printers and up, and the dialogs, inside the square within the circle. A
+narrow view folds a row's columns away in a fixed order; under 300 px the band
+moves under the job and each row grows to 84 px, so the name, the state, the
+job and the controls all keep room. On the narrowest rows, Pause and Stop
 become Lucide icons with their words kept for assistive tech, as the 2026-09-28
 record asked. The state chip and the percentage never fold away. A test checks
 both sides of each cutoff.

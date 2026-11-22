@@ -198,7 +198,7 @@ column width.
 | 1 | The picture on the left, the facts in a column on the right. Type grows to fill the panel, because there is room and the panel is read a step back from the bench. |
 | 2 | Two columns. The picture sits above the facts and takes the slack height. |
 | 3 | Three columns, same shape as two. |
-| 4 | A 2×2 grid. On a wide panel each card puts the picture beside the facts. |
+| 4 | A 2×2 grid when the panel can hold two cards of facts; otherwise rows, as for five. On a wide panel each card puts the picture beside the facts. |
 | 5 or more | One compact row per printer, and only the rows that finish on the glass. See below. |
 
 The plate picture has no box around it. The cover is square and carries its own
@@ -312,10 +312,13 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    row under 1100 px wide drops the three fact blocks. Under 760 px it also
    drops the badge, the nozzle and the time left, and Pause and Stop become
    Lucide icons whose words stay in the accessibility tree. Under 440 px the
-   picture goes and the state moves under the name, beside the job, so the
-   name has the whole line and the state keeps its word. The state chip and
-   the percentage always stay. On a round panel, four printers and up keep to
-   the square inside the circle.
+   picture goes, and the name, the state and the job take a line each, so
+   none of them is squeezed away. Under 300 px of content, such as a small
+   round panel, the band moves under the job as a slim fourth line and each
+   row grows to 84 px. The state chip and the percentage always stay. On a
+   round panel, four printers and up keep to the square inside the circle,
+   and so do the dialogs. Layer and Finishes keep their whole width; the
+   filament name gives way first.
 6. **Pause and Stop stay a fingertip tall.** Every row button is at least 48 px.
 
 ## Previews

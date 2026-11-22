@@ -6,13 +6,14 @@ import {
   PRINTER_QUAD_BESIDE_MIN_WIDTH,
   PRINTER_QUAD_MIN_HEIGHT,
   PRINTER_QUAD_STACKED_MIN_HEIGHT,
+  PRINTER_ROW_TINY_MAX_WIDTH,
 } from "./printerRowFit.ts"
 
 /** The 1280x720 workbench panel's card area: 720 less 18 px top and bottom. */
 const WORKBENCH_HEIGHT = 684
 
-/** The workbench panel's view width. */
-const WORKBENCH_WIDTH = 1280
+/** The workbench panel's view content width: 1280 less 26 px each side. */
+const WORKBENCH_WIDTH = 1228
 
 /** The 480x320 short panel's card area. */
 const SHORT_PANEL_HEIGHT = 284
@@ -44,7 +45,7 @@ describe("choosePrinterLayout", () => {
     expect(
       choosePrinterLayout({
         availableHeight: SHORT_PANEL_HEIGHT,
-        availableWidth: 480,
+        availableWidth: 428,
         printerCount: 4,
       }),
     ).toBe("list")
@@ -73,7 +74,7 @@ describe("choosePrinterLayout", () => {
       ].map((availableHeight) =>
         choosePrinterLayout({
           availableHeight,
-          availableWidth: 720,
+          availableWidth: 668,
           printerCount: 4,
         }),
       ),
@@ -108,6 +109,7 @@ describe("fitPrinterRows", () => {
     expect(
       fitPrinterRows({
         availableHeight: WORKBENCH_HEIGHT,
+        availableWidth: WORKBENCH_WIDTH,
         printerCount: 9,
       }),
     ).toEqual({ visibleCount: 9, hiddenCount: 0 })
@@ -117,6 +119,7 @@ describe("fitPrinterRows", () => {
     expect(
       fitPrinterRows({
         availableHeight: WORKBENCH_HEIGHT,
+        availableWidth: WORKBENCH_WIDTH,
         printerCount: 10,
       }),
     ).toEqual({ visibleCount: 9, hiddenCount: 1 })
@@ -126,6 +129,7 @@ describe("fitPrinterRows", () => {
     expect(
       fitPrinterRows({
         availableHeight: WORKBENCH_HEIGHT,
+        availableWidth: WORKBENCH_WIDTH,
         printerCount: 12,
       }),
     ).toEqual({ visibleCount: 9, hiddenCount: 3 })
@@ -135,12 +139,14 @@ describe("fitPrinterRows", () => {
     expect(
       fitPrinterRows({
         availableHeight: SHORT_PANEL_HEIGHT,
+        availableWidth: 428,
         printerCount: 4,
       }),
     ).toEqual({ visibleCount: 4, hiddenCount: 0 })
     expect(
       fitPrinterRows({
         availableHeight: SHORT_PANEL_HEIGHT,
+        availableWidth: 428,
         printerCount: 5,
       }),
     ).toEqual({ visibleCount: 3, hiddenCount: 2 })
@@ -150,6 +156,7 @@ describe("fitPrinterRows", () => {
     expect(
       fitPrinterRows({
         availableHeight: 40,
+        availableWidth: WORKBENCH_WIDTH,
         printerCount: 5,
       }),
     ).toEqual({ visibleCount: 0, hiddenCount: 5 })
@@ -170,5 +177,23 @@ describe("chooseQuadCardShape", () => {
         PRINTER_QUAD_BESIDE_MIN_WIDTH,
       ].map(chooseQuadCardShape),
     ).toEqual(["stacked", "beside"])
+  })
+})
+
+describe("tiny rows", () => {
+  test("a view too narrow for a band draws taller rows", () => {
+    expect(
+      [
+        PRINTER_ROW_TINY_MAX_WIDTH,
+        PRINTER_ROW_TINY_MAX_WIDTH + 1,
+      ].map(
+        (availableWidth) =>
+          fitPrinterRows({
+            availableHeight: 400,
+            availableWidth,
+            printerCount: 12,
+          }).visibleCount,
+      ),
+    ).toEqual([4, 5])
   })
 })

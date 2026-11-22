@@ -19,6 +19,24 @@
 /** The shortest a row may be: a 48 px button plus the row's own padding. */
 export const PRINTER_ROW_MIN_HEIGHT = 64
 
+/**
+ * The widest view whose rows are TINY: too narrow for a band beside Pause
+ * and Stop, so the name, the state, the job and the band stack in four lines
+ * beside the buttons, and a row needs this much more height.
+ */
+export const PRINTER_ROW_TINY_MAX_WIDTH = 300
+
+/** The shortest a tiny row may be: four lines and the row's padding. */
+export const PRINTER_ROW_TINY_MIN_HEIGHT = 84
+
+/** The shortest row a view of this width may draw. */
+export const getPrinterRowMinHeight = (
+  availableWidth: number,
+) =>
+  availableWidth <= PRINTER_ROW_TINY_MAX_WIDTH
+    ? PRINTER_ROW_TINY_MIN_HEIGHT
+    : PRINTER_ROW_MIN_HEIGHT
+
 /** The space between two rows, and between the last row and the strip. */
 export const PRINTER_ROW_GAP = 6
 
@@ -26,9 +44,9 @@ export const PRINTER_ROW_GAP = 6
 export const PRINTER_OVERFLOW_HEIGHT = 36
 
 /*
- * Heights are the card area's. Widths are the whole view's, padding
- * included: the card area's sides change with the arrangement, so a width
- * measured inside them would let the arrangement undo itself.
+ * Heights are the card area's. Widths are the view's content box: its width
+ * less its own padding, the box the CSS container queries measure. Neither
+ * moves with the arrangement, so the arrangement cannot undo itself.
  */
 
 /**
@@ -51,26 +69,20 @@ export const PRINTER_QUAD_STACKED_MIN_HEIGHT =
     (PRINTER_QUAD_STACKED_PLATE_MIN_HEIGHT +
       PRINTER_QUAD_CARD_GAP)
 
-/** The view's 26 px sides, which the card area sits between. */
-const PRINTER_VIEW_SIDES = 52
-
 /**
  * The narrowest view that holds two quad cards side by side: two 294 px
- * cards, the gap, and the view's sides. Below it, each card is too narrow
- * for the name beside the state chip and for the buttons' words, so a phone
- * gets rows.
+ * cards and the gap. Below it, each card is too narrow for the name beside
+ * the state chip and for the buttons' words, so a phone gets rows.
  */
-export const PRINTER_QUAD_MIN_WIDTH =
-  600 + PRINTER_VIEW_SIDES
+export const PRINTER_QUAD_MIN_WIDTH = 600
 
 /**
  * The narrowest view where each quad card can put its picture BESIDE the
- * facts: two 560 px cards, the gap, and the view's sides. A narrower grid
- * stacks the picture above the facts, as the one-to-three-printer columns
- * do, and needs the taller card area the picture takes.
+ * facts: two 560 px cards and the gap. A narrower grid stacks the picture
+ * above the facts, as the one-to-three-printer columns do, and needs the
+ * taller card area the picture takes.
  */
-export const PRINTER_QUAD_BESIDE_MIN_WIDTH =
-  1132 + PRINTER_VIEW_SIDES
+export const PRINTER_QUAD_BESIDE_MIN_WIDTH = 1132
 
 /** How a quad card arranges its picture and its facts. */
 export const chooseQuadCardShape = (
@@ -108,12 +120,18 @@ export const choosePrinterLayout = ({
   return availableHeight >= minimumHeight ? "quad" : "list"
 }
 
-const countRowsThatFit = (availableHeight: number) =>
+const countRowsThatFit = ({
+  availableHeight,
+  rowMinHeight,
+}: {
+  availableHeight: number
+  rowMinHeight: number
+}) =>
   Math.max(
     0,
     Math.floor(
       (availableHeight + PRINTER_ROW_GAP) /
-        (PRINTER_ROW_MIN_HEIGHT + PRINTER_ROW_GAP),
+        (rowMinHeight + PRINTER_ROW_GAP),
     ),
   )
 
@@ -126,21 +144,30 @@ const countRowsThatFit = (availableHeight: number) =>
  */
 export const fitPrinterRows = ({
   availableHeight,
+  availableWidth,
   printerCount,
 }: {
   availableHeight: number
+  availableWidth: number
   printerCount: number
 }) => {
-  if (printerCount <= countRowsThatFit(availableHeight)) {
+  const rowMinHeight =
+    getPrinterRowMinHeight(availableWidth)
+  if (
+    printerCount <=
+    countRowsThatFit({ availableHeight, rowMinHeight })
+  ) {
     return { visibleCount: printerCount, hiddenCount: 0 }
   }
   const visibleCount = Math.min(
     printerCount,
-    countRowsThatFit(
-      availableHeight -
+    countRowsThatFit({
+      availableHeight:
+        availableHeight -
         PRINTER_OVERFLOW_HEIGHT -
         PRINTER_ROW_GAP,
-    ),
+      rowMinHeight,
+    }),
   )
   return {
     visibleCount,
