@@ -5,7 +5,7 @@
 - **Type:** View / layout
 - **Supersedes:** —
 - **Superseded by:** —
-- **Related:** [Printer Status adds layouts from four](2026-09-28-printer-status-adds-layouts-from-four.md), which this builds; [Camera remains primary; the plate preview is secondary](2026-10-07-camera-remains-primary-and-plate-preview-is-secondary.md), which said that it did not approve these layouts by itself; [A repeating list draws only the rows that finish](2026-09-14-an-agenda-view-draws-only-the-rows-that-finish-on-the-panel.md).
+- **Related:** [Printer Status adds layouts from four](2026-09-28-printer-status-adds-layouts-from-four.md), which this builds; [Camera remains primary; the plate preview is secondary](2026-10-07-camera-remains-primary-and-plate-preview-is-secondary.md), which said that it did not approve these layouts by itself; [A repeating list draws only the rows that finish](2026-09-14-an-agenda-view-draws-only-the-rows-that-finish-on-the-panel.md); [A finished print stays on the glass until the plate is cleared](2026-09-28-a-finished-print-stays-on-the-glass-until-the-plate-is-cleared.md), whose ended lines a narrow row folds as described below.
 
 ## Decision
 
@@ -51,7 +51,11 @@ panel folds its rows for the width it really has. A round panel keeps four
 printers and up, and the dialogs, inside the square within the circle. A
 narrow view folds a row's columns away in a fixed order; under 300 px the band
 moves under the job and each row grows to 84 px, so the name, the state, the
-job and the controls all keep room. On the narrowest rows, Pause and Stop
+job and the controls all keep room. A finished or failed row keeps its
+`Stopped at layer N` line whole, wrapping it if it must; in a band under
+180 px the `Ended` time gives way, and under a 760 px view the row drops both
+lines, while the chip, the percentage, and the job name's dialog keep the
+state and the stopped layer. On the narrowest rows, Pause and Stop
 become Lucide icons with their words kept for assistive tech, as the 2026-09-28
 record asked. The state chip and the percentage never fold away. A test checks
 both sides of each cutoff.

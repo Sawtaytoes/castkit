@@ -11,6 +11,16 @@ const FOCUSABLE_SELECTOR = [
 ].join(", ")
 
 /**
+ * Focus a control and scroll it into view. Focusing the control that already
+ * has focus scrolls nothing, so a list scrolled to its end would otherwise
+ * keep Close out of sight.
+ */
+const focusAndReveal = (control: HTMLElement) => {
+  control.focus()
+  control.scrollIntoView({ block: "nearest" })
+}
+
+/**
  * Keeps the keyboard inside a modal dialog, as a modal promises.
  *
  * Focus moves in when the dialog opens and goes back to the control that
@@ -86,7 +96,7 @@ export const useDialogFocus = ({
       }
       if (!isFocusInside) {
         event.preventDefault()
-        firstControl.focus()
+        focusAndReveal(firstControl)
         return
       }
       if (
@@ -94,7 +104,7 @@ export const useDialogFocus = ({
         activeElement === firstControl
       ) {
         event.preventDefault()
-        lastControl.focus()
+        focusAndReveal(lastControl)
         return
       }
       if (
@@ -102,7 +112,7 @@ export const useDialogFocus = ({
         activeElement === lastControl
       ) {
         event.preventDefault()
-        firstControl.focus()
+        focusAndReveal(firstControl)
       }
     }
     window.addEventListener("keydown", handleKeyDown)

@@ -311,7 +311,12 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    container query, so a turned or round panel folds for the width it has. A
    row under 1100 px wide drops the three fact blocks. Under 760 px it also
    drops the badge, the nozzle and the time left, and Pause and Stop become
-   Lucide icons whose words stay in the accessibility tree. Under 440 px the
+   Lucide icons whose words stay in the accessibility tree. A settled row
+   drops its `Finished` or `Stopped at layer N` lines there too: the chip
+   still names the state, the band keeps the percentage, and the job name's
+   dialog still gives the stopped layer. Wider than that, the stopped layer's
+   line wraps rather than lose its number, and in a band under 180 px the
+   `Ended` time gives way to it. Under 440 px the
    picture goes, and the name, the state and the job take a line each, so
    none of them is squeezed away. Under 300 px of content, such as a small
    round panel, the band moves under the job as a slim fourth line and each

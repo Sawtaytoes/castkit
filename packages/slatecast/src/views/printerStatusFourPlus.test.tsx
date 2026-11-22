@@ -1517,3 +1517,106 @@ describe("the hidden-printer list's Close", () => {
     ).toHaveTextContent("stopped at layer 2236")
   })
 })
+
+describe("the stopped layer in a five-printer row", () => {
+  test.each([
+    0, 90,
+  ] as const)("a failed printer near its end keeps its whole layer on a 1280x720 window turned %i°", async (orientation) => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      orientation,
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: "Printer 1",
+          jobName: "Sample_Part_1_-_PLA_Basic_-_Printer_1",
+          thumbnailPath: "/plate.png",
+          state: "failed",
+          currentLayer: 2236,
+          totalLayers: 3360,
+          percent: 99,
+          finishAtMs: Date.now() - 300_000,
+        }),
+        ...buildPrinters(5).slice(1),
+      ],
+    })
+
+    expect(
+      document
+        .querySelector(".printer-status")
+        ?.getAttribute("data-layout"),
+    ).toBe("list")
+    expect(
+      document.querySelector(
+        ".printer-card .printer-band-ended",
+      ),
+    ).toHaveTextContent("2236")
+    expect(findLayoutProblems()).toEqual([])
+  })
+})
+
+describe("the details dialog on a small round panel", () => {
+  test("every entry can scroll fully into view", async () => {
+    await mountOnPanel({
+      width: 320,
+      height: 320,
+      shape: "round",
+      printers: [
+        buildPrinterJob({
+          id: "printer-1",
+          name: "PrinterLongUnbrokenName".repeat(3),
+          jobName: LONG_JOB_NAME,
+          state: "paused",
+          problemText: LONG_FAULT,
+        }),
+        ...buildPrinters(4).slice(1),
+      ],
+    })
+    const jobButton =
+      document.querySelector<HTMLButtonElement>(
+        ".printer-card .printer-job",
+      )
+    if (!jobButton) {
+      throw new Error("The first card has no job button.")
+    }
+    await userEvent.click(jobButton)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+
+    const box = document.querySelector<HTMLElement>(
+      '[role="dialog"]',
+    )
+    if (!box) {
+      throw new Error("The details did not open.")
+    }
+    const entries = Array.from(
+      box.querySelectorAll(
+        ".filament-details-head, .printer-details-item > *",
+      ),
+    )
+    expect(entries.length).toBeGreaterThan(1)
+    for (const entry of entries) {
+      entry.scrollIntoView({ block: "start" })
+      const entryBox = entry.getBoundingClientRect()
+      const boxRect = box.getBoundingClientRect()
+      // An entry taller than the box shows its top; a shorter one shows whole.
+      expect(entryBox.top).toBeGreaterThanOrEqual(
+        boxRect.top - 1,
+      )
+      if (entryBox.height <= box.clientHeight) {
+        expect(entryBox.bottom).toBeLessThanOrEqual(
+          boxRect.bottom + 1,
+        )
+      }
+      // Nothing else in the box, such as a header pinned above, covers it.
+      const hit = document.elementFromPoint(
+        (entryBox.left + entryBox.right) / 2,
+        entryBox.top + 4,
+      )
+      expect(hit && entry.contains(hit)).toBe(true)
+    }
+  })
+})

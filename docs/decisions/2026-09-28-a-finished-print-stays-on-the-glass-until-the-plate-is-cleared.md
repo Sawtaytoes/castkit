@@ -5,6 +5,7 @@
 - **Type:** View / behavior
 - **Supersedes:** [The print state is a chip beside the controls](2026-09-24-the-print-state-is-a-chip-beside-the-controls.md), for the placement of Pause and Stop only. The chip in the head, its dot, and its intent-driven color all stand.
 - **Superseded by:** in part — [The Clear plate card names no other hardware](2026-09-28-the-clear-plate-card-names-no-other-hardware.md) removes the andon sentence
+- **Related:** [Printer Status's four-plus layouts land and name the printers they hide](2026-11-22-printer-status-four-plus-layouts-land-and-name-the-printers-they-hide.md) says when a row of four printers and up folds the ended lines away
 
 ## Decision
 
