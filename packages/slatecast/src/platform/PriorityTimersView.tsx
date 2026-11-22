@@ -166,7 +166,11 @@ export const PriorityTimersView = ({
                 entity.state === "canceling"
               const isPaused = entity.state === "paused"
               const remaining = roundUp(finish - now)
-              const fraction = getTimerFraction(entity, now)
+              // The drain is a progress bar: a panel too slow to keep it true
+              // shows the card full, as for a timer with no known duration.
+              const fraction = properties.hasProgress
+                ? getTimerFraction(entity, now)
+                : 1
               const placement = {
                 gridColumn: layout?.isRail
                   ? index === 0
@@ -214,19 +218,25 @@ export const PriorityTimersView = ({
                           <span>Undo</span>
                         </button>
                       ) : null}
-                      <p class="timer-priority-gone">
-                        {`Gone in ${roundUp(cancelsAt - now)} seconds`}
-                      </p>
-                      <div
-                        class="timer-priority-undo-bar"
-                        aria-hidden="true"
-                      >
-                        <i
-                          style={{
-                            width: `${Math.min(100, Math.max(0, ((cancelsAt - now) / 30000) * 100))}%`,
-                          }}
-                        />
-                      </div>
+                      {/* The Undo countdown and its bar change faster than a slow
+                          panel can draw them, so only Cancelled and Undo stay. */}
+                      {properties.hasProgress ? (
+                        <>
+                          <p class="timer-priority-gone">
+                            {`Gone in ${roundUp(cancelsAt - now)} seconds`}
+                          </p>
+                          <div
+                            class="timer-priority-undo-bar"
+                            aria-hidden="true"
+                          >
+                            <i
+                              style={{
+                                width: `${Math.min(100, Math.max(0, ((cancelsAt - now) / 30000) * 100))}%`,
+                              }}
+                            />
+                          </div>
+                        </>
+                      ) : null}
                     </div>
                   </article>
                 )
