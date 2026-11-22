@@ -2581,6 +2581,623 @@ html[data-grayscale-text="true"] {
   margin-top: 14px;
 }
 
+/*
+ * FOUR printers: a 2×2 grid. On a landscape panel each card puts the plate
+ * beside the facts, so a quarter of the glass still carries a readable picture
+ * and the full set of facts. On a squarer panel the card keeps the column
+ * shape, the plate above the facts. Filament keeps its full-width row: at a
+ * third of the facts' width its "2 filaments · Details ›" ran out of its box.
+ */
+.printer-status[data-layout="quad"] .printer-cards {
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.printer-status[data-layout="quad"] .printer-card {
+  gap: 10px;
+  padding: 12px;
+}
+
+@media (min-aspect-ratio: 4 / 3) {
+  .printer-status[data-layout="quad"] .printer-card {
+    display: grid;
+    grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .printer-status[data-layout="quad"]
+    .printer-card[data-has-thumbnail="false"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.printer-status[data-layout="quad"] .printer-body {
+  justify-content: center;
+  min-height: 0;
+}
+
+.printer-status[data-layout="quad"] .printer-head {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.printer-status[data-layout="quad"] .printer-names {
+  flex: 1 1 0;
+}
+
+.printer-status[data-layout="quad"] .printer-name {
+  font-size: 18px;
+}
+
+.printer-status[data-layout="quad"] .printer-meta {
+  font-size: 11px;
+}
+
+.printer-status[data-layout="quad"] .printer-state {
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+
+.printer-status[data-layout="quad"] .printer-job {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-card[data-expanded="true"]
+  .printer-job {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.printer-status[data-layout="quad"] .printer-problem {
+  margin-top: 6px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+.printer-status[data-layout="quad"] .printer-band {
+  height: 52px;
+  margin-top: 8px;
+}
+
+.printer-status[data-layout="quad"] .printer-band-text {
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.printer-status[data-layout="quad"] .printer-percent {
+  font-size: 34px;
+}
+
+.printer-status[data-layout="quad"] .printer-band-remaining,
+.printer-status[data-layout="quad"] .printer-band-ended {
+  font-size: 14px;
+}
+
+.printer-status[data-layout="quad"] .printer-metrics {
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.printer-status[data-layout="quad"] .printer-metric {
+  padding: 4px 8px;
+}
+
+.printer-status[data-layout="quad"] .printer-metric dt {
+  font-size: 9px;
+}
+
+.printer-status[data-layout="quad"] .printer-metric dd {
+  font-size: 15px;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-metric.is-filament {
+  min-height: 50px;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-metric.is-filament {
+  margin-top: 0;
+}
+
+/* The button already fills the box; a height of its own would push past it. */
+.printer-status[data-layout="quad"]
+.printer-filament-button {
+  min-height: 0;
+  padding: 0 8px 5px;
+}
+
+.printer-status[data-layout="quad"] .printer-actions {
+  margin-top: 8px;
+}
+
+.printer-status[data-layout="quad"] .printer-action {
+  height: 48px;
+  font-size: 16px;
+}
+
+.printer-status[data-layout="quad"] .printer-clear {
+  min-height: 56px;
+  margin-top: 8px;
+  font-size: 20px;
+}
+
+/*
+ * FIVE OR MORE printers: one compact row each, as tall as the space allows and
+ * never under the 64 px in `printerRowFit.ts`. A row reads left to right:
+ * plate, name and job, the three facts, the band, then Pause and Stop. Every
+ * part has its own column, so nothing sits on top of anything else; the first
+ * version stacked the band over the buttons and they overlapped from seven
+ * rows on.
+ *
+ * The card is a size container so the plate can be exactly as tall as the
+ * row: a square that grows from nine rows' 54 px to five rows' 120 px. The
+ * name, the band and the buttons grow with it, between floors that hold at
+ * nine rows and caps that stop five rows from looking like one card each.
+ */
+.printer-status[data-layout="list"] .printer-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.printer-status[data-layout="list"] .printer-card {
+  display: grid;
+  container-type: size;
+  flex: 1 1 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-height: 64px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 12px;
+}
+
+.printer-status[data-layout="list"]
+  .printer-card[data-has-thumbnail="false"] {
+  grid-template-columns: minmax(0, 1fr);
+  padding-left: 12px;
+}
+
+.printer-status[data-layout="list"] .printer-plate {
+  width: min(100cqh, 132px);
+  height: 100cqh;
+}
+
+.printer-status[data-layout="list"] .printer-plate img {
+  border-radius: 8px;
+}
+
+.printer-status[data-layout="list"] .printer-body {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.15fr)
+    minmax(0, 1.45fr)
+    minmax(150px, 0.75fr)
+    auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: center;
+  gap: 2px 14px;
+  min-height: 0;
+}
+
+.printer-status[data-layout="list"] .printer-head {
+  grid-column: 1;
+  grid-row: 1;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.printer-status[data-layout="list"] .printer-index {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.printer-status[data-layout="list"] .printer-names {
+  flex: 1 1 0;
+}
+
+.printer-status[data-layout="list"] .printer-name {
+  font-size: clamp(16px, 16cqh, 20px);
+}
+
+.printer-status[data-layout="list"] .printer-meta {
+  font-size: 11px;
+}
+
+.printer-status[data-layout="list"] .printer-state {
+  gap: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.printer-status[data-layout="list"] .printer-state-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.printer-status[data-layout="list"] .printer-job,
+.printer-status[data-layout="list"] .printer-problem {
+  grid-column: 1;
+  grid-row: 2;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"] .printer-job {
+  font-size: clamp(13px, 12cqh, 15px);
+}
+
+/* A tapped job name opens to two lines; a row has no room for a third. */
+.printer-status[data-layout="list"] .printer-card[data-expanded="true"]
+  .printer-job {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.15;
+}
+
+/* A problem takes the job name's line, and says the more urgent thing. */
+.printer-status[data-layout="list"] .printer-problem {
+  overflow: hidden;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.printer-status[data-layout="list"]
+  .printer-card:has(.printer-problem)
+  .printer-job {
+  display: none;
+}
+
+.printer-status[data-layout="list"] .printer-metrics {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  grid-template-columns:
+    minmax(0, 0.8fr)
+    minmax(0, 0.9fr)
+    minmax(0, 1.7fr);
+  gap: 6px;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"] .printer-metric {
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.printer-status[data-layout="list"] .printer-metric dt {
+  font-size: 9px;
+}
+
+.printer-status[data-layout="list"] .printer-metric dd {
+  font-size: clamp(14px, 13cqh, 16px);
+}
+
+/*
+ * Filament in a row: the count moves up beside the label, and the name gets
+ * the whole second line. The location and the word "Details" give way; the
+ * dialog the box opens carries both.
+ */
+.printer-status[data-layout="list"]
+.printer-metric.is-filament {
+  grid-column: auto;
+  min-height: 0;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"]
+  .printer-filament-button {
+  min-height: 0;
+  padding: 0 8px 4px;
+}
+
+.printer-status[data-layout="list"]
+  .printer-filament-count {
+  position: absolute;
+  top: 3px;
+  right: 8px;
+  font-size: 10px;
+}
+
+.printer-status[data-layout="list"]
+  .printer-filament-details,
+.printer-status[data-layout="list"]
+  .printer-filament-location {
+  display: none;
+}
+
+.printer-status[data-layout="list"]
+  .printer-metric
+  dd
+  .printer-filament-text
+  > span {
+  overflow: hidden;
+  font-size: clamp(14px, 13cqh, 16px);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.printer-status[data-layout="list"] .printer-swatch {
+  width: 12px;
+  height: 12px;
+}
+
+.printer-status[data-layout="list"] .printer-band {
+  grid-column: 3;
+  grid-row: 1 / -1;
+  height: clamp(44px, 50cqh, 60px);
+  margin-top: 0;
+  border-radius: 9px;
+}
+
+.printer-status[data-layout="list"] .printer-band-text {
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.printer-status[data-layout="list"] .printer-percent {
+  font-size: clamp(26px, 28cqh, 34px);
+}
+
+.printer-status[data-layout="list"]
+  .printer-band-remaining {
+  font-size: 12px;
+}
+
+.printer-status[data-layout="list"] .printer-band-ended {
+  gap: 0;
+  font-size: 11px;
+}
+
+.printer-status[data-layout="list"] .printer-actions,
+.printer-status[data-layout="list"] .printer-clear {
+  grid-column: 4;
+  grid-row: 1 / -1;
+  align-self: center;
+  width: 196px;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"] .printer-actions {
+  gap: 8px;
+}
+
+.printer-status[data-layout="list"] .printer-action {
+  height: clamp(48px, 44cqh, 56px);
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.printer-status[data-layout="list"] .printer-clear {
+  height: clamp(48px, 44cqh, 56px);
+  min-height: 48px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+/*
+ * The printers the panel cannot draw. Never a row cut by the glass, and never
+ * a silent drop: a 36 px strip under the last row counts them and names each
+ * one, tinted like its card would be, so a hidden failure still reads as one.
+ * The chips wrap onto a line the strip clips, so a chip is whole or absent.
+ */
+.printer-overflow {
+  display: flex;
+  overflow: hidden;
+  flex: none;
+  gap: 12px;
+  align-items: center;
+  height: 36px;
+  padding: 0 6px 0 12px;
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: 10px;
+}
+
+.printer-overflow-count {
+  flex: none;
+  color: var(--accent-content);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.printer-overflow-list {
+  display: flex;
+  overflow: hidden;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.printer-overflow-item {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  max-width: 100%;
+  height: 26px;
+  padding: 0 10px 0 3px;
+  border-radius: 999px;
+  background: color-mix(
+    in oklab,
+    var(--color-surface-sunken) 80%,
+    transparent
+  );
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.printer-overflow-index {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.printer-overflow-name {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+.printer-overflow-state {
+  flex: none;
+  color: var(--color-content-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.printer-overflow-item[data-intent="warning"] {
+  background: var(--color-intent-warning-surface);
+}
+
+.printer-overflow-item[data-intent="warning"]
+  .printer-overflow-state {
+  color: var(--color-intent-warning-content);
+}
+
+.printer-overflow-item[data-intent="danger"] {
+  background: var(--color-intent-danger-surface);
+}
+
+.printer-overflow-item[data-intent="danger"]
+  .printer-overflow-state {
+  color: var(--color-intent-danger-content);
+}
+
+.printer-overflow-item[data-intent="success"] {
+  background: var(--color-intent-success-surface);
+}
+
+.printer-overflow-item[data-intent="success"]
+  .printer-overflow-state {
+  color: var(--color-intent-success-content);
+}
+
+/*
+ * A narrower panel drops the three facts first; the band, the plate and the
+ * controls are what a person at the bench reads and touches.
+ */
+@media (max-width: 1100px) {
+  .printer-status[data-layout="list"] .printer-body {
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(110px, 0.6fr)
+      auto;
+  }
+
+  .printer-status[data-layout="list"] .printer-metrics {
+    display: none;
+  }
+
+  .printer-status[data-layout="list"] .printer-band {
+    grid-column: 2;
+  }
+
+  .printer-status[data-layout="list"] .printer-actions,
+  .printer-status[data-layout="list"] .printer-clear {
+    grid-column: 3;
+    width: 164px;
+  }
+}
+
+@media (max-width: 600px) {
+  .printer-status[data-layout="list"] .printer-card {
+    gap: 8px;
+    padding-right: 8px;
+  }
+
+  .printer-status[data-layout="list"] .printer-plate {
+    width: min(100cqh, 64px);
+  }
+
+  .printer-status[data-layout="list"] .printer-body {
+    grid-template-columns: minmax(0, 1fr) 64px auto;
+    column-gap: 8px;
+  }
+
+  /* The state chip and the percentage stay: they are what a person reads
+     from across the room. The badge, the nozzle and the time left go. */
+  .printer-status[data-layout="list"] .printer-index,
+  .printer-status[data-layout="list"] .printer-meta,
+  .printer-status[data-layout="list"]
+    .printer-band-remaining,
+  .printer-status[data-layout="list"] .printer-band-ended {
+    display: none;
+  }
+
+  .printer-status[data-layout="list"] .printer-name {
+    font-size: 14px;
+  }
+
+  .printer-status[data-layout="list"] .printer-head {
+    gap: 6px;
+  }
+
+  .printer-status[data-layout="list"] .printer-state {
+    padding: 2px 7px;
+    font-size: 10px;
+  }
+
+  .printer-status[data-layout="list"] .printer-job,
+  .printer-status[data-layout="list"] .printer-problem {
+    font-size: 11px;
+  }
+
+  .printer-status[data-layout="list"] .printer-band-text {
+    justify-content: center;
+    padding: 0 4px;
+  }
+
+  .printer-status[data-layout="list"] .printer-percent {
+    font-size: 20px;
+  }
+
+  .printer-status[data-layout="list"] .printer-actions,
+  .printer-status[data-layout="list"] .printer-clear {
+    width: 124px;
+  }
+
+  .printer-status[data-layout="list"] .printer-actions {
+    gap: 6px;
+  }
+
+  .printer-status[data-layout="list"] .printer-action,
+  .printer-status[data-layout="list"] .printer-clear {
+    padding: 4px;
+    font-size: 13px;
+  }
+}
+
 .printer-empty {
   display: flex;
   flex: 1;

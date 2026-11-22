@@ -93,8 +93,21 @@ export const FilamentControl = ({
           ) : null}
         </span>
       </span>
+      {/* "· Details" is its own span so a compact printer row can drop the
+          word and keep the count: the whole box is the button either way. */}
       <span class="printer-filament-count">
-        {count ? `${countText} · Details ›` : "Details ›"}
+        {count ? (
+          <>
+            {countText}
+            <span class="printer-filament-details">
+              {" "}
+              · Details
+            </span>{" "}
+            ›
+          </>
+        ) : (
+          "Details ›"
+        )}
       </span>
     </button>
   )

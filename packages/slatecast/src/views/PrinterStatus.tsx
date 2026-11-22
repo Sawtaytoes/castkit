@@ -1,5 +1,10 @@
 import type { PrinterJob } from "@castkit/shared/viewData/types"
-import { useEffect, useState } from "preact/hooks"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks"
 import {
   clearPrinterPlate,
   clockConfig,
@@ -22,6 +27,10 @@ import {
   getPrinterJobTitle,
   isSettledPrinterJob,
 } from "./printerJob.ts"
+import {
+  choosePrinterLayout,
+  fitPrinterRows,
+} from "./printerRowFit.ts"
 
 /**
  * Printer Status: one column per printer that Home Assistant calls active.
@@ -58,7 +67,21 @@ import {
  * Slatecast has no Tailwind, does not install the component library, and lives
  * inside a 60 KB budget. See
  * docs/decisions/2026-09-23-printer-status-is-a-castkit-view-fed-by-home-assistant.md.
+ *
+ * FOUR printers use a 2×2 grid with the plate beside the facts. FIVE OR MORE
+ * use one compact row each, with the plate, the facts, the band and the
+ * controls, and the view draws only the rows that finish on the glass. A
+ * printer that does not fit is named in a "+N more" strip under the last row;
+ * `printerRowFit.ts` does the arithmetic. See
+ * docs/decisions/2026-09-28-printer-status-adds-layouts-from-four.md and
+ * docs/decisions/2026-11-22-printer-status-four-plus-layouts-land-and-name-the-printers-they-hide.md.
  */
+
+/**
+ * The view's own top and bottom padding, from `styles.css`. Used only for the
+ * first frame, before the card area has been measured.
+ */
+const PRINTER_STATUS_VERTICAL_PADDING = 36
 
 /**
  * How long a pause/stop question stays on the card before it withdraws itself.
@@ -220,6 +243,9 @@ const PrinterCard = ({
       data-intent={getCardIntent(job)}
       data-state={job.state}
       data-expanded={String(isExpanded)}
+      data-has-thumbnail={String(
+        Boolean(job.thumbnailPath),
+      )}
     >
       {job.thumbnailPath ? (
         <div class="printer-plate">
@@ -434,6 +460,34 @@ export const PrinterStatus = () => {
   const [pending, setPending] = useState<
     Record<string, PendingAction>
   >(() => storyPending.value)
+  const cardsRef = useRef<HTMLDivElement>(null)
+  const [availableHeight, setAvailableHeight] = useState(
+    () =>
+      window.innerHeight - PRINTER_STATUS_VERTICAL_PADDING,
+  )
+  const hasJobs = jobs.length > 0
+
+  /*
+   * The card area's height decides how many rows finish on the glass. It is
+   * measured, not taken from the window, because a view does not own the
+   * whole window on every screen. The strip sits INSIDE the card area, so
+   * showing it does not change what is measured.
+   */
+  useLayoutEffect(() => {
+    const cards = cardsRef.current
+    if (!hasJobs || !cards) {
+      return undefined
+    }
+    const measure = () => {
+      setAvailableHeight(cards.clientHeight)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(cards)
+    return () => {
+      observer.disconnect()
+    }
+  }, [hasJobs])
 
   // A question nobody answered withdraws itself.
   useEffect(() => {
@@ -552,6 +606,19 @@ export const PrinterStatus = () => {
     )
   }
 
+  const layout = choosePrinterLayout({
+    availableHeight,
+    printerCount: jobs.length,
+  })
+  const { visibleCount } =
+    layout === "list"
+      ? fitPrinterRows({
+          availableHeight,
+          printerCount: jobs.length,
+        })
+      : { visibleCount: jobs.length }
+  const visibleJobs = jobs.slice(0, visibleCount)
+  const hiddenJobs = jobs.slice(visibleCount)
   const confirmedJob = confirmation
     ? jobs.find((job) => job.id === confirmation.printerId)
     : undefined
@@ -563,9 +630,10 @@ export const PrinterStatus = () => {
     <div
       class="printer-status"
       data-count={String(jobs.length)}
+      data-layout={layout}
     >
-      <div class="printer-cards">
-        {jobs.map((job, index) => (
+      <div class="printer-cards" ref={cardsRef}>
+        {visibleJobs.map((job, index) => (
           <PrinterCard
             key={job.id}
             index={index}
@@ -596,6 +664,40 @@ export const PrinterStatus = () => {
             }}
           />
         ))}
+        {hiddenJobs.length > 0 ? (
+          <div class="printer-overflow">
+            <span class="printer-overflow-count">
+              +{hiddenJobs.length} more{" "}
+              {hiddenJobs.length === 1
+                ? "printer"
+                : "printers"}
+            </span>
+            <ul class="printer-overflow-list">
+              {hiddenJobs.map((job, hiddenIndex) => (
+                <li
+                  key={job.id}
+                  class="printer-overflow-item"
+                  data-intent={getCardIntent(job)}
+                >
+                  <span
+                    class="printer-overflow-index"
+                    aria-hidden="true"
+                  >
+                    {visibleCount + hiddenIndex + 1}
+                  </span>
+                  <span class="printer-overflow-name">
+                    {job.name}
+                  </span>
+                  <span class="printer-overflow-state">
+                    {job.state === "printing"
+                      ? `${job.percent}%`
+                      : STATE_LABELS[job.state]}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
       {filamentDetailsJob ? (
         <FilamentDetailsDialog

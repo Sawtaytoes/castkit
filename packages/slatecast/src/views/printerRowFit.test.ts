@@ -1,0 +1,106 @@
+import { describe, expect, test } from "vitest"
+import {
+  choosePrinterLayout,
+  fitPrinterRows,
+} from "./printerRowFit.ts"
+
+/** The 1280x720 workbench panel's card area: 720 less 18 px top and bottom. */
+const WORKBENCH_HEIGHT = 684
+
+/** The 480x320 short panel's card area. */
+const SHORT_PANEL_HEIGHT = 284
+
+describe("choosePrinterLayout", () => {
+  test("one to three printers keep their columns", () => {
+    expect(
+      [1, 2, 3].map((printerCount) =>
+        choosePrinterLayout({
+          availableHeight: WORKBENCH_HEIGHT,
+          printerCount,
+        }),
+      ),
+    ).toEqual(["columns", "columns", "columns"])
+  })
+
+  test("four printers make a 2×2 grid on a tall enough panel", () => {
+    expect(
+      choosePrinterLayout({
+        availableHeight: WORKBENCH_HEIGHT,
+        printerCount: 4,
+      }),
+    ).toBe("quad")
+  })
+
+  test("four printers use rows where two cards would not stack", () => {
+    expect(
+      choosePrinterLayout({
+        availableHeight: SHORT_PANEL_HEIGHT,
+        printerCount: 4,
+      }),
+    ).toBe("list")
+  })
+
+  test("five printers and up use rows", () => {
+    expect(
+      [5, 9, 10].map((printerCount) =>
+        choosePrinterLayout({
+          availableHeight: WORKBENCH_HEIGHT,
+          printerCount,
+        }),
+      ),
+    ).toEqual(["list", "list", "list"])
+  })
+})
+
+describe("fitPrinterRows", () => {
+  test("the workbench panel draws nine rows and hides nothing", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: WORKBENCH_HEIGHT,
+        printerCount: 9,
+      }),
+    ).toEqual({ visibleCount: 9, hiddenCount: 0 })
+  })
+
+  test("a tenth printer goes in the strip, and nine rows still fit above it", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: WORKBENCH_HEIGHT,
+        printerCount: 10,
+      }),
+    ).toEqual({ visibleCount: 9, hiddenCount: 1 })
+  })
+
+  test("every printer past the ninth is counted as hidden", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: WORKBENCH_HEIGHT,
+        printerCount: 12,
+      }),
+    ).toEqual({ visibleCount: 9, hiddenCount: 3 })
+  })
+
+  test("the strip costs a row when the rows only just fit without it", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: SHORT_PANEL_HEIGHT,
+        printerCount: 4,
+      }),
+    ).toEqual({ visibleCount: 4, hiddenCount: 0 })
+    expect(
+      fitPrinterRows({
+        availableHeight: SHORT_PANEL_HEIGHT,
+        printerCount: 5,
+      }),
+    ).toEqual({ visibleCount: 3, hiddenCount: 2 })
+  })
+
+  test("a card area too short for one row draws none and hides all", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: 40,
+        printerCount: 5,
+      }),
+    ).toEqual({ visibleCount: 0, hiddenCount: 5 })
+  })
+})

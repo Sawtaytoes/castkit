@@ -419,3 +419,184 @@ export const ClearingPiTouchPortrait: Story = stateVariant({
   stateLabel: "Clearing",
   parameters: CLEARING,
 })
+
+/*
+ * Four printers and up, on the 1280x720 workbench panel the layouts were drawn
+ * for. Four is a 2×2 grid; five and more are rows, and nine rows fit. From ten
+ * the rows that do not fit are named in a "+N more" strip under the last one.
+ *
+ * Each extra printer carries a different state so the rows show every shape a
+ * row can take: running, paused, finished, preparing, a problem, and failed.
+ * The plates cycle through the three slicer-style renders above.
+ */
+const PLATES = [
+  PLATE_PHOTO,
+  PODS_PLATE,
+  CANISTERS_PLATE,
+] as const
+
+const plateFor = (printerNumber: number) =>
+  PLATES[printerNumber % PLATES.length] as string
+
+const EXTRA_PRINTERS: readonly PrinterJob[] = [
+  buildPrinterJob({
+    id: "printer-4",
+    name: "Printer 4",
+    jobName: "Cable_Clips_x24_-_PLA_Basic_-_Printer_4",
+    percent: 82,
+    currentLayer: 154,
+    totalLayers: 188,
+    remainingMinutes: 38,
+    filamentText: "PLA Basic · AMS 1 slot 2",
+    filamentColor: "#2f6fd6",
+    thumbnailPath: plateFor(4),
+  }),
+  buildPrinterJob({
+    id: "printer-5",
+    name: "Printer 5",
+    jobName: "Drawer_Dividers_-_Matte_PETG_-_Printer_5",
+    state: "paused",
+    percent: 64,
+    currentLayer: 131,
+    totalLayers: 211,
+    remainingMinutes: 69,
+    filamentText: "PETG HF · AMS 2 slot 1",
+    filamentColor: "#d6d6d6",
+    thumbnailPath: plateFor(5),
+  }),
+  buildPrinterJob({
+    id: "printer-6",
+    name: "Printer 6",
+    jobName: "Spool_Holder_Arms_-_PLA_Tough_-_Printer_6",
+    state: "finished",
+    percent: 100,
+    currentLayer: 234,
+    totalLayers: 234,
+    remainingMinutes: 0,
+    finishAtMs: endedAtMs(22),
+    thumbnailPath: plateFor(6),
+  }),
+  buildPrinterJob({
+    id: "printer-7",
+    name: "Printer 7",
+    jobName: "Hinge_Pins_x40_-_PLA_Basic_-_Printer_7",
+    state: "preparing",
+    percent: 0,
+    currentLayer: 0,
+    totalLayers: 257,
+    remainingMinutes: 191,
+    filamentText: undefined,
+    filamentColor: undefined,
+    thumbnailPath: plateFor(7),
+  }),
+  buildPrinterJob({
+    id: "printer-8",
+    name: "Printer 8",
+    jobName: "Wall_Hooks_-_ASA_-_Printer_8",
+    state: "paused",
+    percent: 46,
+    currentLayer: 92,
+    totalLayers: 280,
+    remainingMinutes: 162,
+    problemText:
+      "HMS_0700_2000_0002_0001 — AMS 1 slot 3 ran out",
+    filamentText: "ASA · AMS 1 slot 3",
+    filamentColor: "#1c1c1c",
+    thumbnailPath: plateFor(8),
+  }),
+  buildPrinterJob({
+    id: "printer-9",
+    name: "Printer 9",
+    jobName: "Plant_Pot_Saucers_-_PETG_-_Printer_9",
+    percent: 37,
+    currentLayer: 109,
+    totalLayers: 303,
+    remainingMinutes: 193,
+    filamentText: "PETG Translucent · AMS 2 slot 4",
+    filamentColor: "#8e8e8e",
+    thumbnailPath: plateFor(9),
+  }),
+  buildPrinterJob({
+    id: "printer-10",
+    name: "Printer 10",
+    jobName: "Lamp_Shade_Vase_-_PLA_Silk_-_Printer_10",
+    state: "failed",
+    percent: 12,
+    currentLayer: 25,
+    totalLayers: 210,
+    remainingMinutes: 0,
+    finishAtMs: endedAtMs(5),
+    thumbnailPath: plateFor(10),
+  }),
+  buildPrinterJob({
+    id: "printer-11",
+    name: "Printer 11",
+    jobName: "Gridfinity_Bins_-_PLA_Basic_-_Printer_11",
+    percent: 58,
+    currentLayer: 88,
+    totalLayers: 152,
+    remainingMinutes: 47,
+    filamentText: "PLA Basic · AMS 3 slot 1",
+    filamentColor: "#f2f2f2",
+    thumbnailPath: plateFor(11),
+  }),
+  buildPrinterJob({
+    id: "printer-12",
+    name: "Printer 12",
+    jobName: "Fan_Duct_-_PC_Blend_-_Printer_12",
+    state: "paused",
+    percent: 21,
+    currentLayer: 40,
+    totalLayers: 190,
+    remainingMinutes: 133,
+    filamentText: "PC Blend · AMS 3 slot 2",
+    filamentColor: "#3a3a3a",
+    thumbnailPath: plateFor(12),
+  }),
+]
+
+/** The first `count` printers: the three above, then the extras in order. */
+const printersUpTo = (count: number) =>
+  [...THREE_PRINTERS, ...EXTRA_PRINTERS].slice(0, count)
+
+export const FourPrinters: Story = {
+  ...workbenchVariant(printersUpTo(4)),
+  name: "Four printers",
+}
+
+export const FivePrinters: Story = {
+  ...workbenchVariant(printersUpTo(5)),
+  name: "Five printers",
+}
+
+export const SixPrinters: Story = {
+  ...workbenchVariant(printersUpTo(6)),
+  name: "Six printers",
+}
+
+export const SevenPrinters: Story = {
+  ...workbenchVariant(printersUpTo(7)),
+  name: "Seven printers",
+}
+
+export const EightPrinters: Story = {
+  ...workbenchVariant(printersUpTo(8)),
+  name: "Eight printers",
+}
+
+export const NinePrinters: Story = {
+  ...workbenchVariant(printersUpTo(9)),
+  name: "Nine printers",
+}
+
+/** One more than fits: nine rows and a strip that names the tenth. */
+export const TenPrinters: Story = {
+  ...workbenchVariant(printersUpTo(10)),
+  name: "Ten printers",
+}
+
+/** Three hidden: the strip names each one, tinted by its state. */
+export const TwelvePrinters: Story = {
+  ...workbenchVariant(printersUpTo(12)),
+  name: "Twelve printers",
+}
