@@ -263,6 +263,12 @@ html[data-grayscale-text="true"] {
   background: rgb(0 0 0 / 55%);
 }
 
+/*
+ * A finger drag scrolls the drawer through pointer events (useDragScroll),
+ * since the Linux WebKit touch adapter cancels the native touch scroll; so
+ * the browser's own touch scroll is off. The drawer measures itself, so a
+ * narrow one, as a small or held panel leaves, sets smaller.
+ */
 .view-drawer {
   position: absolute;
   top: 0;
@@ -273,7 +279,8 @@ html[data-grayscale-text="true"] {
   background: var(--surface);
   color: var(--fg);
   box-shadow: 0 0 40px rgb(0 0 0 / 45%);
-  touch-action: pan-y;
+  touch-action: none;
+  container: view-drawer / inline-size;
 }
 
 .view-drawer.is-left {
@@ -297,8 +304,39 @@ html[data-grayscale-text="true"] {
   padding-right: 56px;
 }
 
+/* A drawer 240 px wide or less: its words and Close shrink. */
+@container view-drawer (max-width: 240px) {
+  .view-drawer-header {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .view-drawer-header h1 {
+    font-size: 22px;
+  }
+
+  .view-drawer-close {
+    width: 48px;
+    height: 48px;
+    font-size: 32px;
+  }
+
+  .view-drawer-options {
+    gap: 8px;
+  }
+
+  .view-drawer-option {
+    min-height: 48px;
+    padding: 8px 10px;
+    font-size: 17px;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Close wraps under the title, at the outer side, rather than past it. */
 .view-drawer-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -314,6 +352,7 @@ html[data-grayscale-text="true"] {
   width: 64px;
   height: 64px;
   flex: none;
+  margin-left: auto;
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--bg);

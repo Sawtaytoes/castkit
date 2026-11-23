@@ -5975,6 +5975,50 @@ describe("the Views drawer and live updates", () => {
     ).toEqual([])
   })
 
+  test("closing the filament list gives focus to its card when the view folded its opener away", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildPrinters(5).map((printer) => ({
+        ...printer,
+        state: "printing" as const,
+      })),
+    })
+    const filament = document.querySelector<HTMLElement>(
+      '[data-focus-key="printer-filaments:printer-1"]',
+    )
+    if (!filament) {
+      throw new Error("Printer 1 drew no filament control.")
+    }
+    filament.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect
+      .poll(() =>
+        document.querySelector('[aria-modal="true"]'),
+      )
+      .not.toBeNull()
+    await page.viewport(384, 720)
+    await expect
+      .poll(() => filament.checkVisibility())
+      .toBe(false)
+    await userEvent.keyboard("{Escape}")
+    await expect
+      .poll(() =>
+        document.querySelector('[aria-modal="true"]'),
+      )
+      .toBeNull()
+
+    await expect
+      .poll(
+        () =>
+          document.activeElement !== document.body &&
+          filament
+            .closest(".printer-card")
+            ?.contains(document.activeElement),
+      )
+      .toBe(true)
+  })
+
   test("closing gives focus to the handle when the control that had it folded away", async () => {
     await mountOnPanel({
       width: 1280,
@@ -6003,6 +6047,180 @@ describe("the Views drawer and live updates", () => {
     await expect
       .poll(() => document.activeElement?.className)
       .toBe("view-edge-handle is-right")
+  })
+
+  test.each(
+    (
+      [
+        {
+          width: 240,
+          height: 240,
+          shape: "round",
+          orientation: 0,
+        },
+        {
+          width: 320,
+          height: 320,
+          shape: "round",
+          orientation: 0,
+        },
+        {
+          width: 320,
+          height: 320,
+          shape: "round",
+          orientation: 90,
+        },
+        {
+          width: 480,
+          height: 480,
+          shape: "round",
+          orientation: 0,
+        },
+        {
+          width: 480,
+          height: 320,
+          shape: "square",
+          orientation: 0,
+        },
+        {
+          width: 480,
+          height: 320,
+          shape: "square",
+          orientation: 90,
+        },
+        {
+          width: 480,
+          height: 320,
+          shape: "square",
+          orientation: 270,
+        },
+        {
+          width: 320,
+          height: 824,
+          shape: "square",
+          orientation: 0,
+        },
+        {
+          width: 384,
+          height: 824,
+          shape: "square",
+          orientation: 0,
+        },
+        {
+          width: 1280,
+          height: 720,
+          shape: "square",
+          orientation: 0,
+        },
+      ] as const
+    ).flatMap((panel) =>
+      (["left", "right"] as const).flatMap((edge) =>
+        [false, true].map((isViewHeld) => ({
+          ...panel,
+          edge,
+          isViewHeld,
+        })),
+      ),
+    ),
+  )("the $edge drawer at $width x $height ($shape, $orientation°), held $isViewHeld, fits and leaves every button to itself", async ({
+    width,
+    height,
+    shape,
+    orientation,
+    edge,
+    isViewHeld,
+  }) => {
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      orientation,
+      isViewHeld,
+      hasViewDrawer: true,
+      extraViews: [
+        { name: "Now Playing", clientId: "now-playing" },
+        { name: "Queue", clientId: "queue" },
+        { name: "Calendar", clientId: "calendar" },
+        { name: "Print Queue", clientId: "print-queue" },
+        { name: "Ambient", clientId: "ambient" },
+      ],
+      printers: buildPrinters(11),
+    })
+    document
+      .querySelector<HTMLElement>(
+        `.view-edge-handle.is-${edge}`,
+      )
+      ?.click()
+    await expect
+      .element(page.getByRole("dialog", { name: "Views" }))
+      .toBeVisible()
+    await nextFrame()
+    const drawer = document.querySelector(".view-drawer")
+    if (!drawer) {
+      throw new Error("No drawer.")
+    }
+
+    expect(drawer.scrollWidth).toBeLessThanOrEqual(
+      drawer.clientWidth,
+    )
+    // The buttons in view; a drag scrolls the rest into it.
+    const drawerBox = drawer.getBoundingClientRect()
+    const shown = Array.from(
+      drawer.querySelectorAll<HTMLElement>("button"),
+    ).filter((button) => {
+      const box = button.getBoundingClientRect()
+      return (
+        box.top >= drawerBox.top - 0.5 &&
+        box.bottom <= drawerBox.bottom + 0.5
+      )
+    })
+    expect(shown.length).toBeGreaterThan(0)
+    expect(
+      findCoveredControls(".view-drawer button").filter(
+        (problem) =>
+          shown.some((button) =>
+            problem.includes(` on ${button.className} `),
+          ),
+      ),
+    ).toEqual([])
+  })
+
+  test("a finger drag scrolls a long drawer through the WebKit touch adapter", async () => {
+    await mountOnPanel({
+      width: 320,
+      height: 320,
+      shape: "round",
+      isViewHeld: true,
+      hasViewDrawer: true,
+      extraViews: [
+        { name: "Now Playing", clientId: "now-playing" },
+        { name: "Queue", clientId: "queue" },
+        { name: "Calendar", clientId: "calendar" },
+        { name: "Print Queue", clientId: "print-queue" },
+        { name: "Ambient", clientId: "ambient" },
+      ],
+      printers: buildPrinters(11),
+    })
+    await openDrawerFromRightEdge()
+    const drawer =
+      document.querySelector<HTMLElement>(".view-drawer")
+    if (!drawer) {
+      throw new Error("No drawer.")
+    }
+    expect(drawer.scrollHeight).toBeGreaterThan(
+      drawer.clientHeight,
+    )
+    const finger = pressWithAdapter({ x: 180, y: 260 })
+    for (const fingerY of [240, 200, 160, 120]) {
+      finger.move({ x: 180, y: fingerY })
+    }
+    finger.lift()
+    await nextFrame()
+
+    expect(drawer.scrollTop).toBeGreaterThan(0)
+    expect(
+      document.querySelector(".view-drawer"),
+    ).not.toBeNull()
   })
 
   test("a press on hand-back edges that went away cannot end the next hold", async () => {

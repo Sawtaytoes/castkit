@@ -21,11 +21,46 @@ const focusAndReveal = (control: HTMLElement) => {
 }
 
 /**
+ * Focus a control, or, if it takes no focus, as a control the view folded
+ * away while a dialog was open does not, the nearest control around it that
+ * does: the same card's next control before anything farther off. Nothing
+ * inside a dialog counts, since the closing one may still be drawn.
+ */
+const focusOrNearest = (control: HTMLElement) => {
+  control.focus()
+  if (document.activeElement === control) {
+    return
+  }
+  for (
+    let ancestor = control.parentElement;
+    ancestor && ancestor !== document.body;
+    ancestor = ancestor.parentElement
+  ) {
+    const candidates = Array.from(
+      ancestor.querySelectorAll<HTMLElement>(
+        FOCUSABLE_SELECTOR,
+      ),
+    ).filter(
+      (candidate) =>
+        candidate !== control &&
+        !candidate.closest('[aria-modal="true"]'),
+    )
+    for (const candidate of candidates) {
+      candidate.focus()
+      if (document.activeElement === candidate) {
+        return
+      }
+    }
+  }
+}
+
+/**
  * Keeps the keyboard inside a modal dialog, as a modal promises.
  *
  * Focus moves in when the dialog opens and goes back to the control that
  * opened it when it closes, or to its replacement with the same
- * `data-focus-key`. The opener is the control named by `returnFocusKey`
+ * `data-focus-key`, or, if the view folded it away, to the nearest control
+ * around it. The opener is the control named by `returnFocusKey`
  * when one is given, and otherwise the control that had focus. Tab and Shift+Tab cycle through the dialog's own
  * controls, so a keyboard user cannot reach a control behind the overlay and
  * open a second dialog over the first. Escape closes only the dialog that
@@ -81,7 +116,7 @@ export const useDialogFocus = ({
           ? focused
           : null
       if (opener) {
-        opener.focus()
+        focusOrNearest(opener)
         return
       }
       if (!focusKey) {
@@ -91,8 +126,9 @@ export const useDialogFocus = ({
         const isFocusFree =
           document.activeElement === null ||
           document.activeElement === document.body
-        if (isFocusFree) {
-          findOpener()?.focus()
+        const opener = isFocusFree ? findOpener() : null
+        if (opener) {
+          focusOrNearest(opener)
         }
       })
     }

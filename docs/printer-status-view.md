@@ -366,7 +366,11 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    touch panel, for any number of printers, so its buttons never sit under
    an edge either; where that leaves it 160 px or less, it sets its words
    smaller. While a view is held, the Views drawer pads its outer side 56 px
-   too, so Close and the options stay out from under the hand-back edge. While the
+   too, so Close and the options stay out from under the hand-back edge; a
+   narrow drawer puts Close under its title and sets smaller, and a finger
+   drag scrolls a long one through the Linux WebKit touch adapter. A dialog
+   whose opener the view folded away while it was open gives focus to the
+   nearest control around the opener when it closes. While the
    Views drawer is open, the view behind it is inert, so no key reaches a
    control the drawer covers, and a swipe a finger began before it opened
    asks for nothing. The padding follows the

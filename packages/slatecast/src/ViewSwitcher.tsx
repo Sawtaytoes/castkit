@@ -7,6 +7,7 @@ import {
 } from "preact/hooks"
 import { activeView, device, sendCommand } from "./state.ts"
 import { cancelViewSwipe } from "./viewSwipe.ts"
+import { useDragScroll } from "./views/useDragScroll.ts"
 
 /** Travel from either screen edge that opens the view drawer. */
 export const EDGE_PULL_COMMIT_PIXELS = 48
@@ -33,6 +34,8 @@ export const ViewSwitcher = () => {
   const pull = useRef<EdgePull | null>(null)
   const switcherRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  // A long list of views scrolls under a finger on Linux WebKit too.
+  const dragScroll = useDragScroll()
   /*
    * What had focus as the drawer opened, kept from before the render that
    * draws the drawer: that render removes the edge a key opened it from.
@@ -245,6 +248,7 @@ export const ViewSwitcher = () => {
             data-castkit-target="view-drawer:panel"
             role="dialog"
             aria-label="Views"
+            {...dragScroll}
           >
             <header class="view-drawer-header">
               <h1>Views</h1>
