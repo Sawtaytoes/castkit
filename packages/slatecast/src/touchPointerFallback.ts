@@ -1,5 +1,7 @@
 type Contact = {
   target: Element
+  /** The button or link pressed, kept even if its content is replaced. */
+  control: Element | null
   pointerId: number
   startX: number
   startY: number
@@ -15,6 +17,38 @@ export const getIsTouchPointerFallbackRequired = (
   /Linux/.test(userAgent) &&
   /AppleWebKit/.test(userAgent) &&
   !/Android|Chrome|Chromium|Edg\//.test(userAgent)
+
+/**
+ * The control a tap ends on. A live update can draw the pressed control
+ * again as a new element between press and release; the tap then belongs to
+ * the new one, but only if it carries the same `data-focus-key` and lies
+ * under the finger, so a tap never lands on a different control.
+ */
+const findTappedControl = ({
+  control,
+  clientX,
+  clientY,
+}: {
+  control: Element | null
+  clientX: number
+  clientY: number
+}) => {
+  if (!(control instanceof HTMLElement)) {
+    return null
+  }
+  if (control.isConnected) {
+    return control
+  }
+  const focusKey = control.dataset.focusKey
+  const replacement = document
+    .elementFromPoint(clientX, clientY)
+    ?.closest("button, a")
+  return focusKey &&
+    replacement instanceof HTMLElement &&
+    replacement.dataset.focusKey === focusKey
+    ? replacement
+    : null
+}
 
 const getNativeRange = (target: Element) =>
   target instanceof HTMLInputElement &&
@@ -208,6 +242,7 @@ export const installTouchPointerFallback = () => {
               pending.delete(pointerId)
               const contact = {
                 target: touch.target,
+                control: touch.target.closest("button, a"),
                 pointerId,
                 startX: touch.clientX,
                 startY: touch.clientY,
@@ -250,15 +285,14 @@ export const installTouchPointerFallback = () => {
               contacts.delete(touch.identifier)
               pointerIds.delete(contact.pointerId)
               const button =
-                contact.target.closest("button, a")
-              if (
-                type === "touchend" &&
-                !contact.hasMoved &&
-                button instanceof HTMLElement &&
-                button.isConnected
-              ) {
-                button.click()
-              }
+                type === "touchend" && !contact.hasMoved
+                  ? findTappedControl({
+                      control: contact.control,
+                      clientX: touch.clientX,
+                      clientY: touch.clientY,
+                    })
+                  : null
+              button?.click()
             }
           },
         )

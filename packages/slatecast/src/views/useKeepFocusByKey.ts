@@ -29,7 +29,11 @@ export const useKeepFocusByKey = (
   rootRef: RefObject<HTMLElement>,
 ) => {
   const focusKey = useRef<string | null>(null)
-  const forgetFrames = useRef({ first: 0, second: 0 })
+  const forgetFrames = useRef({
+    first: 0,
+    second: 0,
+    key: null as string | null,
+  })
 
   useEffect(() => {
     const handleFocusIn = (event: FocusEvent) => {
@@ -115,6 +119,7 @@ export const useKeepFocusByKey = (
       cancelAnimationFrame(frames.second)
       frames.first = 0
       frames.second = 0
+      frames.key = null
       control.focus()
       return
     }
@@ -123,13 +128,18 @@ export const useKeepFocusByKey = (
      * went: a render meanwhile does not start the count again, so a feed
      * that sends one update a frame cannot keep the key alive.
      */
-    if (frames.first !== 0) {
+    if (frames.first !== 0 && frames.key === key) {
       return
     }
+    // A count for another key, now forgotten, gives way to this one's.
+    cancelAnimationFrame(frames.first)
+    cancelAnimationFrame(frames.second)
+    frames.key = key
     frames.first = requestAnimationFrame(() => {
       frames.second = requestAnimationFrame(() => {
         frames.first = 0
         frames.second = 0
+        frames.key = null
         if (focusKey.current === key && !findControl()) {
           focusKey.current = null
         }

@@ -408,7 +408,12 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    strip on a new minute, stays on it. A control that leaves for longer,
    such as a printer that leaves the feed, even through a quick run of
    updates, or one the user clicked away from, does not take focus when it
-   comes back. A right-click or a drag on the focused control keeps it. A drag in a dialog follows the
+   comes back. A right-click or a drag on the focused control keeps it.
+   A tap through the touch adapter still opens the strip's list when a
+   live update redraws the strip, or the chip under the finger, between
+   press and release: the adapter clicks the control pressed, or its
+   replacement under the finger with the same `data-focus-key`, and never
+   a different control. A drag in a dialog follows the
    first finger down; a second finger that touches and lifts changes
    nothing. While the view tries its rows again, the
    hidden-printer list keeps its entries; it closes only once no printer

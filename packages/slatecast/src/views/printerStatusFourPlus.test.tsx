@@ -4631,3 +4631,216 @@ describe("a control that comes back", () => {
     )
   })
 })
+
+/**
+ * A finger pressed through the WebKit touch adapter, held still, to be
+ * lifted later: after a live update, say.
+ */
+const pressWithAdapter = (point: {
+  x: number
+  y: number
+}) => {
+  onTestFinished(installTouchPointerFallback())
+  const target = document.elementFromPoint(point.x, point.y)
+  if (!target) {
+    throw new Error("Nothing lies under the finger.")
+  }
+  const pointer = {
+    bubbles: true,
+    pointerId: 2,
+    pointerType: "touch",
+    clientX: point.x,
+    clientY: point.y,
+  }
+  const touch = new Touch({
+    identifier: 7,
+    target,
+    clientX: point.x,
+    clientY: point.y,
+  })
+  target.dispatchEvent(
+    new PointerEvent("pointerdown", pointer),
+  )
+  target.dispatchEvent(
+    new TouchEvent("touchstart", {
+      bubbles: true,
+      cancelable: true,
+      changedTouches: [touch],
+    }),
+  )
+  return {
+    target,
+    lift: () => {
+      document.body.dispatchEvent(
+        new PointerEvent("pointerup", pointer),
+      )
+      // The end of a touch goes to where it began, even once that is gone.
+      document.dispatchEvent(
+        new TouchEvent("touchend", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: [touch],
+        }),
+      )
+    },
+  }
+}
+
+describe("a tap on the strip through a live update", () => {
+  test("in a much wider font, opens the list after the same payload redraws a rowless strip", async () => {
+    useTestFont("a much wider font")
+    const printers = buildPrinters(5).map((printer) => ({
+      ...printer,
+      state: "preparing" as const,
+      percent: 0,
+    }))
+    const { server } = await mountOnPanel({
+      width: 240,
+      height: 824,
+      printers,
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    // The case under test: the strip stands in for every row.
+    expect(
+      document.querySelectorAll(".printer-card"),
+    ).toHaveLength(0)
+    expect(strip).toHaveTextContent("5 printers")
+    if (!strip) {
+      throw new Error("Five printers drew no strip.")
+    }
+    const { clientX, clientY } = findPointOn(strip)
+    const finger = pressWithAdapter({
+      x: clientX,
+      y: clientY,
+    })
+    server.push({
+      type: "printers",
+      data: { printers: structuredClone(printers) },
+    })
+    await nextFrame()
+    await nextFrame()
+    await nextFrame()
+    expect(strip.isConnected).toBe(false)
+    expect(
+      document.querySelector(".printer-overflow"),
+    ).toHaveTextContent("5 printers")
+    finger.lift()
+
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+  })
+
+  test("opens the list when the chip under the finger leaves", async () => {
+    const printers = buildPrinters(12)
+    const { server } = await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: printers.slice(0, 11),
+    })
+    const chip = document.querySelector(
+      ".printer-overflow-item",
+    )
+    if (!chip) {
+      throw new Error("Eleven printers drew no chip.")
+    }
+    expect(chip).toHaveTextContent("Printer 10")
+    const { clientX, clientY } = findPointOn(chip)
+    const finger = pressWithAdapter({
+      x: clientX,
+      y: clientY,
+    })
+    expect(chip.contains(finger.target)).toBe(true)
+    server.push({
+      type: "printers",
+      data: {
+        printers: structuredClone(
+          printers.filter(({ id }) => id !== "printer-10"),
+        ),
+      },
+    })
+    await nextFrame()
+    await nextFrame()
+    expect(chip.isConnected).toBe(false)
+    expect(
+      document.querySelector(".printer-overflow"),
+    ).toHaveTextContent("Printer 12")
+    finger.lift()
+
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+  })
+})
+
+describe("two controls that leave one after the other", () => {
+  test("the second does not take focus when both come back", async () => {
+    const printers = buildPrinters(5)
+    const { server } = await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers,
+    })
+    const findJob = (number: number) =>
+      document.querySelector<HTMLElement>(
+        `[data-focus-key="printer-job:printer-${number}"]`,
+      )
+    const cards = document.querySelector(".printer-cards")
+    if (!cards) {
+      throw new Error("Five printers drew no cards.")
+    }
+    findJob(1)?.focus()
+    /*
+     * As soon as Printer 1 is gone, before its two frames end, Printer 2
+     * takes focus and is sent away too. A mutation observer acts before
+     * the next frame; a poll would wait past the first count.
+     */
+    await new Promise<void>((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (findJob(1)) {
+          return
+        }
+        const second = findJob(2)
+        if (!second) {
+          observer.disconnect()
+          resolve()
+          return
+        }
+        if (document.activeElement !== second) {
+          second.focus()
+          server.push({
+            type: "printers",
+            data: {
+              printers: structuredClone(printers.slice(2)),
+            },
+          })
+        }
+      })
+      observer.observe(cards, {
+        childList: true,
+        subtree: true,
+      })
+      server.push({
+        type: "printers",
+        data: {
+          printers: structuredClone(printers.slice(1)),
+        },
+      })
+    })
+    expect(document.activeElement).toBe(document.body)
+    for (const _ of Array.from({ length: 6 })) {
+      await nextFrame()
+    }
+    server.push({
+      type: "printers",
+      data: { printers: structuredClone(printers) },
+    })
+    await nextFrame()
+    await nextFrame()
+
+    expect(findJob(2)).not.toBeNull()
+    expect(document.activeElement).toBe(document.body)
+  })
+})
