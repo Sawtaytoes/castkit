@@ -411,9 +411,12 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    comes back. A right-click or a drag on the focused control keeps it.
    A tap through the touch adapter still opens the strip's list when a
    live update redraws the strip, or the chip under the finger, between
-   press and release: the adapter clicks the control pressed, or its
-   replacement under the finger with the same `data-focus-key`, and never
-   a different control. A drag in a dialog follows the
+   press and release: the adapter hears the release even when WPE WebKit
+   sends it to a removed element, and clicks the control pressed, or its
+   replacement under the finger, only while it carries the same
+   `data-focus-key` and `data-castkit-target` it had when pressed. A tap
+   never lands on a different control, or on Resume after a press on
+   Pause. A drag in a dialog follows the
    first finger down; a second finger that touches and lifts changes
    nothing. While the view tries its rows again, the
    hidden-printer list keeps its entries; it closes only once no printer

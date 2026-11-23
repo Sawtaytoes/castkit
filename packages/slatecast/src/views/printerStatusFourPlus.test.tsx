@@ -4670,12 +4670,23 @@ const pressWithAdapter = (point: {
   )
   return {
     target,
-    lift: () => {
+    /*
+     * As WPE WebKit does, the end of a touch goes to the element it began
+     * on, even once a live update has removed that element. Other engines
+     * send it where the document hears it.
+     */
+    lift: ({
+      to = "the element it began on",
+    }: {
+      to?: "the element it began on" | "the document"
+    } = {}) => {
       document.body.dispatchEvent(
         new PointerEvent("pointerup", pointer),
       )
-      // The end of a touch goes to where it began, even once that is gone.
-      document.dispatchEvent(
+      ;(to === "the document"
+        ? document
+        : target
+      ).dispatchEvent(
         new TouchEvent("touchend", {
           bubbles: true,
           cancelable: true,
@@ -4842,5 +4853,93 @@ describe("two controls that leave one after the other", () => {
 
     expect(findJob(2)).not.toBeNull()
     expect(document.activeElement).toBe(document.body)
+  })
+})
+
+describe("a held Pause through a live update", () => {
+  const holdPause = async () => {
+    const printers = buildPrinters(6).map((printer) => ({
+      ...printer,
+      state: "printing" as const,
+    }))
+    const { server } = await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers,
+    })
+    const pause = document.querySelector<HTMLElement>(
+      '[data-focus-key="printer-pause:printer-1"]',
+    )
+    if (!pause) {
+      throw new Error("Printer 1 drew no Pause.")
+    }
+    expect(pause).toHaveTextContent("Pause")
+    const { clientX, clientY } = findPointOn(pause)
+    const finger = pressWithAdapter({
+      x: clientX,
+      y: clientY,
+    })
+    const send = async (next: PrinterJob[]) => {
+      server.push({
+        type: "printers",
+        data: { printers: structuredClone(next) },
+      })
+      await nextFrame()
+      await nextFrame()
+    }
+    const asPaused = printers.map((printer, index) =>
+      index === 0
+        ? { ...printer, state: "paused" as const }
+        : printer,
+    )
+    return { finger, pause, printers, asPaused, send }
+  }
+
+  test.each([
+    "the element it began on" as const,
+    "the document" as const,
+  ])("opens no question when the printer leaves and comes back paused, with the release sent to %s", async (to) => {
+    const { finger, pause, printers, asPaused, send } =
+      await holdPause()
+    await send(printers.slice(1))
+    await send(asPaused)
+    expect(pause.isConnected).toBe(false)
+    expect(
+      document.querySelector(
+        '[data-focus-key="printer-pause:printer-1"]',
+      ),
+    ).toHaveTextContent("Resume")
+    finger.lift({ to })
+    await nextFrame()
+    await nextFrame()
+
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toBeNull()
+  })
+
+  test("opens no question when the printer pauses under the finger", async () => {
+    const { finger, pause, asPaused, send } =
+      await holdPause()
+    await send(asPaused)
+    expect(pause.isConnected).toBe(true)
+    expect(pause).toHaveTextContent("Resume")
+    finger.lift()
+    await nextFrame()
+    await nextFrame()
+
+    expect(
+      document.querySelector('[role="dialog"]'),
+    ).toBeNull()
+  })
+
+  test("still asks to pause after the same payload again", async () => {
+    const { finger, printers, send } = await holdPause()
+    await send(printers)
+    finger.lift()
+
+    await expect
+      .element(page.getByRole("dialog"))
+      .toHaveTextContent("Pause this print?")
   })
 })

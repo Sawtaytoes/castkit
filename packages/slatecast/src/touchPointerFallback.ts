@@ -2,6 +2,8 @@ type Contact = {
   target: Element
   /** The button or link pressed, kept even if its content is replaced. */
   control: Element | null
+  /** What the control did when pressed, so a release acts only on that. */
+  controlIdentity: ControlIdentity
   pointerId: number
   startX: number
   startY: number
@@ -18,18 +20,42 @@ export const getIsTouchPointerFallbackRequired = (
   /AppleWebKit/.test(userAgent) &&
   !/Android|Chrome|Chromium|Edg\//.test(userAgent)
 
+type ControlIdentity = {
+  focusKey: string | null
+  action: string | null
+}
+
+const getControlIdentity = (
+  control: Element | null,
+): ControlIdentity => ({
+  focusKey: control?.getAttribute("data-focus-key") ?? null,
+  action:
+    control?.getAttribute("data-castkit-target") ?? null,
+})
+
+const isSameControl = (
+  first: ControlIdentity,
+  second: ControlIdentity,
+) =>
+  first.focusKey === second.focusKey &&
+  first.action === second.action
+
 /**
- * The control a tap ends on. A live update can draw the pressed control
- * again as a new element between press and release; the tap then belongs to
- * the new one, but only if it carries the same `data-focus-key` and lies
- * under the finger, so a tap never lands on a different control.
+ * The control a tap ends on: the one pressed, if it still does what it did
+ * when pressed. A live update can draw the pressed control again as a new
+ * element between press and release; the tap then belongs to the new one,
+ * but only if it lies under the finger and carries the same
+ * `data-focus-key` and the same `data-castkit-target`, so a tap never
+ * lands on a different control, or on Resume after a press on Pause.
  */
 const findTappedControl = ({
   control,
+  identity,
   clientX,
   clientY,
 }: {
   control: Element | null
+  identity: ControlIdentity
   clientX: number
   clientY: number
 }) => {
@@ -37,15 +63,21 @@ const findTappedControl = ({
     return null
   }
   if (control.isConnected) {
-    return control
+    return isSameControl(
+      identity,
+      getControlIdentity(control),
+    )
+      ? control
+      : null
   }
-  const focusKey = control.dataset.focusKey
+  if (!identity.focusKey) {
+    return null
+  }
   const replacement = document
     .elementFromPoint(clientX, clientY)
     ?.closest("button, a")
-  return focusKey &&
-    replacement instanceof HTMLElement &&
-    replacement.dataset.focusKey === focusKey
+  return replacement instanceof HTMLElement &&
+    isSameControl(identity, getControlIdentity(replacement))
     ? replacement
     : null
 }
@@ -213,92 +245,109 @@ export const installTouchPointerFallback = () => {
     replayed.add(event)
     contact.target.dispatchEvent(event)
   }
+  // A touch event can reach two listeners below; it is handled once.
+  const handledTouchEvents = new WeakSet<Event>()
+  const handleTouch = (event: Event) => {
+    const type = event.type
+    if (
+      !(event instanceof TouchEvent) ||
+      handledTouchEvents.has(event)
+    ) {
+      return
+    }
+    handledTouchEvents.add(event)
+    Array.from(event.changedTouches).forEach((touch) => {
+      if (!(touch.target instanceof Element)) {
+        return
+      }
+      if (type === "touchstart") {
+        const match = Array.from(pending).find(
+          ([, pointer]) => pointer.target === touch.target,
+        )
+        if (!match) {
+          return
+        }
+        const [pointerId] = match
+        pending.delete(pointerId)
+        const control = touch.target.closest("button, a")
+        const contact = {
+          target: touch.target,
+          control,
+          controlIdentity: getControlIdentity(control),
+          pointerId,
+          startX: touch.clientX,
+          startY: touch.clientY,
+          hasMoved: false,
+          isPrimary: contacts.size === 0,
+          initialRangeValue:
+            getNativeRange(touch.target)?.value ?? null,
+        }
+        contacts.set(touch.identifier, contact)
+        /*
+         * WPE WebKit sends a touch's later events to the element it
+         * began on, even once a live update removes that element, and
+         * a removed element's events never reach the document.
+         */
+        ;["touchmove", "touchend", "touchcancel"].forEach(
+          (laterType) => {
+            touch.target.addEventListener(
+              laterType,
+              handleTouch,
+              options,
+            )
+          },
+        )
+        event.preventDefault()
+        dispatch({
+          contact,
+          touch,
+          type: "pointerdown",
+        })
+        return
+      }
+      const contact = contacts.get(touch.identifier)
+      if (!contact) {
+        return
+      }
+      event.preventDefault()
+      contact.hasMoved ||=
+        Math.hypot(
+          touch.clientX - contact.startX,
+          touch.clientY - contact.startY,
+        ) >= 6
+      dispatch({
+        contact,
+        touch,
+        type:
+          type === "touchmove"
+            ? "pointermove"
+            : type === "touchend"
+              ? "pointerup"
+              : "pointercancel",
+      })
+      if (type !== "touchmove") {
+        contacts.delete(touch.identifier)
+        pointerIds.delete(contact.pointerId)
+        const button =
+          type === "touchend" && !contact.hasMoved
+            ? findTappedControl({
+                control: contact.control,
+                identity: contact.controlIdentity,
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+              })
+            : null
+        button?.click()
+      }
+    })
+  }
   ;[
     "touchstart",
     "touchmove",
     "touchend",
     "touchcancel",
   ].forEach((type) => {
-    document.addEventListener(
-      type,
-      (event) => {
-        if (!(event instanceof TouchEvent)) {
-          return
-        }
-        Array.from(event.changedTouches).forEach(
-          (touch) => {
-            if (!(touch.target instanceof Element)) {
-              return
-            }
-            if (type === "touchstart") {
-              const match = Array.from(pending).find(
-                ([, pointer]) =>
-                  pointer.target === touch.target,
-              )
-              if (!match) {
-                return
-              }
-              const [pointerId] = match
-              pending.delete(pointerId)
-              const contact = {
-                target: touch.target,
-                control: touch.target.closest("button, a"),
-                pointerId,
-                startX: touch.clientX,
-                startY: touch.clientY,
-                hasMoved: false,
-                isPrimary: contacts.size === 0,
-                initialRangeValue:
-                  getNativeRange(touch.target)?.value ??
-                  null,
-              }
-              contacts.set(touch.identifier, contact)
-              event.preventDefault()
-              dispatch({
-                contact,
-                touch,
-                type: "pointerdown",
-              })
-              return
-            }
-            const contact = contacts.get(touch.identifier)
-            if (!contact) {
-              return
-            }
-            event.preventDefault()
-            contact.hasMoved ||=
-              Math.hypot(
-                touch.clientX - contact.startX,
-                touch.clientY - contact.startY,
-              ) >= 6
-            dispatch({
-              contact,
-              touch,
-              type:
-                type === "touchmove"
-                  ? "pointermove"
-                  : type === "touchend"
-                    ? "pointerup"
-                    : "pointercancel",
-            })
-            if (type !== "touchmove") {
-              contacts.delete(touch.identifier)
-              pointerIds.delete(contact.pointerId)
-              const button =
-                type === "touchend" && !contact.hasMoved
-                  ? findTappedControl({
-                      control: contact.control,
-                      clientX: touch.clientX,
-                      clientY: touch.clientY,
-                    })
-                  : null
-              button?.click()
-            }
-          },
-        )
-      },
-      options,
-    )
+    document.addEventListener(type, handleTouch, options)
   })
   return () => lifetime.abort()
 }
