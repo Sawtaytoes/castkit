@@ -368,7 +368,8 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    smaller. While a view is held, the Views drawer pads its outer side 56 px
    too, so Close and the options stay out from under the hand-back edge; a
    narrow drawer puts Close under its title and sets smaller, a long view
-   name wraps rather than widening it, to at most three lines, and a finger drag scrolls a long one
+   name wraps rather than widening it, and if it wraps taller than a small
+   round panel's square, focus shows its first words, and a finger drag scrolls a long one
    through the Linux WebKit touch adapter. On a round panel the drawer pads
    its top, bottom, and outer side to the square inside the circle, so
    Close and the options stay on the glass, and an option Tab scrolls to
@@ -435,7 +436,9 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    `Dec 28 10:59p` whole. The filament and hidden-printer lists lie under
    the shell's undrawn navigation edges, as the Pause and Stop question
    does, so a tap or pull at an edge still opens Views, swipes, or ends a
-   hold while one is open; their controls pad clear of those edges. A tap
+   hold while one is open; their controls pad clear of those edges. A list
+   200 px wide or less, as a small held round panel leaves, pads less, sets
+   its title smaller, and puts Close under the title. A tap
    on the backdrop closes a dialog on its
    release, so a tap through the Linux WebKit touch adapter, which sends no
    click, closes it too. Only a primary press that starts and lifts on the

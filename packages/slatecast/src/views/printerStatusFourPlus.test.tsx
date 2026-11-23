@@ -5534,7 +5534,7 @@ describe("the Views drawer over a question", () => {
           clientId: "long-name",
         },
         ...Array.from({ length: 9 }, (_, index) => ({
-          name: `Workshop View ${index + 1}`,
+          name: `Workshop Printer Camera ${index + 1}`,
           clientId: `workshop-${index + 1}`,
         })),
       ],
@@ -5548,37 +5548,66 @@ describe("the Views drawer over a question", () => {
     await expect
       .element(page.getByRole("dialog", { name: "Views" }))
       .toBeVisible()
-    const stageBox = document
-      .querySelector(".stage")
-      ?.getBoundingClientRect()
-    if (!stageBox) {
-      throw new Error("No stage.")
-    }
-    const centerX = (stageBox.left + stageBox.right) / 2
-    const centerY = (stageBox.top + stageBox.bottom) / 2
-    const radius = stageBox.width / 2
     const options = document.querySelectorAll(
       ".view-drawer-option",
     )
     const offGlass: string[] = []
+    const drawer = document.querySelector(".view-drawer")
+    if (!(drawer instanceof HTMLElement)) {
+      throw new Error("No drawer.")
+    }
+    const drawerStyle = getComputedStyle(drawer)
+    const band =
+      drawer.clientHeight -
+      Number.parseFloat(drawerStyle.paddingTop) -
+      Number.parseFloat(drawerStyle.paddingBottom)
+    // Measured in the stage's own frame, so a turned stage counts the same.
+    const findStageOffset = (element: HTMLElement) => {
+      let left = 0
+      let top = 0
+      for (
+        let node: Element | null = element;
+        node instanceof HTMLElement &&
+        !node.classList.contains("stage");
+        node = node.offsetParent
+      ) {
+        left += node.offsetLeft
+        top += node.offsetTop
+      }
+      return { left, top: top - drawer.scrollTop }
+    }
+    const stageRadius = size / 2
     const checkFocused = async (direction: string) => {
       await nextFrame()
       const focused = document.activeElement
       if (
-        !focused?.classList.contains("view-drawer-option")
+        !(focused instanceof HTMLElement) ||
+        !focused.classList.contains("view-drawer-option")
       ) {
         return
       }
-      const box = focused.getBoundingClientRect()
-      const isOnGlass = [
-        [box.left, box.top],
-        [box.right, box.top],
-        [box.left, box.bottom],
-        [box.right, box.bottom],
-      ].every(
+      const { left, top } = findStageOffset(focused)
+      const right = left + focused.offsetWidth
+      const bottom = top + focused.offsetHeight
+      // An option taller than the padded band shows its start instead.
+      const isTall = focused.offsetHeight > band
+      const corners = [
+        [left, top],
+        [right, top],
+        ...(isTall
+          ? []
+          : [
+              [left, bottom],
+              [right, bottom],
+            ]),
+      ]
+      const isOnGlass = corners.every(
         ([pointX = 0, pointY = 0]) =>
-          Math.hypot(pointX - centerX, pointY - centerY) <=
-          radius + 1,
+          Math.hypot(
+            pointX - stageRadius,
+            pointY - stageRadius,
+          ) <=
+          stageRadius + 1,
       )
       if (!isOnGlass) {
         offGlass.push(
@@ -5603,6 +5632,15 @@ describe("the Views drawer over a question", () => {
       await checkFocused("Shift+Tab")
     }
     expect(offGlass).toEqual([])
+    // Every name is drawn whole: nothing cuts off what tells two apart.
+    expect(
+      Array.from(options).filter((option) =>
+        [option, ...option.querySelectorAll("*")].some(
+          (part) =>
+            part.scrollHeight > part.clientHeight + 1,
+        ),
+      ),
+    ).toEqual([])
   })
 })
 
@@ -5776,6 +5814,96 @@ describe("a dialog on a touch panel's navigation edges", () => {
         '[aria-modal="true"] button, [aria-modal="true"] a',
       ),
     ).toEqual([])
+  })
+  // A small round panel, held, leaves the lists little room between its edges.
+  test.each(
+    (
+      [
+        {
+          dialog: "the filament list",
+          count: 1,
+          opener: '[data-focus-key^="printer-filaments:"]',
+        },
+        {
+          dialog: "the hidden-printer list",
+          count: 11,
+          opener: ".printer-overflow",
+        },
+      ] as const
+    ).flatMap((dialog) =>
+      ([240, 289, 320] as const).flatMap((size) =>
+        ([0, 90] as const).flatMap((orientation) =>
+          [false, true].flatMap((isViewHeld) =>
+            FONTS.map((font) => ({
+              ...dialog,
+              size,
+              orientation,
+              isViewHeld,
+              font,
+            })),
+          ),
+        ),
+      ),
+    ),
+  )("in $font, $dialog fits a $size px round panel ($orientation°), held $isViewHeld", async ({
+    count,
+    opener,
+    size,
+    orientation,
+    isViewHeld,
+    font,
+  }) => {
+    useTestFont(font)
+    await mountOnPanel({
+      width: size,
+      height: size,
+      shape: "round",
+      orientation,
+      isViewHeld,
+      hasViewDrawer: true,
+      printers: buildPrinters(count).map((printer) => ({
+        ...printer,
+        state: "printing" as const,
+      })),
+    })
+    const control = drawnWithin(document.body, opener)[0]
+    if (!(control instanceof HTMLElement)) {
+      throw new Error(`No ${opener} on this panel.`)
+    }
+    control.click()
+    await expect
+      .poll(() =>
+        document.querySelector(".filament-details-box"),
+      )
+      .not.toBeNull()
+    await nextFrame()
+    const box = document.querySelector<HTMLElement>(
+      ".filament-details-box",
+    )
+    if (!box) {
+      throw new Error("No list.")
+    }
+
+    expect(
+      findCoveredControls(".filament-details-box button"),
+    ).toEqual([])
+    // Nothing in the head spills past the box, and the title keeps its words.
+    const head = box.querySelector<HTMLElement>(
+      ".filament-details-head",
+    )
+    const title = box.querySelector<HTMLElement>(
+      ".filament-details-head h2",
+    )
+    if (!head || !title) {
+      throw new Error("No head or no title.")
+    }
+    expect(head.scrollWidth).toBeLessThanOrEqual(
+      head.clientWidth,
+    )
+    expect(box.scrollWidth).toBeLessThanOrEqual(
+      box.clientWidth,
+    )
+    expect(title.clientWidth).toBeGreaterThanOrEqual(60)
   })
 })
 

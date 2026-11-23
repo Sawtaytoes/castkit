@@ -1,4 +1,7 @@
-import type { TargetedPointerEvent } from "preact"
+import type {
+  TargetedFocusEvent,
+  TargetedPointerEvent,
+} from "preact"
 import {
   useEffect,
   useLayoutEffect,
@@ -235,6 +238,32 @@ export const ViewSwitcher = () => {
     }
   }
 
+  /*
+   * An option taller than the drawer's padded band, as a long name on a
+   * small round panel wraps, cannot lie wholly on the glass. Focus shows
+   * its start, the first words, from either direction, rather than its end.
+   */
+  const revealOptionStart = (
+    event: TargetedFocusEvent<HTMLElement>,
+  ) => {
+    const drawer = event.currentTarget
+    const option = event.target
+    if (
+      !(option instanceof HTMLElement) ||
+      !option.classList.contains("view-drawer-option")
+    ) {
+      return
+    }
+    const style = getComputedStyle(drawer)
+    const band =
+      drawer.clientHeight -
+      Number.parseFloat(style.paddingTop) -
+      Number.parseFloat(style.paddingBottom)
+    if (option.offsetHeight > band) {
+      option.scrollIntoView({ block: "start" })
+    }
+  }
+
   const requestView = (clientId: string) => {
     setOpenEdge(null)
     sendCommand({ action: "view", value: clientId })
@@ -280,6 +309,7 @@ export const ViewSwitcher = () => {
             role="dialog"
             aria-label="Views"
             {...dragScroll}
+            onFocusIn={revealOptionStart}
           >
             <header class="view-drawer-header">
               <h1>Views</h1>
@@ -306,9 +336,7 @@ export const ViewSwitcher = () => {
                   }
                   onClick={() => requestView(view.clientId)}
                 >
-                  <span class="view-drawer-option-name">
-                    {view.name}
-                  </span>
+                  {view.name}
                 </button>
               ))}
             </div>

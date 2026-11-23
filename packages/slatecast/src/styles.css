@@ -380,19 +380,6 @@ html[data-grayscale-text="true"] {
   overflow-wrap: anywhere;
 }
 
-/*
- * At most three lines, so an option is never taller than a small round
- * panel's square: focus could not scroll it whole onto the glass. The whole
- * name stays the button's name for assistive tech.
- */
-.view-drawer-option-name {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-}
-
 .view-drawer-option[aria-pressed="true"] {
   border-color: var(--accent);
   background: color-mix(
@@ -2544,6 +2531,8 @@ html[data-grayscale-text="true"] {
 .filament-details-dialog {
   position: fixed;
   z-index: 15;
+  /* The list sets smaller where little room is left, below. */
+  container: filament-details-dialog / inline-size;
   display: grid;
   /* One definite cell, so the box's 100% height is the overlay's. */
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
@@ -2597,12 +2586,22 @@ html[data-grayscale-text="true"] {
   color: var(--fg);
 }
 
+/*
+ * Close shares the title's line while the title keeps 10 characters' room,
+ * and otherwise wraps under it at the outer side, so neither is squeezed.
+ */
 .filament-details-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+}
+
+.filament-details-head > :first-child {
+  flex: 1 1 10ch;
+  min-width: 0;
 }
 
 /* A long printer name wraps rather than widening the dialog past the glass. */
@@ -2622,6 +2621,7 @@ html[data-grayscale-text="true"] {
 
 .filament-details-close {
   flex: none;
+  margin-left: auto;
   min-height: 44px;
   padding: 8px 16px;
   border: 1px solid var(--color-border-subtle);
@@ -2660,6 +2660,34 @@ html[data-grayscale-text="true"] {
   flex: none;
   width: 40px;
   height: 40px;
+}
+
+/*
+ * A list 200 px wide or less, as a small held round panel leaves between
+ * its hand-back edges, pads and sets smaller.
+ */
+@container filament-details-dialog (max-width: 200px) {
+  .filament-details-box {
+    padding: 12px;
+  }
+
+  .filament-details-head {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .filament-details-head h2 {
+    font-size: 18px;
+  }
+
+  .filament-details-close {
+    padding: 6px 12px;
+  }
+
+  .filament-details-list li {
+    gap: 8px;
+    padding: 6px 8px;
+  }
 }
 
 .filament-details-info {
