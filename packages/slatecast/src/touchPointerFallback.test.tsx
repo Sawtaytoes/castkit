@@ -12,6 +12,7 @@ import {
 } from "./__fixtures__/buildSnapshot.ts"
 import { mountSlatecast } from "./__tests__/setup/mountSlatecast.tsx"
 import { waitUntil } from "./__tests__/setup/slatecastServer.ts"
+import { aiUsageMarks } from "./platform/__fixtures__/aiUsageMarks.ts"
 import { AiUsageView } from "./platform/AiUsageView.tsx"
 import { EntitiesView } from "./platform/EntitiesView.tsx"
 import {
@@ -372,6 +373,7 @@ test("AI usage details scroll through the Linux WebKit touch fallback", async ()
           {
             id: "claude",
             name: "Claude",
+            mark: aiUsageMarks.claude,
             isOk: true,
             windows: [
               {

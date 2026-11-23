@@ -5,6 +5,16 @@ import {
   normalizeAiUsage,
 } from "./aiUsage.ts"
 
+const claudeMark = {
+  view_box: "0 0 16 16",
+  paths: [{ d: "M7 14L8 2Z" }],
+}
+const brand = (title: string) => ({
+  title,
+  color: "#123456",
+  mark: claudeMark,
+})
+
 const document = {
   fetched_at: "2026-01-01T12:00:00Z",
   poll_interval_sec: 300,
@@ -12,6 +22,7 @@ const document = {
   providers: [
     {
       provider: "claude",
+      brand: brand("Claude"),
       is_ok: true,
       plan: "Max",
       fetched_at: "2026-01-01T12:00:00Z",
@@ -32,6 +43,7 @@ const document = {
     },
     {
       provider: "codex_2",
+      brand: { title: "Codex Alt" },
       is_ok: false,
       error: "Sign-in expired",
       fetched_at: "2026-01-01T12:00:00Z",
@@ -60,6 +72,10 @@ test("AI Usage normalizes provider titles, percentages and reset times", () => {
   expect(snapshot.providers[0]).toMatchObject({
     id: "claude",
     name: "Claude",
+    mark: {
+      viewBox: "0 0 16 16",
+      paths: [{ d: "M7 14L8 2Z" }],
+    },
     isOk: true,
     planText: "Max",
   })
@@ -85,8 +101,16 @@ test("AI Usage normalizes provider titles, percentages and reset times", () => {
 test("AI Usage names both Codex accounts without changing their stable ids", () => {
   const snapshot = normalizeAiUsage({
     providers: [
-      { provider: "codex", windows: [] },
-      { provider: "codex_2", windows: [] },
+      {
+        provider: "codex",
+        brand: brand("Codex"),
+        windows: [],
+      },
+      {
+        provider: "codex_2",
+        brand: brand("Codex Alt"),
+        windows: [],
+      },
     ],
   })
   expect(
@@ -290,15 +314,21 @@ test("AI Usage includes producer account labels without changing ids", () => {
     providers: [
       {
         provider: "claude_2",
+        brand: brand("Claude"),
         owner: "Business",
         windows: [],
       },
       {
         provider: "codex_2",
+        brand: brand("Codex Alt"),
         owner: "Secondary",
         windows: [],
       },
-      { provider: "grok", windows: [] },
+      {
+        provider: "grok",
+        brand: brand("SpaceXAI"),
+        windows: [],
+      },
     ],
   })
   expect(
@@ -315,30 +345,25 @@ test("AI Usage includes producer account labels without changing ids", () => {
 
 test("AI Usage titles a third Claude account Claude and carries its owner", () => {
   /*
-   * The producer numbers a provider's extra accounts. Without its own title a
-   * third Claude account falls back to the split id and reads "Claude 3",
-   * which names a model rather than a subscription.
+   * The producer numbers a provider's extra accounts. Its brand titles every
+   * seat with the product. A producer that sends no brand still must not turn
+   * a third Claude account into "Claude 3", which names a model rather than
+   * a subscription.
    */
   const snapshot = normalizeAiUsage({
     providers: [
       {
         provider: "claude",
+        brand: brand("Claude"),
         owner: "Personal",
         windows: [],
       },
       {
-        provider: "claude_2",
-        owner: "Business",
-        windows: [],
-      },
-      {
         provider: "claude_3",
+        brand: brand("Claude"),
         owner: "Family",
         windows: [],
       },
-      { provider: "codex", windows: [] },
-      { provider: "codex_2", windows: [] },
-      { provider: "grok", windows: [] },
     ],
   })
   expect(
@@ -348,15 +373,149 @@ test("AI Usage titles a third Claude account Claude and carries its owner", () =
     })),
   ).toEqual([
     { id: "claude", name: "Claude Personal" },
-    { id: "claude_2", name: "Claude Business" },
     { id: "claude_3", name: "Claude Family" },
-    { id: "codex", name: "Codex" },
-    { id: "codex_2", name: "Codex Alt" },
-    { id: "grok", name: "SpaceXAI" },
   ])
   expect(
     normalizeAiUsage({
-      providers: [{ provider: "claude_3", windows: [] }],
-    }).providers[0]?.name,
-  ).toBe("Claude")
+      providers: [
+        { provider: "claude_3", windows: [] },
+        { provider: "codex_2", windows: [] },
+        { provider: "open-code", windows: [] },
+      ],
+    }).providers.map(({ name }) => name),
+  ).toEqual(["Claude", "Codex", "Open Code"])
+})
+
+test("AI Usage carries the producer's mark, so CastKit keeps no logos of its own", () => {
+  const snapshot = normalizeAiUsage({
+    providers: [
+      {
+        provider: "gemini",
+        brand: {
+          title: "Gemini",
+          mark: {
+            view_box: "0 0 24 24",
+            paths: [{ d: "M12 0L24 12Z" }],
+          },
+        },
+        windows: [],
+      },
+      {
+        provider: "cursor",
+        brand: {
+          title: "Cursor",
+          mark: {
+            view_box: "0 0 24 24",
+            paths: [
+              { d: "M12 2.5 20.5 7" },
+              { d: "M12 12V2.5" },
+            ],
+            stroke_width: 1.6,
+          },
+        },
+        windows: [],
+      },
+      {
+        provider: "opencode",
+        brand: {
+          title: "OpenCode",
+          mark: {
+            view_box: "0 0 16 20",
+            paths: [
+              { d: "M12 16H4V8H12V16Z", opacity: 0.45 },
+              { d: "M12 4H4V16H12V4Z" },
+            ],
+          },
+        },
+        windows: [],
+      },
+      { provider: "pi", windows: [] },
+    ],
+  })
+  expect(
+    snapshot.providers.map(({ name, mark }) => ({
+      name,
+      mark,
+    })),
+  ).toEqual([
+    {
+      name: "Gemini",
+      mark: {
+        viewBox: "0 0 24 24",
+        paths: [{ d: "M12 0L24 12Z" }],
+      },
+    },
+    {
+      name: "Cursor",
+      mark: {
+        viewBox: "0 0 24 24",
+        paths: [
+          { d: "M12 2.5 20.5 7" },
+          { d: "M12 12V2.5" },
+        ],
+        strokeWidth: 1.6,
+      },
+    },
+    {
+      name: "OpenCode",
+      mark: {
+        viewBox: "0 0 16 20",
+        paths: [
+          { d: "M12 16H4V8H12V16Z", opacity: 0.45 },
+          { d: "M12 4H4V16H12V4Z" },
+        ],
+      },
+    },
+    { name: "Pi", mark: undefined },
+  ])
+})
+
+test("AI Usage drops a mark that does not fit the contract and keeps the usage", () => {
+  const snapshot = normalizeAiUsage({
+    providers: [
+      {
+        provider: "claude",
+        brand: {
+          title: "Claude",
+          mark: {
+            view_box: "0 0 16",
+            paths: [{ d: "M1 1Z" }],
+          },
+        },
+        windows: [
+          {
+            id: "weekly",
+            label: "Weekly",
+            percent_used: 40,
+          },
+        ],
+      },
+      {
+        provider: "codex",
+        brand: {
+          title: "Codex",
+          mark: { view_box: "0 0 16 16", paths: [] },
+        },
+        windows: [],
+      },
+      {
+        provider: "grok",
+        brand: {
+          title: "SpaceXAI",
+          mark: {
+            view_box: "0 0 16 16",
+            paths: [{ d: "M1 1Z", opacity: 2 }],
+          },
+        },
+        windows: [],
+      },
+    ],
+  })
+  expect(
+    snapshot.providers.map(({ mark }) => mark),
+  ).toEqual([undefined, undefined, undefined])
+  expect(snapshot.providers[0]).toMatchObject({
+    name: "Claude",
+    windows: [{ id: "weekly", percentUsed: 40 }],
+  })
 })

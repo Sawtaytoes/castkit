@@ -20,8 +20,9 @@ font = data_url(fonts / "outfit-1.woff2", "font/woff2")
 images = repository / "docs/images/ai-usage-readable-type"
 overview = data_url(images / "overview.png", "image/png")
 current = data_url(images / "claude-after.png", "image/png")
-icon_source = (repository / "packages/slatecast/src/platform/AiUsageProviderIcon.tsx").read_text()
-mark = re.search(r'claude:\s*"([^"]+)"', icon_source).group(1)
+# The producer sends each mark; the view's fixtures hold the Claude one it sends.
+icon_source = (repository / "packages/slatecast/src/platform/__fixtures__/aiUsageMarks.ts").read_text()
+mark = re.search(r'"claude":\s*\{[^}]*?"d":\s*"([^"]+)"', icon_source, re.S).group(1)
 
 html = """<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AI Usage proportions</title>
 <style>

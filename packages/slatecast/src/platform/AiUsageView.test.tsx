@@ -5,6 +5,7 @@ import {
 } from "@testing-library/preact"
 import userEvent from "@testing-library/user-event"
 import { afterEach, expect, test, vi } from "vitest"
+import { aiUsageMarks } from "./__fixtures__/aiUsageMarks.ts"
 import { AiUsageView } from "./AiUsageView.tsx"
 import { DisplayPropertiesContext } from "./displayProperties.ts"
 
@@ -19,6 +20,7 @@ const buildUsage = (sessionPercentUsed: number) => ({
     {
       id: "claude",
       name: "Claude",
+      mark: aiUsageMarks.claude,
       isOk: true,
       planText: "Max",
       windows: [
@@ -41,6 +43,7 @@ const buildUsage = (sessionPercentUsed: number) => ({
     {
       id: "codex",
       name: "Codex",
+      mark: aiUsageMarks.codex,
       isOk: true,
       windows: [
         {
@@ -320,6 +323,20 @@ test("a letterbox panel lays its providers out in columns and grows its type", (
     ].map((name) => ({
       id: name.toLowerCase().replace(" ", "_"),
       name,
+      /*
+       * Cursor is sent without a mark, so it draws none: the view has no
+       * logos of its own to fall back on.
+       */
+      ...(name === "Cursor"
+        ? {}
+        : {
+            mark: aiUsageMarks[
+              name.toLowerCase().split(" ")[0] as
+                | "claude"
+                | "codex"
+                | "grok"
+            ],
+          }),
       isOk: true,
       windows: [
         {
@@ -370,6 +387,7 @@ test("an unavailable provider keeps its row and says why", () => {
             {
               id: "cursor",
               name: "Cursor",
+              mark: aiUsageMarks.cursor,
               isOk: false,
               problemText: "Sign-in expired",
               windows: [

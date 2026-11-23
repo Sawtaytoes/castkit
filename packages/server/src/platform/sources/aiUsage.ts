@@ -1,4 +1,7 @@
-import type { ContractData } from "@castkit/sdk/contracts"
+import {
+  type ContractData,
+  usageMarkSchema,
+} from "@castkit/sdk/contracts"
 import type { SourceFactory } from "@castkit/sdk/plugin"
 import {
   finiteNumber,
@@ -9,20 +12,22 @@ import {
   textValue,
 } from "./http.ts"
 
-/** Product labels; account identity comes from the producer owner field. */
-const PROVIDER_TITLES: Record<string, string> = {
-  claude: "Claude",
-  claude_2: "Claude",
-  claude_3: "Claude",
-  codex: "Codex",
-  codex_2: "Codex Alt",
-  cursor: "Cursor",
-  grok: "SpaceXAI",
-}
-
-const getProviderTitle = (providerId: string) =>
-  PROVIDER_TITLES[providerId] ??
+/**
+ * The title a producer sends with its brand. CastKit keeps no table of
+ * products: the producer owns them. A producer that sends no brand gets the
+ * id in title case without its seat number, because `claude_3` is a third
+ * Claude account, not a model called "Claude 3".
+ */
+const getProviderTitle = ({
+  brand,
+  providerId,
+}: {
+  brand: Record<string, unknown>
+  providerId: string
+}) =>
+  optionalText(brand.title) ??
   providerId
+    .replace(/[_-]\d+$/, "")
     .split(/[_-]/)
     .filter((part) => part.length > 0)
     .map(
@@ -30,6 +35,32 @@ const getProviderTitle = (providerId: string) =>
         `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`,
     )
     .join(" ")
+
+/**
+ * The producer's mark for this provider, in the contract's shape. A mark that
+ * does not fit the contract is dropped rather than failing the whole update,
+ * so one bad logo never blanks the usage.
+ */
+const getProviderMark = (
+  brand: Record<string, unknown>,
+) => {
+  const mark = record(brand.mark)
+  const parsed = usageMarkSchema.safeParse({
+    viewBox: mark.view_box,
+    paths: Array.isArray(mark.paths)
+      ? mark.paths.map(record).map((path) => ({
+          d: path.d,
+          ...(path.opacity === undefined
+            ? {}
+            : { opacity: path.opacity }),
+        }))
+      : undefined,
+    ...(mark.stroke_width === undefined
+      ? {}
+      : { strokeWidth: mark.stroke_width }),
+  })
+  return parsed.success ? parsed.data : undefined
+}
 
 const optionalText = (value: unknown) =>
   typeof value === "string" && value ? value : undefined
@@ -175,6 +206,8 @@ export const normalizeAiUsage = (
       .map(record)
       .map((provider) => {
         const providerId = textValue(provider.provider)
+        const brand = record(provider.brand)
+        const mark = getProviderMark(brand)
         const windows = Array.isArray(provider.windows)
           ? provider.windows.map(record)
           : []
@@ -184,11 +217,12 @@ export const normalizeAiUsage = (
         return {
           id: providerId,
           name: [
-            getProviderTitle(providerId),
+            getProviderTitle({ brand, providerId }),
             optionalText(provider.owner),
           ]
             .filter(Boolean)
             .join(" "),
+          ...(mark ? { mark } : {}),
           isOk: provider.is_ok !== false,
           ...(optionalText(provider.plan)
             ? { planText: textValue(provider.plan) }

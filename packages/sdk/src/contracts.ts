@@ -232,9 +232,34 @@ const usageWindow = z.object({
    */
   periodHours: finiteNumber.positive().optional(),
 })
+/**
+ * A provider's product mark, sent by the producer with its usage so a view
+ * keeps no table of logos of its own. SVG path data in its own view box; the
+ * paths fill with the current color, or, when `strokeWidth` is set, draw as
+ * an outline with round caps and joins. `opacity` lets a two-tone mark draw
+ * in one color.
+ */
+export const usageMarkSchema = z.object({
+  viewBox: z
+    .string()
+    .regex(
+      /^-?\d+(\.\d+)? -?\d+(\.\d+)? \d+(\.\d+)? \d+(\.\d+)?$/,
+    ),
+  paths: z
+    .array(
+      z.object({
+        d: z.string().min(1),
+        opacity: finiteNumber.min(0).max(1).optional(),
+      }),
+    )
+    .min(1),
+  strokeWidth: finiteNumber.positive().optional(),
+})
 const usageProvider = z.object({
   id: z.string(),
   name: z.string(),
+  /** Absent when the producer sends none; the view then draws no mark. */
+  mark: usageMarkSchema.optional(),
   windows: z.array(usageWindow),
   isOk: z.boolean(),
   planText: z.string().optional(),
