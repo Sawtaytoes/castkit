@@ -509,11 +509,40 @@ test("AI Usage drops a mark that does not fit the contract and keeps the usage",
         },
         windows: [],
       },
+      {
+        provider: "cursor",
+        brand: {
+          title: "Cursor",
+          mark: {
+            view_box: "0 0 24 0",
+            paths: [{ d: "M1 1Z" }],
+          },
+        },
+        windows: [],
+      },
+      {
+        provider: "opencode",
+        brand: {
+          title: "OpenCode",
+          mark: {
+            view_box: "-1.5 -2 16.5 20",
+            paths: [{ d: "M1 1Z" }],
+          },
+        },
+        windows: [],
+      },
     ],
   })
+  /* A zero-size view box draws nothing; a negative origin and decimal sizes are fine. */
   expect(
     snapshot.providers.map(({ mark }) => mark),
-  ).toEqual([undefined, undefined, undefined])
+  ).toEqual([
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    { viewBox: "-1.5 -2 16.5 20", paths: [{ d: "M1 1Z" }] },
+  ])
   expect(snapshot.providers[0]).toMatchObject({
     name: "Claude",
     windows: [{ id: "weekly", percentUsed: 40 }],

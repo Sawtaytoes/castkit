@@ -22,7 +22,9 @@ mark?: {
 The AI Usage source reads the producer's `brand` on each provider
 (`brand.title`, and `brand.mark` with `view_box`, `paths`, and `stroke_width`).
 It uses `brand.title` as the product name, before the owner subtag. A mark
-that does not fit the contract is dropped, and the provider's usage is kept.
+that does not fit the contract (including a zero width or height) is dropped
+at the contract itself, so the provider's usage is kept however the snapshot
+arrives: from the AI Usage source, over MQTT in either shape, or from a plugin.
 A producer that sends no brand gets the provider id in title case, without its
 seat number (`claude_3` reads "Claude"), and no mark.
 

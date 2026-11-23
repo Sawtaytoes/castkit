@@ -240,10 +240,17 @@ const usageWindow = z.object({
  * in one color.
  */
 export const usageMarkSchema = z.object({
+  /** "minX minY width height"; a zero width or height would draw nothing. */
   viewBox: z
     .string()
     .regex(
       /^-?\d+(\.\d+)? -?\d+(\.\d+)? \d+(\.\d+)? \d+(\.\d+)?$/,
+    )
+    .refine((viewBox) =>
+      viewBox
+        .split(" ")
+        .slice(2)
+        .every((size) => Number(size) > 0),
     ),
   paths: z
     .array(
@@ -258,8 +265,13 @@ export const usageMarkSchema = z.object({
 const usageProvider = z.object({
   id: z.string(),
   name: z.string(),
-  /** Absent when the producer sends none; the view then draws no mark. */
-  mark: usageMarkSchema.optional(),
+  /**
+   * Absent when the producer sends none; the view then draws no mark. A mark
+   * that does not fit is dropped here, at the contract, so one bad logo never
+   * rejects the update or loses the usage beside it, whichever way the
+   * snapshot arrives.
+   */
+  mark: usageMarkSchema.optional().catch(undefined),
   windows: z.array(usageWindow),
   isOk: z.boolean(),
   planText: z.string().optional(),
