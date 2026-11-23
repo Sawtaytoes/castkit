@@ -302,7 +302,7 @@ const ProviderDetails = ({
             />
           </button>
           <div class="ai-usage-details-title">
-            <AiUsageProviderIcon providerId={provider.id} />
+            <AiUsageProviderIcon mark={provider.mark} />
             <h2>{provider.name}</h2>
           </div>
         </header>
@@ -554,7 +554,7 @@ export const AiUsageView = ({
                 ) : null}
                 <div class="ai-usage-provider-head">
                   <AiUsageProviderIcon
-                    providerId={provider.id}
+                    mark={provider.mark}
                   />
                   <h3>{provider.name}</h3>
                   <UsagePercent

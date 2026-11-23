@@ -4,7 +4,7 @@
 - **Date:** 2026-10-05
 - **Type:** View presentation
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [2026-11-22 — AI Usage marks and titles come from the producer](2026-11-22-ai-usage-marks-and-titles-come-from-the-producer.md), in part: the marks now come from the producer, not from CastKit.
 
 ## Decision
 
