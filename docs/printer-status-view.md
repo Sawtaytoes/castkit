@@ -349,9 +349,16 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    grid stacks the picture above the facts and needs 836 px, so the picture is
    never squeezed away. Every cutoff measures the view's **content box**:
    its width less its own padding, the box its container queries see. On a
-   square panel the padding is 52 px, so the view widths in brackets below
-   are the same cutoffs; a round panel pads its view to the square inside
-   the circle, so its view folds at a wider outer width. The quad needs
+   square panel the padding is 52 px across and 36 px down, so the view
+   widths in brackets below are the same cutoffs. On a square touch panel,
+   four printers and up pad 32 px at the sides and 24 px at the top and
+   bottom instead, so no control lies under the shell's undrawn navigation
+   edges ([decision](decisions/2026-10-06-touch-navigation-uses-undrawn-edges.md)):
+   there each cutoff is a view 12 px wider or taller, such as a 664 px
+   view for the quad, and a narrow row keeps to that padding. The padding
+   follows the printer count, never the arrangement, so the arrangement it
+   measures cannot change it. A round panel pads its view to the square
+   inside the circle, so its view folds at a wider outer width. The quad needs
    600 px of content (652 px view), and puts its picture beside the facts
    from 1132 px (1184 px view). A turned panel folds for the width it has.
    A row with 1048 px of content or less (1100 px view) drops the three fact

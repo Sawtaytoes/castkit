@@ -287,6 +287,12 @@ export const installTouchPointerFallback = () => {
       return
     }
     handledTouchEvents.add(event)
+    /*
+     * One event clicks one control at most. An event that ends two
+     * contacts would otherwise click both before the view draws what the
+     * first opened, such as two dialogs at once.
+     */
+    const tap = { hasClicked: false }
     Array.from(event.changedTouches).forEach((touch) => {
       if (!(touch.target instanceof Element)) {
         return
@@ -358,7 +364,10 @@ export const installTouchPointerFallback = () => {
                 ],
               })
             : null
-        button?.click()
+        if (button && !tap.hasClicked) {
+          tap.hasClicked = true
+          button.click()
+        }
       }
     })
   }

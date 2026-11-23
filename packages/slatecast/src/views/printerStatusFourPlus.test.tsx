@@ -68,29 +68,32 @@ const PANELS = [
   /*
    * Both sides of every cutoff: the 760 px and 1100 px row widths, the
    * height a 2×2 grid needs, the width that puts its picture beside the
-   * facts, and the sizes an earlier review found clipped.
+   * facts, and the sizes an earlier review found clipped. On a touch panel
+   * four printers and up pad 32 px sides and 24 px top and bottom, clear of
+   * the navigation edges, so each sits 12 px wider and taller than it
+   * would with the view's usual 26 px and 18 px.
    */
-  ["the 759x700 window", { width: 759, height: 700 }],
-  ["the 761x700 window", { width: 761, height: 700 }],
-  ["the 601x470 window", { width: 601, height: 470 }],
-  ["the 650x620 window", { width: 650, height: 620 }],
-  ["the 650x890 window", { width: 650, height: 890 }],
-  ["the 1099x700 window", { width: 1099, height: 700 }],
-  ["the 1101x700 window", { width: 1101, height: 700 }],
-  ["the 1183x720 window", { width: 1183, height: 720 }],
-  ["the 1184x720 window", { width: 1184, height: 720 }],
-  ["the 1200x596 window", { width: 1200, height: 596 }],
-  ["the 1200x659 window", { width: 1200, height: 659 }],
-  ["the 1200x660 window", { width: 1200, height: 660 }],
+  ["the 771x712 window", { width: 771, height: 712 }],
+  ["the 773x712 window", { width: 773, height: 712 }],
+  ["the 613x482 window", { width: 613, height: 482 }],
+  ["the 662x632 window", { width: 662, height: 632 }],
+  ["the 662x902 window", { width: 662, height: 902 }],
+  ["the 1111x712 window", { width: 1111, height: 712 }],
+  ["the 1113x712 window", { width: 1113, height: 712 }],
+  ["the 1195x732 window", { width: 1195, height: 732 }],
+  ["the 1196x732 window", { width: 1196, height: 732 }],
+  ["the 1212x608 window", { width: 1212, height: 608 }],
+  ["the 1212x671 window", { width: 1212, height: 671 }],
+  ["the 1212x672 window", { width: 1212, height: 672 }],
   /*
-   * A stacked grid's pictures: 700x660 once drew them 0 px tall. The
-   * stacked grid starts at a 872 px window. 640x900 once switched between
+   * A stacked grid's pictures: 712x672 once drew them 0 px tall. The
+   * stacked grid starts at a 884 px window. 652x912 once switched between
    * the grid and rows on every frame.
    */
-  ["the 700x660 window", { width: 700, height: 660 }],
-  ["the 720x871 window", { width: 720, height: 871 }],
-  ["the 720x872 window", { width: 720, height: 872 }],
-  ["the 640x900 window", { width: 640, height: 900 }],
+  ["the 712x672 window", { width: 712, height: 672 }],
+  ["the 732x883 window", { width: 732, height: 883 }],
+  ["the 732x884 window", { width: 732, height: 884 }],
+  ["the 652x912 window", { width: 652, height: 912 }],
   ["the 320x824 phone", { width: 320, height: 824 }],
 ] as const
 
@@ -187,6 +190,7 @@ const mountOnPanel = async ({
   repaint = "instant",
   shape = "square",
   orientation = 0,
+  hasViewDrawer = false,
 }: {
   width: number
   height: number
@@ -194,6 +198,8 @@ const mountOnPanel = async ({
   repaint?: "instant" | "slow"
   shape?: "square" | "round"
   orientation?: 0 | 90 | 180 | 270
+  /** A drawer of two views, with its handles at either side. */
+  hasViewDrawer?: boolean
 }) => {
   __setPrinterPendingForStories(PENDING)
   await page.viewport(width, height)
@@ -204,6 +210,7 @@ const mountOnPanel = async ({
         width,
         height,
         hasTouch: true,
+        hasViewDrawer,
         repaint,
         shape,
         views: [
@@ -211,6 +218,9 @@ const mountOnPanel = async ({
             name: "Printer Status",
             clientId: "printer-status",
           },
+          ...(hasViewDrawer
+            ? [{ name: "Clock", clientId: "clock" }]
+            : []),
         ],
       }),
       settings: buildSettings({ orientation }),
@@ -742,8 +752,46 @@ const findLayoutProblems = () => {
     ...stripProblems,
     ...chipProblems,
     ...roundProblems,
+    ...findCoveredControls(),
   ]
 }
+
+/**
+ * Every drawn control a tap anywhere on it reaches: just inside the middle
+ * of each side and at its center, what lies on top is the control or a
+ * part of it, not a navigation edge or another control. Not the corners,
+ * which a rounded control leaves to what is under it. A hit test, so a turned or round
+ * stage needs nothing of its own.
+ */
+const findCoveredControls = () =>
+  drawnWithin(
+    document.body,
+    ".printer-status button, .printer-status a",
+  ).flatMap((control) => {
+    const box = control.getBoundingClientRect()
+    // Words kept only for assistive tech sit in a 1 px box on purpose.
+    if (box.width <= 4 || box.height <= 4) {
+      return []
+    }
+    const inset = 1.5
+    const centerX = (box.left + box.right) / 2
+    const centerY = (box.top + box.bottom) / 2
+    const points = [
+      { x: centerX, y: box.top + inset },
+      { x: centerX, y: box.bottom - inset },
+      { x: box.left + inset, y: centerY },
+      { x: box.right - inset, y: centerY },
+      { x: centerX, y: centerY },
+    ]
+    return points.flatMap(({ x, y }) => {
+      const hit = document.elementFromPoint(x, y)
+      return hit && !control.contains(hit)
+        ? [
+            `a tap at ${Math.round(x)}, ${Math.round(y)} on ${control.className} lands on ${hit.getAttribute("data-castkit-target") ?? hit.className}`,
+          ]
+        : []
+    })
+  })
 
 const drawnPrinterNames = () =>
   Array.from(
@@ -2134,7 +2182,7 @@ const LONG_FILAMENT =
 
 describe("a long filament name", () => {
   test.each([
-    { width: 652, height: 872, count: 4 },
+    { width: 664, height: 884, count: 4 },
     { width: 1280, height: 720, count: 4 },
     { width: 1280, height: 720, count: 7 },
     { width: 761, height: 900, count: 5 },
@@ -2198,8 +2246,8 @@ describe("a summary-only filament feed", () => {
     const summary = `${LONG_FILAMENT} · AMS 1, slot 1`
     const [first, ...rest] = buildPrinters(4)
     await mountOnPanel({
-      width: 652,
-      height: 872,
+      width: 664,
+      height: 884,
       printers: [
         {
           ...first,
@@ -2271,8 +2319,9 @@ describe("a summary-only filament feed", () => {
 describe("long printer names in the strip", () => {
   test("a hidden failed printer's chip still says Failed", async () => {
     await mountOnPanel({
-      width: 353,
-      height: 350,
+      // A 329 px strip: one Failed chip with a long name just fits.
+      width: 393,
+      height: 362,
       // Every printer the panel hides has failed, so the first chip is one.
       printers: buildPrinters(12).map((printer, index) => ({
         ...printer,
@@ -2317,8 +2366,8 @@ describe("a slot list without the active material's name", () => {
     const summary = `${LONG_FILAMENT} · AMS 1, slot 1`
     const [first, ...rest] = buildPrinters(4)
     await mountOnPanel({
-      width: 652,
-      height: 872,
+      width: 664,
+      height: 884,
       printers: [
         {
           ...first,
@@ -2892,8 +2941,8 @@ const areFactsDrawn = () => {
 
 describe("when a row draws its facts", () => {
   test.each([
-    { width: 1099, height: 700, isDrawn: false },
-    { width: 1101, height: 700, isDrawn: true },
+    { width: 1111, height: 712, isDrawn: false },
+    { width: 1113, height: 712, isDrawn: true },
     { width: 1280, height: 720, isDrawn: true },
   ] as const)("$width x $height: the facts are drawn is $isDrawn", async ({
     width,
@@ -2943,7 +2992,7 @@ describe("when a row draws its facts", () => {
 describe("a long fault in the 2×2 grid", () => {
   test.each([
     { width: 1280, height: 720 },
-    { width: 652, height: 872 },
+    { width: 664, height: 884 },
   ] as const)("shows two whole lines and no third on a $width x $height panel", async ({
     width,
     height,
@@ -3037,14 +3086,14 @@ describe("the end time in the 2×2 grid", () => {
     "Outfit",
     "a fallback font",
     "a wider font",
-  ] as const)("shows whole or not at all on a 652 x 872 panel in %s", async (font) => {
+  ] as const)("shows whole or not at all on a 664 x 884 panel in %s", async (font) => {
     useTestFont(font)
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     yesterday.setHours(10, 58, 0, 0)
     await mountOnPanel({
-      width: 652,
-      height: 872,
+      width: 664,
+      height: 884,
       printers: [
         {
           ...buildLateFailure(),
@@ -3887,8 +3936,8 @@ describe("a pending button in the 2×2 grid", () => {
   )("in %s, keeps Resuming… inside its button", async (font) => {
     useTestFont(font)
     const problems = await sweepWidths({
-      widths: [601, 652, 700, 900, 1183, 1184, 1280],
-      height: 872,
+      widths: [613, 664, 712, 912, 1195, 1196, 1292],
+      height: 884,
       printers: buildPrinters(4),
       findProblems: () => [
         ...findCutWords(
@@ -4094,10 +4143,10 @@ describe("Layer and Finishes in a narrow 2×2 card", () => {
     const [first, ...rest] = buildPrinters(4)
     const problems = await sweepWidths({
       widths: [
-        601, 640, 652, 670, 700, 800, 1000, 1183, 1184,
-        1280,
+        613, 652, 664, 682, 712, 812, 1012, 1195, 1196,
+        1292,
       ],
-      height: 872,
+      height: 884,
       printers: [
         {
           ...first,
@@ -4726,8 +4775,8 @@ describe("a tap on the strip through a live update", () => {
       percent: 0,
     }))
     const { server } = await mountOnPanel({
-      width: 240,
-      height: 824,
+      width: 252,
+      height: 836,
       printers,
     })
     const strip = document.querySelector<HTMLButtonElement>(
@@ -5018,8 +5067,8 @@ describe("the adapter's listeners on a pressed element", () => {
       percent: 0,
     }))
     const { server } = await mountOnPanel({
-      width: 240,
-      height: 824,
+      width: 252,
+      height: 836,
       printers,
     })
     const strip = document.querySelector<HTMLElement>(
@@ -5054,5 +5103,139 @@ describe("the adapter's listeners on a pressed element", () => {
     expect(
       removed.mock.calls.map(([type]) => type).sort(),
     ).toEqual(["touchcancel", "touchend", "touchmove"])
+  })
+})
+
+describe("the touch panel's navigation edges", () => {
+  test.each([
+    {
+      name: "Printer 1's Stop, by the view drawer's right handle at 384x824",
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      selector: '[data-focus-key="printer-stop:printer-1"]',
+      question: "Stop this print?",
+    },
+    {
+      name: "the strip, by the bottom swipe edge at 1280x720",
+      width: 1280,
+      height: 720,
+      hasViewDrawer: false,
+      selector: ".printer-overflow",
+      question: "2 more printers",
+    },
+  ])("leave every part of $name to the control", async ({
+    width,
+    height,
+    hasViewDrawer,
+    selector,
+    question,
+  }) => {
+    await mountOnPanel({
+      width,
+      height,
+      hasViewDrawer,
+      printers: buildPrinters(11),
+    })
+    const control =
+      document.querySelector<HTMLElement>(selector)
+    if (!control) {
+      throw new Error(
+        `Eleven printers drew no ${selector}.`,
+      )
+    }
+    const box = control.getBoundingClientRect()
+    // A finger 4 px inside the control's outer side, or its foot.
+    const point =
+      selector === ".printer-overflow"
+        ? {
+            x: (box.left + box.right) / 2,
+            y: box.bottom - 3,
+          }
+        : {
+            x: box.right - 4,
+            y: (box.top + box.bottom) / 2,
+          }
+
+    expect(findCoveredControls()).toEqual([])
+    expect(
+      control.contains(
+        document.elementFromPoint(point.x, point.y),
+      ),
+    ).toBe(true)
+    dragWithAdapter({ from: point, to: point })
+    await expect
+      .element(page.getByRole("dialog"))
+      .toHaveTextContent(question)
+  })
+})
+
+describe("one touch event that ends two contacts", () => {
+  test("opens one dialog, not two", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildPrinters(11),
+    })
+    const stop = document.querySelector<HTMLElement>(
+      '[data-focus-key="printer-stop:printer-1"]',
+    )
+    const strip = document.querySelector<HTMLElement>(
+      ".printer-overflow",
+    )
+    if (!stop || !strip) {
+      throw new Error(
+        "Eleven printers drew no Stop or no strip.",
+      )
+    }
+    onTestFinished(installTouchPointerFallback())
+    const contacts = [stop, strip].map((control, index) => {
+      const { clientX, clientY } = findPointOn(control)
+      const target = document.elementFromPoint(
+        clientX,
+        clientY,
+      )
+      if (!target) {
+        throw new Error("Nothing lies under a finger.")
+      }
+      const pointer = {
+        bubbles: true,
+        pointerId: 2 + index,
+        pointerType: "touch",
+        isPrimary: index === 0,
+        clientX,
+        clientY,
+      }
+      const touch = new Touch({
+        identifier: 7 + index,
+        target,
+        clientX,
+        clientY,
+      })
+      target.dispatchEvent(
+        new PointerEvent("pointerdown", pointer),
+      )
+      target.dispatchEvent(
+        new TouchEvent("touchstart", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: [touch],
+        }),
+      )
+      return touch
+    })
+    document.dispatchEvent(
+      new TouchEvent("touchend", {
+        bubbles: true,
+        cancelable: true,
+        changedTouches: contacts,
+      }),
+    )
+    await nextFrame()
+    await nextFrame()
+
+    expect(
+      document.querySelectorAll('[aria-modal="true"]'),
+    ).toHaveLength(1)
   })
 })

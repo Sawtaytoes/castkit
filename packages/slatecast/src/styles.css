@@ -3520,8 +3520,8 @@ html[data-grayscale-text="true"] {
 /*
  * A narrower view drops the three facts first; the band, the plate and the
  * controls are what a person at the bench reads and touches. The view sets
- * `data-is-folded` at 1048 px of content or less (its width less its 26 px
- * sides), and at any width where a drawn row would cut its state word: no
+ * `data-is-folded` at 1048 px of content or less (its width less its sides:
+ * 26 px, or 32 px for four printers and up on a touch panel), and at any width where a drawn row would cut its state word: no
  * fixed width holds the widest facts in every fallback font. `:where` keeps
  * these rules no stronger than the narrower steps below. The details dialog
  * gives what a row drops.
@@ -3815,6 +3815,39 @@ html[data-grayscale-text="true"] {
   .printer-metric:not(.is-filament)
   dd {
   font-size: min(15px, 100cqi / 9.5);
+}
+
+/*
+ * On a touch panel the shell's undrawn navigation edges lie over the
+ * stage's outer 24 px at the top and bottom, 24 px on the right for a swipe
+ * view, and 32 px at either side for the view drawer or a held view
+ * (`.view-swipe-edge`, `.view-edge-handle`). They turn with the stage, so
+ * they lie on the view's own sides. Four printers and up fill the view to
+ * its padding, so there the view pads 24 px and 32 px, and a narrow row
+ * does not reach into the side: a tap on any control reaches the control,
+ * not an edge. The padding follows the printer count, never the
+ * arrangement, so the arrangement it measures cannot change it. A round
+ * panel already keeps these to the square inside its circle.
+ */
+.stage:not(.touchless, .shape-round)
+.printer-status:not(
+  [data-count="0"],
+  [data-count="1"],
+  [data-count="2"],
+  [data-count="3"]
+) {
+  padding: 24px 32px;
+}
+
+.stage:not(.touchless, .shape-round)
+  .printer-status:not(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-cards {
+  margin-inline: 0;
 }
 
 .printer-empty {
