@@ -4636,24 +4636,35 @@ describe("a control that comes back", () => {
  * A finger pressed through the WebKit touch adapter, held still, to be
  * lifted later: after a live update, say.
  */
-const pressWithAdapter = (point: {
-  x: number
-  y: number
-}) => {
-  onTestFinished(installTouchPointerFallback())
+const pressWithAdapter = (
+  point: {
+    x: number
+    y: number
+  },
+  {
+    finger = 0,
+  }: {
+    // Fingers after the first share the first one's adapter.
+    finger?: number
+  } = {},
+) => {
+  if (finger === 0) {
+    onTestFinished(installTouchPointerFallback())
+  }
   const target = document.elementFromPoint(point.x, point.y)
   if (!target) {
     throw new Error("Nothing lies under the finger.")
   }
   const pointer = {
     bubbles: true,
-    pointerId: 2,
+    pointerId: 2 + finger,
     pointerType: "touch",
+    isPrimary: finger === 0,
     clientX: point.x,
     clientY: point.y,
   }
   const touch = new Touch({
-    identifier: 7,
+    identifier: 7 + finger,
     target,
     clientX: point.x,
     clientY: point.y,
@@ -4670,6 +4681,15 @@ const pressWithAdapter = (point: {
   )
   return {
     target,
+    cancel: () => {
+      target.dispatchEvent(
+        new TouchEvent("touchcancel", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: [touch],
+        }),
+      )
+    },
     /*
      * As WPE WebKit does, the end of a touch goes to the element it began
      * on, even once a live update has removed that element. Other engines
@@ -4941,5 +4961,98 @@ describe("a held Pause through a live update", () => {
     await expect
       .element(page.getByRole("dialog"))
       .toHaveTextContent("Pause this print?")
+  })
+})
+
+describe("two fingers on Stop and the strip", () => {
+  test("the strip's release does not open its list over the Stop question", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildPrinters(11),
+    })
+    const stop = document.querySelector<HTMLElement>(
+      '[data-focus-key="printer-stop:printer-1"]',
+    )
+    const strip = document.querySelector<HTMLElement>(
+      ".printer-overflow",
+    )
+    if (!stop || !strip) {
+      throw new Error(
+        "Eleven printers drew no Stop or no strip.",
+      )
+    }
+    const stopPoint = findPointOn(stop)
+    const stripPoint = findPointOn(strip)
+    const onStop = pressWithAdapter({
+      x: stopPoint.clientX,
+      y: stopPoint.clientY,
+    })
+    const onStrip = pressWithAdapter(
+      { x: stripPoint.clientX, y: stripPoint.clientY },
+      { finger: 1 },
+    )
+    onStop.lift()
+    await expect
+      .element(page.getByRole("dialog"))
+      .toHaveTextContent("Stop this print?")
+    onStrip.lift()
+    await nextFrame()
+    await nextFrame()
+
+    expect(
+      document.querySelectorAll('[aria-modal="true"]'),
+    ).toHaveLength(1)
+    expect(
+      page.getByRole("dialog").element(),
+    ).toHaveTextContent("Stop this print?")
+  })
+})
+
+describe("the adapter's listeners on a pressed element", () => {
+  test("in a much wider font, go once a touch on a strip that a refresh removed is cancelled", async () => {
+    useTestFont("a much wider font")
+    const printers = buildPrinters(5).map((printer) => ({
+      ...printer,
+      state: "preparing" as const,
+      percent: 0,
+    }))
+    const { server } = await mountOnPanel({
+      width: 240,
+      height: 824,
+      printers,
+    })
+    const strip = document.querySelector<HTMLElement>(
+      ".printer-overflow",
+    )
+    expect(strip).toHaveTextContent("5 printers")
+    if (!strip) {
+      throw new Error("Five printers drew no strip.")
+    }
+    const { clientX, clientY } = findPointOn(strip)
+    const target = document.elementFromPoint(
+      clientX,
+      clientY,
+    )
+    if (!target) {
+      throw new Error("Nothing lies under the finger.")
+    }
+    const removed = vi.spyOn(target, "removeEventListener")
+    const finger = pressWithAdapter({
+      x: clientX,
+      y: clientY,
+    })
+    server.push({
+      type: "printers",
+      data: { printers: structuredClone(printers) },
+    })
+    await nextFrame()
+    await nextFrame()
+    expect(target.isConnected).toBe(false)
+    finger.cancel()
+
+    expect(
+      removed.mock.calls.map(([type]) => type).sort(),
+    ).toEqual(["touchcancel", "touchend", "touchmove"])
   })
 })

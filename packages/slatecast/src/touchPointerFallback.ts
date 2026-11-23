@@ -42,43 +42,42 @@ const isSameControl = (
 
 /**
  * The control a tap ends on: the one pressed, if it still does what it did
- * when pressed. A live update can draw the pressed control again as a new
- * element between press and release; the tap then belongs to the new one,
- * but only if it lies under the finger and carries the same
+ * when pressed and nothing has come over it. A live update can draw the
+ * pressed control again as a new element between press and release; the
+ * tap then belongs to the new one, but only if it carries the same
  * `data-focus-key` and the same `data-castkit-target`, so a tap never
  * lands on a different control, or on Resume after a press on Pause.
+ * Either way the control must be what lies on top where the finger
+ * pressed or lifted: a dialog that another finger opened meanwhile covers
+ * it, as it would a mouse.
  */
 const findTappedControl = ({
   control,
   identity,
-  clientX,
-  clientY,
+  points,
 }: {
   control: Element | null
   identity: ControlIdentity
-  clientX: number
-  clientY: number
+  points: readonly { x: number; y: number }[]
 }) => {
   if (!(control instanceof HTMLElement)) {
     return null
   }
-  if (control.isConnected) {
-    return isSameControl(
-      identity,
-      getControlIdentity(control),
-    )
+  const controlsOnTop = points.map(({ x, y }) =>
+    document.elementFromPoint(x, y)?.closest("button, a"),
+  )
+  const tapped = control.isConnected
+    ? controlsOnTop.includes(control)
       ? control
       : null
-  }
-  if (!identity.focusKey) {
-    return null
-  }
-  const replacement = document
-    .elementFromPoint(clientX, clientY)
-    ?.closest("button, a")
-  return replacement instanceof HTMLElement &&
-    isSameControl(identity, getControlIdentity(replacement))
-    ? replacement
+    : identity.focusKey
+      ? controlsOnTop.find(
+          (candidate) => candidate instanceof HTMLElement,
+        )
+      : null
+  return tapped instanceof HTMLElement &&
+    isSameControl(identity, getControlIdentity(tapped))
+    ? tapped
     : null
 }
 
@@ -245,6 +244,38 @@ export const installTouchPointerFallback = () => {
     replayed.add(event)
     contact.target.dispatchEvent(event)
   }
+  /*
+   * WPE WebKit sends a touch's later events to the element it began on,
+   * even once a live update removes that element, and a removed element's
+   * events never reach the document. So the element the touch began on is
+   * listened to as well, until its last touch ends.
+   */
+  const laterTouchTypes = [
+    "touchmove",
+    "touchend",
+    "touchcancel",
+  ] as const
+  const listenOnTarget = (target: Element) => {
+    laterTouchTypes.forEach((type) => {
+      target.addEventListener(type, handleTouch, {
+        capture: true,
+        passive: false,
+      })
+    })
+  }
+  const stopListeningOnTarget = (target: Element) => {
+    const isStillTouched = Array.from(
+      contacts.values(),
+    ).some((contact) => contact.target === target)
+    if (isStillTouched) {
+      return
+    }
+    laterTouchTypes.forEach((type) => {
+      target.removeEventListener(type, handleTouch, {
+        capture: true,
+      })
+    })
+  }
   // A touch event can reach two listeners below; it is handled once.
   const handledTouchEvents = new WeakSet<Event>()
   const handleTouch = (event: Event) => {
@@ -283,20 +314,7 @@ export const installTouchPointerFallback = () => {
             getNativeRange(touch.target)?.value ?? null,
         }
         contacts.set(touch.identifier, contact)
-        /*
-         * WPE WebKit sends a touch's later events to the element it
-         * began on, even once a live update removes that element, and
-         * a removed element's events never reach the document.
-         */
-        ;["touchmove", "touchend", "touchcancel"].forEach(
-          (laterType) => {
-            touch.target.addEventListener(
-              laterType,
-              handleTouch,
-              options,
-            )
-          },
-        )
+        listenOnTarget(touch.target)
         event.preventDefault()
         dispatch({
           contact,
@@ -328,13 +346,16 @@ export const installTouchPointerFallback = () => {
       if (type !== "touchmove") {
         contacts.delete(touch.identifier)
         pointerIds.delete(contact.pointerId)
+        stopListeningOnTarget(contact.target)
         const button =
           type === "touchend" && !contact.hasMoved
             ? findTappedControl({
                 control: contact.control,
                 identity: contact.controlIdentity,
-                clientX: touch.clientX,
-                clientY: touch.clientY,
+                points: [
+                  { x: touch.clientX, y: touch.clientY },
+                  { x: contact.startX, y: contact.startY },
+                ],
               })
             : null
         button?.click()
@@ -349,5 +370,14 @@ export const installTouchPointerFallback = () => {
   ].forEach((type) => {
     document.addEventListener(type, handleTouch, options)
   })
-  return () => lifetime.abort()
+  return () => {
+    const touchedTargets = new Set(
+      Array.from(contacts.values()).map(
+        (contact) => contact.target,
+      ),
+    )
+    contacts.clear()
+    touchedTargets.forEach(stopListeningOnTarget)
+    lifetime.abort()
+  }
 }
