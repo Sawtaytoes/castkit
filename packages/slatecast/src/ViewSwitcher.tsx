@@ -306,7 +306,9 @@ export const ViewSwitcher = () => {
                   }
                   onClick={() => requestView(view.clientId)}
                 >
-                  {view.name}
+                  <span class="view-drawer-option-name">
+                    {view.name}
+                  </span>
                 </button>
               ))}
             </div>

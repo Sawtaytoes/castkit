@@ -5500,14 +5500,30 @@ describe("the Views drawer over a question", () => {
     ).toEqual([])
   })
 
-  test.each([
-    false,
-    true,
-  ])("on a 480 px round panel, held %s, Tab stops every drawer option on the glass", async (isViewHeld) => {
+  test.each(
+    ([240, 289, 320, 480] as const).flatMap((size) =>
+      ([0, 90] as const).flatMap((orientation) =>
+        (["left", "right"] as const).flatMap((edge) =>
+          [false, true].map((isViewHeld) => ({
+            size,
+            orientation,
+            edge,
+            isViewHeld,
+          })),
+        ),
+      ),
+    ),
+  )("on a $size px round panel ($orientation°), the $edge drawer, held $isViewHeld, stops Tab and Shift+Tab on the glass", async ({
+    size,
+    orientation,
+    edge,
+    isViewHeld,
+  }) => {
     await mountOnPanel({
-      width: 480,
-      height: 480,
+      width: size,
+      height: size,
       shape: "round",
+      orientation,
       isViewHeld,
       hasViewDrawer: true,
       extraViews: [
@@ -5526,7 +5542,7 @@ describe("the Views drawer over a question", () => {
     })
     document
       .querySelector<HTMLElement>(
-        ".view-edge-handle.is-left",
+        `.view-edge-handle.is-${edge}`,
       )
       ?.click()
     await expect
@@ -5545,18 +5561,13 @@ describe("the Views drawer over a question", () => {
       ".view-drawer-option",
     )
     const offGlass: string[] = []
-    for (
-      let press = 0;
-      press < options.length;
-      press += 1
-    ) {
-      await userEvent.tab()
+    const checkFocused = async (direction: string) => {
       await nextFrame()
       const focused = document.activeElement
       if (
         !focused?.classList.contains("view-drawer-option")
       ) {
-        continue
+        return
       }
       const box = focused.getBoundingClientRect()
       const isOnGlass = [
@@ -5570,8 +5581,26 @@ describe("the Views drawer over a question", () => {
           radius + 1,
       )
       if (!isOnGlass) {
-        offGlass.push(focused.textContent ?? "")
+        offGlass.push(
+          `${direction} ${(focused.textContent ?? "").slice(0, 20)}`,
+        )
       }
+    }
+    for (
+      let press = 0;
+      press < options.length;
+      press += 1
+    ) {
+      await userEvent.tab()
+      await checkFocused("Tab")
+    }
+    for (
+      let press = 0;
+      press < options.length;
+      press += 1
+    ) {
+      await userEvent.tab({ shift: true })
+      await checkFocused("Shift+Tab")
     }
     expect(offGlass).toEqual([])
   })
@@ -5655,6 +5684,31 @@ describe("a dialog on a touch panel's navigation edges", () => {
     expect(
       findCoveredControls(
         '[aria-modal="true"] button, [aria-modal="true"] a',
+      ),
+    ).toEqual([])
+    /*
+     * The shell's edges stay above the dialog, so a tap there still works.
+     * Where two edges overlap, as the hand-back edge over the drawer's
+     * handle, the shell decides which takes the tap.
+     */
+    const EDGE_SELECTOR =
+      ".view-edge-handle, .view-swipe-edge, .hand-back-edge"
+    expect(
+      drawnWithin(document.body, EDGE_SELECTOR).flatMap(
+        (edge) => {
+          const box = edge.getBoundingClientRect()
+          const centerX = (box.left + box.right) / 2
+          const centerY = (box.top + box.bottom) / 2
+          const hit = document.elementFromPoint(
+            centerX,
+            centerY,
+          )
+          return hit?.closest(EDGE_SELECTOR)
+            ? []
+            : [
+                `a tap at ${Math.round(centerX)}, ${Math.round(centerY)} on ${edge.className} lands on ${hit?.className}`,
+              ]
+        },
       ),
     ).toEqual([])
   })

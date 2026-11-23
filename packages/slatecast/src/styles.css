@@ -380,6 +380,19 @@ html[data-grayscale-text="true"] {
   overflow-wrap: anywhere;
 }
 
+/*
+ * At most three lines, so an option is never taller than a small round
+ * panel's square: focus could not scroll it whole onto the glass. The whole
+ * name stays the button's name for assistive tech.
+ */
+.view-drawer-option-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
 .view-drawer-option[aria-pressed="true"] {
   border-color: var(--accent);
   background: color-mix(
@@ -2523,9 +2536,14 @@ html[data-grayscale-text="true"] {
   white-space: nowrap;
 }
 
+/*
+ * Above the view, but under the shell's undrawn navigation edges (19 to
+ * 30), so a tap or pull at an edge still opens Views, swipes, or ends a
+ * hold while a list is open, as it does over the Pause and Stop question.
+ */
 .filament-details-dialog {
   position: fixed;
-  z-index: 100;
+  z-index: 15;
   display: grid;
   /* One definite cell, so the box's 100% height is the overlay's. */
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
@@ -2538,6 +2556,27 @@ html[data-grayscale-text="true"] {
 /* On a round panel the list keeps to the square inside the circle. */
 .stage.shape-round .filament-details-dialog {
   padding: 14.7%;
+}
+
+/*
+ * Its controls keep clear of those edges: 24 px at the top and bottom and
+ * 32 px at the sides on a touch panel, and 56 px at the sides while a view
+ * is held. The circle's square already clears them on a round panel, except
+ * a held small one's sides.
+ */
+.stage:not(.touchless, .shape-round)
+.filament-details-dialog {
+  padding: 24px 32px;
+}
+
+.stage.has-hand-back-edge:not(.touchless, .shape-round)
+  .filament-details-dialog {
+  padding-inline: 56px;
+}
+
+.stage.has-hand-back-edge.shape-round
+  .filament-details-dialog {
+  padding-inline: max(56px, 14.7%);
 }
 
 /*
