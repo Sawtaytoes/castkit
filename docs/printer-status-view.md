@@ -371,7 +371,8 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    name wraps rather than widening it, and a finger drag scrolls a long one
    through the Linux WebKit touch adapter. On a round panel the drawer pads
    its top, bottom, and outer side to the square inside the circle, so
-   Close and the options stay on the glass. A dialog whose opener the view
+   Close and the options stay on the glass, and an option Tab scrolls to
+   stops inside that square too. A dialog whose opener the view
    folded away while it was open gives focus to the nearest control around
    the opener, in the same view, when it closes. If the opener is gone, as
    when its row moved into the strip or its printer left the feed, focus
@@ -380,7 +381,9 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    after 12 seconds, moves focus only if focus was still in it or nowhere,
    so it never takes focus from the Views drawer. While the
    Views drawer is open, the view behind it is inert, so no key reaches a
-   control the drawer covers, and a swipe a finger began before it opened
+   control the drawer covers; when it closes over a question the view
+   still has open, focus goes back into the question, even when a mouse
+   click opened the drawer and focused its edge, and a swipe a finger began before it opened
    asks for nothing. The padding follows the
    printer count and the hold, never the arrangement, so the arrangement it
    measures cannot change it. A round panel pads its view to the square

@@ -7,6 +7,7 @@ import {
 } from "preact/hooks"
 import { activeView, device, sendCommand } from "./state.ts"
 import { cancelViewSwipe } from "./viewSwipe.ts"
+import { FOCUSABLE_SELECTOR } from "./views/useDialogFocus.ts"
 import { useDragScroll } from "./views/useDragScroll.ts"
 
 /** Travel from either screen edge that opens the view drawer. */
@@ -87,7 +88,8 @@ export const ViewSwitcher = () => {
    * live update puts on the stage meanwhile is covered too, and a swipe a
    * finger began before the drawer opened is dropped. Focus moves into the
    * drawer, Escape closes it, and closing gives focus back to what had it,
-   * or else to the drawer's own handle at the edge that opened it.
+   * or else to the drawer's own handle at the edge that opened it; a modal
+   * question still open in the view takes it first.
    */
   useLayoutEffect(() => {
     const switcher = switcherRef.current
@@ -130,6 +132,35 @@ export const ViewSwitcher = () => {
       observer.disconnect()
       for (const element of covered) {
         element.inert = false
+      }
+      /*
+       * A modal question the view still has open keeps the keyboard: if
+       * what had focus lies outside it, as the edge a mouse click focused
+       * does, focus goes to the question's first control instead, so no
+       * key reaches a control the question covers.
+       */
+      const openModal = Array.from(covered)
+        .map((element) =>
+          element.querySelector<HTMLElement>(
+            '[aria-modal="true"]',
+          ),
+        )
+        .find((modal) => modal !== null)
+      if (
+        openModal &&
+        !(focused && openModal.contains(focused))
+      ) {
+        const firstControl =
+          openModal.querySelector<HTMLElement>(
+            FOCUSABLE_SELECTOR,
+          )
+        firstControl?.focus()
+        if (
+          firstControl &&
+          document.activeElement === firstControl
+        ) {
+          return
+        }
       }
       // A control the view folded away meanwhile is still connected, but
       // takes no focus; then the handle does.

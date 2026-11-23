@@ -1,7 +1,7 @@
 import type { RefObject } from "preact"
 import { useLayoutEffect, useRef } from "preact/hooks"
 
-const FOCUSABLE_SELECTOR = [
+export const FOCUSABLE_SELECTOR = [
   "button:not([disabled])",
   "[href]",
   "input:not([disabled])",

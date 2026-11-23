@@ -307,11 +307,14 @@ html[data-grayscale-text="true"] {
 /*
  * Round glass cuts the drawer's corners away. Its top, bottom, and outer
  * side pad to the square inside the circle, 14.7% of the stage in from
- * each side, so Close and the first and last options stay on the glass.
+ * each side, so Close and the first and last options stay on the glass,
+ * and an option that Tab scrolls to stops inside that square too.
  * The inner side lies near the middle and keeps its padding.
  */
 .stage.shape-round .view-drawer {
   padding-block: max(28px, 14.7%);
+  /* The same band for a control that focus scrolls into view. */
+  scroll-padding-block: max(28px, 14.7%);
 }
 
 .stage.shape-round .view-drawer.is-left {

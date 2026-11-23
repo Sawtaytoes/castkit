@@ -5449,6 +5449,132 @@ describe("the Views drawer over a question", () => {
     expect(question.isConnected).toBe(true)
     expect(document.activeElement).toBe(questionFocus)
   })
+
+  test("gives focus back to the question when a mouse opened the drawer", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      printers: buildPrinters(11).map((printer) => ({
+        ...printer,
+        state: "printing" as const,
+      })),
+    })
+    const stop = document.querySelector<HTMLElement>(
+      '[data-focus-key="printer-stop:printer-1"]',
+    )
+    const edge = document.querySelector<HTMLElement>(
+      ".view-edge-handle.is-right",
+    )
+    if (!stop || !edge) {
+      throw new Error("No Stop or no drawer handle.")
+    }
+    await userEvent.click(stop)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toHaveTextContent("Stop this print?")
+    // A mouse click focuses the handle it lands on.
+    await userEvent.click(edge)
+    await expect
+      .element(page.getByRole("dialog", { name: "Views" }))
+      .toBeVisible()
+    await userEvent.keyboard("{Escape}")
+    expect(
+      document.querySelector(".view-drawer"),
+    ).toBeNull()
+
+    const question = document.querySelector(
+      ".printer-confirm",
+    )
+    expect(question?.contains(document.activeElement)).toBe(
+      true,
+    )
+    await userEvent.keyboard("{Enter}")
+    expect(
+      document.querySelector(".view-drawer"),
+    ).toBeNull()
+    expect(
+      server.commands.filter(
+        (command) => command.action === "printer_stop",
+      ),
+    ).toEqual([])
+  })
+
+  test.each([
+    false,
+    true,
+  ])("on a 480 px round panel, held %s, Tab stops every drawer option on the glass", async (isViewHeld) => {
+    await mountOnPanel({
+      width: 480,
+      height: 480,
+      shape: "round",
+      isViewHeld,
+      hasViewDrawer: true,
+      extraViews: [
+        {
+          name: "Workshopcameraandprintfarmoverview".repeat(
+            3,
+          ),
+          clientId: "long-name",
+        },
+        ...Array.from({ length: 9 }, (_, index) => ({
+          name: `Workshop View ${index + 1}`,
+          clientId: `workshop-${index + 1}`,
+        })),
+      ],
+      printers: buildPrinters(11),
+    })
+    document
+      .querySelector<HTMLElement>(
+        ".view-edge-handle.is-left",
+      )
+      ?.click()
+    await expect
+      .element(page.getByRole("dialog", { name: "Views" }))
+      .toBeVisible()
+    const stageBox = document
+      .querySelector(".stage")
+      ?.getBoundingClientRect()
+    if (!stageBox) {
+      throw new Error("No stage.")
+    }
+    const centerX = (stageBox.left + stageBox.right) / 2
+    const centerY = (stageBox.top + stageBox.bottom) / 2
+    const radius = stageBox.width / 2
+    const options = document.querySelectorAll(
+      ".view-drawer-option",
+    )
+    const offGlass: string[] = []
+    for (
+      let press = 0;
+      press < options.length;
+      press += 1
+    ) {
+      await userEvent.tab()
+      await nextFrame()
+      const focused = document.activeElement
+      if (
+        !focused?.classList.contains("view-drawer-option")
+      ) {
+        continue
+      }
+      const box = focused.getBoundingClientRect()
+      const isOnGlass = [
+        [box.left, box.top],
+        [box.right, box.top],
+        [box.left, box.bottom],
+        [box.right, box.bottom],
+      ].every(
+        ([pointX = 0, pointY = 0]) =>
+          Math.hypot(pointX - centerX, pointY - centerY) <=
+          radius + 1,
+      )
+      if (!isOnGlass) {
+        offGlass.push(focused.textContent ?? "")
+      }
+    }
+    expect(offGlass).toEqual([])
+  })
 })
 
 describe("a dialog on a touch panel's navigation edges", () => {
