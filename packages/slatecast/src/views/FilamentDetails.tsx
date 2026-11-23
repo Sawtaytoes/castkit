@@ -288,12 +288,15 @@ export const FilamentDetailsDialog = ({
   onClose,
   printerName,
   summary,
+  returnFocusKey,
 }: {
   /** The feed's active color, for a slot that says the summary but has none. */
   activeColor?: string
   filaments?: readonly PrinterFilamentAssignment[]
   jobName: string
   onClose: () => void
+  /** The `data-focus-key` of the control that opened the dialog. */
+  returnFocusKey?: string
   printerName: string
   /**
    * The feed's one-line filament text. A tile may cut it short, so the
@@ -320,6 +323,7 @@ export const FilamentDetailsDialog = ({
     dialogRef: dialogBox,
     initialFocusRef: closeButton,
     onEscape: onClose,
+    returnFocusKey,
   })
 
   useBackdropClose({

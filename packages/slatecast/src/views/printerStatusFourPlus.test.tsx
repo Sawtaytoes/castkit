@@ -4434,6 +4434,54 @@ describe("a focused strip through a refresh", () => {
     )
   })
 
+  test("in a much wider font, keeps focus after a right-click on the strip and a minute tick", async () => {
+    const { strip, refresh } = await mountRowless()
+    if (!strip) {
+      throw new Error("Five printers drew no strip.")
+    }
+    strip.focus()
+    const rightButton = {
+      bubbles: true,
+      button: 2,
+      pointerId: 1,
+      pointerType: "mouse",
+      ...findPointOn(strip),
+    }
+    strip.dispatchEvent(
+      new PointerEvent("pointerdown", rightButton),
+    )
+    strip.dispatchEvent(
+      new PointerEvent("pointerup", rightButton),
+    )
+    strip.dispatchEvent(
+      new MouseEvent("contextmenu", rightButton),
+    )
+    await refresh("a minute tick")
+
+    expect(document.activeElement).toBe(
+      document.querySelector(".printer-overflow"),
+    )
+  })
+
+  test("in a much wider font, keeps focus after a short finger drag on the strip and the same payload", async () => {
+    const { strip, refresh } = await mountRowless()
+    if (!strip) {
+      throw new Error("Five printers drew no strip.")
+    }
+    strip.focus()
+    const { clientX, clientY } = findPointOn(strip)
+    dragWithAdapter({
+      from: { x: clientX, y: clientY },
+      to: { x: clientX + 20, y: clientY },
+    })
+    expect(document.activeElement).toBe(strip)
+    await refresh("the same payload again")
+
+    expect(document.activeElement).toBe(
+      document.querySelector(".printer-overflow"),
+    )
+  })
+
   test("in a much wider font, a strip the user left does not take focus back", async () => {
     const { strip, refresh } = await mountRowless()
     strip?.focus()
@@ -4441,6 +4489,93 @@ describe("a focused strip through a refresh", () => {
     await refresh("a minute tick")
 
     expect(document.activeElement).toBe(document.body)
+  })
+})
+
+describe("a control that stays away through a quick run of updates", () => {
+  test("does not take focus when it comes back", async () => {
+    const printers = buildPrinters(5)
+    const { server } = await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers,
+    })
+    const jobSelector =
+      '[data-focus-key="printer-job:printer-1"]'
+    document
+      .querySelector<HTMLElement>(jobSelector)
+      ?.focus()
+    expect(document.activeElement).toBe(
+      document.querySelector(jobSelector),
+    )
+    // One update a frame, each without Printer 1.
+    for (const _ of Array.from({ length: 5 })) {
+      server.push({
+        type: "printers",
+        data: {
+          printers: structuredClone(printers.slice(1)),
+        },
+      })
+      await nextFrame()
+      expect(document.querySelector(jobSelector)).toBeNull()
+    }
+    server.push({
+      type: "printers",
+      data: { printers: structuredClone(printers) },
+    })
+    await nextFrame()
+    await nextFrame()
+
+    expect(
+      document.querySelector(jobSelector),
+    ).not.toBeNull()
+    expect(document.activeElement).not.toBe(
+      document.querySelector(jobSelector),
+    )
+  })
+})
+
+describe("a dialog opened by a tap through the WebKit touch adapter", () => {
+  test.each([
+    "Printer 1's job",
+    "nothing",
+  ])("returns focus to the strip when focus was on %s", async (start) => {
+    await mountOnPanel({
+      width: 480,
+      height: 480,
+      shape: "round",
+      orientation: 90,
+      printers: buildPrinters(11),
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    if (!strip) {
+      throw new Error("Eleven printers drew no strip.")
+    }
+    if (start === "Printer 1's job") {
+      document
+        .querySelector<HTMLElement>(
+          '[data-focus-key="printer-job:printer-1"]',
+        )
+        ?.focus()
+      expect(document.activeElement).not.toBe(document.body)
+    }
+    const { clientX, clientY } = findPointOn(strip)
+    const point = { x: clientX, y: clientY }
+    dragWithAdapter({ from: point, to: point })
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+    await userEvent.keyboard("{Escape}")
+
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+    await expect
+      .poll(() => document.activeElement)
+      .toBe(document.querySelector(".printer-overflow"))
   })
 })
 

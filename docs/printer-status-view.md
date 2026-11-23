@@ -402,11 +402,13 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    backdrop closes it: a finger dragged from the backdrop into the list, a
    finger dragged out of the list while another rests on the backdrop, or a
    right-click, keeps it open. When a dialog closes, focus returns to the
-   control that opened it, or, if a live update replaced that control, to
-   its replacement. Focus on a control the view draws again, such as the
+   control that opened it, even one tapped through the touch adapter, which
+   opens a dialog without focusing what it tapped, or, if a live update
+   replaced that control, to its replacement. Focus on a control the view draws again, such as the
    strip on a new minute, stays on it. A control that leaves for longer,
-   such as a printer that leaves the feed, or one the user clicked away
-   from, does not take focus when it comes back. A drag in a dialog follows the
+   such as a printer that leaves the feed, even through a quick run of
+   updates, or one the user clicked away from, does not take focus when it
+   comes back. A right-click or a drag on the focused control keeps it. A drag in a dialog follows the
    first finger down; a second finger that touches and lifts changes
    nothing. While the view tries its rows again, the
    hidden-printer list keeps its entries; it closes only once no printer

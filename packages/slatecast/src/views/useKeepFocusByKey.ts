@@ -16,8 +16,9 @@ import {
  * that key.
  *
  * Focus is never pulled back against the user. The key is forgotten when
- * the user moves focus on, to another control or to nothing, when any
- * pointer presses, and when its control stays gone for two frames, as a
+ * the user moves focus on, to another control or to nothing, when a pointer
+ * presses while focus is lost, and when its control stays gone for two
+ * frames from when it went, as a
  * printer that leaves the feed does: a control that comes back later does
  * not take focus.
  *
@@ -53,9 +54,20 @@ export const useKeepFocusByKey = (
         }
       })
     }
-    // A press says where the user wants focus; a focusin from it follows.
+    /*
+     * A press while focus is lost says where the user wants focus now; a
+     * focusin from it follows. A press while a control holds focus, such as
+     * a right-click or a drag on it, changes nothing, and a press that does
+     * move focus is seen by focusin and focusout.
+     */
     const handlePointerDown = () => {
-      focusKey.current = null
+      const activeElement = document.activeElement
+      if (
+        activeElement === null ||
+        activeElement === document.body
+      ) {
+        focusKey.current = null
+      }
     }
     document.addEventListener("focusin", handleFocusIn)
     document.addEventListener("focusout", handleFocusOut)
@@ -96,16 +108,28 @@ export const useKeepFocusByKey = (
         `[data-focus-key="${CSS.escape(key)}"]`,
       )
     const control = findControl()
+    const frames = forgetFrames.current
     if (control) {
+      // Back: a later absence counts its two frames from the start.
+      cancelAnimationFrame(frames.first)
+      cancelAnimationFrame(frames.second)
+      frames.first = 0
+      frames.second = 0
       control.focus()
       return
     }
-    // Gone for now. Forget it unless a render within two frames draws it.
-    const frames = forgetFrames.current
-    cancelAnimationFrame(frames.first)
-    cancelAnimationFrame(frames.second)
+    /*
+     * Gone for now. Forget it unless it is back two frames after it first
+     * went: a render meanwhile does not start the count again, so a feed
+     * that sends one update a frame cannot keep the key alive.
+     */
+    if (frames.first !== 0) {
+      return
+    }
     frames.first = requestAnimationFrame(() => {
       frames.second = requestAnimationFrame(() => {
+        frames.first = 0
+        frames.second = 0
         if (focusKey.current === key && !findControl()) {
           focusKey.current = null
         }

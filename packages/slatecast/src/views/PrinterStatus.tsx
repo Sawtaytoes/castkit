@@ -215,11 +215,14 @@ const PrinterConfirmDialog = ({
   detail,
   onCancel,
   onCommit,
+  returnFocusKey,
 }: {
   action: ConfirmedAction
   detail: string
   onCancel: () => void
   onCommit: () => void
+  /** The `data-focus-key` of the Pause or Stop that asked. */
+  returnFocusKey: string
 }) => {
   const dialog = useRef<HTMLDivElement>(null)
   const cancelButton = useRef<HTMLButtonElement>(null)
@@ -227,6 +230,7 @@ const PrinterConfirmDialog = ({
     dialogRef: dialog,
     initialFocusRef: cancelButton,
     onEscape: onCancel,
+    returnFocusKey,
   })
   return (
     <div
@@ -1379,6 +1383,7 @@ export const PrinterStatus = () => {
           }
           onClose={() => setFilamentDetailsId(null)}
           printerName={filamentDetailsJob.name}
+          returnFocusKey={`printer-filaments:${filamentDetailsJob.id}`}
           summary={filamentDetailsJob.filamentText}
           activeColor={filamentDetailsJob.filamentColor}
         />
@@ -1388,6 +1393,11 @@ export const PrinterStatus = () => {
           title={detailsTitle}
           printers={detailsEntries}
           onClose={closeDetails}
+          returnFocusKey={
+            details.kind === "hidden"
+              ? "printer-overflow"
+              : `printer-job:${details.printerId}`
+          }
         />
       ) : null}
       {confirmation && confirmedJob ? (
@@ -1399,6 +1409,11 @@ export const PrinterStatus = () => {
           }`}
           onCancel={() => setConfirmation(null)}
           onCommit={confirm}
+          returnFocusKey={`printer-${
+            confirmation.action === "stop"
+              ? "stop"
+              : "pause"
+          }:${confirmedJob.id}`}
         />
       ) : null}
     </div>

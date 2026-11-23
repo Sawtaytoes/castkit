@@ -55,8 +55,11 @@ export const PrinterDetailsDialog = ({
   onClose,
   printers,
   title,
+  returnFocusKey,
 }: {
   onClose: () => void
+  /** The `data-focus-key` of the control that opened the dialog. */
+  returnFocusKey?: string
   printers: readonly PrinterDetailsEntry[]
   title: string
 }) => {
@@ -139,6 +142,7 @@ export const PrinterDetailsDialog = ({
     dialogRef: dialogBox,
     initialFocusRef: closeButton,
     onEscape: requestClose,
+    returnFocusKey,
   })
 
   useBackdropClose({

@@ -25,7 +25,8 @@ const focusAndReveal = (control: HTMLElement) => {
  *
  * Focus moves in when the dialog opens and goes back to the control that
  * opened it when it closes, or to its replacement with the same
- * `data-focus-key`. Tab and Shift+Tab cycle through the dialog's own
+ * `data-focus-key`. The opener is the control named by `returnFocusKey`
+ * when one is given, and otherwise the control that had focus. Tab and Shift+Tab cycle through the dialog's own
  * controls, so a keyboard user cannot reach a control behind the overlay and
  * open a second dialog over the first. Escape closes only the dialog that
  * holds focus, so one key press never closes two dialogs.
@@ -36,13 +37,22 @@ export const useDialogFocus = ({
   dialogRef,
   initialFocusRef,
   onEscape,
+  returnFocusKey,
 }: {
   dialogRef: RefObject<HTMLElement>
   initialFocusRef: RefObject<HTMLElement>
   onEscape: () => void
+  /**
+   * The `data-focus-key` of the control that opened the dialog. A tap
+   * through the Linux WebKit touch adapter opens a dialog without focusing
+   * what it tapped, so the focused element is not always the opener.
+   */
+  returnFocusKey?: string
 }) => {
   const onEscapeRef = useRef(onEscape)
   onEscapeRef.current = onEscape
+  const returnFocusKeyRef = useRef(returnFocusKey)
+  returnFocusKeyRef.current = returnFocusKey
 
   /*
    * Before the first paint, so the dialog never shows with focus behind it.
@@ -51,14 +61,26 @@ export const useDialogFocus = ({
    * `data-focus-key`, once the closing render has drawn it.
    */
   useLayoutEffect(() => {
-    const opener =
+    const focused =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null
-    const focusKey = opener?.dataset.focusKey
+    const openerKey = returnFocusKeyRef.current
+    const focusKey = openerKey ?? focused?.dataset.focusKey
     initialFocusRef.current?.focus()
+    const findOpener = () =>
+      focusKey
+        ? document.querySelector<HTMLElement>(
+            `[data-focus-key="${CSS.escape(focusKey)}"]`,
+          )
+        : null
     return () => {
-      if (opener?.isConnected) {
+      const opener = openerKey
+        ? findOpener()
+        : focused?.isConnected
+          ? focused
+          : null
+      if (opener) {
         opener.focus()
         return
       }
@@ -70,11 +92,7 @@ export const useDialogFocus = ({
           document.activeElement === null ||
           document.activeElement === document.body
         if (isFocusFree) {
-          document
-            .querySelector<HTMLElement>(
-              `[data-focus-key="${CSS.escape(focusKey)}"]`,
-            )
-            ?.focus()
+          findOpener()?.focus()
         }
       })
     }
