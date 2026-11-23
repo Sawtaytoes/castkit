@@ -3828,6 +3828,12 @@ html[data-grayscale-text="true"] {
  * not an edge. The padding follows the printer count, never the
  * arrangement, so the arrangement it measures cannot change it. A round
  * panel already keeps these to the square inside its circle.
+ *
+ * While a view is held, the hand-back edges (`.hand-back-edge`) lie over
+ * the outer 56 px at either side, above the drawer's handles, so the view
+ * pads 56 px there instead; on a round panel, as much as the square inside
+ * the circle does not already clear, and a narrow row keeps to it. That
+ * padding follows the hold, which the arrangement cannot change either.
  */
 .stage:not(.touchless, .shape-round)
 .printer-status:not(
@@ -3840,6 +3846,38 @@ html[data-grayscale-text="true"] {
 }
 
 .stage:not(.touchless, .shape-round)
+  .printer-status:not(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-cards {
+  margin-inline: 0;
+}
+
+.stage.has-hand-back-edge:not(.touchless, .shape-round)
+  .printer-status:not(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  ) {
+  padding-inline: 56px;
+}
+
+/* The view's inset and its padding both measure the stage's width. */
+.stage.has-hand-back-edge.shape-round
+.printer-status:not(
+  [data-count="0"],
+  [data-count="1"],
+  [data-count="2"],
+  [data-count="3"]
+) {
+  padding-inline: max(8px, calc(56px - 14.7%));
+}
+
+.stage.has-hand-back-edge.shape-round
   .printer-status:not(
     [data-count="0"],
     [data-count="1"],

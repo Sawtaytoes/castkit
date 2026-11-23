@@ -1,5 +1,9 @@
 import type { TargetedPointerEvent } from "preact"
-import { useRef, useState } from "preact/hooks"
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks"
 import { activeView, device, sendCommand } from "./state.ts"
 
 /** Travel from either screen edge that opens the view drawer. */
@@ -25,6 +29,59 @@ export const ViewSwitcher = () => {
     null,
   )
   const pull = useRef<EdgePull | null>(null)
+  const switcherRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
+  const isOpen = openEdge !== null
+
+  /*
+   * The drawer covers the view, so the view leaves the keyboard and the
+   * accessibility tree while it is open: no key can reach a control the
+   * drawer hides, such as the Stop in a question the view had open. The view
+   * and the swipe edges come before the switcher on the stage; the hand-back
+   * edges after it stay above the drawer, as they are drawn. Focus moves into
+   * the drawer, Escape closes it, and closing gives focus back.
+   */
+  useLayoutEffect(() => {
+    const switcher = switcherRef.current
+    if (!isOpen || !switcher) {
+      return undefined
+    }
+    const covered: HTMLElement[] = []
+    for (
+      let sibling = switcher.previousElementSibling;
+      sibling;
+      sibling = sibling.previousElementSibling
+    ) {
+      if (
+        sibling instanceof HTMLElement &&
+        !sibling.inert
+      ) {
+        sibling.inert = true
+        covered.push(sibling)
+      }
+    }
+    const focused =
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body
+        ? document.activeElement
+        : null
+    closeRef.current?.focus()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenEdge(null)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      for (const element of covered) {
+        element.inert = false
+      }
+      if (focused?.isConnected) {
+        focused.focus()
+      }
+    }
+  }, [isOpen])
 
   if (
     !profile?.hasTouch ||
@@ -78,6 +135,7 @@ export const ViewSwitcher = () => {
 
   return (
     <div
+      ref={switcherRef}
       class="view-switcher"
       onPointerDown={(event) => event.stopPropagation()}
       onPointerMove={(event) => event.stopPropagation()}
@@ -118,6 +176,7 @@ export const ViewSwitcher = () => {
             <header class="view-drawer-header">
               <h1>Views</h1>
               <button
+                ref={closeRef}
                 type="button"
                 class="view-drawer-close"
                 data-castkit-target="view-drawer:close"

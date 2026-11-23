@@ -32,9 +32,15 @@ type EdgePull = {
   isCommitted: boolean
 }
 
+/**
+ * Whether the hand-back edges lie over the view now: on a touch panel, while
+ * a view is held. The stage names it, so a view can keep its controls clear.
+ */
+export const getHasHandBackEdge = () =>
+  Boolean(device.value?.hasTouch) &&
+  Boolean(settings.value.isViewHeld)
+
 export const HandBackEdge = () => {
-  const profile = device.value
-  const { isViewHeld } = settings.value
   const [isConfirming, setIsConfirming] = useState(false)
   const pull = useRef<EdgePull | null>(null)
 
@@ -50,7 +56,7 @@ export const HandBackEdge = () => {
     }
   }, [isConfirming])
 
-  if (!profile?.hasTouch || !isViewHeld) {
+  if (!getHasHandBackEdge()) {
     return null
   }
 

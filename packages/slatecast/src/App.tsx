@@ -1,7 +1,10 @@
 import { getIsGrayscaleTextRequired } from "@castkit/shared/panels/pixelGrid"
 import type { ComponentType } from "preact"
 import { useEffect, useLayoutEffect } from "preact/hooks"
-import { HandBackEdge } from "./HandBackEdge.tsx"
+import {
+  getHasHandBackEdge,
+  HandBackEdge,
+} from "./HandBackEdge.tsx"
 import { finishNavigation } from "./navigationFeedback.ts"
 import { activeView, device, settings } from "./state.ts"
 import { ViewSwipeEdges } from "./ViewSwipeEdges.tsx"
@@ -89,6 +92,9 @@ export const App = () => {
     [activeView.value],
   )
   const { orientation, theme } = settings.value
+  // A view can keep its controls clear of the hand-back edges while they lie
+  // over it.
+  const hasHandBackEdge = getHasHandBackEdge()
   const isSideways =
     orientation === 90 || orientation === 270
 
@@ -204,7 +210,7 @@ export const App = () => {
 
   return (
     <div
-      class={`stage shape-${profile.shape}${profile.hasTouch ? "" : " touchless"}`}
+      class={`stage shape-${profile.shape}${profile.hasTouch ? "" : " touchless"}${hasHandBackEdge ? " has-hand-back-edge" : ""}`}
       data-theme={theme.toLowerCase()}
       data-view={activeView.value}
       data-castkit-ready="true"

@@ -102,7 +102,9 @@ export const useDialogFocus = ({
   useLayoutEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const dialog = dialogRef.current
-      if (!dialog) {
+      // Under the Views drawer, which makes the view inert, the drawer has
+      // the keyboard: no key reaches a control the drawer covers.
+      if (!dialog || dialog.closest("[inert]")) {
         return
       }
       const activeElement = document.activeElement
@@ -112,8 +114,9 @@ export const useDialogFocus = ({
       const isFocusInAnotherDialog =
         !isFocusInside &&
         activeElement instanceof Element &&
-        activeElement.closest('[aria-modal="true"]') !==
-          null
+        activeElement.closest(
+          '[aria-modal="true"], [role="dialog"]',
+        ) !== null
       if (isFocusInAnotherDialog) {
         return
       }

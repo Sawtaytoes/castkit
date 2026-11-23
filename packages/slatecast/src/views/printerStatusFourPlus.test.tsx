@@ -191,6 +191,7 @@ const mountOnPanel = async ({
   shape = "square",
   orientation = 0,
   hasViewDrawer = false,
+  isViewHeld = false,
 }: {
   width: number
   height: number
@@ -200,6 +201,8 @@ const mountOnPanel = async ({
   orientation?: 0 | 90 | 180 | 270
   /** A drawer of two views, with its handles at either side. */
   hasViewDrawer?: boolean
+  /** A held view, with the 56 px hand-back edges at either side. */
+  isViewHeld?: boolean
 }) => {
   __setPrinterPendingForStories(PENDING)
   await page.viewport(width, height)
@@ -223,7 +226,10 @@ const mountOnPanel = async ({
             : []),
         ],
       }),
-      settings: buildSettings({ orientation }),
+      settings: buildSettings({
+        orientation,
+        isViewHeld,
+      }),
       data: { printers: { printers } },
     }),
   })
@@ -5170,14 +5176,205 @@ describe("the touch panel's navigation edges", () => {
   })
 })
 
+describe("a held view's hand-back edges", () => {
+  test.each([
+    {
+      name: "Printer 1's Stop at 384x824",
+      width: 384,
+      height: 824,
+      shape: "square",
+      orientation: 0,
+      selector: '[data-focus-key="printer-stop:printer-1"]',
+      side: "right",
+      question: "Stop this print?",
+    },
+    {
+      name: "Printer 1's Stop at 384x824 turned 90°",
+      width: 384,
+      height: 824,
+      shape: "square",
+      orientation: 90,
+      selector: '[data-focus-key="printer-stop:printer-1"]',
+      side: "right",
+      question: "Stop this print?",
+    },
+    {
+      name: "the strip at 1280x720",
+      width: 1280,
+      height: 720,
+      shape: "square",
+      orientation: 0,
+      selector: ".printer-overflow",
+      side: "left",
+      question: "more printers",
+    },
+    {
+      name: "the strip on a 289 px round panel",
+      width: 289,
+      height: 289,
+      shape: "round",
+      orientation: 0,
+      selector: ".printer-overflow",
+      side: "left",
+      question: "11 printers",
+    },
+  ] as const)("leave every part of $name to the control", async ({
+    width,
+    height,
+    shape,
+    orientation,
+    selector,
+    side,
+    question,
+  }) => {
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      orientation,
+      isViewHeld: true,
+      printers: buildPrinters(11),
+    })
+    const control =
+      document.querySelector<HTMLElement>(selector)
+    if (!control) {
+      throw new Error(
+        `Eleven printers drew no ${selector}.`,
+      )
+    }
+    expect(
+      document.querySelector(".stage.has-hand-back-edge"),
+    ).not.toBeNull()
+    expect(findCoveredControls()).toEqual([])
+    /*
+     * A finger 4 px inside the control's outer side, along the stage's own
+     * width: a turned stage's sides lie at the window's top and bottom.
+     */
+    const box = control.getBoundingClientRect()
+    const isTurned = orientation === 90
+    const point = isTurned
+      ? {
+          x: (box.left + box.right) / 2,
+          y:
+            side === "right" ? box.bottom - 4 : box.top + 4,
+        }
+      : {
+          x:
+            side === "right" ? box.right - 4 : box.left + 4,
+          y: (box.top + box.bottom) / 2,
+        }
+    expect(
+      control.contains(
+        document.elementFromPoint(point.x, point.y),
+      ),
+    ).toBe(true)
+    dragWithAdapter({ from: point, to: point })
+    await expect
+      .element(page.getByRole("dialog"))
+      .toHaveTextContent(question)
+  })
+
+  test.each(
+    (
+      [
+        { width: 1280, height: 720, shape: "square" },
+        { width: 720, height: 720, shape: "square" },
+        { width: 480, height: 320, shape: "square" },
+        { width: 384, height: 824, shape: "square" },
+        { width: 289, height: 289, shape: "round" },
+        { width: 480, height: 480, shape: "round" },
+      ] as const
+    ).flatMap((panel) =>
+      COUNTS.map((count) => ({ ...panel, count })),
+    ),
+  )("cover no control at $width x $height ($shape) with $count printers", async ({
+    width,
+    height,
+    shape,
+    count,
+  }) => {
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      isViewHeld: true,
+      printers: buildPrinters(count),
+    })
+    expect(findCoveredControls()).toEqual([])
+  })
+})
+
+describe("the Views drawer over a question", () => {
+  test("keeps every key from the Stop it covers", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      printers: buildPrinters(11),
+    })
+    const stop = document.querySelector<HTMLElement>(
+      '[data-focus-key="printer-stop:printer-1"]',
+    )
+    if (!stop) {
+      throw new Error("Eleven printers drew no Stop.")
+    }
+    await userEvent.click(stop)
+    await expect
+      .element(page.getByRole("dialog"))
+      .toHaveTextContent("Stop this print?")
+    const question = document.querySelector<HTMLElement>(
+      '[aria-modal="true"]',
+    )
+    const edge = document.querySelector<HTMLElement>(
+      '[data-castkit-target="navigation-edge:right"]',
+    )
+    if (!question || !edge) {
+      throw new Error("No question or no drawer edge.")
+    }
+    const questionFocus =
+      document.activeElement as HTMLElement | null
+    edge.click()
+    await expect
+      .element(page.getByRole("dialog", { name: "Views" }))
+      .toBeVisible()
+    const drawer = document.querySelector(".view-drawer")
+    expect(drawer?.contains(document.activeElement)).toBe(
+      true,
+    )
+
+    for (let press = 0; press < 8; press += 1) {
+      await userEvent.tab()
+      expect(
+        question.contains(document.activeElement),
+      ).toBe(false)
+    }
+    await userEvent.keyboard("{Enter}")
+    expect(
+      server.commands.filter(
+        (command) => command.action === "printer_stop",
+      ),
+    ).toEqual([])
+
+    // Escape closes the drawer, not the question, and focus goes back.
+    if (document.querySelector(".view-drawer")) {
+      await userEvent.keyboard("{Escape}")
+    }
+    expect(
+      document.querySelector(".view-drawer"),
+    ).toBeNull()
+    expect(question.isConnected).toBe(true)
+    expect(document.activeElement).toBe(questionFocus)
+  })
+})
+
 describe("one touch event that ends two contacts", () => {
-  test("opens one dialog, not two", async () => {
+  const mountWithStopAndStrip = async () => {
     await mountOnPanel({
       width: 1280,
       height: 720,
       printers: buildPrinters(11),
     })
-    const stop = document.querySelector<HTMLElement>(
+    const stop = document.querySelector<HTMLButtonElement>(
       '[data-focus-key="printer-stop:printer-1"]',
     )
     const strip = document.querySelector<HTMLElement>(
@@ -5189,7 +5386,12 @@ describe("one touch event that ends two contacts", () => {
       )
     }
     onTestFinished(installTouchPointerFallback())
-    const contacts = [stop, strip].map((control, index) => {
+    return { stop, strip }
+  }
+
+  // One finger on each control, held.
+  const pressEach = (controls: HTMLElement[]) =>
+    controls.map((control, index) => {
       const { clientX, clientY } = findPointOn(control)
       const target = document.elementFromPoint(
         clientX,
@@ -5224,16 +5426,38 @@ describe("one touch event that ends two contacts", () => {
       )
       return touch
     })
+
+  const liftTogether = async (touches: Touch[]) => {
     document.dispatchEvent(
       new TouchEvent("touchend", {
         bubbles: true,
         cancelable: true,
-        changedTouches: contacts,
+        changedTouches: touches,
       }),
     )
     await nextFrame()
     await nextFrame()
+  }
 
+  test("opens one dialog, not two", async () => {
+    const { stop, strip } = await mountWithStopAndStrip()
+    await liftTogether(pressEach([stop, strip]))
+
+    expect(
+      document.querySelectorAll('[aria-modal="true"]'),
+    ).toHaveLength(1)
+  })
+
+  test("leaves its click to the next contact when the first lifts from a disabled control", async () => {
+    const { stop, strip } = await mountWithStopAndStrip()
+    const touches = pressEach([stop, strip])
+    // As a pending action disables its control under a held finger.
+    stop.disabled = true
+    await liftTogether(touches)
+
+    await expect
+      .element(page.getByRole("dialog"))
+      .toHaveTextContent("more printers")
     expect(
       document.querySelectorAll('[aria-modal="true"]'),
     ).toHaveLength(1)

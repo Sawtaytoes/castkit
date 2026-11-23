@@ -364,7 +364,13 @@ export const installTouchPointerFallback = () => {
                 ],
               })
             : null
-        if (button && !tap.hasClicked) {
+        // A disabled control's click does nothing, so it spends no click: a
+        // release on it leaves the event's one click to the next contact.
+        if (
+          button &&
+          !button.matches(":disabled") &&
+          !tap.hasClicked
+        ) {
           tap.hasClicked = true
           button.click()
         }

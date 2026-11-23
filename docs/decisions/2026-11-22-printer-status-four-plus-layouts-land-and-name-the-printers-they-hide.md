@@ -51,7 +51,8 @@ the view's content box, its width less its padding (52 px on a square panel),
 so a turned or round panel folds its rows for the width it really has. On a
 square touch panel, four printers and up pad 64 px across and 48 px down, so
 no control lies under the shell's undrawn navigation edges, and each cutoff is
-a view 12 px wider or taller. A round panel keeps four
+a view 12 px wider or taller. While a view is held, the 56 px hand-back edges
+lie at either side, so the view pads 56 px there. A round panel keeps four
 printers and up, and the dialogs, inside the square within the circle. A
 narrow view folds a row's columns away in a fixed order; under 300 px the band
 moves under the job and each row grows to 84 px, so the name, the state, the
