@@ -13,43 +13,71 @@ import {
  * minute or payload. Focus on the old element would fall to the page body.
  * After each render, if focus is on the body and the last focused control
  * inside `rootRef` carried a `data-focus-key`, focus goes to the element with
- * that key. A control the user leaves on purpose, to another control or to
- * nothing, forgets its key, so focus is never pulled back.
+ * that key.
+ *
+ * Focus is never pulled back against the user. The key is forgotten when
+ * the user moves focus on, to another control or to nothing, when any
+ * pointer presses, and when its control stays gone for two frames, as a
+ * printer that leaves the feed does: a control that comes back later does
+ * not take focus.
+ *
+ * The listeners sit on the document, because the view can start without
+ * `rootRef`'s element, as Printer Status does on an empty feed.
  */
 export const useKeepFocusByKey = (
   rootRef: RefObject<HTMLElement>,
 ) => {
   const focusKey = useRef<string | null>(null)
+  const forgetFrames = useRef({ first: 0, second: 0 })
 
   useEffect(() => {
-    const root = rootRef.current
-    if (!root) {
-      return undefined
-    }
     const handleFocusIn = (event: FocusEvent) => {
+      const control = event.target
       focusKey.current =
-        event.target instanceof HTMLElement
-          ? (event.target.dataset.focusKey ?? null)
+        control instanceof HTMLElement &&
+        rootRef.current?.contains(control)
+          ? (control.dataset.focusKey ?? null)
           : null
     }
     const handleFocusOut = (event: FocusEvent) => {
       const control = event.target
       // After any focusin that follows: a removed control keeps its key.
       queueMicrotask(() => {
+        const root = rootRef.current
         if (
           control instanceof Node &&
           control.isConnected &&
-          !root.contains(document.activeElement)
+          !root?.contains(document.activeElement)
         ) {
           focusKey.current = null
         }
       })
     }
-    root.addEventListener("focusin", handleFocusIn)
-    root.addEventListener("focusout", handleFocusOut)
+    // A press says where the user wants focus; a focusin from it follows.
+    const handlePointerDown = () => {
+      focusKey.current = null
+    }
+    document.addEventListener("focusin", handleFocusIn)
+    document.addEventListener("focusout", handleFocusOut)
+    document.addEventListener(
+      "pointerdown",
+      handlePointerDown,
+      true,
+    )
+    const frames = forgetFrames.current
     return () => {
-      root.removeEventListener("focusin", handleFocusIn)
-      root.removeEventListener("focusout", handleFocusOut)
+      document.removeEventListener("focusin", handleFocusIn)
+      document.removeEventListener(
+        "focusout",
+        handleFocusOut,
+      )
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDown,
+        true,
+      )
+      cancelAnimationFrame(frames.first)
+      cancelAnimationFrame(frames.second)
     }
   }, [rootRef])
 
@@ -63,10 +91,25 @@ export const useKeepFocusByKey = (
     if (!key || !isFocusLost) {
       return
     }
-    rootRef.current
-      ?.querySelector<HTMLElement>(
+    const findControl = () =>
+      rootRef.current?.querySelector<HTMLElement>(
         `[data-focus-key="${CSS.escape(key)}"]`,
       )
-      ?.focus()
+    const control = findControl()
+    if (control) {
+      control.focus()
+      return
+    }
+    // Gone for now. Forget it unless a render within two frames draws it.
+    const frames = forgetFrames.current
+    cancelAnimationFrame(frames.first)
+    cancelAnimationFrame(frames.second)
+    frames.first = requestAnimationFrame(() => {
+      frames.second = requestAnimationFrame(() => {
+        if (focusKey.current === key && !findControl()) {
+          focusKey.current = null
+        }
+      })
+    })
   })
 }

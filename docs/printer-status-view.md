@@ -109,9 +109,11 @@ per-slot values from `print_weight`; it does not list every filament loaded in
 the AMS. A source that has no per-slot print mapping can still publish the
 active filament, and the dialog notes that slot details are unavailable. A
 tile can cut `filamentText` short, so the dialog gives it whole at the top
-unless a slot in its list already says all of it: the slot's name, alone or
-followed by its tray, with spacing (around a `·` too), case and commas
-ignored. A list can lack
+unless a slot in its list already says all of it: the slot's name followed
+by its tray, with spacing (around a `·` too), case and commas ignored. A
+summary that is only a name, with no tray, keeps its line even when a slot
+has that name, because the active spool may be a slot the feed left
+unnamed. A list can lack
 the active material's name or leave it out entirely, and a summary can say
 more than the slot, so anything else keeps the summary. The summary carries
 the feed's active color as a swatch. When exactly one slot says it, that
@@ -402,7 +404,9 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    right-click, keeps it open. When a dialog closes, focus returns to the
    control that opened it, or, if a live update replaced that control, to
    its replacement. Focus on a control the view draws again, such as the
-   strip on a new minute, stays on it. A drag in a dialog follows the
+   strip on a new minute, stays on it. A control that leaves for longer,
+   such as a printer that leaves the feed, or one the user clicked away
+   from, does not take focus when it comes back. A drag in a dialog follows the
    first finger down; a second finger that touches and lifts changes
    nothing. While the view tries its rows again, the
    hidden-printer list keeps its entries; it closes only once no printer

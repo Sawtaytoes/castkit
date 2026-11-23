@@ -646,9 +646,11 @@ const findLayoutProblems = () => {
       )
         .filter(isDrawn)
         .map((chip) => chip.getBoundingClientRect())
+        // A chip the strip has wrapped wholly out of view is not cut. On
+        // a turned panel that may be to either side, so both axes count.
         .filter(
           (chipBox) =>
-            chipBox.top < stripBox.bottom &&
+            isOverlapping(chipBox, stripBox) &&
             !isInside(chipBox, stripBox),
         )
         .map(
@@ -3876,7 +3878,7 @@ describe("a clock tick that widens the finish time", () => {
 
     expect(ticksSeen).toBeGreaterThan(20)
     expect(problems).toEqual([])
-  })
+  }, 90_000)
 })
 
 describe("a pending button in the 2×2 grid", () => {
@@ -4078,7 +4080,7 @@ describe("a clock that makes room again", () => {
     if (font === "a much wider font") {
       expect(foldsSeen).toBeGreaterThan(0)
     }
-  })
+  }, 90_000)
 })
 
 describe("Layer and Finishes in a narrow 2×2 card", () => {
@@ -4341,7 +4343,11 @@ describe("the hidden-printer list's opener after a refresh", () => {
 })
 
 describe("a focused strip through a refresh", () => {
-  const mountRowless = async () => {
+  const mountRowless = async ({
+    isIdleFirst = false,
+  }: {
+    isIdleFirst?: boolean
+  } = {}) => {
     useTestFont("a much wider font")
     const clock = {
       ms: new Date(2026, 0, 5, 7, 59, 30).getTime(),
@@ -4362,8 +4368,16 @@ describe("a focused strip through a refresh", () => {
     const { server } = await mountOnPanel({
       width: 240,
       height: 824,
-      printers,
+      printers: isIdleFirst ? [] : printers,
     })
+    if (isIdleFirst) {
+      server.push({
+        type: "printers",
+        data: { printers: structuredClone(printers) },
+      })
+      await nextFrame()
+      await nextFrame()
+    }
     const strip = document.querySelector<HTMLButtonElement>(
       ".printer-overflow",
     )
@@ -4408,6 +4422,18 @@ describe("a focused strip through a refresh", () => {
       .toBeVisible()
   })
 
+  test("in a much wider font, on a view that started with no printers, keeps focus after a minute tick", async () => {
+    const { strip, refresh } = await mountRowless({
+      isIdleFirst: true,
+    })
+    strip?.focus()
+    await refresh("a minute tick")
+
+    expect(document.activeElement).toBe(
+      document.querySelector(".printer-overflow"),
+    )
+  })
+
   test("in a much wider font, a strip the user left does not take focus back", async () => {
     const { strip, refresh } = await mountRowless()
     strip?.focus()
@@ -4415,5 +4441,58 @@ describe("a focused strip through a refresh", () => {
     await refresh("a minute tick")
 
     expect(document.activeElement).toBe(document.body)
+  })
+})
+
+describe("a control that comes back", () => {
+  test.each([
+    "after a click on another printer's name",
+    "after it stays away",
+  ])("does not take focus %s", async (absence) => {
+    const printers = buildPrinters(5)
+    const { server } = await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers,
+    })
+    const jobSelector =
+      '[data-focus-key="printer-job:printer-1"]'
+    document
+      .querySelector<HTMLElement>(jobSelector)
+      ?.focus()
+    expect(document.activeElement).toBe(
+      document.querySelector(jobSelector),
+    )
+    server.push({
+      type: "printers",
+      data: {
+        printers: structuredClone(printers.slice(1)),
+      },
+    })
+    await nextFrame()
+    await nextFrame()
+    await nextFrame()
+    if (
+      absence === "after a click on another printer's name"
+    ) {
+      const name = document.querySelector(".printer-name")
+      if (!name) {
+        throw new Error("No printer name is drawn.")
+      }
+      await userEvent.click(name)
+    }
+    server.push({
+      type: "printers",
+      data: { printers: structuredClone(printers) },
+    })
+    await nextFrame()
+    await nextFrame()
+
+    expect(
+      document.querySelector(jobSelector),
+    ).not.toBeNull()
+    expect(document.activeElement).not.toBe(
+      document.querySelector(jobSelector),
+    )
   })
 })

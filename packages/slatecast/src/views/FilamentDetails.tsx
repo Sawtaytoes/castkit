@@ -196,7 +196,7 @@ export const getFilamentSlotMetadata = (
 /**
  * The feed's one-line filament text, whole, when no slot in the list already
  * says all of it; otherwise nothing. A slot says it when the whole summary
- * reads as that slot's name, alone or followed by its tray. A summary with
+ * reads as that slot's name followed by its tray. A summary with
  * more than that, such as a qualifier, or a name that only contains it, such
  * as "Support for PLA" for "PLA", is still shown.
  */
