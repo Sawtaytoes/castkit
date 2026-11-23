@@ -1,9 +1,11 @@
 import type { PrinterJob } from "@castkit/shared/viewData/types"
+import type { ViewportName } from "@charcuterie/vitest-config/viewports.js"
 import userEvent from "@testing-library/user-event"
 import {
   afterEach,
   describe,
   expect,
+  inject,
   onTestFinished,
   test,
   vi,
@@ -39,6 +41,26 @@ import "../styles.css"
  * The four test windows are here too, because a phone opens this view as
  * readily as the wall panel does.
  */
+
+/**
+ * A describe whose every test sizes the page to its own panels with
+ * `page.viewport()`, so the window that its browser instance names never
+ * reaches an assertion. In all four windows it would measure the same panels
+ * four times, and those repeats made this file outlast CI's test job. It runs
+ * in one window instead. The heavy sweeps are spread over the four windows,
+ * about the same time in each, so CI runs them side by side. A run with no
+ * window runs every one. Workspace decision: "App VRT captures distinct
+ * layouts rather than every workflow state" (an app does not multiply every
+ * scenario by all four windows).
+ */
+const describeInOneWindow = (window: ViewportName) => {
+  const current = inject("viewport")
+  return describe.runIf(!current || current === window)
+}
+const describeInNarrow = describeInOneWindow("narrow")
+const describeInTall = describeInOneWindow("tall")
+const describeInWide = describeInOneWindow("wide")
+const describeInUltrawide = describeInOneWindow("ultrawide")
 
 const PANELS = [
   [
@@ -808,9 +830,26 @@ const findCoveredControls = (
     },
   )
 
+/** The styles that set a word's width on one line. */
+const WORD_STYLES = [
+  "fontFamily",
+  "fontFeatureSettings",
+  "fontKerning",
+  "fontSize",
+  "fontStretch",
+  "fontStyle",
+  "fontVariant",
+  "fontVariationSettings",
+  "fontWeight",
+  "letterSpacing",
+  "textTransform",
+] as const
+
 /**
- * A word's width on one line in `parent`'s font and letter spacing, as
- * layout measures it, so a turned stage does not change it.
+ * A word's width on one line in `parent`'s font and letter spacing, to the
+ * fraction of a pixel that layout uses. The measuring span copies those
+ * styles and sits on `document.body`, outside the stage, so a turned stage
+ * does not change the width and no measured box grows while it is there.
  */
 const measureWord = (
   word: string,
@@ -819,26 +858,54 @@ const measureWord = (
   if (!parent) {
     return 0
   }
+  const style = getComputedStyle(parent)
   const probe = document.createElement("span")
   probe.textContent = word
-  probe.style.position = "absolute"
+  for (const property of WORD_STYLES) {
+    probe.style[property] = style[property]
+  }
+  probe.style.position = "fixed"
+  probe.style.left = "0"
+  probe.style.top = "0"
   probe.style.visibility = "hidden"
   probe.style.whiteSpace = "nowrap"
-  parent.append(probe)
-  const width = probe.offsetWidth
+  document.body.append(probe)
+  const { width } = probe.getBoundingClientRect()
   probe.remove()
   return width
 }
 
-/** An element's width inside its padding. */
+/**
+ * An element's width inside its padding and any scroll bar, to the fraction
+ * of a pixel. `clientWidth` would round it to a whole pixel.
+ */
 const findContentWidth = (element: Element) => {
   const style = getComputedStyle(element)
-  return (
-    element.clientWidth -
-    Number.parseFloat(style.paddingLeft) -
-    Number.parseFloat(style.paddingRight)
-  )
+  const pixels = (value: string) =>
+    Number.parseFloat(value) || 0
+  const borders =
+    pixels(style.borderLeftWidth) +
+    pixels(style.borderRightWidth)
+  const scrollBar =
+    element instanceof HTMLElement
+      ? Math.max(
+          0,
+          element.offsetWidth -
+            element.clientWidth -
+            Math.round(borders),
+        )
+      : 0
+  const width = pixels(style.width) - scrollBar
+  return style.boxSizing === "border-box"
+    ? width -
+        borders -
+        pixels(style.paddingLeft) -
+        pixels(style.paddingRight)
+    : width
 }
+
+/** Layout measures in 64ths of a pixel; a word this close may go either way. */
+const LAYOUT_UNIT = 1 / 64
 
 /**
  * The words under `root` that the browser drew across two lines, such as
@@ -872,9 +939,9 @@ const findSplitWords = (
       ).filter((rect) => rect.width > 0 && rect.height > 0)
       if (
         rects.length > 1 &&
-        // Within a pixel of the whole width, rounding decides; not listed.
+        // Within a layout unit of the whole width, rounding decides.
         measureWord(match[0], node.parentElement) <=
-          wholeWidth - 1
+          wholeWidth - LAYOUT_UNIT
       ) {
         split.push(match[0])
       }
@@ -2054,7 +2121,7 @@ const nextFrame = () =>
     ),
   )
 
-describe("the ended lines in a short band", () => {
+describeInWide("the ended lines in a short band", () => {
   test.each([
     {
       count: 10,
@@ -2190,7 +2257,7 @@ describe("the ended lines in a short band", () => {
   })
 })
 
-describe("the ended lines in a fallback font", () => {
+describeInWide("the ended lines in a fallback font", () => {
   test.each([
     { count: 5, height: 900 },
     { count: 10, height: 660 },
@@ -2636,7 +2703,7 @@ const buildWidestFacts = ({
   }
 }
 
-describe("the widest facts in a row", () => {
+describeInTall("the widest facts in a row", () => {
   test.each([
     {
       finishes: "a weekday",
@@ -2956,7 +3023,7 @@ describe("the facts a compact row drops", () => {
   })
 })
 
-describe("a filament count", () => {
+describeInTall("a filament count", () => {
   test.each([
     { count: 16, font: "Outfit" },
     { count: 16, font: "a wider font" },
@@ -3703,7 +3770,7 @@ const sweepWidths = async ({
   return problems
 }
 
-describe("a narrow row's state word", () => {
+describeInNarrow("a narrow row's state word", () => {
   test.each(
     FONTS,
   )("in %s, a narrow row never cuts Preparing", async (font) => {
@@ -3731,7 +3798,7 @@ describe("a narrow row's state word", () => {
   })
 })
 
-describe("a held view's narrow rows", () => {
+describeInNarrow("a held view's narrow rows", () => {
   const PREPARING = buildPrinters(10).map((printer) => ({
     ...printer,
     state: "preparing" as const,
@@ -3813,7 +3880,7 @@ describe("a narrow row's percentage", () => {
   })
 })
 
-describe("a strip chip's state", () => {
+describeInNarrow("a strip chip's state", () => {
   test.each(
     FONTS.flatMap((font) =>
       [
@@ -4015,7 +4082,7 @@ describe("a word cut by a twentieth of a pixel", () => {
   })
 })
 
-describe("a clock tick that widens the finish time", () => {
+describeInUltrawide("a tick that widens the finish", () => {
   test.each(
     FONTS,
   )("in %s, folds a row whose state word it would cut", async (font) => {
@@ -4186,7 +4253,7 @@ describe("a live turn of the stage", () => {
   })
 })
 
-describe("a clock that makes room again", () => {
+describeInUltrawide("a clock that makes room again", () => {
   test.each(
     FONTS,
   )("in %s, the facts come back once the finish drops its weekday", async (font) => {
@@ -5335,7 +5402,7 @@ describe("the touch panel's navigation edges", () => {
   })
 })
 
-describe("a held view's hand-back edges", () => {
+describeInUltrawide("a held view's hand-back edges", () => {
   test.each([
     {
       name: "Printer 1's Stop at 384x824",
@@ -5463,7 +5530,7 @@ describe("a held view's hand-back edges", () => {
   })
 })
 
-describe("the Views drawer over a question", () => {
+describeInWide("the Views drawer over a question", () => {
   test("keeps every key from the Stop it covers", async () => {
     const { server } = await mountOnPanel({
       width: 384,
@@ -5790,7 +5857,7 @@ describe("the Views drawer over a question", () => {
   })
 })
 
-describe("a dialog on a touch panel's navigation edges", () => {
+describeInNarrow("a dialog by the navigation edges", () => {
   test.each(
     (
       [
@@ -6285,7 +6352,7 @@ describe("a dialog on a touch panel's navigation edges", () => {
   })
 })
 
-describe("the Views drawer and live updates", () => {
+describeInTall("the Views drawer and live updates", () => {
   // The 384x824 test panel's snapshot again, as a profile update sends it.
   const buildPanelSnapshot = ({
     hasViewDrawer,
