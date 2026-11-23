@@ -5532,6 +5532,71 @@ describe("a dialog on a touch panel's navigation edges", () => {
       ),
     ).toEqual([])
   })
+  // Fewer printers fill a round stage, so their question pads for itself.
+  test.each(
+    (
+      [
+        { width: 320, height: 824, shape: "square" },
+        { width: 1280, height: 720, shape: "square" },
+        { width: 240, height: 240, shape: "round" },
+        { width: 320, height: 320, shape: "round" },
+        { width: 360, height: 360, shape: "round" },
+        { width: 480, height: 480, shape: "round" },
+      ] as const
+    ).flatMap((panel) =>
+      [1, 3].flatMap((count) =>
+        [false, true].flatMap((isViewHeld) =>
+          FONTS.map((font) => ({
+            ...panel,
+            count,
+            isViewHeld,
+            font,
+          })),
+        ),
+      ),
+    ),
+  )("in $font, the Stop question for $count printers leaves every control to itself at $width x $height ($shape), held $isViewHeld", async ({
+    width,
+    height,
+    shape,
+    count,
+    isViewHeld,
+    font,
+  }) => {
+    useTestFont(font)
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      isViewHeld,
+      hasViewDrawer: true,
+      leftSwipeViewId: "clock",
+      printers: buildPrinters(count).map((printer) => ({
+        ...printer,
+        state: "printing" as const,
+      })),
+    })
+    const stop = drawnWithin(
+      document.body,
+      '[data-focus-key="printer-stop:printer-1"]',
+    )[0]
+    if (!(stop instanceof HTMLElement)) {
+      throw new Error("Printer 1 drew no Stop.")
+    }
+    stop.click()
+    await expect
+      .poll(() =>
+        document.querySelector('[aria-modal="true"]'),
+      )
+      .not.toBeNull()
+    await nextFrame()
+
+    expect(
+      findCoveredControls(
+        '[aria-modal="true"] button, [aria-modal="true"] a',
+      ),
+    ).toEqual([])
+  })
 })
 
 describe("the Views drawer and live updates", () => {
@@ -5867,6 +5932,77 @@ describe("the Views drawer and live updates", () => {
         (command) => command.action === "view_release",
       ),
     ).toHaveLength(1)
+  })
+
+  test("a hold that begins under the open drawer leaves Close and the options to it", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      printers: buildPrinters(11),
+    })
+    await openDrawerFromRightEdge()
+    server.push({
+      type: "settings",
+      settings: buildSettings({ isViewHeld: true }),
+    })
+    await expect
+      .poll(() => document.querySelector(".hand-back-edge"))
+      .not.toBeNull()
+
+    expect(
+      findCoveredControls(".view-drawer button"),
+    ).toEqual([])
+    const close = document.querySelector<HTMLElement>(
+      ".view-drawer-close",
+    )
+    if (!close) {
+      throw new Error("The drawer drew no Close.")
+    }
+    const box = close.getBoundingClientRect()
+    const point = {
+      x: box.right - 4,
+      y: (box.top + box.bottom) / 2,
+    }
+    dragWithAdapter({ from: point, to: point })
+    await expect
+      .poll(() => document.querySelector(".view-drawer"))
+      .toBeNull()
+    expect(
+      server.commands.filter(
+        (command) => command.action === "view_release",
+      ),
+    ).toEqual([])
+  })
+
+  test("closing gives focus to the handle when the control that had it folded away", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      hasViewDrawer: true,
+      printers: buildPrinters(5).map((printer) => ({
+        ...printer,
+        state: "printing" as const,
+      })),
+    })
+    const filament = document.querySelector<HTMLElement>(
+      '[data-focus-key="printer-filaments:printer-1"]',
+    )
+    if (!filament) {
+      throw new Error("Printer 1 drew no filament control.")
+    }
+    filament.focus()
+    expect(document.activeElement).toBe(filament)
+    await openDrawerFromRightEdge()
+    await page.viewport(384, 720)
+    await expect
+      .poll(() => filament.checkVisibility())
+      .toBe(false)
+    await userEvent.keyboard("{Escape}")
+
+    await expect
+      .poll(() => document.activeElement?.className)
+      .toBe("view-edge-handle is-right")
   })
 
   test("a press on hand-back edges that went away cannot end the next hold", async () => {

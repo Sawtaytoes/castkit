@@ -284,6 +284,19 @@ html[data-grayscale-text="true"] {
   right: 0;
 }
 
+/*
+ * While a view is held the hand-back edges lie above the drawer, 56 px at
+ * either side, so the drawer's outer side pads that far: Close and the
+ * options stay where a tap reaches them.
+ */
+.stage.has-hand-back-edge .view-drawer.is-left {
+  padding-left: 56px;
+}
+
+.stage.has-hand-back-edge .view-drawer.is-right {
+  padding-right: 56px;
+}
+
 .view-drawer-header {
   display: flex;
   align-items: center;
@@ -3980,6 +3993,66 @@ html[data-grayscale-text="true"] {
   )
   .printer-confirm {
   padding-inline: max(8px, calc(56px - 20.8%));
+}
+
+/*
+ * Fewer printers fill a round stage, so there the question pads the swipe
+ * edges' 24 px at the top and bottom, and the hand-back edges' 56 px at the
+ * sides while a view is held.
+ */
+.stage.shape-round:not(.touchless) .printer-status:is(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-confirm {
+  padding-block: 24px;
+}
+
+.stage.has-hand-back-edge.shape-round
+  .printer-status:is(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-confirm {
+  padding-inline: 56px;
+}
+
+/*
+ * The question measures the room it has, not the view: that padding can
+ * leave a small held panel 160 px or less, where the question, its detail,
+ * and both answers set smaller to stay on the glass.
+ */
+.printer-confirm {
+  container: printer-confirm / inline-size;
+}
+
+@container printer-confirm (max-width: 160px) {
+  .printer-status .printer-confirm-box {
+    padding: 10px;
+  }
+
+  .printer-status .printer-confirm-question {
+    font-size: 16px;
+  }
+
+  .printer-status .printer-confirm-detail {
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  .printer-status .printer-confirm-actions {
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .printer-status .printer-confirm-actions button {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
 }
 
 .printer-confirm-box {

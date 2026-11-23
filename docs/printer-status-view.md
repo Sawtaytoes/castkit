@@ -363,7 +363,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    the view pads 56 px there, and a round panel pads as much as the square
    inside its circle does not already clear; the rows fold for the width
    that leaves. The Pause and Stop question keeps the same clearance on a
-   touch panel, so its buttons never sit under an edge either. While the
+   touch panel, for any number of printers, so its buttons never sit under
+   an edge either; where that leaves it 160 px or less, it sets its words
+   smaller. While a view is held, the Views drawer pads its outer side 56 px
+   too, so Close and the options stay out from under the hand-back edge. While the
    Views drawer is open, the view behind it is inert, so no key reaches a
    control the drawer covers, and a swipe a finger began before it opened
    asks for nothing. The padding follows the

@@ -128,8 +128,10 @@ export const ViewSwitcher = () => {
       for (const element of covered) {
         element.inert = false
       }
-      if (focused?.isConnected) {
-        focused.focus()
+      // A control the view folded away meanwhile is still connected, but
+      // takes no focus; then the handle does.
+      focused?.focus()
+      if (focused && document.activeElement === focused) {
         return
       }
       // The handles are drawn again once the drawer closes.
