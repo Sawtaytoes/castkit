@@ -240,8 +240,10 @@ export const ViewSwitcher = () => {
 
   /*
    * An option taller than the drawer's padded band, as a long name on a
-   * small round panel wraps, cannot lie wholly on the glass. Focus shows
-   * its start, the first words, from either direction, rather than its end.
+   * small round panel wraps, cannot lie wholly on the glass. Keyboard focus
+   * shows its start, the first words, from either direction, rather than
+   * its end. A press does not: the drawer must not move the option out from
+   * under the finger before its click.
    */
   const revealOptionStart = (
     event: TargetedFocusEvent<HTMLElement>,
@@ -250,7 +252,8 @@ export const ViewSwitcher = () => {
     const option = event.target
     if (
       !(option instanceof HTMLElement) ||
-      !option.classList.contains("view-drawer-option")
+      !option.classList.contains("view-drawer-option") ||
+      !option.matches(":focus-visible")
     ) {
       return
     }

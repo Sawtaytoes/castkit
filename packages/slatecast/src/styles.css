@@ -2586,22 +2586,13 @@ html[data-grayscale-text="true"] {
   color: var(--fg);
 }
 
-/*
- * Close shares the title's line while the title keeps 10 characters' room,
- * and otherwise wraps under it at the outer side, so neither is squeezed.
- */
+/* The title, and the subtitle under it, beside Close at the outer side. */
 .filament-details-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 16px;
   margin-bottom: 18px;
-}
-
-.filament-details-head > :first-child {
-  flex: 1 1 10ch;
-  min-width: 0;
 }
 
 /* A long printer name wraps rather than widening the dialog past the glass. */
@@ -2621,7 +2612,6 @@ html[data-grayscale-text="true"] {
 
 .filament-details-close {
   flex: none;
-  margin-left: auto;
   min-height: 44px;
   padding: 8px 16px;
   border: 1px solid var(--color-border-subtle);
@@ -2662,16 +2652,27 @@ html[data-grayscale-text="true"] {
   height: 40px;
 }
 
+.filament-details-info {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
 /*
- * A list 200 px wide or less, as a small held round panel leaves between
- * its hand-back edges, pads and sets smaller.
+ * A list 260 px wide or less, as a small round panel or a narrow held one
+ * leaves, pads less and sets its title smaller. Close sits above the title
+ * at the outer side, so the title keeps the whole width, and focus on Close
+ * as the list opens scrolls nothing: the heading stays in sight. A row's
+ * words go under its number or swatch when they would have less than
+ * 8 characters' room beside it.
  */
-@container filament-details-dialog (max-width: 200px) {
+@container filament-details-dialog (max-width: 260px) {
   .filament-details-box {
     padding: 12px;
   }
 
   .filament-details-head {
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
     margin-bottom: 12px;
   }
@@ -2681,19 +2682,20 @@ html[data-grayscale-text="true"] {
   }
 
   .filament-details-close {
+    grid-row: 1;
+    justify-self: end;
     padding: 6px 12px;
   }
 
   .filament-details-list li {
+    flex-wrap: wrap;
     gap: 8px;
     padding: 6px 8px;
   }
-}
 
-.filament-details-info {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
+  .filament-details-info {
+    flex: 1 1 8ch;
+  }
 }
 
 .filament-details-name {

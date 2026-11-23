@@ -5642,6 +5642,77 @@ describe("the Views drawer over a question", () => {
       ),
     ).toEqual([])
   })
+
+  test("a mouse press on a tall option, scrolled part way, selects it", async () => {
+    const { cdp } = await import("vitest/browser")
+    const { server } = await mountOnPanel({
+      width: 240,
+      height: 240,
+      shape: "round",
+      isViewHeld: true,
+      hasViewDrawer: true,
+      extraViews: [
+        {
+          name: "Workshopcameraandprintfarmoverview".repeat(
+            3,
+          ),
+          clientId: "long-name",
+        },
+        { name: "Calendar", clientId: "calendar" },
+      ],
+      printers: buildPrinters(11),
+    })
+    document
+      .querySelector<HTMLElement>(
+        ".view-edge-handle.is-right",
+      )
+      ?.click()
+    await expect
+      .element(page.getByRole("dialog", { name: "Views" }))
+      .toBeVisible()
+    const drawer =
+      document.querySelector<HTMLElement>(".view-drawer")
+    const option = document.querySelector<HTMLElement>(
+      '[data-castkit-target="view-drawer:select:long-name"]',
+    )
+    if (!drawer || !option) {
+      throw new Error("No drawer or no long option.")
+    }
+    // The option's top lies above the drawer's top, its rest in view.
+    drawer.scrollTop = option.offsetTop + 40
+    await nextFrame()
+    const optionBox = option.getBoundingClientRect()
+    const drawerBox = drawer.getBoundingClientRect()
+    const pointX = (optionBox.left + optionBox.right) / 2
+    // Near the drawer's top: the part a scroll to the option's start moves.
+    const pointY =
+      Math.max(optionBox.top, drawerBox.top) + 12
+    expect(
+      option.contains(
+        document.elementFromPoint(pointX, pointY),
+      ),
+    ).toBe(true)
+    for (const type of [
+      "mousePressed",
+      "mouseReleased",
+    ] as const) {
+      await cdp().send("Input.dispatchMouseEvent", {
+        type,
+        x: pointX,
+        y: pointY,
+        button: "left",
+        clickCount: 1,
+      })
+    }
+
+    await expect
+      .poll(() =>
+        server.commands.filter(
+          (command) => command.action === "view",
+        ),
+      )
+      .toEqual([{ action: "view", value: "long-name" }])
+  })
 })
 
 describe("a dialog on a touch panel's navigation edges", () => {
@@ -5861,9 +5932,12 @@ describe("a dialog on a touch panel's navigation edges", () => {
       orientation,
       isViewHeld,
       hasViewDrawer: true,
+      // A long job name, as a subtitle and in each row, wraps to many lines.
       printers: buildPrinters(count).map((printer) => ({
         ...printer,
         state: "printing" as const,
+        jobName:
+          "Modular Workbench Storage Drawer Bracket - Left and Right Supports - PETG Black",
       })),
     })
     const control = drawnWithin(document.body, opener)[0]
@@ -5904,6 +5978,19 @@ describe("a dialog on a touch panel's navigation edges", () => {
       box.clientWidth,
     )
     expect(title.clientWidth).toBeGreaterThanOrEqual(60)
+    // Focus on Close as the list opens leaves the heading in sight.
+    expect(box.contains(document.activeElement)).toBe(true)
+    expect(box.scrollTop).toBe(0)
+    // Each row's words keep room for a word such as "Printing".
+    expect(
+      Array.from(
+        box.querySelectorAll<HTMLElement>(
+          ".filament-details-info",
+        ),
+      )
+        .map((info) => info.clientWidth)
+        .filter((width) => width < 80),
+    ).toEqual([])
   })
 })
 

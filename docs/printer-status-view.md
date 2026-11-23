@@ -369,7 +369,8 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    too, so Close and the options stay out from under the hand-back edge; a
    narrow drawer puts Close under its title and sets smaller, a long view
    name wraps rather than widening it, and if it wraps taller than a small
-   round panel's square, focus shows its first words, and a finger drag scrolls a long one
+   round panel's square, keyboard focus shows its first words, while a
+   press leaves the drawer still so the tap selects what it landed on, and a finger drag scrolls a long one
    through the Linux WebKit touch adapter. On a round panel the drawer pads
    its top, bottom, and outer side to the square inside the circle, so
    Close and the options stay on the glass, and an option Tab scrolls to
@@ -437,8 +438,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    the shell's undrawn navigation edges, as the Pause and Stop question
    does, so a tap or pull at an edge still opens Views, swipes, or ends a
    hold while one is open; their controls pad clear of those edges. A list
-   200 px wide or less, as a small held round panel leaves, pads less, sets
-   its title smaller, and puts Close under the title. A tap
+   260 px wide or less, as a small round panel or a narrow held one leaves,
+   pads less, sets its title smaller, and puts Close above the title at the
+   outer side, so the heading stays in sight when Close takes focus; a
+   row's words go under its number or swatch when they would be squeezed. A tap
    on the backdrop closes a dialog on its
    release, so a tap through the Linux WebKit touch adapter, which sends no
    click, closes it too. Only a primary press that starts and lifts on the
