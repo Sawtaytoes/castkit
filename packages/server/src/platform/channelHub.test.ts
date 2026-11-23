@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest"
 import { createChannelHub } from "./channelHub.ts"
+import { normalizeMqttPayload } from "./sources/mqtt.ts"
 
 afterEach(() => vi.useRealTimers())
 const channel = {
@@ -144,4 +145,93 @@ test("a points board does not go stale between scans", () => {
   vi.advanceTimersByTime(3_600_000)
   expect(hub.get("board")?.status).toBe("ready")
   hub.dispose()
+})
+
+test("a malformed AI usage mark is dropped and the usage beside it is kept, by MQTT or by a direct publish", () => {
+  /*
+   * A snapshot already in contract shape, with one good mark and one whose
+   * zero-width view box draws nothing. It must stay canonical, so neither
+   * ingress path rejects it or reads it as the producer's raw format.
+   */
+  const data = {
+    providers: [
+      {
+        id: "gemini",
+        name: "Gemini",
+        mark: {
+          viewBox: "0 0 24 24",
+          paths: [{ d: "M12 0L24 12Z" }],
+        },
+        isOk: true,
+        windows: [
+          {
+            id: "weekly",
+            label: "Weekly",
+            percentUsed: 31,
+          },
+        ],
+      },
+      {
+        id: "claude",
+        name: "Claude",
+        mark: {
+          viewBox: "0 0 0 16",
+          paths: [{ d: "M1 1Z" }],
+        },
+        isOk: true,
+        windows: [
+          {
+            id: "weekly",
+            label: "Weekly",
+            percentUsed: 54,
+          },
+        ],
+      },
+    ],
+    fetchedAtMs: 1_900_000_000_000,
+  }
+  const usageChannel = {
+    id: "usage",
+    name: "Usage",
+    sourceId: "mqtt",
+    type: "ai-usage.v1",
+    settings: {},
+  }
+  const viaMqtt = normalizeMqttPayload({
+    type: "ai-usage.v1",
+    data,
+  })
+  ;[viaMqtt, data].forEach((payload) => {
+    const hub = createChannelHub()
+    hub.configure([usageChannel])
+    hub.publish({ channelId: "usage", data: payload })
+    const snapshot = hub.get("usage")
+    expect(snapshot?.status).toBe("ready")
+    const usage = snapshot?.data as {
+      providers: {
+        id: string
+        mark?: unknown
+        windows: { percentUsed?: number }[]
+      }[]
+      fetchedAtMs?: number
+    }
+    expect(usage.fetchedAtMs).toBe(1_900_000_000_000)
+    expect(
+      usage.providers.map(({ id, mark, windows }) => ({
+        id,
+        mark,
+        percentUsed: windows[0]?.percentUsed,
+      })),
+    ).toEqual([
+      {
+        id: "gemini",
+        mark: {
+          viewBox: "0 0 24 24",
+          paths: [{ d: "M12 0L24 12Z" }],
+        },
+        percentUsed: 31,
+      },
+      { id: "claude", mark: undefined, percentUsed: 54 },
+    ])
+  })
 })

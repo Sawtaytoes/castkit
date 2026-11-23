@@ -1,3 +1,4 @@
+import { aiUsageMarks } from "./__fixtures__/aiUsageMarks.ts"
 import type { DisplaySnapshot } from "./protocol.ts"
 
 /** Synthetic channels exercise composition without embedding a household configuration. */
@@ -113,6 +114,7 @@ export const aiUsageFixture: DisplaySnapshot = {
           {
             id: "claude",
             name: "Claude",
+            mark: aiUsageMarks.claude,
             isOk: true,
             planText: "Max",
             windows: [
@@ -148,6 +150,7 @@ export const aiUsageFixture: DisplaySnapshot = {
           {
             id: "codex",
             name: "Codex",
+            mark: aiUsageMarks.codex,
             isOk: true,
             planText: "Plus",
             windows: [
@@ -163,6 +166,7 @@ export const aiUsageFixture: DisplaySnapshot = {
           {
             id: "grok",
             name: "Grok",
+            mark: aiUsageMarks.grok,
             isOk: true,
             windows: [
               {
@@ -178,6 +182,7 @@ export const aiUsageFixture: DisplaySnapshot = {
           {
             id: "cursor",
             name: "Cursor",
+            mark: aiUsageMarks.cursor,
             isOk: false,
             problemText: "Sign-in expired",
             windows: [
@@ -216,6 +221,7 @@ export const buildSixAccountUsage = ({
     {
       id: "claude",
       name: "Claude Avery",
+      mark: aiUsageMarks.claude,
       isOk: true,
       windows: [
         {
@@ -237,6 +243,7 @@ export const buildSixAccountUsage = ({
     {
       id: "claude_2",
       name: "Claude Jordan",
+      mark: aiUsageMarks.claude,
       isOk: true,
       windows: [
         {
@@ -258,6 +265,7 @@ export const buildSixAccountUsage = ({
     {
       id: "claude_3",
       name: "Claude Morgan",
+      mark: aiUsageMarks.claude,
       isOk: true,
       windows: [
         {
@@ -279,6 +287,7 @@ export const buildSixAccountUsage = ({
     {
       id: "codex",
       name: "Codex Avery",
+      mark: aiUsageMarks.codex,
       isOk: true,
       windows: [
         {
@@ -303,6 +312,7 @@ export const buildSixAccountUsage = ({
     {
       id: "codex_2",
       name: "Codex Alt Taylor",
+      mark: aiUsageMarks.codex,
       isOk: true,
       windows: [
         {
@@ -322,6 +332,7 @@ export const buildSixAccountUsage = ({
     {
       id: "grok",
       name: "SpaceXAI",
+      mark: aiUsageMarks.grok,
       isOk: true,
       windows: [
         {

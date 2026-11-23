@@ -1,5 +1,6 @@
 # CastKit decision records
 - [2026-11-22: Printer Status's four-plus layouts land and name the printers they hide](2026-11-22-printer-status-four-plus-layouts-land-and-name-the-printers-they-hide.md)
+- [2026-11-22: AI Usage marks and titles come from the producer](2026-11-22-ai-usage-marks-and-titles-come-from-the-producer.md)
 - [2026-11-14: Lint warnings fail CI, and every rule stays at the preset's level](2026-11-14-lint-warnings-fail-ci.md)
 - [2026-11-02: Dithered story snapshots require successful rasterization](2026-11-02-dithered-story-snapshots-require-successful-rasterization.md)
 - [2026-11-02: Device view holds have independent owners](2026-11-02-device-view-holds-have-independent-owners.md)
@@ -160,7 +161,7 @@ proposing a change; a settled decision here overrides default instinct.
 | 2026-10-06 | [Backlight controls share native and MQTT state](2026-10-06-backlight-controls-share-native-and-mqtt-state.md) | Accepted |
 | 2026-10-06 | [Touch navigation uses undrawn edges](2026-10-06-touch-navigation-uses-undrawn-edges.md) | Accepted |
 | 2026-10-06 | [Management uses available screen width](2026-10-06-management-uses-available-screen-width.md) | Accepted |
-| 2026-10-05 | [AI Usage shows provider icons and omits plans](2026-10-05-ai-usage-shows-provider-icons-and-omits-plans.md) | Accepted |
+| 2026-10-05 | [AI Usage shows provider icons and omits plans](2026-10-05-ai-usage-shows-provider-icons-and-omits-plans.md) | Accepted; superseded in part by 2026-11-22 |
 | 2026-10-03 | [Countdowns show continuous timed progress](2026-10-03-countdowns-show-continuous-timed-progress.md) | Accepted |
 | 2026-10-03 | [Rip slots and return navigation fit small panels](2026-10-03-rip-slots-and-return-navigation-fit-small-panels.md) | Accepted |
 | 2026-10-03 | [Scan feedback is temporary in active-only views](2026-10-03-scan-feedback-is-temporary-in-active-only-views.md) | Accepted |

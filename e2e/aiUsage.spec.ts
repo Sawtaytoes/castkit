@@ -3,6 +3,7 @@ import {
   type Locator,
   test,
 } from "@playwright/test"
+import { aiUsageMarks } from "../packages/slatecast/src/platform/__fixtures__/aiUsageMarks.ts"
 import { seedUsageReadability } from "./__fixtures__/usageReadability.ts"
 
 // Each window owns one stateful fixture channel.
@@ -56,6 +57,7 @@ const providers = [
   {
     id: "claude",
     name: "Claude",
+    mark: aiUsageMarks.claude,
     isOk: true,
     windows: [
       {
@@ -84,6 +86,7 @@ const providers = [
   {
     id: "codex",
     name: "Codex 1",
+    mark: aiUsageMarks.codex,
     isOk: true,
     windows: [
       {
@@ -441,6 +444,7 @@ test("subscription text and bars keep the overview's dynamic proportions while r
           {
             id: "codex_2",
             name: "Codex 2",
+            mark: aiUsageMarks.codex,
             isOk: true,
             windows: [
               {
@@ -571,6 +575,7 @@ test("expanded subscription text remains as readable as the overview at 1024×60
           {
             id: "codex_2",
             name: "Codex 2",
+            mark: aiUsageMarks.codex,
             isOk: true,
             windows: [
               {
@@ -767,5 +772,90 @@ test("expanded subscription text remains as readable as the overview at 1024×60
   await page.screenshot({
     animations: "disabled",
     path: `__screenshots__/usage-readable-codex-more-${testInfo.project.name}.png`,
+  })
+})
+
+test("a provider the producer adds draws the producer's own mark", async ({
+  page,
+  request,
+}, testInfo) => {
+  /*
+   * The payload is the AI Usage producer's own shape: snake_case, with each
+   * provider's `brand`. CastKit has no logo of its own for Gemini or Pi, so
+   * Gemini's mark can only come from the data, and Pi, sent without a brand,
+   * draws none.
+   */
+  const toProducerMark = (mark: {
+    viewBox: string
+    paths: readonly { d: string }[]
+  }) => ({ view_box: mark.viewBox, paths: mark.paths })
+  await request.post("/__test__/mqtt", {
+    data: {
+      topic: "castkit/channels/usage/fixture/set",
+      payload: {
+        fetched_at: "2030-01-01T12:00:00Z",
+        providers: [
+          {
+            provider: "gemini",
+            brand: {
+              title: "Gemini",
+              color: "#1A8FD1",
+              mark: toProducerMark(aiUsageMarks.gemini),
+            },
+            is_ok: true,
+            windows: [
+              {
+                id: "gemini_weekly",
+                label: "Gemini weekly",
+                percent_used: 31,
+                resets_at: "2030-01-06T12:00:00Z",
+              },
+            ],
+          },
+          {
+            provider: "pi",
+            is_ok: true,
+            windows: [
+              {
+                id: "weekly",
+                label: "Weekly",
+                percent_used: 12,
+                resets_at: "2030-01-06T12:00:00Z",
+              },
+            ],
+          },
+        ],
+      },
+    },
+  })
+  // The unfiltered view: the combined one selects Claude and Codex only.
+  await page.goto("/view/usage")
+  const gemini = page.locator(".ai-usage-provider-head", {
+    hasText: "Gemini",
+  })
+  await expect(gemini).toBeVisible()
+  const geminiIcon = gemini.locator(
+    ".ai-usage-provider-icon",
+  )
+  await expect(geminiIcon).toHaveAttribute(
+    "viewBox",
+    aiUsageMarks.gemini.viewBox,
+  )
+  await expect(geminiIcon.locator("path")).toHaveAttribute(
+    "d",
+    aiUsageMarks.gemini.paths[0]?.d ?? "",
+  )
+  const iconBounds = await geminiIcon.boundingBox()
+  expect(iconBounds?.width).toBeGreaterThan(8)
+  const pi = page.locator(".ai-usage-provider-head", {
+    hasText: "Pi",
+  })
+  await expect(pi).toBeVisible()
+  await expect(
+    pi.locator(".ai-usage-provider-icon"),
+  ).toHaveCount(0)
+  await page.screenshot({
+    animations: "disabled",
+    path: `__screenshots__/usage-producer-mark-${testInfo.project.name}.png`,
   })
 })

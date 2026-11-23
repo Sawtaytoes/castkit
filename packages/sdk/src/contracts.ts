@@ -232,9 +232,46 @@ const usageWindow = z.object({
    */
   periodHours: finiteNumber.positive().optional(),
 })
+/**
+ * A provider's product mark, sent by the producer with its usage so a view
+ * keeps no table of logos of its own. SVG path data in its own view box; the
+ * paths fill with the current color, or, when `strokeWidth` is set, draw as
+ * an outline with round caps and joins. `opacity` lets a two-tone mark draw
+ * in one color.
+ */
+export const usageMarkSchema = z.object({
+  /** "minX minY width height"; a zero width or height would draw nothing. */
+  viewBox: z
+    .string()
+    .regex(
+      /^-?\d+(\.\d+)? -?\d+(\.\d+)? \d+(\.\d+)? \d+(\.\d+)?$/,
+    )
+    .refine((viewBox) =>
+      viewBox
+        .split(" ")
+        .slice(2)
+        .every((size) => Number(size) > 0),
+    ),
+  paths: z
+    .array(
+      z.object({
+        d: z.string().min(1),
+        opacity: finiteNumber.min(0).max(1).optional(),
+      }),
+    )
+    .min(1),
+  strokeWidth: finiteNumber.positive().optional(),
+})
 const usageProvider = z.object({
   id: z.string(),
   name: z.string(),
+  /**
+   * Absent when the producer sends none; the view then draws no mark. A mark
+   * that does not fit is dropped here, at the contract, so one bad logo never
+   * rejects the update or loses the usage beside it, whichever way the
+   * snapshot arrives.
+   */
+  mark: usageMarkSchema.optional().catch(undefined),
   windows: z.array(usageWindow),
   isOk: z.boolean(),
   planText: z.string().optional(),
