@@ -32,7 +32,9 @@ type DragEvent = JSX.TargetedPointerEvent<HTMLElement>
  * adapter for Linux WebKit cancels a native touch scroll, a dialog list that
  * runs past the glass would otherwise stay out of reach. The box needs
  * `touch-action: none` so a browser that scrolls natively does not scroll it
- * twice. A drag never ends in a tap on what lies under the finger.
+ * twice. A drag never ends in a tap on what lies under the finger. The
+ * first finger down drives the scroll until it lifts; another finger that
+ * touches and lifts meanwhile changes nothing.
  */
 export const useDragScroll = () => {
   const contact = useRef<{
@@ -45,6 +47,12 @@ export const useDragScroll = () => {
   return {
     "data-castkit-scroll": "true",
     onPointerDown: (event: DragEvent) => {
+      // A second finger neither takes over nor ends the drag in progress.
+      // A primary pointer means no other is down, so a contact whose
+      // release went unseen does not hold the box.
+      if (contact.current && !event.isPrimary) {
+        return
+      }
       hasDragged.current = false
       if (event.pointerType === "mouse") {
         return
@@ -88,11 +96,15 @@ export const useDragScroll = () => {
           })
       }
     },
-    onPointerUp: () => {
-      contact.current = undefined
+    onPointerUp: (event: DragEvent) => {
+      if (contact.current?.pointerId === event.pointerId) {
+        contact.current = undefined
+      }
     },
-    onPointerCancel: () => {
-      contact.current = undefined
+    onPointerCancel: (event: DragEvent) => {
+      if (contact.current?.pointerId === event.pointerId) {
+        contact.current = undefined
+      }
     },
     onClickCapture: (
       event: JSX.TargetedMouseEvent<HTMLElement>,

@@ -46,6 +46,7 @@ import {
   type PrinterLayout,
 } from "./printerRowFit.ts"
 import { useDialogFocus } from "./useDialogFocus.ts"
+import { useKeepFocusByKey } from "./useKeepFocusByKey.ts"
 
 /**
  * Printer Status: one column per printer that Home Assistant calls active.
@@ -843,6 +844,7 @@ export const PrinterStatus = () => {
   }, [])
   const viewRef = useRef<HTMLDivElement>(null)
   const cardsRef = useRef<HTMLDivElement>(null)
+  useKeepFocusByKey(viewRef)
   /*
    * The card area's height, and the width of the view's content box: the box
    * the CSS container queries measure. The width is the view's, not the card

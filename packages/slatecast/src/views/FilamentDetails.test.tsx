@@ -573,3 +573,49 @@ test("a second finger on the backdrop does not close the list for a drag out of 
 
   expect(onClose).toHaveBeenCalledTimes(1)
 })
+
+test("a second finger that touches and lifts leaves the first finger's drag scrolling", () => {
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={Array.from({ length: 16 }, (_, index) => ({
+        name: `PLA ${index + 1}`,
+        location: `AMS ${Math.floor(index / 4) + 1} slot ${(index % 4) + 1}`,
+      }))}
+      onClose={() => {}}
+    />,
+  )
+  const box = screen.getByRole("dialog")
+  box.style.cssText =
+    "height:160px;max-height:160px;overflow:auto"
+  const finger = ({
+    pointerId,
+    clientY,
+    isPrimary,
+  }: {
+    pointerId: number
+    clientY: number
+    isPrimary: boolean
+  }) => ({
+    pointerId,
+    pointerType: "touch",
+    isPrimary,
+    clientX: 100,
+    clientY,
+  })
+  const first = (clientY: number) =>
+    finger({ pointerId: 3, clientY, isPrimary: true })
+  const second = (clientY: number) =>
+    finger({ pointerId: 4, clientY, isPrimary: false })
+  fireEvent.pointerDown(box, first(150))
+  fireEvent.pointerMove(box, first(120))
+
+  expect(box.scrollTop).toBe(30)
+
+  fireEvent.pointerDown(box, second(140))
+  fireEvent.pointerUp(box, second(140))
+  fireEvent.pointerMove(box, first(70))
+
+  expect(box.scrollTop).toBe(80)
+})

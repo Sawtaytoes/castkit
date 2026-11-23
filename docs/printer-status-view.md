@@ -401,7 +401,10 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    finger dragged out of the list while another rests on the backdrop, or a
    right-click, keeps it open. When a dialog closes, focus returns to the
    control that opened it, or, if a live update replaced that control, to
-   its replacement. While the view tries its rows again, the
+   its replacement. Focus on a control the view draws again, such as the
+   strip on a new minute, stays on it. A drag in a dialog follows the
+   first finger down; a second finger that touches and lifts changes
+   nothing. While the view tries its rows again, the
    hidden-printer list keeps its entries; it closes only once no printer
    has been hidden for two frames. In rows, Layer and Finishes keep their whole width; the
    filament name gives way first, and the Filament tile never gets narrower

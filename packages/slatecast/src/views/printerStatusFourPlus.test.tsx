@@ -4339,3 +4339,81 @@ describe("the hidden-printer list's opener after a refresh", () => {
       .toBe(document.querySelector(".printer-overflow"))
   })
 })
+
+describe("a focused strip through a refresh", () => {
+  const mountRowless = async () => {
+    useTestFont("a much wider font")
+    const clock = {
+      ms: new Date(2026, 0, 5, 7, 59, 30).getTime(),
+    }
+    const now = vi
+      .spyOn(Date, "now")
+      .mockImplementation(() => clock.ms)
+    onTestFinished(() => {
+      now.mockRestore()
+      nowMs.value = Date.now()
+    })
+    nowMs.value = clock.ms
+    const printers = buildPrinters(5).map((printer) => ({
+      ...printer,
+      state: "preparing" as const,
+      percent: 0,
+    }))
+    const { server } = await mountOnPanel({
+      width: 240,
+      height: 824,
+      printers,
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    // The case under test: the strip stands in for every row.
+    expect(
+      document.querySelectorAll(".printer-card"),
+    ).toHaveLength(0)
+    expect(strip).toHaveTextContent("5 printers")
+    const refresh = async (
+      kind: "a minute tick" | "the same payload again",
+    ) => {
+      if (kind === "a minute tick") {
+        clock.ms += 60_000
+        nowMs.value = clock.ms
+      } else {
+        server.push({
+          type: "printers",
+          data: { printers: structuredClone(printers) },
+        })
+      }
+      await nextFrame()
+      await nextFrame()
+      await nextFrame()
+    }
+    return { strip, refresh }
+  }
+
+  test.each([
+    "a minute tick" as const,
+    "the same payload again" as const,
+  ])("in a much wider font, keeps focus after %s, and Enter opens the list", async (kind) => {
+    const { strip, refresh } = await mountRowless()
+    strip?.focus()
+    await refresh(kind)
+
+    expect(document.activeElement).toBe(
+      document.querySelector(".printer-overflow"),
+    )
+    await userEvent.keyboard("{Enter}")
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+  })
+
+  test("in a much wider font, a strip the user left does not take focus back", async () => {
+    const { strip, refresh } = await mountRowless()
+    strip?.focus()
+    strip?.blur()
+    await refresh("a minute tick")
+
+    expect(document.activeElement).toBe(document.body)
+  })
+})
