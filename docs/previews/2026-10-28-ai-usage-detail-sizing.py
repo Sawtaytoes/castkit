@@ -6,7 +6,9 @@ from pathlib import Path
 
 repository = Path(__file__).resolve().parents[2]
 destination = (
-    Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).with_suffix(".html")
+    Path(sys.argv[1]).resolve()
+    if len(sys.argv) > 1
+    else Path(__file__).with_suffix(".html")
 )
 destination.parent.mkdir(parents=True, exist_ok=True)
 
@@ -21,8 +23,12 @@ images = repository / "docs/images/ai-usage-readable-type"
 overview = data_url(images / "overview.png", "image/png")
 current = data_url(images / "claude-after.png", "image/png")
 # The producer sends each mark; the view's fixtures hold the Claude one it sends.
-icon_source = (repository / "packages/slatecast/src/platform/__fixtures__/aiUsageMarks.ts").read_text()
-mark = re.search(r'"claude":\s*\{[^}]*?"d":\s*"([^"]+)"', icon_source, re.S).group(1)
+icon_source = (
+    repository / "packages/slatecast/src/platform/__fixtures__/aiUsageMarks.ts"
+).read_text()
+mark = re.search(r'"claude":\s*\{[^}]*?"d":\s*"([^"]+)"', icon_source, re.DOTALL).group(
+    1
+)
 
 html = """<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AI Usage proportions</title>
 <style>
