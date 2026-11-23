@@ -172,8 +172,8 @@ export const PrinterDetailsDialog = ({
         aria-modal="true"
         aria-labelledby="printer-details-title"
       >
+        {/* Close comes first, so it is never below the heading; see the CSS. */}
         <header class="filament-details-head">
-          <h2 id="printer-details-title">{title}</h2>
           <button
             ref={closeButton}
             type="button"
@@ -182,6 +182,7 @@ export const PrinterDetailsDialog = ({
           >
             Close
           </button>
+          <h2 id="printer-details-title">{title}</h2>
         </header>
         <ul class="filament-details-list printer-details-list">
           {shownPrinters.map((printer) => (

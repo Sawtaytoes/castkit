@@ -808,6 +808,49 @@ const findCoveredControls = (
     },
   )
 
+/**
+ * The words under `root` that the browser drew across two lines, such as
+ * "Filamen" over "ts". A word wider than `wholeWidth`, the most room the
+ * layout could give it (`root`'s whole width by default), may split: that
+ * is the only way to keep it on the glass, so it is not listed.
+ */
+const findSplitWords = (
+  root: Element,
+  wholeWidth = root.clientWidth,
+) => {
+  const split: string[] = []
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+  )
+  for (
+    let node = walker.nextNode();
+    node;
+    node = walker.nextNode()
+  ) {
+    const text = node.textContent ?? ""
+    for (const match of text.matchAll(/\S+/g)) {
+      const range = document.createRange()
+      range.setStart(node, match.index)
+      range.setEnd(node, match.index + match[0].length)
+      const rects = Array.from(
+        range.getClientRects(),
+      ).filter((rect) => rect.width > 0)
+      const lineTops = new Set(
+        rects.map((rect) => Math.round(rect.top)),
+      )
+      const wordWidth = rects.reduce(
+        (total, rect) => total + rect.width,
+        0,
+      )
+      if (lineTops.size > 1 && wordWidth <= wholeWidth) {
+        split.push(match[0])
+      }
+    }
+  }
+  return split
+}
+
 const drawnPrinterNames = () =>
   Array.from(
     document.querySelectorAll(
@@ -5981,15 +6024,97 @@ describe("a dialog on a touch panel's navigation edges", () => {
     // Focus on Close as the list opens leaves the heading in sight.
     expect(box.contains(document.activeElement)).toBe(true)
     expect(box.scrollTop).toBe(0)
-    // Each row's words keep room for a word such as "Printing".
+    // No word in the heading or a row's name is split across two lines.
     expect(
-      Array.from(
-        box.querySelectorAll<HTMLElement>(
-          ".filament-details-info",
+      findSplitWords(head).concat(
+        Array.from(
+          box.querySelectorAll(".filament-details-list li"),
+        ).flatMap((row) =>
+          Array.from(
+            row.querySelectorAll(".filament-details-name"),
+          ).flatMap((name) =>
+            findSplitWords(name, row.clientWidth),
+          ),
         ),
+      ),
+    ).toEqual([])
+  })
+
+  // Panels on both sides of the 260 px narrow list, held and not.
+  test.each(
+    (
+      [
+        { width: 300, height: 824, shape: "square" },
+        { width: 325, height: 824, shape: "square" },
+        { width: 340, height: 824, shape: "square" },
+        { width: 384, height: 824, shape: "square" },
+        { width: 360, height: 360, shape: "round" },
+        { width: 369, height: 369, shape: "round" },
+        { width: 400, height: 400, shape: "round" },
+      ] as const
+    ).flatMap((panel) =>
+      [false, true].flatMap((isViewHeld) =>
+        FONTS.map((font) => ({
+          ...panel,
+          isViewHeld,
+          font,
+        })),
+      ),
+    ),
+  )("in $font, the filament list's heading keeps its words whole at $width x $height ($shape), held $isViewHeld", async ({
+    width,
+    height,
+    shape,
+    isViewHeld,
+    font,
+  }) => {
+    useTestFont(font)
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      isViewHeld,
+      hasViewDrawer: true,
+      printers: buildPrinters(1).map((printer) => ({
+        ...printer,
+        state: "printing" as const,
+        jobName:
+          "Modular Workbench Storage Drawer Bracket - Left and Right Supports - PETG Black",
+      })),
+    })
+    const opener = document.querySelector<HTMLElement>(
+      '[data-focus-key^="printer-filaments:"]',
+    )
+    if (!opener) {
+      throw new Error(
+        "One printer drew no filament control.",
       )
-        .map((info) => info.clientWidth)
-        .filter((width) => width < 80),
+    }
+    opener.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect
+      .poll(() =>
+        document.querySelector(".filament-details-head"),
+      )
+      .not.toBeNull()
+    await nextFrame()
+    const box = document.querySelector<HTMLElement>(
+      ".filament-details-box",
+    )
+    const head = document.querySelector<HTMLElement>(
+      ".filament-details-head",
+    )
+    if (!box || !head) {
+      throw new Error("No list.")
+    }
+
+    expect(findSplitWords(head)).toEqual([])
+    expect(box.scrollTop).toBe(0)
+    expect(document.activeElement).toBe(
+      head.querySelector(".filament-details-close"),
+    )
+    expect(
+      findCoveredControls(".filament-details-box button"),
     ).toEqual([])
   })
 })

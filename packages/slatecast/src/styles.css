@@ -2586,26 +2586,40 @@ html[data-grayscale-text="true"] {
   color: var(--fg);
 }
 
-/* The title, and the subtitle under it, beside Close at the outer side. */
+/*
+ * Close comes first and lies at the outer side; the title, and the subtitle
+ * under it, take the rest of the line while that leaves them 10rem, and
+ * otherwise the whole line under Close. So no title word is squeezed into
+ * a column too narrow for it, and Close is never below the heading: its
+ * focus as the list opens scrolls nothing.
+ */
 .filament-details-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 16px;
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 16px;
   margin-bottom: 18px;
 }
 
-/* A long printer name wraps rather than widening the dialog past the glass. */
-.filament-details-head h2 {
+.filament-details-head > :not(.filament-details-close) {
+  flex: 1 1 10rem;
   min-width: 0;
+}
+
+/*
+ * A long printer name wraps rather than widening the dialog past the glass;
+ * only a word wider than the whole line splits.
+ */
+.filament-details-head h2 {
   margin: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   font-size: 24px;
 }
 
 .filament-details-head p {
   margin: 6px 0 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: var(--color-content-muted);
   font-size: 14px;
 }
@@ -2652,17 +2666,26 @@ html[data-grayscale-text="true"] {
   height: 40px;
 }
 
+/*
+ * One column that may narrow below a long word, so a printer name with no
+ * spaces splits at the box's edge rather than widening the list.
+ */
 .filament-details-info {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   gap: 2px;
 }
 
+.filament-details-name {
+  overflow-wrap: break-word;
+  font-size: 17px;
+  font-weight: 600;
+}
+
 /*
  * A list 260 px wide or less, as a small round panel or a narrow held one
- * leaves, pads less and sets its title smaller. Close sits above the title
- * at the outer side, so the title keeps the whole width, and focus on Close
- * as the list opens scrolls nothing: the heading stays in sight. A row's
+ * leaves, pads less and sets its title and row names smaller. A row's
  * words go under its number or swatch when they would have less than
  * 8 characters' room beside it.
  */
@@ -2672,8 +2695,7 @@ html[data-grayscale-text="true"] {
   }
 
   .filament-details-head {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
+    column-gap: 8px;
     margin-bottom: 12px;
   }
 
@@ -2682,9 +2704,11 @@ html[data-grayscale-text="true"] {
   }
 
   .filament-details-close {
-    grid-row: 1;
-    justify-self: end;
     padding: 6px 12px;
+  }
+
+  .filament-details-name {
+    font-size: 15px;
   }
 
   .filament-details-list li {
@@ -2696,12 +2720,6 @@ html[data-grayscale-text="true"] {
   .filament-details-info {
     flex: 1 1 8ch;
   }
-}
-
-.filament-details-name {
-  overflow-wrap: anywhere;
-  font-size: 17px;
-  font-weight: 600;
 }
 
 .filament-details-location,

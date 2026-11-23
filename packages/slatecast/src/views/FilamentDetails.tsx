@@ -349,7 +349,16 @@ export const FilamentDetailsDialog = ({
         aria-modal="true"
         aria-labelledby="printer-filament-title"
       >
+        {/* Close comes first, so it is never below the heading; see the CSS. */}
         <header class="filament-details-head">
+          <button
+            ref={closeButton}
+            type="button"
+            class="filament-details-close"
+            onClick={onClose}
+          >
+            Close
+          </button>
           <div>
             <h2 id="printer-filament-title">
               Filaments in this print
@@ -359,14 +368,6 @@ export const FilamentDetailsDialog = ({
               {jobName ? ` · ${jobName}` : ""}
             </p>
           </div>
-          <button
-            ref={closeButton}
-            type="button"
-            class="filament-details-close"
-            onClick={onClose}
-          >
-            Close
-          </button>
         </header>
         {summaryText ? (
           <p class="filament-details-summary">
