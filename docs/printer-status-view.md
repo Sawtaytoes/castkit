@@ -367,10 +367,18 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    an edge either; where that leaves it 160 px or less, it sets its words
    smaller. While a view is held, the Views drawer pads its outer side 56 px
    too, so Close and the options stay out from under the hand-back edge; a
-   narrow drawer puts Close under its title and sets smaller, and a finger
-   drag scrolls a long one through the Linux WebKit touch adapter. A dialog
-   whose opener the view folded away while it was open gives focus to the
-   nearest control around the opener when it closes. While the
+   narrow drawer puts Close under its title and sets smaller, a long view
+   name wraps rather than widening it, and a finger drag scrolls a long one
+   through the Linux WebKit touch adapter. On a round panel the drawer pads
+   its top, bottom, and outer side to the square inside the circle, so
+   Close and the options stay on the glass. A dialog whose opener the view
+   folded away while it was open gives focus to the nearest control around
+   the opener, in the same view, when it closes. If the opener is gone, as
+   when its row moved into the strip or its printer left the feed, focus
+   goes to the strip, or else to the view's first control, never to the
+   page. A dialog that closes on its own, as an unanswered question does
+   after 12 seconds, moves focus only if focus was still in it or nowhere,
+   so it never takes focus from the Views drawer. While the
    Views drawer is open, the view behind it is inert, so no key reaches a
    control the drawer covers, and a swipe a finger began before it opened
    asks for nothing. The padding follows the

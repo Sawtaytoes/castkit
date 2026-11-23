@@ -6143,6 +6143,11 @@ describe("the Views drawer and live updates", () => {
         { name: "Calendar", clientId: "calendar" },
         { name: "Print Queue", clientId: "print-queue" },
         { name: "Ambient", clientId: "ambient" },
+        // A long name with no spaces must wrap, not widen the drawer.
+        {
+          name: "Workshopcameraandprintfarmoverview",
+          clientId: "long-name",
+        },
       ],
       printers: buildPrinters(11),
     })
@@ -6164,17 +6169,85 @@ describe("the Views drawer and live updates", () => {
       drawer.clientWidth,
     )
     // The buttons in view; a drag scrolls the rest into it.
-    const drawerBox = drawer.getBoundingClientRect()
+    // Measured in the drawer's own frame, so a turned stage counts the same.
+    const findTopInDrawer = (element: HTMLElement) => {
+      let top = 0
+      for (
+        let node: Element | null = element;
+        node instanceof HTMLElement && node !== drawer;
+        node = node.offsetParent
+      ) {
+        top += node.offsetTop
+      }
+      return top - drawer.scrollTop
+    }
     const shown = Array.from(
       drawer.querySelectorAll<HTMLElement>("button"),
     ).filter((button) => {
-      const box = button.getBoundingClientRect()
+      const top = findTopInDrawer(button)
       return (
-        box.top >= drawerBox.top - 0.5 &&
-        box.bottom <= drawerBox.bottom + 0.5
+        top >= -0.5 &&
+        top + button.offsetHeight <=
+          drawer.clientHeight + 0.5
       )
     })
     expect(shown.length).toBeGreaterThan(0)
+
+    // A narrow drawer's smaller sizes win over the drawer's own.
+    const drawerStyle = getComputedStyle(drawer)
+    const contentWidth =
+      drawer.clientWidth -
+      Number.parseFloat(drawerStyle.paddingLeft) -
+      Number.parseFloat(drawerStyle.paddingRight)
+    const close = drawer.querySelector(".view-drawer-close")
+    if (!close) {
+      throw new Error("The drawer drew no Close.")
+    }
+    expect(getComputedStyle(close).width).toBe(
+      contentWidth <= 240 ? "48px" : "64px",
+    )
+
+    // On round glass, Close and the middle of each option lie on the circle.
+    if (shape === "round") {
+      const stageBox = document
+        .querySelector(".stage")
+        ?.getBoundingClientRect()
+      if (!stageBox) {
+        throw new Error("No stage.")
+      }
+      const centerX = (stageBox.left + stageBox.right) / 2
+      const centerY = (stageBox.top + stageBox.bottom) / 2
+      const radius = stageBox.width / 2
+      const isOnGlass = (pointX: number, pointY: number) =>
+        Math.hypot(pointX - centerX, pointY - centerY) <=
+        radius + 1
+      const closeBox = close.getBoundingClientRect()
+      expect(
+        [
+          [closeBox.left, closeBox.top],
+          [closeBox.right, closeBox.top],
+          [closeBox.left, closeBox.bottom],
+          [closeBox.right, closeBox.bottom],
+        ].every(([pointX = 0, pointY = 0]) =>
+          isOnGlass(pointX, pointY),
+        ),
+      ).toBe(true)
+      expect(
+        shown
+          .filter((button) => button !== close)
+          .map((button) => {
+            const box = button.getBoundingClientRect()
+            return isOnGlass(
+              (box.left + box.right) / 2,
+              (box.top + box.bottom) / 2,
+            )
+              ? ""
+              : button.textContent
+          })
+          .filter(Boolean),
+      ).toEqual([])
+    }
+
     expect(
       findCoveredControls(".view-drawer button").filter(
         (problem) =>
@@ -6255,6 +6328,178 @@ describe("the Views drawer and live updates", () => {
         (command) => command.action === "view_release",
       ),
     ).toEqual([])
+  })
+})
+
+describe("focus after a dialog closes without its opener", () => {
+  const buildRunningPrinters = (count: number) =>
+    buildPrinters(count).map((printer) => ({
+      ...printer,
+      state: "printing" as const,
+    }))
+
+  const askToStop = async (printerId: string) => {
+    const stop = document.querySelector<HTMLElement>(
+      `[data-focus-key="printer-stop:${printerId}"]`,
+    )
+    if (!stop) {
+      throw new Error(`${printerId} drew no Stop.`)
+    }
+    stop.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect
+      .element(page.getByRole("dialog"))
+      .toHaveTextContent("Stop this print?")
+  }
+
+  const findFocusedControl = () =>
+    document.activeElement === document.body
+      ? null
+      : document.activeElement
+
+  test("a question that expires leaves focus in the Views drawer", async () => {
+    await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      printers: buildRunningPrinters(11),
+    })
+    // Only the question's own timer is faked, so its 12 seconds can pass.
+    vi.useFakeTimers({ toFake: ["setTimeout"] })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    const stop = document.querySelector<HTMLElement>(
+      '[data-focus-key="printer-stop:printer-1"]',
+    )
+    if (!stop) {
+      throw new Error("Printer 1 drew no Stop.")
+    }
+    stop.click()
+    await nextFrame()
+    expect(
+      document.querySelector('[aria-modal="true"]'),
+    ).not.toBeNull()
+    document
+      .querySelector<HTMLElement>(
+        '[data-castkit-target="navigation-edge:right"]',
+      )
+      ?.click()
+    await nextFrame()
+    const clock = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".view-drawer-option",
+      ),
+    ).find((option) => option.textContent === "Clock")
+    if (!clock) {
+      throw new Error("The drawer offers no Clock.")
+    }
+    clock.focus()
+    expect(document.activeElement).toBe(clock)
+
+    vi.advanceTimersByTime(12_100)
+    await nextFrame()
+    await nextFrame()
+
+    expect(
+      document.querySelector(".printer-confirm"),
+    ).toBeNull()
+    expect(document.activeElement).toBe(clock)
+  })
+
+  test("Escape gives focus to the strip when the asking row moved into it", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildRunningPrinters(10),
+    })
+    await askToStop("printer-9")
+    await page.viewport(1280, 320)
+    await expect
+      .poll(() =>
+        document.querySelector(
+          '[data-focus-key="printer-stop:printer-9"]',
+        ),
+      )
+      .toBeNull()
+    await userEvent.keyboard("{Escape}")
+
+    await expect
+      .poll(() => findFocusedControl())
+      .toBe(
+        document.querySelector(
+          '[data-focus-key="printer-overflow"]',
+        ),
+      )
+  })
+
+  test("a printer that leaves while it asks gives focus to a control in the view", async () => {
+    const { server } = await mountOnPanel({
+      width: 1280,
+      height: 720,
+      printers: buildRunningPrinters(10),
+    })
+    await askToStop("printer-9")
+    server.push({
+      type: "printers",
+      data: {
+        printers: buildRunningPrinters(10).filter(
+          (printer) => printer.id !== "printer-9",
+        ),
+      },
+    })
+    await expect
+      .poll(() =>
+        document.querySelector('[aria-modal="true"]'),
+      )
+      .toBeNull()
+
+    await expect
+      .poll(
+        () =>
+          document
+            .querySelector(".printer-status")
+            ?.contains(findFocusedControl()) ?? false,
+      )
+      .toBe(true)
+  })
+
+  test("the hidden printers' list that closes as the panel grows gives focus to a control in the view", async () => {
+    await mountOnPanel({
+      width: 1280,
+      height: 320,
+      printers: buildRunningPrinters(10),
+    })
+    const strip = document.querySelector<HTMLElement>(
+      '[data-focus-key="printer-overflow"]',
+    )
+    if (!strip) {
+      throw new Error(
+        "Ten printers at 1280 x 320 drew no strip.",
+      )
+    }
+    strip.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect
+      .poll(() =>
+        document.querySelector('[aria-modal="true"]'),
+      )
+      .not.toBeNull()
+    await page.viewport(1280, 1080)
+    await expect
+      .poll(() =>
+        document.querySelector('[aria-modal="true"]'),
+      )
+      .toBeNull()
+
+    await expect
+      .poll(
+        () =>
+          document
+            .querySelector(".printer-status")
+            ?.contains(findFocusedControl()) ?? false,
+      )
+      .toBe(true)
   })
 })
 

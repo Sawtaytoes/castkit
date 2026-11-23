@@ -56,10 +56,13 @@ export const PrinterDetailsDialog = ({
   printers,
   title,
   returnFocusKey,
+  fallbackFocusKey,
 }: {
   onClose: () => void
   /** The `data-focus-key` of the control that opened the dialog. */
   returnFocusKey?: string
+  /** The `data-focus-key` of the control that takes focus if the opener is gone. */
+  fallbackFocusKey?: string
   printers: readonly PrinterDetailsEntry[]
   title: string
 }) => {
@@ -143,6 +146,7 @@ export const PrinterDetailsDialog = ({
     initialFocusRef: closeButton,
     onEscape: requestClose,
     returnFocusKey,
+    fallbackFocusKey,
   })
 
   useBackdropClose({

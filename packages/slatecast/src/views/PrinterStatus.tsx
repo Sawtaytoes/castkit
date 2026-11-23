@@ -231,6 +231,8 @@ const PrinterConfirmDialog = ({
     initialFocusRef: cancelButton,
     onEscape: onCancel,
     returnFocusKey,
+    // A printer's row can move into the strip, or leave, while it asks.
+    fallbackFocusKey: "printer-overflow",
   })
   return (
     <div
@@ -1390,6 +1392,7 @@ export const PrinterStatus = () => {
           onClose={() => setFilamentDetailsId(null)}
           printerName={filamentDetailsJob.name}
           returnFocusKey={`printer-filaments:${filamentDetailsJob.id}`}
+          fallbackFocusKey="printer-overflow"
           summary={filamentDetailsJob.filamentText}
           activeColor={filamentDetailsJob.filamentColor}
         />
@@ -1403,6 +1406,11 @@ export const PrinterStatus = () => {
             details.kind === "hidden"
               ? "printer-overflow"
               : `printer-job:${details.printerId}`
+          }
+          fallbackFocusKey={
+            details.kind === "hidden"
+              ? undefined
+              : "printer-overflow"
           }
         />
       ) : null}

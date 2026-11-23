@@ -289,6 +289,7 @@ export const FilamentDetailsDialog = ({
   printerName,
   summary,
   returnFocusKey,
+  fallbackFocusKey,
 }: {
   /** The feed's active color, for a slot that says the summary but has none. */
   activeColor?: string
@@ -297,6 +298,8 @@ export const FilamentDetailsDialog = ({
   onClose: () => void
   /** The `data-focus-key` of the control that opened the dialog. */
   returnFocusKey?: string
+  /** The `data-focus-key` of the control that takes focus if the opener is gone. */
+  fallbackFocusKey?: string
   printerName: string
   /**
    * The feed's one-line filament text. A tile may cut it short, so the
@@ -324,6 +327,7 @@ export const FilamentDetailsDialog = ({
     initialFocusRef: closeButton,
     onEscape: onClose,
     returnFocusKey,
+    fallbackFocusKey,
   })
 
   useBackdropClose({

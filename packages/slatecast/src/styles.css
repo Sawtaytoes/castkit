@@ -304,33 +304,31 @@ html[data-grayscale-text="true"] {
   padding-right: 56px;
 }
 
-/* A drawer 240 px wide or less: its words and Close shrink. */
-@container view-drawer (max-width: 240px) {
-  .view-drawer-header {
-    gap: 8px;
-    margin-bottom: 12px;
-  }
+/*
+ * Round glass cuts the drawer's corners away. Its top, bottom, and outer
+ * side pad to the square inside the circle, 14.7% of the stage in from
+ * each side, so Close and the first and last options stay on the glass.
+ * The inner side lies near the middle and keeps its padding.
+ */
+.stage.shape-round .view-drawer {
+  padding-block: max(28px, 14.7%);
+}
 
-  .view-drawer-header h1 {
-    font-size: 22px;
-  }
+.stage.shape-round .view-drawer.is-left {
+  padding-left: max(28px, 14.7%);
+}
 
-  .view-drawer-close {
-    width: 48px;
-    height: 48px;
-    font-size: 32px;
-  }
+.stage.shape-round .view-drawer.is-right {
+  padding-right: max(28px, 14.7%);
+}
 
-  .view-drawer-options {
-    gap: 8px;
-  }
+.stage.shape-round.has-hand-back-edge .view-drawer.is-left {
+  padding-left: max(56px, 14.7%);
+}
 
-  .view-drawer-option {
-    min-height: 48px;
-    padding: 8px 10px;
-    font-size: 17px;
-    overflow-wrap: anywhere;
-  }
+.stage.shape-round.has-hand-back-edge
+  .view-drawer.is-right {
+  padding-right: max(56px, 14.7%);
 }
 
 /* Close wraps under the title, at the outer side, rather than past it. */
@@ -375,6 +373,8 @@ html[data-grayscale-text="true"] {
   font:
     700 clamp(20px, 3.5vmin, 30px) / 1.2 var(--font-sans);
   text-align: left;
+  /* A long name with no spaces wraps rather than widening the drawer. */
+  overflow-wrap: anywhere;
 }
 
 .view-drawer-option[aria-pressed="true"] {
@@ -384,6 +384,37 @@ html[data-grayscale-text="true"] {
     var(--accent) 24%,
     var(--bg)
   );
+}
+
+/*
+ * A drawer 240 px wide or less: its words and Close shrink. This follows
+ * the rules above so that it wins over them.
+ */
+@container view-drawer (max-width: 240px) {
+  .view-drawer-header {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .view-drawer-header h1 {
+    font-size: 22px;
+  }
+
+  .view-drawer-close {
+    width: 48px;
+    height: 48px;
+    font-size: 32px;
+  }
+
+  .view-drawer-options {
+    gap: 8px;
+  }
+
+  .view-drawer-option {
+    min-height: 48px;
+    padding: 8px 10px;
+    font-size: 17px;
+  }
 }
 
 /* ————— Touch test ————— */
