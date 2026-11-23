@@ -6,6 +6,7 @@ import {
   useState,
 } from "preact/hooks"
 import { activeView, device, sendCommand } from "./state.ts"
+import { cancelViewSwipe } from "./viewSwipe.ts"
 
 /** Travel from either screen edge that opens the view drawer. */
 export const EDGE_PULL_COMMIT_PIXELS = 48
@@ -56,9 +57,23 @@ export const ViewSwitcher = () => {
 
   useEffect(() => {
     if (!hasDrawer) {
+      // A pull on edges that went away cannot open the drawer they return.
+      pull.current = null
       setOpenEdge(null)
     }
   }, [hasDrawer])
+
+  // A live update that removes the focused option keeps focus in the drawer.
+  useLayoutEffect(() => {
+    const activeElement = document.activeElement
+    if (
+      isOpen &&
+      (activeElement === null ||
+        activeElement === document.body)
+    ) {
+      closeRef.current?.focus()
+    }
+  })
 
   /*
    * The drawer covers the view, so the view leaves the keyboard and the
@@ -66,9 +81,10 @@ export const ViewSwitcher = () => {
    * drawer hides, such as the Stop in a question the view had open. The view
    * and the swipe edges come before the switcher on the stage; the hand-back
    * edges after it stay above the drawer, as they are drawn. A view that a
-   * live update puts on the stage meanwhile is covered too. Focus moves into
-   * the drawer, Escape closes it, and closing gives focus back, to the same
-   * edge when an edge opened it.
+   * live update puts on the stage meanwhile is covered too, and a swipe a
+   * finger began before the drawer opened is dropped. Focus moves into the
+   * drawer, Escape closes it, and closing gives focus back to what had it,
+   * or else to the drawer's own handle at the edge that opened it.
    */
   useLayoutEffect(() => {
     const switcher = switcherRef.current
@@ -93,11 +109,12 @@ export const ViewSwitcher = () => {
       }
     }
     cover()
+    cancelViewSwipe()
     const observer = new MutationObserver(cover)
     observer.observe(stage, { childList: true })
     const focused = openerRef.current
     openerRef.current = null
-    const focusedTarget = focused?.dataset.castkitTarget
+    const openedEdge = openEdge
     closeRef.current?.focus()
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -115,18 +132,15 @@ export const ViewSwitcher = () => {
         focused.focus()
         return
       }
-      if (!focusedTarget) {
-        return
-      }
-      // The edge that opened the drawer is drawn again once it closes.
+      // The handles are drawn again once the drawer closes.
       queueMicrotask(() => {
         const isFocusFree =
           document.activeElement === null ||
           document.activeElement === document.body
-        if (isFocusFree) {
-          document
+        if (isFocusFree && switcher.isConnected) {
+          switcher
             .querySelector<HTMLElement>(
-              `[data-castkit-target="${CSS.escape(focusedTarget)}"]`,
+              `.view-edge-handle.is-${openedEdge}`,
             )
             ?.focus()
         }
@@ -162,6 +176,11 @@ export const ViewSwitcher = () => {
     if (!current || current.pointerId !== event.pointerId) {
       return
     }
+    // A handle a render removed has no pull left to finish.
+    if (!event.currentTarget.isConnected) {
+      pull.current = null
+      return
+    }
     const distance = event.clientX - current.startX
     const inwardDistance =
       current.edge === "left" ? distance : -distance
@@ -171,8 +190,13 @@ export const ViewSwitcher = () => {
     }
   }
 
-  const endPull = () => {
-    pull.current = null
+  // Only the pointer that pulled ends its pull.
+  const endPull = (
+    event: TargetedPointerEvent<HTMLButtonElement>,
+  ) => {
+    if (pull.current?.pointerId === event.pointerId) {
+      pull.current = null
+    }
   }
 
   const requestView = (clientId: string) => {

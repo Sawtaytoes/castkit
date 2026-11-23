@@ -3953,6 +3953,35 @@ html[data-grayscale-text="true"] {
   padding: 8px;
 }
 
+/*
+ * The question's buttons keep clear of the shell's undrawn navigation edges,
+ * as the view's controls do: 24 px at the top and bottom and 32 px at the
+ * sides on a touch panel, and 56 px at the sides while a view is held. On a
+ * round panel, four printers and up already sit inside the circle's square,
+ * 14.7% of the stage from its side, so a held view adds what that leaves:
+ * the question's percentages measure the view, 70.6% of the stage, so
+ * 14.7% of the stage is 20.8% of the view.
+ */
+.stage:not(.touchless, .shape-round) .printer-confirm {
+  padding: 24px 32px;
+}
+
+.stage.has-hand-back-edge:not(.touchless, .shape-round)
+  .printer-confirm {
+  padding-inline: 56px;
+}
+
+.stage.has-hand-back-edge.shape-round
+  .printer-status:not(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-confirm {
+  padding-inline: max(8px, calc(56px - 20.8%));
+}
+
 .printer-confirm-box {
   width: min(560px, 78%);
   max-width: 100%;

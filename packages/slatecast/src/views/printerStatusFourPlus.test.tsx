@@ -192,6 +192,8 @@ const mountOnPanel = async ({
   orientation = 0,
   hasViewDrawer = false,
   isViewHeld = false,
+  leftSwipeViewId,
+  extraViews = [],
 }: {
   width: number
   height: number
@@ -203,6 +205,10 @@ const mountOnPanel = async ({
   hasViewDrawer?: boolean
   /** A held view, with the 56 px hand-back edges at either side. */
   isViewHeld?: boolean
+  /** A view a pull from the right asks for, with its right swipe edge. */
+  leftSwipeViewId?: string
+  /** More views the panel offers, after Printer Status and the drawer's Clock. */
+  extraViews?: { name: string; clientId: string }[]
 }) => {
   __setPrinterPendingForStories(PENDING)
   await page.viewport(width, height)
@@ -216,6 +222,7 @@ const mountOnPanel = async ({
         hasViewDrawer,
         repaint,
         shape,
+        ...(leftSwipeViewId ? { leftSwipeViewId } : {}),
         views: [
           {
             name: "Printer Status",
@@ -224,6 +231,7 @@ const mountOnPanel = async ({
           ...(hasViewDrawer
             ? [{ name: "Clock", clientId: "clock" }]
             : []),
+          ...extraViews,
         ],
       }),
       settings: buildSettings({
@@ -769,35 +777,36 @@ const findLayoutProblems = () => {
  * which a rounded control leaves to what is under it. A hit test, so a turned or round
  * stage needs nothing of its own.
  */
-const findCoveredControls = () =>
-  drawnWithin(
-    document.body,
-    ".printer-status button, .printer-status a",
-  ).flatMap((control) => {
-    const box = control.getBoundingClientRect()
-    // Words kept only for assistive tech sit in a 1 px box on purpose.
-    if (box.width <= 4 || box.height <= 4) {
-      return []
-    }
-    const inset = 1.5
-    const centerX = (box.left + box.right) / 2
-    const centerY = (box.top + box.bottom) / 2
-    const points = [
-      { x: centerX, y: box.top + inset },
-      { x: centerX, y: box.bottom - inset },
-      { x: box.left + inset, y: centerY },
-      { x: box.right - inset, y: centerY },
-      { x: centerX, y: centerY },
-    ]
-    return points.flatMap(({ x, y }) => {
-      const hit = document.elementFromPoint(x, y)
-      return hit && !control.contains(hit)
-        ? [
-            `a tap at ${Math.round(x)}, ${Math.round(y)} on ${control.className} lands on ${hit.getAttribute("data-castkit-target") ?? hit.className}`,
-          ]
-        : []
-    })
-  })
+const findCoveredControls = (
+  selector = ".printer-status button, .printer-status a",
+) =>
+  drawnWithin(document.body, selector).flatMap(
+    (control) => {
+      const box = control.getBoundingClientRect()
+      // Words kept only for assistive tech sit in a 1 px box on purpose.
+      if (box.width <= 4 || box.height <= 4) {
+        return []
+      }
+      const inset = 1.5
+      const centerX = (box.left + box.right) / 2
+      const centerY = (box.top + box.bottom) / 2
+      const points = [
+        { x: centerX, y: box.top + inset },
+        { x: centerX, y: box.bottom - inset },
+        { x: box.left + inset, y: centerY },
+        { x: box.right - inset, y: centerY },
+        { x: centerX, y: centerY },
+      ]
+      return points.flatMap(({ x, y }) => {
+        const hit = document.elementFromPoint(x, y)
+        return hit && !control.contains(hit)
+          ? [
+              `a tap at ${Math.round(x)}, ${Math.round(y)} on ${control.className} lands on ${hit.getAttribute("data-castkit-target") ?? hit.className}`,
+            ]
+          : []
+      })
+    },
+  )
 
 const drawnPrinterNames = () =>
   Array.from(
@@ -4779,12 +4788,15 @@ const pressWithAdapter = (
     clientX: point.x,
     clientY: point.y,
   }
-  const touch = new Touch({
-    identifier: 7 + finger,
-    target,
-    clientX: point.x,
-    clientY: point.y,
-  })
+  const touchAt = (at: { x: number; y: number }) =>
+    new Touch({
+      identifier: 7 + finger,
+      target,
+      clientX: at.x,
+      clientY: at.y,
+    })
+  const touch = touchAt(point)
+  const position = { current: point }
   target.dispatchEvent(
     new PointerEvent("pointerdown", pointer),
   )
@@ -4797,6 +4809,17 @@ const pressWithAdapter = (
   )
   return {
     target,
+    // A move, sent where WPE WebKit sends it: the element the touch began on.
+    move: (to: { x: number; y: number }) => {
+      position.current = to
+      target.dispatchEvent(
+        new TouchEvent("touchmove", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: [touchAt(to)],
+        }),
+      )
+    },
     cancel: () => {
       target.dispatchEvent(
         new TouchEvent("touchcancel", {
@@ -4826,7 +4849,7 @@ const pressWithAdapter = (
         new TouchEvent("touchend", {
           bubbles: true,
           cancelable: true,
-          changedTouches: [touch],
+          changedTouches: [touchAt(position.current)],
         }),
       )
     },
@@ -5428,7 +5451,118 @@ describe("the Views drawer over a question", () => {
   })
 })
 
+describe("a dialog on a touch panel's navigation edges", () => {
+  test.each(
+    (
+      [
+        { width: 320, height: 824, shape: "square" },
+        { width: 384, height: 824, shape: "square" },
+        { width: 480, height: 320, shape: "square" },
+        { width: 1280, height: 720, shape: "square" },
+        { width: 289, height: 289, shape: "round" },
+        { width: 480, height: 480, shape: "round" },
+      ] as const
+    ).flatMap((panel) =>
+      (
+        [
+          {
+            dialog: "the Stop question",
+            opener:
+              '[data-focus-key="printer-stop:printer-1"]',
+          },
+          {
+            dialog: "the hidden-printer list",
+            opener: ".printer-overflow",
+          },
+          {
+            dialog: "the filament list",
+            opener:
+              '[data-focus-key^="printer-filaments:"]',
+          },
+        ] as const
+      ).flatMap((dialog) =>
+        [false, true].flatMap((isViewHeld) =>
+          FONTS.map((font) => ({
+            ...panel,
+            ...dialog,
+            isViewHeld,
+            font,
+          })),
+        ),
+      ),
+    ),
+  )("in $font, $dialog leaves every control to itself at $width x $height ($shape), held $isViewHeld", async ({
+    width,
+    height,
+    shape,
+    opener,
+    isViewHeld,
+    font,
+  }) => {
+    useTestFont(font)
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      isViewHeld,
+      hasViewDrawer: true,
+      leftSwipeViewId: "clock",
+      // Printing, so Stop asks with its widest words, "Keep printing".
+      printers: buildPrinters(11).map((printer) => ({
+        ...printer,
+        state: "printing" as const,
+      })),
+    })
+    const control = drawnWithin(document.body, opener)[0]
+    if (!(control instanceof HTMLElement)) {
+      // This panel draws no such control; another case covers the dialog.
+      return
+    }
+    control.click()
+    await expect
+      .poll(() =>
+        document.querySelector('[aria-modal="true"]'),
+      )
+      .not.toBeNull()
+    await nextFrame()
+
+    expect(
+      findCoveredControls(
+        '[aria-modal="true"] button, [aria-modal="true"] a',
+      ),
+    ).toEqual([])
+  })
+})
+
 describe("the Views drawer and live updates", () => {
+  // The 384x824 test panel's snapshot again, as a profile update sends it.
+  const buildPanelSnapshot = ({
+    hasViewDrawer,
+    views = [
+      {
+        name: "Printer Status",
+        clientId: "printer-status",
+      },
+      { name: "Clock", clientId: "clock" },
+    ],
+  }: {
+    hasViewDrawer: boolean
+    views?: { name: string; clientId: string }[]
+  }) =>
+    buildSnapshot({
+      view: "printer-status",
+      device: buildDeviceProfile({
+        width: 384,
+        height: 824,
+        hasTouch: true,
+        hasViewDrawer,
+        repaint: "instant",
+        views,
+      }),
+      settings: buildSettings(),
+      data: { printers: { printers: buildPrinters(11) } },
+    })
+
   const openDrawerFromRightEdge = async () => {
     const edge = document.querySelector<HTMLElement>(
       '[data-castkit-target="navigation-edge:right"]',
@@ -5500,27 +5634,9 @@ describe("the Views drawer and live updates", () => {
       printers: buildPrinters(11),
     })
     await openDrawerFromRightEdge()
-    const buildProfileSnapshot = (hasViewDrawer: boolean) =>
-      buildSnapshot({
-        view: "printer-status",
-        device: buildDeviceProfile({
-          width: 384,
-          height: 824,
-          hasTouch: true,
-          hasViewDrawer,
-          repaint: "instant",
-          views: [
-            {
-              name: "Printer Status",
-              clientId: "printer-status",
-            },
-            { name: "Clock", clientId: "clock" },
-          ],
-        }),
-        settings: buildSettings(),
-        data: { printers: { printers: buildPrinters(11) } },
-      })
-    server.push(buildProfileSnapshot(false))
+    server.push(
+      buildPanelSnapshot({ hasViewDrawer: false }),
+    )
     await expect
       .poll(() => document.querySelector(".view-switcher"))
       .toBeNull()
@@ -5530,7 +5646,7 @@ describe("the Views drawer and live updates", () => {
         document.querySelectorAll<HTMLElement>(".stage *"),
       ).filter((element) => element.inert),
     ).toEqual([])
-    server.push(buildProfileSnapshot(true))
+    server.push(buildPanelSnapshot({ hasViewDrawer: true }))
     await expect
       .poll(() =>
         document.querySelector(".view-edge-handle"),
@@ -5541,31 +5657,216 @@ describe("the Views drawer and live updates", () => {
     ).toBeNull()
   })
 
-  test("Escape gives focus back to the edge that opened the drawer", async () => {
+  test.each([
+    "Escape",
+    "Close",
+    "the Clock option",
+  ] as const)("closing with %s gives focus back to the drawer's handle, not the swipe edge beside it", async (closer) => {
     await mountOnPanel({
       width: 384,
       height: 824,
       hasViewDrawer: true,
+      leftSwipeViewId: "clock",
       printers: buildPrinters(11),
     })
     document
       .querySelector<HTMLElement>(
-        '[data-castkit-target="navigation-edge:right"]',
+        ".view-edge-handle.is-right",
       )
       ?.focus()
     await userEvent.keyboard("{Enter}")
     await expect
       .element(page.getByRole("dialog", { name: "Views" }))
       .toBeVisible()
+    if (closer === "Escape") {
+      await userEvent.keyboard("{Escape}")
+    } else {
+      document
+        .querySelector<HTMLElement>(
+          closer === "Close"
+            ? ".view-drawer-close"
+            : '[data-castkit-target="view-drawer:select:clock"]',
+        )
+        ?.click()
+    }
+
+    await expect
+      .poll(() => document.activeElement?.className)
+      .toBe("view-edge-handle is-right")
+  })
+
+  test("a drawer a tap opened, with nothing focused, gives focus to its handle on Escape", async () => {
+    await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      leftSwipeViewId: "clock",
+      printers: buildPrinters(11),
+    })
+    const handle = document.querySelector<HTMLElement>(
+      ".view-edge-handle.is-right",
+    )
+    if (!handle) {
+      throw new Error("No right drawer handle.")
+    }
+    const box = handle.getBoundingClientRect()
+    const point = {
+      x: (box.left + box.right) / 2,
+      y: (box.top + box.bottom) / 2,
+    }
+    expect(document.activeElement).toBe(document.body)
+    dragWithAdapter({ from: point, to: point })
+    await expect
+      .element(page.getByRole("dialog", { name: "Views" }))
+      .toBeVisible()
     await userEvent.keyboard("{Escape}")
 
     await expect
+      .poll(() => document.activeElement?.className)
+      .toBe("view-edge-handle is-right")
+  })
+
+  test("a live update that removes the focused option keeps focus in the drawer", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      extraViews: [
+        { name: "Now Playing", clientId: "now-playing" },
+      ],
+      printers: buildPrinters(11),
+    })
+    await openDrawerFromRightEdge()
+    document
+      .querySelector<HTMLElement>(
+        '[data-castkit-target="view-drawer:select:now-playing"]',
+      )
+      ?.focus()
+    server.push(
+      buildPanelSnapshot({
+        hasViewDrawer: true,
+        views: [
+          {
+            name: "Printer Status",
+            clientId: "printer-status",
+          },
+          { name: "Clock", clientId: "clock" },
+        ],
+      }),
+    )
+    await expect
       .poll(() =>
-        document.activeElement?.getAttribute(
-          "data-castkit-target",
+        document.querySelector(
+          '[data-castkit-target="view-drawer:select:now-playing"]',
         ),
       )
-      .toBe("navigation-edge:right")
+      .toBeNull()
+
+    expect(
+      document
+        .querySelector(".view-drawer")
+        ?.contains(document.activeElement),
+    ).toBe(true)
+  })
+
+  test("a swipe a finger began before the drawer opened asks for no view", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      extraViews: [
+        { name: "Now Playing", clientId: "now-playing" },
+      ],
+      printers: buildPrinters(11),
+    })
+    const swipe = pressWithAdapter({ x: 192, y: 10 })
+    expect(
+      swipe.target.getAttribute("data-castkit-target"),
+    ).toBe("navigation-edge:top")
+    const opener = pressWithAdapter(
+      { x: 376, y: 400 },
+      { finger: 1 },
+    )
+    opener.lift()
+    await expect
+      .element(page.getByRole("dialog", { name: "Views" }))
+      .toBeVisible()
+    swipe.move({ x: 192, y: 100 })
+    swipe.lift()
+    await nextFrame()
+
+    expect(
+      server.commands.filter(
+        (command) => command.action === "view",
+      ),
+    ).toEqual([])
+  })
+
+  test("a pull on drawer handles that went away does not open the drawer they come back to", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      printers: buildPrinters(11),
+    })
+    const pull = pressWithAdapter({ x: 376, y: 400 })
+    expect(
+      pull.target.getAttribute("data-castkit-target"),
+    ).toBe("navigation-edge:right")
+    server.push(
+      buildPanelSnapshot({ hasViewDrawer: false }),
+    )
+    await expect
+      .poll(() => document.querySelector(".view-switcher"))
+      .toBeNull()
+    server.push(buildPanelSnapshot({ hasViewDrawer: true }))
+    await expect
+      .poll(() =>
+        document.querySelector(".view-edge-handle"),
+      )
+      .not.toBeNull()
+    pull.move({ x: 300, y: 400 })
+    await nextFrame()
+
+    expect(
+      document.querySelector(".view-drawer"),
+    ).toBeNull()
+  })
+
+  test("a lift from hand-back edges that went away leaves a new press to end the new hold", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      isViewHeld: true,
+      printers: buildPrinters(11),
+    })
+    const oldFinger = pressWithAdapter({ x: 376, y: 400 })
+    for (const isViewHeld of [false, true]) {
+      server.push({
+        type: "settings",
+        settings: buildSettings({ isViewHeld }),
+      })
+      await expect
+        .poll(
+          () =>
+            document.querySelector(".hand-back-edge") !==
+            null,
+        )
+        .toBe(isViewHeld)
+    }
+    const newFinger = pressWithAdapter(
+      { x: 376, y: 400 },
+      { finger: 1 },
+    )
+    oldFinger.lift()
+    newFinger.lift()
+    await nextFrame()
+
+    expect(
+      server.commands.filter(
+        (command) => command.action === "view_release",
+      ),
+    ).toHaveLength(1)
   })
 
   test("a press on hand-back edges that went away cannot end the next hold", async () => {

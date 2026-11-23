@@ -115,16 +115,17 @@ export const HandBackEdge = () => {
     }
   }
 
+  // Only the pointer that pressed ends its press: another finger's lift,
+  // such as one from edges a hold that ended drew, leaves it.
   const endPull = (
     event: TargetedPointerEvent<HTMLButtonElement>,
   ) => {
     const current = pull.current
+    if (!current || current.pointerId !== event.pointerId) {
+      return
+    }
     pull.current = null
-    if (
-      !current ||
-      current.isCommitted ||
-      current.pointerId !== event.pointerId
-    ) {
+    if (current.isCommitted) {
       return
     }
     // A press that never travelled is a tap, and a tap hands back too.
@@ -148,8 +149,12 @@ export const HandBackEdge = () => {
           onPointerDown={(event) => beginPull(edge, event)}
           onPointerMove={trackPull}
           onPointerUp={endPull}
-          onPointerCancel={() => {
-            pull.current = null
+          onPointerCancel={(event) => {
+            if (
+              pull.current?.pointerId === event.pointerId
+            ) {
+              pull.current = null
+            }
           }}
         />
       ))}

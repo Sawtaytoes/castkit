@@ -362,8 +362,11 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    is held, the hand-back edges cover the outer 56 px at either side, so
    the view pads 56 px there, and a round panel pads as much as the square
    inside its circle does not already clear; the rows fold for the width
-   that leaves. While the Views drawer is open, the view behind it is inert,
-   so no key reaches a control the drawer covers. The padding follows the
+   that leaves. The Pause and Stop question keeps the same clearance on a
+   touch panel, so its buttons never sit under an edge either. While the
+   Views drawer is open, the view behind it is inert, so no key reaches a
+   control the drawer covers, and a swipe a finger began before it opened
+   asks for nothing. The padding follows the
    printer count and the hold, never the arrangement, so the arrangement it
    measures cannot change it. A round panel pads its view to the square
    inside the circle, so its view folds at a wider outer width. The quad needs
