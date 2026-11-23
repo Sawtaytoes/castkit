@@ -3591,17 +3591,20 @@ const sweepWidths = async ({
   height,
   printers,
   findProblems,
+  isViewHeld = false,
 }: {
   widths: readonly number[]
   height: number
   printers: PrinterJob[]
   findProblems: () => string[]
+  isViewHeld?: boolean
 }) => {
   const [firstWidth = 0] = widths
   await mountOnPanel({
     width: firstWidth,
     height,
     printers,
+    isViewHeld,
   })
   const problems: string[] = []
   for (const width of widths) {
@@ -3641,6 +3644,64 @@ describe("a narrow row's state word", () => {
     })
 
     expect(problems).toEqual([])
+  })
+})
+
+describe("a held view's narrow rows", () => {
+  const PREPARING = buildPrinters(10).map((printer) => ({
+    ...printer,
+    state: "preparing" as const,
+    percent: 0,
+  }))
+
+  test.each(
+    FONTS,
+  )("in %s, the hand-back edges' padding cuts no state word and no strip label", async (font) => {
+    useTestFont(font)
+    const problems = await sweepWidths({
+      widths: [
+        188, 200, 220, 240, 260, 289, 300, 301, 340, 388,
+        389, 410, 441, 480, 560, 640, 708, 760,
+      ],
+      height: 824,
+      isViewHeld: true,
+      printers: PREPARING,
+      findProblems: () => [
+        ...findCutWords(
+          ".printer-card .printer-state-label",
+        ).map((word) => `"${word}" is cut`),
+        ...findLayoutProblems(),
+        ...findCoveredControls(),
+      ],
+    })
+
+    expect(problems).toEqual([])
+  })
+
+  test.each(
+    FONTS.flatMap((font) =>
+      [240, 289, 320, 360].map((size) => ({ font, size })),
+    ),
+  )("in $font on a held $size px round panel, nothing is cut or covered", async ({
+    font,
+    size,
+  }) => {
+    useTestFont(font)
+    await mountOnPanel({
+      width: size,
+      height: size,
+      shape: "round",
+      isViewHeld: true,
+      printers: PREPARING,
+    })
+
+    expect([
+      ...findCutWords(
+        ".printer-card .printer-state-label",
+      ).map((word) => `"${word}" is cut`),
+      ...findLayoutProblems(),
+      ...findCoveredControls(),
+    ]).toEqual([])
   })
 })
 
@@ -5364,6 +5425,181 @@ describe("the Views drawer over a question", () => {
     ).toBeNull()
     expect(question.isConnected).toBe(true)
     expect(document.activeElement).toBe(questionFocus)
+  })
+})
+
+describe("the Views drawer and live updates", () => {
+  const openDrawerFromRightEdge = async () => {
+    const edge = document.querySelector<HTMLElement>(
+      '[data-castkit-target="navigation-edge:right"]',
+    )
+    if (!edge) {
+      throw new Error("No right drawer edge.")
+    }
+    edge.click()
+    await expect
+      .element(page.getByRole("dialog", { name: "Views" }))
+      .toBeVisible()
+  }
+
+  // Everything on the stage that the drawer is drawn over.
+  const findCoveredStageParts = () => {
+    const switcher = document.querySelector(
+      ".view-switcher",
+    )
+    const stage = document.querySelector(".stage")
+    if (!switcher || !stage) {
+      throw new Error("No stage or no view switcher.")
+    }
+    return Array.from(stage.children).filter(
+      (child) =>
+        child.compareDocumentPosition(switcher) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  }
+
+  test("a view a live update puts behind the open drawer gets no key", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      printers: buildPrinters(11),
+    })
+    await openDrawerFromRightEdge()
+    server.push({ type: "view", view: "clock" })
+    await expect
+      .poll(() =>
+        document
+          .querySelector(".stage")
+          ?.getAttribute("data-view"),
+      )
+      .toBe("clock")
+
+    expect(
+      findCoveredStageParts().every(
+        (part) => part instanceof HTMLElement && part.inert,
+      ),
+    ).toBe(true)
+    const switcher = document.querySelector(
+      ".view-switcher",
+    )
+    for (let press = 0; press < 6; press += 1) {
+      await userEvent.tab()
+      expect(
+        document.activeElement === document.body ||
+          switcher?.contains(document.activeElement),
+      ).toBe(true)
+    }
+  })
+
+  test("a profile that takes the drawer away leaves nothing inert, and it stays closed", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      printers: buildPrinters(11),
+    })
+    await openDrawerFromRightEdge()
+    const buildProfileSnapshot = (hasViewDrawer: boolean) =>
+      buildSnapshot({
+        view: "printer-status",
+        device: buildDeviceProfile({
+          width: 384,
+          height: 824,
+          hasTouch: true,
+          hasViewDrawer,
+          repaint: "instant",
+          views: [
+            {
+              name: "Printer Status",
+              clientId: "printer-status",
+            },
+            { name: "Clock", clientId: "clock" },
+          ],
+        }),
+        settings: buildSettings(),
+        data: { printers: { printers: buildPrinters(11) } },
+      })
+    server.push(buildProfileSnapshot(false))
+    await expect
+      .poll(() => document.querySelector(".view-switcher"))
+      .toBeNull()
+
+    expect(
+      Array.from(
+        document.querySelectorAll<HTMLElement>(".stage *"),
+      ).filter((element) => element.inert),
+    ).toEqual([])
+    server.push(buildProfileSnapshot(true))
+    await expect
+      .poll(() =>
+        document.querySelector(".view-edge-handle"),
+      )
+      .not.toBeNull()
+    expect(
+      document.querySelector(".view-drawer"),
+    ).toBeNull()
+  })
+
+  test("Escape gives focus back to the edge that opened the drawer", async () => {
+    await mountOnPanel({
+      width: 384,
+      height: 824,
+      hasViewDrawer: true,
+      printers: buildPrinters(11),
+    })
+    document
+      .querySelector<HTMLElement>(
+        '[data-castkit-target="navigation-edge:right"]',
+      )
+      ?.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect
+      .element(page.getByRole("dialog", { name: "Views" }))
+      .toBeVisible()
+    await userEvent.keyboard("{Escape}")
+
+    await expect
+      .poll(() =>
+        document.activeElement?.getAttribute(
+          "data-castkit-target",
+        ),
+      )
+      .toBe("navigation-edge:right")
+  })
+
+  test("a press on hand-back edges that went away cannot end the next hold", async () => {
+    const { server } = await mountOnPanel({
+      width: 384,
+      height: 824,
+      isViewHeld: true,
+      printers: buildPrinters(11),
+    })
+    const finger = pressWithAdapter({ x: 376, y: 400 })
+    expect(
+      finger.target.getAttribute("data-castkit-target"),
+    ).toBe("navigation-edge:hand-back-right")
+    for (const isViewHeld of [false, true]) {
+      server.push({
+        type: "settings",
+        settings: buildSettings({ isViewHeld }),
+      })
+      await expect
+        .poll(
+          () =>
+            document.querySelector(".hand-back-edge") !==
+            null,
+        )
+        .toBe(isViewHeld)
+    }
+    finger.lift()
+    await nextFrame()
+
+    expect(
+      server.commands.filter(
+        (command) => command.action === "view_release",
+      ),
+    ).toEqual([])
   })
 })
 

@@ -323,6 +323,9 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    cut a chip's state, as a wide fallback font can on a small panel: a
    chip that says `Prepa…` names no state. The view checks after every
    render, chips drawn, so a wider strip or a narrower font brings them back.
+   A count alone wraps onto a second line where a wide font needs it, and in
+   a view of 120 px or less, as a held view leaves on the narrowest windows,
+   it reads `+5 ›`, with `more printers` kept for assistive tech.
    The printers keep the order Home Assistant sends.
 4. **A tap on a job name opens the details.** The 2×2 grid and the rows have
    no room to open a name in place, so the tap lists that printer's whole job

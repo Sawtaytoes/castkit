@@ -1343,7 +1343,13 @@ export const PrinterStatus = () => {
             }}
           >
             <span class="printer-overflow-count">
-              {hiddenCountText} ›
+              {visibleCount === 0 ? "" : "+"}
+              {hiddenJobs.length}
+              <span class="printer-overflow-words">
+                {visibleCount === 0 ? " " : " more "}
+                {printerNoun}
+              </span>{" "}
+              ›
             </span>
             {/* The chips that fit are a glance; the rest wrap out of sight,
                 and the tap lists every one. */}

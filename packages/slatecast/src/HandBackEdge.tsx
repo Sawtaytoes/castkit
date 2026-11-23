@@ -56,7 +56,16 @@ export const HandBackEdge = () => {
     }
   }, [isConfirming])
 
-  if (!getHasHandBackEdge()) {
+  const hasEdge = getHasHandBackEdge()
+
+  // A press on edges that went away cannot end a hold that comes after it.
+  useEffect(() => {
+    if (!hasEdge) {
+      pull.current = null
+    }
+  }, [hasEdge])
+
+  if (!hasEdge) {
     return null
   }
 

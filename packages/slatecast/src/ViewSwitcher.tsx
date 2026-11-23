@@ -1,5 +1,6 @@
 import type { TargetedPointerEvent } from "preact"
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -31,40 +32,72 @@ export const ViewSwitcher = () => {
   const pull = useRef<EdgePull | null>(null)
   const switcherRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
-  const isOpen = openEdge !== null
+  /*
+   * What had focus as the drawer opened, kept from before the render that
+   * draws the drawer: that render removes the edge a key opened it from.
+   */
+  const openerRef = useRef<HTMLElement | null>(null)
+  const openDrawer = (edge: Edge) => {
+    const activeElement = document.activeElement
+    openerRef.current =
+      activeElement instanceof HTMLElement &&
+      activeElement !== document.body
+        ? activeElement
+        : null
+    setOpenEdge(edge)
+  }
+  const hasDrawer = Boolean(
+    profile?.hasTouch &&
+      profile.hasViewDrawer &&
+      profile.views.length >= 2,
+  )
+  // A profile that takes the drawer away closes it, and it stays closed.
+  const isOpen = hasDrawer && openEdge !== null
+
+  useEffect(() => {
+    if (!hasDrawer) {
+      setOpenEdge(null)
+    }
+  }, [hasDrawer])
 
   /*
    * The drawer covers the view, so the view leaves the keyboard and the
    * accessibility tree while it is open: no key can reach a control the
    * drawer hides, such as the Stop in a question the view had open. The view
    * and the swipe edges come before the switcher on the stage; the hand-back
-   * edges after it stay above the drawer, as they are drawn. Focus moves into
-   * the drawer, Escape closes it, and closing gives focus back.
+   * edges after it stay above the drawer, as they are drawn. A view that a
+   * live update puts on the stage meanwhile is covered too. Focus moves into
+   * the drawer, Escape closes it, and closing gives focus back, to the same
+   * edge when an edge opened it.
    */
   useLayoutEffect(() => {
     const switcher = switcherRef.current
-    if (!isOpen || !switcher) {
+    const stage = switcher?.parentElement
+    if (!isOpen || !switcher || !stage) {
       return undefined
     }
-    const covered: HTMLElement[] = []
-    for (
-      let sibling = switcher.previousElementSibling;
-      sibling;
-      sibling = sibling.previousElementSibling
-    ) {
-      if (
-        sibling instanceof HTMLElement &&
-        !sibling.inert
+    const covered = new Set<HTMLElement>()
+    const cover = () => {
+      for (
+        let sibling = switcher.previousElementSibling;
+        sibling;
+        sibling = sibling.previousElementSibling
       ) {
-        sibling.inert = true
-        covered.push(sibling)
+        if (
+          sibling instanceof HTMLElement &&
+          !sibling.inert
+        ) {
+          sibling.inert = true
+          covered.add(sibling)
+        }
       }
     }
-    const focused =
-      document.activeElement instanceof HTMLElement &&
-      document.activeElement !== document.body
-        ? document.activeElement
-        : null
+    cover()
+    const observer = new MutationObserver(cover)
+    observer.observe(stage, { childList: true })
+    const focused = openerRef.current
+    openerRef.current = null
+    const focusedTarget = focused?.dataset.castkitTarget
     closeRef.current?.focus()
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -74,20 +107,34 @@ export const ViewSwitcher = () => {
     window.addEventListener("keydown", handleKeyDown)
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
+      observer.disconnect()
       for (const element of covered) {
         element.inert = false
       }
       if (focused?.isConnected) {
         focused.focus()
+        return
       }
+      if (!focusedTarget) {
+        return
+      }
+      // The edge that opened the drawer is drawn again once it closes.
+      queueMicrotask(() => {
+        const isFocusFree =
+          document.activeElement === null ||
+          document.activeElement === document.body
+        if (isFocusFree) {
+          document
+            .querySelector<HTMLElement>(
+              `[data-castkit-target="${CSS.escape(focusedTarget)}"]`,
+            )
+            ?.focus()
+        }
+      })
     }
   }, [isOpen])
 
-  if (
-    !profile?.hasTouch ||
-    !profile.hasViewDrawer ||
-    profile.views.length < 2
-  ) {
+  if (!hasDrawer || !profile) {
     return null
   }
 
@@ -119,7 +166,7 @@ export const ViewSwitcher = () => {
     const inwardDistance =
       current.edge === "left" ? distance : -distance
     if (inwardDistance >= EDGE_PULL_COMMIT_PIXELS) {
-      setOpenEdge(current.edge)
+      openDrawer(current.edge)
       pull.current = null
     }
   }
@@ -141,7 +188,7 @@ export const ViewSwitcher = () => {
       onPointerMove={(event) => event.stopPropagation()}
       onPointerUp={(event) => event.stopPropagation()}
     >
-      {openEdge === null ? (
+      {!isOpen ? (
         (["left", "right"] as const).map((edge) => (
           <button
             key={edge}
@@ -149,7 +196,7 @@ export const ViewSwitcher = () => {
             class={`view-edge-handle is-${edge}`}
             data-castkit-target={`navigation-edge:${edge}`}
             aria-label={`Open views from ${edge} edge`}
-            onClick={() => setOpenEdge(edge)}
+            onClick={() => openDrawer(edge)}
             onPointerDown={(event) =>
               beginPull(edge, event)
             }

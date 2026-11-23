@@ -3313,11 +3313,36 @@ html[data-grayscale-text="true"] {
 
 /*
  * A strip in a view of 300 px or less has no room for a chip beside its
- * count: the count stays, and a tap lists every hidden printer.
+ * count: the count stays, and a tap lists every hidden printer. The count
+ * then has the strip to itself, and wraps onto a second line rather than
+ * run past the strip's edge where a wide font needs it.
  */
 @container printer-status (max-width: 300px) {
   .printer-status .printer-overflow-list {
     display: none;
+  }
+
+  .printer-status .printer-overflow-count {
+    flex: 0 1 auto;
+    min-width: 0;
+    line-height: 1.1;
+    white-space: normal;
+  }
+}
+
+/*
+ * A strip in a view of 120 px or less, as a held view leaves on the
+ * narrowest test windows, keeps only "+N ›": "more printers" goes to
+ * assistive tech, as Pause and Stop's words do in a narrow row.
+ */
+@container printer-status (max-width: 120px) {
+  .printer-status .printer-overflow-words {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 
