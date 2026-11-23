@@ -808,6 +808,28 @@ const findCoveredControls = (
     },
   )
 
+/**
+ * A word's width on one line in `parent`'s font and letter spacing, as
+ * layout measures it, so a turned stage does not change it.
+ */
+const measureWord = (
+  word: string,
+  parent: Element | null,
+) => {
+  if (!parent) {
+    return 0
+  }
+  const probe = document.createElement("span")
+  probe.textContent = word
+  probe.style.position = "absolute"
+  probe.style.visibility = "hidden"
+  probe.style.whiteSpace = "nowrap"
+  parent.append(probe)
+  const width = probe.offsetWidth
+  probe.remove()
+  return width
+}
+
 /** An element's width inside its padding. */
 const findContentWidth = (element: Element) => {
   const style = getComputedStyle(element)
@@ -822,7 +844,8 @@ const findContentWidth = (element: Element) => {
  * The words under `root` that the browser drew across two lines, such as
  * "Filamen" over "ts". A word wider than `wholeWidth`, the most room the
  * layout could give it (`root`'s content width by default), may split:
- * that is the only way to keep it on the glass, so it is not listed.
+ * that is the only way to keep it on the glass, so it is not listed. A
+ * word measures whole on one line, so a short last piece counts too.
  */
 const findSplitWords = (
   root: Element,
@@ -847,13 +870,12 @@ const findSplitWords = (
       const rects = Array.from(
         range.getClientRects(),
       ).filter((rect) => rect.width > 0 && rect.height > 0)
-      // A turned stage draws a word's length as the box's height.
-      const wordWidth = rects.reduce(
-        (total, rect) =>
-          total + Math.max(rect.width, rect.height),
-        0,
-      )
-      if (rects.length > 1 && wordWidth <= wholeWidth) {
+      if (
+        rects.length > 1 &&
+        // Within a pixel of the whole width, rounding decides; not listed.
+        measureWord(match[0], node.parentElement) <=
+          wholeWidth - 1
+      ) {
         split.push(match[0])
       }
     }
@@ -6059,8 +6081,9 @@ describe("a dialog on a touch panel's navigation edges", () => {
           count: 5,
           opener:
             '[data-focus-key="printer-job:printer-1"]',
+          // The details' title is the printer's name.
           jobName: "WorkbenchBracket",
-          name: undefined,
+          name: "WorkbenchBracket",
         },
         {
           dialog: "the filament list",
