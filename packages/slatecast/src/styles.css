@@ -2587,11 +2587,12 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * Close comes first and lies at the outer side; the title, and the subtitle
- * under it, take the rest of the line while that leaves them 10rem, and
- * otherwise the whole line under Close. So no title word is squeezed into
- * a column too narrow for it, and Close is never below the heading: its
- * focus as the list opens scrolls nothing.
+ * Close comes first and lies at the outer side. The title, and the subtitle
+ * under it, share its line only while their longest word fits beside it
+ * (their width starts at min-content), and otherwise take the whole line
+ * under Close. So a word splits only if it is wider than the whole head,
+ * and Close is never below the heading: its focus as the list opens
+ * scrolls nothing.
  */
 .filament-details-head {
   display: flex;
@@ -2603,7 +2604,8 @@ html[data-grayscale-text="true"] {
 }
 
 .filament-details-head > :not(.filament-details-close) {
-  flex: 1 1 10rem;
+  flex: 1 1 auto;
+  width: min-content;
   min-width: 0;
 }
 
@@ -2637,16 +2639,24 @@ html[data-grayscale-text="true"] {
   cursor: pointer;
 }
 
+/* Rows may narrow below their longest word, which then splits. */
 .filament-details-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/*
+ * A row's words share the line with its number or swatch only while their
+ * longest word fits there (their width starts at min-content), and
+ * otherwise go under it, so no word splits that the row could hold.
+ */
 .filament-details-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   min-height: 60px;
@@ -2667,14 +2677,17 @@ html[data-grayscale-text="true"] {
 }
 
 /*
- * One column that may narrow below a long word, so a printer name with no
- * spaces splits at the box's edge rather than widening the list.
+ * A column whose min-content is its longest word; it may still narrow below
+ * that word, so a printer name with no spaces splits at the box's edge
+ * rather than widening the list.
  */
 .filament-details-info {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   gap: 2px;
+  width: min-content;
+  min-width: 0;
 }
 
 .filament-details-name {
@@ -2685,9 +2698,7 @@ html[data-grayscale-text="true"] {
 
 /*
  * A list 260 px wide or less, as a small round panel or a narrow held one
- * leaves, pads less and sets its title and row names smaller. A row's
- * words go under its number or swatch when they would have less than
- * 8 characters' room beside it.
+ * leaves, pads less and sets its title and row names smaller.
  */
 @container filament-details-dialog (max-width: 260px) {
   .filament-details-box {
@@ -2712,19 +2723,14 @@ html[data-grayscale-text="true"] {
   }
 
   .filament-details-list li {
-    flex-wrap: wrap;
     gap: 8px;
     padding: 6px 8px;
-  }
-
-  .filament-details-info {
-    flex: 1 1 8ch;
   }
 }
 
 .filament-details-location,
 .filament-details-metadata {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: var(--color-content-muted);
   font-size: 14px;
 }
@@ -2732,7 +2738,7 @@ html[data-grayscale-text="true"] {
 /* The feed's own words, whole, where it sends no per-slot list. */
 .filament-details-summary {
   margin: 0 0 8px;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   font-size: 17px;
   font-weight: 600;
 }
@@ -3667,20 +3673,20 @@ html[data-grayscale-text="true"] {
 }
 
 .printer-details-job {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: var(--fg-dim);
   font-size: 15px;
 }
 
 /* The exact file name, for finding the job on the printer or in the slicer. */
 .printer-details-file {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: var(--color-content-muted);
   font-size: 13px;
 }
 
 .printer-details-problem {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: var(--color-intent-danger-content);
   font-size: 14px;
   font-weight: 600;
@@ -3690,7 +3696,7 @@ html[data-grayscale-text="true"] {
 .printer-details-nozzle,
 .printer-details-progress,
 .printer-details-filament {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: var(--fg-dim);
   font-size: 14px;
 }

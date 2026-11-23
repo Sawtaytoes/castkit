@@ -438,13 +438,13 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    the shell's undrawn navigation edges, as the Pause and Stop question
    does, so a tap or pull at an edge still opens Views, swipes, or ends a
    hold while one is open; their controls pad clear of those edges. A
-   list's title shares Close's line only while it keeps 10rem there, and
-   otherwise takes the whole line under Close, so no title word splits and
-   Close is never below the heading, whose place its focus never scrolls
-   away. A list 260 px wide or less, as a small round panel or a narrow
-   held one leaves, pads less and sets its title and row names smaller, and
-   a row's words go under its number or swatch when they would be
-   squeezed. A tap
+   list's title shares Close's line only while its longest word fits
+   beside Close, and otherwise takes the whole line under Close; a row's
+   words share the line with its number or swatch the same way. So a word
+   splits only if it is wider than the whole head or row, and Close is
+   never below the heading, whose place its focus never scrolls away. A
+   list 260 px wide or less, as a small round panel or a narrow held one
+   leaves, pads less and sets its title and row names smaller. A tap
    on the backdrop closes a dialog on its
    release, so a tap through the Linux WebKit touch adapter, which sends no
    click, closes it too. Only a primary press that starts and lifts on the

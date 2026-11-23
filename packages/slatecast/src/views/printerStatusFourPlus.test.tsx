@@ -808,15 +808,25 @@ const findCoveredControls = (
     },
   )
 
+/** An element's width inside its padding. */
+const findContentWidth = (element: Element) => {
+  const style = getComputedStyle(element)
+  return (
+    element.clientWidth -
+    Number.parseFloat(style.paddingLeft) -
+    Number.parseFloat(style.paddingRight)
+  )
+}
+
 /**
  * The words under `root` that the browser drew across two lines, such as
  * "Filamen" over "ts". A word wider than `wholeWidth`, the most room the
- * layout could give it (`root`'s whole width by default), may split: that
- * is the only way to keep it on the glass, so it is not listed.
+ * layout could give it (`root`'s content width by default), may split:
+ * that is the only way to keep it on the glass, so it is not listed.
  */
 const findSplitWords = (
   root: Element,
-  wholeWidth = root.clientWidth,
+  wholeWidth = findContentWidth(root),
 ) => {
   const split: string[] = []
   const walker = document.createTreeWalker(
@@ -833,17 +843,17 @@ const findSplitWords = (
       const range = document.createRange()
       range.setStart(node, match.index)
       range.setEnd(node, match.index + match[0].length)
+      // One box a line, whichever way the stage is turned.
       const rects = Array.from(
         range.getClientRects(),
-      ).filter((rect) => rect.width > 0)
-      const lineTops = new Set(
-        rects.map((rect) => Math.round(rect.top)),
-      )
+      ).filter((rect) => rect.width > 0 && rect.height > 0)
+      // A turned stage draws a word's length as the box's height.
       const wordWidth = rects.reduce(
-        (total, rect) => total + rect.width,
+        (total, rect) =>
+          total + Math.max(rect.width, rect.height),
         0,
       )
-      if (lineTops.size > 1 && wordWidth <= wholeWidth) {
+      if (rects.length > 1 && wordWidth <= wholeWidth) {
         split.push(match[0])
       }
     }
@@ -6033,11 +6043,144 @@ describe("a dialog on a touch panel's navigation edges", () => {
           Array.from(
             row.querySelectorAll(".filament-details-name"),
           ).flatMap((name) =>
-            findSplitWords(name, row.clientWidth),
+            findSplitWords(name, findContentWidth(row)),
           ),
         ),
       ),
     ).toEqual([])
+  })
+
+  // Words that fit the head or the row whole, but not beside Close or a badge.
+  test.each(
+    (
+      [
+        {
+          dialog: "one printer's details",
+          count: 5,
+          opener:
+            '[data-focus-key="printer-job:printer-1"]',
+          jobName: "WorkbenchBracket",
+          name: undefined,
+        },
+        {
+          dialog: "the filament list",
+          count: 1,
+          opener: '[data-focus-key^="printer-filaments:"]',
+          jobName: "WorkbenchEnclosureForVoron",
+          name: undefined,
+        },
+        {
+          dialog: "the hidden-printer list",
+          count: 11,
+          opener: ".printer-overflow",
+          jobName: undefined,
+          name: "Workbench",
+        },
+      ] as const
+    ).flatMap((dialog) =>
+      (
+        [
+          {
+            width: 390,
+            height: 824,
+            shape: "square",
+            orientation: 0,
+          },
+          {
+            width: 400,
+            height: 824,
+            shape: "square",
+            orientation: 0,
+          },
+          {
+            width: 824,
+            height: 460,
+            shape: "square",
+            orientation: 90,
+          },
+          {
+            width: 289,
+            height: 289,
+            shape: "round",
+            orientation: 90,
+          },
+        ] as const
+      ).flatMap((panel) =>
+        [false, true].flatMap((isViewHeld) =>
+          FONTS.map((font) => ({
+            ...dialog,
+            ...panel,
+            isViewHeld,
+            font,
+          })),
+        ),
+      ),
+    ),
+  )("in $font, $dialog splits no word that fits whole at $width x $height ($shape, $orientation°), held $isViewHeld", async ({
+    count,
+    opener,
+    jobName,
+    name,
+    width,
+    height,
+    shape,
+    orientation,
+    isViewHeld,
+    font,
+  }) => {
+    useTestFont(font)
+    await mountOnPanel({
+      width,
+      height,
+      shape,
+      orientation,
+      isViewHeld,
+      hasViewDrawer: true,
+      printers: buildPrinters(count).map((printer) => ({
+        ...printer,
+        state: "printing" as const,
+        ...(jobName ? { jobName } : {}),
+        ...(name ? { name } : {}),
+      })),
+    })
+    const control = drawnWithin(document.body, opener)[0]
+    if (!(control instanceof HTMLElement)) {
+      // This panel draws no such control; another case covers the dialog.
+      return
+    }
+    control.click()
+    await expect
+      .poll(() =>
+        document.querySelector(".filament-details-head"),
+      )
+      .not.toBeNull()
+    await nextFrame()
+    const box = document.querySelector<HTMLElement>(
+      ".filament-details-box",
+    )
+    const head = document.querySelector<HTMLElement>(
+      ".filament-details-head",
+    )
+    if (!box || !head) {
+      throw new Error("No list.")
+    }
+
+    expect(
+      findSplitWords(head).concat(
+        Array.from(
+          box.querySelectorAll(".filament-details-list li"),
+        ).flatMap((row) =>
+          Array.from(
+            row.querySelectorAll(".filament-details-info"),
+          ).flatMap((info) =>
+            findSplitWords(info, findContentWidth(row)),
+          ),
+        ),
+      ),
+    ).toEqual([])
+    expect(box.scrollWidth).toBeLessThanOrEqual(
+      box.clientWidth,
+    )
   })
 
   // Panels on both sides of the 260 px narrow list, held and not.
