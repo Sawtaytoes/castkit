@@ -397,8 +397,11 @@ Approved by the owner on 2026-09-28 and built on 2026-11-22
    `Dec 28 10:59p` whole. A tap on the backdrop closes a dialog on its
    release, so a tap through the Linux WebKit touch adapter, which sends no
    click, closes it too. Only a primary press that starts and lifts on the
-   backdrop closes it: a finger dragged from the backdrop into the list, or
-   a right-click, keeps it open. While the view tries its rows again, the
+   backdrop closes it: a finger dragged from the backdrop into the list, a
+   finger dragged out of the list while another rests on the backdrop, or a
+   right-click, keeps it open. When a dialog closes, focus returns to the
+   control that opened it, or, if a live update replaced that control, to
+   its replacement. While the view tries its rows again, the
    hidden-printer list keeps its entries; it closes only once no printer
    has been hidden for two frames. In rows, Layer and Finishes keep their whole width; the
    filament name gives way first, and the Filament tile never gets narrower

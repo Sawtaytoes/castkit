@@ -585,6 +585,7 @@ const PrinterCard = ({
         <button
           type="button"
           class="printer-job"
+          data-focus-key={`printer-job:${job.id}`}
           title={job.jobName}
           aria-haspopup={isCompact ? "dialog" : undefined}
           onClick={onToggleExpanded}
@@ -719,6 +720,7 @@ const PrinterCard = ({
                   {job.filamentText ||
                   job.filaments?.length ? (
                     <FilamentControl
+                      focusKey={`printer-filaments:${job.id}`}
                       color={job.filamentColor}
                       isExpanded={isFilamentDetailsOpen}
                       filaments={job.filaments}
@@ -748,6 +750,7 @@ const PrinterCard = ({
               <button
                 type="button"
                 class="printer-action is-pause"
+                data-focus-key={`printer-pause:${job.id}`}
                 data-castkit-target={`printer-${isPaused ? "resume" : "pause"}:${job.id}`}
                 data-is-pending={
                   pendingAction === "pause" ||
@@ -782,6 +785,7 @@ const PrinterCard = ({
               <button
                 type="button"
                 class="printer-action is-stop"
+                data-focus-key={`printer-stop:${job.id}`}
                 data-castkit-target={`printer-stop:${job.id}`}
                 data-is-pending={
                   pendingAction === "stop"
@@ -1326,6 +1330,7 @@ export const PrinterStatus = () => {
           <button
             type="button"
             class="printer-overflow"
+            data-focus-key="printer-overflow"
             aria-haspopup="dialog"
             onClick={() => {
               setDetails({ kind: "hidden" })

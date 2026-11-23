@@ -4273,3 +4273,69 @@ describe("the hidden-printer list with no row drawn", () => {
     expect(countEntries()).toBe(5)
   })
 })
+
+describe("the hidden-printer list's opener after a refresh", () => {
+  test.each([
+    "a minute tick",
+    "the same payload again",
+  ])("in a much wider font, Escape after %s returns focus to the strip", async (refresh) => {
+    useTestFont("a much wider font")
+    const clock = {
+      ms: new Date(2026, 0, 5, 7, 59, 30).getTime(),
+    }
+    const now = vi
+      .spyOn(Date, "now")
+      .mockImplementation(() => clock.ms)
+    onTestFinished(() => {
+      now.mockRestore()
+      nowMs.value = Date.now()
+    })
+    nowMs.value = clock.ms
+    const printers = buildPrinters(5).map((printer) => ({
+      ...printer,
+      state: "preparing" as const,
+      percent: 0,
+    }))
+    const { server } = await mountOnPanel({
+      width: 240,
+      height: 824,
+      printers,
+    })
+    const strip = document.querySelector<HTMLButtonElement>(
+      ".printer-overflow",
+    )
+    // The case under test: the strip stands in for every row.
+    expect(
+      document.querySelectorAll(".printer-card"),
+    ).toHaveLength(0)
+    expect(strip).toHaveTextContent("5 printers")
+    strip?.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect
+      .element(page.getByRole("dialog"))
+      .toBeVisible()
+    await settleDialogMotion()
+
+    if (refresh === "a minute tick") {
+      clock.ms = new Date(2026, 0, 5, 8, 0, 30).getTime()
+      nowMs.value = clock.ms
+    } else {
+      server.push({
+        type: "printers",
+        data: { printers: structuredClone(printers) },
+      })
+    }
+    await nextFrame()
+    await nextFrame()
+    await nextFrame()
+    expect(page.getByRole("dialog").element()).toBeVisible()
+    await userEvent.keyboard("{Escape}")
+
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+    await expect
+      .poll(() => document.activeElement)
+      .toBe(document.querySelector(".printer-overflow"))
+  })
+})

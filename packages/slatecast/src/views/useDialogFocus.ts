@@ -24,7 +24,8 @@ const focusAndReveal = (control: HTMLElement) => {
  * Keeps the keyboard inside a modal dialog, as a modal promises.
  *
  * Focus moves in when the dialog opens and goes back to the control that
- * opened it when it closes. Tab and Shift+Tab cycle through the dialog's own
+ * opened it when it closes, or to its replacement with the same
+ * `data-focus-key`. Tab and Shift+Tab cycle through the dialog's own
  * controls, so a keyboard user cannot reach a control behind the overlay and
  * open a second dialog over the first. Escape closes only the dialog that
  * holds focus, so one key press never closes two dialogs.
@@ -43,17 +44,39 @@ export const useDialogFocus = ({
   const onEscapeRef = useRef(onEscape)
   onEscapeRef.current = onEscape
 
-  // Before the first paint, so the dialog never shows with focus behind it.
+  /*
+   * Before the first paint, so the dialog never shows with focus behind it.
+   * A live update can replace the opener while the dialog is open; focus
+   * then goes to the control that took its place, found by the same
+   * `data-focus-key`, once the closing render has drawn it.
+   */
   useLayoutEffect(() => {
     const opener =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null
+    const focusKey = opener?.dataset.focusKey
     initialFocusRef.current?.focus()
     return () => {
       if (opener?.isConnected) {
         opener.focus()
+        return
       }
+      if (!focusKey) {
+        return
+      }
+      queueMicrotask(() => {
+        const isFocusFree =
+          document.activeElement === null ||
+          document.activeElement === document.body
+        if (isFocusFree) {
+          document
+            .querySelector<HTMLElement>(
+              `[data-focus-key="${CSS.escape(focusKey)}"]`,
+            )
+            ?.focus()
+        }
+      })
     }
   }, [initialFocusRef])
 

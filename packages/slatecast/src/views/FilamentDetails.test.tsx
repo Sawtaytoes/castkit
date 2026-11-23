@@ -539,3 +539,37 @@ test("a right-click on the backdrop keeps the list open", () => {
 
   expect(onClose).not.toHaveBeenCalled()
 })
+
+test("a second finger on the backdrop does not close the list for a drag out of it", () => {
+  const onClose = vi.fn()
+  render(
+    <FilamentDetailsDialog
+      printerName="Printer"
+      jobName="Vase"
+      filaments={filaments}
+      onClose={onClose}
+    />,
+  )
+  const box = screen.getByRole("dialog")
+  const overlay = box.parentElement
+  if (!overlay) {
+    throw new Error("The dialog has no backdrop.")
+  }
+  const backdropPoint = backdropMouse(overlay)
+  const finger = (pointerId: number) => ({
+    ...backdropPoint,
+    pointerId,
+    pointerType: "touch",
+  })
+  // One finger rests on the backdrop; another starts in the list.
+  fireEvent.pointerDown(overlay, finger(5))
+  fireEvent.pointerDown(box, finger(6))
+  // The second lifts over the backdrop; the adapter sends it to the list.
+  fireEvent.pointerUp(box, finger(6))
+
+  expect(onClose).not.toHaveBeenCalled()
+
+  fireEvent.pointerUp(overlay, finger(5))
+
+  expect(onClose).toHaveBeenCalledTimes(1)
+})

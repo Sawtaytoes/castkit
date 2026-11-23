@@ -9,12 +9,15 @@ import { useDragScroll } from "./useDragScroll.ts"
 /** A compact summary that opens the per-slot details for an active print. */
 export const FilamentControl = ({
   color,
+  focusKey,
   isExpanded,
   filaments,
   onClick,
   text,
 }: {
   color?: string
+  /** Names the button so focus can return to its replacement. */
+  focusKey?: string
   isExpanded: boolean
   filaments?: readonly PrinterFilamentAssignment[]
   onClick: () => void
@@ -67,6 +70,7 @@ export const FilamentControl = ({
     <button
       type="button"
       class="printer-filament-button"
+      data-focus-key={focusKey}
       aria-haspopup="dialog"
       aria-expanded={isExpanded}
       aria-controls="printer-filament-details"
