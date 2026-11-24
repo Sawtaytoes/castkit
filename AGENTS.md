@@ -318,6 +318,10 @@ which is the thing to read before touching any of this.
 - `pnpm test` — Vitest. Four node projects plus `slatecast`, which runs in
   **real Chromium** (browser mode, Playwright provider) with MSW's `ws.link`
   standing in for the server socket. `pnpm vitest run` for one-shot/CI.
+  CI runs it as the required `unit-tests` check, one `unit-tests (<window>)` job
+  per `slatecast` window plus `unit-tests (node)` for the other projects
+  (`CASTKIT_IS_BROWSER_SKIPPED=true pnpm vitest run`). Run one window with
+  `pnpm vitest run --project slatecast-wide`.
 - `pnpm e2e` — Playwright specs against the real server (`e2e/testServer.ts`,
   MQTT swapped for a recording stub). Run when you touch the browser-mode
   server, the page shell, the WebSocket protocol, or the management app. CI runs it as

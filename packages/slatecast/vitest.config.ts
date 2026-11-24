@@ -29,10 +29,7 @@ export default defineConfig({
       // (`slatecast-narrow`, `-tall`, `-wide`, `-ultrawide`). A test that
       // sizes the page to a PANEL with `page.viewport()` is asserting on
       // that panel's own canvas, which is window-independent; the four
-      // windows are the browser around it. A describe made only of such
-      // tests may run in one window (`describeInOneWindow` in
-      // `printerStatusFourPlus.test.tsx`), so a long panel sweep is not
-      // measured four times.
+      // windows are the browser around it.
       instances: createViewportInstances({
         project: "slatecast",
       }),

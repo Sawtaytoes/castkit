@@ -1,11 +1,9 @@
 import type { PrinterJob } from "@castkit/shared/viewData/types"
-import type { ViewportName } from "@charcuterie/vitest-config/viewports.js"
 import userEvent from "@testing-library/user-event"
 import {
   afterEach,
   describe,
   expect,
-  inject,
   onTestFinished,
   test,
   vi,
@@ -41,26 +39,6 @@ import "../styles.css"
  * The four test windows are here too, because a phone opens this view as
  * readily as the wall panel does.
  */
-
-/**
- * A describe whose every test sizes the page to its own panels with
- * `page.viewport()`, so the window that its browser instance names never
- * reaches an assertion. In all four windows it would measure the same panels
- * four times, and those repeats made this file outlast CI's test job. It runs
- * in one window instead. The heavy sweeps are spread over the four windows,
- * about the same time in each, so CI runs them side by side. A run with no
- * window runs every one. Workspace decision: "App VRT captures distinct
- * layouts rather than every workflow state" (an app does not multiply every
- * scenario by all four windows).
- */
-const describeInOneWindow = (window: ViewportName) => {
-  const current = inject("viewport")
-  return describe.runIf(!current || current === window)
-}
-const describeInNarrow = describeInOneWindow("narrow")
-const describeInTall = describeInOneWindow("tall")
-const describeInWide = describeInOneWindow("wide")
-const describeInUltrawide = describeInOneWindow("ultrawide")
 
 const PANELS = [
   [
@@ -877,12 +855,18 @@ const measureWord = (
 
 /**
  * An element's width inside its padding and any scroll bar, to the fraction
- * of a pixel. `clientWidth` would round it to a whole pixel.
+ * of a pixel. `clientWidth` would round it to a whole pixel. Chromium gives a
+ * content-box element's computed width without its scroll bar already, and a
+ * border-box element's with it.
  */
 const findContentWidth = (element: Element) => {
   const style = getComputedStyle(element)
   const pixels = (value: string) =>
     Number.parseFloat(value) || 0
+  const width = pixels(style.width)
+  if (style.boxSizing !== "border-box") {
+    return width
+  }
   const borders =
     pixels(style.borderLeftWidth) +
     pixels(style.borderRightWidth)
@@ -895,13 +879,63 @@ const findContentWidth = (element: Element) => {
             Math.round(borders),
         )
       : 0
-  const width = pixels(style.width) - scrollBar
-  return style.boxSizing === "border-box"
-    ? width -
-        borders -
-        pixels(style.paddingLeft) -
-        pixels(style.paddingRight)
-    : width
+  return (
+    width -
+    borders -
+    scrollBar -
+    pixels(style.paddingLeft) -
+    pixels(style.paddingRight)
+  )
+}
+
+/**
+ * The screen direction from one line to the next for text in `element`,
+ * through every turn of its ancestors.
+ */
+const findLineDirection = (element: Element) => {
+  let matrix = new DOMMatrix()
+  for (
+    let ancestor: Element | null = element;
+    ancestor;
+    ancestor = ancestor.parentElement
+  ) {
+    const { transform } = getComputedStyle(ancestor)
+    if (transform !== "none") {
+      matrix = new DOMMatrix(transform).multiply(matrix)
+    }
+  }
+  const { x, y } = matrix.transformPoint(
+    new DOMPoint(0, 1, 0, 0),
+  )
+  const length = Math.hypot(x, y) || 1
+  return { x: x / length, y: y / length }
+}
+
+/**
+ * Whether a word's boxes lie on more than one line. One line can hold several
+ * boxes, as when a word mixes left-to-right and right-to-left letters, so the
+ * boxes are compared across the lines rather than counted.
+ */
+const isOnSeveralLines = (
+  rects: DOMRect[],
+  direction: { x: number; y: number },
+) => {
+  const spans = rects.map((rect) => {
+    const center =
+      (rect.left + rect.width / 2) * direction.x +
+      (rect.top + rect.height / 2) * direction.y
+    const extent =
+      Math.abs(direction.x) * rect.width +
+      Math.abs(direction.y) * rect.height
+    return { center, extent }
+  })
+  return spans.some((span) =>
+    spans.some(
+      (other) =>
+        Math.abs(span.center - other.center) >
+        Math.min(span.extent, other.extent) / 2,
+    ),
+  )
 }
 
 /** Layout measures in 64ths of a pixel; a word this close may go either way. */
@@ -933,12 +967,15 @@ const findSplitWords = (
       const range = document.createRange()
       range.setStart(node, match.index)
       range.setEnd(node, match.index + match[0].length)
-      // One box a line, whichever way the stage is turned.
+      // A box for each line, and for each direction run within one.
       const rects = Array.from(
         range.getClientRects(),
       ).filter((rect) => rect.width > 0 && rect.height > 0)
       if (
-        rects.length > 1 &&
+        isOnSeveralLines(
+          rects,
+          findLineDirection(node.parentElement ?? root),
+        ) &&
         // Within a layout unit of the whole width, rounding decides.
         measureWord(match[0], node.parentElement) <=
           wholeWidth - LAYOUT_UNIT
@@ -2121,7 +2158,7 @@ const nextFrame = () =>
     ),
   )
 
-describeInWide("the ended lines in a short band", () => {
+describe("the ended lines in a short band", () => {
   test.each([
     {
       count: 10,
@@ -2257,7 +2294,7 @@ describeInWide("the ended lines in a short band", () => {
   })
 })
 
-describeInWide("the ended lines in a fallback font", () => {
+describe("the ended lines in a fallback font", () => {
   test.each([
     { count: 5, height: 900 },
     { count: 10, height: 660 },
@@ -2703,7 +2740,7 @@ const buildWidestFacts = ({
   }
 }
 
-describeInTall("the widest facts in a row", () => {
+describe("the widest facts in a row", () => {
   test.each([
     {
       finishes: "a weekday",
@@ -3023,7 +3060,7 @@ describe("the facts a compact row drops", () => {
   })
 })
 
-describeInTall("a filament count", () => {
+describe("a filament count", () => {
   test.each([
     { count: 16, font: "Outfit" },
     { count: 16, font: "a wider font" },
@@ -3770,7 +3807,7 @@ const sweepWidths = async ({
   return problems
 }
 
-describeInNarrow("a narrow row's state word", () => {
+describe("a narrow row's state word", () => {
   test.each(
     FONTS,
   )("in %s, a narrow row never cuts Preparing", async (font) => {
@@ -3798,7 +3835,7 @@ describeInNarrow("a narrow row's state word", () => {
   })
 })
 
-describeInNarrow("a held view's narrow rows", () => {
+describe("a held view's narrow rows", () => {
   const PREPARING = buildPrinters(10).map((printer) => ({
     ...printer,
     state: "preparing" as const,
@@ -3880,7 +3917,7 @@ describe("a narrow row's percentage", () => {
   })
 })
 
-describeInNarrow("a strip chip's state", () => {
+describe("a strip chip's state", () => {
   test.each(
     FONTS.flatMap((font) =>
       [
@@ -4082,7 +4119,7 @@ describe("a word cut by a twentieth of a pixel", () => {
   })
 })
 
-describeInUltrawide("a tick that widens the finish", () => {
+describe("a clock tick that widens the finish time", () => {
   test.each(
     FONTS,
   )("in %s, folds a row whose state word it would cut", async (font) => {
@@ -4253,7 +4290,7 @@ describe("a live turn of the stage", () => {
   })
 })
 
-describeInUltrawide("a clock that makes room again", () => {
+describe("a clock that makes room again", () => {
   test.each(
     FONTS,
   )("in %s, the facts come back once the finish drops its weekday", async (font) => {
@@ -5402,7 +5439,7 @@ describe("the touch panel's navigation edges", () => {
   })
 })
 
-describeInUltrawide("a held view's hand-back edges", () => {
+describe("a held view's hand-back edges", () => {
   test.each([
     {
       name: "Printer 1's Stop at 384x824",
@@ -5530,7 +5567,7 @@ describeInUltrawide("a held view's hand-back edges", () => {
   })
 })
 
-describeInWide("the Views drawer over a question", () => {
+describe("the Views drawer over a question", () => {
   test("keeps every key from the Stop it covers", async () => {
     const { server } = await mountOnPanel({
       width: 384,
@@ -5857,7 +5894,7 @@ describeInWide("the Views drawer over a question", () => {
   })
 })
 
-describeInNarrow("a dialog by the navigation edges", () => {
+describe("a dialog on a touch panel's navigation edges", () => {
   test.each(
     (
       [
@@ -6352,7 +6389,7 @@ describeInNarrow("a dialog by the navigation edges", () => {
   })
 })
 
-describeInTall("the Views drawer and live updates", () => {
+describe("the Views drawer and live updates", () => {
   // The 384x824 test panel's snapshot again, as a profile update sends it.
   const buildPanelSnapshot = ({
     hasViewDrawer,

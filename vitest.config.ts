@@ -1,5 +1,8 @@
 import { createVitestConfig } from "@charcuterie/vitest-config"
 
+const isBrowserSkipped =
+  process.env.CASTKIT_IS_BROWSER_SKIPPED === "true"
+
 export default createVitestConfig({
   test: {
     // The root config only aggregates the projects below; each one declares
@@ -12,6 +15,8 @@ export default createVitestConfig({
       // describe/test globals are not compatible with vitest.
       "e2e/**",
     ],
+    // CI runs each `slatecast` window as its own job, so its node job leaves
+    // the browser project out (`CASTKIT_IS_BROWSER_SKIPPED=true`).
     projects: [
       "packages/sdk/vitest.config.ts",
       "packages/core/vitest.config.ts",
@@ -19,7 +24,9 @@ export default createVitestConfig({
       "packages/shared/vitest.config.ts",
       "packages/render/vitest.config.ts",
       "packages/server/vitest.config.ts",
-      "packages/slatecast/vitest.config.ts",
+      ...(isBrowserSkipped
+        ? []
+        : ["packages/slatecast/vitest.config.ts"]),
       "packages/views/vitest.config.ts",
       "packages/web/vitest.config.ts",
     ],
