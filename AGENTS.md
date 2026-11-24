@@ -315,7 +315,7 @@ which is the thing to read before touching any of this.
   bundle and waits for `/health`; every other gate runs from source, which is how
   a Satori bump passed all of them and crash-looped production on 2026-10-13. CI
   runs it as `server-bundle`, and `docker-deploy` starts the image before pushing.
-- `pnpm test` — Vitest. Four node projects plus `slatecast`, which runs in
+- `pnpm test` — Vitest. Eight node projects plus `slatecast`, which runs in
   **real Chromium** (browser mode, Playwright provider) with MSW's `ws.link`
   standing in for the server socket. `pnpm vitest run` for one-shot/CI.
   CI runs it as the required `unit-tests` check, one `unit-tests (<window>)` job

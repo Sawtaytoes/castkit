@@ -914,7 +914,10 @@ const findLineDirection = (element: Element) => {
 /**
  * Whether a word's boxes lie on more than one line. One line can hold several
  * boxes, as when a word mixes left-to-right and right-to-left letters, so the
- * boxes are compared across the lines rather than counted.
+ * boxes are compared across the lines rather than counted. A panel turns only
+ * by quarter turns (`BrowserDeviceSettings.orientation`), so the boxes are
+ * square to the lines; at an angle between, such as 45°, the boxes of two
+ * lines overlap and a split can be missed.
  */
 const isOnSeveralLines = (
   rects: DOMRect[],
