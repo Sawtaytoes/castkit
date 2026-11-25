@@ -961,6 +961,9 @@ export const attachPlatformRoutes = ({
       return context.json({ error: getError(error) }, 400)
     }
   }
+  // A channel id such as `kids-points/living-room` holds a slash. `{.+}` takes the
+  // rest of the path, so a client may send that slash as written or as `%2F`.
+  // Proxies that refuse `%2F` in a path can still reach the record.
   ;(
     Object.keys(
       platformSchemas,
@@ -971,11 +974,11 @@ export const attachPlatformRoutes = ({
       (context) => saveRecord({ context, collection }),
     )
     app.put(
-      `/api/manage/platform/${collection}/:id`,
+      `/api/manage/platform/${collection}/:id{.+}`,
       (context) => saveRecord({ context, collection }),
     )
     app.delete(
-      `/api/manage/platform/${collection}/:id`,
+      `/api/manage/platform/${collection}/:id{.+}`,
       async (context) => {
         const id = context.req.param("id")
         const previous = store.get()

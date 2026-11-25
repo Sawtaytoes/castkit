@@ -18,6 +18,11 @@ const pathId = {
   required: true,
   schema: { type: "string" },
 }
+const recordId = {
+  ...pathId,
+  description:
+    "The record id. A channel id may hold a slash, sent as written or as %2F.",
+}
 const targetParameters = [
   {
     name: "kind",
@@ -102,7 +107,7 @@ export const buildPlatformOpenApi = () => {
       [
         `/api/manage/platform/${collection}/{id}`,
         {
-          parameters: [pathId],
+          parameters: [recordId],
           put: write,
           delete: {
             summary: `Delete an unused ${collection} item`,
