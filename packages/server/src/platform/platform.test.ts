@@ -909,6 +909,33 @@ describe("platform access and saved compositions", () => {
         )
       ).status,
     ).toBe(401)
+    for (const [id, path] of [
+      ["printers/spare-written", "printers/spare-written"],
+      [
+        "printers/spare-encoded",
+        "printers%2Fspare-encoded",
+      ],
+    ]) {
+      expect(
+        (await fixture.save("channels", { ...channel, id }))
+          .status,
+      ).toBe(201)
+      expect(
+        (
+          await fixture.request(
+            `/api/manage/platform/channels/${path}`,
+            "DELETE",
+            undefined,
+            fixture.cookie,
+          )
+        ).status,
+      ).toBe(200)
+      expect(
+        fixture.platform.store
+          .get()
+          .channels.some((item) => item.id === id),
+      ).toBe(false)
+    }
   })
   test("does not expose a private view through a public screen", async () => {
     const fixture = await createFixture()
