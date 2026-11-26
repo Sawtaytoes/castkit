@@ -844,6 +844,99 @@ describe("platform access and saved compositions", () => {
       ).status,
     ).toBe(409)
   })
+  test("edits and deletes a channel whose id holds a slash, written as a slash or as %2F", async () => {
+    const fixture = await createFixture()
+    const channel = fixture.platform.store
+      .get()
+      .channels.find(
+        (item) => item.id === "printers/workbench",
+      )
+    expect(channel).toBeDefined()
+    const written = await fixture.request(
+      "/api/manage/platform/channels/printers/workbench",
+      "PUT",
+      { ...channel, name: "Written slash" },
+      fixture.cookie,
+    )
+    expect(written.status).toBe(200)
+    expect(
+      fixture.platform.store
+        .get()
+        .channels.find(
+          (item) => item.id === "printers/workbench",
+        )?.name,
+    ).toBe("Written slash")
+    const encoded = await fixture.request(
+      "/api/manage/platform/channels/printers%2Fworkbench",
+      "PUT",
+      { ...channel, name: "Encoded slash" },
+      fixture.cookie,
+    )
+    expect(encoded.status).toBe(200)
+    expect(
+      fixture.platform.store
+        .get()
+        .channels.find(
+          (item) => item.id === "printers/workbench",
+        )?.name,
+    ).toBe("Encoded slash")
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/channels/printers/other",
+          "PUT",
+          channel,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(400)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/channels/printers/workbench",
+          "DELETE",
+          undefined,
+          fixture.cookie,
+        )
+      ).status,
+    ).toBe(409)
+    expect(
+      (
+        await fixture.request(
+          "/api/manage/platform/channels/printers/workbench",
+          "PUT",
+          { ...channel, name: "No session" },
+        )
+      ).status,
+    ).toBe(401)
+    for (const [id, path] of [
+      ["printers/spare-written", "printers/spare-written"],
+      [
+        "printers/spare-encoded",
+        "printers%2Fspare-encoded",
+      ],
+    ]) {
+      expect(
+        (await fixture.save("channels", { ...channel, id }))
+          .status,
+      ).toBe(201)
+      expect(
+        (
+          await fixture.request(
+            `/api/manage/platform/channels/${path}`,
+            "DELETE",
+            undefined,
+            fixture.cookie,
+          )
+        ).status,
+      ).toBe(200)
+      expect(
+        fixture.platform.store
+          .get()
+          .channels.some((item) => item.id === id),
+      ).toBe(false)
+    }
+  })
   test("does not expose a private view through a public screen", async () => {
     const fixture = await createFixture()
     await fixture.save("views", {
