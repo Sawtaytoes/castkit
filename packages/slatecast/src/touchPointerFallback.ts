@@ -1,5 +1,9 @@
 type Contact = {
   target: Element
+  /** The button or link pressed, kept even if its content is replaced. */
+  control: Element | null
+  /** What the control did when pressed, so a release acts only on that. */
+  controlIdentity: ControlIdentity
   pointerId: number
   startX: number
   startY: number
@@ -15,6 +19,67 @@ export const getIsTouchPointerFallbackRequired = (
   /Linux/.test(userAgent) &&
   /AppleWebKit/.test(userAgent) &&
   !/Android|Chrome|Chromium|Edg\//.test(userAgent)
+
+type ControlIdentity = {
+  focusKey: string | null
+  action: string | null
+}
+
+const getControlIdentity = (
+  control: Element | null,
+): ControlIdentity => ({
+  focusKey: control?.getAttribute("data-focus-key") ?? null,
+  action:
+    control?.getAttribute("data-castkit-target") ?? null,
+})
+
+const isSameControl = (
+  first: ControlIdentity,
+  second: ControlIdentity,
+) =>
+  first.focusKey === second.focusKey &&
+  first.action === second.action
+
+/**
+ * The control a tap ends on: the one pressed, if it still does what it did
+ * when pressed and nothing has come over it. A live update can draw the
+ * pressed control again as a new element between press and release; the
+ * tap then belongs to the new one, but only if it carries the same
+ * `data-focus-key` and the same `data-castkit-target`, so a tap never
+ * lands on a different control, or on Resume after a press on Pause.
+ * Either way the control must be what lies on top where the finger
+ * pressed or lifted: a dialog that another finger opened meanwhile covers
+ * it, as it would a mouse.
+ */
+const findTappedControl = ({
+  control,
+  identity,
+  points,
+}: {
+  control: Element | null
+  identity: ControlIdentity
+  points: readonly { x: number; y: number }[]
+}) => {
+  if (!(control instanceof HTMLElement)) {
+    return null
+  }
+  const controlsOnTop = points.map(({ x, y }) =>
+    document.elementFromPoint(x, y)?.closest("button, a"),
+  )
+  const tapped = control.isConnected
+    ? controlsOnTop.includes(control)
+      ? control
+      : null
+    : identity.focusKey
+      ? controlsOnTop.find(
+          (candidate) => candidate instanceof HTMLElement,
+        )
+      : null
+  return tapped instanceof HTMLElement &&
+    isSameControl(identity, getControlIdentity(tapped))
+    ? tapped
+    : null
+}
 
 const getNativeRange = (target: Element) =>
   target instanceof HTMLInputElement &&
@@ -179,92 +244,155 @@ export const installTouchPointerFallback = () => {
     replayed.add(event)
     contact.target.dispatchEvent(event)
   }
+  /*
+   * WPE WebKit sends a touch's later events to the element it began on,
+   * even once a live update removes that element, and a removed element's
+   * events never reach the document. So the element the touch began on is
+   * listened to as well, until its last touch ends.
+   */
+  const laterTouchTypes = [
+    "touchmove",
+    "touchend",
+    "touchcancel",
+  ] as const
+  const listenOnTarget = (target: Element) => {
+    laterTouchTypes.forEach((type) => {
+      target.addEventListener(type, handleTouch, {
+        capture: true,
+        passive: false,
+      })
+    })
+  }
+  const stopListeningOnTarget = (target: Element) => {
+    const isStillTouched = Array.from(
+      contacts.values(),
+    ).some((contact) => contact.target === target)
+    if (isStillTouched) {
+      return
+    }
+    laterTouchTypes.forEach((type) => {
+      target.removeEventListener(type, handleTouch, {
+        capture: true,
+      })
+    })
+  }
+  // A touch event can reach two listeners below; it is handled once.
+  const handledTouchEvents = new WeakSet<Event>()
+  const handleTouch = (event: Event) => {
+    const type = event.type
+    if (
+      !(event instanceof TouchEvent) ||
+      handledTouchEvents.has(event)
+    ) {
+      return
+    }
+    handledTouchEvents.add(event)
+    /*
+     * One event clicks one control at most. An event that ends two
+     * contacts would otherwise click both before the view draws what the
+     * first opened, such as two dialogs at once.
+     */
+    const tap = { hasClicked: false }
+    Array.from(event.changedTouches).forEach((touch) => {
+      if (!(touch.target instanceof Element)) {
+        return
+      }
+      if (type === "touchstart") {
+        const match = Array.from(pending).find(
+          ([, pointer]) => pointer.target === touch.target,
+        )
+        if (!match) {
+          return
+        }
+        const [pointerId] = match
+        pending.delete(pointerId)
+        const control = touch.target.closest("button, a")
+        const contact = {
+          target: touch.target,
+          control,
+          controlIdentity: getControlIdentity(control),
+          pointerId,
+          startX: touch.clientX,
+          startY: touch.clientY,
+          hasMoved: false,
+          isPrimary: contacts.size === 0,
+          initialRangeValue:
+            getNativeRange(touch.target)?.value ?? null,
+        }
+        contacts.set(touch.identifier, contact)
+        listenOnTarget(touch.target)
+        event.preventDefault()
+        dispatch({
+          contact,
+          touch,
+          type: "pointerdown",
+        })
+        return
+      }
+      const contact = contacts.get(touch.identifier)
+      if (!contact) {
+        return
+      }
+      event.preventDefault()
+      contact.hasMoved ||=
+        Math.hypot(
+          touch.clientX - contact.startX,
+          touch.clientY - contact.startY,
+        ) >= 6
+      dispatch({
+        contact,
+        touch,
+        type:
+          type === "touchmove"
+            ? "pointermove"
+            : type === "touchend"
+              ? "pointerup"
+              : "pointercancel",
+      })
+      if (type !== "touchmove") {
+        contacts.delete(touch.identifier)
+        pointerIds.delete(contact.pointerId)
+        stopListeningOnTarget(contact.target)
+        const button =
+          type === "touchend" && !contact.hasMoved
+            ? findTappedControl({
+                control: contact.control,
+                identity: contact.controlIdentity,
+                points: [
+                  { x: touch.clientX, y: touch.clientY },
+                  { x: contact.startX, y: contact.startY },
+                ],
+              })
+            : null
+        // A disabled control's click does nothing, so it spends no click: a
+        // release on it leaves the event's one click to the next contact.
+        if (
+          button &&
+          !button.matches(":disabled") &&
+          !tap.hasClicked
+        ) {
+          tap.hasClicked = true
+          button.click()
+        }
+      }
+    })
+  }
   ;[
     "touchstart",
     "touchmove",
     "touchend",
     "touchcancel",
   ].forEach((type) => {
-    document.addEventListener(
-      type,
-      (event) => {
-        if (!(event instanceof TouchEvent)) {
-          return
-        }
-        Array.from(event.changedTouches).forEach(
-          (touch) => {
-            if (!(touch.target instanceof Element)) {
-              return
-            }
-            if (type === "touchstart") {
-              const match = Array.from(pending).find(
-                ([, pointer]) =>
-                  pointer.target === touch.target,
-              )
-              if (!match) {
-                return
-              }
-              const [pointerId] = match
-              pending.delete(pointerId)
-              const contact = {
-                target: touch.target,
-                pointerId,
-                startX: touch.clientX,
-                startY: touch.clientY,
-                hasMoved: false,
-                isPrimary: contacts.size === 0,
-                initialRangeValue:
-                  getNativeRange(touch.target)?.value ??
-                  null,
-              }
-              contacts.set(touch.identifier, contact)
-              event.preventDefault()
-              dispatch({
-                contact,
-                touch,
-                type: "pointerdown",
-              })
-              return
-            }
-            const contact = contacts.get(touch.identifier)
-            if (!contact) {
-              return
-            }
-            event.preventDefault()
-            contact.hasMoved ||=
-              Math.hypot(
-                touch.clientX - contact.startX,
-                touch.clientY - contact.startY,
-              ) >= 6
-            dispatch({
-              contact,
-              touch,
-              type:
-                type === "touchmove"
-                  ? "pointermove"
-                  : type === "touchend"
-                    ? "pointerup"
-                    : "pointercancel",
-            })
-            if (type !== "touchmove") {
-              contacts.delete(touch.identifier)
-              pointerIds.delete(contact.pointerId)
-              const button =
-                contact.target.closest("button, a")
-              if (
-                type === "touchend" &&
-                !contact.hasMoved &&
-                button instanceof HTMLElement &&
-                button.isConnected
-              ) {
-                button.click()
-              }
-            }
-          },
-        )
-      },
-      options,
-    )
+    document.addEventListener(type, handleTouch, options)
   })
-  return () => lifetime.abort()
+  return () => {
+    const touchedTargets = new Set(
+      Array.from(contacts.values()).map(
+        (contact) => contact.target,
+      ),
+    )
+    contacts.clear()
+    touchedTargets.forEach(stopListeningOnTarget)
+    lifetime.abort()
+  }
 }

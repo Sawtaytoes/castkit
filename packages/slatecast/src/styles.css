@@ -263,6 +263,12 @@ html[data-grayscale-text="true"] {
   background: rgb(0 0 0 / 55%);
 }
 
+/*
+ * A finger drag scrolls the drawer through pointer events (useDragScroll),
+ * since the Linux WebKit touch adapter cancels the native touch scroll; so
+ * the browser's own touch scroll is off. The drawer measures itself, so a
+ * narrow one, as a small or held panel leaves, sets smaller.
+ */
 .view-drawer {
   position: absolute;
   top: 0;
@@ -273,7 +279,8 @@ html[data-grayscale-text="true"] {
   background: var(--surface);
   color: var(--fg);
   box-shadow: 0 0 40px rgb(0 0 0 / 45%);
-  touch-action: pan-y;
+  touch-action: none;
+  container: view-drawer / inline-size;
 }
 
 .view-drawer.is-left {
@@ -284,8 +291,53 @@ html[data-grayscale-text="true"] {
   right: 0;
 }
 
+/*
+ * While a view is held the hand-back edges lie above the drawer, 56 px at
+ * either side, so the drawer's outer side pads that far: Close and the
+ * options stay where a tap reaches them.
+ */
+.stage.has-hand-back-edge .view-drawer.is-left {
+  padding-left: 56px;
+}
+
+.stage.has-hand-back-edge .view-drawer.is-right {
+  padding-right: 56px;
+}
+
+/*
+ * Round glass cuts the drawer's corners away. Its top, bottom, and outer
+ * side pad to the square inside the circle, 14.7% of the stage in from
+ * each side, so Close and the first and last options stay on the glass,
+ * and an option that Tab scrolls to stops inside that square too.
+ * The inner side lies near the middle and keeps its padding.
+ */
+.stage.shape-round .view-drawer {
+  padding-block: max(28px, 14.7%);
+  /* The same band for a control that focus scrolls into view. */
+  scroll-padding-block: max(28px, 14.7%);
+}
+
+.stage.shape-round .view-drawer.is-left {
+  padding-left: max(28px, 14.7%);
+}
+
+.stage.shape-round .view-drawer.is-right {
+  padding-right: max(28px, 14.7%);
+}
+
+.stage.shape-round.has-hand-back-edge .view-drawer.is-left {
+  padding-left: max(56px, 14.7%);
+}
+
+.stage.shape-round.has-hand-back-edge
+  .view-drawer.is-right {
+  padding-right: max(56px, 14.7%);
+}
+
+/* Close wraps under the title, at the outer side, rather than past it. */
 .view-drawer-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -301,6 +353,7 @@ html[data-grayscale-text="true"] {
   width: 64px;
   height: 64px;
   flex: none;
+  margin-left: auto;
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--bg);
@@ -323,6 +376,8 @@ html[data-grayscale-text="true"] {
   font:
     700 clamp(20px, 3.5vmin, 30px) / 1.2 var(--font-sans);
   text-align: left;
+  /* A long name with no spaces wraps rather than widening the drawer. */
+  overflow-wrap: anywhere;
 }
 
 .view-drawer-option[aria-pressed="true"] {
@@ -332,6 +387,37 @@ html[data-grayscale-text="true"] {
     var(--accent) 24%,
     var(--bg)
   );
+}
+
+/*
+ * A drawer 240 px wide or less: its words and Close shrink. This follows
+ * the rules above so that it wins over them.
+ */
+@container view-drawer (max-width: 240px) {
+  .view-drawer-header {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .view-drawer-header h1 {
+    font-size: 22px;
+  }
+
+  .view-drawer-close {
+    width: 48px;
+    height: 48px;
+    font-size: 32px;
+  }
+
+  .view-drawer-options {
+    gap: 8px;
+  }
+
+  .view-drawer-option {
+    min-height: 48px;
+    padding: 8px 10px;
+    font-size: 17px;
+  }
 }
 
 /* ————— Touch test ————— */
@@ -1839,6 +1925,9 @@ html[data-grayscale-text="true"] {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* The rows fold by the view's own width, not the window's: a rotated or
+     round panel gives the view less width than the window has. */
+  container: printer-status / inline-size;
   padding: 18px 26px;
   color: var(--fg);
   font-family: var(--font-sans);
@@ -2315,6 +2404,40 @@ html[data-grayscale-text="true"] {
   background: transparent;
 }
 
+.printer-pending-short {
+  display: none;
+}
+
+/*
+ * A 2×2 card's or a row's filament tile cannot hold the whole sentence in
+ * every font, so they say it short.
+ */
+.printer-status:is(
+  [data-layout="quad"],
+  [data-layout="list"]
+)
+.printer-pending-long {
+  display: none;
+}
+
+.printer-status:is(
+    [data-layout="quad"],
+    [data-layout="list"]
+  )
+  .printer-pending-short {
+  display: inline;
+}
+
+/*
+ * A filament name gives way to the row, but the short placeholder does not:
+ * its tile is as wide as the words, so no font cuts them. A row too crowded
+ * for that cuts its state word, and then folds its facts.
+ */
+.printer-status[data-layout="list"] .printer-metric.is-filament.is-pending
+  dd {
+  container-type: normal;
+}
+
 .printer-filament-summary .printer-swatch {
   border: 0;
 }
@@ -2387,6 +2510,11 @@ html[data-grayscale-text="true"] {
   line-height: 1.1;
 }
 
+/* Only a printer row draws the count on the Filament label's line. */
+.printer-filament-tally {
+  display: none;
+}
+
 .printer-filament-count {
   flex: none;
   color: var(--accent-content);
@@ -2395,20 +2523,62 @@ html[data-grayscale-text="true"] {
   white-space: nowrap;
 }
 
+/*
+ * Above the view, but under the shell's undrawn navigation edges (19 to
+ * 30), so a tap or pull at an edge still opens Views, swipes, or ends a
+ * hold while a list is open, as it does over the Pause and Stop question.
+ */
 .filament-details-dialog {
   position: fixed;
-  z-index: 100;
+  z-index: 15;
+  /* The list sets smaller where little room is left, below. */
+  container: filament-details-dialog / inline-size;
   display: grid;
+  /* One definite cell, so the box's 100% height is the overlay's. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   inset: 0;
   padding: 24px;
   background: rgb(0 0 0 / 72%);
 }
 
+/* On a round panel the list keeps to the square inside the circle. */
+.stage.shape-round .filament-details-dialog {
+  padding: 14.7%;
+}
+
+/*
+ * Its controls keep clear of those edges: 24 px at the top and bottom and
+ * 32 px at the sides on a touch panel, and 56 px at the sides while a view
+ * is held. The circle's square already clears them on a round panel, except
+ * a held small one's sides.
+ */
+.stage:not(.touchless, .shape-round)
+.filament-details-dialog {
+  padding: 24px 32px;
+}
+
+.stage.has-hand-back-edge:not(.touchless, .shape-round)
+  .filament-details-dialog {
+  padding-inline: 56px;
+}
+
+.stage.has-hand-back-edge.shape-round
+  .filament-details-dialog {
+  padding-inline: max(56px, 14.7%);
+}
+
+/*
+ * As tall as the overlay allows, not the window: a turned stage is shorter
+ * than the window is tall, and the last entry must still scroll into view.
+ * A finger drag scrolls it through pointer events (useDragScroll), since the
+ * Linux WebKit touch adapter cancels the native touch scroll.
+ */
 .filament-details-box {
   width: min(620px, 100%);
-  max-height: calc(100vh - 48px);
+  max-height: 100%;
   overflow: auto;
+  touch-action: none;
   padding: 24px;
   border: 1px solid var(--color-border-subtle);
   border-radius: 18px;
@@ -2416,22 +2586,42 @@ html[data-grayscale-text="true"] {
   color: var(--fg);
 }
 
+/*
+ * Close comes first and lies at the outer side. The title, and the subtitle
+ * under it, share its line only while their longest word fits beside it
+ * (their width starts at min-content), and otherwise take the whole line
+ * under Close. So a word splits only if it is wider than the whole head,
+ * and Close is never below the heading: its focus as the list opens
+ * scrolls nothing.
+ */
 .filament-details-head {
   display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: wrap;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 8px 16px;
   margin-bottom: 18px;
 }
 
+.filament-details-head > :not(.filament-details-close) {
+  flex: 1 1 auto;
+  width: min-content;
+  min-width: 0;
+}
+
+/*
+ * A long printer name wraps rather than widening the dialog past the glass;
+ * only a word wider than the whole line splits.
+ */
 .filament-details-head h2 {
   margin: 0;
+  overflow-wrap: break-word;
   font-size: 24px;
 }
 
 .filament-details-head p {
   margin: 6px 0 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: var(--color-content-muted);
   font-size: 14px;
 }
@@ -2449,16 +2639,24 @@ html[data-grayscale-text="true"] {
   cursor: pointer;
 }
 
+/* Rows may narrow below their longest word, which then splits. */
 .filament-details-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/*
+ * A row's words share the line with its number or swatch only while their
+ * longest word fits there (their width starts at min-content), and
+ * otherwise go under it, so no word splits that the row could hold.
+ */
 .filament-details-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   min-height: 60px;
@@ -2478,22 +2676,71 @@ html[data-grayscale-text="true"] {
   height: 40px;
 }
 
+/*
+ * A column whose min-content is its longest word; it may still narrow below
+ * that word, so a printer name with no spaces splits at the box's edge
+ * rather than widening the list.
+ */
 .filament-details-info {
-  display: grid;
-  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   gap: 2px;
+  width: min-content;
+  min-width: 0;
 }
 
 .filament-details-name {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   font-size: 17px;
   font-weight: 600;
 }
 
+/*
+ * A list 260 px wide or less, as a small round panel or a narrow held one
+ * leaves, pads less and sets its title and row names smaller.
+ */
+@container filament-details-dialog (max-width: 260px) {
+  .filament-details-box {
+    padding: 12px;
+  }
+
+  .filament-details-head {
+    column-gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .filament-details-head h2 {
+    font-size: 18px;
+  }
+
+  .filament-details-close {
+    padding: 6px 12px;
+  }
+
+  .filament-details-name {
+    font-size: 15px;
+  }
+
+  .filament-details-list li {
+    gap: 8px;
+    padding: 6px 8px;
+  }
+}
+
 .filament-details-location,
 .filament-details-metadata {
+  overflow-wrap: break-word;
   color: var(--color-content-muted);
   font-size: 14px;
+}
+
+/* The feed's own words, whole, where it sends no per-slot list. */
+.filament-details-summary {
+  margin: 0 0 8px;
+  overflow-wrap: break-word;
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .filament-details-empty {
@@ -2581,6 +2828,1270 @@ html[data-grayscale-text="true"] {
   margin-top: 14px;
 }
 
+/*
+ * FOUR printers: a 2×2 grid. On a wide panel each card puts the plate beside
+ * the facts, so a quarter of the glass still carries a readable picture and
+ * the full set of facts. On a narrower one the card keeps the column shape,
+ * the plate above the facts. Filament keeps its full-width row: at a
+ * third of the facts' width its "2 filaments · Details ›" ran out of its box.
+ */
+.printer-status[data-layout="quad"] .printer-cards {
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.printer-status[data-layout="quad"] .printer-card {
+  gap: 10px;
+  padding: 12px;
+}
+
+/* The view picks the shape from its own width; see printerRowFit.ts. */
+.printer-status[data-quad-shape="beside"] .printer-card {
+  display: grid;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.printer-status[data-quad-shape="beside"]
+  .printer-card[data-has-thumbnail="false"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* `safe`: a card whose facts outgrow it loses the bottom, never the name. */
+.printer-status[data-layout="quad"] .printer-body {
+  justify-content: safe center;
+  min-height: 0;
+}
+
+.printer-status[data-layout="quad"] .printer-head {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.printer-status[data-layout="quad"] .printer-names {
+  flex: 1 1 0;
+}
+
+.printer-status[data-layout="quad"] .printer-name {
+  font-size: 18px;
+}
+
+.printer-status[data-layout="quad"] .printer-meta {
+  font-size: 11px;
+}
+
+.printer-status[data-layout="quad"] .printer-state {
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+
+.printer-status[data-layout="quad"] .printer-job {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+/*
+ * A fault gets two lines, and the Layer and Finishes blocks give it their
+ * room. The tap on the job name opens the whole fault.
+ */
+.printer-status[data-layout="quad"] .printer-problem {
+  margin-top: 6px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+/* The text clamps, not the box, so a third line never shows in its padding. */
+.printer-status[data-layout="quad"] .printer-problem-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-card:has(.printer-problem)
+  .printer-metric:not(.is-filament) {
+  display: none;
+}
+
+.printer-status[data-layout="quad"] .printer-band {
+  height: 52px;
+  margin-top: 8px;
+}
+
+.printer-status[data-layout="quad"] .printer-band-text {
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.printer-status[data-layout="quad"] .printer-percent {
+  font-size: 34px;
+}
+
+.printer-status[data-layout="quad"] .printer-band-remaining,
+.printer-status[data-layout="quad"] .printer-band-ended {
+  font-size: 14px;
+}
+
+/*
+ * As in a row, the ended lines wrap rather than end in an ellipsis. A line
+ * the band cannot hold moves, whole, to a second column the summary hides;
+ * the dialog gives the whole end time.
+ */
+.printer-status[data-layout="quad"] .printer-band-ended {
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-self: stretch;
+  align-content: flex-start;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-band-ended
+  span {
+  width: 100%;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.printer-status[data-layout="quad"] .printer-metrics {
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.printer-status[data-layout="quad"] .printer-metric {
+  padding: 4px 8px;
+}
+
+.printer-status[data-layout="quad"] .printer-metric dt {
+  font-size: 9px;
+}
+
+.printer-status[data-layout="quad"] .printer-metric dd {
+  font-size: 15px;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-metric.is-filament {
+  min-height: 50px;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-metric.is-filament {
+  margin-top: 0;
+}
+
+/* The button already fills the box; a height of its own would push past it. */
+.printer-status[data-layout="quad"]
+.printer-filament-button {
+  min-height: 0;
+  padding: 0 8px 5px;
+}
+
+/*
+ * The tile is one line of name over one of location. A longer name ends in an
+ * ellipsis rather than wrapping up over the label; the filament list, a tap
+ * away, gives it whole.
+ */
+.printer-status[data-layout="quad"] .printer-metric
+  dd
+  .printer-filament-text
+  > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.printer-status[data-layout="quad"] .printer-actions {
+  margin-top: 8px;
+}
+
+.printer-status[data-layout="quad"] .printer-action {
+  height: 48px;
+  font-size: 16px;
+}
+
+.printer-status[data-layout="quad"] .printer-clear {
+  min-height: 56px;
+  margin-top: 8px;
+  font-size: 20px;
+}
+
+/*
+ * FIVE OR MORE printers: one compact row each, as tall as the space allows and
+ * never under the 64 px in `printerRowFit.ts`. A row reads left to right:
+ * plate, name and job, the three facts, the band, then Pause and Stop. Every
+ * part has its own column, so nothing sits on top of anything else; the first
+ * version stacked the band over the buttons and they overlapped from seven
+ * rows on.
+ *
+ * The card is a size container so the plate can be exactly as tall as the
+ * row: a square that grows from nine rows' 54 px to five rows' 120 px. The
+ * name, the band and the buttons grow with it, between floors that hold at
+ * nine rows and caps that stop five rows from looking like one card each.
+ */
+.printer-status[data-layout="list"] .printer-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.printer-status[data-layout="list"] .printer-card {
+  display: grid;
+  container-type: size;
+  flex: 1 1 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-height: 64px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 12px;
+}
+
+.printer-status[data-layout="list"]
+  .printer-card[data-has-thumbnail="false"] {
+  grid-template-columns: minmax(0, 1fr);
+  padding-left: 12px;
+}
+
+.printer-status[data-layout="list"] .printer-plate {
+  width: min(100cqh, 132px);
+  height: 100cqh;
+}
+
+.printer-status[data-layout="list"] .printer-plate img {
+  border-radius: 8px;
+}
+
+.printer-status[data-layout="list"] .printer-body {
+  display: grid;
+  /* The facts column is never narrower than the facts it holds: Layer and
+     Finishes whole, and the Filament tile's label. */
+  grid-template-columns:
+    minmax(0, 1.15fr)
+    minmax(min-content, 1.45fr)
+    minmax(150px, 0.75fr)
+    auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: center;
+  gap: 2px 14px;
+  min-height: 0;
+}
+
+.printer-status[data-layout="list"] .printer-head {
+  grid-column: 1;
+  grid-row: 1;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.printer-status[data-layout="list"] .printer-index {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+/* At every width, the state chip gives up width before the name does. */
+.printer-status[data-layout="list"] .printer-names {
+  flex: 1 1 0;
+  min-width: 4.5em;
+}
+
+.printer-status[data-layout="list"] .printer-name {
+  font-size: clamp(16px, 16cqh, 20px);
+}
+
+.printer-status[data-layout="list"] .printer-meta {
+  font-size: 11px;
+}
+
+.printer-status[data-layout="list"] .printer-state {
+  flex-shrink: 1;
+  gap: 5px;
+  min-width: 0;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.printer-status[data-layout="list"] .printer-state-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.printer-status[data-layout="list"] .printer-job {
+  grid-column: 1;
+  grid-row: 2;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"] .printer-job {
+  font-size: clamp(13px, 12cqh, 15px);
+}
+
+/*
+ * A fault takes the job name's line inside the same button, because it is the
+ * more urgent fact. The tap opens the whole job name and the whole fault.
+ */
+.printer-status[data-layout="list"] .printer-job
+  .printer-problem {
+  display: block;
+  overflow: hidden;
+  margin: 0;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.printer-status[data-layout="list"] .printer-state-label,
+.printer-status[data-layout="list"] .printer-action-label {
+  overflow: hidden;
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.printer-status[data-layout="list"] .printer-action-label {
+  display: block;
+}
+
+.printer-status[data-layout="list"] .printer-metrics {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  /* Layer and Finishes are short numbers and keep their whole width; the
+     filament name gives way, and its dialog lists it in full. The Filament
+     tile keeps at least its own label. */
+  grid-template-columns: max-content max-content minmax(
+      min-content,
+      1fr
+    );
+  gap: 6px;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"] .printer-metric {
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.printer-status[data-layout="list"] .printer-metric dt {
+  font-size: 9px;
+}
+
+.printer-status[data-layout="list"] .printer-metric dd {
+  font-size: clamp(14px, 13cqh, 16px);
+}
+
+/*
+ * Filament in a row: the count moves up beside the label, and the name gets
+ * the whole second line. The location and the word "Details" give way; the
+ * dialog the box opens carries both.
+ */
+.printer-status[data-layout="list"]
+.printer-metric.is-filament {
+  grid-column: auto;
+  min-height: 0;
+  margin-top: 0;
+}
+
+/*
+ * The value's own width is contained, so the filament name inside never
+ * sets the tile's narrowest width; the label does, and the name gives way.
+ */
+.printer-status[data-layout="list"] .printer-metric.is-filament
+  dd {
+  container-type: inline-size;
+}
+
+/*
+ * In a row, the count sits on the label's line, floated right. A line too
+ * short for both moves the count, whole, to a second line the label hides:
+ * the count never covers the label, in any font. The whole tile still opens
+ * the list.
+ */
+.printer-status[data-layout="list"] .printer-metric.is-filament
+  dt {
+  height: 13px;
+  overflow: hidden;
+  line-height: 13px;
+}
+
+.printer-status[data-layout="list"]
+  .printer-filament-tally {
+  display: block;
+  float: right;
+  margin-left: 8px;
+  color: var(--fg-dim);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.printer-status[data-layout="list"]
+  .printer-filament-button {
+  min-height: 0;
+  padding: 0 8px 4px;
+}
+
+/* The tally on the label's line says the count in a row. */
+.printer-status[data-layout="list"]
+.printer-filament-count {
+  display: none;
+}
+
+.printer-status[data-layout="list"]
+  .printer-filament-details,
+.printer-status[data-layout="list"]
+  .printer-filament-location {
+  display: none;
+}
+
+.printer-status[data-layout="list"]
+  .printer-metric
+  dd
+  .printer-filament-text
+  > span {
+  overflow: hidden;
+  font-size: clamp(14px, 13cqh, 16px);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.printer-status[data-layout="list"] .printer-swatch {
+  width: 12px;
+  height: 12px;
+}
+
+.printer-status[data-layout="list"] .printer-band {
+  container: printer-band / inline-size;
+  grid-column: 3;
+  grid-row: 1 / -1;
+  height: clamp(44px, 50cqh, 60px);
+  margin-top: 0;
+  border-radius: 9px;
+}
+
+.printer-status[data-layout="list"] .printer-band-text {
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.printer-status[data-layout="list"] .printer-percent {
+  font-size: clamp(26px, 28cqh, 34px);
+}
+
+/* A long time left wraps onto a second line rather than losing its end. */
+.printer-status[data-layout="list"]
+.printer-band-remaining {
+  overflow: visible;
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: normal;
+}
+
+/*
+ * The ended time shows only when it fits under the stopped line. The summary
+ * fills the band's height and wraps into a second column when its lines do
+ * not fit; that column falls past the band's right edge and is hidden. So a
+ * band of any width or height clips neither line: the stopped layer stays,
+ * and the ended time gives way whole.
+ */
+.printer-status[data-layout="list"] .printer-band-ended {
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-self: stretch;
+  align-content: flex-start;
+  justify-content: center;
+  gap: 0;
+  overflow: hidden;
+  font-size: 11px;
+}
+
+/*
+ * The stopped layer is the fact to keep: in a row its line wraps rather than
+ * losing the number, whatever the band's width.
+ */
+.printer-status[data-layout="list"] .printer-band-ended
+  span {
+  width: 100%;
+  overflow: visible;
+  line-height: 1.1;
+  white-space: normal;
+  /* A last resort for a wider fallback font: break a word, never cut it. */
+  overflow-wrap: anywhere;
+}
+
+/*
+ * In a narrow band, the time the print ended gives way to it, and a settled
+ * card's percentage shrinks with the band so the stopped line keeps room
+ * beside it, even in a wider fallback font: 22.5 px in the narrowest 150 px
+ * band.
+ */
+@container printer-band (max-width: 180px) {
+  .printer-status[data-layout="list"]
+    .printer-band-ended
+    span
+    + span {
+    display: none;
+  }
+
+  /* Only where the row shows the summary: over 708 px of content. */
+  @container printer-status (width > 708px) {
+    .printer-status[data-layout="list"]
+      .printer-band-ended
+      ~ .printer-percent {
+      font-size: min(clamp(26px, 28cqh, 34px), 15cqw);
+    }
+  }
+}
+
+.printer-status[data-layout="list"] .printer-actions,
+.printer-status[data-layout="list"] .printer-clear {
+  grid-column: 4;
+  grid-row: 1 / -1;
+  align-self: center;
+  width: 196px;
+  margin-top: 0;
+}
+
+.printer-status[data-layout="list"] .printer-actions {
+  gap: 8px;
+}
+
+/* Narrow sides, so "Resume" keeps its whole word in a wide fallback font. */
+.printer-status[data-layout="list"] .printer-action {
+  height: clamp(48px, 44cqh, 56px);
+  padding: 4px 6px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.printer-status[data-layout="list"] .printer-clear {
+  height: clamp(48px, 44cqh, 56px);
+  min-height: 48px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+/*
+ * The printers the panel cannot draw. Never a row cut by the glass, and never
+ * a silent drop: a 36 px strip under the last row counts them and names each
+ * one, tinted like its card would be, so a hidden failure still reads as one.
+ * The chips wrap onto a line the strip clips, so a chip is whole or absent.
+ */
+.printer-overflow {
+  display: flex;
+  overflow: hidden;
+  flex: none;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  height: 36px;
+  padding: 0 6px 0 12px;
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.printer-overflow:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.printer-overflow-count {
+  flex: none;
+  color: var(--accent-content);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Positioned, so each chip's offsetTop says which line it is on. */
+.printer-overflow-list {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.printer-overflow-item {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  max-width: 100%;
+  height: 26px;
+  padding: 0 10px 0 3px;
+  border-radius: 999px;
+  background: color-mix(
+    in oklab,
+    var(--color-surface-sunken) 80%,
+    transparent
+  );
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.printer-overflow-index {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/*
+ * The name gives way first, down to a stub of three letters, so a long name
+ * never takes the state word: "Failed" must read in words, not tint alone.
+ */
+.printer-overflow-name {
+  overflow: hidden;
+  flex: 0 1000 auto;
+  min-width: 3em;
+  text-overflow: ellipsis;
+}
+
+/* The state gives way only after that, and never past its chip. */
+.printer-overflow-state {
+  overflow: hidden;
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--color-content-muted);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+}
+
+/*
+ * A strip in a view of 300 px or less has no room for a chip beside its
+ * count: the count stays, and a tap lists every hidden printer. The count
+ * then has the strip to itself, and wraps onto a second line rather than
+ * run past the strip's edge where a wide font needs it.
+ */
+@container printer-status (max-width: 300px) {
+  .printer-status .printer-overflow-list {
+    display: none;
+  }
+
+  .printer-status .printer-overflow-count {
+    flex: 0 1 auto;
+    min-width: 0;
+    line-height: 1.1;
+    white-space: normal;
+  }
+}
+
+/*
+ * A strip in a view of 120 px or less, as a held view leaves on the
+ * narrowest test windows, keeps only "+N ›": "more printers" goes to
+ * assistive tech, as Pause and Stop's words do in a narrow row.
+ */
+@container printer-status (max-width: 120px) {
+  .printer-status .printer-overflow-words {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* A first line that would cut a chip's state; see PrinterStatus.tsx. */
+.printer-overflow-list[data-is-cut="true"] {
+  display: none;
+}
+
+.printer-overflow-item[data-intent="warning"] {
+  background: var(--color-intent-warning-surface);
+}
+
+.printer-overflow-item[data-intent="warning"]
+  .printer-overflow-state {
+  color: var(--color-intent-warning-content);
+}
+
+.printer-overflow-item[data-intent="danger"] {
+  background: var(--color-intent-danger-surface);
+}
+
+.printer-overflow-item[data-intent="danger"]
+  .printer-overflow-state {
+  color: var(--color-intent-danger-content);
+}
+
+.printer-overflow-item[data-intent="success"] {
+  background: var(--color-intent-success-surface);
+}
+
+.printer-overflow-item[data-intent="success"]
+  .printer-overflow-state {
+  color: var(--color-intent-success-content);
+}
+
+/* Shown only by the narrowest rows; see the 600 px block below. */
+.printer-action-icon {
+  display: none;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+/*
+ * A pending button in a 2×2 card or a row shows its spinner alone, with its
+ * words kept for assistive tech: "Resuming…" is wider than half of Pause
+ * and Stop in some fonts, and the wait is a few seconds.
+ */
+.printer-status:is(
+  [data-layout="quad"],
+  [data-layout="list"]
+)
+.printer-action[data-is-pending="true"] {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.printer-status:is(
+    [data-layout="quad"],
+    [data-layout="list"]
+  )
+  .printer-action[data-is-pending="true"]
+  .printer-action-icon {
+  display: block;
+}
+
+.printer-status:is(
+    [data-layout="quad"],
+    [data-layout="list"]
+  )
+  .printer-action[data-is-pending="true"]
+  .printer-action-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The details list: the filament dialog's frame, one row per printer. */
+@keyframes printer-details-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+@keyframes printer-details-exit {
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+/*
+ * The list rises into place, so the tap that opened it reads as its cause,
+ * and sinks away when it closes. The dialog unmounts when the exit ends.
+ * Only a panel that repaints instantly animates; see the rule at the top.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-repaint="instant"]
+    .printer-details-dialog
+    .filament-details-box {
+    animation: printer-details-enter 180ms
+      cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  html[data-repaint="instant"]
+    .printer-details-dialog[data-closing="true"]
+    .filament-details-box {
+    animation: printer-details-exit 140ms
+      cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+}
+
+.printer-details-number {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.printer-details-item[data-intent="warning"] {
+  border-color: var(--color-intent-warning-border);
+  background: var(--color-intent-warning-surface);
+}
+
+.printer-details-item[data-intent="danger"] {
+  border-color: var(--color-intent-danger-border);
+  background: var(--color-intent-danger-surface);
+}
+
+.printer-details-item[data-intent="success"] {
+  border-color: var(--color-intent-success-border);
+  background: var(--color-intent-success-surface);
+}
+
+.printer-details-job {
+  overflow-wrap: break-word;
+  color: var(--fg-dim);
+  font-size: 15px;
+}
+
+/* The exact file name, for finding the job on the printer or in the slicer. */
+.printer-details-file {
+  overflow-wrap: break-word;
+  color: var(--color-content-muted);
+  font-size: 13px;
+}
+
+.printer-details-problem {
+  overflow-wrap: break-word;
+  color: var(--color-intent-danger-content);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* The nozzle, the layer, the finish time and each slot a compact row hides. */
+.printer-details-nozzle,
+.printer-details-progress,
+.printer-details-filament {
+  overflow-wrap: break-word;
+  color: var(--fg-dim);
+  font-size: 14px;
+}
+
+/* A slot's swatch leads its line, as in the filament list, with every color. */
+.printer-details-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+/*
+ * A round panel's bezel cuts the corners of a full-width row, and of a quad
+ * card. Four printers and up keep to the square inside the circle, so no
+ * button sits where the glass is not.
+ */
+.stage.shape-round .printer-status[data-layout="list"],
+.stage.shape-round .printer-status[data-layout="quad"] {
+  inset: 14.7%;
+  padding: 8px;
+}
+
+/*
+ * A narrower view drops the three facts first; the band, the plate and the
+ * controls are what a person at the bench reads and touches. The view sets
+ * `data-is-folded` at 1048 px of content or less (its width less its sides:
+ * 26 px, or 32 px for four printers and up on a touch panel), and at any width where a drawn row would cut its state word: no
+ * fixed width holds the widest facts in every fallback font. `:where` keeps
+ * these rules no stronger than the narrower steps below. The details dialog
+ * gives what a row drops.
+ */
+.printer-status[data-layout="list"]:where(
+  [data-is-folded="true"]
+)
+.printer-body {
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(150px, 0.6fr)
+    auto;
+}
+
+.printer-status[data-layout="list"]:where(
+    [data-is-folded="true"]
+  )
+  .printer-metrics {
+  display: none;
+}
+
+.printer-status[data-layout="list"]:where(
+    [data-is-folded="true"]
+  )
+  .printer-band {
+  grid-column: 2;
+}
+
+.printer-status[data-layout="list"]:where(
+    [data-is-folded="true"]
+  )
+  .printer-actions,
+.printer-status[data-layout="list"]:where(
+    [data-is-folded="true"]
+  )
+  .printer-clear {
+  grid-column: 3;
+  width: 196px;
+}
+
+/*
+ * Just above the icon step, the first column is at its narrowest. The badge
+ * goes so that a long state word, such as "Preparing", keeps its whole word
+ * beside a name at its 4.5 em floor.
+ */
+@container printer-status (max-width: 760px) {
+  .printer-status[data-layout="list"] .printer-index {
+    display: none;
+  }
+}
+
+/*
+ * The narrowest rows: Pause and Stop become Lucide icons with their words kept
+ * for assistive tech, and the badge, the nozzle and the time left go. Below
+ * a 760 px view the words would leave the name under its 4.5 em. Below 440 px
+ * the picture goes too, because the name is the one fact that says which
+ * printer it is; see the two narrower steps below.
+ */
+@container printer-status (max-width: 708px) {
+  .printer-status[data-layout="list"] .printer-cards {
+    margin-inline: -14px;
+  }
+
+  .printer-status[data-layout="list"] .printer-card {
+    gap: 8px;
+    padding-right: 8px;
+  }
+
+  .printer-status[data-layout="list"] .printer-plate {
+    width: min(100cqh, 64px);
+  }
+
+  .printer-status[data-layout="list"] .printer-body {
+    grid-template-columns: minmax(0, 1fr) 72px auto;
+    column-gap: 8px;
+  }
+
+  .printer-status[data-layout="list"] .printer-index,
+  .printer-status[data-layout="list"] .printer-meta,
+  .printer-status[data-layout="list"]
+    .printer-band-remaining,
+  .printer-status[data-layout="list"] .printer-band-ended {
+    display: none;
+  }
+
+  /*
+   * The facts are folded here, so the fold cannot make room for a state
+   * word a wide font cuts. The state moves under the name instead: the name
+   * keeps its 4.5 em, and the state moves only when both do not fit.
+   */
+  .printer-status[data-layout="list"] .printer-head {
+    flex-wrap: wrap;
+    gap: 1px 6px;
+  }
+
+  .printer-status[data-layout="list"] .printer-state {
+    flex-shrink: 0;
+    max-width: 100%;
+  }
+
+  .printer-status[data-layout="list"] .printer-name {
+    font-size: 14px;
+  }
+
+  .printer-status[data-layout="list"] .printer-state {
+    padding: 2px 7px;
+    font-size: 10px;
+  }
+
+  .printer-status[data-layout="list"] .printer-job,
+  .printer-status[data-layout="list"]
+    .printer-job
+    .printer-problem {
+    font-size: 11px;
+  }
+
+  .printer-status[data-layout="list"] .printer-band-text {
+    justify-content: center;
+    padding: 0 4px;
+  }
+
+  /*
+   * "100%" in the band's width, whatever the font: about 3.5 em is the
+   * widest it runs, so the type shrinks only where a wide font needs it.
+   */
+  .printer-status[data-layout="list"] .printer-percent {
+    font-size: min(20px, (100cqi - 8px) / 3.5);
+  }
+
+  .printer-status[data-layout="list"] .printer-actions {
+    gap: 6px;
+    width: 102px;
+  }
+
+  .printer-status[data-layout="list"] .printer-action {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+
+  .printer-status[data-layout="list"] .printer-action-icon {
+    display: block;
+  }
+
+  .printer-status[data-layout="list"]
+    .printer-action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .printer-status[data-layout="list"] .printer-clear {
+    width: 102px;
+    padding: 4px;
+    font-size: 13px;
+  }
+}
+
+/*
+ * Under 440 px the name, the state and the job each take a whole line of the
+ * info column, so none of them is squeezed to nothing by the others.
+ */
+@container printer-status (max-width: 388px) {
+  .printer-status[data-layout="list"] .printer-card {
+    grid-template-columns: minmax(0, 1fr);
+    padding-left: 10px;
+  }
+
+  .printer-status[data-layout="list"] .printer-plate {
+    display: none;
+  }
+
+  .printer-status[data-layout="list"] .printer-body {
+    grid-template-columns: minmax(0, 1fr) 72px auto;
+    grid-template-rows: auto auto auto;
+    row-gap: 1px;
+  }
+
+  .printer-status[data-layout="list"] .printer-head {
+    display: contents;
+  }
+
+  .printer-status[data-layout="list"] .printer-names {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .printer-status[data-layout="list"] .printer-state {
+    flex-shrink: 0;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+    max-width: 100%;
+    margin-left: 0;
+  }
+
+  .printer-status[data-layout="list"] .printer-job {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .printer-status[data-layout="list"] .printer-band {
+    grid-column: 2;
+  }
+
+  .printer-status[data-layout="list"] .printer-actions,
+  .printer-status[data-layout="list"] .printer-clear {
+    grid-column: 3;
+  }
+}
+
+/* A small view's question: the whole width, and smaller words. */
+@container printer-status (max-width: 388px) {
+  .printer-status .printer-confirm-box {
+    width: 100%;
+    padding: 16px;
+  }
+
+  .printer-status .printer-confirm-question {
+    font-size: 20px;
+  }
+
+  .printer-status .printer-confirm-detail {
+    font-size: 14px;
+  }
+
+  .printer-status .printer-confirm-actions {
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .printer-status .printer-confirm-actions button {
+    padding: 11px 14px;
+    font-size: 16px;
+  }
+}
+
+/*
+ * TINY rows, under a 300 px content box, such as a small round panel: the
+ * band leaves its column and becomes a slim fourth line under the job, so
+ * the info column has the width Pause and Stop leave. Each row is 84 px
+ * tall for it; see `printerRowFit.ts`.
+ */
+@container printer-status (max-width: 300px) {
+  .printer-status[data-layout="list"] .printer-card {
+    min-height: 84px;
+  }
+
+  .printer-status[data-layout="list"] .printer-body {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .printer-status[data-layout="list"] .printer-band {
+    grid-column: 1;
+    grid-row: 4;
+    height: 18px;
+    margin-top: 2px;
+    border-radius: 5px;
+  }
+
+  .printer-status[data-layout="list"] .printer-percent {
+    font-size: 13px;
+  }
+
+  .printer-status[data-layout="list"] .printer-actions,
+  .printer-status[data-layout="list"] .printer-clear {
+    grid-column: 2;
+  }
+}
+
+/*
+ * Layer and Finishes in a narrow 2×2 card: the value shrinks from 15 px only
+ * where its tile cannot hold "99998 / 99999" or "Dec 28 10:59p" whole, about
+ * 9.5 em in a wide fallback font. A wide card keeps the 15 px.
+ */
+.printer-status[data-layout="quad"] .printer-card
+  .printer-metrics
+  .printer-metric:not(.is-filament) {
+  container-type: inline-size;
+}
+
+.printer-status[data-layout="quad"]
+  .printer-card
+  .printer-metrics
+  .printer-metric:not(.is-filament)
+  dd {
+  font-size: min(15px, 100cqi / 9.5);
+}
+
+/*
+ * On a touch panel the shell's undrawn navigation edges lie over the
+ * stage's outer 24 px at the top and bottom, 24 px on the right for a swipe
+ * view, and 32 px at either side for the view drawer or a held view
+ * (`.view-swipe-edge`, `.view-edge-handle`). They turn with the stage, so
+ * they lie on the view's own sides. Four printers and up fill the view to
+ * its padding, so there the view pads 24 px and 32 px, and a narrow row
+ * does not reach into the side: a tap on any control reaches the control,
+ * not an edge. The padding follows the printer count, never the
+ * arrangement, so the arrangement it measures cannot change it. A round
+ * panel already keeps these to the square inside its circle.
+ *
+ * While a view is held, the hand-back edges (`.hand-back-edge`) lie over
+ * the outer 56 px at either side, above the drawer's handles, so the view
+ * pads 56 px there instead; on a round panel, as much as the square inside
+ * the circle does not already clear, and a narrow row keeps to it. That
+ * padding follows the hold, which the arrangement cannot change either.
+ */
+.stage:not(.touchless, .shape-round)
+.printer-status:not(
+  [data-count="0"],
+  [data-count="1"],
+  [data-count="2"],
+  [data-count="3"]
+) {
+  padding: 24px 32px;
+}
+
+.stage:not(.touchless, .shape-round)
+  .printer-status:not(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-cards {
+  margin-inline: 0;
+}
+
+.stage.has-hand-back-edge:not(.touchless, .shape-round)
+  .printer-status:not(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  ) {
+  padding-inline: 56px;
+}
+
+/* The view's inset and its padding both measure the stage's width. */
+.stage.has-hand-back-edge.shape-round
+.printer-status:not(
+  [data-count="0"],
+  [data-count="1"],
+  [data-count="2"],
+  [data-count="3"]
+) {
+  padding-inline: max(8px, calc(56px - 14.7%));
+}
+
+.stage.has-hand-back-edge.shape-round
+  .printer-status:not(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-cards {
+  margin-inline: 0;
+}
+
 .printer-empty {
   display: flex;
   flex: 1;
@@ -2609,13 +4120,110 @@ html[data-grayscale-text="true"] {
   position: absolute;
   z-index: 10;
   display: grid;
+  /* One definite cell, so the question never widens the overlay. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   inset: 0;
   background: rgb(0 0 0 / 62%);
 }
 
+/* On a round panel the question keeps to the square inside the circle. */
+.stage.shape-round .printer-confirm {
+  padding: 8px;
+}
+
+/*
+ * The question's buttons keep clear of the shell's undrawn navigation edges,
+ * as the view's controls do: 24 px at the top and bottom and 32 px at the
+ * sides on a touch panel, and 56 px at the sides while a view is held. On a
+ * round panel, four printers and up already sit inside the circle's square,
+ * 14.7% of the stage from its side, so a held view adds what that leaves:
+ * the question's percentages measure the view, 70.6% of the stage, so
+ * 14.7% of the stage is 20.8% of the view.
+ */
+.stage:not(.touchless, .shape-round) .printer-confirm {
+  padding: 24px 32px;
+}
+
+.stage.has-hand-back-edge:not(.touchless, .shape-round)
+  .printer-confirm {
+  padding-inline: 56px;
+}
+
+.stage.has-hand-back-edge.shape-round
+  .printer-status:not(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-confirm {
+  padding-inline: max(8px, calc(56px - 20.8%));
+}
+
+/*
+ * Fewer printers fill a round stage, so there the question pads the swipe
+ * edges' 24 px at the top and bottom, and the hand-back edges' 56 px at the
+ * sides while a view is held.
+ */
+.stage.shape-round:not(.touchless) .printer-status:is(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-confirm {
+  padding-block: 24px;
+}
+
+.stage.has-hand-back-edge.shape-round
+  .printer-status:is(
+    [data-count="0"],
+    [data-count="1"],
+    [data-count="2"],
+    [data-count="3"]
+  )
+  .printer-confirm {
+  padding-inline: 56px;
+}
+
+/*
+ * The question measures the room it has, not the view: that padding can
+ * leave a small held panel 160 px or less, where the question, its detail,
+ * and both answers set smaller to stay on the glass.
+ */
+.printer-confirm {
+  container: printer-confirm / inline-size;
+}
+
+@container printer-confirm (max-width: 160px) {
+  .printer-status .printer-confirm-box {
+    padding: 10px;
+  }
+
+  .printer-status .printer-confirm-question {
+    font-size: 16px;
+  }
+
+  .printer-status .printer-confirm-detail {
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  .printer-status .printer-confirm-actions {
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .printer-status .printer-confirm-actions button {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+}
+
 .printer-confirm-box {
   width: min(560px, 78%);
+  max-width: 100%;
   padding: 28px;
   border: 1px solid var(--color-border-subtle);
   border-radius: 18px;
@@ -2637,8 +4245,10 @@ html[data-grayscale-text="true"] {
   white-space: nowrap;
 }
 
+/* The two answers wrap rather than widening the box past a small panel. */
 .printer-confirm-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
   margin-top: 22px;

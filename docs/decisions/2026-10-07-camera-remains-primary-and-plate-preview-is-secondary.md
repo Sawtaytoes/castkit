@@ -5,7 +5,7 @@
 - **Type:** Layout / review
 - **Supersedes:** —
 - **Superseded by:** —
-- **Related:** [Camera and progress precede the secondary plate preview](2026-10-07-camera-and-progress-precede-the-secondary-plate-preview.md), which records where the plate preview goes and how sections yield space.
+- **Related:** [Camera and progress precede the secondary plate preview](2026-10-07-camera-and-progress-precede-the-secondary-plate-preview.md), which records where the plate preview goes and how sections yield space. [Printer Status's four-plus layouts land and name the printers they hide](2026-11-22-printer-status-four-plus-layouts-land-and-name-the-printers-they-hide.md) records the owner's later approval of the four-or-more layouts.
 
 ## Decision
 

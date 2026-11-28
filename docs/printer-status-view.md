@@ -86,6 +86,10 @@ Home Assistant publishes every active printer, together, retained, to
 dropped, because `id` is what a Pause is addressed to. `state` is `preparing`,
 `printing`, `paused`, `finished` or `failed` — the five CastKit draws.
 Everything else degrades: a job with no layer count still shows its percentage.
+`percent` may be fractional; the card writes the value it receives as a whole
+number rounded down, so `99.99` reads `99%`. Rounding down never turns a value
+under 100 into `100%`. A `finished` job always reads `100%`, and a source may
+itself round a value up to 100 before the card receives it.
 On a `finished` or `failed` job, `finishAt` is the time the print **ended**, and
 the card prints it as `Ended 3:47 PM` when it is present.
 
@@ -95,13 +99,27 @@ Publishing nothing leaves the last job on the panel forever.
 The **Filament** row is always drawn. A print always runs from a tray, but
 Home Assistant reports `active_tray` only once the print starts, so a preparing
 job has none. Dropping the row made that card shorter than its neighbors; it
-shows a dashed empty swatch and `Chosen when the print starts` instead.
+shows a dashed empty swatch and `Chosen when the print starts` instead. The
+2×2 grid's and a compact row's tiles are too narrow for that sentence in some
+fonts, so they say `Not yet`, and a row's tile is always wide enough for it.
 
 When the source provides `filaments`, the row opens a list of the filament names,
 colors and AMS slots used by the print. The HA publisher reads the positive
 per-slot values from `print_weight`; it does not list every filament loaded in
 the AMS. A source that has no per-slot print mapping can still publish the
-active filament, but the dialog reports that slot details are unavailable.
+active filament, and the dialog notes that slot details are unavailable. A
+tile can cut `filamentText` short, so the dialog gives it whole at the top
+unless a slot in its list already says all of it: the slot's name followed
+by its tray, with spacing (around a `·` too), case and commas ignored. A
+summary that is only a name, with no tray, keeps its line even when a slot
+has that name, because the active spool may be a slot the feed left
+unnamed. A list can lack
+the active material's name or leave it out entirely, and a summary can say
+more than the slot, so anything else keeps the summary. The summary carries
+the feed's active color as a swatch. When exactly one slot says it, that
+slot takes the active color if it has none of its own; when two slots could
+say it, such as a name with no tray, the summary keeps its own line and
+color, and neither slot is named active.
 
 Two conveniences for an HA template. `finishAt` takes epoch milliseconds or an
 ISO timestamp, and is optional — CastKit computes the finish from
@@ -141,6 +159,9 @@ The actions are `printer_pause`, `printer_resume`, `printer_stop` and
 entity. CastKit does NOT predict the result the way the media controls do: a
 pause takes seconds to take effect on the machine in the room, so the button
 shows its own pending label and the card waits for the printer's own state.
+In the 2×2 grid and a compact row the pending button shows its spinner alone and keeps
+`Resuming…` or `Stopping…` for assistive tech, because those words do not fit
+half of Pause and Stop's 196 px in every font.
 
 Pause, Resume and Stop sit at the **foot of an active card**, full width and
 split evenly, sized for a fingertip: 64 px tall on the 1280x720 workbench panel,
@@ -198,7 +219,8 @@ column width.
 | 1 | The picture on the left, the facts in a column on the right. Type grows to fill the panel, because there is room and the panel is read a step back from the bench. |
 | 2 | Two columns. The picture sits above the facts and takes the slack height. |
 | 3 | Three columns, same shape as two. |
-| 4 or more | **Not designed.** See below. |
+| 4 | A 2×2 grid when the panel can hold two cards of facts; otherwise rows, as for five. On a wide panel each card puts the picture beside the facts. |
+| 5 or more | One compact row per printer, and only the rows that finish on the glass. See below. |
 
 The plate picture has no box around it. The cover is square and carries its own
 dark background, so a surrounding panel letterboxes the square inside a
@@ -270,31 +292,192 @@ to close it. Hover or keyboard focus shows the file name the printer reported.
 
 ### Four or more printers
 
-The three-printer arrangement does not extend. A fourth column leaves each card
-too narrow for the band, the four metric blocks and the picture at a readable
-size on a 1280 px panel.
+Approved by the owner on 2026-09-28 and built on 2026-11-22
+([layouts](decisions/2026-09-28-printer-status-adds-layouts-from-four.md),
+[what landed](decisions/2026-11-22-printer-status-four-plus-layouts-land-and-name-the-printers-they-hide.md)).
 
-Notes for whoever takes this on:
-
-1. **Four is a quad: two rows, two columns.** Each cell is about half the panel
-   in each direction, which is close to the two-column cell in width and half its
-   height. The picture must shrink first, and the metric blocks fold from three
-   across to two.
-2. **Five or more needs a different view, not a smaller card.** Past four cells
-   the plate picture stops earning its space. The likely answer is a row list
-   with no picture: the number chip, the job name, the band, and a finish time,
-   which is what the optical-tower kiosk already does at nine rows.
-3. **The switch is a count, not a panel width.** A panel does not change size,
-   and the same view must answer for one printer and for nine. Read the count and
-   pick the arrangement; do not reach for a media query.
-4. **Keep the state readable at the smallest size.** The percentage and the
-   state chip are the two things a person reads from across the room. Whatever
-   folds away, those two stay. The chip rides with the buttons, so an
-   arrangement that drops the buttons must find the chip another home rather
-   than dropping it with them.
-5. **A count above three is untested here.** The installation this was built for
-   has three printers. Build the arrangement behind fixture data first, and shoot
-   it at the panel's true size before it reaches glass.
+1. **Four is a quad: two rows, two columns.** On a wide panel each card puts
+   the picture on the left at 38% and the facts on the right. On a narrower
+   panel the card keeps the column shape, the picture above the facts. Filament
+   keeps its full-width box, because at a third of the facts' width its
+   `2 filaments · Details ›` ran out of the box. Its name and its tray take a
+   line each; a longer name ends in an ellipsis rather than wrapping over the
+   label, and the filament list gives it whole.
+2. **Five or more are compact rows.** A row reads left to right: the picture,
+   the name with its state chip over the job name, the Layer, Finishes and
+   Filament blocks, the band, and then Pause and Stop (or Clear plate). Each part
+   has its own column, so nothing sits on another. A row is at least 64 px, and
+   rows share the height left over, so five rows are 132 px each and nine are 71
+   px each on the 1280×720 panel. The picture is as tall as its row, and the
+   name, band and buttons grow with it within fixed floors and caps.
+3. **Only the rows that finish are drawn.** The view measures its card area and
+   divides it by the row (`printerRowFit.ts`). When a printer does not fit, a
+   36 px strip under the last row says `+1 more printer` and names each hidden
+   printer with its number and its percentage or state, tinted like its card.
+   The 1280×720 panel draws nine rows above the strip, so the tenth printer is
+   the first one the strip names. The chips that fit are a glance, each
+   whole or absent. In a chip the name gives way first, down to three
+   letters, so a hidden `Failed` still reads in words; a tap on the strip lists every hidden printer with its
+   state, job name and fault. A view of 300 px or less draws only the count,
+   because no chip fits beside it. So does a strip whose first line would
+   cut a chip's state, as a wide fallback font can on a small panel: a
+   chip that says `Prepa…` names no state. The view checks after every
+   render, chips drawn, so a wider strip or a narrower font brings them back.
+   A count alone wraps onto a second line where a wide font needs it, and in
+   a view of 120 px or less, as a held view leaves on the narrowest windows,
+   it reads `+5 ›`, with `more printers` kept for assistive tech.
+   The printers keep the order Home Assistant sends.
+4. **A tap on a job name opens the details.** The 2×2 grid and the rows have
+   no room to open a name in place, so the tap lists that printer's whole job
+   name, its exact file name, its whole fault, its nozzle, its layer, the
+   time left and the finish time (or, once it has stopped, when it ended),
+   and its filament, one line per slot with its swatch, brand and finish,
+   in a dialog. The time left is the feed's own, which can differ from the
+   finish time. The exact file name shows only under a readable name, so
+   a job named only for its printer reads once. A failed
+   printer's line gives its percentage and the layer it stopped at. A row can drop its
+   Layer, Finishes and Filament tiles (see below), and the dialog keeps them
+   a tap away. The hidden-printer list gives each hidden printer the same
+   facts. Each of the
+   view's dialogs holds the keyboard while it is open: focus starts inside,
+   Tab stays inside, and Escape closes only that dialog. In a row, a fault takes the job name's
+   line, inside the same button. In the 2×2 grid, a fault gets two whole
+   lines, never a third cut through its padding, and the Layer and
+   Finishes blocks give it their room. A grid card's `Ended` time wraps or
+   gives way whole, as in a row, rather than end in an ellipsis.
+5. **The count picks the arrangement; the panel only folds it.** Four printers
+   use rows instead of the quad when the view is under 652 px wide, or when the
+   card area is too short for two cards. A quad card puts its picture beside
+   the facts from a 1184 px view, and then needs a 624 px card area; a narrower
+   grid stacks the picture above the facts and needs 836 px, so the picture is
+   never squeezed away. Every cutoff measures the view's **content box**:
+   its width less its own padding, the box its container queries see. On a
+   square panel the padding is 52 px across and 36 px down, so the view
+   widths in brackets below are the same cutoffs. On a square touch panel,
+   four printers and up pad 32 px at the sides and 24 px at the top and
+   bottom instead, so no control lies under the shell's undrawn navigation
+   edges ([decision](decisions/2026-10-06-touch-navigation-uses-undrawn-edges.md)):
+   there each cutoff is a view 12 px wider or taller, such as a 664 px
+   view for the quad, and a narrow row keeps to that padding. While a view
+   is held, the hand-back edges cover the outer 56 px at either side, so
+   the view pads 56 px there, and a round panel pads as much as the square
+   inside its circle does not already clear; the rows fold for the width
+   that leaves. The Pause and Stop question keeps the same clearance on a
+   touch panel, for any number of printers, so its buttons never sit under
+   an edge either; where that leaves it 160 px or less, it sets its words
+   smaller. While a view is held, the Views drawer pads its outer side 56 px
+   too, so Close and the options stay out from under the hand-back edge; a
+   narrow drawer puts Close under its title and sets smaller, a long view
+   name wraps rather than widening it, and if it wraps taller than a small
+   round panel's square, keyboard focus shows its first words, while a
+   press leaves the drawer still so the tap selects what it landed on, and a finger drag scrolls a long one
+   through the Linux WebKit touch adapter. On a round panel the drawer pads
+   its top, bottom, and outer side to the square inside the circle, so
+   Close and the options stay on the glass, and an option Tab scrolls to
+   stops inside that square too. A dialog whose opener the view
+   folded away while it was open gives focus to the nearest control around
+   the opener, in the same view, when it closes. If the opener is gone, as
+   when its row moved into the strip or its printer left the feed, focus
+   goes to the strip, or else to the view's first control, never to the
+   page. A dialog that closes on its own, as an unanswered question does
+   after 12 seconds, moves focus only if focus was still in it or nowhere,
+   so it never takes focus from the Views drawer. While the
+   Views drawer is open, the view behind it is inert, so no key reaches a
+   control the drawer covers; when it closes over a question the view
+   still has open, focus goes back into the question, even when a mouse
+   click opened the drawer and focused its edge, and a swipe a finger began before it opened
+   asks for nothing. The padding follows the
+   printer count and the hold, never the arrangement, so the arrangement it
+   measures cannot change it. A round panel pads its view to the square
+   inside the circle, so its view folds at a wider outer width. The quad needs
+   600 px of content (652 px view), and puts its picture beside the facts
+   from 1132 px (1184 px view). A turned panel folds for the width it has.
+   A row with 1048 px of content or less (1100 px view) drops the three fact
+   blocks. A wider view drops them too while a drawn row would cut its
+   state word, as the widest facts can in a wide fallback font: no fixed
+   width holds them in every font, so the view measures the rows it draws.
+   A wider view, another height, a font that finishes loading, or the next
+   payload tries the blocks again. At 760 px or less (812 px view) it drops the number badge, so a
+   long state word such as `Preparing` stays whole beside a name at its
+   4.5 em floor. At 708 px or less (760 px view) it also drops the
+   nozzle and the time left, and Pause and Stop become Lucide icons whose
+   words stay in the accessibility tree. The facts are already folded
+   there, so a state word that a wide font would cut moves onto its own
+   line under the name instead. The band is 72 px wide, and its percentage
+   shrinks from 20 px only where a wide font needs it to keep `100%`
+   inside. A settled row drops its `Finished`
+   or `Stopped at layer N` lines there too: the chip still names the state,
+   the band keeps the percentage, and the job name's dialog still gives the
+   stopped layer. Wider than that, the stopped layer's line wraps rather
+   than lose its number. The `Ended` time gives way to it in a band 180 px
+   wide or less, and in any band too short to hold it under the stopped
+   line. It gives way whole, never cut: the summary wraps it into a column
+   the band hides. In a band 180 px wide or less, a settled card's
+   percentage also shrinks with the band, to 22.5 px in the narrowest
+   150 px band, so the stopped line keeps room even in a wider fallback
+   font. At
+   388 px of content or less (440 px view) the picture goes, and the name,
+   the state and the job take a line each, so none of them is squeezed
+   away. At 300 px or less, such as a small round panel, the band moves
+   under the job as a slim fourth line and each row grows to 84 px. The state chip and the percentage always stay.
+   A row needs 188 px of content (`PRINTER_ROW_MIN_WIDTH`), because a
+   narrower row cuts `Preparing` short. A view narrower than that, such as a
+   240 px round panel, draws no rows: the strip says `5 printers`, without
+   `+` or `more`, and a tap lists them all. This is a stated limit in
+   [panel limits](panel-limits.md). A wider row that still cuts its state
+   word with its facts folded, as a wide fallback font can, does the same:
+   nothing is left to give way. Each card measures its state word to the
+   fraction of a pixel after every render of its own, so a clock tick that
+   widens the finish time folds the facts too; a wider view, another height
+   or font, a new payload, or the next minute tries the rows again, so a
+   finish that drops its weekday at midnight brings the facts back. On a
+   round panel, four printers and up keep to the square inside the circle,
+   and so do the dialogs. In a narrow 2×2 card, Layer and Finishes shrink
+   their type from 15 px only where the tile cannot hold `99998 / 99999` or
+   `Dec 28 10:59p` whole. The filament and hidden-printer lists lie under
+   the shell's undrawn navigation edges, as the Pause and Stop question
+   does, so a tap or pull at an edge still opens Views, swipes, or ends a
+   hold while one is open; their controls pad clear of those edges. A
+   list's title shares Close's line only while its longest word fits
+   beside Close, and otherwise takes the whole line under Close; a row's
+   words share the line with its number or swatch the same way. So a word
+   splits only if it is wider than the whole head or row, and Close is
+   never below the heading, whose place its focus never scrolls away. A
+   list 260 px wide or less, as a small round panel or a narrow held one
+   leaves, pads less and sets its title and row names smaller. A tap
+   on the backdrop closes a dialog on its
+   release, so a tap through the Linux WebKit touch adapter, which sends no
+   click, closes it too. Only a primary press that starts and lifts on the
+   backdrop closes it: a finger dragged from the backdrop into the list, a
+   finger dragged out of the list while another rests on the backdrop, or a
+   right-click, keeps it open. When a dialog closes, focus returns to the
+   control that opened it, even one tapped through the touch adapter, which
+   opens a dialog without focusing what it tapped, or, if a live update
+   replaced that control, to its replacement. Focus on a control the view draws again, such as the
+   strip on a new minute, stays on it. A control that leaves for longer,
+   such as a printer that leaves the feed, even through a quick run of
+   updates, or one the user clicked away from, does not take focus when it
+   comes back. A right-click or a drag on the focused control keeps it.
+   A tap through the touch adapter still opens the strip's list when a
+   live update redraws the strip, or the chip under the finger, between
+   press and release: the adapter hears the release even when WPE WebKit
+   sends it to a removed element, and clicks the control pressed, or its
+   replacement under the finger, only while it carries the same
+   `data-focus-key` and `data-castkit-target` it had when pressed, and is
+   what lies on top where the finger pressed or lifted. A tap never lands
+   on a different control, on Resume after a press on Pause, or under a
+   dialog that another finger opened meanwhile. A drag in a dialog follows the
+   first finger down; a second finger that touches and lifts changes
+   nothing. While the view tries its rows again, the
+   hidden-printer list keeps its entries; it closes only once no printer
+   has been hidden for two frames. In rows, Layer and Finishes keep their whole width; the
+   filament name gives way first, and the Filament tile never gets narrower
+   than its own label, or its `2 filaments` count. The facts column never
+   gets narrower than Layer, Finishes and that tile; the name's column
+   gives way to it. The count sits on the label's line and shows only when
+   the line holds both: a line too short for both moves the count, whole,
+   out of view.
+6. **Pause and Stop stay a fingertip tall.** Every row button is at least 48 px.
 
 ## Previews
 
@@ -308,7 +491,8 @@ The canonical preview is this view's Storybook story, rendered from fixture
 data at the panel profile, like every other view here. `Views/Printer Status`
 carries one story per panel plus the states that change the layout: one, two and
 three printers, a paused card, a card reporting a problem, a preparing card, and
-the idle panel. The settled states are on **every** panel, because they change
+the idle panel. Four through ten printers, and twelve, are on the 1280×720
+workbench panel only. The settled states are on **every** panel, because they change
 the card's shape: a finished card, a failed card, the two beside a running
 printer, and the finished card mid-clear reading `Clearing…`. They are the
 `vrt` job's pictures of this change.

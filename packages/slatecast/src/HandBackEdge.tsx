@@ -32,9 +32,15 @@ type EdgePull = {
   isCommitted: boolean
 }
 
+/**
+ * Whether the hand-back edges lie over the view now: on a touch panel, while
+ * a view is held. The stage names it, so a view can keep its controls clear.
+ */
+export const getHasHandBackEdge = () =>
+  Boolean(device.value?.hasTouch) &&
+  Boolean(settings.value.isViewHeld)
+
 export const HandBackEdge = () => {
-  const profile = device.value
-  const { isViewHeld } = settings.value
   const [isConfirming, setIsConfirming] = useState(false)
   const pull = useRef<EdgePull | null>(null)
 
@@ -50,7 +56,16 @@ export const HandBackEdge = () => {
     }
   }, [isConfirming])
 
-  if (!profile?.hasTouch || !isViewHeld) {
+  const hasEdge = getHasHandBackEdge()
+
+  // A press on edges that went away cannot end a hold that comes after it.
+  useEffect(() => {
+    if (!hasEdge) {
+      pull.current = null
+    }
+  }, [hasEdge])
+
+  if (!hasEdge) {
     return null
   }
 
@@ -100,16 +115,17 @@ export const HandBackEdge = () => {
     }
   }
 
+  // Only the pointer that pressed ends its press: another finger's lift,
+  // such as one from edges a hold that ended drew, leaves it.
   const endPull = (
     event: TargetedPointerEvent<HTMLButtonElement>,
   ) => {
     const current = pull.current
+    if (!current || current.pointerId !== event.pointerId) {
+      return
+    }
     pull.current = null
-    if (
-      !current ||
-      current.isCommitted ||
-      current.pointerId !== event.pointerId
-    ) {
+    if (current.isCommitted) {
       return
     }
     // A press that never travelled is a tap, and a tap hands back too.
@@ -133,8 +149,12 @@ export const HandBackEdge = () => {
           onPointerDown={(event) => beginPull(edge, event)}
           onPointerMove={trackPull}
           onPointerUp={endPull}
-          onPointerCancel={() => {
-            pull.current = null
+          onPointerCancel={(event) => {
+            if (
+              pull.current?.pointerId === event.pointerId
+            ) {
+              pull.current = null
+            }
           }}
         />
       ))}

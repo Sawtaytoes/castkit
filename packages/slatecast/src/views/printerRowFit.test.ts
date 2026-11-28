@@ -1,0 +1,222 @@
+import { describe, expect, test } from "vitest"
+import {
+  choosePrinterLayout,
+  chooseQuadCardShape,
+  fitPrinterRows,
+  PRINTER_QUAD_BESIDE_MIN_WIDTH,
+  PRINTER_QUAD_MIN_HEIGHT,
+  PRINTER_QUAD_STACKED_MIN_HEIGHT,
+  PRINTER_ROW_MIN_WIDTH,
+  PRINTER_ROW_TINY_MAX_WIDTH,
+} from "./printerRowFit.ts"
+
+/** The 1280x720 workbench panel's card area: 720 less 18 px top and bottom. */
+const WORKBENCH_HEIGHT = 684
+
+/** The workbench panel's view content width: 1280 less 26 px each side. */
+const WORKBENCH_WIDTH = 1228
+
+/** The 480x320 short panel's card area. */
+const SHORT_PANEL_HEIGHT = 284
+
+describe("choosePrinterLayout", () => {
+  test("one to three printers keep their columns", () => {
+    expect(
+      [1, 2, 3].map((printerCount) =>
+        choosePrinterLayout({
+          availableHeight: WORKBENCH_HEIGHT,
+          availableWidth: WORKBENCH_WIDTH,
+          printerCount,
+        }),
+      ),
+    ).toEqual(["columns", "columns", "columns"])
+  })
+
+  test("four printers make a 2×2 grid on a tall enough panel", () => {
+    expect(
+      choosePrinterLayout({
+        availableHeight: WORKBENCH_HEIGHT,
+        availableWidth: WORKBENCH_WIDTH,
+        printerCount: 4,
+      }),
+    ).toBe("quad")
+  })
+
+  test("four printers use rows where two cards would not stack", () => {
+    expect(
+      choosePrinterLayout({
+        availableHeight: SHORT_PANEL_HEIGHT,
+        availableWidth: 428,
+        printerCount: 4,
+      }),
+    ).toBe("list")
+  })
+
+  test("four printers use rows one pixel under the grid's height", () => {
+    expect(
+      [
+        PRINTER_QUAD_MIN_HEIGHT - 1,
+        PRINTER_QUAD_MIN_HEIGHT,
+      ].map((availableHeight) =>
+        choosePrinterLayout({
+          availableHeight,
+          availableWidth: WORKBENCH_WIDTH,
+          printerCount: 4,
+        }),
+      ),
+    ).toEqual(["list", "quad"])
+  })
+
+  test("a stacked grid needs room for its pictures too", () => {
+    expect(
+      [
+        PRINTER_QUAD_STACKED_MIN_HEIGHT - 1,
+        PRINTER_QUAD_STACKED_MIN_HEIGHT,
+      ].map((availableHeight) =>
+        choosePrinterLayout({
+          availableHeight,
+          availableWidth: 668,
+          printerCount: 4,
+        }),
+      ),
+    ).toEqual(["list", "quad"])
+  })
+
+  test("four printers use rows on a phone, however tall", () => {
+    expect(
+      choosePrinterLayout({
+        availableHeight: 788,
+        availableWidth: 360,
+        printerCount: 4,
+      }),
+    ).toBe("list")
+  })
+
+  test("five printers and up use rows", () => {
+    expect(
+      [5, 9, 10].map((printerCount) =>
+        choosePrinterLayout({
+          availableHeight: WORKBENCH_HEIGHT,
+          availableWidth: WORKBENCH_WIDTH,
+          printerCount,
+        }),
+      ),
+    ).toEqual(["list", "list", "list"])
+  })
+})
+
+describe("fitPrinterRows", () => {
+  test("the workbench panel draws nine rows and hides nothing", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: WORKBENCH_HEIGHT,
+        availableWidth: WORKBENCH_WIDTH,
+        printerCount: 9,
+      }),
+    ).toEqual({ visibleCount: 9, hiddenCount: 0 })
+  })
+
+  test("a tenth printer goes in the strip, and nine rows still fit above it", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: WORKBENCH_HEIGHT,
+        availableWidth: WORKBENCH_WIDTH,
+        printerCount: 10,
+      }),
+    ).toEqual({ visibleCount: 9, hiddenCount: 1 })
+  })
+
+  test("every printer past the ninth is counted as hidden", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: WORKBENCH_HEIGHT,
+        availableWidth: WORKBENCH_WIDTH,
+        printerCount: 12,
+      }),
+    ).toEqual({ visibleCount: 9, hiddenCount: 3 })
+  })
+
+  test("the strip costs a row when the rows only just fit without it", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: SHORT_PANEL_HEIGHT,
+        availableWidth: 428,
+        printerCount: 4,
+      }),
+    ).toEqual({ visibleCount: 4, hiddenCount: 0 })
+    expect(
+      fitPrinterRows({
+        availableHeight: SHORT_PANEL_HEIGHT,
+        availableWidth: 428,
+        printerCount: 5,
+      }),
+    ).toEqual({ visibleCount: 3, hiddenCount: 2 })
+  })
+
+  test("a card area too short for one row draws none and hides all", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: 40,
+        availableWidth: WORKBENCH_WIDTH,
+        printerCount: 5,
+      }),
+    ).toEqual({ visibleCount: 0, hiddenCount: 5 })
+  })
+})
+
+describe("chooseQuadCardShape", () => {
+  test("the workbench panel puts the picture beside the facts", () => {
+    expect(chooseQuadCardShape(WORKBENCH_WIDTH)).toBe(
+      "beside",
+    )
+  })
+
+  test("a narrower grid stacks the picture above the facts", () => {
+    expect(
+      [
+        PRINTER_QUAD_BESIDE_MIN_WIDTH - 1,
+        PRINTER_QUAD_BESIDE_MIN_WIDTH,
+      ].map(chooseQuadCardShape),
+    ).toEqual(["stacked", "beside"])
+  })
+})
+
+describe("tiny rows", () => {
+  test("a view too narrow for a band draws taller rows", () => {
+    expect(
+      [
+        PRINTER_ROW_TINY_MAX_WIDTH,
+        PRINTER_ROW_TINY_MAX_WIDTH + 1,
+      ].map(
+        (availableWidth) =>
+          fitPrinterRows({
+            availableHeight: 400,
+            availableWidth,
+            printerCount: 12,
+          }).visibleCount,
+      ),
+    ).toEqual([4, 5])
+  })
+})
+
+describe("the narrowest view", () => {
+  test("draws no row below its width limit, and counts every printer", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: 800,
+        availableWidth: PRINTER_ROW_MIN_WIDTH - 1,
+        printerCount: 5,
+      }),
+    ).toEqual({ visibleCount: 0, hiddenCount: 5 })
+  })
+
+  test("draws rows from its width limit", () => {
+    expect(
+      fitPrinterRows({
+        availableHeight: 800,
+        availableWidth: PRINTER_ROW_MIN_WIDTH,
+        printerCount: 5,
+      }).visibleCount,
+    ).toBe(5)
+  })
+})

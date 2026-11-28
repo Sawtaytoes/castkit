@@ -1,5 +1,6 @@
 import { screen, waitFor } from "@testing-library/preact"
 import { describe, expect, test } from "vitest"
+import { page } from "vitest/browser"
 import {
   buildDeviceProfile,
   buildNowPlaying,
@@ -229,6 +230,27 @@ describe("device settings", () => {
     expect(element.style.transform).toBe("rotate(90deg)")
     expect(element.style.width).toBe("100vh")
     expect(element.style.height).toBe("100vw")
+  })
+
+  test.each([
+    [720, 1280],
+    [1280, 720],
+  ])("a turned stage covers a %ix%i window exactly", async (width, height) => {
+    await page.viewport(width, height)
+    await mountSlatecast({
+      snapshot: buildSnapshot({
+        settings: buildSettings({ orientation: 90 }),
+      }),
+    })
+
+    const box = (
+      stage() as HTMLElement
+    ).getBoundingClientRect()
+    expect(
+      [box.left, box.top, box.right, box.bottom].map(
+        Math.round,
+      ),
+    ).toEqual([0, 0, width, height])
   })
 
   test("leaves an unrotated stage untransformed", async () => {

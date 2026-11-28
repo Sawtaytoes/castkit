@@ -106,12 +106,22 @@ jobs:
       - run: pnpm install --frozen-lockfile --store-dir ~/.local/share/pnpm/store
       - run: pnpm typecheck
 
-  unit-tests:
+  # One job per `slatecast` browser window, plus one for the node projects
+  # and the preview checks. Until 2026-11-23 a single job ran them all: the
+  # four windows shared one runner, and once the Printer Status tests for
+  # four printers and up grew, the runner shut down mid-run. Every test
+  # still runs in all four windows; each window now has a runner to itself.
+  unit-tests-part:
     needs: [changes]
-    # Skipped, not absent: this still posts its status context.
     if: ${{ needs.changes.outputs.isDocsOnly != 'true' }}
     timeout-minutes: 20
     runs-on: ubuntu-latest
+    strategy:
+      # Every part reports, so one red window does not hide another.
+      fail-fast: false
+      matrix:
+        part: [node, narrow, tall, wide, ultrawide]
+    name: unit-tests (${{ matrix.part }})
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -144,11 +154,45 @@ jobs:
             || echo "playwright install-deps failed or timed out (apt mirror?) — continuing; the runner image ships chromium's libs"
           timeout 600 pnpm playwright install chromium
 
-      - run: pnpm test
+      - name: Run the node projects
+        if: ${{ matrix.part == 'node' }}
+        env:
+          CASTKIT_IS_BROWSER_SKIPPED: "true"
+        run: pnpm vitest run
+      - name: Run slatecast in the ${{ matrix.part }} window
+        if: ${{ matrix.part != 'node' }}
+        run: pnpm vitest run --project slatecast-${{ matrix.part }}
       - name: Verify preview pixels, comparison grids and font failures
+        if: ${{ matrix.part == 'node' }}
         # The expanded cold-context checks take about 4.5 minutes on two CPUs.
         timeout-minutes: 10
         run: pnpm check:preview-fonts
+
+  # The one required check for the unit tests, as `e2e` is for its windows:
+  # green when every part passed, or when a docs-only change skipped them all.
+  unit-tests:
+    needs: [changes, unit-tests-part]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every part passed
+        run: |
+          result="${{ needs.unit-tests-part.result }}"
+          echo "changes: ${{ needs.changes.result }}, unit-tests-part: ${result}"
+          # A failed or cancelled detector proves nothing, even if it wrote
+          # isDocsOnly before it failed.
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "::error::the docs-only detector did not succeed"
+            exit 1
+          fi
+          if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+            exit 1
+          fi
+          if [ "$result" = "skipped" ] && [ "${{ needs.changes.outputs.isDocsOnly }}" != "true" ]; then
+            echo "::error::the unit tests were skipped on a change that is not docs-only"
+            exit 1
+          fi
 
   # The Playwright suite against the real server (`e2e/testServer.ts`).
   # Until 2026-11-14 no workflow ran it, and 37 of its 368 tests had gone
